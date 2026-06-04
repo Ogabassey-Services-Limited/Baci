@@ -14,7 +14,9 @@ function isAccountLoyaltyChannel(
   channel: AccountLoyaltyChannel,
   channelName: string
 ) {
-  return channel.topic === channelName || channel.topic === `realtime:${channelName}`;
+  return (
+    channel.topic === channelName || channel.topic === `realtime:${channelName}`
+  );
 }
 
 async function removeExistingAccountLoyaltyChannels(channelName: string) {

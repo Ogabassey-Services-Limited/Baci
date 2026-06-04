@@ -103,20 +103,78 @@ function applyPurchaseRequirements(
           path: ['customerIdentifier'],
         });
       }
-    } else {
+      if (data.requireValidationRef && !data.validationReference) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            'validationReference is required when requireValidationRef is true',
+          path: ['validationReference'],
+        });
+      }
+    } else if (data.provider === 'kuda') {
       if (!data.billItemIdentifier) {
         ctx.addIssue({
           code: 'custom',
-          message: 'billItemIdentifier is required for bill payments',
+          message: 'billItemIdentifier is required for Kuda checkout',
           path: ['billItemIdentifier'],
         });
       }
       if (!data.customerIdentifier) {
         ctx.addIssue({
           code: 'custom',
-          message: 'customerIdentifier is required for bill payments',
+          message: 'customerIdentifier is required for Kuda checkout',
           path: ['customerIdentifier'],
         });
+      }
+    } else {
+      // Auto mode: check if they are trying to use Monnify (has Monnify hints)
+      const hasMonnifyHint = !!(data.billerCode || data.productCode);
+      if (hasMonnifyHint) {
+        if (!data.billerCode) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'billerCode is required for Monnify checkout',
+            path: ['billerCode'],
+          });
+        }
+        if (!data.productCode) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'productCode is required for Monnify checkout',
+            path: ['productCode'],
+          });
+        }
+        if (!data.customerIdentifier) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'customerIdentifier is required for Monnify checkout',
+            path: ['customerIdentifier'],
+          });
+        }
+        if (data.requireValidationRef && !data.validationReference) {
+          ctx.addIssue({
+            code: 'custom',
+            message:
+              'validationReference is required when requireValidationRef is true',
+            path: ['validationReference'],
+          });
+        }
+      } else {
+        // Default to Kuda requirements
+        if (!data.billItemIdentifier) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'billItemIdentifier is required for Kuda checkout',
+            path: ['billItemIdentifier'],
+          });
+        }
+        if (!data.customerIdentifier) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'customerIdentifier is required for Kuda checkout',
+            path: ['customerIdentifier'],
+          });
+        }
       }
     }
   }
@@ -169,21 +227,21 @@ export const verifySchema = z
     if (data.provider === 'monnify') {
       if (!data.billerCode) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'billerCode is required for Monnify validation',
           path: ['billerCode'],
         });
       }
       if (!data.productCode) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'productCode is required for Monnify validation',
           path: ['productCode'],
         });
       }
     } else if (!data.billItemIdentifier) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Bill item identifier is required',
         path: ['billItemIdentifier'],
       });

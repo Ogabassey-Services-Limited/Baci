@@ -127,18 +127,24 @@ export const MONNIFY_VTU_RATES: Record<string, VtuCommissionRate> = {
   BETPAWA_BETTING: { rate: 0.007 },
 };
 
-function determineRoutingAndRates() {
+export function determineRoutingAndRates({
+  kudaRates = KUDA_VTU_RATES,
+  monnifyRates = MONNIFY_VTU_RATES,
+}: {
+  kudaRates?: Record<string, VtuCommissionRate>;
+  monnifyRates?: Record<string, VtuCommissionRate>;
+} = {}) {
   const routing: Record<string, 'kuda' | 'monnify'> = {};
   const rates: Record<string, VtuCommissionRate> = {};
 
   const allKeys = new Set([
-    ...Object.keys(KUDA_VTU_RATES),
-    ...Object.keys(MONNIFY_VTU_RATES),
+    ...Object.keys(kudaRates),
+    ...Object.keys(monnifyRates),
   ]);
 
   for (const key of allKeys) {
-    const kudaRate = KUDA_VTU_RATES[key];
-    const monnifyRate = MONNIFY_VTU_RATES[key];
+    const kudaRate = kudaRates[key];
+    const monnifyRate = monnifyRates[key];
 
     if (!kudaRate) {
       routing[key] = 'monnify';

@@ -48,7 +48,9 @@ const mockRemoveChannel = jest.fn(async (channel: MockRealtimeChannel) => {
 const mockSupabaseChannel = jest.fn((topic: string) =>
   getMockRealtimeChannel(topic)
 );
-const mockGetChannels = jest.fn(() => Array.from(mockRealtimeChannels.values()));
+const mockGetChannels = jest.fn(() =>
+  Array.from(mockRealtimeChannels.values())
+);
 const mockCustomerMaybeSingle = jest.fn(async () => ({
   data: { loyalty_points: 25 },
   error: null,
@@ -335,7 +337,9 @@ describe('AccountScreen', () => {
 
     render(<AccountScreen />);
 
-    await waitFor(() => expect(mockCustomerMaybeSingle).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(mockCustomerMaybeSingle).toHaveBeenCalledTimes(1)
+    );
     expect(screen.getByText('loyalty:25')).toBeTruthy();
   });
 });

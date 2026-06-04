@@ -256,21 +256,52 @@ export async function preparePendingVtuTransaction({
     ? normalizedNetworkProvider
     : (input.billerName ?? 'DEFAULT');
 
-  let resolvedProvider =
-    input.provider ||
-    resolveVtuProvider(
-      commissionProvider,
-      COMMISSION_CATEGORY_MAP[purchaseType]
+  let resolvedProvider: 'kuda' | 'monnify';
+
+  if (isTelco) {
+    if (input.provider === 'monnify') {
+      throw new Error('Monnify does not support airtime/data purchases');
+    }
+    resolvedProvider = 'kuda';
+  } else {
+    const kudaAvailable = !!(
+      input.billItemIdentifier && input.customerIdentifier
+    );
+    const monnifyAvailable = !!(
+      input.billerCode &&
+      input.productCode &&
+      input.customerIdentifier &&
+      (!input.requireValidationRef || input.validationReference)
     );
 
-  if (
-    resolvedProvider === 'monnify' &&
-    (purchaseType === 'electricity' ||
-      purchaseType === 'cable_tv' ||
-      purchaseType === 'betting')
-  ) {
-    if (!input.billerCode || !input.productCode) {
+    if (input.provider === 'monnify') {
+      if (!monnifyAvailable) {
+        throw new Error('Required Monnify fields are missing');
+      }
+      resolvedProvider = 'monnify';
+    } else if (input.provider === 'kuda') {
+      if (!kudaAvailable) {
+        throw new Error('Required Kuda fields are missing');
+      }
       resolvedProvider = 'kuda';
+    } else {
+      // Auto mode
+      const preference = resolveVtuProvider(
+        commissionProvider,
+        COMMISSION_CATEGORY_MAP[purchaseType]
+      );
+
+      if (preference === 'monnify' && monnifyAvailable) {
+        resolvedProvider = 'monnify';
+      } else if (preference === 'kuda' && kudaAvailable) {
+        resolvedProvider = 'kuda';
+      } else if (monnifyAvailable) {
+        resolvedProvider = 'monnify';
+      } else if (kudaAvailable) {
+        resolvedProvider = 'kuda';
+      } else {
+        throw new Error('No provider available based on submitted fields');
+      }
     }
   }
 
@@ -320,10 +351,17 @@ export async function preparePendingVtuTransaction({
       customer_name: input.customerName?.trim() || null,
       metadata: {
         provider: resolvedProvider,
-        validationReference: input.validationReference || undefined,
-        billerCode: input.billerCode || undefined,
-        productCode: input.productCode || undefined,
-        requireValidationRef: input.requireValidationRef || undefined,
+        ...(resolvedProvider === 'monnify'
+          ? {
+              billerCode: input.billerCode,
+              productCode: input.productCode,
+              validationReference: input.validationReference || undefined,
+              requireValidationRef:
+                typeof input.requireValidationRef === 'boolean'
+                  ? input.requireValidationRef
+                  : undefined,
+            }
+          : {}),
         dataPlanCode: resolvedDataPlan?.itemCode ?? input.dataPlanCode,
         ...(resolvedDataPlan &&
         resolvedDataPlan.originalDataPlanCode !== resolvedDataPlan.itemCode

@@ -277,19 +277,52 @@ describe('GET /api/vtu/billers', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    const providers = data.billers.map((b: any) => b.provider);
+
+    interface TestBillItem {
+      itemCode: string;
+      itemName: string;
+      provider: string;
+      billerCode?: string;
+      productCode?: string;
+    }
+
+    interface TestBiller {
+      billerId: string;
+      billerName: string;
+      provider: string;
+      billerCode?: string;
+      billItems: TestBillItem[];
+    }
+
+    const billers = data.billers as TestBiller[];
+    expect(Array.isArray(billers)).toBe(true);
+
+    for (const biller of billers) {
+      expect(biller.provider).toBeDefined();
+      expect(typeof biller.provider).toBe('string');
+      for (const item of biller.billItems) {
+        expect(item.provider).toBeDefined();
+        expect(typeof item.provider).toBe('string');
+        if (item.provider === 'monnify') {
+          expect(item.billerCode).toBeDefined();
+          expect(item.productCode).toBeDefined();
+        }
+      }
+    }
+
+    const providers = billers.map((b) => b.provider);
     expect(providers).toContain('kuda');
     expect(providers).toContain('monnify');
 
-    const kudaBiller = data.billers.find((b: any) => b.provider === 'kuda');
-    expect(kudaBiller.billItems[0].provider).toBe('kuda');
+    const kudaBiller = billers.find((b) => b.provider === 'kuda');
+    expect(kudaBiller).toBeDefined();
+    expect(kudaBiller!.billItems[0].provider).toBe('kuda');
 
-    const monnifyBiller = data.billers.find(
-      (b: any) => b.provider === 'monnify'
-    );
-    expect(monnifyBiller.billerCode).toBe('IKEDC');
-    expect(monnifyBiller.billItems[0].provider).toBe('monnify');
-    expect(monnifyBiller.billItems[0].productCode).toBe('IKEDC-PREPAID');
+    const monnifyBiller = billers.find((b) => b.provider === 'monnify');
+    expect(monnifyBiller).toBeDefined();
+    expect(monnifyBiller!.billerCode).toBe('IKEDC');
+    expect(monnifyBiller!.billItems[0].provider).toBe('monnify');
+    expect(monnifyBiller!.billItems[0].productCode).toBe('IKEDC-PREPAID');
   });
 
   it('falls back gracefully if Monnify throws', async () => {

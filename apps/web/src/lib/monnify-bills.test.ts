@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   checkTransactionStatus,
+  getBillerCategories,
+  getBillerProducts,
+  getBillers,
   purchaseBill,
   verifyBillCustomer,
 } from './monnify-bills';
@@ -18,8 +21,109 @@ describe('Monnify Bills Client', () => {
     vi.clearAllMocks();
   });
 
+  describe('Discovery Helpers', () => {
+    it('getBillerCategories returns unwrapped categories list', async () => {
+      const mockEnvelope = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: [
+          { name: 'Utility', description: 'Utility Payments', code: 'UTILITY' },
+        ],
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockEnvelope),
+      });
+
+      const result = await getBillerCategories();
+      expect(result).toEqual([
+        { name: 'Utility', description: 'Utility Payments', code: 'UTILITY' },
+      ]);
+    });
+
+    it('getBillers returns unwrapped billers list', async () => {
+      const mockEnvelope = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: [
+          {
+            name: 'IKEDC',
+            description: 'Ikeja Electric',
+            billerCode: 'IKEDC',
+            billerCategoryCode: 'UTILITY',
+          },
+        ],
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockEnvelope),
+      });
+
+      const result = await getBillers('UTILITY');
+      expect(result).toEqual([
+        {
+          name: 'IKEDC',
+          description: 'Ikeja Electric',
+          billerCode: 'IKEDC',
+          billerCategoryCode: 'UTILITY',
+        },
+      ]);
+    });
+
+    it('getBillerProducts returns unwrapped products list', async () => {
+      const mockEnvelope = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: [
+          {
+            productCode: 'IKEDC-PREPAID',
+            name: 'Prepaid',
+            billerCode: 'IKEDC',
+            fee: 100,
+            amount: 0,
+            isAmountFixed: false,
+          },
+        ],
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockEnvelope),
+      });
+
+      const result = await getBillerProducts('IKEDC');
+      expect(result).toEqual([
+        {
+          productCode: 'IKEDC-PREPAID',
+          name: 'Prepaid',
+          billerCode: 'IKEDC',
+          fee: 100,
+          amount: 0,
+          isAmountFixed: false,
+        },
+      ]);
+    });
+
+    it('propagates HTTP and network errors on discovery helpers', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      await expect(getBillerCategories()).rejects.toThrow(
+        'Monnify server error'
+      );
+    });
+  });
+
   describe('verifyBillCustomer', () => {
-    it('returns verified details on success', async () => {
+    it('returns flat validation details on success', async () => {
       const mockResponse = {
         requestSuccessful: true,
         responseCode: '0',
@@ -27,6 +131,7 @@ describe('Monnify Bills Client', () => {
         responseBody: {
           customerName: 'JANE DOE',
           validationReference: 'VAL-123',
+          requireValidationRef: true,
         },
       };
 
@@ -44,15 +149,50 @@ describe('Monnify Bills Client', () => {
         verified: true,
         customerName: 'JANE DOE',
         validationReference: 'VAL-123',
+        requireValidationRef: true,
         message: 'success',
       });
     });
 
-    it('handles verification failure gracefully', async () => {
+    it('returns nested vendInstruction validation details on success', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: {
+          customerName: 'JANE DOE',
+          vendInstruction: {
+            validationReference: 'VAL-NESTED-999',
+            requireValidationRef: true,
+          },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+      expect(result).toEqual({
+        verified: true,
+        customerName: 'JANE DOE',
+        validationReference: 'VAL-NESTED-999',
+        requireValidationRef: true,
+        message: 'success',
+      });
+    });
+
+    it('handles verification failure gracefully without throwing', async () => {
       const mockResponse = {
         requestSuccessful: false,
         responseCode: '99',
         responseMessage: 'Invalid meter number',
+        responseBody: null,
       };
 
       global.fetch = vi.fn().mockResolvedValue({
@@ -67,6 +207,20 @@ describe('Monnify Bills Client', () => {
       );
       expect(result.verified).toBe(false);
       expect(result.message).toBe('Invalid meter number');
+    });
+
+    it('handles verification exceptions gracefully returning safe failure shape', async () => {
+      global.fetch = vi
+        .fn()
+        .mockRejectedValue(new Error('Network disconnected'));
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+      expect(result.verified).toBe(false);
+      expect(result.message).toContain('Network disconnected');
     });
   });
 
@@ -111,11 +265,16 @@ describe('Monnify Bills Client', () => {
       });
     });
 
-    it('returns failed PurchaseResult on API failure', async () => {
+    it('honors vendStatus when status is missing', async () => {
       const mockResponse = {
-        requestSuccessful: false,
-        responseCode: '99',
-        responseMessage: 'Insufficient Balance on Monnify Wallet',
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'Completed',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          paymentReference: 'BACI-REF-123',
+          vendStatus: 'SUCCESS',
+        },
       };
 
       global.fetch = vi.fn().mockResolvedValue({
@@ -133,49 +292,115 @@ describe('Monnify Bills Client', () => {
         '08012345678',
         'VAL-123'
       );
+      expect(result.status).toBe('successful');
+      expect(result.success).toBe(true);
+    });
 
-      expect(result.success).toBe(false);
+    it('returns terminal failed status on business failure (requestSuccessful: false)', async () => {
+      const mockResponse = {
+        requestSuccessful: false,
+        responseCode: '99',
+        responseMessage: 'Insufficient Balance',
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
       expect(result.status).toBe('failed');
-      expect(result.message).toBe('Insufficient Balance on Monnify Wallet');
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Insufficient Balance');
+    });
+
+    it('returns terminal failed status on HTTP 4xx API errors', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+      expect(result.status).toBe('failed');
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Monnify API error: 400');
+    });
+
+    it('returns pending status for transient errors like timeouts, network issues, and HTTP 5xx', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+      expect(result.status).toBe('pending');
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Monnify server error: 503');
     });
   });
 
   describe('checkTransactionStatus', () => {
-    it('returns successful status when PAID', async () => {
+    it('queries by transactionReference in URL and resolves success', async () => {
       const mockResponse = {
         requestSuccessful: true,
         responseCode: '0',
         responseMessage: 'success',
         responseBody: {
           transactionReference: 'MON-TX-123',
-          paymentReference: 'BACI-REF-123',
           status: 'PAID',
           token: 'TOKEN-1234',
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
+      const fetchSpy = vi.fn().mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue(mockResponse),
       });
+      global.fetch = fetchSpy;
 
-      const result = await checkTransactionStatus('BACI-REF-123');
+      const result = await checkTransactionStatus('MON-TX-123');
       expect(result).toEqual({
         status: 'successful',
         message: 'success',
         pin: 'TOKEN-1234',
       });
+
+      const lastFetchUrl = fetchSpy.mock.calls[0][0].toString();
+      expect(lastFetchUrl).toContain('transactionReference=MON-TX-123');
+      expect(lastFetchUrl).not.toContain('paymentReference=');
     });
 
-    it('returns processing status when PENDING', async () => {
+    it('supports vendStatus when status is missing', async () => {
       const mockResponse = {
         requestSuccessful: true,
         responseCode: '0',
         responseMessage: 'success',
         responseBody: {
           transactionReference: 'MON-TX-123',
-          paymentReference: 'BACI-REF-123',
-          status: 'PENDING',
+          vendStatus: 'SUCCESSFUL',
         },
       };
 
@@ -184,29 +409,20 @@ describe('Monnify Bills Client', () => {
         json: vi.fn().mockResolvedValue(mockResponse),
       });
 
-      const result = await checkTransactionStatus('BACI-REF-123');
-      expect(result.status).toBe('processing');
+      const result = await checkTransactionStatus('MON-TX-123');
+      expect(result.status).toBe('successful');
     });
 
-    it('returns failed status when FAILED', async () => {
-      const mockResponse = {
-        requestSuccessful: true,
-        responseCode: '0',
-        responseMessage: 'success',
-        responseBody: {
-          transactionReference: 'MON-TX-123',
-          paymentReference: 'BACI-REF-123',
-          status: 'FAILED',
-        },
-      };
-
+    it('propagates/throws transient status check errors rather than failing row', async () => {
       global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue(mockResponse),
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
       });
 
-      const result = await checkTransactionStatus('BACI-REF-123');
-      expect(result.status).toBe('failed');
+      await expect(checkTransactionStatus('MON-TX-123')).rejects.toThrow(
+        'Monnify server error: 502'
+      );
     });
   });
 });

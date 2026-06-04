@@ -1439,8 +1439,15 @@ function getProviderCheckTransactionStatus(
 ) {
   const provider = metadata?.provider;
   if (provider === 'monnify') {
-    return (responseRef?: string, requestRef?: string) => {
-      return monnifyCheckTransactionStatus(requestRef || responseRef || '');
+    return async (responseRef?: string, _requestRef?: string) => {
+      if (!responseRef) {
+        return {
+          status: 'PENDING',
+          message:
+            'Missing Monnify transaction reference; leaving in processing state',
+        };
+      }
+      return await monnifyCheckTransactionStatus(responseRef);
     };
   }
   return kudaCheckTransactionStatus;

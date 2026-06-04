@@ -94,24 +94,27 @@ export async function GET(request: NextRequest) {
     let kudaError: Error | null = null;
     let kudaBillers: NormalizedBiller[] = [];
     try {
-      const rawKuda = (await getBillersByCategory(type)) as RawKudaBiller[];
-      kudaBillers = rawKuda.map((biller) => ({
-        billerId: biller.billerId,
-        billerName: biller.billerName,
-        billerType: biller.billerType,
-        categoryId: biller.categoryId,
-        categoryName: biller.categoryName,
-        provider: 'kuda',
-        billItems: biller.billItems?.map((item) => ({
-          itemCode: item.itemCode,
-          itemName: item.itemName,
-          amount: item.amount,
-          itemCurrencySymbol: item.itemCurrencySymbol,
-          isAmountFixed: item.isAmountFixed,
-          itemFee: item.itemFee,
+      const rawKuda = await getBillersByCategory(type);
+      if (Array.isArray(rawKuda)) {
+        const validatedKuda = rawKuda as RawKudaBiller[];
+        kudaBillers = validatedKuda.map((biller) => ({
+          billerId: biller.billerId,
+          billerName: biller.billerName,
+          billerType: biller.billerType,
+          categoryId: biller.categoryId,
+          categoryName: biller.categoryName,
           provider: 'kuda',
-        })),
-      }));
+          billItems: biller.billItems?.map((item) => ({
+            itemCode: item.itemCode,
+            itemName: item.itemName,
+            amount: item.amount,
+            itemCurrencySymbol: item.itemCurrencySymbol,
+            isAmountFixed: item.isAmountFixed,
+            itemFee: item.itemFee,
+            provider: 'kuda',
+          })),
+        }));
+      }
     } catch (err) {
       kudaError = err instanceof Error ? err : new Error(String(err));
       console.error('Failed to fetch Kuda billers:', err);
@@ -122,19 +125,37 @@ export async function GET(request: NextRequest) {
     const monnifyCategory = BACI_TO_MONNIFY_CATEGORY[type];
     if (monnifyCategory) {
       try {
-        const rawBillers = (await getMonnifyBillers(
-          monnifyCategory
-        )) as RawMonnifyBiller[];
+        const billerRes = await getMonnifyBillers(monnifyCategory);
+        const rawBillers =
+          billerRes &&
+          typeof billerRes === 'object' &&
+          'requestSuccessful' in billerRes &&
+          (billerRes as Record<string, unknown>).requestSuccessful &&
+          'responseBody' in billerRes
+            ? (billerRes as Record<string, unknown>).responseBody
+            : billerRes;
+
         if (Array.isArray(rawBillers)) {
+          const validatedBillers = rawBillers as RawMonnifyBiller[];
           monnifyBillers = await Promise.all(
-            rawBillers.map(async (biller) => {
+            validatedBillers.map(async (biller) => {
               let billItems: NormalizedBillItem[] = [];
               try {
-                const rawProducts = (await getMonnifyBillerProducts(
+                const prodRes = await getMonnifyBillerProducts(
                   biller.billerCode
-                )) as RawMonnifyProduct[];
+                );
+                const rawProducts =
+                  prodRes &&
+                  typeof prodRes === 'object' &&
+                  'requestSuccessful' in prodRes &&
+                  (prodRes as Record<string, unknown>).requestSuccessful &&
+                  'responseBody' in prodRes
+                    ? (prodRes as Record<string, unknown>).responseBody
+                    : prodRes;
+
                 if (Array.isArray(rawProducts)) {
-                  billItems = rawProducts.map((prod) => ({
+                  const validatedProducts = rawProducts as RawMonnifyProduct[];
+                  billItems = validatedProducts.map((prod) => ({
                     itemCode: prod.productCode,
                     itemName: prod.name,
                     amount: prod.amount || 0,
@@ -148,7 +169,8 @@ export async function GET(request: NextRequest) {
                 }
               } catch (prodError) {
                 console.error(
-                  `Failed to fetch Monnify products for ${biller.billerCode}:`,
+                  'Failed to fetch Monnify products for biller:',
+                  biller.billerCode,
                   prodError
                 );
               }
