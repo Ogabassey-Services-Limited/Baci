@@ -14,10 +14,10 @@ export const kudaBillItemSchema: z.ZodType<KudaBillItemPayload> = z.lazy(() =>
   z.object({
     itemCode: z.string(),
     itemName: z.string(),
-    amount: z.number(),
+    amount: z.number().nonnegative(),
     itemCurrencySymbol: z.string(),
     isAmountFixed: z.boolean(),
-    itemFee: z.number(),
+    itemFee: z.number().nonnegative(),
     billItems: z.array(kudaBillItemSchema).optional(),
   })
 );

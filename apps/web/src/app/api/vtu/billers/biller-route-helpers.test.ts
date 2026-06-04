@@ -138,6 +138,22 @@ describe('biller route helpers', () => {
   });
 
   it('keeps Monnify product lookups within the concurrency budget', async () => {
+    type ProductLookupGate = {
+      resolve: () => void;
+    };
+
+    const lookupGates: ProductLookupGate[] = [];
+    const maxGatePollingAttempts = 25;
+    const waitForLookupGates = async (expectedCount: number) => {
+      for (let attempt = 0; attempt < maxGatePollingAttempts; attempt += 1) {
+        if (lookupGates.length >= expectedCount) {
+          break;
+        }
+        await Promise.resolve();
+      }
+      expect(lookupGates).toHaveLength(expectedCount);
+    };
+
     const billers = Array.from({ length: 9 }, (_, index) => ({
       billerCategoryCode: 'ELECTRICITY',
       billerCode: `BILLER_${index}`,
@@ -152,7 +168,9 @@ describe('biller route helpers', () => {
       async (billerCode: string) => {
         activeLookups += 1;
         maxActiveLookups = Math.max(maxActiveLookups, activeLookups);
-        await new Promise((resolve) => setTimeout(resolve, 1));
+        await new Promise<void>((resolve) => {
+          lookupGates.push({ resolve });
+        });
         activeLookups -= 1;
 
         return [
@@ -168,10 +186,27 @@ describe('biller route helpers', () => {
       }
     );
 
-    const result = await loadMonnifyBillers({
+    const resultPromise = loadMonnifyBillers({
       monnifyCategory: 'ELECTRICITY',
       type: 'electricity',
     });
+
+    let releasedLookups = 0;
+    // Release gates in stages so each batch starts only after the prior batch
+    // reaches the concurrency budget.
+    for (const expectedGateCount of [4, 8, 9]) {
+      await waitForLookupGates(expectedGateCount);
+      for (const gate of lookupGates.slice(
+        releasedLookups,
+        expectedGateCount
+      )) {
+        gate.resolve();
+      }
+      releasedLookups = expectedGateCount;
+      await Promise.resolve();
+    }
+
+    const result = await resultPromise;
 
     expect(result.error).toBeNull();
     expect(result.billers).toHaveLength(9);
