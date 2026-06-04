@@ -1,3 +1,4 @@
+import { ZodError } from 'zod';
 import {
   handleAddToCart,
   handleCheckPaymentStatus,
@@ -56,7 +57,7 @@ function normalizeToolArguments(rawArguments: unknown): unknown {
 }
 
 function getToolErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.name === 'ZodError') {
+  if (error instanceof ZodError) {
     return 'Invalid tool arguments';
   }
   return 'Tool execution failed';

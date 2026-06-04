@@ -148,7 +148,9 @@ export async function POST(req: Request) {
           baseUrl: llmServerUrl,
           bearer,
           model: chatModel,
-          messages: buildChatMessages(sanitizedMessages, chatModel),
+          messages: buildChatMessages(sanitizedMessages, chatModel, {
+            toolsEnabled: false,
+          }),
           signal: req.signal,
           timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
         });
@@ -175,7 +177,9 @@ export async function POST(req: Request) {
             baseUrl: ollamaBaseUrl,
             model: chatModel,
             basicAuth,
-            messages: buildChatMessages(sanitizedMessages, chatModel),
+            messages: buildChatMessages(sanitizedMessages, chatModel, {
+              toolsEnabled: true,
+            }),
             tools: ollamaAgenticChatTools,
             executeToolCall: (call) =>
               executeAgenticChatToolForOllama(

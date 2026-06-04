@@ -87,9 +87,10 @@ export const ollamaAgenticChatTools: OllamaChatTool[] = [
     type: 'function',
     function: {
       name: 'checkPaymentStatus',
-      description: TOOL_DESCRIPTIONS.checkPaymentStatus,
+      description: `${TOOL_DESCRIPTIONS.checkPaymentStatus} Provide either orderId or customerEmail.`,
       parameters: {
         type: 'object',
+        anyOf: [{ required: ['orderId'] }, { required: ['customerEmail'] }],
         properties: {
           orderId: { ...STRING_SCHEMA, description: 'The chat order ID' },
           customerEmail: {

@@ -40,4 +40,21 @@ describe('ollama chat tools', () => {
       },
     });
   });
+
+  it('tells Ollama that payment status needs an order id or email', () => {
+    const paymentTool = ollamaAgenticChatTools.find(
+      (tool) => tool.function.name === 'checkPaymentStatus'
+    );
+
+    expect(paymentTool?.function.description).toContain(
+      'either orderId or customerEmail'
+    );
+    expect(paymentTool?.function.parameters).toMatchObject({
+      anyOf: [{ required: ['orderId'] }, { required: ['customerEmail'] }],
+      properties: {
+        orderId: { type: 'string' },
+        customerEmail: { type: 'string' },
+      },
+    });
+  });
 });

@@ -315,6 +315,10 @@ describe('POST /api/chat', () => {
             content: expect.stringContaining('VPS-hosted gemma4:e4b'),
           }),
           expect.objectContaining({
+            role: 'system',
+            content: expect.stringContaining('commerce tools'),
+          }),
+          expect.objectContaining({
             role: 'user',
             content: 'Show me phones',
           }),
@@ -716,12 +720,19 @@ describe('POST /api/chat', () => {
             content: expect.stringContaining('VPS-hosted gemma-4-e4b'),
           }),
           expect.objectContaining({
+            role: 'system',
+            content: expect.stringContaining('cannot access live inventory'),
+          }),
+          expect.objectContaining({
             role: 'user',
             content: 'Show me phones',
           }),
         ]),
       })
     );
+    const llmMessages = vi.mocked(createLlmChatResponse).mock.calls[0]?.[0]
+      .messages;
+    expect(llmMessages?.[0]?.content).not.toContain('commerce tools');
     expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).not.toHaveBeenCalled();
   });
