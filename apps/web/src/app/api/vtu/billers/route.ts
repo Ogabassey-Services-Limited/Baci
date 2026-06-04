@@ -20,6 +20,7 @@ interface NormalizedBillItem {
   itemFee: number;
   provider: 'kuda' | 'monnify';
   billerCode?: string;
+  billItems?: NormalizedBillItem[];
   productCode?: string;
 }
 
@@ -34,14 +35,75 @@ interface NormalizedBiller {
   billItems?: NormalizedBillItem[];
 }
 
-const kudaBillItemSchema = z.object({
-  itemCode: z.string(),
-  itemName: z.string(),
-  amount: z.number(),
-  itemCurrencySymbol: z.string(),
-  isAmountFixed: z.boolean(),
-  itemFee: z.number(),
-});
+interface KudaBillItemPayload {
+  itemCode: string;
+  itemName: string;
+  amount: number;
+  itemCurrencySymbol: string;
+  isAmountFixed: boolean;
+  itemFee: number;
+  billItems?: KudaBillItemPayload[];
+}
+
+const kudaBillItemSchema: z.ZodType<KudaBillItemPayload> = z.lazy(() =>
+  z.object({
+    itemCode: z.string(),
+    itemName: z.string(),
+    amount: z.number(),
+    itemCurrencySymbol: z.string(),
+    isAmountFixed: z.boolean(),
+    itemFee: z.number(),
+    billItems: z.array(kudaBillItemSchema).optional(),
+  })
+);
+
+function normalizeKudaBillItem(item: KudaBillItemPayload): NormalizedBillItem {
+  return {
+    itemCode: item.itemCode,
+    itemName: item.itemName,
+    amount: item.amount,
+    itemCurrencySymbol: item.itemCurrencySymbol,
+    isAmountFixed: item.isAmountFixed,
+    itemFee: item.itemFee,
+    provider: 'kuda',
+    billItems: item.billItems?.map(normalizeKudaBillItem),
+  };
+}
+
+const monnifySupportedCategorySchema = z.enum(['electricity', 'cable_tv']);
+
+const BACI_TO_MONNIFY_CATEGORY: Record<
+  z.infer<typeof monnifySupportedCategorySchema>,
+  string
+> = {
+  electricity: 'ELECTRICITY',
+  cable_tv: 'CABLE_TV',
+};
+
+function getMonnifyCategoryCode(type: string) {
+  const parsed = monnifySupportedCategorySchema.safeParse(type);
+  return parsed.success ? BACI_TO_MONNIFY_CATEGORY[parsed.data] : undefined;
+}
+
+function normalizeMonnifyProducts({
+  billerCode,
+  products,
+}: {
+  billerCode: string;
+  products: z.infer<typeof billerProductSchema>[];
+}): NormalizedBillItem[] {
+  return products.map((prod) => ({
+    itemCode: prod.productCode,
+    itemName: prod.name,
+    amount: prod.amount ?? 0,
+    itemCurrencySymbol: 'NGN',
+    isAmountFixed: prod.isAmountFixed ?? false,
+    itemFee: prod.fee ?? 0,
+    provider: 'monnify',
+    billerCode,
+    productCode: prod.productCode,
+  }));
+}
 
 const kudaBillerSchema = z.object({
   billerId: z.string(),
@@ -51,12 +113,6 @@ const kudaBillerSchema = z.object({
   categoryName: z.string(),
   billItems: z.array(kudaBillItemSchema).optional(),
 });
-
-const BACI_TO_MONNIFY_CATEGORY: Record<string, string> = {
-  electricity: 'UTILITY_PAYMENT',
-  cable_tv: 'TV_SUBSCRIPTION',
-  betting: 'LOTTERY_AND_BETTING',
-};
 
 /**
  * GET /api/vtu/billers?type=electricity
@@ -95,15 +151,7 @@ export async function GET(request: NextRequest) {
           categoryId: biller.categoryId,
           categoryName: biller.categoryName,
           provider: 'kuda',
-          billItems: biller.billItems?.map((item) => ({
-            itemCode: item.itemCode,
-            itemName: item.itemName,
-            amount: item.amount,
-            itemCurrencySymbol: item.itemCurrencySymbol,
-            isAmountFixed: item.isAmountFixed,
-            itemFee: item.itemFee,
-            provider: 'kuda',
-          })),
+          billItems: biller.billItems?.map(normalizeKudaBillItem),
         }));
       } else {
         throw new Error('Kuda biller payload failed validation');
@@ -115,13 +163,13 @@ export async function GET(request: NextRequest) {
 
     let monnifyError: Error | null = null;
     let monnifyBillers: NormalizedBiller[] = [];
-    const monnifyCategory = BACI_TO_MONNIFY_CATEGORY[type];
+    const monnifyCategory = getMonnifyCategoryCode(type);
     if (monnifyCategory) {
       try {
         const rawBillers = await getMonnifyBillers(monnifyCategory);
         const validatedBillers = z.array(billerSchema).safeParse(rawBillers);
         if (validatedBillers.success) {
-          monnifyBillers = await Promise.all(
+          const normalizedMonnifyBillers = await Promise.all(
             validatedBillers.data.map(async (biller) => {
               let billItems: NormalizedBillItem[] = [];
               try {
@@ -133,17 +181,10 @@ export async function GET(request: NextRequest) {
                   .safeParse(rawProducts);
 
                 if (validatedProducts.success) {
-                  billItems = validatedProducts.data.map((prod) => ({
-                    itemCode: prod.productCode,
-                    itemName: prod.name,
-                    amount: prod.amount ?? 0,
-                    itemCurrencySymbol: 'NGN',
-                    isAmountFixed: prod.isAmountFixed ?? false,
-                    itemFee: prod.fee ?? 0,
-                    provider: 'monnify',
+                  billItems = normalizeMonnifyProducts({
                     billerCode: biller.billerCode,
-                    productCode: prod.productCode,
-                  }));
+                    products: validatedProducts.data,
+                  });
                 } else {
                   console.error('Monnify products failed validation:', {
                     billerCode: biller.billerCode,
@@ -166,11 +207,14 @@ export async function GET(request: NextRequest) {
                 billerType: type,
                 categoryId: biller.billerCategoryCode || monnifyCategory,
                 categoryName: type,
-                provider: 'monnify',
+                provider: 'monnify' as const,
                 billerCode: biller.billerCode,
                 billItems,
               };
             })
+          );
+          monnifyBillers = normalizedMonnifyBillers.filter(
+            (biller) => biller.billItems && biller.billItems.length > 0
           );
         } else {
           throw new Error('Monnify biller payload failed validation');
