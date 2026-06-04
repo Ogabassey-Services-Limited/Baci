@@ -1,4 +1,5 @@
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { useRef } from 'react';
+import { Keyboard, Pressable, Text, TextInput, View } from 'react-native';
 import { AppDialogModal } from '@/components/ui/AppDialogModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { formatPriceInput, parseDecimalInput } from './new-order.shared';
@@ -23,6 +24,8 @@ export function NewOrderQuickAddDialog({
     setShowCustomItemModal,
     showCustomItemModal,
   } = controller;
+
+  const priceInputRef = useRef<TextInput>(null);
 
   return (
     <AppDialogModal
@@ -49,8 +52,11 @@ export function NewOrderQuickAddDialog({
           onChangeText={(text) =>
             setCustomItem((previous) => ({ ...previous, name: text }))
           }
+          onSubmitEditing={() => priceInputRef.current?.focus()}
           placeholder="Item Name (e.g. Red Cake, Delivery)"
           placeholderTextColor={colors.textMuted}
+          returnKeyType="next"
+          submitBehavior="submit"
           style={[
             styles.dialogInput,
             { backgroundColor: colors.inputBg, color: colors.text },
@@ -58,6 +64,7 @@ export function NewOrderQuickAddDialog({
           value={customItem.name}
         />
         <TextInput
+          ref={priceInputRef}
           keyboardType="numeric"
           onChangeText={(text) => {
             setCustomItem((previous) => ({
@@ -65,8 +72,11 @@ export function NewOrderQuickAddDialog({
               price: parseDecimalInput(text),
             }));
           }}
+          onSubmitEditing={() => Keyboard.dismiss()}
           placeholder="Amount (0.00)"
           placeholderTextColor={colors.textMuted}
+          returnKeyType="done"
+          submitBehavior="blurAndSubmit"
           style={[
             styles.dialogInput,
             { backgroundColor: colors.inputBg, color: colors.text },
