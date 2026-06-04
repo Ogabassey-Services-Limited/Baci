@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import type { CachedMerchant } from '@/lib/cached-data';
+import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 
 interface MockListResult {
   data: unknown;
@@ -61,6 +62,17 @@ export const mockMerchant: CachedMerchant = {
     background: '#ffffff',
   },
 };
+
+export function withDefaultFeatureSettings<T extends { id: string }>(
+  merchant: T
+) {
+  return {
+    ...merchant,
+    feature_settings: merchantFeatureSettingsDefaults.buildPublicDefault(
+      merchant.id
+    ),
+  };
+}
 
 let mockCreateClient: ((...args: unknown[]) => unknown) | null = null;
 

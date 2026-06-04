@@ -7,6 +7,11 @@ const mocks = vi.hoisted(() => ({
   toggleSaved: vi.fn(),
   addToCart: vi.fn(),
   cart: [] as CartItem[],
+  merchant: {
+    plan_tier: 'pro',
+    slug: 'ogabassey',
+  } as any,
+  hasPriceNegotiationEntitlement: vi.fn((_tier?: string | null, _slug?: string) => true),
 }));
 
 vi.mock('next/image', () => ({
@@ -27,6 +32,17 @@ vi.mock('@/hooks/use-cart', () => ({
     addToCart: mocks.addToCart,
     cart: mocks.cart,
   })),
+}));
+
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchantSafe: vi.fn(() => ({
+    merchant: mocks.merchant,
+    basePath: '/ogabassey',
+  })),
+}));
+
+vi.mock('@/lib/feature-flags', () => ({
+  hasPriceNegotiationEntitlement: vi.fn((plan_tier?: string | null, slug?: string) => mocks.hasPriceNegotiationEntitlement(plan_tier, slug)),
 }));
 
 vi.mock('./footer', () => ({
@@ -104,5 +120,28 @@ describe('ProductDetails', () => {
     render(<ProductDetails />);
 
     expect(screen.getAllByText('iPhone 15 Pro Max').length).toBeGreaterThan(0);
+  });
+});
+
+describe('ProductDetails Negotiation Button Entitlement', () => {
+  beforeEach(() => {
+    mocks.savedItems = [];
+    mocks.toggleSaved.mockReset();
+    mocks.addToCart.mockReset();
+    mocks.merchant = { plan_tier: 'pro', slug: 'ogabassey' };
+    mocks.hasPriceNegotiationEntitlement.mockReset();
+    window.scrollTo = vi.fn();
+  });
+
+  it('renders the negotiation button when entitled', () => {
+    mocks.hasPriceNegotiationEntitlement.mockReturnValue(true);
+    render(<ProductDetails />);
+    expect(screen.getByRole('button', { name: 'Negotiate' })).toBeInTheDocument();
+  });
+
+  it('does not render the negotiation button when not entitled', () => {
+    mocks.hasPriceNegotiationEntitlement.mockReturnValue(false);
+    render(<ProductDetails />);
+    expect(screen.queryByRole('button', { name: 'Negotiate' })).not.toBeInTheDocument();
   });
 });

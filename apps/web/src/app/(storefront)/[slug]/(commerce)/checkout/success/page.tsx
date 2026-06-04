@@ -23,6 +23,7 @@ import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from '@/components/storefront/ogabassey/pages/checkout/pending-checkout-order';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
 
@@ -34,6 +35,33 @@ import { asRoute } from '@/lib/routes';
  * - Mobile-first responsive design
  * - Micro-animations for engagement
  */
+
+type VerificationResponse = {
+  orderNumber?: string;
+  status?: 'success' | 'pending' | 'failed' | 'cancelled';
+  success?: boolean;
+};
+
+function isVerificationResponse(value: unknown): value is VerificationResponse {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const hasValidStatus =
+    candidate.status === undefined ||
+    candidate.status === 'success' ||
+    candidate.status === 'pending' ||
+    candidate.status === 'failed' ||
+    candidate.status === 'cancelled';
+  const hasValidOrderNumber =
+    candidate.orderNumber === undefined ||
+    typeof candidate.orderNumber === 'string';
+  const hasValidSuccess =
+    candidate.success === undefined || typeof candidate.success === 'boolean';
+
+  return hasValidStatus && hasValidOrderNumber && hasValidSuccess;
+}
 
 const orderSteps = [
   { id: 'received', label: 'Order Received', icon: CheckCircle2 },
@@ -140,19 +168,28 @@ function CheckoutSuccessContent() {
       setIsVerifying(true);
 
       try {
-        const response = await fetch(
-          `/api/payments/verify?reference=${reference}`
-        );
-        const data = await response.json();
+        const response = await fetchWithCsrf('/api/payments/verify', {
+          body: JSON.stringify({ reference }),
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+        });
+        const raw: unknown = await response.json();
+        const data = isVerificationResponse(raw) ? raw : {};
 
-        if (data.success && data.status === 'success') {
-          clearCart();
-          setStatus('success');
+        if (data.status === 'pending') {
+          setStatus('pending');
           setOrderNumber(
             data.orderNumber || reference.slice(0, 8).toUpperCase()
           );
-        } else if (data.status === 'pending') {
-          setStatus('pending');
+        } else if (!response.ok) {
+          console.error('Payment verification failed:', data);
+          setStatus('failed');
+          timerHandle.current = setTimeout(() => {
+            router.push(asRoute(getHref('/checkout')));
+          }, 4000);
+        } else if (data.success && data.status === 'success') {
+          clearCart();
+          setStatus('success');
           setOrderNumber(
             data.orderNumber || reference.slice(0, 8).toUpperCase()
           );

@@ -365,13 +365,36 @@ describe('POST /api/payments/initialize', () => {
   });
 
   describe('korapay gateway', () => {
-    it('returns GATEWAY_DISABLED when Korapay is not explicitly enabled', async () => {
+    it('returns GATEWAY_DISABLED when Korapay is explicitly disabled', async () => {
+      featureSettingsResult = {
+        data: {
+          korapay_enabled: false,
+        },
+        error: null,
+      };
+
       const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
       const json = await res.json();
 
       expect(res.status).toBe(400);
       expect(json.code).toBe('GATEWAY_DISABLED');
       expect(mockInitializeKorapay).not.toHaveBeenCalled();
+    });
+
+    it('uses shared default gateway settings when the feature row is missing', async () => {
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/default',
+        checkout_url: 'https://korapay.com/checkout/default',
+      });
+
+      const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('korapay');
+      expect(json.checkout_url).toBe('https://korapay.com/checkout/default');
+      expect(mockInitializeKorapay).toHaveBeenCalled();
     });
 
     it('returns success with checkout_url for korapay', async () => {

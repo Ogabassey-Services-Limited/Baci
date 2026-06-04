@@ -1,7 +1,10 @@
 import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { generatePeppolInvoiceXml } from '@/lib/peppol-ubl-invoice';
+import {
+  generatePeppolInvoiceXml,
+  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
+} from '@/lib/peppol-ubl-invoice';
 import {
   generateReceiptBlob,
   resolveReceiptLogoDataUri,
@@ -38,6 +41,14 @@ const orderResult: QueryResult = {
     id: ORDER_ID,
     order_number: 'ORD-1001',
     created_at: '2026-03-22T10:00:00.000Z',
+    invoice_issue_date: '2026-04-01T00:00:00.000Z',
+    payment_due_date: '2026-04-15T00:00:00.000Z',
+    payment_terms: 'Net 14',
+    buyer_reference: 'BUYER-REF-001',
+    invoice_note: 'Merchant invoice note',
+    firs_irn: 'IRN-2026-001',
+    firs_csid: 'CSID-2026-001',
+    firs_qr_code: null,
     subtotal: 500000,
     tax_amount: 0,
     shipping_fee: 0,
@@ -61,7 +72,13 @@ const orderResult: QueryResult = {
       cac_rc_number: null,
       vat_registration_status: 'registered',
       vat_rate: 7.5,
-      registered_address: null,
+      registered_address: {
+        street: '99 Registered Road',
+        city: 'Ikeja',
+        state: 'Lagos',
+        postal_code: '100001',
+        country: 'NG',
+      },
       email: 'merchant@example.com',
       phone: '08000000000',
       business_address: '12 Allen Avenue',
@@ -108,7 +125,7 @@ const orderItemsResult: QueryResult = {
       vat_category_code: 'S',
       vat_rate: 7.5,
       vat_amount: 0,
-      sellers_item_id: null,
+      sellers_item_id: 'SELLER-IPHONE-15',
       product_id: 'product-phone',
     },
   ],
@@ -126,21 +143,19 @@ const paymentAccountsResult: QueryResult = {
   error: null,
 };
 
-type SupabaseQueryMock = Record<
-  'select' | 'eq' | 'limit' | 'order' | 'single',
-  ReturnType<typeof vi.fn>
->;
-
-function createQuery<T>(result: T, options: { chainOrder?: boolean } = {}) {
-  const query = {} as SupabaseQueryMock;
-
-  query.select = vi.fn(() => query);
-  query.eq = vi.fn(() => query);
-  query.limit = vi.fn().mockResolvedValue(result);
-  query.order = options.chainOrder
-    ? vi.fn(() => query)
-    : vi.fn().mockResolvedValue(result);
-  query.single = vi.fn().mockResolvedValue(result);
+function createQuery<T>(result: T) {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    gte: vi.fn(() => query),
+    or: vi.fn(() => query),
+    limit: vi.fn().mockResolvedValue(result),
+    order: vi.fn(() => query),
+    single: vi.fn().mockResolvedValue(result),
+    // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are awaitable.
+    then: (resolve: (value: T) => void) =>
+      Promise.resolve(result).then(resolve),
+  };
 
   return query;
 }
@@ -160,9 +175,7 @@ function createSupabaseMock({
 } = {}) {
   const orderQuery = createQuery(order);
   const itemsQuery = createQuery(items);
-  const paymentAccountsQuery = createQuery(paymentAccounts, {
-    chainOrder: true,
-  });
+  const paymentAccountsQuery = createQuery(paymentAccounts);
   const taxQuery = createQuery(taxSubtotals);
   const from = vi.fn((table: string) => {
     if (table === 'orders') return orderQuery;
@@ -179,6 +192,9 @@ function createSupabaseMock({
       }),
     },
     from,
+    queries: {
+      paymentAccountsQuery,
+    },
   };
 }
 
@@ -224,6 +240,12 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Disposition')).toContain(
+      'filename="invoice-ORD-1001.pdf"'
+    );
+    expect(response.headers.get('Content-Disposition')).toContain(
+      "filename*=UTF-8''invoice-ORD-1001.pdf"
+    );
 
     const invoiceItems = getGeneratedInvoiceItems();
 
@@ -233,18 +255,492 @@ describe('GET /api/orders/[id]/invoice', () => {
     expect(generateReceiptBlob).toHaveBeenCalledWith(
       expect.objectContaining({
         order_number: 'ORD-1001',
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            product_name: 'iPhone 15 Pro',
+            description: expect.stringContaining('IMEI: IMEI-123'),
+            line_extension_amount: 490000,
+            sellers_item_id: 'SELLER-IPHONE-15',
+            unit_code: 'EA',
+            vat_amount: 0,
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+          }),
+        ]),
         virtual_account: expect.objectContaining({
           account_number: '1234567890',
           bank_name: 'Wema Bank',
         }),
       }),
-      expect.objectContaining({ business_name: 'Test Merchant' }),
       expect.objectContaining({
-        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
+        business_name: 'Test Merchant',
+        registered_address: expect.objectContaining({
+          street: '99 Registered Road',
+        }),
+      }),
+      expect.objectContaining({
+        buyerReference: 'BUYER-REF-001',
+        complianceNote: PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
+        documentDate: new Date('2026-04-01T00:00:00.000Z'),
         documentKind: 'invoice',
+        dueDate: new Date('2026-04-15T00:00:00.000Z'),
+        firsCsid: 'CSID-2026-001',
+        firsIrn: 'IRN-2026-001',
+        invoiceTypeCode: '380',
+        invoiceNotes: 'Merchant invoice note',
         logoDataUri: 'data:image/png;base64,AA==',
+        paymentTerms: 'Net 14',
+        taxSubtotals: expect.any(Array),
       })
     );
+  });
+
+  it('generates the invoice with fallback branding when logo resolution fails', async () => {
+    vi.mocked(resolveReceiptLogoDataUri).mockRejectedValueOnce(
+      new Error('logo fetch failed')
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.objectContaining({ logoDataUri: null })
+    );
+  });
+
+  it('preserves zero-rated line tax categories when subtotals are missing', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        items: {
+          data: [
+            {
+              id: 'item-zero-rated',
+              line_id: 1,
+              name: 'Zero-rated accessory',
+              item_description: null,
+              quantity: 1,
+              price: 10000,
+              unit_code: 'EA',
+              line_extension_amount: 10000,
+              vat_category_code: 'Z',
+              vat_rate: 0,
+              vat_amount: 0,
+              sellers_item_id: null,
+              product_id: 'product-zero-rated',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generatePeppolInvoiceXml).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        tax_subtotals: [
+          {
+            vat_category_code: 'Z',
+            vat_rate: 0,
+            taxable_amount: 10000,
+            tax_amount: 0,
+            exemption_reason: undefined,
+          },
+        ],
+      })
+    );
+  });
+
+  it('uses a stored zero-tax subtotal as line VAT metadata when item rows are sparse', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        items: {
+          data: [
+            {
+              id: 'item-exempt',
+              line_id: 1,
+              name: 'Exempt accessory',
+              item_description: null,
+              quantity: 1,
+              price: 10000,
+              unit_code: 'EA',
+              line_extension_amount: 10000,
+              vat_category_code: null,
+              vat_rate: null,
+              vat_amount: null,
+              sellers_item_id: null,
+              product_id: 'product-exempt',
+            },
+          ],
+          error: null,
+        },
+        taxSubtotals: {
+          data: [
+            {
+              vat_category_code: 'E',
+              vat_rate: 0,
+              taxable_amount: 10000,
+              tax_amount: 0,
+              exemption_reason: 'VAT exempt',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generatePeppolInvoiceXml).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            vat_category_code: 'E',
+            vat_rate: 0,
+            vat_amount: 0,
+          }),
+        ],
+        tax_subtotals: [
+          {
+            vat_category_code: 'E',
+            vat_rate: 0,
+            taxable_amount: 10000,
+            tax_amount: 0,
+            exemption_reason: 'VAT exempt',
+          },
+        ],
+      })
+    );
+  });
+
+  it('allocates positive order tax when stored line VAT is missing or zero', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: {
+          data: {
+            ...(orderResult.data as Record<string, unknown>),
+            subtotal: 10000,
+            tax_amount: 750,
+            total: 10750,
+          },
+          error: null,
+        },
+        items: {
+          data: [
+            {
+              id: 'item-taxable',
+              line_id: 1,
+              name: 'Taxable accessory',
+              item_description: null,
+              quantity: 1,
+              price: 10000,
+              unit_code: 'EA',
+              line_extension_amount: 10000,
+              vat_category_code: 'S',
+              vat_rate: 7.5,
+              vat_amount: 0,
+              sellers_item_id: null,
+              product_id: 'product-taxable',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generatePeppolInvoiceXml).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+            vat_amount: 750,
+          }),
+        ],
+        tax_subtotals: [
+          {
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+            taxable_amount: 10000,
+            tax_amount: 750,
+            exemption_reason: undefined,
+          },
+        ],
+      })
+    );
+  });
+
+  it('allocates fallback order tax only across positive-rate taxable lines', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: {
+          data: {
+            ...(orderResult.data as Record<string, unknown>),
+            subtotal: 20000,
+            tax_amount: 750,
+            total: 20750,
+          },
+          error: null,
+        },
+        items: {
+          data: [
+            {
+              id: 'item-taxable',
+              line_id: 1,
+              name: 'Taxable accessory',
+              item_description: null,
+              quantity: 1,
+              price: 10000,
+              unit_code: 'EA',
+              line_extension_amount: 10000,
+              vat_category_code: 'S',
+              vat_rate: 7.5,
+              vat_amount: 0,
+              sellers_item_id: null,
+              product_id: 'product-taxable',
+            },
+            {
+              id: 'item-zero-rated',
+              line_id: 2,
+              name: 'Zero-rated accessory',
+              item_description: null,
+              quantity: 1,
+              price: 10000,
+              unit_code: 'EA',
+              line_extension_amount: 10000,
+              vat_category_code: 'Z',
+              vat_rate: 0,
+              vat_amount: 0,
+              sellers_item_id: null,
+              product_id: 'product-zero-rated',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generatePeppolInvoiceXml).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+            vat_amount: 750,
+          }),
+          expect.objectContaining({
+            vat_category_code: 'Z',
+            vat_rate: 0,
+            vat_amount: 0,
+          }),
+        ],
+      })
+    );
+  });
+
+  it('preserves stored zero line extension amounts instead of falling back to price', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: {
+          data: {
+            ...(orderResult.data as Record<string, unknown>),
+            subtotal: 0,
+            tax_amount: 750,
+            total: 750,
+          },
+          error: null,
+        },
+        items: {
+          data: [
+            {
+              id: 'item-zero-total',
+              line_id: 1,
+              name: 'Zero line total accessory',
+              item_description: null,
+              quantity: 1,
+              price: 10000,
+              unit_code: 'EA',
+              line_extension_amount: 0,
+              vat_category_code: 'S',
+              vat_rate: 7.5,
+              vat_amount: 0,
+              sellers_item_id: null,
+              product_id: 'product-zero-total',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generatePeppolInvoiceXml).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            line_extension_amount: 0,
+            vat_amount: 0,
+          }),
+        ],
+      })
+    );
+  });
+
+  it('falls back to merchant bank details when no order payment account exists', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: {
+          ...orderResult,
+          data: {
+            ...(orderResult.data as Record<string, unknown>),
+            merchants: {
+              ...((orderResult.data as Record<string, unknown>)
+                .merchants as Record<string, unknown>),
+              bank_account_name: 'Merchant Settlement',
+              bank_account_number: '9988776655',
+              bank_name: 'Fallback Bank',
+            },
+          },
+        },
+        paymentAccounts: { data: [], error: null },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        virtual_account: null,
+      }),
+      expect.objectContaining({
+        bank_account_name: 'Merchant Settlement',
+        bank_account_number: '9988776655',
+        bank_name: 'Fallback Bank',
+      }),
+      expect.any(Object)
+    );
+  });
+
+  it('keeps null-expiry Paystack DVAs valid regardless of creation time', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        paymentAccounts: {
+          data: [
+            {
+              account_number: '2222333344',
+              bank_name: 'Paystack-Titan',
+              account_name: 'Old Valid DVA',
+              created_at: '2026-01-01T00:00:00.000Z',
+              expires_at: null,
+              provider: 'paystack',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        virtual_account: expect.objectContaining({
+          account_name: 'Old Valid DVA',
+          account_number: '2222333344',
+          bank_name: 'Paystack-Titan',
+        }),
+      }),
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
+  it('passes stored credit-note type codes into the branded renderer', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: {
+          ...orderResult,
+          data: {
+            ...(orderResult.data as Record<string, unknown>),
+            invoice_type_code: '381',
+          },
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generateReceiptBlob).mock.calls[0]?.[2]).toEqual(
+      expect.objectContaining({
+        invoiceTypeCode: '381',
+      })
+    );
+  });
+
+  it('returns 500 when the order payment account lookup fails', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        paymentAccounts: {
+          data: null,
+          error: { message: 'database unavailable' },
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'Failed to load invoice payment account',
+      code: 'PAYMENT_ACCOUNT_LOOKUP_FAILED',
+    });
+    expect(generateReceiptBlob).not.toHaveBeenCalled();
   });
 
   it('attaches order-level IMEI details to the first item when no device item exists', async () => {
@@ -388,6 +884,22 @@ describe('GET /api/orders/[id]/invoice', () => {
     expect(generateReceiptBlob).not.toHaveBeenCalled();
   });
 
+  it('authenticates before validating malformed order ids', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({ user: null }) as unknown as ReturnType<
+        typeof createClient
+      >
+    );
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/orders/not-a-uuid/invoice'),
+      { params: Promise.resolve({ id: 'not-a-uuid' }) }
+    );
+
+    expect(response.status).toBe(401);
+    expect(generateReceiptBlob).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when the order id is invalid', async () => {
     const response = await GET(
       new NextRequest('http://localhost/api/orders/not-a-uuid/invoice'),
@@ -395,6 +907,10 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
 
     expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid order ID',
+      code: 'INVALID_ID',
+    });
     expect(generateReceiptBlob).not.toHaveBeenCalled();
   });
 

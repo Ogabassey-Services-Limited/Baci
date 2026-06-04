@@ -30,6 +30,7 @@ interface PlatformStats {
   clickAttributed: number; // Orders with click ID from this platform
 }
 
+// react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- Process-local analytics cache write only; no user or database state is mutated by GET.
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);

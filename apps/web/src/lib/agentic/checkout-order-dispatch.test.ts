@@ -437,7 +437,7 @@ describe('agentic checkout order dispatch', () => {
     );
   });
 
-  it('rounds assurance fees before sending order items to the RPC', async () => {
+  it('rounds quantity-aware assurance fees before sending order items to the RPC', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [{ id: 'order-1', total: 500_000 }],
       error: null,
@@ -452,7 +452,7 @@ describe('agentic checkout order dispatch', () => {
             name: 'Phone',
             price: 333.33,
             product_id: 'product-1',
-            quantity: 1,
+            quantity: 2,
           },
         ],
       },
@@ -464,7 +464,7 @@ describe('agentic checkout order dispatch', () => {
       expect.objectContaining({
         p_items: [
           expect.objectContaining({
-            assurance_fee: 16.67,
+            assurance_fee: 33.33,
           }),
         ],
       })

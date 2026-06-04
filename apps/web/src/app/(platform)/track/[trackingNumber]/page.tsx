@@ -6,6 +6,7 @@ import { Suspense, use, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { TRACKING_STATUS_CONFIG, type TrackingResult } from './tracking-status';
 
@@ -34,8 +35,9 @@ function TrackingPageContent({ params }: TrackingPageProps) {
   useEffect(() => {
     const fetchTracking = async () => {
       try {
-        const response = await fetch(
-          `/api/shipping/track/${encodeURIComponent(trackingNumber)}`
+        const response = await fetchWithCsrf(
+          `/api/shipping/track/${encodeURIComponent(trackingNumber)}`,
+          { method: 'POST' }
         );
         const data = await response.json();
 

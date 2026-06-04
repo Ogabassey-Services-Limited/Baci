@@ -21,6 +21,8 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { products } from './data';
 import { Footer } from './footer';
 import { Navbar } from './navbar';
@@ -32,6 +34,10 @@ export const ProductDetails: React.FC = () => {
   const _router = useRouter();
   const { addToCart, cart } = useCart();
   const { savedItems, toggleSaved } = useSaved();
+
+  const merchantContext = useMerchantSafe();
+  const merchant = merchantContext?.merchant;
+  const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
 
   const productSlug = params?.productSlug as string;
   // In a real app, we'd fetch by slug. For now, find by ID or mock it.
@@ -406,15 +412,18 @@ export const ProductDetails: React.FC = () => {
 
                   {/* Add to Cart & Negotiate */}
                   <div className="flex-1 flex gap-3">
-                    <button type="button"
-                      onClick={() => setIsNegotiationOpen(true)}
-                      className="px-4 py-3.5 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:border-gray-300 hover:bg-gray-50 transition-all flex flex-col items-center justify-center leading-none gap-1 min-w-[100px]"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <HandCoins size={18} className="text-red-600" />
-                        <span>Negotiate</span>
-                      </div>
-                    </button>
+                    {hasPriceNegotiation && (
+                      <button
+                        type="button"
+                        onClick={() => setIsNegotiationOpen(true)}
+                        className="px-4 py-3.5 rounded-xl border-2 border-store-primary/20 text-store-primary font-bold hover:border-store-primary/40 hover:bg-store-primary/5 transition-all flex flex-col items-center justify-center leading-none gap-1 min-w-[100px]"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <HandCoins size={18} className="text-store-primary" />
+                          <span>Negotiate</span>
+                        </div>
+                      </button>
+                    )}
 
                     <button type="button"
                       onClick={validateAndAddToCart}

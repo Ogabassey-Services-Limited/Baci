@@ -61,6 +61,7 @@ function createPlatformRedirect(
   return NextResponse.redirect(redirectUrl);
 }
 
+// react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- OAuth providers call callbacks with GET; state cookie, authenticated merchant, and merchant-cookie checks gate persistence.
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

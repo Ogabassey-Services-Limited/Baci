@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { FEATURES, isPlanTier, planHasFeature } from '@/lib/feature-flags';
+import {
+  FEATURES,
+  hasPriceNegotiationEntitlement,
+  isPlanTier,
+  planHasFeature,
+} from '@/lib/feature-flags';
 
 describe('feature flags', () => {
   it('recognizes supported plan tiers at runtime', () => {
@@ -22,5 +26,36 @@ describe('feature flags', () => {
     expect(planHasFeature('pro', FEATURES.PRICE_NEGOTIATION)).toBe(true);
     expect(planHasFeature('business', FEATURES.PRICE_NEGOTIATION)).toBe(true);
     expect(planHasFeature('enterprise', FEATURES.PRICE_NEGOTIATION)).toBe(true);
+  });
+
+  describe('hasPriceNegotiationEntitlement', () => {
+    it('returns true for pro, business, and enterprise plans', () => {
+      expect(hasPriceNegotiationEntitlement('pro', 'any-slug')).toBe(true);
+      expect(hasPriceNegotiationEntitlement('business', 'any-slug')).toBe(true);
+      expect(hasPriceNegotiationEntitlement('enterprise', 'any-slug')).toBe(
+        true
+      );
+    });
+
+    it('returns false for free and starter plans', () => {
+      expect(hasPriceNegotiationEntitlement('free', 'any-slug')).toBe(false);
+      expect(hasPriceNegotiationEntitlement('starter', 'any-slug')).toBe(false);
+    });
+
+    it('falls back to legacy slugs when plan_tier is absent', () => {
+      expect(hasPriceNegotiationEntitlement(null, 'ogabassey')).toBe(true);
+      expect(hasPriceNegotiationEntitlement(undefined, 'demo-premium')).toBe(
+        true
+      );
+      expect(hasPriceNegotiationEntitlement(null, 'other-merchant')).toBe(
+        false
+      );
+    });
+
+    it('returns false when plan_tier is present but malformed/invalid', () => {
+      expect(hasPriceNegotiationEntitlement('invalid_tier', 'ogabassey')).toBe(
+        false
+      );
+    });
   });
 });

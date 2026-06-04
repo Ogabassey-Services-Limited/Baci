@@ -57,6 +57,7 @@ function getCustomerProfileFields(
   };
 }
 
+// react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- Storefront session hydration intentionally reconciles the signed-in customer; guarded by Supabase auth and merchant lookup.
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);

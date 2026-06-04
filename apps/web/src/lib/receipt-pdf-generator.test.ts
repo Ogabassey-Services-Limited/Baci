@@ -47,17 +47,18 @@ const baseOrder = {
 
 function getPdfText(
   order: Parameters<typeof generateReceiptBlob>[0],
-  merchant: Parameters<typeof generateReceiptBlob>[1]
+  merchant: Parameters<typeof generateReceiptBlob>[1],
+  options?: Parameters<typeof generateReceiptPDF>[2]
 ) {
-  return generateReceiptPDF(order, merchant)
+  return generateReceiptPDF(order, merchant, options)
     .output()
     .replaceAll(String.fromCharCode(0), '');
 }
 
 describe('generateReceiptBlob', () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('returns a non-empty PDF blob', () => {
@@ -145,6 +146,99 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).not.toContain('RECEIPT');
   });
 
+  it('renders stored credit notes with the credit note label', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'Refunded item',
+          quantity: 1,
+          price: 150000,
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = generateReceiptPDF(order, baseMerchant, {
+      documentKind: 'invoice',
+      invoiceTypeCode: '381',
+    })
+      .output()
+      .replaceAll(String.fromCharCode(0), '');
+
+    expect(pdfText).toContain('CREDIT NOTE');
+  });
+
+  it('renders invoice issue date, due date, buyer reference, seller address, and line descriptions', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'iPhone 15 Pro',
+          description: 'IMEI: 123456789012345 | S/N: SN-001',
+          line_extension_amount: 120000,
+          quantity: 1,
+          price: 150000,
+          sellers_item_id: 'SKU-IPHONE-15',
+          unit_code: 'EA',
+          vat_amount: 9000,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = getPdfText(
+      order,
+      {
+        ...baseMerchant,
+        registered_address: {
+          street: '99 Registered Road',
+          city: 'Ikeja',
+          state: 'Lagos',
+          postal_code: '100001',
+          country: 'NG',
+        },
+      },
+      {
+        buyerReference: 'BUYER-REF-001',
+        documentDate: new Date('2026-06-01T00:00:00.000Z'),
+        documentKind: 'invoice',
+        dueDate: new Date('2026-06-15T00:00:00.000Z'),
+        firsCsid: 'CSID-001',
+        firsIrn: 'IRN-2026-001',
+        invoiceNotes: 'Legal invoice note for the customer.',
+        paymentTerms: 'Net 14',
+        taxSubtotals: [
+          {
+            taxable_amount: 120000,
+            tax_amount: 9000,
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+          },
+        ],
+      }
+    );
+
+    expect(pdfText).toContain('1 Jun 2026');
+    expect(pdfText).toContain('Invoice Terms');
+    expect(pdfText).toContain('Buyer Reference: BUYER-REF-001');
+    expect(pdfText).toContain('Due Date: 15 Jun 2026');
+    expect(pdfText).toContain('99 Registered Road');
+    expect(pdfText).toContain('Payment Terms: Net 14');
+    expect(pdfText).toContain('FIRS References');
+    expect(pdfText).toContain('FIRS IRN: IRN-2026-001');
+    expect(pdfText).toContain('FIRS CSID: CSID-001');
+    expect(pdfText).toContain('Invoice Notes');
+    expect(pdfText).toContain('Legal invoice note for the customer.');
+    expect(pdfText).toContain('VAT Breakdown');
+    expect(pdfText).toContain('VAT: 7.50%');
+    expect(pdfText).toContain('SKU: SKU-IPHONE-15');
+    expect(pdfText).toContain('Unit: EA');
+    expect(pdfText).toContain('120,000');
+    expect(pdfText).toContain('IMEI: 123456789012345');
+    expect(pdfText).toContain('S/N: SN-001');
+  });
+
   it('prints a compliance note when the invoice XML artifact has been generated', () => {
     const order = {
       ...baseOrder,
@@ -170,6 +264,29 @@ describe('generateReceiptBlob', () => {
 
     expect(pdfText).toContain('Peppol BIS Billing 3.0');
     expect(pdfText).toContain('generated UBL XML invoice artifact');
+  });
+
+  it('does not show a VAT percentage when only SKU and unit metadata exist', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'MacBook Pro',
+          quantity: 1,
+          price: 150000,
+          sellers_item_id: 'SKU-MBP',
+          unit_code: 'EA',
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = getPdfText(order, baseMerchant, {
+      documentKind: 'invoice',
+    });
+
+    expect(pdfText).toContain('SKU: SKU-MBP');
+    expect(pdfText).toContain('Unit: EA');
+    expect(pdfText).not.toContain('VAT: 0.00%');
   });
 
   it('handles long names and multiple items without failing', () => {
@@ -354,99 +471,130 @@ describe('generateReceiptBlob', () => {
     expect(output).not.toContain('Balance Due');
   });
 
-  it('resolves safe HTTPS receipt logos as data URIs', async () => {
-    const fetchMock = vi.fn(() =>
-      Promise.resolve(
-        new Response(Uint8Array.from([1, 2, 3]), {
-          headers: { 'content-type': 'image/png' },
-          status: 200,
-        })
-      )
-    );
-    vi.stubGlobal('fetch', fetchMock);
+  it('does not fetch untrusted merchant logo URLs', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
 
     await expect(
       resolveReceiptLogoDataUri({
         ...baseMerchant,
-        logo_url: 'https://res.cloudinary.com/demo/image/upload/logo.png',
+        logo_url: 'https://169.254.169.254/latest/meta-data',
+      })
+    ).resolves.toBeNull();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('fetches only capped trusted media logo URLs', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        headers: {
+          'content-length': '3',
+          'content-type': 'image/png',
+        },
+        status: 200,
+      })
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://cdn.ogabassey.com/media/merchant/logo.png',
       })
     ).resolves.toBe('data:image/png;base64,AQID');
-    expect(fetchMock).toHaveBeenCalledWith(expect.any(URL), {
-      redirect: 'error',
-      signal: expect.any(AbortSignal),
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({
+        redirect: 'error',
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it('allows existing Supabase images bucket logo URLs', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([4, 5, 6]), {
+        headers: {
+          'content-length': '3',
+          'content-type': 'image/png',
+        },
+        status: 200,
+      })
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url:
+          'https://project-ref.supabase.co/storage/v1/object/public/images/logo.png',
+      })
+    ).resolves.toBe('data:image/png;base64,BAUG');
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({
+        redirect: 'error',
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it('rejects Supabase logo URLs outside the public logo allowlist', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url:
+          'https://project-ref.supabase.co/storage/v1/object/private/images/logo.png',
+      })
+    ).resolves.toBeNull();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized trusted media logos before reading the body', async () => {
+    const arrayBuffer = vi.fn();
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({
+        'content-length': String(512 * 1024),
+        'content-type': 'image/png',
+      }),
+      arrayBuffer,
     });
-  });
-
-  it('rejects receipt logo redirects', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        Promise.resolve(
-          new Response(null, {
-            headers: { location: 'https://127.0.0.1/logo.png' },
-            status: 302,
-          })
-        )
-      )
-    );
+    vi.stubGlobal('fetch', fetchSpy);
 
     await expect(
       resolveReceiptLogoDataUri({
         ...baseMerchant,
-        logo_url: 'https://res.cloudinary.com/demo/image/upload/logo.png',
-      })
-    ).resolves.toBeNull();
-  });
-
-  it('rejects non-HTTPS or internal receipt logo URLs', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(
-      resolveReceiptLogoDataUri({
-        ...baseMerchant,
-        logo_url: 'http://res.cloudinary.com/demo/logo.png',
-      })
-    ).resolves.toBeNull();
-    await expect(
-      resolveReceiptLogoDataUri({
-        ...baseMerchant,
-        logo_url: 'https://127.0.0.1/logo.png',
-      })
-    ).resolves.toBeNull();
-    await expect(
-      resolveReceiptLogoDataUri({
-        ...baseMerchant,
-        logo_url: 'https://localhost/logo.png',
+        logo_url: 'https://cdn.ogabassey.com/media/merchant/large-logo.png',
       })
     ).resolves.toBeNull();
 
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('rejects oversized receipt logos before reading the body', async () => {
-    const arrayBuffer = vi.fn(async () => Uint8Array.from([1, 2, 3]).buffer);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        Promise.resolve({
-          arrayBuffer,
-          body: null,
-          headers: new Headers({
-            'content-length': '2000001',
-            'content-type': 'image/png',
-          }),
-          ok: true,
-        } as unknown as Response)
-      )
-    );
-
-    await expect(
-      resolveReceiptLogoDataUri({
-        ...baseMerchant,
-        logo_url: 'https://res.cloudinary.com/demo/image/upload/logo.png',
-      })
-    ).resolves.toBeNull();
     expect(arrayBuffer).not.toHaveBeenCalled();
+  });
+
+  it('stops streaming trusted media logos after the byte cap', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array(300 * 1024), {
+        headers: {
+          'content-type': 'image/png',
+        },
+        status: 200,
+      })
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://cdn.ogabassey.com/media/merchant/large-logo.png',
+      })
+    ).resolves.toBeNull();
   });
 });

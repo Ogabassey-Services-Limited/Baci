@@ -375,7 +375,7 @@ describe('getCachedFeatureSettings', () => {
     expect(consoleSpy).toHaveBeenCalled();
   });
 
-  it('returns null when no settings row exists', async () => {
+  it('returns public defaults when no settings row exists', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce({
       data: null,
       error: null,
@@ -384,7 +384,15 @@ describe('getCachedFeatureSettings', () => {
 
     const result = await getCachedFeatureSettings('merchant-1');
 
-    expect(result).toBeNull();
+    expect(result).toMatchObject({
+      merchant_id: 'merchant-1',
+      paystack_enabled: true,
+      korapay_enabled: true,
+      preferred_local_gateway: 'paystack',
+      preferred_international_gateway: 'korapay',
+    });
+    expect(result).not.toHaveProperty('facebook_capi_token');
+    expect(result).not.toHaveProperty('ga4_api_secret');
   });
 });
 

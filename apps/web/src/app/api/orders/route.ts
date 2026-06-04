@@ -1,4 +1,6 @@
 import {
+  appendReceiptFulfillmentDescription,
+  isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
   type ReceiptFulfillmentDetails,
   type ReceiptMerchant,
@@ -16,6 +18,7 @@ import {
   computeCanonicalOrderSubtotal,
   isCanonicalOrderSubtotalUuidError,
 } from '@/lib/checkout/canonical-order-subtotal';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { computeExpectedTotalDiscount } from '@/lib/checkout/expected-total-discount';
 import {
   buildOrderIdempotencyPayload,
@@ -26,7 +29,7 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
-import { FEATURES, isPlanTier, planHasFeature } from '@/lib/feature-flags';
+import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import {
@@ -38,6 +41,7 @@ import type {
   InvoiceLineItem,
   TaxSubtotal,
 } from '@/lib/invoice-generator';
+import { mergeReceiptItemsWithInvoiceMetadata } from '@/lib/invoice-receipt-item-metadata';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { generatePaymentAccount } from '@/lib/paystack';
@@ -110,52 +114,14 @@ function getSavingsRedemptionIdempotencyKey({
 }
 
 /** Server-authoritative assurance rate — never trust the client value. */
-const SERVER_ASSURANCE_RATE = 0.05;
-const LEGACY_NEGOTIATION_SLUGS = new Set(['ogabassey', 'demo-premium']);
-
-function hasPriceNegotiationEntitlement(
-  planTier: string | null | undefined,
-  merchantSlug: string | null | undefined
-): boolean {
-  if (isPlanTier(planTier)) {
-    return planHasFeature(planTier, FEATURES.PRICE_NEGOTIATION);
-  }
-
-  // If plan_tier is present but malformed, fail closed.
-  if (planTier != null) {
-    return false;
-  }
-
-  // Maintain legacy storefront entitlement fallback until all
-  // merchants are backfilled with an explicit `plan_tier`.
-  return (
-    typeof merchantSlug === 'string' &&
-    LEGACY_NEGOTIATION_SLUGS.has(merchantSlug.toLowerCase())
-  );
-}
+const SERVER_ASSURANCE_RATE = DEFAULT_ASSURANCE_RATE;
+// Imported from @/lib/feature-flags
 
 type EmailOrderItem = {
   name?: string;
   productName?: string;
   quantity?: number;
   price?: number;
-};
-
-type ImmediateInvoiceItem = {
-  id?: string | null;
-  product_id?: string | null;
-  productId?: string | null;
-  productName?: string | null;
-  product_name?: string | null;
-  name?: string | null;
-  variant_id?: string | null;
-  variantId?: string | null;
-  variant_name?: string | null;
-  variantAttributes?: Record<string, string> | null;
-  variant_attributes?: Record<string, string> | null;
-  negotiatedPrice?: number | null;
-  price: number;
-  quantity: number;
 };
 
 type QuizVoucherItemCandidate = {
@@ -165,6 +131,40 @@ type QuizVoucherItemCandidate = {
   voucher_token?: unknown;
 };
 type OrderCreateItem = OrderCreateInput['items'][number];
+type ImmediateInvoiceOrderItem = Omit<OrderCreateItem, 'assurance_fee'> & {
+  assurance_fee?: number;
+  item_description?: string | null;
+  line_extension_amount?: number | null;
+  sellers_item_id?: string | null;
+  unit_code?: string | null;
+  variant_name?: string | null;
+  vat_amount?: number | null;
+  vat_category_code?: string | null;
+  vat_rate?: number | null;
+};
+type PersistedInvoiceOrderItemRow = {
+  assurance_fee?: unknown;
+  has_assurance?: unknown;
+  id?: unknown;
+  item_description?: unknown;
+  line_extension_amount?: unknown;
+  name?: unknown;
+  price?: unknown;
+  product_id?: unknown;
+  quantity?: unknown;
+  sellers_item_id?: unknown;
+  unit_code?: unknown;
+  variant_attributes?: unknown;
+  variant_id?: unknown;
+  variant_name?: unknown;
+  vat_amount?: unknown;
+  vat_category_code?: unknown;
+  vat_rate?: unknown;
+};
+
+const IMMEDIATE_INVOICE_DUE_DAYS = 14;
+const PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS = 3;
+const PERSISTED_INVOICE_ITEMS_RETRY_DELAY_MS = 50;
 
 function hasNonEmptyVoucherIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
@@ -195,11 +195,11 @@ function getQuizVoucherToken(item: QuizVoucherItemCandidate): string | null {
   return null;
 }
 
-function getOrderItemProductId(item: ImmediateInvoiceItem): string | undefined {
-  return item.product_id || item.productId || item.id || undefined;
+function getOrderItemProductId(item: OrderCreateItem): string | undefined {
+  return item.product_id || item.productId || item.id;
 }
 
-function getOrderItemVariantId(item: ImmediateInvoiceItem): string | null {
+function getOrderItemVariantId(item: OrderCreateItem): string | null {
   return item.variantId || item.variant_id || null;
 }
 
@@ -207,24 +207,23 @@ function getOrderItemCondition(item: OrderCreateItem): string | null {
   return item.condition || null;
 }
 
-function getOrderItemBaseName(item: ImmediateInvoiceItem): string {
-  return item.name || item.product_name || item.productName || 'Product';
+function getOrderItemBaseName(item: OrderCreateItem): string {
+  return item.name || item.productName || 'Product';
 }
 
-function getOrderItemVariantLabel(item: ImmediateInvoiceItem): string | null {
-  if (item.variant_name) {
-    return item.variant_name;
-  }
-
+function getOrderItemVariantLabel(item: OrderCreateItem): string | null {
   const label = formatVariantAttributesLabel(
-    item.variantAttributes || item.variant_attributes || undefined
+    item.variantAttributes || item.variant_attributes
   );
 
-  return label || null;
-}
+  if (label) {
+    return label;
+  }
 
-function getOrderItemPrice(item: ImmediateInvoiceItem): number {
-  return item.negotiatedPrice ?? item.price;
+  const variantName = (item as { variant_name?: unknown }).variant_name;
+  return typeof variantName === 'string' && variantName.trim().length > 0
+    ? variantName.trim()
+    : null;
 }
 
 function getOrderFulfillmentDetails(
@@ -255,6 +254,7 @@ function buildImmediateInvoiceMerchant(merchant: {
   logo_url?: string | null;
   pages?: unknown;
   phone?: string | null;
+  registered_address?: unknown;
   social_media?: unknown;
   support_email?: string | null;
   support_phone?: string | null;
@@ -270,6 +270,9 @@ function buildImmediateInvoiceMerchant(merchant: {
     support_email: merchant.support_email || null,
     support_phone: merchant.support_phone || null,
     business_address: merchant.business_address || null,
+    registered_address: toReceiptRecord<ReceiptMerchant['registered_address']>(
+      merchant.registered_address
+    ),
     cac_rc_number: merchant.cac_rc_number || null,
     tax_identification_number: merchant.tax_identification_number || null,
     legal_entity_name: merchant.legal_entity_name || null,
@@ -290,32 +293,214 @@ function buildImmediateInvoiceMerchant(merchant: {
 }
 
 function buildImmediateInvoiceShippingAddress(
-  shippingAddress: unknown
+  shippingAddress: OrderCreateInput['shipping_address']
 ): ReceiptOrder['shipping_address'] {
-  if (
-    !shippingAddress ||
-    typeof shippingAddress !== 'object' ||
-    Array.isArray(shippingAddress)
-  ) {
+  if (!shippingAddress) {
     return null;
   }
 
-  const address = shippingAddress as Record<string, unknown>;
   return {
-    address_line1:
-      typeof address.address_line1 === 'string'
-        ? address.address_line1
-        : typeof address.address === 'string'
-          ? address.address
-          : '',
-    city: typeof address.city === 'string' ? address.city : '',
-    state: typeof address.state === 'string' ? address.state : '',
-    country: typeof address.country === 'string' ? address.country : 'NG',
+    address_line1: shippingAddress.address,
+    city: shippingAddress.city,
+    state: shippingAddress.state,
+    country: 'NG',
   };
 }
 
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function getImmediateInvoiceIssueDate(order: Record<string, unknown>) {
+  return new Date(
+    typeof order.created_at === 'string' ? order.created_at : Date.now()
+  );
+}
+
+function getImmediateInvoiceDueDate(order: Record<string, unknown>) {
+  const issueDate = getImmediateInvoiceIssueDate(order);
+
+  return new Date(
+    issueDate.getTime() + IMMEDIATE_INVOICE_DUE_DAYS * 24 * 60 * 60 * 1000
+  );
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  const numericValue = Number(value);
+
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function getStringRecord(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .map(([key, entryValue]) =>
+      typeof entryValue === 'string' ? [key, entryValue] : null
+    )
+    .filter((entry): entry is [string, string] => entry !== null);
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function getOrderItemUnitPrice(item: OrderCreateItem) {
+  return item.negotiatedPrice ?? item.price;
+}
+
+function getOrderItemAssuranceFee(item: ImmediateInvoiceOrderItem) {
+  const persistedAssuranceFee = toFiniteNumber(item.assurance_fee);
+  if (persistedAssuranceFee !== null) {
+    return roundCurrency(persistedAssuranceFee);
+  }
+
+  const itemBaseTotal = item.quantity * getOrderItemUnitPrice(item);
+
+  return item.has_assurance
+    ? roundCurrency(itemBaseTotal * SERVER_ASSURANCE_RATE)
+    : 0;
+}
+
+function getOrderItemLineExtensionAmount(item: ImmediateInvoiceOrderItem) {
+  const persistedLineExtensionAmount = toFiniteNumber(
+    item.line_extension_amount
+  );
+
+  if (persistedLineExtensionAmount !== null) {
+    return roundCurrency(persistedLineExtensionAmount);
+  }
+
+  return roundCurrency(
+    item.quantity * getOrderItemUnitPrice(item) + getOrderItemAssuranceFee(item)
+  );
+}
+
+function normalizePersistedInvoiceOrderItems(
+  rows: unknown
+): ImmediateInvoiceOrderItem[] | null {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return null;
+  }
+
+  const normalizedItems = rows
+    .map((row): ImmediateInvoiceOrderItem | null => {
+      if (!row || typeof row !== 'object') {
+        return null;
+      }
+
+      const typedRow = row as PersistedInvoiceOrderItemRow;
+      const quantity = toFiniteNumber(typedRow.quantity);
+      const price = toFiniteNumber(typedRow.price);
+      const name = getOptionalString(typedRow.name) ?? 'Product';
+      const fallbackIdentifier =
+        getOptionalString(typedRow.product_id) ??
+        getOptionalString(typedRow.id);
+
+      if (!quantity || quantity <= 0 || price === null || price < 0) {
+        return null;
+      }
+
+      return {
+        condition: undefined,
+        id: fallbackIdentifier,
+        product_id: getOptionalString(typedRow.product_id),
+        productName: undefined,
+        name,
+        quantity,
+        price,
+        variant_id: getOptionalString(typedRow.variant_id),
+        variant_attributes: getStringRecord(typedRow.variant_attributes),
+        has_assurance: typedRow.has_assurance === true,
+        assurance_fee: toFiniteNumber(typedRow.assurance_fee) ?? undefined,
+        item_description: getOptionalString(typedRow.item_description) ?? null,
+        line_extension_amount: toFiniteNumber(typedRow.line_extension_amount),
+        sellers_item_id: getOptionalString(typedRow.sellers_item_id) ?? null,
+        unit_code: getOptionalString(typedRow.unit_code) ?? null,
+        variant_name: getOptionalString(typedRow.variant_name) ?? null,
+        vat_amount: toFiniteNumber(typedRow.vat_amount),
+        vat_category_code:
+          getOptionalString(typedRow.vat_category_code) ?? null,
+        vat_rate: toFiniteNumber(typedRow.vat_rate),
+      };
+    })
+    .filter((item): item is ImmediateInvoiceOrderItem => item !== null);
+
+  return normalizedItems.length > 0 ? normalizedItems : null;
+}
+
+async function delayPersistedInvoiceItemRetry(attempt: number) {
+  await new Promise((resolve) =>
+    setTimeout(resolve, attempt * PERSISTED_INVOICE_ITEMS_RETRY_DELAY_MS)
+  );
+}
+
+async function loadPersistedInvoiceOrderItems({
+  orderId,
+  supabase,
+}: {
+  orderId: string;
+  supabase: ReturnType<typeof createAdminClient>;
+}) {
+  let lastError: unknown = null;
+
+  for (
+    let attempt = 1;
+    attempt <= PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS;
+    attempt += 1
+  ) {
+    const { data, error } = await supabase
+      .from('order_items')
+      .select(
+        'id, product_id, variant_id, variant_attributes, variant_name, name, quantity, price, has_assurance, assurance_fee, item_description, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, unit_code'
+      )
+      .eq('order_id', orderId)
+      .order('line_id', { ascending: true });
+
+    if (!error) {
+      const normalizedItems = normalizePersistedInvoiceOrderItems(data);
+      if (normalizedItems) {
+        return normalizedItems;
+      }
+
+      lastError = new Error('Persisted invoice items not visible yet');
+      if (attempt < PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS) {
+        await delayPersistedInvoiceItemRetry(attempt);
+        continue;
+      }
+
+      return null;
+    }
+
+    lastError = error;
+    logger.error({
+      message: 'Failed to load persisted order items for invoice email',
+      alert: 'invoice_order_items_lookup_failed',
+      attempt,
+      attempts: PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS,
+      orderId,
+      error,
+    });
+
+    if (attempt < PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS) {
+      await delayPersistedInvoiceItemRetry(attempt);
+    }
+  }
+
+  logger.error({
+    message: 'Persisted order item lookup exhausted for invoice email',
+    alert: 'invoice_order_items_lookup_exhausted',
+    attempts: PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS,
+    orderId,
+    error: lastError,
+  });
+  return null;
 }
 
 function allocateLineTax(input: {
@@ -343,8 +528,12 @@ function buildImmediatePeppolInvoiceData(input: {
   customerEmail: string;
   customerName: string;
   customerPhone?: string;
-  items: ImmediateInvoiceItem[];
+  fulfillment: ReceiptFulfillmentDetails | null;
+  items: ImmediateInvoiceOrderItem[];
   merchant: {
+    bank_account_name?: string | null;
+    bank_account_number?: string | null;
+    bank_name?: string | null;
     business_name: string;
     cac_rc_number?: string | null;
     legal_entity_name?: string | null;
@@ -362,11 +551,9 @@ function buildImmediatePeppolInvoiceData(input: {
   orderShippingFee: number;
   orderSubtotal: number;
   orderTotal: number;
-  shippingAddress: unknown;
+  paymentAccount: ReceiptOrder['virtual_account'];
+  shippingAddress: OrderCreateInput['shipping_address'];
 }): InvoiceData {
-  const invoiceShippingAddress = buildImmediateInvoiceShippingAddress(
-    input.shippingAddress
-  );
   const taxAmount = Number(input.order.tax_amount || 0);
   const discountAmount = Number(input.order.discount_amount || 0);
   const currency =
@@ -380,35 +567,72 @@ function buildImmediatePeppolInvoiceData(input: {
   const vatRate =
     vatCategoryCode === 'S' ? (input.merchant.vat_rate ?? 7.5) : 0;
   const lineExtensionTotal = input.items.reduce(
-    (total, item) => total + item.quantity * getOrderItemPrice(item),
+    (total, item) => total + getOrderItemLineExtensionAmount(item),
     0
   );
+  const hasDeviceItem = input.items.some((item) =>
+    isDeviceReceiptItemName(getOrderItemBaseName(item))
+  );
+  const paymentAccount =
+    input.paymentAccount ||
+    (input.merchant.bank_account_number
+      ? {
+          account_number: input.merchant.bank_account_number,
+          account_name:
+            input.merchant.bank_account_name ||
+            input.merchant.business_name ||
+            undefined,
+          bank_name: input.merchant.bank_name || undefined,
+        }
+      : null);
   let allocatedTaxAmount = 0;
 
   const invoiceItems: InvoiceLineItem[] = input.items.map((item, index) => {
-    const lineExtensionAmount = item.quantity * getOrderItemPrice(item);
-    const vatAmount = allocateLineTax({
-      index,
-      itemCount: input.items.length,
-      lineExtensionAmount,
-      lineExtensionTotal,
-      taxAmount,
-      allocatedTaxAmount,
-    });
+    const itemAssuranceFee = getOrderItemAssuranceFee(item);
+    const lineExtensionAmount = getOrderItemLineExtensionAmount(item);
+    const persistedVatAmount = toFiniteNumber(item.vat_amount);
+    const vatAmount =
+      persistedVatAmount ??
+      allocateLineTax({
+        index,
+        itemCount: input.items.length,
+        lineExtensionAmount,
+        lineExtensionTotal,
+        taxAmount,
+        allocatedTaxAmount,
+      });
     allocatedTaxAmount += vatAmount;
+
+    const persistedDescription =
+      typeof item.item_description === 'string' &&
+      item.item_description.trim().length > 0
+        ? item.item_description.trim()
+        : undefined;
+    const itemDescription = appendReceiptFulfillmentDescription({
+      description:
+        persistedDescription ?? getOrderItemVariantLabel(item) ?? undefined,
+      fulfillment: input.fulfillment,
+      hasDeviceItem,
+      index,
+      itemName: getOrderItemBaseName(item),
+    });
+    const description = itemAssuranceFee
+      ? `${itemDescription ? `${itemDescription} ` : ''}Includes device assurance fee (${currency} ${itemAssuranceFee.toFixed(2)}).`
+      : itemDescription;
 
     return {
       line_id: index + 1,
       product_id: getOrderItemProductId(item),
       name: getOrderItemBaseName(item),
-      description: getOrderItemVariantLabel(item) || undefined,
+      description,
       quantity: item.quantity,
-      unit_code: 'EA',
-      price: getOrderItemPrice(item),
+      unit_code: item.unit_code || 'EA',
+      price: getOrderItemUnitPrice(item),
       line_extension_amount: lineExtensionAmount,
-      vat_category_code: vatCategoryCode,
-      vat_rate: vatRate,
+      vat_category_code: item.vat_category_code || vatCategoryCode,
+      vat_rate: item.vat_rate ?? vatRate,
       vat_amount: vatAmount,
+      sellers_item_id: item.sellers_item_id || undefined,
     };
   });
   const taxExclusiveAmount = Math.max(
@@ -425,20 +649,15 @@ function buildImmediatePeppolInvoiceData(input: {
         vatCategoryCode === 'O' ? 'Seller is not VAT registered' : undefined,
     },
   ];
+  const issueDate = getImmediateInvoiceIssueDate(input.order);
 
   return {
-    order_id: typeof input.order.id === 'string' ? input.order.id : undefined,
     invoice_number: input.orderNumber,
     invoice_type_code: '380',
-    issue_date: new Date(
-      typeof input.order.created_at === 'string'
-        ? input.order.created_at
-        : Date.now()
-    ),
-    due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    issue_date: issueDate,
+    due_date: getImmediateInvoiceDueDate(input.order),
     currency,
-    buyer_reference:
-      typeof input.order.id === 'string' ? input.order.id : undefined,
+    buyer_reference: input.customerEmail || input.customerName,
     merchant: {
       business_name: input.merchant.business_name,
       legal_entity_name: input.merchant.legal_entity_name || undefined,
@@ -454,19 +673,15 @@ function buildImmediatePeppolInvoiceData(input: {
       logo_url: input.merchant.logo_url || undefined,
     },
     customer: {
-      id:
-        typeof input.order.customer_id === 'string'
-          ? input.order.customer_id
-          : undefined,
       name: input.customerName,
       email: input.customerEmail || undefined,
       phone: input.customerPhone || undefined,
-      address: invoiceShippingAddress
+      address: input.shippingAddress
         ? {
-            street: invoiceShippingAddress.address_line1,
-            city: invoiceShippingAddress.city,
-            state: invoiceShippingAddress.state,
-            country: invoiceShippingAddress.country,
+            street: input.shippingAddress.address,
+            city: input.shippingAddress.city,
+            state: input.shippingAddress.state,
+            country: 'NG',
           }
         : undefined,
     },
@@ -479,7 +694,23 @@ function buildImmediatePeppolInvoiceData(input: {
     shipping_fee: input.orderShippingFee,
     discount_amount: discountAmount,
     total: input.orderTotal,
+    amount_paid: Number(input.order.amount_paid || 0),
     notes: input.notes,
+    payment_account: paymentAccount
+      ? {
+          account_number: paymentAccount.account_number,
+          account_name: paymentAccount.account_name || undefined,
+          bank_name: paymentAccount.bank_name || undefined,
+        }
+      : undefined,
+    firs_irn:
+      typeof input.order.firs_irn === 'string'
+        ? input.order.firs_irn
+        : undefined,
+    firs_csid:
+      typeof input.order.firs_csid === 'string'
+        ? input.order.firs_csid
+        : undefined,
   };
 }
 
@@ -844,8 +1075,10 @@ export async function POST(request: NextRequest) {
     const orderItemsPayload = items.map((item, index) => {
       const hasAssurance = item.has_assurance || false;
       const itemPrice = item.negotiatedPrice ?? item.price;
-      // SECURITY: Recompute assurance_fee server-side — never trust client values
-      const assuranceFee = hasAssurance ? itemPrice * SERVER_ASSURANCE_RATE : 0;
+      // SECURITY: Recompute assurance_fee server-side — never trust client values (quantity-aware)
+      const assuranceFee = hasAssurance
+        ? roundCurrency(itemPrice * item.quantity * SERVER_ASSURANCE_RATE)
+        : 0;
       const voucherAwardId = verifiedQuizVoucherAwardIdsByIndex.get(index);
 
       return {
@@ -1630,6 +1863,36 @@ export async function POST(request: NextRequest) {
                 const lastName = nameParts.slice(1).join(' ') || 'User';
                 let invoiceVirtualAccount: ReceiptOrder['virtual_account'] =
                   null;
+                const invoiceTimingOrder = {
+                  ...(order as Record<string, unknown>),
+                  created_at:
+                    typeof order.created_at === 'string'
+                      ? order.created_at
+                      : new Date().toISOString(),
+                };
+                const invoiceDueDate =
+                  getImmediateInvoiceDueDate(invoiceTimingOrder);
+
+                // The customer can send display-only item names/prices, while
+                // the storefront order RPC persists canonical product/variant
+                // snapshots. Render invoice artifacts from those persisted
+                // rows after the validated order exists.
+                backgroundSupabase ??= createAdminClient();
+                const persistedInvoiceItems =
+                  await loadPersistedInvoiceOrderItems({
+                    orderId: order.id,
+                    supabase: backgroundSupabase,
+                  });
+                if (!persistedInvoiceItems) {
+                  logger.error({
+                    message:
+                      'Persisted order items unavailable for invoice email; skipping non-canonical invoice artifacts',
+                    orderId: order.id,
+                  });
+                  throw new Error('PERSISTED_INVOICE_ITEMS_UNAVAILABLE');
+                }
+                const invoiceItems = persistedInvoiceItems;
+
                 const dvaResult = await generatePaymentAccount({
                   email: customer_email || `${order.id}@orders.usebaci.com`,
                   firstName,
@@ -1639,7 +1902,7 @@ export async function POST(request: NextRequest) {
                 });
 
                 if (dvaResult.success) {
-                  invoiceVirtualAccount = {
+                  const generatedVirtualAccount = {
                     account_number: dvaResult.data.account_number,
                     bank_name: dvaResult.data.bank_name,
                     account_name: dvaResult.data.account_name,
@@ -1650,15 +1913,20 @@ export async function POST(request: NextRequest) {
                   // through RLS, so the server-only admin client is scoped to
                   // this post-response side effect and order.id.
                   backgroundSupabase ??= createAdminClient();
+                  const dvaExpiresAt = invoiceDueDate.toISOString();
                   const { error: insertError } = await backgroundSupabase
                     .from('order_payment_accounts')
-                    .insert({
-                      order_id: order.id,
-                      account_number: dvaResult.data.account_number,
-                      bank_name: dvaResult.data.bank_name,
-                      account_name: dvaResult.data.account_name,
-                      provider: 'paystack',
-                    });
+                    .upsert(
+                      {
+                        order_id: order.id,
+                        account_number: dvaResult.data.account_number,
+                        bank_name: dvaResult.data.bank_name,
+                        account_name: dvaResult.data.account_name,
+                        provider: 'paystack',
+                        expires_at: dvaExpiresAt,
+                      },
+                      { onConflict: 'order_id,provider' }
+                    );
 
                   if (insertError) {
                     logger.error({
@@ -1667,6 +1935,7 @@ export async function POST(request: NextRequest) {
                       error: insertError,
                     });
                   } else {
+                    invoiceVirtualAccount = generatedVirtualAccount;
                     logger.info({
                       message: 'Stored auto-generated invoice DVA successfully',
                       orderId: order.id,
@@ -1684,143 +1953,80 @@ export async function POST(request: NextRequest) {
                 const fulfillment = getOrderFulfillmentDetails(
                   order as Record<string, unknown>
                 );
-                backgroundSupabase ??= createAdminClient();
-                const {
-                  data: persistedDocumentOrder,
-                  error: persistedDocumentOrderError,
-                } = await backgroundSupabase
-                  .from('orders')
-                  .select(ORDER_WITH_ITEMS_QUERY)
-                  .eq('id', order.id)
-                  .maybeSingle();
-
-                if (persistedDocumentOrderError) {
-                  logger.warn({
-                    message:
-                      'Failed to fetch persisted order for immediate invoice document; falling back to normalized order payload',
-                    orderId: order.id,
-                    error: persistedDocumentOrderError,
-                  });
-                }
-
-                const documentOrder = (persistedDocumentOrder ??
-                  order) as Record<string, unknown>;
-                const persistedItems = Array.isArray(documentOrder.order_items)
-                  ? documentOrder.order_items
-                      .filter(
-                        (item): item is Record<string, unknown> =>
-                          !!item &&
-                          typeof item === 'object' &&
-                          !Array.isArray(item)
-                      )
-                      .map((item) => ({
-                        id: typeof item.id === 'string' ? item.id : undefined,
-                        product_id:
-                          typeof item.product_id === 'string'
-                            ? item.product_id
-                            : undefined,
-                        name: typeof item.name === 'string' ? item.name : null,
-                        variant_name:
-                          typeof item.variant_name === 'string'
-                            ? item.variant_name
-                            : null,
-                        quantity: Number(item.quantity || 0),
-                        price: Number(item.price || 0),
-                      }))
-                  : [];
-                const documentItems: ImmediateInvoiceItem[] =
-                  persistedItems.length > 0
-                    ? persistedItems
-                    : orderItemsPayload.map((item, index) => {
-                        const requestItem = items[index];
-                        return {
-                          product_id: item.product_id,
-                          variant_id: item.variant_id,
-                          variant_attributes: item.variant_attributes,
-                          product_name: requestItem
-                            ? getOrderItemBaseName(requestItem)
-                            : 'Product',
-                          variant_name: requestItem
-                            ? getOrderItemVariantLabel(requestItem)
-                            : null,
-                          quantity: item.quantity,
-                          price: item.price,
-                        };
-                      });
-                const documentTotal = Number(documentOrder.total ?? orderTotal);
-                const documentSubtotal = Number(
-                  documentOrder.subtotal ?? orderSubtotal
+                const hasDeviceItem = invoiceItems.some((item) =>
+                  isDeviceReceiptItemName(getOrderItemBaseName(item))
                 );
-                const documentShippingFee = Number(
-                  documentOrder.shipping_fee ?? orderShippingFee
+                const amountPaid = Math.max(
+                  Number(order.amount_paid || 0),
+                  savingsAmountUsed + walletAmountUsed
                 );
-                const amountPaid = Number(documentOrder.amount_paid || 0);
-                const documentCustomerName =
-                  typeof documentOrder.customer_name === 'string'
-                    ? documentOrder.customer_name
-                    : customer_name;
-                const documentCustomerEmail =
-                  typeof documentOrder.customer_email === 'string'
-                    ? documentOrder.customer_email
-                    : customer_email;
-                const documentCustomerPhone =
-                  typeof documentOrder.customer_phone === 'string'
-                    ? documentOrder.customer_phone
-                    : customer_phone;
+                const invoiceOrder = {
+                  ...invoiceTimingOrder,
+                  amount_paid: amountPaid,
+                };
                 const receiptOrder: ReceiptOrder = {
                   order_number: orderNum,
                   created_at: String(
-                    documentOrder.created_at || new Date().toISOString()
+                    order.created_at || new Date().toISOString()
                   ),
-                  currency:
-                    typeof documentOrder.currency === 'string'
-                      ? documentOrder.currency
-                      : 'NGN',
-                  total: documentTotal,
-                  subtotal: documentSubtotal,
-                  shipping_fee: documentShippingFee,
-                  tax_amount: Number(documentOrder.tax_amount || 0),
-                  discount_amount: Number(documentOrder.discount_amount || 0),
+                  currency: order.currency || 'NGN',
+                  total: orderTotal,
+                  subtotal: orderSubtotal,
+                  shipping_fee: orderShippingFee,
+                  tax_amount: Number(order.tax_amount || 0),
+                  discount_amount: Number(order.discount_amount || 0),
                   amount_paid: amountPaid,
-                  balance: Math.max(documentTotal - amountPaid, 0),
-                  payment_status:
-                    typeof documentOrder.payment_status === 'string'
-                      ? documentOrder.payment_status
-                      : payment_status,
+                  balance: Math.max(orderTotal - amountPaid, 0),
+                  payment_status: order.payment_status || payment_status,
                   payment_method,
-                  is_credit_order: Boolean(documentOrder.is_credit_order),
-                  customer_name: documentCustomerName,
-                  customer_email: documentCustomerEmail,
-                  customer_phone: documentCustomerPhone || null,
-                  shipping_address: buildImmediateInvoiceShippingAddress(
-                    documentOrder.shipping_address ?? shipping_address
+                  is_credit_order: Boolean(
+                    (order as Record<string, unknown>).is_credit_order
                   ),
+                  customer_name,
+                  customer_email,
+                  customer_phone: customer_phone || null,
+                  shipping_address:
+                    buildImmediateInvoiceShippingAddress(shipping_address),
                   virtual_account: invoiceVirtualAccount,
-                  fulfillment_details:
-                    getOrderFulfillmentDetails(documentOrder) || fulfillment,
-                  items: documentItems.map((item) => ({
-                    product_name: getOrderItemBaseName(item),
-                    variant_name: getOrderItemVariantLabel(item) || undefined,
-                    quantity: item.quantity,
-                    price: getOrderItemPrice(item),
-                  })),
+                  fulfillment_details: fulfillment,
+                  items: invoiceItems.map((item, index) => {
+                    const variantName = getOrderItemVariantLabel(item);
+
+                    return {
+                      line_id: index + 1,
+                      product_id: item.product_id || null,
+                      product_name: getOrderItemBaseName(item),
+                      variant_id: item.variant_id || null,
+                      variant_name: variantName || undefined,
+                      description: appendReceiptFulfillmentDescription({
+                        description: undefined,
+                        fulfillment,
+                        hasDeviceItem,
+                        index,
+                        itemName: getOrderItemBaseName(item),
+                      }),
+                      quantity: item.quantity,
+                      price: item.negotiatedPrice ?? item.price,
+                    };
+                  }),
                   transactions: [],
                 };
                 const receiptMerchant = buildImmediateInvoiceMerchant(merchant);
                 const peppolInvoiceData = buildImmediatePeppolInvoiceData({
-                  customerEmail: documentCustomerEmail,
-                  customerName: documentCustomerName,
-                  customerPhone: documentCustomerPhone,
-                  items: documentItems,
+                  customerEmail: customer_email,
+                  customerName: customer_name,
+                  customerPhone: customer_phone,
+                  fulfillment,
+                  items: invoiceItems,
                   merchant,
                   notes,
-                  order: documentOrder,
+                  order: invoiceOrder,
                   orderNumber: orderNum,
-                  orderShippingFee: documentShippingFee,
-                  orderSubtotal: documentSubtotal,
-                  orderTotal: documentTotal,
-                  shippingAddress:
-                    documentOrder.shipping_address ?? shipping_address,
+                  orderShippingFee,
+                  orderSubtotal,
+                  orderTotal,
+                  paymentAccount: invoiceVirtualAccount,
+                  shippingAddress: shipping_address,
                 });
                 let peppolInvoiceXml: string | null = null;
 
@@ -1850,15 +2056,31 @@ export async function POST(request: NextRequest) {
                   });
                 }
 
+                const invoiceReceiptOrder: ReceiptOrder = {
+                  ...receiptOrder,
+                  items: mergeReceiptItemsWithInvoiceMetadata(
+                    receiptOrder.items,
+                    peppolInvoiceData.items
+                  ),
+                };
                 const pdfBlob = generateReceiptBlob(
-                  receiptOrder,
+                  invoiceReceiptOrder,
                   receiptMerchant,
                   {
+                    buyerReference: peppolInvoiceData.buyer_reference,
                     complianceNote: peppolInvoiceXml
                       ? PEPPOL_BIS_BILLING_COMPLIANCE_NOTE
                       : undefined,
+                    documentDate: peppolInvoiceData.issue_date,
                     documentKind: 'invoice',
+                    dueDate: peppolInvoiceData.due_date,
+                    firsCsid: peppolInvoiceData.firs_csid,
+                    firsIrn: peppolInvoiceData.firs_irn,
+                    invoiceTypeCode: peppolInvoiceData.invoice_type_code,
+                    invoiceNotes: peppolInvoiceData.notes,
                     logoDataUri,
+                    paymentTerms: peppolInvoiceData.payment_terms,
+                    taxSubtotals: peppolInvoiceData.tax_subtotals,
                   }
                 );
                 const arrayBuffer = await pdfBlob.arrayBuffer();
