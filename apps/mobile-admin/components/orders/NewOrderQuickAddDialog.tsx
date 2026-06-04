@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppDialogModal } from '@/components/ui/AppDialogModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
@@ -11,6 +12,7 @@ interface NewOrderQuickAddDialogProps {
 export function NewOrderQuickAddDialog({
   controller,
 }: NewOrderQuickAddDialogProps) {
+  const amountRef = useRef<TextInput>(null);
   const {
     colors,
     customItem,
@@ -46,9 +48,11 @@ export function NewOrderQuickAddDialog({
           This item will not be saved to your product inventory.
         </Text>
         <TextInput
+          blurOnSubmit={false}
           onChangeText={(text) =>
             setCustomItem((previous) => ({ ...previous, name: text }))
           }
+          onSubmitEditing={() => amountRef.current?.focus()}
           placeholder="Item Name (e.g. Red Cake, Delivery)"
           placeholderTextColor={colors.textMuted}
           returnKeyType="next"
@@ -68,6 +72,7 @@ export function NewOrderQuickAddDialog({
           }}
           placeholder="Amount (0.00)"
           placeholderTextColor={colors.textMuted}
+          ref={amountRef}
           returnKeyType="done"
           style={[
             styles.dialogInput,

@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -20,6 +21,9 @@ interface NewOrderCustomerCreateViewProps {
 export function NewOrderCustomerCreateView({
   controller,
 }: NewOrderCustomerCreateViewProps) {
+  const lastNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+
   const {
     colors,
     createCustomerMutation,
@@ -57,9 +61,11 @@ export function NewOrderCustomerCreateView({
         <Text style={{ color: colors.textSecondary }}>Personal Info</Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <TextInput
+            blurOnSubmit={false}
             onChangeText={(text) =>
               setNewCustomer((previous) => ({ ...previous, firstName: text }))
             }
+            onSubmitEditing={() => lastNameRef.current?.focus()}
             placeholder="First Name"
             placeholderTextColor={colors.textMuted}
             returnKeyType="next"
@@ -70,11 +76,14 @@ export function NewOrderCustomerCreateView({
             value={newCustomer.firstName}
           />
           <TextInput
+            blurOnSubmit={false}
             onChangeText={(text) =>
               setNewCustomer((previous) => ({ ...previous, lastName: text }))
             }
+            onSubmitEditing={() => emailRef.current?.focus()}
             placeholder="Last Name"
             placeholderTextColor={colors.textMuted}
+            ref={lastNameRef}
             returnKeyType="next"
             style={[
               styles.sheetInput,
@@ -123,6 +132,7 @@ export function NewOrderCustomerCreateView({
           }
           placeholder="Email Address (Optional)"
           placeholderTextColor={colors.textMuted}
+          ref={emailRef}
           returnKeyType="done"
           style={[
             styles.sheetInput,
