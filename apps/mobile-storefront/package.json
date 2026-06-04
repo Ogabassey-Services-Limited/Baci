@@ -2,6 +2,9 @@
   "name": "@baci/mobile-storefront",
   "main": "index.js",
   "version": "1.0.0",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "start": "NODE_OPTIONS='--no-warnings --import tsx' expo start",
     "android": "NODE_OPTIONS='--no-warnings --import tsx' expo run:android",
