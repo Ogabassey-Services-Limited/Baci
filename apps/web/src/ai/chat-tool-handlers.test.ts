@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  createAdminClient: vi.fn(),
+  createAgenticScopedSupabaseClient: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: mocks.createAdminClient,
+vi.mock('@/lib/agentic/scoped-supabase', () => ({
+  createAgenticScopedSupabaseClient: mocks.createAgenticScopedSupabaseClient,
 }));
 
 import {
@@ -56,7 +56,9 @@ describe('chat tool handlers', () => {
 
   it('restricts product details to active Ogabassey products', async () => {
     const query = createQueryMock();
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     await handleGetProductDetails({ productId: 'product-1' });
 
@@ -67,7 +69,9 @@ describe('chat tool handlers', () => {
 
   it('returns null when scoped product details are missing', async () => {
     const query = createQueryMock({ data: null, error: null });
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     const result = await handleGetProductDetails({ productId: 'product-1' });
 
@@ -79,7 +83,9 @@ describe('chat tool handlers', () => {
       data: null,
       error: new Error('database unavailable'),
     });
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     const result = await handleGetProductDetails({ productId: 'product-1' });
 
@@ -89,7 +95,9 @@ describe('chat tool handlers', () => {
   it('returns null when product detail lookup rejects', async () => {
     const query = createQueryMock();
     query.single.mockRejectedValueOnce(new Error('network unavailable'));
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     const result = await handleGetProductDetails({ productId: 'product-1' });
 
@@ -98,18 +106,27 @@ describe('chat tool handlers', () => {
 
   it('scopes payment status order lookups to the active chat session', async () => {
     const query = createQueryMock();
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     await handleCheckPaymentStatus({ orderId: 'order-1' }, 'session-1');
 
     expect(query.eq).toHaveBeenCalledWith('id', 'order-1');
     expect(query.eq).toHaveBeenCalledWith('merchant_id', OGABASSEY_MERCHANT_ID);
     expect(query.eq).toHaveBeenCalledWith('session_id', 'session-1');
+    expect(mocks.createAgenticScopedSupabaseClient).toHaveBeenCalledWith({
+      merchantId: OGABASSEY_MERCHANT_ID,
+      merchantSlug: 'ogabassey',
+      sessionId: 'session-1',
+    });
   });
 
   it('fails closed when the scoped order lookup has no matching row', async () => {
     const query = createQueryMock({ data: null, error: null });
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     const result = await handleCheckPaymentStatus(
       { orderId: 'order-1' },
@@ -122,7 +139,9 @@ describe('chat tool handlers', () => {
   it('fails closed when the payment status lookup rejects', async () => {
     const query = createQueryMock();
     query.maybeSingle.mockRejectedValueOnce(new Error('network unavailable'));
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     const result = await handleCheckPaymentStatus(
       { orderId: 'order-1' },
@@ -134,7 +153,9 @@ describe('chat tool handlers', () => {
 
   it('scopes payment status email lookups to the active chat session', async () => {
     const query = createQueryMock();
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     await handleCheckPaymentStatus(
       { customerEmail: 'buyer@example.com' },
@@ -163,7 +184,9 @@ describe('chat tool handlers', () => {
       },
       error: null,
     });
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     const result = await handleCheckPaymentStatus(
       { orderId: 'order-1' },
@@ -193,7 +216,9 @@ describe('chat tool handlers', () => {
       },
       error: null,
     });
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
 
     const result = await handleCheckPaymentStatus(
       { orderId: 'order-1' },
@@ -234,7 +259,7 @@ describe('chat tool handlers', () => {
       .fn()
       .mockReturnValueOnce(sourceQuery)
       .mockReturnValueOnce(recommendationQuery);
-    mocks.createAdminClient.mockReturnValue({ from });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({ from });
 
     const result = await handleGetRecommendations({
       productId: 'source-product',
@@ -273,7 +298,9 @@ describe('chat tool handlers', () => {
 
   it('returns no recommendations when the scoped source product is missing', async () => {
     const sourceQuery = createQueryMock({ data: null, error: null });
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => sourceQuery) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => sourceQuery),
+    });
 
     const result = await handleGetRecommendations({
       productId: 'source-product',
@@ -288,7 +315,9 @@ describe('chat tool handlers', () => {
     sourceQuery.maybeSingle.mockRejectedValueOnce(
       new Error('network unavailable')
     );
-    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => sourceQuery) });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => sourceQuery),
+    });
 
     const result = await handleGetRecommendations({
       productId: 'source-product',

@@ -435,6 +435,39 @@ describe('POST /api/chat', () => {
     );
   });
 
+  it('returns a static fallback when Ollama creates a virtual account without an order id', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'createVirtualAccount';
+    ollamaExecutedToolResultBeforeFailure = JSON.stringify({
+      success: true,
+      accountNumber: '1234567890',
+    });
+    ollamaError = new Error('Chat returned an empty completion');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Create payment account' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
+    expect(text).toContain('AI assistant is temporarily busy');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
+      'Chat returned an empty completion'
+    );
+  });
+
   it('falls back to Gemini when a side-effecting Ollama tool only returned a validation error', async () => {
     // Arrange
     ollamaBaseUrl = 'https://ollama.example.com';

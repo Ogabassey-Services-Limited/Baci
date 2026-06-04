@@ -73,12 +73,22 @@ function isSideEffectingOllamaToolCall(call: OllamaToolCall): boolean {
 function didOllamaToolCreateSideEffect(result: string): boolean {
   try {
     const parsed = JSON.parse(result) as unknown;
+    if (typeof parsed !== 'object' || parsed === null) {
+      return false;
+    }
+
+    const maybeResult = parsed as {
+      accountNumber?: unknown;
+      orderId?: unknown;
+      success?: unknown;
+    };
+
     return (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'orderId' in parsed &&
-      typeof parsed.orderId === 'string' &&
-      parsed.orderId.length > 0
+      (typeof maybeResult.orderId === 'string' &&
+        maybeResult.orderId.length > 0) ||
+      (maybeResult.success === true &&
+        typeof maybeResult.accountNumber === 'string' &&
+        maybeResult.accountNumber.length > 0)
     );
   } catch {
     return false;

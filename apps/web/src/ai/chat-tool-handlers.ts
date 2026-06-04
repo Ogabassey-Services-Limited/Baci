@@ -5,7 +5,8 @@
  * These handlers are called when the AI invokes a tool.
  */
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import type {
   AddToCartParams,
   CheckPaymentStatusParams,
@@ -17,6 +18,19 @@ import type {
 
 // Ogabassey merchant ID (hardcoded for now, can be made dynamic)
 const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
+const OGABASSEY_MERCHANT_SLUG = 'ogabassey';
+
+type ChatToolSupabaseClient = Pick<SupabaseClient, 'from'>;
+
+function createChatToolSupabaseClient(
+  sessionId?: string
+): ChatToolSupabaseClient {
+  return createAgenticScopedSupabaseClient({
+    merchantId: OGABASSEY_MERCHANT_ID,
+    merchantSlug: OGABASSEY_MERCHANT_SLUG,
+    sessionId,
+  });
+}
 
 // ============================================
 // SEARCH PRODUCTS
@@ -37,7 +51,7 @@ interface ProductSearchResult {
 export async function handleSearchProducts(
   params: SearchProductsParams
 ): Promise<{ products: ProductSearchResult[]; total: number }> {
-  const supabase = createAdminClient();
+  const supabase = createChatToolSupabaseClient();
 
   let query = supabase
     .from('products')
@@ -103,7 +117,7 @@ export async function handleSearchProducts(
 export async function handleGetProductDetails(
   params: GetProductDetailsParams
 ): Promise<ProductSearchResult | null> {
-  const supabase = createAdminClient();
+  const supabase = createChatToolSupabaseClient();
 
   try {
     const { data, error } = await supabase
@@ -162,7 +176,7 @@ export async function handleCreateVirtualAccount(
   params: CreateVirtualAccountParams,
   sessionId: string
 ): Promise<VirtualAccountResult> {
-  const supabase = createAdminClient();
+  const supabase = createChatToolSupabaseClient(sessionId);
 
   try {
     // 1. Create the chat order first
@@ -183,7 +197,7 @@ export async function handleCreateVirtualAccount(
         subtotal: subtotal,
         status: 'pending_payment',
       })
-      .select()
+      .select('id')
       .single();
 
     if (orderError || !order) {
@@ -236,7 +250,7 @@ export async function handleCheckPaymentStatus(
   params: CheckPaymentStatusParams,
   sessionId: string
 ): Promise<PaymentStatusResult> {
-  const supabase = createAdminClient();
+  const supabase = createChatToolSupabaseClient(sessionId);
 
   try {
     let order: {
@@ -334,7 +348,7 @@ export async function handleCheckPaymentStatus(
 export async function handleGetRecommendations(
   params: GetRecommendationsParams
 ): Promise<ProductSearchResult[]> {
-  const supabase = createAdminClient();
+  const supabase = createChatToolSupabaseClient();
 
   try {
     // First get the source product
