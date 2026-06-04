@@ -11,6 +11,9 @@ let generateTextResult = { text: 'AI response' };
 let generateTextError: Error | null = null;
 let ollamaBaseUrl: string | undefined;
 let ollamaBasicAuth: string | undefined;
+let ollamaExecutedToolNameBeforeFailure: string | null = null;
+let ollamaExecutedToolResultBeforeFailure: string | null = null;
+let ollamaExecuteDuplicateVirtualAccount = false;
 let ollamaError: Error | null = null;
 let ollamaStreamError: Error | null = null;
 let ollamaResponseText = 'Gemma response';
@@ -90,35 +93,89 @@ vi.mock('@/lib/llm-chat', () => ({
   }),
 }));
 
-vi.mock('@/lib/ollama-chat', () => ({
-  createOllamaChatResponse: vi.fn(() => {
-    if (ollamaError) {
-      return Promise.reject(ollamaError);
-    }
-
-    if (ollamaStreamError) {
-      const streamError = ollamaStreamError;
-
-      return Promise.resolve(
-        new Response(
-          new ReadableStream<Uint8Array>({
-            start(controller) {
-              controller.error(streamError);
+vi.mock('@/lib/ollama-agentic-chat', () => ({
+  createOllamaAgenticChatResponse: vi.fn(
+    async (options: {
+      executeToolCall: (call: {
+        function: { name: string; arguments?: unknown };
+      }) => Promise<string>;
+      onToolExecuted?: (
+        call: { function: { name: string } },
+        result: string
+      ) => void;
+    }) => {
+      if (ollamaExecuteDuplicateVirtualAccount) {
+        const call = {
+          function: {
+            name: 'createVirtualAccount',
+            arguments: {
+              amount: 50_000,
+              customerEmail: 'buyer@example.com',
+              customerName: 'Buyer',
+              items: [
+                {
+                  productId: 'p1',
+                  name: 'iPhone 11',
+                  price: 50_000,
+                  quantity: 1,
+                },
+              ],
             },
+          },
+        };
+        const firstResult = await options.executeToolCall(call);
+        options.onToolExecuted?.(call, firstResult);
+        const secondResult = await options.executeToolCall(call);
+        options.onToolExecuted?.(call, secondResult);
+
+        return new Response(
+          JSON.stringify({
+            firstResult: JSON.parse(firstResult),
+            secondResult: JSON.parse(secondResult),
           }),
           {
             headers: { 'Content-Type': 'text/plain; charset=utf-8' },
           }
-        )
+        );
+      }
+
+      if (ollamaExecutedToolNameBeforeFailure) {
+        options.onToolExecuted?.(
+          {
+            function: { name: ollamaExecutedToolNameBeforeFailure },
+          },
+          ollamaExecutedToolResultBeforeFailure ?? JSON.stringify({})
+        );
+      }
+
+      if (ollamaError) {
+        return Promise.reject(ollamaError);
+      }
+
+      if (ollamaStreamError) {
+        const streamError = ollamaStreamError;
+
+        return Promise.resolve(
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.error(streamError);
+              },
+            }),
+            {
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            }
+          )
+        );
+      }
+
+      return Promise.resolve(
+        new Response(ollamaResponseText, {
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        })
       );
     }
-
-    return Promise.resolve(
-      new Response(ollamaResponseText, {
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      })
-    );
-  }),
+  ),
 }));
 
 vi.mock('@/ai/chat-tool-handlers', () => ({
@@ -153,9 +210,11 @@ vi.mock('@/lib/sanitize', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
+import { handleCreateVirtualAccount } from '@/ai/chat-tool-handlers';
+import { createVirtualAccountSchema } from '@/ai/chat-tools';
 import { getAiChatModel } from '@/env';
 import { createLlmChatResponse } from '@/lib/llm-chat';
-import { createOllamaChatResponse } from '@/lib/ollama-chat';
+import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { POST } from './route';
 
@@ -204,6 +263,9 @@ describe('POST /api/chat', () => {
     generateTextError = null;
     ollamaBaseUrl = undefined;
     ollamaBasicAuth = undefined;
+    ollamaExecutedToolNameBeforeFailure = null;
+    ollamaExecutedToolResultBeforeFailure = null;
+    ollamaExecuteDuplicateVirtualAccount = false;
     ollamaError = null;
     ollamaStreamError = null;
     ollamaResponseText = 'Gemma response';
@@ -265,6 +327,21 @@ describe('POST /api/chat', () => {
     expect(json.error).toBe('Invalid input');
   });
 
+  it('returns 400 for an invalid browser session id', async () => {
+    // Act
+    const response = await POST(
+      makeRequest({
+        sessionId: 'bad session',
+        messages: [{ role: 'user', content: 'Hi' }],
+      })
+    );
+    const json = await response.json();
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(json.error).toBe('Invalid input');
+  });
+
   it('returns 200 with text/plain response on success', async () => {
     // Act
     const response = await POST(
@@ -296,14 +373,27 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('Gemma response');
-    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         baseUrl: 'https://ollama.example.com',
         model: 'gemma4:e4b',
+        tools: expect.arrayContaining([
+          expect.objectContaining({
+            function: expect.objectContaining({ name: 'searchProducts' }),
+          }),
+          expect.objectContaining({
+            function: expect.objectContaining({ name: 'createVirtualAccount' }),
+          }),
+        ]),
+        executeToolCall: expect.any(Function),
         messages: expect.arrayContaining([
           expect.objectContaining({
             role: 'system',
             content: expect.stringContaining('VPS-hosted gemma4:e4b'),
+          }),
+          expect.objectContaining({
+            role: 'system',
+            content: expect.stringContaining('commerce tools'),
           }),
           expect.objectContaining({
             role: 'user',
@@ -333,7 +423,7 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('AI response');
     expect(createLlmChatResponse).not.toHaveBeenCalled();
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).toHaveBeenCalledOnce();
   });
 
@@ -356,8 +446,8 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(text).toBe('AI response');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
-    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         timeoutMs: 60_000,
       })
@@ -366,6 +456,177 @@ describe('POST /api/chat', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
       'Ollama unavailable'
+    );
+  });
+
+  it('returns a static fallback when Ollama fails after a side-effecting tool executes', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'createVirtualAccount';
+    ollamaExecutedToolResultBeforeFailure = JSON.stringify({
+      success: false,
+      orderId: 'order-1',
+    });
+    ollamaError = new Error('Chat returned an empty completion');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Create payment account' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
+    expect(text).toContain('AI assistant is temporarily busy');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
+      'Chat returned an empty completion'
+    );
+  });
+
+  it('returns a static fallback when Ollama creates a virtual account without an order id', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'createVirtualAccount';
+    ollamaExecutedToolResultBeforeFailure = JSON.stringify({
+      success: true,
+      accountNumber: '1234567890',
+    });
+    ollamaError = new Error('Chat returned an empty completion');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Create payment account' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
+    expect(text).toContain('AI assistant is temporarily busy');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
+      'Chat returned an empty completion'
+    );
+  });
+
+  it('blocks repeated side-effecting Ollama tool execution after an order is created', async () => {
+    // Arrange
+    const args = {
+      amount: 50_000,
+      customerEmail: 'buyer@example.com',
+      customerName: 'Buyer',
+      items: [
+        { productId: 'p1', name: 'iPhone 11', price: 50_000, quantity: 1 },
+      ],
+    };
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecuteDuplicateVirtualAccount = true;
+    vi.mocked(createVirtualAccountSchema.parse).mockReturnValue(args);
+    vi.mocked(handleCreateVirtualAccount).mockResolvedValue({
+      success: false,
+      orderId: 'order-1',
+    });
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        sessionId: 'og_chat_customer_session_1234',
+        messages: [{ role: 'user', content: 'Create payment account' }],
+      })
+    );
+    const text = await response.text();
+    const result = JSON.parse(text);
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(handleCreateVirtualAccount).toHaveBeenCalledTimes(1);
+    expect(handleCreateVirtualAccount).toHaveBeenCalledWith(
+      args,
+      'og_chat_customer_session_1234'
+    );
+    expect(result.firstResult).toEqual({
+      success: false,
+      orderId: 'order-1',
+    });
+    expect(result.secondResult).toEqual({
+      error:
+        'createVirtualAccount already created an order in this chat turn. Use the existing tool result instead of creating another order.',
+    });
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('falls back to Gemini when a side-effecting Ollama tool only returned a validation error', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'createVirtualAccount';
+    ollamaExecutedToolResultBeforeFailure = JSON.stringify({
+      error: 'Invalid tool arguments',
+    });
+    ollamaError = new Error('Chat returned an empty completion');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Create payment account' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Chat returned an empty completion'
+    );
+  });
+
+  it('still falls back to Gemini when Ollama fails after a read-only tool executes', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'searchProducts';
+    ollamaError = new Error('Ollama unavailable after search');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Ollama unavailable after search'
     );
   });
 
@@ -396,7 +657,7 @@ describe('POST /api/chat', () => {
     );
     expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
     expect(text).toContain('AI assistant is temporarily busy');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
@@ -427,7 +688,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(500);
     expect(json.error).toBe('Internal server error');
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -450,7 +711,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(499);
     expect(json.error).toBe('Client Closed Request');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -475,7 +736,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(text).toBe('AI response');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
@@ -504,7 +765,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(text).toBe('AI response');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
@@ -531,7 +792,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(text).toBe('AI response');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
@@ -553,7 +814,7 @@ describe('POST /api/chat', () => {
 
     // Assert
     expect(response.status).toBe(200);
-    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         basicAuth: 'user:password',
       })
@@ -707,13 +968,20 @@ describe('POST /api/chat', () => {
             content: expect.stringContaining('VPS-hosted gemma-4-e4b'),
           }),
           expect.objectContaining({
+            role: 'system',
+            content: expect.stringContaining('cannot access live inventory'),
+          }),
+          expect.objectContaining({
             role: 'user',
             content: 'Show me phones',
           }),
         ]),
       })
     );
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    const llmMessages = vi.mocked(createLlmChatResponse).mock.calls[0]?.[0]
+      .messages;
+    expect(llmMessages?.[0]?.content).not.toContain('commerce tools');
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -731,7 +999,7 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('LLM response');
     expect(createLlmChatResponse).toHaveBeenCalledOnce();
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
   });
 
   it('uses Ollama when explicitly configured even if the LLM server is present', async () => {
@@ -749,7 +1017,7 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('Gemma response');
     expect(createLlmChatResponse).not.toHaveBeenCalled();
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -892,7 +1160,7 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('AI response');
     expect(createLlmChatResponse).toHaveBeenCalledOnce();
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).toHaveBeenCalledOnce();
   });
 });

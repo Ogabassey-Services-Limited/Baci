@@ -146,6 +146,22 @@ describe('createAgenticScopedSupabaseClient', () => {
     });
   });
 
+  it('includes a trimmed session claim when a scoped chat session is provided', () => {
+    createAgenticScopedSupabaseClient({
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      merchantSlug: 'ogabassey',
+      sessionId: '  session-1  ',
+      now: new Date('2026-04-30T10:00:00.000Z'),
+    });
+
+    const { payload } = decodeJwtFromAuthHeader(getAuthorizationHeader());
+
+    expect(payload).toMatchObject({
+      agentic_merchant_id: '00000000-0000-4000-8000-000000000001',
+      agentic_session_id: 'session-1',
+    });
+  });
+
   it.each([
     { merchantId: '', merchantSlug: 'ogabassey' },
     { merchantId: '00000000-0000-4000-8000-000000000001', merchantSlug: '' },
