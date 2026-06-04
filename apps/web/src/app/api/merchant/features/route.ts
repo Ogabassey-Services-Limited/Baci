@@ -21,7 +21,7 @@ import { merchantFeatureSettingsPatchSchema } from '@/schemas/merchant-features'
  */
 
 export interface MerchantFeatureSettings {
-  id: string;
+  id: string | null;
   merchant_id: string;
 
   // Feature toggles
@@ -113,8 +113,8 @@ export interface MerchantFeatureSettings {
   // Custom
   custom_settings: Record<string, unknown>;
 
-  created_at: string;
-  updated_at: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const PRIVATE_NO_STORE_HEADERS = {
@@ -243,9 +243,50 @@ type _MerchantFeatureSelectFieldsExhaustive =
 const _merchantFeatureSelectCompletenessCheck: _MerchantFeatureSelectFieldsExhaustive = true;
 void _merchantFeatureSelectCompletenessCheck;
 
-// Default settings for new merchants
-const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> =
-  merchantFeatureSettingsDefaults.buildFields() as Partial<MerchantFeatureSettings>;
+type MerchantFeatureDefaultField = Exclude<
+  keyof MerchantFeatureSettings,
+  'id' | 'merchant_id' | 'created_at' | 'updated_at'
+>;
+
+// Default settings for new merchants. The shared defaults object intentionally
+// has no persisted metadata columns, so this route adds null response metadata
+// on the read-only no-row path below.
+const DEFAULT_SETTINGS =
+  merchantFeatureSettingsDefaults.buildFields() as Record<
+    MerchantFeatureDefaultField,
+    unknown
+  >;
+
+function getDefaultFeatureSetting(field: MerchantFeatureDefaultField) {
+  const value = DEFAULT_SETTINGS[field];
+  if (value === undefined) {
+    throw new Error(`Missing default merchant feature setting: ${field}`);
+  }
+
+  return value;
+}
+
+function buildReadOnlyDefaultSettings(
+  merchantId: string
+): MerchantFeatureSettings {
+  const settings: Record<string, unknown> = {};
+
+  for (const field of MERCHANT_FEATURE_SELECT_FIELDS) {
+    if (field === 'id' || field === 'created_at' || field === 'updated_at') {
+      settings[field] = null;
+      continue;
+    }
+
+    if (field === 'merchant_id') {
+      settings[field] = merchantId;
+      continue;
+    }
+
+    settings[field] = getDefaultFeatureSetting(field);
+  }
+
+  return settings as unknown as MerchantFeatureSettings;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -279,13 +320,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (!error && !settings) {
-      return jsonNoStore(
-        merchantFeatureSettingsDefaults.buildDefault(
-          access.merchantId
-        ) as Partial<MerchantFeatureSettings> & {
-          merchant_id: string;
-        }
-      );
+      return jsonNoStore(buildReadOnlyDefaultSettings(access.merchantId));
     }
 
     if (error) {

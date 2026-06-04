@@ -2935,18 +2935,29 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       },
     ],
     orderItemsError = null,
+    orderItemsResponses,
     reminderError = null,
   }: {
     accountError?: unknown;
     orderItems?: unknown[];
     orderItemsError?: unknown;
+    orderItemsResponses?: Array<{ data: unknown[]; error: unknown }>;
     reminderError?: unknown;
   } = {}) {
     const accountUpsert = vi.fn().mockResolvedValue({ error: accountError });
     const reminderInsert = vi.fn().mockResolvedValue({ error: reminderError });
-    const orderItemsOrder = vi.fn().mockResolvedValue({
-      data: orderItems,
-      error: orderItemsError,
+    const orderItemReadResponses = orderItemsResponses ?? [
+      {
+        data: orderItems,
+        error: orderItemsError,
+      },
+    ];
+    const orderItemsOrder = vi.fn().mockImplementation(() => {
+      const responseIndex = Math.min(
+        orderItemsOrder.mock.calls.length - 1,
+        orderItemReadResponses.length - 1
+      );
+      return Promise.resolve(orderItemReadResponses[responseIndex]);
     });
     const orderItemsQuery = {
       select: vi.fn(() => orderItemsQuery),
@@ -3002,8 +3013,36 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
 
   it('generates a branded PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
     const supabase = buildMockSupabase();
-    const { accountUpsert, backgroundSupabase } =
-      createBackgroundSupabaseMock();
+    const { accountUpsert, backgroundSupabase, orderItemsOrder } =
+      createBackgroundSupabaseMock({
+        orderItemsResponses: [
+          { data: [], error: null },
+          {
+            data: [
+              {
+                id: 'order-item-1',
+                product_id: 'p-1',
+                variant_id: null,
+                variant_attributes: null,
+                variant_name: null,
+                name: 'Widget',
+                quantity: 1,
+                price: 1000,
+                has_assurance: true,
+                assurance_fee: 50,
+                item_description: null,
+                line_extension_amount: 1050,
+                vat_category_code: 'S',
+                vat_rate: 7.5,
+                vat_amount: 0,
+                sellers_item_id: null,
+                unit_code: 'EA',
+              },
+            ],
+            error: null,
+          },
+        ],
+      });
     mockCreateAdminClient.mockReturnValue(backgroundSupabase);
 
     supabase.from = vi.fn((_table: string) => {
@@ -3079,6 +3118,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
       timeout: 1000,
     });
+    expect(orderItemsOrder).toHaveBeenCalledTimes(2);
 
     // Assert sendEmail was called with the branded invoice attachment. The
     // checkout payload does not currently collect a buyer Peppol endpoint, so

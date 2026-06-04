@@ -35,6 +35,7 @@ import {
   SUPPORTED_CURRENCIES,
 } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import {
   calculatePlatformFee as calculatePaystackFee,
   initializeTransaction as initializePaystackPayment,
@@ -67,14 +68,16 @@ interface GatewaySettings {
   preferred_international_gateway: PreferredGateway;
 }
 
+const defaultFeatureSettings = merchantFeatureSettingsDefaults.buildFields();
 const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
-  paystack_enabled: true,
-  korapay_enabled: false,
-  klump_enabled: false,
-  klump_min_amount: 10_000,
-  klump_max_amount: 500_000,
-  preferred_local_gateway: 'paystack',
-  preferred_international_gateway: 'korapay',
+  paystack_enabled: defaultFeatureSettings.paystack_enabled,
+  korapay_enabled: defaultFeatureSettings.korapay_enabled,
+  klump_enabled: defaultFeatureSettings.klump_enabled,
+  klump_min_amount: defaultFeatureSettings.klump_min_amount,
+  klump_max_amount: defaultFeatureSettings.klump_max_amount,
+  preferred_local_gateway: defaultFeatureSettings.preferred_local_gateway,
+  preferred_international_gateway:
+    defaultFeatureSettings.preferred_international_gateway,
 };
 
 // =============================================================================

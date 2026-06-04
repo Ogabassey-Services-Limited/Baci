@@ -41,6 +41,18 @@ describe('merchant feature settings defaults', () => {
     expect(first.shipping_providers).not.toBe(second.shipping_providers);
     expect(first.custom_settings).toEqual({});
     expect(first.custom_settings).not.toBe(second.custom_settings);
+
+    const firstPublic =
+      merchantFeatureSettingsDefaults.buildPublicDefault('merchant-1');
+    const secondPublic =
+      merchantFeatureSettingsDefaults.buildPublicDefault('merchant-1');
+
+    expect(firstPublic.shipping_providers).toEqual(['gigl', 'topship']);
+    expect(firstPublic.shipping_providers).not.toBe(
+      secondPublic.shipping_providers
+    );
+    expect(firstPublic.custom_settings).toEqual({});
+    expect(firstPublic.custom_settings).not.toBe(secondPublic.custom_settings);
   });
 
   it('keeps every public default key backed by the shared default object', () => {

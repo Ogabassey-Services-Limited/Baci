@@ -251,6 +251,7 @@ describe('GET /api/merchant/features', () => {
 
     expect(response.status).toBe(200);
     expect(data).toMatchObject({
+      id: null,
       merchant_id: MERCHANT_ID,
       agentic_checkout_enabled: true,
       klump_enabled: false,
@@ -258,7 +259,12 @@ describe('GET /api/merchant/features', () => {
       klump_max_amount: 500000,
       vtu_customer_cashback_enabled: false,
       vtu_customer_cashback_rate: 50,
+      created_at: null,
+      updated_at: null,
     });
+    expect(data).not.toHaveProperty('blog_discover_image_validation_enabled');
+    expect(data).not.toHaveProperty('juicyway_enabled');
+    expect(data).not.toHaveProperty('wallet_order_auto_debit_enabled');
     expect(data).not.toHaveProperty('offline_conversions_enabled');
   });
 

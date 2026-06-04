@@ -464,7 +464,18 @@ async function loadPersistedInvoiceOrderItems({
       .order('line_id', { ascending: true });
 
     if (!error) {
-      return normalizePersistedInvoiceOrderItems(data);
+      const normalizedItems = normalizePersistedInvoiceOrderItems(data);
+      if (normalizedItems) {
+        return normalizedItems;
+      }
+
+      lastError = new Error('Persisted invoice items not visible yet');
+      if (attempt < PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS) {
+        await delayPersistedInvoiceItemRetry(attempt);
+        continue;
+      }
+
+      return null;
     }
 
     lastError = error;
