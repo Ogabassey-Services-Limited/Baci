@@ -251,7 +251,6 @@ jobs:
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           tracks: production
           status: completed
-          changesNotSentForReview: true
 
       - name: Clean up keystore
         if: always()
