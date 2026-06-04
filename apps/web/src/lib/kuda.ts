@@ -14,7 +14,7 @@ import {
   normalizeKudaString,
 } from '@/lib/kuda-voucher-token';
 import {
-  getVtuCommissionRate,
+  getKudaVtuCommissionRate,
   VTU_COMMISSION_RATES,
   type VtuCommissionCategory,
 } from '@/lib/vtu-commission-rates';
@@ -1171,7 +1171,7 @@ export function getCommissionRate(
   provider: string,
   category: VtuCommissionCategory = 'AIRTIME'
 ): { rate: number; cap?: number } {
-  return getVtuCommissionRate(provider, category);
+  return getKudaVtuCommissionRate(provider, category);
 }
 
 /**

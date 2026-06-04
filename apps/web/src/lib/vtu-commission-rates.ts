@@ -35,12 +35,12 @@ const VTU_COMMISSION_CATEGORY_ALIASES: Record<string, VtuCommissionCategory> = {
 export const KUDA_VTU_RATES: Record<string, VtuCommissionRate> = {
   MTN_AIRTIME: { rate: 0.03 },
   AIRTEL_AIRTIME: { rate: 0.03 },
-  GLO_AIRTIME: { rate: 0.04 },
-  '9MOBILE_AIRTIME': { rate: 0.05 },
+  GLO_AIRTIME: { rate: 0.05 },
+  '9MOBILE_AIRTIME': { rate: 0.045 },
   MTN_DATA: { rate: 0.03 },
   AIRTEL_DATA: { rate: 0.03 },
-  GLO_DATA: { rate: 0.04 },
-  '9MOBILE_DATA': { rate: 0.05 },
+  GLO_DATA: { rate: 0.05 },
+  '9MOBILE_DATA': { rate: 0.045 },
   BEDC_ELECTRICITY: { rate: 0.012 },
   IKEDC_ELECTRICITY: { rate: 0.008 },
   AEDC_ELECTRICITY: { rate: 0.012 },
@@ -62,6 +62,7 @@ export const KUDA_VTU_RATES: Record<string, VtuCommissionRate> = {
   NAIRABET_BETTING: { rate: 0.002 },
   '1XBET_BETTING': { rate: 0.002 },
   BETWAY_BETTING: { rate: 0.002 },
+  BETPAWA_BETTING: { rate: 0.007 },
   BETKING_BETTING: { rate: 0.005, cap: 800 },
   MERRYBET_BETTING: { rate: 0.001 },
   BANGBET_BETTING: { rate: 0.004 },
@@ -90,12 +91,12 @@ export const KUDA_VTU_RATES: Record<string, VtuCommissionRate> = {
 export const MONNIFY_VTU_RATES: Record<string, VtuCommissionRate> = {
   MTN_AIRTIME: { rate: 0.03 },
   AIRTEL_AIRTIME: { rate: 0.03 },
-  GLO_AIRTIME: { rate: 0.05 },
-  '9MOBILE_AIRTIME': { rate: 0.045 },
+  GLO_AIRTIME: { rate: 0.04 },
+  '9MOBILE_AIRTIME': { rate: 0.05 },
   MTN_DATA: { rate: 0.03 },
   AIRTEL_DATA: { rate: 0.03 },
-  GLO_DATA: { rate: 0.05 },
-  '9MOBILE_DATA': { rate: 0.045 },
+  GLO_DATA: { rate: 0.04 },
+  '9MOBILE_DATA': { rate: 0.05 },
   BEDC_ELECTRICITY: { rate: 0.018 },
   IKEDC_ELECTRICITY: { rate: 0.008 },
   AEDC_ELECTRICITY: { rate: 0.015 },
@@ -341,6 +342,20 @@ export function getVtuCommissionRate(
     VTU_COMMISSION_RATES[`${providerKey}_${normalizedCategory}`] ??
     VTU_COMMISSION_RATES[providerKey] ??
     VTU_COMMISSION_RATES.DEFAULT;
+
+  return { ...rate };
+}
+
+export function getKudaVtuCommissionRate(
+  provider: unknown,
+  category: unknown = 'AIRTIME'
+): VtuCommissionRate {
+  const normalizedCategory = normalizeVtuCommissionCategory(category);
+  const providerKey = resolveProviderRateKey(provider, normalizedCategory);
+  const key = `${providerKey}_${normalizedCategory}`;
+
+  const rate = KUDA_VTU_RATES[key] ??
+    KUDA_VTU_RATES[providerKey] ?? { rate: 0.02 };
 
   return { ...rate };
 }
