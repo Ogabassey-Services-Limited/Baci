@@ -1695,6 +1695,66 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
     expect(response.status).toBe(400);
     expect(body.details).toContain('order_total_mismatch');
   });
+
+  it('server-computes quantity-aware assurance_fee and forwards it to the RPC', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1000000,
+          subtotal: 1000000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 2,
+            price: 333.33,
+            name: 'Widget',
+            has_assurance: true,
+          },
+        ],
+        expected_total: 666.66,
+        client_total: 666.66,
+      }),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_items: [
+          expect.objectContaining({
+            product_id: 'p-1',
+            quantity: 2,
+            price: 333.33,
+            has_assurance: true,
+            assurance_fee: 33.33, // (333.33 * 2) * 0.05 rounded to 2 decimals
+          }),
+        ],
+      })
+    );
+  });
 });
 
 describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
@@ -2853,67 +2913,65 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
 describe('POST /api/orders — invoice payment method email attachment', () => {
   function createBackgroundSupabaseMock({
     accountError = null,
-    persistedOrder = {
-      ...baseOrderRow,
-      amount_paid: 0,
-      created_at: '2026-06-03T00:00:00.000Z',
-      currency: 'NGN',
-      customer_email: 'customer@example.com',
-      customer_name: 'Test Customer',
-      customer_phone: '08012345678',
-      order_items: [
-        {
-          id: 'saved-line-1',
-          name: 'Saved Canonical Phone',
-          price: 1800,
-          product_id: 'p-1',
-          quantity: 2,
-          variant_name: '256GB',
-        },
-      ],
-      payment_status: 'unpaid',
-      shipping_address: {
-        address_line1: 'Persisted Street',
-        city: 'Ikeja',
-        country: 'NG',
-        state: 'Lagos',
+    orderItems = [
+      {
+        id: 'order-item-1',
+        product_id: 'p-1',
+        variant_id: null,
+        variant_attributes: null,
+        variant_name: null,
+        name: 'Widget',
+        quantity: 1,
+        price: 1000,
+        has_assurance: true,
+        assurance_fee: 50,
+        item_description: null,
+        line_extension_amount: 1050,
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+        vat_amount: 0,
+        sellers_item_id: null,
+        unit_code: 'EA',
       },
-      subtotal: 3600,
-      total: 3600,
-    },
+    ],
+    orderItemsError = null,
+    orderItemsResponses,
     reminderError = null,
   }: {
     accountError?: unknown;
-    persistedOrder?: unknown;
+    orderItems?: unknown[];
+    orderItemsError?: unknown;
+    orderItemsResponses?: Array<{ data: unknown[]; error: unknown }>;
     reminderError?: unknown;
   } = {}) {
-    const accountInsert = vi.fn().mockResolvedValue({ error: accountError });
+    const accountUpsert = vi.fn().mockResolvedValue({ error: accountError });
     const reminderInsert = vi.fn().mockResolvedValue({ error: reminderError });
-    const orderMaybeSingle = vi.fn().mockResolvedValue({
-      data: persistedOrder,
-      error: null,
+    const orderItemReadResponses = orderItemsResponses ?? [
+      {
+        data: orderItems,
+        error: orderItemsError,
+      },
+    ];
+    const orderItemsOrder = vi.fn().mockImplementation(() => {
+      const responseIndex = Math.min(
+        orderItemsOrder.mock.calls.length - 1,
+        orderItemReadResponses.length - 1
+      );
+      return Promise.resolve(orderItemReadResponses[responseIndex]);
     });
-    const orderEq = vi.fn((column: string, value: string) => {
-      if (column !== 'id' || value !== 'order-id') {
-        return {
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: `Unexpected order lookup: ${column}=${value}` },
-          }),
-        };
-      }
-
-      return { maybeSingle: orderMaybeSingle };
-    });
-    const orderSelect = vi.fn(() => ({ eq: orderEq }));
+    const orderItemsQuery = {
+      select: vi.fn(() => orderItemsQuery),
+      eq: vi.fn(() => orderItemsQuery),
+      order: orderItemsOrder,
+    };
     const backgroundSupabase = {
       from: vi.fn((table: string) => {
-        if (table === 'orders') {
-          return { select: orderSelect };
+        if (table === 'order_items') {
+          return orderItemsQuery;
         }
 
         if (table === 'order_payment_accounts') {
-          return { insert: accountInsert };
+          return { upsert: accountUpsert };
         }
 
         if (table === 'order_reminders') {
@@ -2927,11 +2985,10 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     };
 
     return {
-      accountInsert,
+      accountUpsert,
       backgroundSupabase,
-      orderEq,
-      orderMaybeSingle,
-      orderSelect,
+      orderItemsOrder,
+      orderItemsQuery,
       reminderInsert,
     };
   }
@@ -2956,7 +3013,36 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
 
   it('generates a branded PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
     const supabase = buildMockSupabase();
-    const { backgroundSupabase } = createBackgroundSupabaseMock();
+    const { accountUpsert, backgroundSupabase, orderItemsOrder } =
+      createBackgroundSupabaseMock({
+        orderItemsResponses: [
+          { data: [], error: null },
+          {
+            data: [
+              {
+                id: 'order-item-1',
+                product_id: 'p-1',
+                variant_id: null,
+                variant_attributes: null,
+                variant_name: null,
+                name: 'Widget',
+                quantity: 1,
+                price: 1000,
+                has_assurance: true,
+                assurance_fee: 50,
+                item_description: null,
+                line_extension_amount: 1050,
+                vat_category_code: 'S',
+                vat_rate: 7.5,
+                vat_amount: 0,
+                sellers_item_id: null,
+                unit_code: 'EA',
+              },
+            ],
+            error: null,
+          },
+        ],
+      });
     mockCreateAdminClient.mockReturnValue(backgroundSupabase);
 
     supabase.from = vi.fn((_table: string) => {
@@ -3015,6 +3101,12 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       method: 'POST',
       body: JSON.stringify({
         ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            has_assurance: true,
+          },
+        ],
         payment_method: 'invoice',
       }),
     });
@@ -3026,24 +3118,22 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
       timeout: 1000,
     });
+    expect(orderItemsOrder).toHaveBeenCalledTimes(2);
 
-    // Assert sendEmail was called with the invoice attachment
+    // Assert sendEmail was called with the branded invoice attachment. The
+    // checkout payload does not currently collect a buyer Peppol endpoint, so
+    // XML/compliance text is intentionally withheld for this fixture.
     expect(mockSendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'customer@example.com',
         subject: expect.stringContaining('Invoice Generated'),
-        attachments: expect.arrayContaining([
+        attachments: [
           expect.objectContaining({
             name: expect.stringMatching(/^invoice-ORD-.*\.pdf$/),
             mime_type: 'application/pdf',
             content: expect.any(String), // base64 string
           }),
-          expect.objectContaining({
-            name: expect.stringMatching(/^invoice-ORD-.*\.xml$/),
-            mime_type: 'application/xml',
-            content: expect.any(String),
-          }),
-        ]),
+        ],
       })
     );
 
@@ -3059,20 +3149,8 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     );
     expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
       expect.objectContaining({
-        items: [
-          expect.objectContaining({
-            price: 1800,
-            product_name: 'Saved Canonical Phone',
-            quantity: 2,
-            variant_name: '256GB',
-          }),
-        ],
         order_number: 'ORD-123',
         payment_status: 'unpaid',
-        shipping_address: expect.objectContaining({
-          address_line1: 'Persisted Street',
-        }),
-        total: 3600,
         virtual_account: expect.objectContaining({
           account_number: '1234567890',
           bank_name: 'Wema Bank',
@@ -3083,24 +3161,270 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         vat_registration_status: 'registered',
       }),
       expect.objectContaining({
-        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
+        complianceNote: undefined,
         documentKind: 'invoice',
+        invoiceNotes: undefined,
         logoDataUri: 'data:image/png;base64,AA==',
+        paymentTerms: undefined,
+        taxSubtotals: expect.any(Array),
       })
     );
+    const lastReceiptBlobCall = mockGenerateReceiptBlob.mock.calls.at(
+      -1
+    ) as unknown as [
+      unknown,
+      unknown,
+      {
+        documentDate: Date;
+        dueDate: Date;
+      },
+    ];
+    const pdfOptions = lastReceiptBlobCall[2];
+    const receiptOrder = lastReceiptBlobCall[0] as {
+      items?: Array<{
+        description?: string;
+        line_extension_amount?: number;
+      }>;
+    };
+    expect(receiptOrder.items?.[0]).toMatchObject({
+      description: expect.stringContaining('Includes device assurance fee'),
+      line_extension_amount: 1050,
+    });
+    expect(pdfOptions.documentDate).toBeInstanceOf(Date);
+    expect(pdfOptions.dueDate).toBeInstanceOf(Date);
+    expect(pdfOptions.dueDate.getTime()).toBe(
+      pdfOptions.documentDate.getTime() + 14 * 24 * 60 * 60 * 1000
+    );
 
-    // Assert the auto-generated DVA was persisted in the order_payment_accounts table
+    // Assert the auto-generated DVA was persisted with the shared upsert/expiry contract.
     expect(backgroundSupabase.from).toHaveBeenCalledWith(
       'order_payment_accounts'
     );
-    expect(backgroundSupabase.from).toHaveBeenCalledWith('orders');
+    expect(accountUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_id: 'order-id',
+        account_number: '1234567890',
+        bank_name: 'Wema Bank',
+        account_name: 'OgaBassey-Test',
+        provider: 'paystack',
+        expires_at: expect.any(String),
+      }),
+      { onConflict: 'order_id,provider' }
+    );
+    expect(
+      Date.parse(
+        (accountUpsert.mock.calls[0]?.[0] as { expires_at: string }).expires_at
+      )
+    ).toBe(pdfOptions.dueDate.getTime());
     expect(backgroundSupabase.from).toHaveBeenCalledWith('order_reminders');
     expect(supabase.from).not.toHaveBeenCalledWith('order_payment_accounts');
   });
 
-  it('sends the invoice email with fallback branding when invoice logo resolution fails', async () => {
+  it('still sends the base invoice email when attachment generation cannot load persisted items', async () => {
     const supabase = buildMockSupabase();
-    const { backgroundSupabase, orderEq } = createBackgroundSupabaseMock();
+    const { backgroundSupabase } = createBackgroundSupabaseMock({
+      orderItems: [],
+      orderItemsError: { message: 'order_items unavailable' },
+    });
+    mockCreateAdminClient.mockReturnValue(backgroundSupabase);
+
+    supabase.from = vi.fn((_table: string) => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      in: vi.fn().mockReturnThis(),
+      returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: vi.fn().mockReturnThis(),
+      // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
+      then: (resolve: any) => Promise.resolve().then(resolve),
+    })) as any;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        payment_method: 'invoice',
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+    expect(mockGenerateReceiptBlob).not.toHaveBeenCalled();
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'customer@example.com',
+        subject: expect.stringContaining('Invoice Generated'),
+        attachments: undefined,
+      })
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to generate invoice PDF or log initial reminder',
+        orderId: 'order-id',
+      })
+    );
+  });
+
+  it('renders invoice attachments from persisted canonical order items', async () => {
+    const supabase = buildMockSupabase();
+    const { backgroundSupabase } = createBackgroundSupabaseMock({
+      orderItems: [
+        {
+          id: 'order-item-1',
+          product_id: 'p-1',
+          variant_id: null,
+          variant_attributes: null,
+          variant_name: 'Matte Black',
+          name: 'Canonical Widget',
+          quantity: 1,
+          price: 1250,
+          has_assurance: false,
+          assurance_fee: 0,
+          item_description: null,
+          line_extension_amount: 1250,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+          vat_amount: 0,
+          sellers_item_id: 'SKU-CANONICAL',
+          unit_code: 'EA',
+        },
+      ],
+    });
+    mockCreateAdminClient.mockReturnValue(backgroundSupabase);
+
+    supabase.from = vi.fn((_table: string) => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      in: vi.fn().mockReturnThis(),
+      returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: vi.fn().mockReturnThis(),
+      // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
+      then: (resolve: any) => Promise.resolve().then(resolve),
+    })) as any;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            name: 'Client Supplied Widget',
+            price: 999,
+          },
+        ],
+        payment_method: 'invoice',
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+
+    await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+
+    expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            product_name: 'Canonical Widget',
+            variant_name: 'Matte Black',
+            price: 1250,
+            line_extension_amount: 1250,
+            sellers_item_id: 'SKU-CANONICAL',
+          }),
+        ],
+      }),
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
+  it('sends the invoice email with fallback branding when logo resolution fails', async () => {
+    const supabase = buildMockSupabase();
+    const { backgroundSupabase } = createBackgroundSupabaseMock();
     mockCreateAdminClient.mockReturnValue(backgroundSupabase);
     mockResolveReceiptLogoDataUri.mockRejectedValueOnce(
       new Error('logo fetch failed')
@@ -3170,7 +3494,6 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       timeout: 1000,
     });
 
-    expect(orderEq).toHaveBeenCalledWith('id', 'order-id');
     expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -3196,7 +3519,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
 
   it('still sends the invoice email when background DVA persistence fails', async () => {
     const supabase = buildMockSupabase();
-    const { accountInsert, backgroundSupabase, reminderInsert } =
+    const { accountUpsert, backgroundSupabase, reminderInsert } =
       createBackgroundSupabaseMock({
         accountError: { message: 'insert failed' },
         reminderError: { message: 'reminder failed' },
@@ -3268,11 +3591,13 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     });
 
     expect(mockGeneratePaymentAccount).toHaveBeenCalled();
-    expect(accountInsert).toHaveBeenCalledWith(
+    expect(accountUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         order_id: 'order-id',
         account_number: '1234567890',
-      })
+        expires_at: expect.any(String),
+      }),
+      { onConflict: 'order_id,provider' }
     );
     expect(reminderInsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -3291,6 +3616,13 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         ]),
       })
     );
+    expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        virtual_account: null,
+      }),
+      expect.any(Object),
+      expect.any(Object)
+    );
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Failed to store auto-generated invoice DVA',
@@ -3302,6 +3634,99 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         message: 'Failed to store initial invoice reminder',
         orderId: 'order-id',
       })
+    );
+  });
+
+  it('counts wallet credit as paid in generated invoice emails', async () => {
+    const supabase = buildMockSupabase({
+      redeem_wallet_for_order: {
+        data: [
+          {
+            success: true,
+            redeemed_amount: 300,
+            new_balance: 700,
+            transaction_id: 'wallet-tx-1',
+          },
+        ],
+        error: null,
+      },
+    });
+    const { backgroundSupabase } = createBackgroundSupabaseMock();
+    mockCreateAdminClient.mockReturnValue(backgroundSupabase);
+
+    supabase.from = vi.fn((_table: string) => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      in: vi.fn().mockReturnThis(),
+      returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: vi.fn().mockReturnThis(),
+      // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
+      then: (resolve: any) => Promise.resolve().then(resolve),
+    })) as any;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        payment_method: 'invoice',
+        use_wallet_credit: true,
+        wallet_amount: 300,
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+
+    await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+
+    expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount_paid: 300,
+        balance: 700,
+      }),
+      expect.any(Object),
+      expect.any(Object)
     );
   });
 });

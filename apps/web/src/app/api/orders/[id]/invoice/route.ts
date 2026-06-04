@@ -8,11 +8,13 @@ import {
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { buildPdfContentDisposition } from '@/lib/download-filename';
 import type {
   InvoiceData,
   InvoiceLineItem,
   TaxSubtotal,
 } from '@/lib/invoice-generator';
+import { deriveTaxSubtotalsFromInvoiceItems } from '@/lib/invoice-tax-subtotals';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
 import {
   generatePeppolInvoiceXml,
@@ -25,7 +27,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 
 const paramsSchema = z.object({
-  id: z.uuid(),
+  id: z.string().uuid(),
 });
 
 interface OrderItem {
@@ -86,19 +88,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const parsed = paramsSchema.safeParse(await params);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid order ID', details: z.flattenError(parsed.error) },
-        { status: 400 }
-      );
-    }
-    const orderId = parsed.data.id;
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Verify authentication
+    // Verify authentication before validating route params or touching data.
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -107,7 +100,18 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch order with all related data, scoped to authenticated user
+    const parsed = paramsSchema.safeParse(await params);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid order ID', code: 'INVALID_ID' },
+        { status: 400 }
+      );
+    }
+    const orderId = parsed.data.id;
+
+    // Fetch order with all related data. `orders.merchant_id` stores the
+    // merchant UUID, not the auth user UUID, so the explicit tenant scope is
+    // enforced through the inner merchant ownership filter below.
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
@@ -262,6 +266,58 @@ export async function GET(
     const hasDeviceItem = typedOrderItems.some((item) =>
       isDeviceReceiptItemName(item.name || '')
     );
+    const singleFetchedTaxSubtotal =
+      taxSubtotals.length === 1 ? taxSubtotals[0] : null;
+
+    const orderTaxAmount = Number(order.tax_amount || 0);
+    const lineExtensionAmounts = typedOrderItems.map((item) =>
+      Number(item.line_extension_amount ?? item.quantity * Number(item.price))
+    );
+    const lineVatMetadata = typedOrderItems.map((item) => {
+      const explicitVatCategoryCode = item.vat_category_code?.trim();
+      const shouldUseStoredSubtotalVat =
+        !explicitVatCategoryCode &&
+        singleFetchedTaxSubtotal != null &&
+        Boolean(singleFetchedTaxSubtotal.vat_category_code.trim()) &&
+        Number.isFinite(singleFetchedTaxSubtotal.vat_rate);
+      const shouldDefaultStandardVat =
+        !explicitVatCategoryCode &&
+        !shouldUseStoredSubtotalVat &&
+        merchant.vat_registration_status === 'registered' &&
+        orderTaxAmount > 0;
+      const vatCategoryCode =
+        explicitVatCategoryCode ||
+        (shouldUseStoredSubtotalVat
+          ? singleFetchedTaxSubtotal.vat_category_code
+          : shouldDefaultStandardVat
+            ? 'S'
+            : undefined);
+      const vatRate =
+        typeof item.vat_rate === 'number' && Number.isFinite(item.vat_rate)
+          ? item.vat_rate
+          : shouldUseStoredSubtotalVat
+            ? singleFetchedTaxSubtotal.vat_rate
+            : shouldDefaultStandardVat
+              ? merchant.vat_rate || 7.5
+              : undefined;
+
+      return { vatCategoryCode, vatRate };
+    });
+    const taxableLineExtensionTotal = lineExtensionAmounts.reduce(
+      (sum, amount, index) => {
+        const vatRate = lineVatMetadata[index]?.vatRate;
+        return typeof vatRate === 'number' && vatRate > 0 ? sum + amount : sum;
+      },
+      0
+    );
+    const lastTaxableLineIndex = lineVatMetadata.reduce(
+      (lastIndex, metadata, index) =>
+        typeof metadata.vatRate === 'number' && metadata.vatRate > 0
+          ? index
+          : lastIndex,
+      -1
+    );
+    let allocatedVatAmount = 0;
 
     // Build invoice line items
     const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
@@ -272,6 +328,38 @@ export async function GET(
         index,
         itemName: item.name || '',
       });
+      const { vatCategoryCode, vatRate } = lineVatMetadata[index] ?? {};
+      const lineExtensionAmount = lineExtensionAmounts[index] ?? 0;
+      const hasPositiveVatRate =
+        typeof vatRate === 'number' && Number.isFinite(vatRate) && vatRate > 0;
+      const shouldAllocateOrderVat =
+        orderTaxAmount > 0 &&
+        hasPositiveVatRate &&
+        (typeof item.vat_amount !== 'number' ||
+          !Number.isFinite(item.vat_amount) ||
+          item.vat_amount === 0) &&
+        taxableLineExtensionTotal > 0;
+      const vatAmount =
+        typeof item.vat_amount === 'number' &&
+        Number.isFinite(item.vat_amount) &&
+        !(item.vat_amount === 0 && shouldAllocateOrderVat)
+          ? item.vat_amount
+          : shouldAllocateOrderVat
+            ? index === lastTaxableLineIndex
+              ? Number((orderTaxAmount - allocatedVatAmount).toFixed(2))
+              : Number(
+                  (
+                    (lineExtensionAmount / taxableLineExtensionTotal) *
+                    orderTaxAmount
+                  ).toFixed(2)
+                )
+            : vatCategoryCode
+              ? 0
+              : undefined;
+
+      if (shouldAllocateOrderVat && vatAmount != null) {
+        allocatedVatAmount += vatAmount;
+      }
 
       return {
         line_id: item.line_id || index + 1,
@@ -281,11 +369,10 @@ export async function GET(
         quantity: item.quantity,
         unit_code: item.unit_code || 'EA',
         price: Number(item.price),
-        line_extension_amount:
-          item.line_extension_amount || item.quantity * Number(item.price),
-        vat_category_code: item.vat_category_code || 'S',
-        vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
-        vat_amount: item.vat_amount || 0,
+        line_extension_amount: lineExtensionAmount,
+        vat_category_code: vatCategoryCode,
+        vat_rate: vatRate,
+        vat_amount: vatAmount,
         sellers_item_id: item.sellers_item_id || undefined,
       };
     });
@@ -299,31 +386,55 @@ export async function GET(
       exemption_reason: st.exemption_reason || undefined,
     }));
 
-    // If no tax subtotals exist, create a default one
+    const derivedLineTaxSubtotals = deriveTaxSubtotalsFromInvoiceItems(items);
     if (
       invoiceTaxSubtotals.length === 0 &&
-      merchant.vat_registration_status === 'registered'
+      derivedLineTaxSubtotals.length > 0 &&
+      (orderTaxAmount === 0 ||
+        derivedLineTaxSubtotals.some((subtotal) => subtotal.tax_amount > 0))
+    ) {
+      invoiceTaxSubtotals.push(...derivedLineTaxSubtotals);
+    }
+
+    if (
+      invoiceTaxSubtotals.length === 0 &&
+      merchant.vat_registration_status === 'registered' &&
+      orderTaxAmount > 0
     ) {
       const taxableAmount = items.reduce(
         (sum, item) => sum + item.line_extension_amount,
-        0
-      );
-      const taxAmount = items.reduce(
-        (sum, item) => sum + (item.vat_amount ?? 0),
         0
       );
       invoiceTaxSubtotals.push({
         vat_category_code: 'S',
         vat_rate: merchant.vat_rate || 7.5,
         taxable_amount: taxableAmount,
-        tax_amount: taxAmount,
+        tax_amount: orderTaxAmount,
+      });
+    }
+    if (
+      invoiceTaxSubtotals.length === 0 &&
+      merchant.vat_registration_status !== 'registered'
+    ) {
+      invoiceTaxSubtotals.push({
+        vat_category_code: 'O',
+        vat_rate: 0,
+        taxable_amount: Number(
+          order.tax_exclusive_amount || order.subtotal || 0
+        ),
+        tax_amount: 0,
+        exemption_reason: 'Outside scope of VAT',
       });
     }
 
     const { data: paymentAccounts, error: paymentAccountError } = await supabase
       .from('order_payment_accounts')
-      .select('account_number, bank_name, account_name')
+      .select(
+        'account_number, bank_name, account_name, provider, created_at, expires_at'
+      )
       .eq('order_id', orderId)
+      .eq('provider', 'paystack')
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -332,6 +443,13 @@ export async function GET(
         'Error fetching order_payment_accounts for invoice:',
         orderId,
         paymentAccountError
+      );
+      return NextResponse.json(
+        {
+          error: 'Failed to load invoice payment account',
+          code: 'PAYMENT_ACCOUNT_LOOKUP_FAILED',
+        },
+        { status: 500 }
       );
     }
 
@@ -350,6 +468,7 @@ export async function GET(
           country: shippingAddr.country || 'NG',
         }
       : undefined;
+    const amountPaid = Number(order.amount_paid || 0);
 
     // Build the invoice data structure
     const invoiceData: InvoiceData = {
@@ -417,10 +536,27 @@ export async function GET(
       shipping_fee: Number(order.shipping_fee || 0),
       discount_amount: Number(order.discount_amount || 0),
       total: Number(order.total || 0),
+      amount_paid: amountPaid,
 
       // Additional info
       notes: order.invoice_note || order.notes || undefined,
       payment_terms: order.payment_terms || undefined,
+      payment_account: paymentAccount
+        ? {
+            account_number: paymentAccount.account_number,
+            account_name: paymentAccount.account_name || undefined,
+            bank_name: paymentAccount.bank_name || undefined,
+          }
+        : merchant.bank_account_number
+          ? {
+              account_number: merchant.bank_account_number,
+              account_name:
+                merchant.bank_account_name ||
+                merchant.legal_entity_name ||
+                merchant.business_name,
+              bank_name: merchant.bank_name || undefined,
+            }
+          : undefined,
 
       // FIRS specific
       firs_irn: order.firs_irn || undefined,
@@ -437,8 +573,8 @@ export async function GET(
       shipping_fee: invoiceData.shipping_fee,
       tax_amount: invoiceData.tax_amount,
       discount_amount: invoiceData.discount_amount,
-      amount_paid: Number(order.amount_paid || 0),
-      balance: Math.max(invoiceData.total - Number(order.amount_paid || 0), 0),
+      amount_paid: amountPaid,
+      balance: Math.max(invoiceData.total - amountPaid, 0),
       payment_status: order.payment_status || 'unpaid',
       payment_method: order.payment_method || null,
       is_credit_order: Boolean(order.is_credit_order),
@@ -462,10 +598,17 @@ export async function GET(
           }
         : null,
       fulfillment_details: fulfillment,
-      items: typedOrderItems.map((item) => ({
+      items: items.map((item) => ({
         product_name: item.name || 'Item',
+        description: item.description,
+        line_extension_amount: item.line_extension_amount,
         quantity: item.quantity,
         price: Number(item.price),
+        sellers_item_id: item.sellers_item_id,
+        unit_code: item.unit_code,
+        vat_amount: item.vat_amount,
+        vat_category_code: item.vat_category_code,
+        vat_rate: item.vat_rate,
       })),
       transactions: [],
     };
@@ -477,6 +620,7 @@ export async function GET(
       support_email: merchant.support_email,
       support_phone: merchant.support_phone,
       business_address: merchant.business_address,
+      registered_address: merchant.registered_address,
       cac_rc_number: merchant.cac_rc_number,
       tax_identification_number: merchant.tax_identification_number,
       legal_entity_name: merchant.legal_entity_name,
@@ -491,7 +635,6 @@ export async function GET(
       pages: merchant.pages,
     };
     let complianceNote: string | undefined;
-
     try {
       generatePeppolInvoiceXml(invoiceData);
       complianceNote = PEPPOL_BIS_BILLING_COMPLIANCE_NOTE;
@@ -500,11 +643,32 @@ export async function GET(
     }
 
     // Generate the branded PDF
-    const logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
+    let logoDataUri: string | null = null;
+    try {
+      logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
+    } catch (logoError) {
+      console.warn(
+        'Failed to resolve invoice logo; using fallback PDF branding',
+        {
+          orderId,
+          error: logoError,
+        }
+      );
+    }
+
     const pdfBlob = generateReceiptBlob(receiptOrder, receiptMerchant, {
+      buyerReference: invoiceData.buyer_reference,
       complianceNote,
+      documentDate: invoiceData.issue_date,
       documentKind: 'invoice',
+      dueDate: invoiceData.due_date,
+      firsCsid: invoiceData.firs_csid,
+      firsIrn: invoiceData.firs_irn,
+      invoiceTypeCode: invoiceData.invoice_type_code,
+      invoiceNotes: invoiceData.notes,
       logoDataUri,
+      paymentTerms: invoiceData.payment_terms,
+      taxSubtotals: invoiceData.tax_subtotals,
     });
 
     // Return the PDF as a response
@@ -514,7 +678,10 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="invoice-${invoiceData.invoice_number}.pdf"`,
+        'Content-Disposition': buildPdfContentDisposition(
+          'invoice',
+          invoiceData.invoice_number
+        ),
         'Cache-Control': 'no-cache',
       },
     });

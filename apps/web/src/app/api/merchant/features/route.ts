@@ -9,6 +9,7 @@ import {
   revalidateMerchant,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { merchantFeatureSettingsPatchSchema } from '@/schemas/merchant-features';
 
 /**
@@ -20,7 +21,7 @@ import { merchantFeatureSettingsPatchSchema } from '@/schemas/merchant-features'
  */
 
 export interface MerchantFeatureSettings {
-  id: string;
+  id: string | null;
   merchant_id: string;
 
   // Feature toggles
@@ -112,8 +113,8 @@ export interface MerchantFeatureSettings {
   // Custom
   custom_settings: Record<string, unknown>;
 
-  created_at: string;
-  updated_at: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const PRIVATE_NO_STORE_HEADERS = {
@@ -135,6 +136,15 @@ function withNoStore(response: NextResponse) {
     PRIVATE_NO_STORE_HEADERS['Cache-Control']
   );
   return response;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === '23505'
+  );
 }
 
 // Columns selected when reading merchant feature settings.
@@ -233,78 +243,50 @@ type _MerchantFeatureSelectFieldsExhaustive =
 const _merchantFeatureSelectCompletenessCheck: _MerchantFeatureSelectFieldsExhaustive = true;
 void _merchantFeatureSelectCompletenessCheck;
 
-// Default settings for new merchants
-const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
-  loyalty_enabled: false,
-  reviews_enabled: true,
-  wishlist_enabled: true,
-  order_tracking_enabled: true,
-  discount_codes_enabled: true,
-  guest_checkout_enabled: true,
-  agentic_checkout_enabled: true,
-  // Payment gateways - both enabled by default
-  paystack_enabled: true,
-  korapay_enabled: true,
-  pay_on_delivery_enabled: false,
-  credit_direct_enabled: false,
-  credit_direct_public_key: null,
-  credit_direct_min_amount: 10000,
-  credit_direct_max_amount: 500000,
-  credpal_enabled: false,
-  klump_enabled: false,
-  klump_min_amount: 10000,
-  klump_max_amount: 500000,
-  preferred_local_gateway: 'paystack',
-  preferred_international_gateway: 'korapay',
-  // Shipping
-  shipping_providers: ['gigl', 'topship'],
-  free_shipping_threshold: null,
-  shipping_markup_percentage: 0,
-  checkout_collect_phone: true,
-  checkout_require_account: false,
-  checkout_show_order_notes: true,
-  about_page_enabled: true,
-  contact_page_enabled: true,
-  faq_page_enabled: true,
-  privacy_page_enabled: true,
-  terms_page_enabled: true,
-  rewards_page_enabled: false,
-  show_recent_purchases: false,
-  show_stock_levels: true,
-  low_stock_threshold: 10,
-  google_analytics_id: null,
-  ga4_api_secret: null,
-  facebook_pixel_id: null,
-  facebook_capi_token: null,
-  tiktok_pixel_id: null,
-  tiktok_access_token: null,
-  snapchat_pixel_id: null,
-  snapchat_capi_token: null,
-  twitter_pixel_id: null,
-  auto_generate_schema: true,
-  custom_robots_txt: null,
-  email_notifications_enabled: true,
-  sms_notifications_enabled: false,
-  // Blog defaults
-  blog_enabled: false,
-  auto_blog_enabled: false,
-  google_reviews_enabled: false,
-  google_place_id: null,
-  // VTU defaults
-  vtu_enabled: false,
-  vtu_airtime_enabled: true,
-  vtu_data_enabled: true,
-  vtu_electricity_enabled: true,
-  vtu_tv_enabled: true,
-  vtu_betting_enabled: true,
-  vtu_checkout_addon_enabled: false,
-  vtu_checkout_addon_amounts: [100, 200, 500, 1000],
-  vtu_loyalty_reward_enabled: false,
-  vtu_merchant_commission_rate: 50,
-  vtu_customer_cashback_enabled: false,
-  vtu_customer_cashback_rate: 50,
-  custom_settings: {},
-};
+type MerchantFeatureDefaultField = Exclude<
+  keyof MerchantFeatureSettings,
+  'id' | 'merchant_id' | 'created_at' | 'updated_at'
+>;
+
+// Default settings for new merchants. The shared defaults object intentionally
+// has no persisted metadata columns, so this route adds null response metadata
+// on the read-only no-row path below.
+const DEFAULT_SETTINGS =
+  merchantFeatureSettingsDefaults.buildFields() as Record<
+    MerchantFeatureDefaultField,
+    unknown
+  >;
+
+function getDefaultFeatureSetting(field: MerchantFeatureDefaultField) {
+  const value = DEFAULT_SETTINGS[field];
+  if (value === undefined) {
+    throw new Error(`Missing default merchant feature setting: ${field}`);
+  }
+
+  return value;
+}
+
+function buildReadOnlyDefaultSettings(
+  merchantId: string
+): MerchantFeatureSettings {
+  const settings: Record<string, unknown> = {};
+
+  for (const field of MERCHANT_FEATURE_SELECT_FIELDS) {
+    if (field === 'id' || field === 'created_at' || field === 'updated_at') {
+      settings[field] = null;
+      continue;
+    }
+
+    if (field === 'merchant_id') {
+      settings[field] = merchantId;
+      continue;
+    }
+
+    settings[field] = getDefaultFeatureSetting(field);
+  }
+
+  return settings as unknown as MerchantFeatureSettings;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -329,34 +311,19 @@ export async function GET(request: NextRequest) {
       return jsonNoStore({ error: 'Permission denied' }, { status: 403 });
     }
 
-    // Get or create settings
-    let { data: settings, error } = await auth.supabase
+    // GET must remain read-only. If no persisted settings row exists, return
+    // response-only defaults; PATCH/PUT own persistence when the merchant edits.
+    const { data: settings, error } = await auth.supabase
       .from('merchant_feature_settings')
       .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
       .eq('merchant_id', access.merchantId)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code === 'PGRST116') {
-      // No settings exist, create with defaults
-      const { data: newSettings, error: createError } = await auth.supabase
-        .from('merchant_feature_settings')
-        .insert({
-          merchant_id: access.merchantId,
-          ...DEFAULT_SETTINGS,
-        })
-        .select()
-        .single();
+    if (!error && !settings) {
+      return jsonNoStore(buildReadOnlyDefaultSettings(access.merchantId));
+    }
 
-      if (createError) {
-        console.error('Error creating feature settings:', createError);
-        return jsonNoStore(
-          { error: 'Failed to create settings' },
-          { status: 500 }
-        );
-      }
-
-      settings = newSettings;
-    } else if (error) {
+    if (error) {
       console.error('Error fetching feature settings:', error);
       return jsonNoStore(
         { error: 'Failed to fetch settings' },
@@ -422,21 +389,55 @@ export async function PATCH(request: NextRequest) {
       sanitizedUpdates.rewards_page_enabled = sanitizedUpdates.loyalty_enabled;
     }
 
-    // Upsert settings
-    const { data: settings, error } = await auth.supabase
-      .from('merchant_feature_settings')
-      .upsert(
-        {
-          merchant_id: access.merchantId,
-          ...sanitizedUpdates,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'merchant_id',
-        }
-      )
-      .select()
-      .single();
+    const settingsPayload = {
+      ...sanitizedUpdates,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: existingSettings, error: existingSettingsError } =
+      await auth.supabase
+        .from('merchant_feature_settings')
+        .select('merchant_id')
+        .eq('merchant_id', access.merchantId)
+        .maybeSingle();
+
+    if (existingSettingsError) {
+      console.error(
+        'Error checking existing feature settings:',
+        existingSettingsError
+      );
+      return jsonNoStore(
+        { error: 'Failed to update settings' },
+        { status: 500 }
+      );
+    }
+
+    const writeResult = existingSettings
+      ? await auth.supabase
+          .from('merchant_feature_settings')
+          .update(settingsPayload)
+          .eq('merchant_id', access.merchantId)
+          .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
+          .single()
+      : await auth.supabase
+          .from('merchant_feature_settings')
+          .insert({
+            ...DEFAULT_SETTINGS,
+            merchant_id: access.merchantId,
+            ...settingsPayload,
+          })
+          .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
+          .single();
+
+    const { data: settings, error } =
+      !existingSettings && isUniqueViolation(writeResult.error)
+        ? await auth.supabase
+            .from('merchant_feature_settings')
+            .update(settingsPayload)
+            .eq('merchant_id', access.merchantId)
+            .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
+            .single()
+        : writeResult;
 
     if (error) {
       console.error('Error updating feature settings:', error);
@@ -520,7 +521,7 @@ export async function PUT(request: NextRequest) {
       .upsert(completeSettings, {
         onConflict: 'merchant_id',
       })
-      .select()
+      .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
       .single();
 
     if (error) {

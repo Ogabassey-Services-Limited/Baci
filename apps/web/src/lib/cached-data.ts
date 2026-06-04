@@ -10,6 +10,7 @@ import {
 } from '@/env';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
+import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
@@ -2099,8 +2100,9 @@ export async function getCachedFeatureSettings(
     }
 
     if (!data) {
-      // No settings row — genuine "disabled" state, safe to cache
-      return null;
+      return merchantFeatureSettingsDefaults.buildPublicDefault(
+        merchantId
+      ) as MerchantFeatureSettings;
     }
 
     return data as unknown as MerchantFeatureSettings;

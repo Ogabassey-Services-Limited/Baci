@@ -5,6 +5,7 @@ import {
   type CachedDataTestHarness,
   mockMerchant,
   resetMockCreateClient,
+  withDefaultFeatureSettings,
 } from '@/lib/cached-data.test-utils';
 
 vi.mock('@/env', () => ({
@@ -375,7 +376,7 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       });
 
       await expect(getMerchantByIdentifier('ab')).resolves.toEqual(
-        mockMerchant
+        withDefaultFeatureSettings(mockMerchant)
       );
     });
 
@@ -391,7 +392,7 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
 
       await expect(
         getMerchantByIdentifier(`a${'b'.repeat(252)}c`)
-      ).resolves.toEqual(mockMerchant);
+      ).resolves.toEqual(withDefaultFeatureSettings(mockMerchant));
     });
 
     it('handles identifier with mixed case correctly', async () => {
@@ -429,7 +430,7 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       });
 
       await expect(getMerchantByIdentifier('123')).resolves.toEqual(
-        mockMerchant
+        withDefaultFeatureSettings(mockMerchant)
       );
     });
 

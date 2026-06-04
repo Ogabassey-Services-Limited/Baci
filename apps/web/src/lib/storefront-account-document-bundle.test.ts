@@ -76,8 +76,8 @@ describe('buildStorefrontAccountDocumentBundle', () => {
         tax_exclusive_amount: 100000,
         tax_inclusive_amount: 110000,
         invoice_note: null,
-        firs_irn: null,
-        firs_csid: null,
+        firs_irn: 'IRN-2026-001',
+        firs_csid: 'CSID-2026-001',
         firs_qr_code: null,
         payment_terms: null,
       },
@@ -90,6 +90,13 @@ describe('buildStorefrontAccountDocumentBundle', () => {
           name: 'iPhone 16',
           quantity: 1,
           price: 100000,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+          vat_amount: 0,
+          fulfillment_data: {
+            imei: 'IMEI-123',
+            serial_number: 'SN-456',
+          },
         },
       ],
       transactions: [
@@ -116,8 +123,14 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.receipt_eligible).toBe(true);
     expect(result.order.customer_name).toBe('Oga Bassey');
     expect(result.invoiceData.items[0]?.name).toBe('iPhone 16 (Blue / 128GB)');
+    expect(result.invoiceData.items[0]?.description).toContain(
+      'IMEI: IMEI-123'
+    );
+    expect(result.invoiceData.items[0]?.description).toContain('S/N: SN-456');
     expect(result.invoiceData.items[0]?.vat_amount).toBe(5000);
     expect(result.invoiceData.items[0]?.vat_category_code).toBe('S');
+    expect(result.invoiceData.amount_paid).toBe(110000);
+    expect(result.invoiceData.firs_irn).toBe('IRN-2026-001');
     expect(result.order.transactions?.[0]?.id).toBe('tx-1');
     expect(result.receiptOrder.virtual_account?.account_number).toBe(
       '1234567890'
@@ -200,7 +213,17 @@ describe('buildStorefrontAccountDocumentBundle', () => {
         firs_qr_code: null,
         payment_terms: null,
       },
-      itemRows: [],
+      itemRows: [
+        {
+          id: 'item-zero',
+          product_id: 'prod-zero',
+          variant_id: null,
+          variant_name: null,
+          name: 'Untaxed item',
+          quantity: 1,
+          price: 0,
+        },
+      ],
       transactions: [],
       paymentAccount: null,
       taxRows: [],
@@ -213,11 +236,233 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.receipt_eligible).toBe(false);
     expect(result.order.currency).toBe('NGN');
     expect(result.receiptOrder.customer_name).toBe('Customer');
-    expect(result.invoiceData.items).toEqual([]);
+    expect(result.invoiceData.items).toEqual([
+      expect.objectContaining({
+        name: 'Untaxed item',
+        vat_category_code: 'O',
+        vat_rate: 0,
+        vat_amount: 0,
+      }),
+    ]);
     expect(result.invoiceData.tax_exclusive_amount).toBe(0);
     expect(result.invoiceData.tax_inclusive_amount).toBe(0);
+    expect(result.invoiceData.tax_subtotals).toEqual([
+      {
+        vat_category_code: 'O',
+        vat_rate: 0,
+        taxable_amount: 0,
+        tax_amount: 0,
+        exemption_reason: 'Outside scope of VAT',
+      },
+    ]);
     expect(result.invoiceData.merchant.vat_rate).toBe(0);
     expect(result.invoiceData.customer.address?.street).toBe('Pickup');
+  });
+
+  it('derives zero-rated invoice subtotals from selected line VAT metadata', () => {
+    const result = buildStorefrontAccountDocumentBundle({
+      merchant: {
+        business_name: 'Ogabassey',
+        logo_url: null,
+        email: null,
+        phone: null,
+        support_email: null,
+        support_phone: null,
+        business_address: null,
+        cac_rc_number: null,
+        tax_identification_number: null,
+        legal_entity_name: null,
+        brand_colors: null,
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        bank_code: null,
+        bank_account_number: null,
+        bank_name: null,
+        bank_account_name: null,
+        social_media: null,
+        pages: null,
+        registered_address: null,
+      },
+      customer: {
+        first_name: 'Oga',
+        last_name: 'Bassey',
+        email: 'customer@example.com',
+        phone: null,
+      },
+      order: {
+        id: 'order-zero-rated',
+        order_number: 'ORD-ZERO',
+        created_at: '2026-03-22T10:00:00.000Z',
+        updated_at: null,
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+        currency: 'NGN',
+        total: 100000,
+        subtotal: 100000,
+        shipping_fee: 0,
+        tax_amount: 0,
+        discount_amount: 0,
+        amount_paid: 100000,
+        shipping_address: null,
+        customer_name: null,
+        customer_email: null,
+        customer_phone: null,
+        payment_method: 'card',
+        is_credit_order: false,
+        tracking_number: null,
+        shipping_provider: null,
+        notes: null,
+        invoice_type_code: null,
+        invoice_issue_date: null,
+        tax_point_date: null,
+        payment_due_date: null,
+        buyer_reference: null,
+        purchase_order_reference: null,
+        tax_exclusive_amount: null,
+        tax_inclusive_amount: 100000,
+        invoice_note: null,
+        firs_irn: null,
+        firs_csid: null,
+        firs_qr_code: null,
+        payment_terms: null,
+      },
+      itemRows: [
+        {
+          id: 'item-zero-rated',
+          product_id: 'prod-zero-rated',
+          variant_id: null,
+          variant_name: null,
+          name: 'Zero-rated accessory',
+          quantity: 1,
+          price: 100000,
+          line_extension_amount: 100000,
+          vat_category_code: 'Z',
+          vat_rate: 0,
+          vat_amount: 0,
+        },
+      ],
+      transactions: [],
+      paymentAccount: null,
+      taxRows: [],
+      paymentStatus: 'paid',
+      shippingStatus: 'shipped',
+      currentDocumentKind: 'receipt',
+    });
+
+    expect(result.invoiceData.items[0]).toEqual(
+      expect.objectContaining({
+        vat_category_code: 'Z',
+        vat_rate: 0,
+        vat_amount: 0,
+      })
+    );
+    expect(result.invoiceData.tax_subtotals).toEqual([
+      {
+        vat_category_code: 'Z',
+        vat_rate: 0,
+        taxable_amount: 100000,
+        tax_amount: 0,
+        exemption_reason: undefined,
+      },
+    ]);
+  });
+
+  it('includes shipping and discounts in synthesized non-VAT taxable totals', () => {
+    const result = buildStorefrontAccountDocumentBundle({
+      merchant: {
+        business_name: 'Ogabassey',
+        logo_url: null,
+        email: null,
+        phone: null,
+        support_email: null,
+        support_phone: null,
+        business_address: null,
+        cac_rc_number: null,
+        tax_identification_number: null,
+        legal_entity_name: null,
+        brand_colors: null,
+        vat_registration_status: null,
+        vat_rate: 0,
+        bank_code: null,
+        bank_account_number: null,
+        bank_name: null,
+        bank_account_name: null,
+        social_media: null,
+        pages: null,
+        registered_address: null,
+      },
+      customer: {
+        first_name: 'Oga',
+        last_name: 'Bassey',
+        email: 'customer@example.com',
+        phone: null,
+      },
+      order: {
+        id: 'order-non-vat-shipping',
+        order_number: 'ORD-NON-VAT',
+        created_at: '2026-03-22T10:00:00.000Z',
+        updated_at: null,
+        payment_status: 'unpaid',
+        shipping_status: 'processing',
+        currency: 'NGN',
+        total: 104000,
+        subtotal: 100000,
+        shipping_fee: 5000,
+        tax_amount: 0,
+        discount_amount: 1000,
+        amount_paid: 0,
+        shipping_address: null,
+        customer_name: null,
+        customer_email: null,
+        customer_phone: null,
+        payment_method: 'invoice',
+        is_credit_order: false,
+        tracking_number: null,
+        shipping_provider: null,
+        notes: null,
+        invoice_type_code: null,
+        invoice_issue_date: null,
+        tax_point_date: null,
+        payment_due_date: null,
+        buyer_reference: null,
+        purchase_order_reference: null,
+        tax_exclusive_amount: null,
+        tax_inclusive_amount: null,
+        invoice_note: null,
+        firs_irn: null,
+        firs_csid: null,
+        firs_qr_code: null,
+        payment_terms: null,
+      },
+      itemRows: [
+        {
+          id: 'item-non-vat',
+          product_id: 'prod-non-vat',
+          variant_id: null,
+          variant_name: null,
+          name: 'Non-VAT item',
+          quantity: 1,
+          price: 100000,
+        },
+      ],
+      transactions: [],
+      paymentAccount: null,
+      taxRows: [],
+      paymentStatus: 'unpaid',
+      shippingStatus: 'processing',
+      currentDocumentKind: 'invoice',
+    });
+
+    expect(result.invoiceData.tax_exclusive_amount).toBe(104000);
+    expect(result.invoiceData.tax_subtotals).toEqual([
+      {
+        vat_category_code: 'O',
+        vat_rate: 0,
+        taxable_amount: 104000,
+        tax_amount: 0,
+        exemption_reason: 'Outside scope of VAT',
+      },
+    ]);
   });
 
   it('omits blanket line VAT metadata when multiple tax buckets are present', () => {

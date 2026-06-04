@@ -263,6 +263,9 @@ describe('GET /api/vtu/history', () => {
     const { GET } = await import('./route');
     customerByUserIdData = null;
     customerByEmailData = { id: 'customer-1', user_id: null };
+    mockCustomerUpdateEq.mockImplementation(() => {
+      throw new Error('GET /vtu/history must not relink customers');
+    });
 
     const response = await GET(
       makeRequest('?merchantSlug=ogabassey&type=electricity&limit=5')
@@ -285,7 +288,6 @@ describe('GET /api/vtu/history', () => {
     expect(transactionEqCalls).toContainEqual(['merchant_id', 'merchant-1']);
     expect(transactionEqCalls).toContainEqual(['customer_id', 'customer-1']);
     expect(transactionEqCalls).toContainEqual(['type', 'electricity']);
-    expect(mockCustomerUpdateEq).toHaveBeenCalledWith('id', 'customer-1');
   });
 
   it('logs and falls back when a transaction amount is not finite', async () => {

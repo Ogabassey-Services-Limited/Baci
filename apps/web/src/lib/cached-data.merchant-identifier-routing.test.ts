@@ -5,6 +5,7 @@ import {
   type CachedDataTestHarness,
   mockMerchant,
   resetMockCreateClient,
+  withDefaultFeatureSettings,
 } from '@/lib/cached-data.test-utils';
 
 vi.mock('@/env', () => ({
@@ -101,7 +102,7 @@ describe('cached-data getMerchantByIdentifier routing', () => {
       });
 
       await expect(getMerchantByIdentifier('my-store')).resolves.toEqual(
-        mockMerchant
+        withDefaultFeatureSettings(mockMerchant)
       );
       expect(harness.mockFrom).toHaveBeenCalledWith('merchants');
       expect(harness.mockEq).toHaveBeenCalledWith('slug', 'my-store');
@@ -133,7 +134,7 @@ describe('cached-data getMerchantByIdentifier routing', () => {
       });
 
       await expect(getMerchantByIdentifier('store-123-abc')).resolves.toEqual(
-        mockMerchant
+        withDefaultFeatureSettings(mockMerchant)
       );
     });
   });
@@ -149,10 +150,12 @@ describe('cached-data getMerchantByIdentifier routing', () => {
         error: null,
       });
 
-      await expect(getMerchantByIdentifier('store.com')).resolves.toEqual({
-        ...mockMerchant,
-        custom_domain: 'store.com',
-      });
+      await expect(getMerchantByIdentifier('store.com')).resolves.toEqual(
+        withDefaultFeatureSettings({
+          ...mockMerchant,
+          custom_domain: 'store.com',
+        })
+      );
       expect(harness.mockFrom).toHaveBeenCalledWith('domains');
       expect(harness.mockEq).toHaveBeenCalledWith('domain', 'store.com');
     });
@@ -167,10 +170,12 @@ describe('cached-data getMerchantByIdentifier routing', () => {
         error: null,
       });
 
-      await expect(getMerchantByIdentifier('STORE.COM')).resolves.toEqual({
-        ...mockMerchant,
-        custom_domain: 'store.com',
-      });
+      await expect(getMerchantByIdentifier('STORE.COM')).resolves.toEqual(
+        withDefaultFeatureSettings({
+          ...mockMerchant,
+          custom_domain: 'store.com',
+        })
+      );
       expect(harness.mockEq).toHaveBeenCalledWith('domain', 'store.com');
     });
 
@@ -184,10 +189,12 @@ describe('cached-data getMerchantByIdentifier routing', () => {
         error: null,
       });
 
-      await expect(getMerchantByIdentifier('shop.store.com')).resolves.toEqual({
-        ...mockMerchant,
-        custom_domain: 'shop.store.com',
-      });
+      await expect(getMerchantByIdentifier('shop.store.com')).resolves.toEqual(
+        withDefaultFeatureSettings({
+          ...mockMerchant,
+          custom_domain: 'shop.store.com',
+        })
+      );
     });
 
     it('does not route hyphenated identifiers to domain lookup', async () => {

@@ -1,3 +1,4 @@
+import { normalizeReceiptFulfillmentDetails } from '@baci/shared';
 import type { CustomerInfo } from '@/lib/invoice-generator';
 import type { StorefrontAccountDocumentItemRow } from '@/lib/storefront-account-document-bundle.types';
 import type { StorefrontOrderItem } from '@/types/storefront-order';
@@ -77,6 +78,10 @@ export function buildOrderItems(
       throw new Error(`Invalid order item price for item ${item.id}`);
     }
 
+    const fulfillmentDetails =
+      normalizeReceiptFulfillmentDetails(item.fulfillment_details) ??
+      normalizeReceiptFulfillmentDetails(item.fulfillment_data);
+
     return {
       id: item.id,
       product_id: item.product_id || '',
@@ -86,6 +91,19 @@ export function buildOrderItems(
       product_name: item.name,
       quantity: item.quantity,
       price,
+      line_extension_amount:
+        item.line_extension_amount == null
+          ? undefined
+          : asNumber(item.line_extension_amount),
+      unit_code: item.unit_code || undefined,
+      vat_category_code: item.vat_category_code || undefined,
+      vat_rate: item.vat_rate == null ? undefined : asNumber(item.vat_rate),
+      vat_amount:
+        item.vat_amount == null ? undefined : asNumber(item.vat_amount),
+      sellers_item_id: item.sellers_item_id || undefined,
+      ...(fulfillmentDetails
+        ? { fulfillment_details: fulfillmentDetails }
+        : {}),
     };
   });
 }

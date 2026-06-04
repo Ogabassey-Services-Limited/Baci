@@ -12,6 +12,7 @@ import {
   createCartHash,
   validateStorefrontCart,
 } from '@/hooks/cart/storefront-cart-validation';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { logger } from '@/lib/logger';
 import type { Product } from '@/lib/products';
 import { resolveDefaultVariantSelection } from '../../../../packages/shared/src/lib/product-default-variant';
@@ -35,7 +36,6 @@ const getCartStorageKey = (slug?: string | null, userId?: string | null) => {
     : `${CART_STORAGE_KEY}-${userSuffix}`;
 };
 const MERCHANT_SLUG_KEY = 'baci-cart-merchant-slug';
-const DEFAULT_ASSURANCE_RATE = 0.05; // 5%
 
 /**
  * Clear cart from localStorage. Can be called outside React context.

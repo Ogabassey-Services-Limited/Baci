@@ -5,6 +5,7 @@ import {
   isTaxComputeUuidError,
 } from '@/lib/agentic/checkout-order-tax';
 import { sendAgenticWebhook } from '@/lib/agentic/webhooks';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { orderCreateSchema } from '@/schemas/orders';
@@ -76,7 +77,9 @@ export async function createAgenticCheckoutOrder(
     const hasAssurance = item.has_assurance || false;
 
     return {
-      assurance_fee: hasAssurance ? calculateAssuranceFee(itemPrice) : 0,
+      assurance_fee: hasAssurance
+        ? calculateAssuranceFee(itemPrice, item.quantity)
+        : 0,
       condition: item.condition,
       has_assurance: hasAssurance,
       image_url: item.imageUrl ?? item.image_url ?? null,
@@ -336,8 +339,8 @@ export async function markAgenticCheckoutOrderCanceled({
   return { error, updated: !error && !!data };
 }
 
-function calculateAssuranceFee(itemPrice: number) {
-  return Math.round(itemPrice * 0.05 * 100) / 100;
+function calculateAssuranceFee(itemPrice: number, quantity: number) {
+  return Math.round(itemPrice * quantity * DEFAULT_ASSURANCE_RATE * 100) / 100;
 }
 
 function isFiniteAmountLike(value: unknown) {

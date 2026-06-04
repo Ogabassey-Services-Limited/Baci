@@ -186,6 +186,8 @@ export async function GET(request: Request) {
       customer = customerByUserId;
     } else if (user.email) {
       // Fallback: try by email (for customers created as guests who later logged in)
+      // Keep this GET read-only. Customer user_id linkage is owned by the
+      // storefront auth session upsert flow, not by wallet reads.
       const { data: customerByEmail } = await supabase
         .from('customers')
         .select('id, loyalty_points')
@@ -195,12 +197,6 @@ export async function GET(request: Request) {
 
       if (customerByEmail) {
         customer = customerByEmail;
-
-        // Link user_id to customer record for future lookups (don't wait for completion)
-        void supabase
-          .from('customers')
-          .update({ user_id: user.id })
-          .eq('id', customerByEmail.id);
       }
     }
 

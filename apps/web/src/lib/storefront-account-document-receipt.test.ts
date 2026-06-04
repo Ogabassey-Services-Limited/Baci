@@ -26,12 +26,19 @@ describe('storefront account receipt builders', () => {
       bank_account_name: 'Ogabassey Ltd',
       social_media: { instagram: '@ogabassey' },
       pages: { about: true },
-      registered_address: null,
+      registered_address: {
+        street: '99 Registered Road',
+        city: 'Ikeja',
+      },
     });
 
     expect(result.business_name).toBe('Ogabassey');
     expect(result.brand_colors).toEqual({ primary: '#000000' });
     expect(result.bank_account_number).toBe('1234567890');
+    expect(result.registered_address).toEqual({
+      street: '99 Registered Road',
+      city: 'Ikeja',
+    });
   });
 
   it('falls back to an empty merchant email when the source value is null', () => {
@@ -148,8 +155,10 @@ describe('storefront account receipt builders', () => {
     });
 
     expect(result.customer_name).toBe('Oga Bassey');
-    expect(result.items).toEqual([
+    expect(result.items).toMatchObject([
       {
+        line_id: 1,
+        product_id: 'prod-1',
         product_name: 'iPhone 16',
         quantity: 1,
         price: 100000,

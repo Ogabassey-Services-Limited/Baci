@@ -6,6 +6,13 @@ export interface ReceiptMerchant {
   support_email: string | null;
   support_phone: string | null;
   business_address: string | null;
+  registered_address?: {
+    street?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+  } | null;
   cac_rc_number: string | null;
   tax_identification_number: string | null;
   legal_entity_name: string | null;
@@ -65,11 +72,21 @@ export interface ReceiptOrder {
   } | null;
   fulfillment_details?: ReceiptFulfillmentDetails | null;
   items: Array<{
+    line_id?: number;
+    product_id?: string | null;
     product_name: string;
     name?: string;
+    variant_id?: string | null;
     variant_name?: string;
+    description?: string | null;
     quantity: number;
     price: number;
+    line_extension_amount?: number;
+    unit_code?: string | null;
+    vat_category_code?: string | null;
+    vat_rate?: number | null;
+    vat_amount?: number | null;
+    sellers_item_id?: string | null;
     /**
      * @deprecated Keep fulfillment identifiers in `fulfillment_details`.
      * These flat fields are read only for legacy order snapshots.

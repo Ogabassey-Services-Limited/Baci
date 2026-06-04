@@ -1,9 +1,16 @@
-import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
+import {
+  appendReceiptFulfillmentDescription,
+  isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
+  type ReceiptMerchant,
+  type ReceiptOrder,
+} from '@baci/shared';
 import type {
   InvoiceData,
   InvoiceLineItem,
   TaxSubtotal,
 } from '@/lib/invoice-generator';
+import { deriveTaxSubtotalsFromInvoiceItems } from '@/lib/invoice-tax-subtotals';
 import type {
   StorefrontAccountDocumentCustomerRow,
   StorefrontAccountDocumentItemRow,
@@ -51,6 +58,19 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function alignSingleZeroTaxSubtotalWithDocumentTotal(
+  subtotals: TaxSubtotal[],
+  taxExclusiveAmount: number
+) {
+  const subtotal = subtotals.length === 1 ? subtotals[0] : null;
+
+  if (subtotal?.tax_amount !== 0) {
+    return;
+  }
+
+  subtotal.taxable_amount = taxExclusiveAmount;
+}
+
 export function buildStorefrontAccountDocumentBundle({
   merchant,
   customer,
@@ -71,6 +91,11 @@ export function buildStorefrontAccountDocumentBundle({
   const discountAmount = asNumber(order.discount_amount);
   const amountPaid = asNumber(order.amount_paid);
   const balance = Math.max(0, total - amountPaid);
+  const taxInclusiveAmount = resolveMoneyValue(
+    order.tax_inclusive_amount,
+    total
+  );
+  const preTaxTotal = Math.max(0, taxInclusiveAmount - taxAmount);
   const shippingAddress = normalizeShippingAddress(order.shipping_address);
   const orderItems = buildOrderItems(itemRows);
   const fallbackName = [customer.first_name, customer.last_name]
@@ -84,20 +109,39 @@ export function buildStorefrontAccountDocumentBundle({
     asString(order.customer_phone) || customer.phone || null;
   const receiptEligible = currentDocumentKind === 'receipt';
   const registeredAddress = asRecord(merchant.registered_address);
+  const sellerIsVatRegistered =
+    merchant.vat_registration_status === 'registered';
   const invoiceVatRate = merchant.vat_rate ?? 7.5;
   const lineExtensionTotal = orderItems.reduce(
-    (totalAmount, item) => totalAmount + item.quantity * item.price,
+    (totalAmount, item) =>
+      totalAmount +
+      (typeof item.line_extension_amount === 'number' &&
+      Number.isFinite(item.line_extension_amount)
+        ? item.line_extension_amount
+        : item.quantity * item.price),
     0
   );
   const singleTaxSubtotal = taxRows.length === 1 ? taxRows[0] : null;
-  const lineVatCategoryCode =
-    singleTaxSubtotal?.vat_category_code || (taxRows.length === 0 ? 'S' : null);
-  const lineVatRate =
+  const fallbackLineVatCategoryCode =
+    singleTaxSubtotal?.vat_category_code ||
+    (taxRows.length === 0 && taxAmount > 0 && sellerIsVatRegistered
+      ? 'S'
+      : taxRows.length === 0 && !sellerIsVatRegistered
+        ? 'O'
+        : null);
+  const fallbackLineVatRate =
     singleTaxSubtotal != null
       ? asNumber(singleTaxSubtotal.vat_rate)
-      : taxRows.length === 0
+      : taxRows.length === 0 && taxAmount > 0 && sellerIsVatRegistered
         ? invoiceVatRate
-        : null;
+        : taxRows.length === 0 && !sellerIsVatRegistered
+          ? 0
+          : null;
+  const shouldAllocateFallbackVat =
+    fallbackLineVatCategoryCode != null &&
+    fallbackLineVatRate != null &&
+    taxAmount > 0 &&
+    lineExtensionTotal > 0;
   let allocatedVatAmount = 0;
 
   const receiptMerchant: ReceiptMerchant = buildReceiptMerchant(merchant);
@@ -121,34 +165,79 @@ export function buildStorefrontAccountDocumentBundle({
     customerPhone,
   });
 
+  const hasDeviceItem = orderItems.some((item) =>
+    isDeviceReceiptItemName(item.product_name || item.name || '')
+  );
+  const orderFulfillment = normalizeReceiptFulfillmentDetails(
+    order.fulfillment_details
+  );
   const invoiceItems: InvoiceLineItem[] = orderItems.map((item, index) => {
-    const lineExtensionAmount = item.quantity * item.price;
-    const vatAmount =
-      lineVatCategoryCode &&
-      lineVatRate != null &&
-      taxAmount > 0 &&
-      lineExtensionTotal > 0
+    const lineExtensionAmount =
+      typeof item.line_extension_amount === 'number' &&
+      Number.isFinite(item.line_extension_amount)
+        ? item.line_extension_amount
+        : item.quantity * item.price;
+    const explicitVatCategoryCode = item.vat_category_code?.trim();
+    const explicitVatRate =
+      typeof item.vat_rate === 'number' && Number.isFinite(item.vat_rate)
+        ? item.vat_rate
+        : null;
+    const explicitVatAmount =
+      typeof item.vat_amount === 'number' && Number.isFinite(item.vat_amount)
+        ? item.vat_amount
+        : null;
+    const shouldUseExplicitVatAmount =
+      explicitVatAmount != null &&
+      !(explicitVatAmount === 0 && shouldAllocateFallbackVat);
+    const lineVatCategoryCode =
+      explicitVatCategoryCode || fallbackLineVatCategoryCode;
+    const lineVatRate = explicitVatRate ?? fallbackLineVatRate;
+    const vatAmount = shouldUseExplicitVatAmount
+      ? explicitVatAmount
+      : shouldAllocateFallbackVat
         ? index === orderItems.length - 1
           ? roundCurrency(taxAmount - allocatedVatAmount)
           : roundCurrency(
               (lineExtensionAmount / lineExtensionTotal) * taxAmount
             )
-        : null;
+        : lineVatCategoryCode && lineVatRate != null
+          ? 0
+          : null;
 
-    if (vatAmount != null) {
+    if (
+      !shouldUseExplicitVatAmount &&
+      shouldAllocateFallbackVat &&
+      vatAmount != null
+    ) {
       allocatedVatAmount += vatAmount;
     }
+    if (shouldUseExplicitVatAmount) {
+      allocatedVatAmount += explicitVatAmount;
+    }
+
+    const itemName = item.variant_name
+      ? `${item.product_name || item.name} (${item.variant_name})`
+      : item.product_name || item.name;
+    const fulfillment =
+      normalizeReceiptFulfillmentDetails(item.fulfillment_details) ||
+      orderFulfillment;
 
     return {
       line_id: index + 1,
       product_id: item.product_id || undefined,
-      name: item.variant_name
-        ? `${item.product_name || item.name} (${item.variant_name})`
-        : item.product_name || item.name,
+      name: itemName,
+      description: appendReceiptFulfillmentDescription({
+        description: undefined,
+        fulfillment,
+        hasDeviceItem,
+        index,
+        itemName,
+      }),
       quantity: item.quantity,
-      unit_code: 'EA',
+      unit_code: item.unit_code || 'EA',
       price: item.price,
       line_extension_amount: lineExtensionAmount,
+      sellers_item_id: item.sellers_item_id || undefined,
       ...(lineVatCategoryCode && lineVatRate != null
         ? {
             vat_category_code: lineVatCategoryCode,
@@ -167,13 +256,35 @@ export function buildStorefrontAccountDocumentBundle({
     exemption_reason: subtotalRow.exemption_reason || undefined,
   }));
 
-  if (taxSubtotals.length === 0 && taxAmount > 0) {
+  const derivedLineTaxSubtotals =
+    deriveTaxSubtotalsFromInvoiceItems(invoiceItems);
+  if (
+    taxSubtotals.length === 0 &&
+    derivedLineTaxSubtotals.length > 0 &&
+    (taxAmount === 0 ||
+      derivedLineTaxSubtotals.some((subtotal) => subtotal.tax_amount > 0))
+  ) {
+    taxSubtotals.push(...derivedLineTaxSubtotals);
+  }
+  if (taxSubtotals.length === 0 && taxAmount > 0 && sellerIsVatRegistered) {
     taxSubtotals.push({
       vat_category_code: 'S',
       vat_rate: invoiceVatRate,
       taxable_amount: subtotal,
       tax_amount: taxAmount,
     });
+  }
+  if (taxSubtotals.length === 0 && !sellerIsVatRegistered) {
+    taxSubtotals.push({
+      vat_category_code: 'O',
+      vat_rate: 0,
+      taxable_amount: subtotal,
+      tax_amount: 0,
+      exemption_reason: 'Seller is not VAT registered',
+    });
+  }
+  if (taxRows.length === 0) {
+    alignSingleZeroTaxSubtotalWithDocumentTotal(taxSubtotals, preTaxTotal);
   }
 
   const orderDetail: StorefrontOrder = {
@@ -217,12 +328,6 @@ export function buildStorefrontAccountDocumentBundle({
     })),
     virtual_account: receiptOrder.virtual_account || null,
   };
-
-  const taxInclusiveAmount = resolveMoneyValue(
-    order.tax_inclusive_amount,
-    total
-  );
-  const preTaxTotal = Math.max(0, taxInclusiveAmount - taxAmount);
 
   const invoiceData: InvoiceData = {
     invoice_number: order.order_number,
@@ -277,8 +382,26 @@ export function buildStorefrontAccountDocumentBundle({
     shipping_fee: shippingFee,
     discount_amount: discountAmount,
     total,
+    amount_paid: amountPaid,
     notes: order.invoice_note || order.notes || undefined,
     payment_terms: order.payment_terms || undefined,
+    payment_account: paymentAccount
+      ? {
+          account_number: paymentAccount.account_number,
+          account_name: paymentAccount.account_name || undefined,
+          bank_name: paymentAccount.bank_name || undefined,
+        }
+      : merchant.bank_account_number
+        ? {
+            account_number: merchant.bank_account_number,
+            account_name:
+              merchant.bank_account_name ||
+              merchant.legal_entity_name ||
+              merchant.business_name ||
+              undefined,
+            bank_name: merchant.bank_name || undefined,
+          }
+        : undefined,
     firs_irn: order.firs_irn || undefined,
     firs_csid: order.firs_csid || undefined,
     firs_qr_code: order.firs_qr_code || undefined,

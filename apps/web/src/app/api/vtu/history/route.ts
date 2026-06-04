@@ -118,6 +118,8 @@ export async function GET(request: NextRequest) {
     if (customerByUserId) {
       customer = customerByUserId;
     } else if (auth.user.email) {
+      // Keep this GET read-only. VTU checkout resolves and links email-matched
+      // customers through resolveVtuCustomer before creating payment rows.
       const { data: customerByEmail } = await supabase
         .from('customers')
         .select('id, user_id')
@@ -127,13 +129,6 @@ export async function GET(request: NextRequest) {
 
       if (customerByEmail) {
         customer = customerByEmail;
-
-        if (!customerByEmail.user_id) {
-          void supabase
-            .from('customers')
-            .update({ user_id: auth.user.id })
-            .eq('id', customerByEmail.id);
-        }
       }
     }
 
