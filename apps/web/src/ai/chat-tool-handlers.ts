@@ -224,6 +224,14 @@ interface PaymentStatusResult {
   bankName?: string;
 }
 
+function getMetadataString(
+  metadata: Record<string, unknown> | null,
+  key: 'account_number' | 'bank_name'
+): string | null {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
 export async function handleCheckPaymentStatus(
   params: CheckPaymentStatusParams,
   sessionId: string
@@ -282,10 +290,12 @@ export async function handleCheckPaymentStatus(
       return { status: 'not_found' };
     }
 
-    const metadata = order.metadata as Record<string, string> | null;
     const accountNumber =
-      order.virtual_account_number || metadata?.account_number;
-    const bankName = order.virtual_account_bank || metadata?.bank_name;
+      order.virtual_account_number ||
+      getMetadataString(order.metadata, 'account_number');
+    const bankName =
+      order.virtual_account_bank ||
+      getMetadataString(order.metadata, 'bank_name');
 
     if (order.status === 'paid') {
       return {

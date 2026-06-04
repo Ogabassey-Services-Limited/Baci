@@ -179,6 +179,30 @@ describe('chat tool handlers', () => {
     });
   });
 
+  it('returns expired payment status after the 30-minute payment window', async () => {
+    const query = createQueryMock({
+      data: {
+        id: 'order-1',
+        status: 'pending_payment',
+        paid_at: null,
+        created_at: new Date(Date.now() - 31 * 60 * 1000).toISOString(),
+        subtotal: 150_000,
+        virtual_account_number: '1234567890',
+        virtual_account_bank: 'Kuda',
+        metadata: null,
+      },
+      error: null,
+    });
+    mocks.createAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+
+    const result = await handleCheckPaymentStatus(
+      { orderId: 'order-1' },
+      'session-1'
+    );
+
+    expect(result).toEqual({ status: 'expired', orderId: 'order-1' });
+  });
+
   it('restricts recommendations to active Ogabassey products', async () => {
     const sourceQuery = createQueryMock({
       data: {
