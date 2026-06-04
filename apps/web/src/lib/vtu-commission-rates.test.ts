@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  determineRoutingAndRates,
   getVtuCommissionRate,
   normalizeVtuCommissionCategory,
   VTU_COMMISSION_RATES,
+  VTU_PROVIDER_ROUTING,
 } from '@/lib/vtu-commission-rates';
 
 describe('vtu commission rates', () => {
@@ -105,5 +107,92 @@ describe('vtu commission rates', () => {
     ['', 'unknown'],
   ] as const)('falls back to default rate when provider %s and category %s are invalid', (provider, category) => {
     expect(getVtuCommissionRate(provider, category)).toEqual({ rate: 0.02 });
+  });
+
+  it('freezes the exported routing and commission maps', () => {
+    expect(Object.isFrozen(VTU_PROVIDER_ROUTING)).toBe(true);
+    expect(Object.isFrozen(VTU_COMMISSION_RATES)).toBe(true);
+    expect(Object.isFrozen(VTU_COMMISSION_RATES.DEFAULT)).toBe(true);
+  });
+
+  describe('determineRoutingAndRates custom matrix logic', () => {
+    it('selects provider with higher rate', () => {
+      const { routing, rates } = determineRoutingAndRates({
+        kudaRates: { TEST_KEY: { rate: 0.02 } },
+        monnifyRates: { TEST_KEY: { rate: 0.03 } },
+      });
+      expect(routing.TEST_KEY).toBe('monnify');
+      expect(rates.TEST_KEY).toEqual({ rate: 0.03 });
+
+      const { routing: routing2, rates: rates2 } = determineRoutingAndRates({
+        kudaRates: { TEST_KEY: { rate: 0.04 } },
+        monnifyRates: { TEST_KEY: { rate: 0.03 } },
+      });
+      expect(routing2.TEST_KEY).toBe('kuda');
+      expect(rates2.TEST_KEY).toEqual({ rate: 0.04 });
+    });
+
+    it('selects uncapped provider on equal rates where one side is capped', () => {
+      const { routing: routingKudaUncapped, rates: ratesKudaUncapped } =
+        determineRoutingAndRates({
+          kudaRates: { TEST_KEY: { rate: 0.02 } },
+          monnifyRates: { TEST_KEY: { rate: 0.02, cap: 500 } },
+        });
+      expect(routingKudaUncapped.TEST_KEY).toBe('kuda');
+      expect(ratesKudaUncapped.TEST_KEY).toEqual({ rate: 0.02 });
+
+      const { routing: routingMonnifyUncapped, rates: ratesMonnifyUncapped } =
+        determineRoutingAndRates({
+          kudaRates: { TEST_KEY: { rate: 0.02, cap: 500 } },
+          monnifyRates: { TEST_KEY: { rate: 0.02 } },
+        });
+      expect(routingMonnifyUncapped.TEST_KEY).toBe('monnify');
+      expect(ratesMonnifyUncapped.TEST_KEY).toEqual({ rate: 0.02 });
+    });
+
+    it('prefers Monnify on equal rates when both are uncapped', () => {
+      const { routing, rates } = determineRoutingAndRates({
+        kudaRates: { TEST_KEY: { rate: 0.02 } },
+        monnifyRates: { TEST_KEY: { rate: 0.02 } },
+      });
+      expect(routing.TEST_KEY).toBe('monnify');
+      expect(rates.TEST_KEY).toEqual({ rate: 0.02 });
+    });
+
+    it('selects provider with higher cap on equal rates when both are capped, and prefers Monnify when caps are equal', () => {
+      const { routing: routingMonnifyHigherCap, rates: ratesMonnifyHigherCap } =
+        determineRoutingAndRates({
+          kudaRates: { TEST_KEY: { rate: 0.02, cap: 500 } },
+          monnifyRates: { TEST_KEY: { rate: 0.02, cap: 600 } },
+        });
+      expect(routingMonnifyHigherCap.TEST_KEY).toBe('monnify');
+      expect(ratesMonnifyHigherCap.TEST_KEY).toEqual({ rate: 0.02, cap: 600 });
+
+      const { routing: routingKudaHigherCap, rates: ratesKudaHigherCap } =
+        determineRoutingAndRates({
+          kudaRates: { TEST_KEY: { rate: 0.02, cap: 700 } },
+          monnifyRates: { TEST_KEY: { rate: 0.02, cap: 600 } },
+        });
+      expect(routingKudaHigherCap.TEST_KEY).toBe('kuda');
+      expect(ratesKudaHigherCap.TEST_KEY).toEqual({ rate: 0.02, cap: 700 });
+
+      const { routing: routingEqualCap, rates: ratesEqualCap } =
+        determineRoutingAndRates({
+          kudaRates: { TEST_KEY: { rate: 0.02, cap: 600 } },
+          monnifyRates: { TEST_KEY: { rate: 0.02, cap: 600 } },
+        });
+      expect(routingEqualCap.TEST_KEY).toBe('monnify');
+      expect(ratesEqualCap.TEST_KEY).toEqual({ rate: 0.02, cap: 600 });
+    });
+
+    it('includes DEFAULT rate in returned rates', () => {
+      const { rates } = determineRoutingAndRates({
+        kudaRates: {},
+        monnifyRates: {},
+      });
+      expect(rates.DEFAULT).toEqual({ rate: 0.02 });
+      expect(Object.isFrozen(rates)).toBe(true);
+      expect(Object.isFrozen(rates.DEFAULT)).toBe(true);
+    });
   });
 });

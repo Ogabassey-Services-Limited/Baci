@@ -185,6 +185,7 @@ describe('preparePendingVtuTransaction', () => {
       category: 'AIRTIME',
       merchantSplit: 50,
       provider: 'MTN',
+      providerSource: 'kuda',
     });
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({ network_provider: 'MTN' })
@@ -205,6 +206,7 @@ describe('preparePendingVtuTransaction', () => {
       category: 'AIRTIME',
       merchantSplit: 50,
       provider: 'MTN',
+      providerSource: 'kuda',
     });
   });
 
@@ -283,6 +285,48 @@ describe('preparePendingVtuTransaction', () => {
 
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({ customer_name: 'JANE METER-OWNER' })
+    );
+  });
+
+  it('persists Monnify checkout provider fields in transaction metadata', async () => {
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 2000,
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        productCode: 'product1',
+        validationReference: 'val-ref-123',
+        requireValidationRef: true,
+        customerIdentifier: '43901766923',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          provider: 'monnify',
+          validationReference: 'val-ref-123',
+          billerCode: 'biller1',
+          productCode: 'product1',
+          requireValidationRef: true,
+        }),
+      })
     );
   });
 
@@ -555,6 +599,367 @@ describe('preparePendingVtuTransaction', () => {
         | { metadata?: Record<string, unknown> }
         | undefined;
       expect(insertCall?.metadata).not.toHaveProperty('paymentSplit');
+    });
+
+    describe('provider routing and validation constraints', () => {
+      it('throws when explicit provider is monnify but monnify fields are missing', async () => {
+        const { supabase } = createMockSupabase();
+        await expect(
+          preparePendingVtuTransaction({
+            supabase,
+            user: {
+              id: 'user-1',
+              email: 'customer@example.com',
+            } as unknown as Parameters<
+              typeof preparePendingVtuTransaction
+            >[0]['user'],
+            input: {
+              merchantSlug: 'ogabassey',
+              type: 'electricity',
+              amount: 2000,
+              provider: 'monnify',
+              source: 'checkout',
+            } as unknown as Parameters<
+              typeof preparePendingVtuTransaction
+            >[0]['input'],
+            source: 'checkout',
+          })
+        ).rejects.toThrow('Required Monnify fields are missing');
+      });
+
+      it('throws when explicit provider is kuda but kuda fields are missing', async () => {
+        const { supabase } = createMockSupabase();
+        await expect(
+          preparePendingVtuTransaction({
+            supabase,
+            user: {
+              id: 'user-1',
+              email: 'customer@example.com',
+            } as unknown as Parameters<
+              typeof preparePendingVtuTransaction
+            >[0]['user'],
+            input: {
+              merchantSlug: 'ogabassey',
+              type: 'electricity',
+              amount: 2000,
+              provider: 'kuda',
+              source: 'checkout',
+            } as unknown as Parameters<
+              typeof preparePendingVtuTransaction
+            >[0]['input'],
+            source: 'checkout',
+          })
+        ).rejects.toThrow('Required Kuda fields are missing');
+      });
+
+      it('prices explicit Kuda bill payments with the Kuda bill item key', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'electricity',
+            amount: 2000,
+            provider: 'kuda',
+            billItemIdentifier: 'kuda-bedc-prepaid',
+            billerCode: 'BEDC',
+            productCode: 'BEDC-PREPAID',
+            customerIdentifier: '12345678',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              provider: 'kuda',
+            }),
+          })
+        );
+        expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+          'calculate_vtu',
+          expect.objectContaining({
+            category: 'ELECTRICITY',
+            provider: 'kuda-bedc-prepaid',
+            providerSource: 'kuda',
+          })
+        );
+      });
+
+      it('prices explicit Monnify bill payments with the Monnify biller key', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'electricity',
+            amount: 2000,
+            provider: 'monnify',
+            billItemIdentifier: 'kuda-bedc-prepaid',
+            billerCode: 'BEDC',
+            productCode: 'BEDC-PREPAID',
+            customerIdentifier: '12345678',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              billerCode: 'BEDC',
+              productCode: 'BEDC-PREPAID',
+              provider: 'monnify',
+            }),
+          })
+        );
+        expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+          'calculate_vtu',
+          expect.objectContaining({
+            category: 'ELECTRICITY',
+            provider: 'BEDC',
+            providerSource: 'monnify',
+          })
+        );
+      });
+
+      it('routes to Kuda when provider is omitted and only Kuda fields are present (even if routing prefers Monnify)', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'electricity',
+            amount: 2000,
+            billItemIdentifier: 'bedc-prepaid',
+            customerIdentifier: '12345678',
+            billerName: 'BEDC',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              provider: 'kuda',
+            }),
+          })
+        );
+      });
+
+      it('routes to Monnify when provider is omitted and only Monnify fields are present (even if routing prefers Kuda)', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'electricity',
+            amount: 2000,
+            billerCode: 'IBEDC',
+            productCode: 'IBEDC-PREPAID',
+            customerIdentifier: '12345678',
+            billerName: 'IBEDC',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              provider: 'monnify',
+              billerCode: 'IBEDC',
+              productCode: 'IBEDC-PREPAID',
+            }),
+          })
+        );
+      });
+
+      it('routes and prices as Kuda when provider is omitted, both field sets exist, and Kuda is preferred', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'cable_tv',
+            amount: 5000,
+            billItemIdentifier: 'dstv-compact',
+            billerCode: 'DSTV',
+            productCode: 'DSTV-COMPACT',
+            customerIdentifier: '12345678',
+            billerName: 'DSTV',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              provider: 'kuda',
+            }),
+          })
+        );
+        expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+          'calculate_vtu',
+          expect.objectContaining({
+            category: 'CABLE',
+            provider: 'dstv-compact',
+            providerSource: 'kuda',
+          })
+        );
+      });
+
+      it('routes and prices as Monnify when provider is omitted, both field sets exist, and Monnify is preferred', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'electricity',
+            amount: 2000,
+            billItemIdentifier: 'bedc-prepaid',
+            billerCode: 'BEDC',
+            productCode: 'BEDC-PREPAID',
+            customerIdentifier: '12345678',
+            billerName: 'BEDC',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              provider: 'monnify',
+              billerCode: 'BEDC',
+              productCode: 'BEDC-PREPAID',
+            }),
+          })
+        );
+        expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+          'calculate_vtu',
+          expect.objectContaining({
+            category: 'ELECTRICITY',
+            provider: 'BEDC',
+            providerSource: 'monnify',
+          })
+        );
+      });
+
+      it('throws for telco with explicit provider monnify', async () => {
+        const { supabase } = createMockSupabase();
+        await expect(
+          preparePendingVtuTransaction({
+            supabase,
+            user: {
+              id: 'user-1',
+              email: 'customer@example.com',
+            } as unknown as Parameters<
+              typeof preparePendingVtuTransaction
+            >[0]['user'],
+            input: {
+              merchantSlug: 'ogabassey',
+              type: 'airtime',
+              amount: 1000,
+              phoneNumber: '08012345678',
+              networkProvider: 'mtn',
+              provider: 'monnify',
+              source: 'checkout',
+            } as unknown as Parameters<
+              typeof preparePendingVtuTransaction
+            >[0]['input'],
+            source: 'checkout',
+          })
+        ).rejects.toThrow('Monnify does not support airtime/data purchases');
+      });
+
+      it('behaves as Kuda-only for telco with no monnify metadata persisted', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'airtime',
+            amount: 1000,
+            phoneNumber: '08012345678',
+            networkProvider: 'mtn',
+            billerCode: 'MONNIFY-BCODE',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.not.objectContaining({
+              billerCode: 'MONNIFY-BCODE',
+            }),
+          })
+        );
+        const insertCall = insert.mock.calls[0]?.[0] as
+          | { metadata?: Record<string, unknown> }
+          | undefined;
+        expect(insertCall?.metadata?.provider).toBe('kuda');
+      });
     });
   });
 });

@@ -2,11 +2,16 @@ export interface UtilityCheckoutPayload {
   amount: number;
   billerName?: string;
   billItemIdentifier?: string;
+  billerCode?: string;
   customerIdentifier?: string;
   dataPlanCode?: string;
   networkProvider?: string;
   phoneNumber?: string;
+  productCode?: string;
+  provider?: 'kuda' | 'monnify';
+  requireValidationRef?: boolean;
   type: string;
+  validationReference?: string;
 }
 
 export interface UtilityCheckoutResponse {

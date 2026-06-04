@@ -1,6 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getBillersByCategory } from '@/lib/kuda-bills';
 import { billersQuerySchema } from '@/schemas/vtu';
+import {
+  type BillersResponsePayload,
+  getMonnifyCategoryCode,
+} from './biller-normalizers';
+import {
+  getErrorMessage,
+  loadKudaBillers,
+  loadMonnifyBillers,
+} from './biller-route-helpers';
 
 /**
  * GET /api/vtu/billers?type=electricity
@@ -12,6 +20,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const parsed = billersQuerySchema.safeParse({
       type: searchParams.get('type'),
+      includeMonnify: searchParams.get('includeMonnify') ?? undefined,
     });
 
     if (!parsed.success) {
@@ -24,18 +33,51 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const billers = await getBillersByCategory(parsed.data.type);
+    const type = parsed.data.type;
+    const includeMonnify = parsed.data.includeMonnify;
+    const monnifyCategory = includeMonnify
+      ? getMonnifyCategoryCode(type)
+      : undefined;
 
-    return NextResponse.json(
-      { billers },
-      {
-        headers: {
-          // Kuda can add or change nested bill items; keep this fresh without hammering the upstream API.
-          // `public, s-maxage=...` lets Vercel/CDN cache the response, not just the browser.
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-        },
+    const [{ billers: kudaBillers, error: kudaError }, monnifyResult] =
+      await Promise.all([
+        loadKudaBillers(type),
+        monnifyCategory
+          ? loadMonnifyBillers({ monnifyCategory, type })
+          : Promise.resolve({ billers: [], error: null }),
+      ]);
+
+    const monnifyBillers = monnifyResult.billers;
+    const monnifyError = monnifyResult.error;
+    const mergedBillers = [...kudaBillers, ...monnifyBillers];
+
+    if (mergedBillers.length === 0) {
+      const providerError = kudaError ?? monnifyError;
+      if (providerError) {
+        return NextResponse.json(
+          {
+            error: `Failed to fetch billers: ${providerError.message}`,
+            kudaError: getErrorMessage(kudaError),
+            monnifyError: getErrorMessage(monnifyError),
+          },
+          { status: 500 }
+        );
       }
-    );
+    }
+
+    const payload: BillersResponsePayload = { billers: mergedBillers };
+    if (kudaBillers.length === 0 && kudaError) {
+      payload.kudaError = kudaError.message;
+    }
+    if (monnifyCategory && monnifyBillers.length === 0 && monnifyError) {
+      payload.monnifyError = monnifyError.message;
+    }
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Failed to fetch billers:', message, error);

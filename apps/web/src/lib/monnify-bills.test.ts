@@ -1,0 +1,607 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  checkTransactionStatus,
+  getBillerCategories,
+  getBillerProducts,
+  getBillers,
+  purchaseBill,
+  verifyBillCustomer,
+} from './monnify-bills';
+
+vi.mock('@/lib/monnify', () => ({
+  getMonnifyToken: vi.fn().mockResolvedValue('mock-token'),
+}));
+
+vi.mock('@/env', () => ({
+  getMonnifyBaseUrl: () => 'https://sandbox.monnify.com',
+}));
+
+describe('Monnify Bills Client', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('Discovery Helpers', () => {
+    it('getBillerCategories returns unwrapped categories list', async () => {
+      const mockEnvelope = {
+        requestSuccessful: true,
+        responseCode: 0,
+        responseMessage: 'success',
+        responseBody: [
+          { name: 'Utility', description: 'Utility Payments', code: 'UTILITY' },
+        ],
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockEnvelope),
+      });
+
+      const result = await getBillerCategories();
+      expect(result).toEqual([
+        { name: 'Utility', description: 'Utility Payments', code: 'UTILITY' },
+      ]);
+    });
+
+    it('getBillers returns unwrapped billers list', async () => {
+      const mockEnvelope = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: [
+          {
+            name: 'IKEDC',
+            description: 'Ikeja Electric',
+            billerCode: 'IKEDC',
+            billerCategoryCode: 'UTILITY',
+          },
+        ],
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockEnvelope),
+      });
+
+      const result = await getBillers('UTILITY');
+      expect(result).toEqual([
+        {
+          name: 'IKEDC',
+          description: 'Ikeja Electric',
+          billerCode: 'IKEDC',
+          billerCategoryCode: 'UTILITY',
+        },
+      ]);
+    });
+
+    it('getBillerProducts returns unwrapped products list', async () => {
+      const mockEnvelope = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: [
+          {
+            productCode: 'IKEDC-PREPAID',
+            name: 'Prepaid',
+            billerCode: 'IKEDC',
+            fee: '100',
+            amount: '0',
+            isAmountFixed: 'false',
+          },
+        ],
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockEnvelope),
+      });
+
+      const result = await getBillerProducts('IKEDC');
+      expect(result).toEqual([
+        {
+          productCode: 'IKEDC-PREPAID',
+          name: 'Prepaid',
+          billerCode: 'IKEDC',
+          fee: 100,
+          amount: 0,
+          isAmountFixed: false,
+        },
+      ]);
+    });
+
+    it('removes caller abort listeners after discovery requests settle', async () => {
+      const controller = new AbortController();
+      const addListener = vi.spyOn(controller.signal, 'addEventListener');
+      const removeListener = vi.spyOn(controller.signal, 'removeEventListener');
+      const mockEnvelope = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: [],
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockEnvelope),
+      });
+
+      await getBillerProducts('IKEDC', { signal: controller.signal });
+
+      expect(addListener).toHaveBeenCalledWith('abort', expect.any(Function), {
+        once: true,
+      });
+      expect(removeListener).toHaveBeenCalledWith(
+        'abort',
+        addListener.mock.calls[0]?.[1]
+      );
+    });
+
+    it('throws on HTTP OK Monnify discovery business failure', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '1',
+          responseMessage: 'Category unavailable',
+          responseBody: [],
+        }),
+      });
+
+      await expect(getBillerCategories()).rejects.toThrow(
+        'Category unavailable'
+      );
+    });
+
+    it('rejects malformed Monnify product pricing instead of defaulting to zero', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: [
+            {
+              productCode: 'IKEDC-PREPAID',
+              name: 'Prepaid',
+              billerCode: 'IKEDC',
+              fee: 'not-a-number',
+              amount: 0,
+              isAmountFixed: false,
+            },
+          ],
+        }),
+      });
+
+      await expect(getBillerProducts('IKEDC')).rejects.toThrow();
+    });
+
+    it('propagates HTTP and network errors on discovery helpers', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      await expect(getBillerCategories()).rejects.toThrow(
+        'Monnify server error'
+      );
+    });
+  });
+
+  describe('verifyBillCustomer', () => {
+    it('returns flat validation details on success', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: {
+          customerName: 'JANE DOE',
+          validationReference: 'VAL-123',
+          requireValidationRef: true,
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+      expect(result).toEqual({
+        verified: true,
+        customerName: 'JANE DOE',
+        validationReference: 'VAL-123',
+        requireValidationRef: true,
+        message: 'success',
+      });
+    });
+
+    it('returns nested vendInstruction validation details on success', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: {
+          customerName: 'JANE DOE',
+          vendInstruction: {
+            validationReference: 'VAL-NESTED-999',
+            requireValidationRef: true,
+          },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+      expect(result).toEqual({
+        verified: true,
+        customerName: 'JANE DOE',
+        validationReference: 'VAL-NESTED-999',
+        requireValidationRef: true,
+        message: 'success',
+      });
+    });
+
+    it('handles verification failure gracefully without throwing', async () => {
+      const mockResponse = {
+        requestSuccessful: false,
+        responseCode: '99',
+        responseMessage: 'Invalid meter number',
+        responseBody: null,
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+      expect(result.verified).toBe(false);
+      expect(result.message).toContain('Invalid meter number');
+    });
+
+    it('returns a safe verification failure for HTTP OK non-zero responseCode', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '1',
+        responseMessage: 'Customer validation failed',
+        responseBody: {
+          customerName: 'JANE DOE',
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+      expect(result.verified).toBe(false);
+      expect(result.message).toContain('Customer validation failed');
+    });
+
+    it('handles verification exceptions gracefully returning safe failure shape', async () => {
+      global.fetch = vi
+        .fn()
+        .mockRejectedValue(new Error('Network disconnected'));
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+      expect(result.verified).toBe(false);
+      expect(result.message).toContain('Network disconnected');
+    });
+  });
+
+  describe('purchaseBill', () => {
+    it('returns successful PurchaseResult', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'Transaction Completed Successfully',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          paymentReference: 'BACI-REF-123',
+          status: 'PAID',
+          token: 'TOKEN-1234',
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123',
+        '08012345678',
+        'VAL-123'
+      );
+
+      expect(result).toEqual({
+        success: true,
+        reference: 'BACI-REF-123',
+        transactionId: 'MON-TX-123',
+        pin: 'TOKEN-1234',
+        message: 'Transaction Completed Successfully',
+        status: 'successful',
+        amount: 2000,
+      });
+    });
+
+    it('honors vendStatus when status is missing', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'Completed',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          paymentReference: 'BACI-REF-123',
+          vendStatus: 'SUCCESS',
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123',
+        '08012345678',
+        'VAL-123'
+      );
+      expect(result.status).toBe('successful');
+      expect(result.success).toBe(true);
+    });
+
+    it('returns terminal failed status on business failure (requestSuccessful: false)', async () => {
+      const mockResponse = {
+        requestSuccessful: false,
+        responseCode: '99',
+        responseMessage: 'Insufficient Balance',
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+      expect(result.status).toBe('failed');
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Insufficient Balance');
+    });
+
+    it('returns terminal failed status on HTTP 4xx API errors', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+      expect(result.status).toBe('failed');
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Monnify API error: 400');
+    });
+
+    it('throws a retryable transient error for timeouts, network issues, and HTTP 5xx before transactionReference is known', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+
+      await expect(
+        purchaseBill(
+          'IKEDC',
+          'IKEDC-PREPAID',
+          '12345678',
+          2000,
+          'JANE DOE',
+          'BACI-REF-123'
+        )
+      ).rejects.toThrow('Transient vend outcome');
+    });
+
+    it('does not abort vend requests at the old five second timeout', async () => {
+      vi.useFakeTimers();
+      try {
+        const abortError = new Error('aborted');
+        abortError.name = 'AbortError';
+        let settled = false;
+
+        global.fetch = vi.fn((_url, init?: RequestInit): Promise<Response> => {
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              reject(abortError);
+            });
+          });
+        });
+
+        const resultPromise = purchaseBill(
+          'IKEDC',
+          'IKEDC-PREPAID',
+          '12345678',
+          2000,
+          'JANE DOE',
+          'BACI-REF-123'
+        )
+          .then((result) => result)
+          .catch((error: unknown) => error)
+          .finally(() => {
+            settled = true;
+          });
+
+        await Promise.resolve();
+        expect(global.fetch).toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(settled).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(25_000);
+        const result = await resultPromise;
+        expect(result).toBeInstanceOf(Error);
+        expect((result as Error).message).toContain('Transient vend outcome');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('throws a retryable transient error when processing response lacks transactionReference', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'Processing',
+          responseBody: {
+            vendStatus: 'IN_PROGRESS',
+          },
+        }),
+      });
+
+      await expect(
+        purchaseBill(
+          'IKEDC',
+          'IKEDC-PREPAID',
+          '12345678',
+          2000,
+          'JANE DOE',
+          'BACI-REF-123'
+        )
+      ).rejects.toThrow('missing transactionReference');
+    });
+  });
+
+  describe('checkTransactionStatus', () => {
+    it('queries by transactionReference in URL and resolves success', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          status: 'PAID',
+          token: 'TOKEN-1234',
+        },
+      };
+
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+      global.fetch = fetchSpy;
+
+      const result = await checkTransactionStatus('MON-TX-123');
+      expect(result).toEqual({
+        status: 'successful',
+        message: 'success',
+        pin: 'TOKEN-1234',
+      });
+
+      const lastFetchUrl = fetchSpy.mock.calls[0][0].toString();
+      expect(lastFetchUrl).toContain('transactionReference=MON-TX-123');
+      expect(lastFetchUrl).not.toContain('paymentReference=');
+    });
+
+    it('supports vendStatus when status is missing', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          vendStatus: 'SUCCESSFUL',
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await checkTransactionStatus('MON-TX-123');
+      expect(result.status).toBe('successful');
+    });
+
+    it('fails closed for HTTP OK non-zero responseCode', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '1',
+        responseMessage: 'Status lookup failed',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          vendStatus: 'SUCCESSFUL',
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await checkTransactionStatus('MON-TX-123');
+      expect(result.status).toBe('failed');
+      expect(result.message).toContain('Status lookup failed');
+    });
+
+    it('propagates/throws transient status check errors rather than failing row', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
+      });
+
+      await expect(checkTransactionStatus('MON-TX-123')).rejects.toThrow(
+        'Monnify server error: 502'
+      );
+    });
+  });
+});

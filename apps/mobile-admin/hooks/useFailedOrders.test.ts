@@ -55,9 +55,8 @@ const supabaseMock = vi.hoisted(() => {
       chain[method] = passthrough(method);
     }
 
-    chain.then = (
-      resolve: (value: QueryResult) => unknown
-    ) => Promise.resolve(result).then(resolve);
+    chain.then = (resolve: (value: QueryResult) => unknown) =>
+      Promise.resolve(result).then(resolve);
 
     return chain;
   }

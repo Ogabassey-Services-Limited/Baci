@@ -220,16 +220,26 @@ export const UtilityModal = ({
   const handleBillSubmit = (data: {
     amount: number;
     billItemIdentifier: string;
+    billerCode?: string;
     customerIdentifier: string;
     billerName: string;
+    productCode?: string;
+    provider?: 'kuda' | 'monnify';
+    requireValidationRef?: boolean;
     type: string;
+    validationReference?: string;
   }) => {
     handlePurchase({
       type: data.type,
       amount: data.amount,
       billItemIdentifier: data.billItemIdentifier,
+      billerCode: data.billerCode,
       customerIdentifier: data.customerIdentifier,
       billerName: data.billerName,
+      productCode: data.productCode,
+      provider: data.provider,
+      requireValidationRef: data.requireValidationRef,
+      validationReference: data.validationReference,
     });
   };
 
