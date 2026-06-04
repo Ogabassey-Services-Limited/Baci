@@ -18,6 +18,8 @@ import {
 } from '@/schemas/monnify-bills-schema';
 
 const MONNIFY_SUCCESS_RESPONSE_CODE = '0';
+const MONNIFY_DISCOVERY_TIMEOUT_MS = 10_000;
+const MONNIFY_FINANCIAL_TIMEOUT_MS = 30_000;
 const MONNIFY_SUCCESS_STATUSES = new Set(['PAID', 'SUCCESS', 'SUCCESSFUL']);
 const MONNIFY_PROCESSING_STATUSES = new Set([
   'PENDING',
@@ -86,19 +88,25 @@ function normalizeMonnifyStatus(status: string | null | undefined) {
   return status?.trim().toUpperCase();
 }
 
+interface MonnifyRequestOptions extends RequestInit {
+  timeoutMs?: number;
+}
+
 // Helper for making authenticated requests to Monnify VAS APIs with a timeout
 async function monnifyRequest<T = unknown>(
   endpoint: string,
-  options: RequestInit = {}
+  options: MonnifyRequestOptions = {}
 ): Promise<T> {
+  const { timeoutMs = MONNIFY_DISCOVERY_TIMEOUT_MS, ...requestOptions } =
+    options;
   const token = await getMonnifyToken();
   const baseUrl = getMonnifyBaseUrl();
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (options.signal) {
-    options.signal.addEventListener('abort', () => {
+  if (requestOptions.signal) {
+    requestOptions.signal.addEventListener('abort', () => {
       controller.abort();
     });
   }
@@ -106,12 +114,12 @@ async function monnifyRequest<T = unknown>(
   const headers = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
-    ...(options.headers || {}),
+    ...(requestOptions.headers || {}),
   };
 
   try {
     const response = await fetch(`${baseUrl}${endpoint}`, {
-      ...options,
+      ...requestOptions,
       headers,
       signal: controller.signal,
     });
@@ -141,7 +149,7 @@ async function monnifyRequest<T = unknown>(
 export async function getBillerCategories(): Promise<BillerCategory[]> {
   const envelope = await monnifyRequest(
     '/api/v1/vas/bills-payment/biller-categories',
-    { method: 'GET' }
+    { method: 'GET', timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS }
   );
   const parsed = monnifyEnvelopeSchema(z.array(billerCategorySchema)).parse(
     envelope
@@ -153,7 +161,7 @@ export async function getBillerCategories(): Promise<BillerCategory[]> {
 export async function getBillers(categoryCode: string): Promise<Biller[]> {
   const envelope = await monnifyRequest(
     `/api/v1/vas/bills-payment/billers?categoryCode=${encodeURIComponent(categoryCode)}`,
-    { method: 'GET' }
+    { method: 'GET', timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS }
   );
   const parsed = monnifyEnvelopeSchema(z.array(billerSchema)).parse(envelope);
   assertMonnifyBusinessSuccess(parsed, 'Monnify biller lookup');
@@ -165,7 +173,7 @@ export async function getBillerProducts(
 ): Promise<BillerProduct[]> {
   const envelope = await monnifyRequest(
     `/api/v1/vas/bills-payment/biller-products?billerCode=${encodeURIComponent(billerCode)}`,
-    { method: 'GET' }
+    { method: 'GET', timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS }
   );
   const parsed = monnifyEnvelopeSchema(z.array(billerProductSchema)).parse(
     envelope
@@ -196,6 +204,7 @@ export async function verifyBillCustomer(
       '/api/v1/vas/bills-payment/validate-customer',
       {
         method: 'POST',
+        timeoutMs: MONNIFY_FINANCIAL_TIMEOUT_MS,
         body: JSON.stringify(payload),
       }
     );
@@ -261,6 +270,7 @@ export async function purchaseBill(
 
     const envelope = await monnifyRequest('/api/v1/vas/bills-payment/vend', {
       method: 'POST',
+      timeoutMs: MONNIFY_FINANCIAL_TIMEOUT_MS,
       body: JSON.stringify(payload),
     });
 
@@ -346,7 +356,7 @@ export async function checkTransactionStatus(
 ): Promise<{ status: string; message: string; pin?: string }> {
   const envelope = await monnifyRequest(
     `/api/v1/vas/bills-payment/requery?transactionReference=${encodeURIComponent(transactionReference)}`,
-    { method: 'GET' }
+    { method: 'GET', timeoutMs: MONNIFY_FINANCIAL_TIMEOUT_MS }
   );
 
   const parsed = monnifyEnvelopeSchema(requeryResponseBodySchema).parse(

@@ -423,6 +423,50 @@ describe('Monnify Bills Client', () => {
       ).rejects.toThrow('Transient vend outcome');
     });
 
+    it('does not abort vend requests at the old five second timeout', async () => {
+      vi.useFakeTimers();
+      try {
+        const abortError = new Error('aborted');
+        abortError.name = 'AbortError';
+        let settled = false;
+
+        global.fetch = vi.fn((_url, init?: RequestInit): Promise<Response> => {
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              reject(abortError);
+            });
+          });
+        });
+
+        const resultPromise = purchaseBill(
+          'IKEDC',
+          'IKEDC-PREPAID',
+          '12345678',
+          2000,
+          'JANE DOE',
+          'BACI-REF-123'
+        )
+          .then((result) => result)
+          .catch((error: unknown) => error)
+          .finally(() => {
+            settled = true;
+          });
+
+        await Promise.resolve();
+        expect(global.fetch).toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(settled).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(25_000);
+        const result = await resultPromise;
+        expect(result).toBeInstanceOf(Error);
+        expect((result as Error).message).toContain('Transient vend outcome');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('throws a retryable transient error when processing response lacks transactionReference', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,

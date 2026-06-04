@@ -11,6 +11,8 @@ import {
 } from '@/schemas/monnify-bills-schema';
 import { billersQuerySchema } from '@/schemas/vtu';
 
+const MONNIFY_PRODUCT_LOOKUP_CONCURRENCY = 4;
+
 interface NormalizedBillItem {
   itemCode: string;
   itemName: string;
@@ -83,6 +85,30 @@ const BACI_TO_MONNIFY_CATEGORY: Record<
 function getMonnifyCategoryCode(type: string) {
   const parsed = monnifySupportedCategorySchema.safeParse(type);
   return parsed.success ? BACI_TO_MONNIFY_CATEGORY[parsed.data] : undefined;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (nextIndex < items.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        const item = items[currentIndex];
+        if (item !== undefined) {
+          results[currentIndex] = await mapper(item);
+        }
+      }
+    }
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 function normalizeMonnifyProducts({
@@ -169,8 +195,10 @@ export async function GET(request: NextRequest) {
         const rawBillers = await getMonnifyBillers(monnifyCategory);
         const validatedBillers = z.array(billerSchema).safeParse(rawBillers);
         if (validatedBillers.success) {
-          const normalizedMonnifyBillers = await Promise.all(
-            validatedBillers.data.map(async (biller) => {
+          const normalizedMonnifyBillers = await mapWithConcurrency(
+            validatedBillers.data,
+            MONNIFY_PRODUCT_LOOKUP_CONCURRENCY,
+            async (biller) => {
               let billItems: NormalizedBillItem[] = [];
               try {
                 const rawProducts = await getMonnifyBillerProducts(
@@ -211,7 +239,7 @@ export async function GET(request: NextRequest) {
                 billerCode: biller.billerCode,
                 billItems,
               };
-            })
+            }
           );
           monnifyBillers = normalizedMonnifyBillers.filter(
             (biller) => biller.billItems && biller.billItems.length > 0

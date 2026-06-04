@@ -448,6 +448,50 @@ describe('GET /api/vtu/billers', () => {
     });
   });
 
+  it('limits concurrent Monnify product lookups for large categories', async () => {
+    const { GET } = await import('./route');
+    let activeProductLookups = 0;
+    let maxActiveProductLookups = 0;
+
+    mockGetBillersByCategory.mockResolvedValue([]);
+    mockMonnifyGetBillers.mockResolvedValue(
+      Array.from({ length: 8 }, (_, index) => ({
+        billerCode: `BILLER-${index}`,
+        description: `Biller ${index}`,
+        name: `Biller ${index}`,
+        billerCategoryCode: 'ELECTRICITY',
+      }))
+    );
+    mockMonnifyGetBillerProducts.mockImplementation(
+      async (billerCode: string) => {
+        activeProductLookups += 1;
+        maxActiveProductLookups = Math.max(
+          maxActiveProductLookups,
+          activeProductLookups
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        activeProductLookups -= 1;
+        return [
+          {
+            productCode: `${billerCode}-PRODUCT`,
+            name: `${billerCode} product`,
+            billerCode,
+            fee: 0,
+            amount: 0,
+            isAmountFixed: false,
+          },
+        ];
+      }
+    );
+
+    const response = await GET(makeRequest({ type: 'electricity' }));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers).toHaveLength(8);
+    expect(maxActiveProductLookups).toBeLessThanOrEqual(4);
+  });
+
   it('falls back gracefully if Monnify throws', async () => {
     const { GET } = await import('./route');
 
