@@ -56,6 +56,7 @@ describe('createOllamaAgenticChatResponse', () => {
     const executeToolCall = vi.fn(async () =>
       JSON.stringify({ products: [{ id: 'p1', name: 'iPhone 11' }] })
     );
+    const onToolExecuted = vi.fn();
     vi.stubGlobal('fetch', mockFetch);
 
     const response = await createOllamaAgenticChatResponse({
@@ -64,6 +65,7 @@ describe('createOllamaAgenticChatResponse', () => {
       messages: [{ role: 'user', content: 'Do you have iPhone 11?' }],
       tools,
       executeToolCall,
+      onToolExecuted,
     });
 
     expect(await response.text()).toBe(
@@ -75,6 +77,11 @@ describe('createOllamaAgenticChatResponse', () => {
           name: 'searchProducts',
           arguments: { query: 'iPhone 11' },
         }),
+      })
+    );
+    expect(onToolExecuted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        function: expect.objectContaining({ name: 'searchProducts' }),
       })
     );
 

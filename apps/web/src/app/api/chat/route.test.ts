@@ -11,6 +11,7 @@ let generateTextResult = { text: 'AI response' };
 let generateTextError: Error | null = null;
 let ollamaBaseUrl: string | undefined;
 let ollamaBasicAuth: string | undefined;
+let ollamaExecutedToolNameBeforeFailure: string | null = null;
 let ollamaError: Error | null = null;
 let ollamaStreamError: Error | null = null;
 let ollamaResponseText = 'Gemma response';
@@ -91,34 +92,44 @@ vi.mock('@/lib/llm-chat', () => ({
 }));
 
 vi.mock('@/lib/ollama-agentic-chat', () => ({
-  createOllamaAgenticChatResponse: vi.fn(() => {
-    if (ollamaError) {
-      return Promise.reject(ollamaError);
-    }
+  createOllamaAgenticChatResponse: vi.fn(
+    (options: {
+      onToolExecuted?: (call: { function: { name: string } }) => void;
+    }) => {
+      if (ollamaExecutedToolNameBeforeFailure) {
+        options.onToolExecuted?.({
+          function: { name: ollamaExecutedToolNameBeforeFailure },
+        });
+      }
 
-    if (ollamaStreamError) {
-      const streamError = ollamaStreamError;
+      if (ollamaError) {
+        return Promise.reject(ollamaError);
+      }
+
+      if (ollamaStreamError) {
+        const streamError = ollamaStreamError;
+
+        return Promise.resolve(
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.error(streamError);
+              },
+            }),
+            {
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            }
+          )
+        );
+      }
 
       return Promise.resolve(
-        new Response(
-          new ReadableStream<Uint8Array>({
-            start(controller) {
-              controller.error(streamError);
-            },
-          }),
-          {
-            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-          }
-        )
+        new Response(ollamaResponseText, {
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        })
       );
     }
-
-    return Promise.resolve(
-      new Response(ollamaResponseText, {
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      })
-    );
-  }),
+  ),
 }));
 
 vi.mock('@/ai/chat-tool-handlers', () => ({
@@ -204,6 +215,7 @@ describe('POST /api/chat', () => {
     generateTextError = null;
     ollamaBaseUrl = undefined;
     ollamaBasicAuth = undefined;
+    ollamaExecutedToolNameBeforeFailure = null;
     ollamaError = null;
     ollamaStreamError = null;
     ollamaResponseText = 'Gemma response';
@@ -379,6 +391,63 @@ describe('POST /api/chat', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
       'Ollama unavailable'
+    );
+  });
+
+  it('returns a static fallback when Ollama fails after a side-effecting tool executes', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'createVirtualAccount';
+    ollamaError = new Error('Chat returned an empty completion');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Create payment account' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
+    expect(text).toContain('AI assistant is temporarily busy');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
+      'Chat returned an empty completion'
+    );
+  });
+
+  it('still falls back to Gemini when Ollama fails after a read-only tool executes', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'searchProducts';
+    ollamaError = new Error('Ollama unavailable after search');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Ollama unavailable after search'
     );
   });
 

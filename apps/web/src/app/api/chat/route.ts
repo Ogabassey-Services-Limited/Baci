@@ -46,6 +46,7 @@ import {
 } from '@/env';
 import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
+import type { OllamaToolCall } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 export const maxDuration = 120; // VPS-hosted Gemma can be slower on cold starts
@@ -62,6 +63,15 @@ const chatRequestSchema = z.object({
     .max(50),
   sessionId: z.string().optional(),
 });
+
+const SIDE_EFFECTING_OLLAMA_TOOL_NAMES = new Set([
+  'addToCart',
+  'createVirtualAccount',
+]);
+
+function isSideEffectingOllamaToolCall(call: OllamaToolCall): boolean {
+  return SIDE_EFFECTING_OLLAMA_TOOL_NAMES.has(call.function.name);
+}
 
 function generateSessionId(ip: string): string {
   return crypto
@@ -170,6 +180,7 @@ export async function POST(req: Request) {
       if (ollamaBaseUrl) {
         const chatModel = getAiChatModel();
         const basicAuth = getOllamaBasicAuth();
+        let ollamaSideEffectingToolExecuted = false;
         try {
           const ollamaResponse = await createOllamaAgenticChatResponse({
             baseUrl: ollamaBaseUrl,
@@ -185,6 +196,11 @@ export async function POST(req: Request) {
                 call.function.arguments,
                 sessionId
               ),
+            onToolExecuted: (call) => {
+              if (isSideEffectingOllamaToolCall(call)) {
+                ollamaSideEffectingToolExecuted = true;
+              }
+            },
             signal: req.signal,
             timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
           });
@@ -194,9 +210,18 @@ export async function POST(req: Request) {
             return createClientClosedRequestResponse();
           }
 
+          const safeErrorMessage = getSafeChatBackendErrorMessage(error);
+          if (ollamaSideEffectingToolExecuted) {
+            console.warn(
+              '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
+              safeErrorMessage
+            );
+            return createStaticChatFallbackResponse();
+          }
+
           console.warn(
             '[Agentic Chat] Ollama request failed; falling back to Gemini:',
-            getSafeChatBackendErrorMessage(error)
+            safeErrorMessage
           );
         }
       }
