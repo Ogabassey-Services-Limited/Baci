@@ -1,6 +1,6 @@
 const {
   applyAndroidSystemBarStyles,
-} = require('../../../.github/scripts/expoAndroidSystemBars');
+} = require('./androidSystemBars');
 
 function buildAndroidStyles(parent = 'Theme.ReactNative.AppCompat.Light') {
   return {

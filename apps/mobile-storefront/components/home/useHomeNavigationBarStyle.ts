@@ -2,14 +2,25 @@ import { NavigationContext } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import {
+  type NavigationBarButtonStyle,
+  useNavigationBarStyleOverride,
+} from '@/components/navigation/NavigationBarStyleProvider';
 
 type HomeColorScheme = 'dark' | 'light' | null | undefined;
 
-export function useHomeNavigationBarStyle(colorScheme: HomeColorScheme) {
+export function useHomeNavigationBarStyle(
+  colorScheme: HomeColorScheme,
+  enabled = true
+) {
   const navigation = useContext(NavigationContext);
   const [isFocused, setIsFocused] = useState(
     () => navigation?.isFocused() ?? true
   );
+  const overrideStyle =
+    Platform.OS === 'android' && enabled && isFocused ? 'light' : null;
+  const hasNavigationBarStyleProvider =
+    useNavigationBarStyleOverride(overrideStyle);
 
   useEffect(() => {
     if (!navigation) {
@@ -32,20 +43,22 @@ export function useHomeNavigationBarStyle(colorScheme: HomeColorScheme) {
   }, [navigation]);
 
   useEffect(() => {
-    if (Platform.OS !== 'android') {
+    if (hasNavigationBarStyleProvider || Platform.OS !== 'android') {
       return;
     }
 
+    const rootStyle: NavigationBarButtonStyle =
+      colorScheme === 'dark' ? 'light' : 'dark';
     const restoreRootNavigationBarStyle = () => {
-      void NavigationBar.setStyle(colorScheme === 'dark' ? 'light' : 'dark');
+      void NavigationBar.setStyle(rootStyle);
     };
 
-    if (!isFocused) {
+    if (!enabled || !isFocused) {
       restoreRootNavigationBarStyle();
       return;
     }
 
     void NavigationBar.setStyle('light');
     return restoreRootNavigationBarStyle;
-  }, [colorScheme, isFocused]);
+  }, [colorScheme, enabled, hasNavigationBarStyleProvider, isFocused]);
 }

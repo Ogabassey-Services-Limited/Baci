@@ -281,6 +281,14 @@ describe('HomeScreenView', () => {
     expect(screen.queryByTestId('home-scroll-view')).toBeNull();
   });
 
+  it('keeps the root navigation bar style while the light loading shell is visible', () => {
+    setPlatformOS('android');
+
+    render(<HomeScreenView {...createProps()} isConfigLoading={true} />);
+
+    expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('dark');
+  });
+
   it('renders home blocks and delegates header and refresh interactions', () => {
     const onSearch = jest.fn();
     const onRefresh = jest.fn(async () => undefined);

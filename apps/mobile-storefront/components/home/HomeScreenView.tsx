@@ -96,7 +96,7 @@ export function HomeScreenView({
   showPermissionModal,
 }: HomeScreenViewProps) {
   const colorScheme = useColorScheme();
-  useHomeNavigationBarStyle(colorScheme);
+  useHomeNavigationBarStyle(colorScheme, !isConfigLoading);
 
   const headerOverlayAnimatedStyle = useAnimatedStyle(() => {
     return {

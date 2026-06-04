@@ -1,7 +1,7 @@
 const { withAndroidStyles } = require('@expo/config-plugins');
 const {
   applyAndroidSystemBarStyles,
-} = require('../../../.github/scripts/expoAndroidSystemBars');
+} = require('./androidSystemBars');
 
 function withAndroidSystemBars(config) {
   return withAndroidStyles(config, (innerConfig) => {

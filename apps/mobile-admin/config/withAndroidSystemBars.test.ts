@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const { applyAndroidSystemBarStyles } =
-  require('../../../.github/scripts/expoAndroidSystemBars.js') as {
+  require('./androidSystemBars.js') as {
     applyAndroidSystemBarStyles: (
       androidStyles: ReturnType<typeof buildAndroidStyles>
     ) => ReturnType<typeof buildAndroidStyles>;

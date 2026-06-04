@@ -142,8 +142,9 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
  internal fun Window.enableEdgeToEdge() {
    WindowCompat.setDecorFitsSystemWindows(this, false)
 
-@@ -113,25 +89,20 @@ internal fun Window.enableEdgeToEdge() {
-     isNavigationBarContrastEnforced = true
+@@ -113,24 +89,19 @@ internal fun Window.enableEdgeToEdge() {
+-    isNavigationBarContrastEnforced = true
++    isNavigationBarContrastEnforced = false
    }
 
 -  statusBarColor = Color.TRANSPARENT
@@ -154,7 +155,7 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
 -        else -> DarkNavigationBarColor
 -      }
 +  // Strip deprecated status bar and navigation bar color assignments to prevent compiler-emitted calls to setStatusBarColor / setNavigationBarColor.
-+  // The system's transparent/themed bar coloring is handled by theme decoration or Expo configuration at build-time.
++  // Transparent bar colors and contrast settings are persisted by Expo configuration at build-time.
 
    WindowInsetsControllerCompat(this, decorView).run {
      isAppearanceLightNavigationBars = !isDarkMode
@@ -175,4 +176,3 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
 +        }
    }
  }
-

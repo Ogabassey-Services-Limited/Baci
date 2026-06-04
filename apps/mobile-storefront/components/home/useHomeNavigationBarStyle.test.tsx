@@ -49,20 +49,28 @@ function createNavigationMock(initialFocused = true) {
 
 function HookHarness({
   colorScheme,
+  enabled = true,
   navigation,
 }: {
   colorScheme: 'dark' | 'light';
+  enabled?: boolean;
   navigation: NavigationContextValue;
 }) {
   return (
     <NavigationContext.Provider value={navigation}>
-      <HookConsumer colorScheme={colorScheme} />
+      <HookConsumer colorScheme={colorScheme} enabled={enabled} />
     </NavigationContext.Provider>
   );
 }
 
-function HookConsumer({ colorScheme }: { colorScheme: 'dark' | 'light' }) {
-  useHomeNavigationBarStyle(colorScheme);
+function HookConsumer({
+  colorScheme,
+  enabled,
+}: {
+  colorScheme: 'dark' | 'light';
+  enabled: boolean;
+}) {
+  useHomeNavigationBarStyle(colorScheme, enabled);
   return <Text>home</Text>;
 }
 
@@ -98,5 +106,24 @@ describe('useHomeNavigationBarStyle', () => {
     });
 
     expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('dark');
+  });
+
+  it('keeps the root navigation bar style while the Home override is disabled', () => {
+    const { navigation } = createNavigationMock(true);
+    const { rerender } = render(
+      <HookHarness
+        colorScheme="light"
+        enabled={false}
+        navigation={navigation}
+      />
+    );
+
+    expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('dark');
+
+    rerender(
+      <HookHarness colorScheme="light" enabled navigation={navigation} />
+    );
+
+    expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('light');
   });
 });
