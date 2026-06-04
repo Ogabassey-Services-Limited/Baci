@@ -434,17 +434,20 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
-  it('blocks merchant custom-domain document redirects from untrusted route params', () => {
+  it('allows configured merchant custom-domain document redirects', () => {
     render(<BNPLCheckoutScreen />);
+    const initialWebViewUrl = screen.getByText(/^webview:/).props.children;
 
     fireEvent.press(
       screen.getByLabelText('mock-bnpl-start-custom-domain-redirect')
     );
 
+    expect(screen.getByText(/^webview:/).props.children).toBe(initialWebViewUrl);
     expect(
-      screen.getByText('Payment provider opened an untrusted checkout window.')
-    ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
+      screen.queryByText(
+        'Payment provider opened an untrusted checkout window.'
+      )
+    ).toBeNull();
   });
 
   it('ignores blank provider popup targets without showing the untrusted checkout error', () => {
@@ -530,12 +533,40 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
-  it('blocks top-frame redirects to route-param merchant custom domains', () => {
+  it('allows top-frame redirects to configured merchant custom domains', () => {
     const { UNSAFE_getByType } = render(<BNPLCheckoutScreen />);
     const webView = UNSAFE_getByType(WebView);
 
     const redirectUrl =
       'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123&merchant_slug=ogabassey&email=customer%40example.com&customerName=Ada+Customer&customerPhone=%2B2348012345678&token=track-token-123';
+
+    let result = true;
+    act(() => {
+      result = webView.props.onShouldStartLoadWithRequest({
+        isTopFrame: true,
+        url: redirectUrl,
+      });
+    });
+
+    expect(result).toBe(true);
+    expect(
+      screen.queryByText(
+        'Payment provider opened an untrusted checkout window.'
+      )
+    ).toBeNull();
+  });
+
+  it('blocks top-frame redirects to route-param spoofed merchant custom domains', () => {
+    mockSearchParams = {
+      ...mockSearchParams,
+      merchantDomain: 'evil.example',
+    };
+
+    const { UNSAFE_getByType } = render(<BNPLCheckoutScreen />);
+    const webView = UNSAFE_getByType(WebView);
+
+    const redirectUrl =
+      'https://evil.example/checkout/bnpl?gateway=credit_direct&orderId=order-123&merchant_slug=ogabassey&email=customer%40example.com&customerName=Ada+Customer&customerPhone=%2B2348012345678&token=track-token-123';
 
     let result = true;
     act(() => {

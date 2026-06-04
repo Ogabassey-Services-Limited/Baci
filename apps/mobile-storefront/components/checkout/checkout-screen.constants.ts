@@ -32,7 +32,8 @@ export const CHECKOUT_MERCHANT_ID =
 export const CHECKOUT_MERCHANT_SLUG =
   Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
 
+const expoMerchantDomain = Constants.expoConfig?.extra?.merchantDomain;
+
 export const CHECKOUT_MERCHANT_DOMAIN =
-  process.env.EXPO_PUBLIC_MERCHANT_DOMAIN ||
-  Constants.expoConfig?.extra?.merchantDomain ||
-  undefined;
+  (typeof expoMerchantDomain === 'string' ? expoMerchantDomain.trim() : '') ||
+  'ogabassey.com';

@@ -78,6 +78,7 @@ jest.mock('./checkout-order-builders', () => ({
 
 jest.mock('./checkout-screen.constants', () => ({
   CHECKOUT_API_BASE_URL: 'https://api.example.com',
+  CHECKOUT_MERCHANT_DOMAIN: 'ogabassey.com',
   CHECKOUT_MERCHANT_ID: 'merchant-1',
   CHECKOUT_MERCHANT_SLUG: 'ogabassey',
 }));
@@ -223,6 +224,7 @@ describe('submitBnplCheckout', () => {
         amount: '21500',
         customerEmail: 'ada@example.com',
         gateway: 'credit_direct',
+        merchantDomain: 'ogabassey.com',
         merchantSlug: 'ogabassey',
         orderId: 'order-1',
         trackingToken: 'tracking-token',
