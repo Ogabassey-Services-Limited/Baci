@@ -6,6 +6,8 @@ import { parseSantaAction } from '@/components/storefront/santa-chat/types';
 import type { ChatMessage, SantaCartAction } from './types';
 import { PROACTIVE_MESSAGES } from './types';
 
+const OGABASSEY_CHAT_SESSION_STORAGE_KEY = 'ogabassey_chat_session_id';
+
 interface UseOgabasseyChat {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
@@ -19,6 +21,31 @@ interface UseOgabasseyChat {
   handleSend: (messageText: string) => Promise<void>;
   handleSubmit: (e: React.FormEvent) => void;
   handleAddSantaWishToCart: (messageIndex: number) => void;
+}
+
+function createChatSessionId(): string {
+  if (globalThis.crypto?.randomUUID) {
+    return `og_chat_${globalThis.crypto.randomUUID()}`;
+  }
+
+  return `og_chat_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+function getOrCreateChatSessionId(): string {
+  if (typeof window === 'undefined') {
+    return createChatSessionId();
+  }
+
+  const storedSessionId = window.localStorage.getItem(
+    OGABASSEY_CHAT_SESSION_STORAGE_KEY
+  );
+  if (storedSessionId) {
+    return storedSessionId;
+  }
+
+  const sessionId = createChatSessionId();
+  window.localStorage.setItem(OGABASSEY_CHAT_SESSION_STORAGE_KEY, sessionId);
+  return sessionId;
 }
 
 export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasseyChat {
@@ -84,19 +111,21 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
       const endpoint = isSanta ? '/api/chat/santa' : '/api/chat';
+      const requestBody = {
+        ...(!isSanta ? { sessionId: getOrCreateChatSessionId() } : {}),
+        messages: [
+          ...history.map((m) => ({
+            role: m.role === 'model' ? 'assistant' : 'user',
+            content: m.text,
+          })),
+          { role: 'user', content: messageText },
+        ],
+      };
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [
-            ...history.map((m) => ({
-              role: m.role === 'model' ? 'assistant' : 'user',
-              content: m.text,
-            })),
-            { role: 'user', content: messageText },
-          ],
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {

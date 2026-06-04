@@ -8,20 +8,31 @@ export const CUSTOMER_CHAT_TIMEOUT_MS = 60_000;
 export const CUSTOMER_CHAT_FALLBACK_TEXT =
   "I'm sorry, our AI assistant is temporarily busy. Please use the store search, checkout, or WhatsApp support and we'll help you from there.";
 
-const VPS_CHAT_SYSTEM_PROMPT =
+const TOOLLESS_VPS_CHAT_SYSTEM_PROMPT =
   "You are Ogabassey's shopping assistant. Keep replies brief, helpful, and honest. " +
   'You cannot access live inventory, current prices, checkout actions, orders, or payment status in this mode. ' +
   'Never claim that you searched stock, added an item, generated a bank account, or confirmed payment. ' +
   'For current availability, pricing, checkout, or payments, direct the customer to the storefront or WhatsApp support.';
 
+const TOOL_CAPABLE_VPS_CHAT_SYSTEM_PROMPT =
+  "You are Ogabassey's shopping assistant. Keep replies brief, helpful, and honest. " +
+  'You have commerce tools for product search, product details, recommendations, payment account requests, and payment status checks. ' +
+  'Use tools before answering questions about live inventory, current prices, availability, checkout, or payment status. ' +
+  'Never invent stock, pricing, order, bank-account, or payment information; if a tool cannot complete an action, explain the tool result and suggest checkout or WhatsApp support.';
+
 export function buildChatMessages(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-  model: string
+  model: string,
+  options: { toolsEnabled?: boolean } = {}
 ) {
+  const systemPrompt = options.toolsEnabled
+    ? TOOL_CAPABLE_VPS_CHAT_SYSTEM_PROMPT
+    : TOOLLESS_VPS_CHAT_SYSTEM_PROMPT;
+
   return [
     {
       role: 'system' as const,
-      content: `${VPS_CHAT_SYSTEM_PROMPT}
+      content: `${systemPrompt}
 
 You are currently powered by VPS-hosted ${model}.`,
     },
