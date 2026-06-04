@@ -17,6 +17,11 @@ on:
         description: 'Version code override (leave empty for auto)'
         required: false
         type: string
+      changes_not_sent_for_review:
+        description: 'Manual recovery only: set true after Play asks for changesNotSentForReview'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   # Serialize admin release runs only. Cross-app serialization is avoided because
@@ -31,6 +36,7 @@ env:
   JAVA_VERSION: '21'
   NODE_VERSION: '24'
   ANDROID_NODE_OPTIONS: "--no-strip-types --max-old-space-size=2048"
+  ANDROID_GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" -Dkotlin.daemon.jvm.options=-Xmx1024m'
   PNPM_STORE_DIR: ${{ github.workspace }}/.pnpm-store
   WORKING_DIR: apps/mobile-admin
   # Offset added to github.run_number to avoid collisions with
@@ -199,7 +205,7 @@ jobs:
       - name: Build Android App Bundle
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
-          GRADLE_OPTS: "-Xmx2048m -Dkotlin.daemon.jvm.options=-Xmx1024m"
+          GRADLE_OPTS: ${{ env.ANDROID_GRADLE_OPTS }}
           NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
           ANDROID_KEYSTORE_FILE: ${{ env.ANDROID_ADMIN_KEYSTORE_FILE }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -251,7 +257,9 @@ jobs:
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           tracks: production
           status: completed
-          changesNotSentForReview: true
+          # Keep automatic releases in the normal Play review flow. Manual
+          # recovery dispatches can set this after Play rejects automatic review.
+          changesNotSentForReview: ${{ github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review }}
 
       - name: Clean up keystore
         if: always()

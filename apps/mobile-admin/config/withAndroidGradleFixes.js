@@ -3,7 +3,7 @@
  *
  * Applies after `expo prebuild --clean` so native dirs are always correct:
  * 1. Removes kotlin-gradle-plugin classpath (built into AGP 9.x)
- * 2. Removes apply plugin "org.jetbrains.kotlin.android" (built into AGP 9.x)
+ * 2. Keeps apply plugin "org.jetbrains.kotlin.android" while android.builtInKotlin=false
  * 3. Changes proguard-android.txt → proguard-android-optimize.txt (AGP 9.x requirement)
  * 4. Bumps Gradle wrapper to 9.3.1 (minimum for AGP 9.x)
  * 5. Adds async-storage local maven repo
@@ -19,7 +19,6 @@ const {
   ensureGradleWrapperVersion,
   ensureReleaseSigning,
   fixProguardOptimize,
-  removeKotlinAndroidPlugin,
   removeKotlinGradlePlugin,
 } = require('../../../.github/scripts/expoAndroidGradleFixes');
 
@@ -63,6 +62,19 @@ function ensureWorkletsPickFirst(content) {
             pickFirsts += ['**/libworklets.so']
 `,
     'worklets pickFirsts injection'
+  );
+}
+
+function ensureKotlinAndroidPlugin(content) {
+  if (content.includes('org.jetbrains.kotlin.android')) {
+    return content;
+  }
+
+  return assertReplaceOrThrow(
+    content,
+    /(apply plugin:\s*(["'])com\.android\.application\2\s*\n)/,
+    '$1apply plugin: "org.jetbrains.kotlin.android"\n',
+    'kotlin.android plugin retention'
   );
 }
 
@@ -167,11 +179,9 @@ function withAndroidGradleFixes(config) {
       if (fs.existsSync(appBuildGradle)) {
         let content = fs.readFileSync(appBuildGradle, 'utf-8');
 
-        // Remove kotlin.android plugin
-        content = removeKotlinAndroidPlugin(
-          content,
-          'kotlin.android plugin removal'
-        );
+        // Keep kotlin.android plugin for MainApplication/MainActivity compilation.
+        // android.builtInKotlin=false means AGP will not compile Kotlin by itself.
+        content = ensureKotlinAndroidPlugin(content);
 
         // Fix proguard file name
         content = fixProguardOptimize(content, 'proguard optimize rewrite');
