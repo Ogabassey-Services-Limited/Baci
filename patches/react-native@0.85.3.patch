@@ -5,7 +5,7 @@ index 1e773ba83d61a75b84b33b2bb5f8a1b33df2bff0..ad9ae2f43924b66b71a5f275b3c02d8c
 @@ -32,81 +32,20 @@ import com.facebook.react.views.view.setStatusBarVisibility
  internal class StatusBarModule(reactContext: ReactApplicationContext?) :
      NativeStatusBarManagerAndroidSpec(reactContext) {
- 
+
 -  @Suppress("DEPRECATION")
    override fun getTypedExportedConstants(): Map<String, Any> {
      val currentActivity = reactApplicationContext.currentActivity
@@ -19,7 +19,7 @@ index 1e773ba83d61a75b84b33b2bb5f8a1b33df2bff0..ad9ae2f43924b66b71a5f275b3c02d8c
 +        DEFAULT_BACKGROUND_COLOR_KEY to "#00000000",
      )
    }
- 
+
 -  @Suppress("DEPRECATION")
    override fun setColor(colorDouble: Double, animated: Boolean) {
 -    val color = colorDouble.toInt()
@@ -59,7 +59,7 @@ index 1e773ba83d61a75b84b33b2bb5f8a1b33df2bff0..ad9ae2f43924b66b71a5f275b3c02d8c
 -    )
 +    // No-op: status bar background colors are deprecated/ignored on Android 15+ edge-to-edge targets
    }
- 
+
    override fun setTranslucent(translucent: Boolean) {
 -    val activity = reactApplicationContext.getCurrentActivity()
 -    if (activity == null) {
@@ -85,7 +85,7 @@ index 1e773ba83d61a75b84b33b2bb5f8a1b33df2bff0..ad9ae2f43924b66b71a5f275b3c02d8c
 -    )
 +    // No-op: status bar translucency is deprecated/ignored on Android 15+ edge-to-edge targets
    }
- 
+
    override fun setHidden(hidden: Boolean) {
 diff --git a/ReactAndroid/src/main/java/com/facebook/react/views/view/WindowUtil.kt b/ReactAndroid/src/main/java/com/facebook/react/views/view/WindowUtil.kt
 index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2bb81ece6 100644
@@ -94,7 +94,7 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
 @@ -65,44 +65,20 @@ internal fun Window.setStatusBarVisibility(isHidden: Boolean) {
    }
  }
- 
+
 -@Suppress("DEPRECATION")
  private fun Window.statusBarHide() {
 -  if (isEdgeToEdgeFeatureFlagOn) {
@@ -116,7 +116,7 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
 +    hide(WindowInsetsCompat.Type.statusBars())
    }
  }
- 
+
 -@Suppress("DEPRECATION")
  private fun Window.statusBarShow() {
 -  if (isEdgeToEdgeFeatureFlagOn) {
@@ -137,15 +137,15 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
 +    show(WindowInsetsCompat.Type.statusBars())
    }
  }
- 
+
 -@Suppress("DEPRECATION")
  internal fun Window.enableEdgeToEdge() {
    WindowCompat.setDecorFitsSystemWindows(this, false)
- 
+
 @@ -113,25 +89,20 @@ internal fun Window.enableEdgeToEdge() {
      isNavigationBarContrastEnforced = true
    }
- 
+
 -  statusBarColor = Color.TRANSPARENT
 -  navigationBarColor =
 -      when {
@@ -155,11 +155,11 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
 -      }
 +  // Strip deprecated status bar and navigation bar color assignments to prevent compiler-emitted calls to setStatusBarColor / setNavigationBarColor.
 +  // The system's transparent/themed bar coloring is handled by theme decoration or Expo configuration at build-time.
- 
+
    WindowInsetsControllerCompat(this, decorView).run {
      isAppearanceLightNavigationBars = !isDarkMode
    }
- 
+
 -  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
 +  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
      attributes.layoutInDisplayCutoutMode =
@@ -175,4 +175,4 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
 +        }
    }
  }
- 
+
