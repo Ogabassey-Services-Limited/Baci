@@ -1,8 +1,7 @@
-import { config as loadDotenv } from 'dotenv';
+import './config/app-config-env';
+
 import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
-
-loadDotenv({ quiet: true });
 
 const { DEFAULT_ADMIN_TIKTOK_IOS_APP_STORE_ID } =
   require('./config/tiktok-constants') as {
