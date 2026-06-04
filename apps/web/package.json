@@ -177,7 +177,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "joi": "^18.0.2",
     "jsdom": "^27.4.0",
-    "knip": "^5.83.1",
+    "knip": "^6.15.0",
     "lefthook": "^2.1.9",
     "postcss": "^8.5.15",
     "prettier": "^3.8.1",
