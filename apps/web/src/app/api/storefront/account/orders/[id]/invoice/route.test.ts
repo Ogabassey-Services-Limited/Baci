@@ -169,6 +169,32 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
     expect(response.status).toBe(401);
   });
 
+  it('returns 401 before awaiting route params when unauthenticated', async () => {
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+    const paramsThen = vi.fn();
+    const params = {} as Promise<{ id: string }>;
+    Object.defineProperty(params, 'then', {
+      value: paramsThen,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/account/orders/not-a-uuid/invoice'
+      ),
+      {
+        params,
+      }
+    );
+
+    expect(response.status).toBe(401);
+    expect(paramsThen).not.toHaveBeenCalled();
+    expect(checkRateLimit).not.toHaveBeenCalled();
+  });
+
   it('returns 429 when the download rate limit is exceeded', async () => {
     vi.mocked(authenticateApiRequest).mockResolvedValue(
       createAuthenticatedAuthResult()
