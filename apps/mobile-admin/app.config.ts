@@ -1,3 +1,4 @@
+import 'tsx/cjs';
 import './config/app-config-env';
 
 import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
