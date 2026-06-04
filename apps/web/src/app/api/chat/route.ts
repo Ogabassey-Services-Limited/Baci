@@ -64,13 +64,25 @@ const chatRequestSchema = z.object({
   sessionId: z.string().optional(),
 });
 
-const SIDE_EFFECTING_OLLAMA_TOOL_NAMES = new Set([
-  'addToCart',
-  'createVirtualAccount',
-]);
+const SIDE_EFFECTING_OLLAMA_TOOL_NAMES = new Set(['createVirtualAccount']);
 
 function isSideEffectingOllamaToolCall(call: OllamaToolCall): boolean {
   return SIDE_EFFECTING_OLLAMA_TOOL_NAMES.has(call.function.name);
+}
+
+function didOllamaToolCreateSideEffect(result: string): boolean {
+  try {
+    const parsed = JSON.parse(result) as unknown;
+    return (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'orderId' in parsed &&
+      typeof parsed.orderId === 'string' &&
+      parsed.orderId.length > 0
+    );
+  } catch {
+    return false;
+  }
 }
 
 function generateSessionId(ip: string): string {
@@ -196,8 +208,11 @@ export async function POST(req: Request) {
                 call.function.arguments,
                 sessionId
               ),
-            onToolExecuted: (call) => {
-              if (isSideEffectingOllamaToolCall(call)) {
+            onToolExecuted: (call, result) => {
+              if (
+                isSideEffectingOllamaToolCall(call) &&
+                didOllamaToolCreateSideEffect(result)
+              ) {
                 ollamaSideEffectingToolExecuted = true;
               }
             },

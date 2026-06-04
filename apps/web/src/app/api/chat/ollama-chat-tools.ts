@@ -123,22 +123,4 @@ export const ollamaAgenticChatTools: OllamaChatTool[] = [
       },
     },
   },
-  {
-    type: 'function',
-    function: {
-      name: 'addToCart',
-      description: TOOL_DESCRIPTIONS.addToCart,
-      parameters: {
-        type: 'object',
-        required: ['productId'],
-        properties: {
-          productId: {
-            ...STRING_SCHEMA,
-            description: 'Product ID to add to cart',
-          },
-          quantity: { ...NUMBER_SCHEMA, description: 'Quantity to add' },
-        },
-      },
-    },
-  },
 ];

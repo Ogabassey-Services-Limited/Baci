@@ -24,6 +24,10 @@ describe('chat tool runtime', () => {
       success: false,
       error: 'Unavailable',
     });
+    mocks.handleCheckPaymentStatus.mockResolvedValue({
+      status: 'pending',
+      orderId: 'order-1',
+    });
   });
 
   it('passes session-scoped tools to the AI SDK Gemini path', async () => {
@@ -50,6 +54,22 @@ describe('chat tool runtime', () => {
           { productId: 'p1', name: 'iPhone 11', price: 150000, quantity: 1 },
         ],
       },
+      'session-1'
+    );
+  });
+
+  it('passes the chat session to payment status lookups', async () => {
+    const tools = createAiSdkAgenticChatTools('session-1');
+    const response = await tools.checkPaymentStatus.execute({
+      orderId: 'order-1',
+    });
+
+    expect(JSON.parse(response)).toEqual({
+      status: 'pending',
+      orderId: 'order-1',
+    });
+    expect(mocks.handleCheckPaymentStatus).toHaveBeenCalledWith(
+      { orderId: 'order-1' },
       'session-1'
     );
   });

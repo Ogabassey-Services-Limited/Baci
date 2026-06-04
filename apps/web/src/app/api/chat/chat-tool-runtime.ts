@@ -52,7 +52,7 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
       description: TOOL_DESCRIPTIONS.checkPaymentStatus,
       inputSchema: checkPaymentStatusSchema,
       execute: async (params: CheckPaymentStatusParams) => {
-        const result = await handleCheckPaymentStatus(params);
+        const result = await handleCheckPaymentStatus(params, sessionId);
         return JSON.stringify(result);
       },
     },

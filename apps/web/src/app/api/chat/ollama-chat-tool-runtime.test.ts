@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   handleCreateVirtualAccount: vi.fn(),
   handleCheckPaymentStatus: vi.fn(),
   handleGetRecommendations: vi.fn(),
-  handleAddToCart: vi.fn(),
 }));
 
 vi.mock('@/ai/chat-tool-handlers', () => mocks);
@@ -91,5 +90,37 @@ describe('ollama chat tool runtime', () => {
       args,
       'session-42'
     );
+  });
+
+  it('scopes Ollama payment status checks to the chat session', async () => {
+    mocks.handleCheckPaymentStatus.mockResolvedValue({
+      status: 'pending',
+      orderId: 'order-1',
+    });
+
+    const result = await executeAgenticChatToolForOllama(
+      'checkPaymentStatus',
+      JSON.stringify({ orderId: 'order-1' }),
+      'session-42'
+    );
+
+    expect(JSON.parse(result)).toEqual({
+      status: 'pending',
+      orderId: 'order-1',
+    });
+    expect(mocks.handleCheckPaymentStatus).toHaveBeenCalledWith(
+      { orderId: 'order-1' },
+      'session-42'
+    );
+  });
+
+  it('does not execute cart mutation requests in the Ollama path', async () => {
+    const result = await executeAgenticChatToolForOllama(
+      'addToCart',
+      JSON.stringify({ productId: 'p1' }),
+      'session-42'
+    );
+
+    expect(JSON.parse(result)).toEqual({ error: 'Unknown tool: addToCart' });
   });
 });

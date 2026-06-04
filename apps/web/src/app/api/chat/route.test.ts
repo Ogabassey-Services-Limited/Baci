@@ -12,6 +12,7 @@ let generateTextError: Error | null = null;
 let ollamaBaseUrl: string | undefined;
 let ollamaBasicAuth: string | undefined;
 let ollamaExecutedToolNameBeforeFailure: string | null = null;
+let ollamaExecutedToolResultBeforeFailure: string | null = null;
 let ollamaError: Error | null = null;
 let ollamaStreamError: Error | null = null;
 let ollamaResponseText = 'Gemma response';
@@ -94,12 +95,18 @@ vi.mock('@/lib/llm-chat', () => ({
 vi.mock('@/lib/ollama-agentic-chat', () => ({
   createOllamaAgenticChatResponse: vi.fn(
     (options: {
-      onToolExecuted?: (call: { function: { name: string } }) => void;
+      onToolExecuted?: (
+        call: { function: { name: string } },
+        result: string
+      ) => void;
     }) => {
       if (ollamaExecutedToolNameBeforeFailure) {
-        options.onToolExecuted?.({
-          function: { name: ollamaExecutedToolNameBeforeFailure },
-        });
+        options.onToolExecuted?.(
+          {
+            function: { name: ollamaExecutedToolNameBeforeFailure },
+          },
+          ollamaExecutedToolResultBeforeFailure ?? JSON.stringify({})
+        );
       }
 
       if (ollamaError) {
@@ -216,6 +223,7 @@ describe('POST /api/chat', () => {
     ollamaBaseUrl = undefined;
     ollamaBasicAuth = undefined;
     ollamaExecutedToolNameBeforeFailure = null;
+    ollamaExecutedToolResultBeforeFailure = null;
     ollamaError = null;
     ollamaStreamError = null;
     ollamaResponseText = 'Gemma response';
@@ -317,7 +325,7 @@ describe('POST /api/chat', () => {
             function: expect.objectContaining({ name: 'searchProducts' }),
           }),
           expect.objectContaining({
-            function: expect.objectContaining({ name: 'addToCart' }),
+            function: expect.objectContaining({ name: 'createVirtualAccount' }),
           }),
         ]),
         executeToolCall: expect.any(Function),
@@ -398,6 +406,10 @@ describe('POST /api/chat', () => {
     // Arrange
     ollamaBaseUrl = 'https://ollama.example.com';
     ollamaExecutedToolNameBeforeFailure = 'createVirtualAccount';
+    ollamaExecutedToolResultBeforeFailure = JSON.stringify({
+      success: false,
+      orderId: 'order-1',
+    });
     ollamaError = new Error('Chat returned an empty completion');
     const warnSpy = vi
       .spyOn(console, 'warn')
@@ -419,6 +431,37 @@ describe('POST /api/chat', () => {
     expect(generateText).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
+      'Chat returned an empty completion'
+    );
+  });
+
+  it('falls back to Gemini when a side-effecting Ollama tool only returned a validation error', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'createVirtualAccount';
+    ollamaExecutedToolResultBeforeFailure = JSON.stringify({
+      error: 'Invalid tool arguments',
+    });
+    ollamaError = new Error('Chat returned an empty completion');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Create payment account' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
       'Chat returned an empty completion'
     );
   });

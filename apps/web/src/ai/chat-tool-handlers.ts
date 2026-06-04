@@ -105,33 +105,42 @@ export async function handleGetProductDetails(
 ): Promise<ProductSearchResult | null> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
-    .from('products')
-    .select(
-      'id, name, price, description, brand, category, images, stock, status'
-    )
-    .eq('id', params.productId)
-    .eq('merchant_id', OGABASSEY_MERCHANT_ID)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        'id, name, price, description, brand, category, images, stock, status'
+      )
+      .eq('id', params.productId)
+      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('status', 'active')
+      .single();
 
-  if (error || !data) {
+    if (error || !data) {
+      if (error) {
+        console.error('[Chat Tools] Product detail error:', error);
+      }
+      return null;
+    }
+
+    return {
+      id: data.id,
+      name: data.name,
+      price: data.price,
+      description: data.description,
+      brand: data.brand,
+      category: data.category,
+      image_url:
+        Array.isArray(data.images) && data.images[0]?.url
+          ? data.images[0].url
+          : null,
+      stock: data.stock,
+      status: data.status,
+    };
+  } catch (err) {
+    console.error('[Chat Tools] Product detail error:', err);
     return null;
   }
-
-  return {
-    id: data.id,
-    name: data.name,
-    price: data.price,
-    description: data.description,
-    brand: data.brand,
-    category: data.category,
-    image_url:
-      Array.isArray(data.images) && data.images[0]?.url
-        ? data.images[0].url
-        : null,
-    stock: data.stock,
-    status: data.status,
-  };
 }
 
 // ============================================
@@ -216,87 +225,96 @@ interface PaymentStatusResult {
 }
 
 export async function handleCheckPaymentStatus(
-  params: CheckPaymentStatusParams
+  params: CheckPaymentStatusParams,
+  sessionId: string
 ): Promise<PaymentStatusResult> {
   const supabase = createAdminClient();
 
-  let order: {
-    id: string;
-    status: string;
-    paid_at: string | null;
-    created_at: string;
-    subtotal: number;
-    virtual_account_number: string | null;
-    virtual_account_bank: string | null;
-    metadata: Record<string, unknown> | null;
-  } | null = null;
+  try {
+    let order: {
+      id: string;
+      status: string;
+      paid_at: string | null;
+      created_at: string;
+      subtotal: number;
+      virtual_account_number: string | null;
+      virtual_account_bank: string | null;
+      metadata: Record<string, unknown> | null;
+    } | null = null;
 
-  // Try to find order by orderId first, then by email
-  if (params.orderId) {
-    const { data } = await supabase
-      .from('chat_orders')
-      .select(
-        'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
-      )
-      .eq('id', params.orderId)
-      .maybeSingle();
+    // Try to find order by orderId first, then by email
+    if (params.orderId) {
+      const { data } = await supabase
+        .from('chat_orders')
+        .select(
+          'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
+        )
+        .eq('id', params.orderId)
+        .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+        .eq('session_id', sessionId)
+        .maybeSingle();
 
-    if (data) {
-      order = data;
+      if (data) {
+        order = data;
+      }
     }
-  }
 
-  // If no orderId or not found, try by email (most recent)
-  if (!order && params.customerEmail) {
-    const { data } = await supabase
-      .from('chat_orders')
-      .select(
-        'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
-      )
-      .eq('customer_email', params.customerEmail)
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // If no orderId or not found, try by email (most recent)
+    if (!order && params.customerEmail) {
+      const { data } = await supabase
+        .from('chat_orders')
+        .select(
+          'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
+        )
+        .eq('customer_email', params.customerEmail)
+        .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (data) {
-      order = data;
+      if (data) {
+        order = data;
+      }
     }
-  }
 
-  if (!order) {
+    if (!order) {
+      return { status: 'not_found' };
+    }
+
+    const metadata = order.metadata as Record<string, string> | null;
+    const accountNumber =
+      order.virtual_account_number || metadata?.account_number;
+    const bankName = order.virtual_account_bank || metadata?.bank_name;
+
+    if (order.status === 'paid') {
+      return {
+        status: 'paid',
+        orderId: order.id,
+        paidAt: order.paid_at || undefined,
+        amount: order.subtotal,
+      };
+    }
+
+    // Check if expired (30 min from creation)
+    const createdAt = new Date(order.created_at);
+    const expiresAt = new Date(createdAt.getTime() + 30 * 60 * 1000);
+
+    if (new Date() > expiresAt) {
+      return { status: 'expired', orderId: order.id };
+    }
+
+    return {
+      status: 'pending',
+      orderId: order.id,
+      amount: order.subtotal,
+      accountNumber: accountNumber || undefined,
+      bankName: bankName || undefined,
+    };
+  } catch (err) {
+    console.error('[Chat Tools] Payment status error:', err);
     return { status: 'not_found' };
   }
-
-  const metadata = order.metadata as Record<string, string> | null;
-  const accountNumber =
-    order.virtual_account_number || metadata?.account_number;
-  const bankName = order.virtual_account_bank || metadata?.bank_name;
-
-  if (order.status === 'paid') {
-    return {
-      status: 'paid',
-      orderId: order.id,
-      paidAt: order.paid_at || undefined,
-      amount: order.subtotal,
-    };
-  }
-
-  // Check if expired (30 min from creation)
-  const createdAt = new Date(order.created_at);
-  const expiresAt = new Date(createdAt.getTime() + 30 * 60 * 1000);
-
-  if (new Date() > expiresAt) {
-    return { status: 'expired', orderId: order.id };
-  }
-
-  return {
-    status: 'pending',
-    orderId: order.id,
-    amount: order.subtotal,
-    accountNumber: accountNumber || undefined,
-    bankName: bankName || undefined,
-  };
 }
 
 // ============================================
@@ -308,71 +326,78 @@ export async function handleGetRecommendations(
 ): Promise<ProductSearchResult[]> {
   const supabase = createAdminClient();
 
-  // First get the source product
-  const { data: sourceProduct, error: sourceError } = await supabase
-    .from('products')
-    .select('id, name, price, category, brand')
-    .eq('id', params.productId)
-    .maybeSingle();
+  try {
+    // First get the source product
+    const { data: sourceProduct, error: sourceError } = await supabase
+      .from('products')
+      .select('id, name, price, category, brand')
+      .eq('id', params.productId)
+      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('status', 'active')
+      .maybeSingle();
 
-  if (sourceError || !sourceProduct) {
-    if (sourceError)
-      console.error('[Chat Tools] Source product error:', sourceError);
+    if (sourceError || !sourceProduct) {
+      if (sourceError)
+        console.error('[Chat Tools] Source product error:', sourceError);
+      return [];
+    }
+
+    let query = supabase
+      .from('products')
+      .select(
+        'id, name, price, description, brand, category, images, stock, status'
+      )
+      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('status', 'active')
+      .neq('id', params.productId)
+      .limit(3);
+
+    if (params.type === 'upsell') {
+      // Same category, higher price (10-50% more)
+      query = query
+        .eq('category', sourceProduct.category)
+        .gt('price', sourceProduct.price * 1.1)
+        .lt('price', sourceProduct.price * 1.5)
+        .order('price', { ascending: true });
+    } else if (params.type === 'cross_sell') {
+      // Complementary categories
+      const complementaryCategories = getComplementaryCategories(
+        sourceProduct.category
+      );
+      query = query
+        .in('category', complementaryCategories)
+        .order('price', { ascending: false });
+    } else {
+      // Accessories - same brand, lower price
+      query = query
+        .eq('brand', sourceProduct.brand)
+        .lt('price', sourceProduct.price * 0.3)
+        .order('price', { ascending: false });
+    }
+
+    const { data, error: recError } = await query;
+
+    if (recError) {
+      console.error('[Chat Tools] Recommendations error:', recError);
+      return [];
+    }
+
+    return (data || []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      description: p.description,
+      brand: p.brand,
+      category: p.category,
+      image_url:
+        Array.isArray(p.images) && p.images[0]?.url ? p.images[0].url : null,
+      stock: p.stock,
+      status: p.status,
+    }));
+  } catch (err) {
+    console.error('[Chat Tools] Recommendations error:', err);
     return [];
   }
-
-  let query = supabase
-    .from('products')
-    .select(
-      'id, name, price, description, brand, category, images, stock, status'
-    )
-    .eq('merchant_id', OGABASSEY_MERCHANT_ID)
-    .eq('status', 'active')
-    .neq('id', params.productId)
-    .limit(3);
-
-  if (params.type === 'upsell') {
-    // Same category, higher price (10-50% more)
-    query = query
-      .eq('category', sourceProduct.category)
-      .gt('price', sourceProduct.price * 1.1)
-      .lt('price', sourceProduct.price * 1.5)
-      .order('price', { ascending: true });
-  } else if (params.type === 'cross_sell') {
-    // Complementary categories
-    const complementaryCategories = getComplementaryCategories(
-      sourceProduct.category
-    );
-    query = query
-      .in('category', complementaryCategories)
-      .order('price', { ascending: false });
-  } else {
-    // Accessories - same brand, lower price
-    query = query
-      .eq('brand', sourceProduct.brand)
-      .lt('price', sourceProduct.price * 0.3)
-      .order('price', { ascending: false });
-  }
-
-  const { data, error: recError } = await query;
-
-  if (recError) {
-    console.error('[Chat Tools] Recommendations error:', recError);
-    return [];
-  }
-
-  return (data || []).map((p) => ({
-    id: p.id,
-    name: p.name,
-    price: p.price,
-    description: p.description,
-    brand: p.brand,
-    category: p.category,
-    image_url:
-      Array.isArray(p.images) && p.images[0]?.url ? p.images[0].url : null,
-    stock: p.stock,
-    status: p.status,
-  }));
 }
 
 // Helper: Get complementary categories

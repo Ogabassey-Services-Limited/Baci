@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { ollamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
 
 describe('ollama chat tools', () => {
-  it('exposes the same six commerce capabilities as the Gemini path', () => {
+  it('exposes only server-verifiable commerce capabilities', () => {
     expect(ollamaAgenticChatTools.map((tool) => tool.function.name)).toEqual([
       'searchProducts',
       'getProductDetails',
       'createVirtualAccount',
       'checkPaymentStatus',
       'getRecommendations',
-      'addToCart',
     ]);
   });
 

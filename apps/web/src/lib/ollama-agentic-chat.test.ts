@@ -82,7 +82,8 @@ describe('createOllamaAgenticChatResponse', () => {
     expect(onToolExecuted).toHaveBeenCalledWith(
       expect.objectContaining({
         function: expect.objectContaining({ name: 'searchProducts' }),
-      })
+      }),
+      JSON.stringify({ products: [{ id: 'p1', name: 'iPhone 11' }] })
     );
 
     const firstBody = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
@@ -139,6 +140,52 @@ describe('createOllamaAgenticChatResponse', () => {
     });
 
     expect(await response.text()).toBe('Hello');
+  });
+
+  it('allows a final response after the maximum tool-call rounds', async () => {
+    const toolResponse = {
+      message: {
+        content: '',
+        tool_calls: [
+          {
+            type: 'function',
+            function: {
+              name: 'searchProducts',
+              arguments: { query: 'iPhone 11' },
+            },
+          },
+        ],
+      },
+    };
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(toolResponse)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(toolResponse)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(toolResponse)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(toolResponse)))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            message: {
+              content: 'Here is the final answer after checking the tools.',
+            },
+          })
+        )
+      );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const response = await createOllamaAgenticChatResponse({
+      baseUrl: 'https://ollama.example.com',
+      model: 'gemma4:e4b',
+      messages: [{ role: 'user', content: 'Find and compare phones' }],
+      tools,
+      executeToolCall: vi.fn(async () => JSON.stringify({ products: [] })),
+    });
+
+    expect(await response.text()).toBe(
+      'Here is the final answer after checking the tools.'
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(5);
   });
 
   it('encodes Basic Auth before sending tool-capable requests', async () => {

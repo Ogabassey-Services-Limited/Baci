@@ -1,6 +1,5 @@
 import { ZodError } from 'zod';
 import {
-  handleAddToCart,
   handleCheckPaymentStatus,
   handleCreateVirtualAccount,
   handleGetProductDetails,
@@ -8,7 +7,6 @@ import {
   handleSearchProducts,
 } from '@/ai/chat-tool-handlers';
 import {
-  addToCartSchema,
   checkPaymentStatusSchema,
   createVirtualAccountSchema,
   getProductDetailsSchema,
@@ -22,7 +20,6 @@ const AGENTIC_CHAT_TOOL_NAME_LIST = [
   'createVirtualAccount',
   'checkPaymentStatus',
   'getRecommendations',
-  'addToCart',
 ] as const;
 
 type AgenticChatToolName = (typeof AGENTIC_CHAT_TOOL_NAME_LIST)[number];
@@ -75,14 +72,13 @@ function executeAgenticChatTool(
       );
     case 'checkPaymentStatus':
       return handleCheckPaymentStatus(
-        checkPaymentStatusSchema.parse(argumentsValue)
+        checkPaymentStatusSchema.parse(argumentsValue),
+        sessionId
       );
     case 'getRecommendations':
       return handleGetRecommendations(
         getRecommendationsSchema.parse(argumentsValue)
       );
-    case 'addToCart':
-      return handleAddToCart(addToCartSchema.parse(argumentsValue));
   }
 }
 
