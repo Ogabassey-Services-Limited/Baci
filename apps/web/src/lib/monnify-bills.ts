@@ -3,6 +3,9 @@ import { getMonnifyBaseUrl } from '@/env';
 import type { PurchaseResult } from '@/lib/kuda';
 import { getMonnifyToken } from '@/lib/monnify';
 import {
+  type Biller,
+  type BillerCategory,
+  type BillerProduct,
   billerCategorySchema,
   billerProductSchema,
   billerSchema,
@@ -13,6 +16,75 @@ import {
   vendRequestSchema,
   vendResponseBodySchema,
 } from '@/schemas/monnify-bills-schema';
+
+const MONNIFY_SUCCESS_RESPONSE_CODE = '0';
+const MONNIFY_SUCCESS_STATUSES = new Set(['PAID', 'SUCCESS', 'SUCCESSFUL']);
+const MONNIFY_PROCESSING_STATUSES = new Set([
+  'PENDING',
+  'IN_PROGRESS',
+  'PROCESSING',
+]);
+const MONNIFY_FAILED_STATUSES = new Set(['FAILED', 'FAILURE', 'UNSUCCESSFUL']);
+
+export class MonnifyTransientVendError extends Error {
+  constructor(message: string) {
+    super(message);
+    Object.setPrototypeOf(this, MonnifyTransientVendError.prototype);
+    this.name = 'MonnifyTransientVendError';
+  }
+}
+
+function getMonnifyEnvelopeMessage({
+  fallback,
+  responseCode,
+  responseMessage,
+}: {
+  fallback: string;
+  responseCode?: string;
+  responseMessage?: string;
+}) {
+  const message = responseMessage?.trim();
+  const code = responseCode?.trim();
+  if (message && code) {
+    return `${message} (${code})`;
+  }
+  return message || code || fallback;
+}
+
+function isMonnifyBusinessSuccess(envelope: {
+  requestSuccessful: boolean;
+  responseCode: string;
+}) {
+  return (
+    envelope.requestSuccessful &&
+    envelope.responseCode === MONNIFY_SUCCESS_RESPONSE_CODE
+  );
+}
+
+function assertMonnifyBusinessSuccess(
+  envelope: {
+    requestSuccessful: boolean;
+    responseCode: string;
+    responseMessage?: string;
+  },
+  operation: string
+) {
+  if (isMonnifyBusinessSuccess(envelope)) {
+    return;
+  }
+
+  throw new Error(
+    `${operation} failed: ${getMonnifyEnvelopeMessage({
+      fallback: 'Monnify business failure',
+      responseCode: envelope.responseCode,
+      responseMessage: envelope.responseMessage,
+    })}`
+  );
+}
+
+function normalizeMonnifyStatus(status: string | null | undefined) {
+  return status?.trim().toUpperCase();
+}
 
 // Helper for making authenticated requests to Monnify VAS APIs with a timeout
 async function monnifyRequest<T = unknown>(
@@ -66,7 +138,7 @@ async function monnifyRequest<T = unknown>(
   }
 }
 
-export async function getBillerCategories(): Promise<unknown> {
+export async function getBillerCategories(): Promise<BillerCategory[]> {
   const envelope = await monnifyRequest(
     '/api/v1/vas/bills-payment/biller-categories',
     { method: 'GET' }
@@ -74,19 +146,23 @@ export async function getBillerCategories(): Promise<unknown> {
   const parsed = monnifyEnvelopeSchema(z.array(billerCategorySchema)).parse(
     envelope
   );
+  assertMonnifyBusinessSuccess(parsed, 'Monnify biller categories lookup');
   return parsed.responseBody ?? [];
 }
 
-export async function getBillers(categoryCode: string): Promise<unknown> {
+export async function getBillers(categoryCode: string): Promise<Biller[]> {
   const envelope = await monnifyRequest(
     `/api/v1/vas/bills-payment/billers?categoryCode=${encodeURIComponent(categoryCode)}`,
     { method: 'GET' }
   );
   const parsed = monnifyEnvelopeSchema(z.array(billerSchema)).parse(envelope);
+  assertMonnifyBusinessSuccess(parsed, 'Monnify biller lookup');
   return parsed.responseBody ?? [];
 }
 
-export async function getBillerProducts(billerCode: string): Promise<unknown> {
+export async function getBillerProducts(
+  billerCode: string
+): Promise<BillerProduct[]> {
   const envelope = await monnifyRequest(
     `/api/v1/vas/bills-payment/biller-products?billerCode=${encodeURIComponent(billerCode)}`,
     { method: 'GET' }
@@ -94,6 +170,7 @@ export async function getBillerProducts(billerCode: string): Promise<unknown> {
   const parsed = monnifyEnvelopeSchema(z.array(billerProductSchema)).parse(
     envelope
   );
+  assertMonnifyBusinessSuccess(parsed, 'Monnify biller products lookup');
   return parsed.responseBody ?? [];
 }
 
@@ -127,7 +204,7 @@ export async function verifyBillCustomer(
       validateCustomerResponseBodySchema
     ).parse(envelope);
 
-    if (parsed.requestSuccessful && parsed.responseBody) {
+    if (isMonnifyBusinessSuccess(parsed) && parsed.responseBody) {
       const body = parsed.responseBody;
       const validationReference =
         body.validationReference ||
@@ -149,7 +226,11 @@ export async function verifyBillCustomer(
 
     return {
       verified: false,
-      message: parsed.responseMessage || 'Validation failed',
+      message: getMonnifyEnvelopeMessage({
+        fallback: 'Validation failed',
+        responseCode: parsed.responseCode,
+        responseMessage: parsed.responseMessage,
+      }),
     };
   } catch (error) {
     return {
@@ -187,35 +268,40 @@ export async function purchaseBill(
       envelope
     );
 
-    if (!parsedEnvelope.requestSuccessful) {
+    if (!isMonnifyBusinessSuccess(parsedEnvelope)) {
       return {
         success: false,
         reference: requestReference,
-        message: parsedEnvelope.responseMessage || 'Monnify business failure',
+        message: getMonnifyEnvelopeMessage({
+          fallback: 'Monnify business failure',
+          responseCode: parsedEnvelope.responseCode,
+          responseMessage: parsedEnvelope.responseMessage,
+        }),
         status: 'failed',
         amount,
       };
     }
 
     const body = parsedEnvelope.responseBody;
-    const statusVal = body?.status || body?.vendStatus;
+    if (!body) {
+      throw new MonnifyTransientVendError(
+        'Monnify vend response missing responseBody'
+      );
+    }
 
-    const isSuccess = !!(
-      parsedEnvelope.requestSuccessful &&
-      parsedEnvelope.responseCode === '0' &&
-      body &&
-      (statusVal === 'PAID' ||
-        statusVal === 'SUCCESS' ||
-        statusVal === 'SUCCESSFUL')
-    );
-    const isProcessing = !!(
-      parsedEnvelope.requestSuccessful &&
-      parsedEnvelope.responseCode === '0' &&
-      body &&
-      (statusVal === 'PENDING' ||
-        statusVal === 'IN_PROGRESS' ||
-        statusVal === 'PROCESSING')
-    );
+    const statusVal = normalizeMonnifyStatus(body.status || body.vendStatus);
+    const transactionReference = body.transactionReference || undefined;
+
+    const isSuccess = !!statusVal && MONNIFY_SUCCESS_STATUSES.has(statusVal);
+    const isProcessing =
+      !!statusVal && MONNIFY_PROCESSING_STATUSES.has(statusVal);
+    const isFailed = !!statusVal && MONNIFY_FAILED_STATUSES.has(statusVal);
+
+    if ((isSuccess || isProcessing) && !transactionReference) {
+      throw new MonnifyTransientVendError(
+        'Monnify vend response missing transactionReference'
+      );
+    }
 
     const status = isSuccess
       ? 'successful'
@@ -226,9 +312,11 @@ export async function purchaseBill(
     return {
       success: isSuccess || isProcessing,
       reference: requestReference,
-      transactionId: body?.transactionReference || undefined,
+      transactionId: transactionReference,
       pin: body?.token || undefined,
-      message: parsedEnvelope.responseMessage || 'Vend request completed',
+      message:
+        parsedEnvelope.responseMessage ||
+        (isFailed ? 'Vend request failed' : 'Vend request completed'),
       status,
       amount,
     };
@@ -244,14 +332,12 @@ export async function purchaseBill(
         amount,
       };
     }
-    // Network errors, timeouts, and 5xx errors are transient outcomes -> status remains pending
-    return {
-      success: true,
-      reference: requestReference,
-      status: 'pending',
-      message: `Transient vend outcome: ${errorMsg}`,
-      amount,
-    };
+
+    if (error instanceof MonnifyTransientVendError) {
+      throw error;
+    }
+
+    throw new MonnifyTransientVendError(`Transient vend outcome: ${errorMsg}`);
   }
 }
 
@@ -267,26 +353,18 @@ export async function checkTransactionStatus(
     envelope
   );
 
-  if (parsed.requestSuccessful && parsed.responseBody) {
+  if (isMonnifyBusinessSuccess(parsed) && parsed.responseBody) {
     const body = parsed.responseBody;
-    const statusVal = body.status || body.vendStatus;
+    const statusVal = normalizeMonnifyStatus(body.status || body.vendStatus);
 
-    if (
-      statusVal === 'PAID' ||
-      statusVal === 'SUCCESS' ||
-      statusVal === 'SUCCESSFUL'
-    ) {
+    if (statusVal && MONNIFY_SUCCESS_STATUSES.has(statusVal)) {
       return {
         status: 'successful',
         message: parsed.responseMessage || 'success',
         pin: body.token || undefined,
       };
     }
-    if (
-      statusVal === 'PENDING' ||
-      statusVal === 'IN_PROGRESS' ||
-      statusVal === 'PROCESSING'
-    ) {
+    if (statusVal && MONNIFY_PROCESSING_STATUSES.has(statusVal)) {
       return {
         status: 'processing',
         message: parsed.responseMessage || 'processing',
@@ -296,6 +374,10 @@ export async function checkTransactionStatus(
 
   return {
     status: 'failed',
-    message: parsed.responseMessage || 'failed',
+    message: getMonnifyEnvelopeMessage({
+      fallback: 'failed',
+      responseCode: parsed.responseCode,
+      responseMessage: parsed.responseMessage,
+    }),
   };
 }

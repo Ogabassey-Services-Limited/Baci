@@ -51,9 +51,14 @@ interface BillPaymentFormProps {
   onSubmit: (data: {
     amount: number;
     billItemIdentifier: string;
+    billerCode?: string;
     customerIdentifier: string;
     billerName: string;
+    productCode?: string;
+    provider?: 'kuda' | 'monnify';
+    requireValidationRef?: boolean;
     type: string;
+    validationReference?: string;
   }) => void;
 }
 
@@ -74,6 +79,8 @@ export function BillPaymentForm({
     verified: boolean;
     customerName?: string;
     message?: string;
+    validationReference?: string;
+    requireValidationRef?: boolean;
   } | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [billersError, setBillersError] = useState<string | null>(null);
@@ -134,6 +141,14 @@ export function BillPaymentForm({
   const selectedBillItemIdentifier = requiresBillItemSelection
     ? selectedBillItem?.itemCode
     : selectedBiller?.billerId;
+  const selectedProvider =
+    selectedBillItem?.provider ?? selectedBiller?.provider ?? 'kuda';
+  const selectedBillerCode =
+    selectedBillItem?.billerCode ?? selectedBiller?.billerCode;
+  const selectedProductCode =
+    selectedProvider === 'monnify'
+      ? (selectedBillItem?.productCode ?? selectedBillItem?.itemCode)
+      : undefined;
   const isBillItemSelectionComplete =
     !requiresBillItemSelection || billItemSelection.isComplete;
   const isFixedAmount = selectedBillItem?.isAmountFixed ?? false;
@@ -179,17 +194,34 @@ export function BillPaymentForm({
 
   const handleVerify = async () => {
     if (!selectedBiller || !selectedBillItemIdentifier || !customerId) return;
+    if (selectedProvider === 'monnify' && (!selectedBillerCode || !selectedProductCode)) {
+      setVerification({
+        verified: false,
+        message: 'Selected bill product is missing Monnify details',
+      });
+      return;
+    }
     setVerifying(true);
     setVerification(null);
 
     try {
+      const verifyPayload =
+        selectedProvider === 'monnify'
+          ? {
+              provider: 'monnify' as const,
+              billerCode: selectedBillerCode,
+              productCode: selectedProductCode,
+              customerIdentifier: customerId,
+            }
+          : {
+              provider: 'kuda' as const,
+              billItemIdentifier: selectedBillItemIdentifier,
+              customerIdentifier: customerId,
+            };
       const res = await fetch('/api/vtu/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          billItemIdentifier: selectedBillItemIdentifier,
-          customerIdentifier: customerId,
-        }),
+        body: JSON.stringify(verifyPayload),
       });
       const data = await res.json();
       setVerification(data);
@@ -203,9 +235,26 @@ export function BillPaymentForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBiller || !selectedBillItemIdentifier || !verification?.verified || !amount) return;
+    if (
+      selectedProvider === 'monnify' &&
+      (!selectedBillerCode ||
+        !selectedProductCode ||
+        (verification.requireValidationRef && !verification.validationReference))
+    ) {
+      return;
+    }
     onSubmit({
       amount: Number(amount),
       billItemIdentifier: selectedBillItemIdentifier,
+      ...(selectedProvider === 'monnify'
+        ? {
+            provider: 'monnify' as const,
+            billerCode: selectedBillerCode,
+            productCode: selectedProductCode,
+            validationReference: verification.validationReference,
+            requireValidationRef: verification.requireValidationRef ?? false,
+          }
+        : { provider: 'kuda' as const }),
       customerIdentifier: customerId,
       billerName: selectedBillItemPathLabel
         ? `${selectedBiller.billerName} - ${selectedBillItemPathLabel}`
@@ -327,7 +376,7 @@ export function BillPaymentForm({
       )}
 
       <p className="text-center text-xs text-gray-400">
-        Secured by Kuda Bank
+        Secured utility checkout
       </p>
     </form>
   );

@@ -1,9 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getBillersByCategory } from '@/lib/kuda-bills';
 import {
   getBillerProducts as getMonnifyBillerProducts,
   getBillers as getMonnifyBillers,
 } from '@/lib/monnify-bills';
+import {
+  billerProductSchema,
+  billerSchema,
+} from '@/schemas/monnify-bills-schema';
 import { billersQuerySchema } from '@/schemas/vtu';
 
 interface NormalizedBillItem {
@@ -29,37 +34,23 @@ interface NormalizedBiller {
   billItems?: NormalizedBillItem[];
 }
 
-interface RawKudaBillItem {
-  itemCode: string;
-  itemName: string;
-  amount: number;
-  itemCurrencySymbol: string;
-  isAmountFixed: boolean;
-  itemFee: number;
-}
+const kudaBillItemSchema = z.object({
+  itemCode: z.string(),
+  itemName: z.string(),
+  amount: z.number(),
+  itemCurrencySymbol: z.string(),
+  isAmountFixed: z.boolean(),
+  itemFee: z.number(),
+});
 
-interface RawKudaBiller {
-  billerId: string;
-  billerName: string;
-  billerType: string;
-  categoryId: string;
-  categoryName: string;
-  billItems?: RawKudaBillItem[];
-}
-
-interface RawMonnifyBiller {
-  billerCode: string;
-  name: string;
-  billerCategoryCode?: string;
-}
-
-interface RawMonnifyProduct {
-  productCode: string;
-  name: string;
-  amount?: number;
-  isAmountFixed?: boolean;
-  fee?: number;
-}
+const kudaBillerSchema = z.object({
+  billerId: z.string(),
+  billerName: z.string(),
+  billerType: z.string(),
+  categoryId: z.string(),
+  categoryName: z.string(),
+  billItems: z.array(kudaBillItemSchema).optional(),
+});
 
 const BACI_TO_MONNIFY_CATEGORY: Record<string, string> = {
   electricity: 'UTILITY_PAYMENT',
@@ -95,9 +86,9 @@ export async function GET(request: NextRequest) {
     let kudaBillers: NormalizedBiller[] = [];
     try {
       const rawKuda = await getBillersByCategory(type);
-      if (Array.isArray(rawKuda)) {
-        const validatedKuda = rawKuda as RawKudaBiller[];
-        kudaBillers = validatedKuda.map((biller) => ({
+      const validatedKuda = z.array(kudaBillerSchema).safeParse(rawKuda);
+      if (validatedKuda.success) {
+        kudaBillers = validatedKuda.data.map((biller) => ({
           billerId: biller.billerId,
           billerName: biller.billerName,
           billerType: biller.billerType,
@@ -114,6 +105,8 @@ export async function GET(request: NextRequest) {
             provider: 'kuda',
           })),
         }));
+      } else {
+        throw new Error('Kuda biller payload failed validation');
       }
     } catch (err) {
       kudaError = err instanceof Error ? err : new Error(String(err));
@@ -125,54 +118,46 @@ export async function GET(request: NextRequest) {
     const monnifyCategory = BACI_TO_MONNIFY_CATEGORY[type];
     if (monnifyCategory) {
       try {
-        const billerRes = await getMonnifyBillers(monnifyCategory);
-        const rawBillers =
-          billerRes &&
-          typeof billerRes === 'object' &&
-          'requestSuccessful' in billerRes &&
-          (billerRes as Record<string, unknown>).requestSuccessful &&
-          'responseBody' in billerRes
-            ? (billerRes as Record<string, unknown>).responseBody
-            : billerRes;
-
-        if (Array.isArray(rawBillers)) {
-          const validatedBillers = rawBillers as RawMonnifyBiller[];
+        const rawBillers = await getMonnifyBillers(monnifyCategory);
+        const validatedBillers = z.array(billerSchema).safeParse(rawBillers);
+        if (validatedBillers.success) {
           monnifyBillers = await Promise.all(
-            validatedBillers.map(async (biller) => {
+            validatedBillers.data.map(async (biller) => {
               let billItems: NormalizedBillItem[] = [];
               try {
-                const prodRes = await getMonnifyBillerProducts(
+                const rawProducts = await getMonnifyBillerProducts(
                   biller.billerCode
                 );
-                const rawProducts =
-                  prodRes &&
-                  typeof prodRes === 'object' &&
-                  'requestSuccessful' in prodRes &&
-                  (prodRes as Record<string, unknown>).requestSuccessful &&
-                  'responseBody' in prodRes
-                    ? (prodRes as Record<string, unknown>).responseBody
-                    : prodRes;
+                const validatedProducts = z
+                  .array(billerProductSchema)
+                  .safeParse(rawProducts);
 
-                if (Array.isArray(rawProducts)) {
-                  const validatedProducts = rawProducts as RawMonnifyProduct[];
-                  billItems = validatedProducts.map((prod) => ({
+                if (validatedProducts.success) {
+                  billItems = validatedProducts.data.map((prod) => ({
                     itemCode: prod.productCode,
                     itemName: prod.name,
-                    amount: prod.amount || 0,
+                    amount: prod.amount ?? 0,
                     itemCurrencySymbol: 'NGN',
                     isAmountFixed: prod.isAmountFixed ?? false,
-                    itemFee: prod.fee || 0,
+                    itemFee: prod.fee ?? 0,
                     provider: 'monnify',
                     billerCode: biller.billerCode,
                     productCode: prod.productCode,
                   }));
+                } else {
+                  console.error('Monnify products failed validation:', {
+                    billerCode: biller.billerCode,
+                    error: validatedProducts.error.flatten(),
+                  });
                 }
               } catch (prodError) {
-                console.error(
-                  'Failed to fetch Monnify products for biller:',
-                  biller.billerCode,
-                  prodError
-                );
+                console.error('Failed to fetch Monnify products for biller:', {
+                  billerCode: biller.billerCode,
+                  error:
+                    prodError instanceof Error
+                      ? prodError.message
+                      : String(prodError),
+                });
               }
 
               return {
@@ -187,6 +172,8 @@ export async function GET(request: NextRequest) {
               };
             })
           );
+        } else {
+          throw new Error('Monnify biller payload failed validation');
         }
       } catch (err) {
         monnifyError = err instanceof Error ? err : new Error(String(err));

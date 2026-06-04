@@ -366,6 +366,36 @@ export function getKudaVtuCommissionRate(
   return { ...rate };
 }
 
+export function getMonnifyVtuCommissionRate(
+  provider: unknown,
+  category: unknown = 'AIRTIME'
+): VtuCommissionRate {
+  const normalizedCategory = normalizeVtuCommissionCategory(category);
+  const providerKey = resolveProviderRateKey(provider, normalizedCategory);
+  const key = `${providerKey}_${normalizedCategory}`;
+
+  const rate = MONNIFY_VTU_RATES[key] ??
+    MONNIFY_VTU_RATES[providerKey] ?? { rate: 0.02 };
+
+  return { ...rate };
+}
+
+export function getProviderVtuCommissionRate(
+  provider: unknown,
+  category: unknown = 'AIRTIME',
+  providerSource?: 'kuda' | 'monnify'
+): VtuCommissionRate {
+  if (providerSource === 'kuda') {
+    return getKudaVtuCommissionRate(provider, category);
+  }
+
+  if (providerSource === 'monnify') {
+    return getMonnifyVtuCommissionRate(provider, category);
+  }
+
+  return getVtuCommissionRate(provider, category);
+}
+
 export function resolveVtuProvider(
   provider: unknown,
   category: unknown = 'AIRTIME'

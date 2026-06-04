@@ -82,6 +82,25 @@ describe('purchaseSchema', () => {
       const result = purchaseSchema.safeParse(invalidAirtime);
       expect(result.success).toBe(false);
     });
+
+    it('rejects airtime with explicit Monnify provider', () => {
+      const invalidAirtime = {
+        merchantSlug: 'test-merchant',
+        amount: 100,
+        type: 'airtime' as const,
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+        provider: 'monnify' as const,
+      };
+
+      const result = purchaseSchema.safeParse(invalidAirtime);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some((issue) => issue.path.includes('provider'))
+        ).toBe(true);
+      }
+    });
   });
 
   describe('data purchases', () => {
@@ -124,6 +143,26 @@ describe('purchaseSchema', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('dataPlanCode');
+      }
+    });
+
+    it('rejects data with explicit Monnify provider', () => {
+      const invalidData = {
+        merchantSlug: 'test-merchant',
+        amount: 500,
+        type: 'data' as const,
+        phoneNumber: '08012345678',
+        networkProvider: 'GLO',
+        dataPlanCode: 'G-1GB-30D',
+        provider: 'monnify' as const,
+      };
+
+      const result = purchaseSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some((issue) => issue.path.includes('provider'))
+        ).toBe(true);
       }
     });
   });

@@ -25,7 +25,7 @@ describe('Monnify Bills Client', () => {
     it('getBillerCategories returns unwrapped categories list', async () => {
       const mockEnvelope = {
         requestSuccessful: true,
-        responseCode: '0',
+        responseCode: 0,
         responseMessage: 'success',
         responseBody: [
           { name: 'Utility', description: 'Utility Payments', code: 'UTILITY' },
@@ -84,9 +84,9 @@ describe('Monnify Bills Client', () => {
             productCode: 'IKEDC-PREPAID',
             name: 'Prepaid',
             billerCode: 'IKEDC',
-            fee: 100,
-            amount: 0,
-            isAmountFixed: false,
+            fee: '100',
+            amount: '0',
+            isAmountFixed: 'false',
           },
         ],
       };
@@ -107,6 +107,45 @@ describe('Monnify Bills Client', () => {
           isAmountFixed: false,
         },
       ]);
+    });
+
+    it('throws on HTTP OK Monnify discovery business failure', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '1',
+          responseMessage: 'Category unavailable',
+          responseBody: [],
+        }),
+      });
+
+      await expect(getBillerCategories()).rejects.toThrow(
+        'Category unavailable'
+      );
+    });
+
+    it('rejects malformed Monnify product pricing instead of defaulting to zero', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: [
+            {
+              productCode: 'IKEDC-PREPAID',
+              name: 'Prepaid',
+              billerCode: 'IKEDC',
+              fee: 'not-a-number',
+              amount: 0,
+              isAmountFixed: false,
+            },
+          ],
+        }),
+      });
+
+      await expect(getBillerProducts('IKEDC')).rejects.toThrow();
     });
 
     it('propagates HTTP and network errors on discovery helpers', async () => {
@@ -206,7 +245,31 @@ describe('Monnify Bills Client', () => {
         '12345678'
       );
       expect(result.verified).toBe(false);
-      expect(result.message).toBe('Invalid meter number');
+      expect(result.message).toContain('Invalid meter number');
+    });
+
+    it('returns a safe verification failure for HTTP OK non-zero responseCode', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '1',
+        responseMessage: 'Customer validation failed',
+        responseBody: {
+          customerName: 'JANE DOE',
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+      expect(result.verified).toBe(false);
+      expect(result.message).toContain('Customer validation failed');
     });
 
     it('handles verification exceptions gracefully returning safe failure shape', async () => {
@@ -318,7 +381,7 @@ describe('Monnify Bills Client', () => {
       );
       expect(result.status).toBe('failed');
       expect(result.success).toBe(false);
-      expect(result.message).toBe('Insufficient Balance');
+      expect(result.message).toContain('Insufficient Balance');
     });
 
     it('returns terminal failed status on HTTP 4xx API errors', async () => {
@@ -341,24 +404,48 @@ describe('Monnify Bills Client', () => {
       expect(result.message).toContain('Monnify API error: 400');
     });
 
-    it('returns pending status for transient errors like timeouts, network issues, and HTTP 5xx', async () => {
+    it('throws a retryable transient error for timeouts, network issues, and HTTP 5xx before transactionReference is known', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 503,
         statusText: 'Service Unavailable',
       });
 
-      const result = await purchaseBill(
-        'IKEDC',
-        'IKEDC-PREPAID',
-        '12345678',
-        2000,
-        'JANE DOE',
-        'BACI-REF-123'
-      );
-      expect(result.status).toBe('pending');
-      expect(result.success).toBe(true);
-      expect(result.message).toContain('Monnify server error: 503');
+      await expect(
+        purchaseBill(
+          'IKEDC',
+          'IKEDC-PREPAID',
+          '12345678',
+          2000,
+          'JANE DOE',
+          'BACI-REF-123'
+        )
+      ).rejects.toThrow('Transient vend outcome');
+    });
+
+    it('throws a retryable transient error when processing response lacks transactionReference', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'Processing',
+          responseBody: {
+            vendStatus: 'IN_PROGRESS',
+          },
+        }),
+      });
+
+      await expect(
+        purchaseBill(
+          'IKEDC',
+          'IKEDC-PREPAID',
+          '12345678',
+          2000,
+          'JANE DOE',
+          'BACI-REF-123'
+        )
+      ).rejects.toThrow('missing transactionReference');
     });
   });
 
@@ -411,6 +498,27 @@ describe('Monnify Bills Client', () => {
 
       const result = await checkTransactionStatus('MON-TX-123');
       expect(result.status).toBe('successful');
+    });
+
+    it('fails closed for HTTP OK non-zero responseCode', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '1',
+        responseMessage: 'Status lookup failed',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          vendStatus: 'SUCCESSFUL',
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await checkTransactionStatus('MON-TX-123');
+      expect(result.status).toBe('failed');
+      expect(result.message).toContain('Status lookup failed');
     });
 
     it('propagates/throws transient status check errors rather than failing row', async () => {

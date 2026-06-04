@@ -53,6 +53,38 @@ function normalizeCommissionPercentage(value: number | null | undefined) {
   return value;
 }
 
+function resolveCommissionProviderKey({
+  billerCode,
+  billerName,
+  billItemIdentifier,
+  isTelco,
+  normalizedNetworkProvider,
+  productCode,
+}: {
+  billerCode?: string;
+  billerName?: string;
+  billItemIdentifier?: string;
+  isTelco: boolean;
+  normalizedNetworkProvider?: string;
+  productCode?: string;
+}) {
+  if (isTelco) {
+    return normalizedNetworkProvider;
+  }
+
+  const key =
+    billerName?.trim() ||
+    billerCode?.trim() ||
+    billItemIdentifier?.trim() ||
+    productCode?.trim();
+
+  if (!key) {
+    throw new Error('Biller name or provider key is required for bill payment');
+  }
+
+  return key;
+}
+
 interface CustomerRecord {
   id: string;
   email: string | null;
@@ -252,17 +284,18 @@ export async function preparePendingVtuTransaction({
   }
   const purchaseAmount = resolvedDataPlan?.amount ?? input.amount;
 
-  const commissionProvider = isTelco
-    ? normalizedNetworkProvider
-    : (input.billerName ?? 'DEFAULT');
-
   let resolvedProvider: 'kuda' | 'monnify';
+  let commissionProvider: string | undefined;
 
   if (isTelco) {
     if (input.provider === 'monnify') {
       throw new Error('Monnify does not support airtime/data purchases');
     }
     resolvedProvider = 'kuda';
+    commissionProvider = resolveCommissionProviderKey({
+      isTelco,
+      normalizedNetworkProvider: normalizedNetworkProvider ?? undefined,
+    });
   } else {
     const kudaAvailable = !!(
       input.billItemIdentifier && input.customerIdentifier
@@ -279,13 +312,37 @@ export async function preparePendingVtuTransaction({
         throw new Error('Required Monnify fields are missing');
       }
       resolvedProvider = 'monnify';
+      commissionProvider = resolveCommissionProviderKey({
+        billerCode: input.billerCode,
+        billerName: input.billerName,
+        billItemIdentifier: input.billItemIdentifier,
+        isTelco,
+        productCode: input.productCode,
+      });
     } else if (input.provider === 'kuda') {
       if (!kudaAvailable) {
         throw new Error('Required Kuda fields are missing');
       }
       resolvedProvider = 'kuda';
+      commissionProvider = resolveCommissionProviderKey({
+        billerCode: input.billerCode,
+        billerName: input.billerName,
+        billItemIdentifier: input.billItemIdentifier,
+        isTelco,
+        productCode: input.productCode,
+      });
     } else {
       // Auto mode
+      if (!monnifyAvailable && !kudaAvailable) {
+        throw new Error('No provider available based on submitted fields');
+      }
+      commissionProvider = resolveCommissionProviderKey({
+        billerCode: input.billerCode,
+        billerName: input.billerName,
+        billItemIdentifier: input.billItemIdentifier,
+        isTelco,
+        productCode: input.productCode,
+      });
       const preference = resolveVtuProvider(
         commissionProvider,
         COMMISSION_CATEGORY_MAP[purchaseType]
@@ -305,9 +362,14 @@ export async function preparePendingVtuTransaction({
     }
   }
 
+  if (!commissionProvider) {
+    throw new Error('Biller name or provider key is required for bill payment');
+  }
+
   const commissions = await calculateCommerce('calculate_vtu', {
     amount: purchaseAmount,
     provider: commissionProvider,
+    providerSource: resolvedProvider,
     category: COMMISSION_CATEGORY_MAP[purchaseType],
     merchantSplit: merchantSplitPercentage,
   });

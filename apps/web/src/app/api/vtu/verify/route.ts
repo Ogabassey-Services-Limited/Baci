@@ -42,17 +42,27 @@ export async function POST(request: Request) {
       billItemIdentifier,
     } = parsed.data;
 
-    const result =
-      provider === 'monnify'
-        ? await verifyMonnifyCustomer(
-            billerCode ?? '',
-            productCode ?? '',
-            customerIdentifier
-          )
-        : await verifyKudaCustomer(
-            billItemIdentifier ?? '',
-            customerIdentifier
-          );
+    if (provider === 'monnify') {
+      if (!billerCode || !productCode) {
+        return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+      }
+
+      const result = await verifyMonnifyCustomer(
+        billerCode,
+        productCode,
+        customerIdentifier
+      );
+      return NextResponse.json(result);
+    }
+
+    if (!billItemIdentifier) {
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+    }
+
+    const result = await verifyKudaCustomer(
+      billItemIdentifier,
+      customerIdentifier
+    );
 
     return NextResponse.json(result);
   } catch (error) {

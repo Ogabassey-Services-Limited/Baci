@@ -2132,6 +2132,61 @@ describe('fulfillPendingVtuTransaction', () => {
     });
   });
 
+  it('restores Monnify transient vend failures without transaction reference to retryable pending', async () => {
+    const transientError = new Error('Transient vend outcome: timeout');
+    transientError.name = 'MonnifyTransientVendError';
+    mockMonnifyPurchaseBill.mockRejectedValue(transientError);
+
+    const updatePayloads: unknown[] = [];
+    const supabase = createPendingTransactionSupabaseMock({
+      updatePayloads,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {
+          provider: 'monnify',
+          billerCode: 'biller1',
+          productCode: 'product1',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC',
+        biller_item_code: null,
+        customer_identifier: '43901766923',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'processing',
+    });
+    expect(updatePayloads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          error_message: 'Transient vend outcome: timeout',
+          status: 'pending',
+          transaction_id: null,
+          metadata: expect.objectContaining({
+            monnifyTransientVendError: 'Transient vend outcome: timeout',
+          }),
+        }),
+      ])
+    );
+  });
+
   it('Monnify transient status error keeps row in processing status', async () => {
     mockMonnifyCheckTransactionStatus.mockRejectedValue(
       new Error('Transient database error')

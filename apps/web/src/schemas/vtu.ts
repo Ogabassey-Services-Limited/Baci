@@ -51,6 +51,14 @@ function applyPurchaseRequirements(
   ctx: z.RefinementCtx
 ) {
   if (data.type === 'airtime' || data.type === 'data') {
+    if (data.provider === 'monnify') {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Monnify does not support airtime/data purchases',
+        path: ['provider'],
+      });
+    }
+
     if (!data.phoneNumber) {
       ctx.addIssue({
         code: 'custom',

@@ -784,6 +784,10 @@ function getErrorMessage(error: unknown) {
   return String(error);
 }
 
+function isMonnifyTransientVendError(error: unknown) {
+  return error instanceof Error && error.name === 'MonnifyTransientVendError';
+}
+
 function waitForRetryBackoff(delayMs: number) {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
@@ -797,7 +801,7 @@ async function updateVtuPurchaseResultWithRetry({
   payload: {
     error_message: string | null;
     metadata: Record<string, unknown>;
-    status: 'processing' | 'successful' | 'failed';
+    status: 'pending' | 'processing' | 'successful' | 'failed';
     transaction_id: string | null;
   };
   expectedStatus?: VtuTransactionRow['status'];
@@ -2461,10 +2465,55 @@ export async function fulfillPendingVtuTransaction({
     row.metadata = debitedMetadata;
   }
 
-  const result = await executeVtuPurchase(
-    row,
-    merchant?.business_name || 'Customer'
-  );
+  let result: PurchaseResult;
+  try {
+    result = await executeVtuPurchase(
+      row,
+      merchant?.business_name || 'Customer'
+    );
+  } catch (error) {
+    if (!isMonnifyTransientVendError(error)) {
+      throw error;
+    }
+
+    const retryableMetadata = {
+      ...(row.metadata ?? {}),
+      monnifyTransientVendError: getErrorMessage(error),
+      monnifyTransientVendRetryableAt: new Date().toISOString(),
+    };
+    const retryableUpdateError = await updateVtuPurchaseResultWithRetry({
+      payload: {
+        error_message: getErrorMessage(error),
+        metadata: retryableMetadata,
+        status: 'pending',
+        transaction_id: row.transaction_id,
+      },
+      expectedStatus: 'processing',
+      row,
+      supabase,
+    });
+
+    if (isVtuConcurrentUpdateError(retryableUpdateError)) {
+      return resolveCurrentVtuTransactionState({ row, supabase });
+    }
+
+    if (retryableUpdateError) {
+      console.error('Failed to restore retryable Monnify VTU vend row:', {
+        error: getErrorMessage(retryableUpdateError),
+        metadata: getSafeMetadataDiagnostics(retryableMetadata),
+        transactionId: row.id,
+      });
+      throwVtuPersistenceError(
+        'Failed to restore retryable Monnify VTU vend row'
+      );
+    }
+
+    return {
+      amount: Number(row.amount) || 0,
+      reference: row.request_reference,
+      status: 'processing',
+    };
+  }
 
   const voucherPin =
     normalizeVoucherPin(result.pin) ||

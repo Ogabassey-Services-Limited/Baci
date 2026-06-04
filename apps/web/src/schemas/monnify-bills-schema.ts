@@ -20,11 +20,49 @@ export const vendRequestSchema = z.object({
 
 export type VendRequest = z.infer<typeof vendRequestSchema>;
 
+const monnifyResponseCodeSchema = z
+  .union([z.string(), z.number()])
+  .transform((value) => String(value));
+
+const monnifyOptionalNumberSchema = z
+  .union([
+    z.number().finite(),
+    z
+      .string()
+      .trim()
+      .min(1)
+      .transform((value, ctx) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Expected a finite number',
+          });
+          return z.NEVER;
+        }
+        return numeric;
+      }),
+  ])
+  .optional()
+  .nullable();
+
+const monnifyOptionalBooleanSchema = z
+  .union([
+    z.boolean(),
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .pipe(z.enum(['true', 'false']).transform((value) => value === 'true')),
+  ])
+  .optional()
+  .nullable();
+
 // Generic Monnify API Envelope Schema
 export function monnifyEnvelopeSchema<T extends z.ZodTypeAny>(bodySchema: T) {
   return z.object({
     requestSuccessful: z.boolean(),
-    responseCode: z.string(),
+    responseCode: monnifyResponseCodeSchema,
     responseMessage: z.string(),
     responseBody: bodySchema.optional().nullable(),
   });
@@ -52,9 +90,9 @@ export const billerProductSchema = z.object({
   productCode: z.string(),
   name: z.string(),
   billerCode: z.string(),
-  fee: z.number().catch(0).optional().nullable(),
-  amount: z.number().catch(0).optional().nullable(),
-  isAmountFixed: z.boolean().catch(false).optional().nullable(),
+  fee: monnifyOptionalNumberSchema,
+  amount: monnifyOptionalNumberSchema,
+  isAmountFixed: monnifyOptionalBooleanSchema,
 });
 export type BillerProduct = z.infer<typeof billerProductSchema>;
 

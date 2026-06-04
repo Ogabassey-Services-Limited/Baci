@@ -256,6 +256,7 @@ describe('GET /api/vtu/billers', () => {
     mockMonnifyGetBillers.mockResolvedValue([
       {
         billerCode: 'IKEDC',
+        description: 'Ikeja Electricity Distribution Company',
         name: 'Ikeja Electricity Distribution Company',
         billerCategoryCode: 'UTILITY_PAYMENT',
       },
@@ -316,13 +317,13 @@ describe('GET /api/vtu/billers', () => {
 
     const kudaBiller = billers.find((b) => b.provider === 'kuda');
     expect(kudaBiller).toBeDefined();
-    expect(kudaBiller!.billItems[0].provider).toBe('kuda');
+    expect(kudaBiller?.billItems[0]?.provider).toBe('kuda');
 
     const monnifyBiller = billers.find((b) => b.provider === 'monnify');
     expect(monnifyBiller).toBeDefined();
-    expect(monnifyBiller!.billerCode).toBe('IKEDC');
-    expect(monnifyBiller!.billItems[0].provider).toBe('monnify');
-    expect(monnifyBiller!.billItems[0].productCode).toBe('IKEDC-PREPAID');
+    expect(monnifyBiller?.billerCode).toBe('IKEDC');
+    expect(monnifyBiller?.billItems[0]?.provider).toBe('monnify');
+    expect(monnifyBiller?.billItems[0]?.productCode).toBe('IKEDC-PREPAID');
   });
 
   it('falls back gracefully if Monnify throws', async () => {
@@ -350,6 +351,38 @@ describe('GET /api/vtu/billers', () => {
     expect(data.billers[0].provider).toBe('kuda');
   });
 
+  it('rejects malformed Kuda biller payloads instead of accepting type assertions', async () => {
+    const { GET } = await import('./route');
+
+    mockGetBillersByCategory.mockResolvedValue([
+      {
+        billerId: 'kuda-biller-1',
+        billerName: 'Ikeja Electric',
+        billerType: 'electricity',
+        categoryId: 'cat-1',
+        categoryName: 'Electricity',
+        billItems: [
+          {
+            itemCode: 'kuda-item-1',
+            itemName: 'Prepaid',
+            amount: 'invalid',
+            itemCurrencySymbol: 'NGN',
+            isAmountFixed: false,
+            itemFee: 0,
+          },
+        ],
+      },
+    ]);
+    mockMonnifyGetBillers.mockResolvedValue([]);
+
+    const request = makeRequest({ type: 'electricity' });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data.error).toContain('Kuda biller payload failed validation');
+  });
+
   it('falls back gracefully if Kuda throws but Monnify succeeds', async () => {
     const { GET } = await import('./route');
 
@@ -358,6 +391,7 @@ describe('GET /api/vtu/billers', () => {
     mockMonnifyGetBillers.mockResolvedValue([
       {
         billerCode: 'IKEDC',
+        description: 'Ikeja Electricity Distribution Company',
         name: 'Ikeja Electricity Distribution Company',
         billerCategoryCode: 'UTILITY_PAYMENT',
       },

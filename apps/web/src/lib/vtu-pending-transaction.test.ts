@@ -185,6 +185,7 @@ describe('preparePendingVtuTransaction', () => {
       category: 'AIRTIME',
       merchantSplit: 50,
       provider: 'MTN',
+      providerSource: 'kuda',
     });
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({ network_provider: 'MTN' })
@@ -205,6 +206,7 @@ describe('preparePendingVtuTransaction', () => {
       category: 'AIRTIME',
       merchantSplit: 50,
       provider: 'MTN',
+      providerSource: 'kuda',
     });
   });
 
@@ -715,6 +717,94 @@ describe('preparePendingVtuTransaction', () => {
               billerCode: 'IBEDC',
               productCode: 'IBEDC-PREPAID',
             }),
+          })
+        );
+      });
+
+      it('routes and prices as Kuda when provider is omitted, both field sets exist, and Kuda is preferred', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'cable_tv',
+            amount: 5000,
+            billItemIdentifier: 'dstv-compact',
+            billerCode: 'DSTV',
+            productCode: 'DSTV-COMPACT',
+            customerIdentifier: '12345678',
+            billerName: 'DSTV',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              provider: 'kuda',
+            }),
+          })
+        );
+        expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+          'calculate_vtu',
+          expect.objectContaining({
+            category: 'CABLE',
+            provider: 'DSTV',
+            providerSource: 'kuda',
+          })
+        );
+      });
+
+      it('routes and prices as Monnify when provider is omitted, both field sets exist, and Monnify is preferred', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'electricity',
+            amount: 2000,
+            billItemIdentifier: 'bedc-prepaid',
+            billerCode: 'BEDC',
+            productCode: 'BEDC-PREPAID',
+            customerIdentifier: '12345678',
+            billerName: 'BEDC',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              provider: 'monnify',
+              billerCode: 'BEDC',
+              productCode: 'BEDC-PREPAID',
+            }),
+          })
+        );
+        expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+          'calculate_vtu',
+          expect.objectContaining({
+            category: 'ELECTRICITY',
+            provider: 'BEDC',
+            providerSource: 'monnify',
           })
         );
       });
