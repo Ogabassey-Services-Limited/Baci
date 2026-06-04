@@ -21,6 +21,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useWallet } from '@/hooks/use-wallet';
 import { createLogger } from '@/lib/logger';
+import { resolveStorefrontApiBaseUrl } from '@/lib/storefront-api-url';
 import {
   ImeiCheckApiResponseSchema,
   type ImeiResult,
@@ -30,7 +31,9 @@ import {
 import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('ImeiChecker');
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
+const API_BASE_URL = resolveStorefrontApiBaseUrl(
+  process.env.EXPO_PUBLIC_STOREFRONT_API_URL || process.env.EXPO_PUBLIC_API_URL
+);
 
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
