@@ -17,6 +17,11 @@ on:
         description: 'Version code override (leave empty for auto)'
         required: false
         type: string
+      changes_not_sent_for_review:
+        description: 'Manual recovery only: set true after Play asks for changesNotSentForReview'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   # Serialize admin release runs only. Cross-app serialization is avoided because
@@ -252,6 +257,9 @@ jobs:
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           tracks: production
           status: completed
+          # Keep automatic releases in the normal Play review flow. Manual
+          # recovery dispatches can set this after Play rejects automatic review.
+          changesNotSentForReview: ${{ github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review }}
 
       - name: Clean up keystore
         if: always()
