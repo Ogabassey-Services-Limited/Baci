@@ -18,6 +18,7 @@ const RESUMABLE_ROUTE_PREFIXES = [
   '/crypto-payment',
   '/bnpl-checkout',
 ] as const;
+const AUTH_ROUTE_PREFIX = '/auth';
 
 let lastResumableHref: Href | null = null;
 
@@ -44,6 +45,14 @@ function isResumablePath(pathname: string | null | undefined): boolean {
 
   return RESUMABLE_ROUTE_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+function isAuthPath(pathname: string | null | undefined): boolean {
+  return Boolean(
+    pathname &&
+      (pathname === AUTH_ROUTE_PREFIX ||
+        pathname.startsWith(`${AUTH_ROUTE_PREFIX}/`))
   );
 }
 
@@ -110,9 +119,9 @@ export function RouteResumeController({
       return;
     }
 
-    hasAttemptedResumeRef.current = true;
     const resumeHref = getLastResumableHref();
     if (isHomePath(pathname) && resumeHref) {
+      hasAttemptedResumeRef.current = true;
       try {
         router.replace(resumeHref);
       } catch (error) {
@@ -127,15 +136,24 @@ export function RouteResumeController({
   useEffect(() => {
     if (currentResumeHref) {
       setLastResumableHref(currentResumeHref);
+      hasAttemptedResumeRef.current = false;
       return;
     }
 
-    // Clear saved resume state once it is no longer usable, so old checkout
-    // routes cannot resurface after intentional home navigation.
-    if (!shouldResume || hasAttemptedResumeRef.current) {
+    if (isAuthPath(pathname)) {
+      return;
+    }
+
+    // Clear saved resume state once it is no longer usable, while preserving it
+    // through auth routes used by checkout/payment sign-in flows.
+    if (
+      !shouldResume ||
+      hasAttemptedResumeRef.current ||
+      Boolean(pathname)
+    ) {
       clearRouteResumeState();
     }
-  }, [currentResumeHref, shouldResume]);
+  }, [currentResumeHref, pathname, shouldResume]);
 
   return null;
 }

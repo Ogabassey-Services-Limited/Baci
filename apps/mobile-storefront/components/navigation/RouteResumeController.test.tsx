@@ -83,6 +83,48 @@ describe('RouteResumeController', () => {
     });
   });
 
+  it('does not let an empty home boot disable a later same-session restore', async () => {
+    const { rerender } = render(<RouteResumeController shouldResume />);
+
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    mockPathname = '/checkout';
+    rerender(<RouteResumeController shouldResume />);
+    mockPathname = '/';
+    rerender(<RouteResumeController shouldResume />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/checkout');
+    });
+  });
+
+  it('preserves the saved commerce route while auth routes are active', async () => {
+    mockPathname = '/payment-gateway';
+    mockSearchParams = {
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      orderId: 'order-123',
+    };
+    const { rerender } = render(<RouteResumeController shouldResume />);
+
+    mockPathname = '/auth/login';
+    mockSearchParams = {
+      returnTo: '/checkout',
+    };
+    rerender(<RouteResumeController shouldResume />);
+
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    mockPathname = '/';
+    mockSearchParams = {};
+    rerender(<RouteResumeController shouldResume />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(
+        '/payment-gateway?authorizationUrl=https%3A%2F%2Fcheckout.paystack.com%2Ftest&orderId=order-123'
+      );
+    });
+  });
+
   it('does not restore non-commerce routes', () => {
     mockPathname = '/auth/login';
     const firstRender = render(<RouteResumeController shouldResume={false} />);
