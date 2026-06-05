@@ -15,6 +15,50 @@ describe('BNPLParamsSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts decimal BNPL amounts from fractional tax totals', () => {
+    const result = BNPLParamsSchema.safeParse({
+      amount: '386284.93',
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts one-decimal BNPL amounts', () => {
+    const result = BNPLParamsSchema.safeParse({
+      amount: '386284.9',
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects leading-dot BNPL amounts', () => {
+    const result = BNPLParamsSchema.safeParse({
+      amount: '.93',
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects malformed BNPL amounts', () => {
+    const result = BNPLParamsSchema.safeParse({
+      amount: '386284.930',
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('strips untrusted merchantDomain route params from parsed data', () => {
     const result = BNPLParamsSchema.safeParse({
       gateway: 'credit_direct',

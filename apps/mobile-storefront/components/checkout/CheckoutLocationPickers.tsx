@@ -53,11 +53,16 @@ export function CheckoutLocationPickers({
   watchedCity,
   watchedState,
 }: CheckoutLocationPickersProps) {
-  const filteredCities = citySearch
-    ? shippingCities.filter((city) =>
-        city.toLowerCase().includes(citySearch.toLowerCase())
-      )
+  const typedCity = citySearch.trim();
+  const typedCityLower = typedCity.toLowerCase();
+  const filteredCities = typedCity
+    ? shippingCities.filter((city) => city.toLowerCase().includes(typedCityLower))
     : shippingCities;
+  const exactCityMatch =
+    typedCity.length > 0
+      ? shippingCities.find((city) => city.toLowerCase() === typedCityLower)
+      : undefined;
+  const shouldShowTypedCity = typedCity.length > 0 && !exactCityMatch;
 
   return (
     <>
@@ -145,6 +150,11 @@ export function CheckoutLocationPickers({
                 autoCapitalize="words"
                 autoCorrect={false}
                 returnKeyType="done"
+                onSubmitEditing={() => {
+                  if (typedCity.length > 0) {
+                    onSelectCity(exactCityMatch ?? typedCity);
+                  }
+                }}
               />
               {citySearch.length > 0 && (
                 <Pressable onPress={() => onChangeCitySearch('')} hitSlop={8}>
@@ -156,6 +166,34 @@ export function CheckoutLocationPickers({
                 </Pressable>
               )}
             </View>
+            {shouldShowTypedCity ? (
+              <Pressable
+                accessibilityLabel={`Use ${typedCity} as city`}
+                accessibilityRole="button"
+                onPress={() => onSelectCity(typedCity)}
+                style={[
+                  styles.pickerItem,
+                  styles.customCityItem,
+                  {
+                    borderColor: isDark
+                      ? 'rgba(245, 158, 11, 0.35)'
+                      : 'rgba(245, 158, 11, 0.28)',
+                  },
+                ]}
+              >
+                <View style={styles.pickerItemContent}>
+                  <View>
+                    <Text style={styles.customCityLabel}>Use typed city</Text>
+                    <Text
+                      style={[styles.customCityText, { color: colors.text }]}
+                    >
+                      {typedCity}
+                    </Text>
+                  </View>
+                  <Ionicons name="add-circle" size={20} color={BRAND.primary} />
+                </View>
+              </Pressable>
+            ) : null}
             <FlatList
               data={filteredCities}
               keyExtractor={(item) => item}

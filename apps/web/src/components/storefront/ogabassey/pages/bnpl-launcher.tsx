@@ -22,6 +22,14 @@ import {
 } from '@/lib/klump-utils';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
+declare global {
+    interface Window {
+        ReactNativeWebView?: {
+            postMessage: (message: string) => void;
+        };
+    }
+}
+
 const KLUMP_TRANSACTION_ID_KEYS = [
     'klump_transaction_id',
     'klumpTransactionId',
@@ -45,31 +53,6 @@ interface KlumpRecordResponse {
 }
 
 type NativeBNPLBridgeGateway = 'credpal' | 'credit_direct' | 'klump';
-
-interface ReactNativeWebViewBridgeWindow extends Window {
-    ReactNativeWebView?: {
-        postMessage: (message: string) => void;
-    };
-}
-
-function postNativeBnplClose(gateway: NativeBNPLBridgeGateway): boolean {
-    try {
-        const bridge = (window as ReactNativeWebViewBridgeWindow).ReactNativeWebView;
-        if (!bridge) {
-            return false;
-        }
-
-        bridge.postMessage(
-            JSON.stringify({
-                gateway,
-                type: 'bnpl_close',
-            })
-        );
-        return true;
-    } catch {
-        return false;
-    }
-}
 
 function readSearchParam(
     searchParams: SearchParamReader,
@@ -153,6 +136,31 @@ function hasPendingKlumpRedirect(expectedRedirectUrl: string) {
 
         clearPendingKlumpRedirect();
         return false;
+    } catch {
+        return false;
+    }
+}
+
+function notifyNativeBnplClose(gateway: NativeBNPLBridgeGateway) {
+    const bridge = window.ReactNativeWebView;
+    if (typeof bridge?.postMessage !== 'function') {
+        return false;
+    }
+
+    try {
+        bridge.postMessage(
+            JSON.stringify({
+                gateway,
+                message:
+                    gateway === 'credit_direct'
+                        ? 'Credit Direct checkout closed'
+                        : gateway === 'credpal'
+                          ? 'CredPal checkout closed'
+                          : 'Klump checkout closed',
+                type: 'bnpl_close',
+            })
+        );
+        return true;
     } catch {
         return false;
     }
@@ -390,6 +398,11 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                             }
                         },
                         onClose: () => {
+                            if (notifyNativeBnplClose('credit_direct')) {
+                                clearPaymentLaunch();
+                                return;
+                            }
+
                             window.setTimeout(() => {
                                 if (document.getElementById('klump_checkout')) {
                                     return;
@@ -444,7 +457,8 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                             router.push(`/order-success?${successQuery.toString()}`);
                         },
                         onClose: () => {
-                            if (postNativeBnplClose('credpal')) {
+                            if (notifyNativeBnplClose('credpal')) {
+                                clearPaymentLaunch();
                                 return;
                             }
 
@@ -539,6 +553,11 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                                     hasPendingKlumpRedirect(klumpRedirectUrl) ||
                                     document.getElementById('klump_checkout')
                                 ) {
+                                    return;
+                                }
+
+                                if (notifyNativeBnplClose('klump')) {
+                                    clearPaymentLaunch();
                                     return;
                                 }
 

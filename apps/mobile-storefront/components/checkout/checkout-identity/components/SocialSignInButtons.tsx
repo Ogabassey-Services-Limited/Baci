@@ -2,22 +2,26 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import React from 'react';
 import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import { GoogleLogo } from '../../../icons/GoogleLogo';
-import { palette } from '@/constants/Colors';
+import type { CheckoutIdentityTheme } from '../colors';
 import type { SocialSignInButtonsProps } from '../types';
 import { styles } from '../styles';
+
+interface ThemedSocialSignInButtonsProps extends SocialSignInButtonsProps {
+  theme: CheckoutIdentityTheme;
+}
 
 /**
  * Social Divider - "OR" separator between form and social buttons
  */
-function SocialDivider() {
+function SocialDivider({ theme }: { theme: CheckoutIdentityTheme }) {
   return (
     <View
       style={[styles.divider, { marginTop: 4, marginBottom: 8 }]}
       accessibilityRole="none"
     >
-      <View style={styles.dividerLine} />
-      <Text style={styles.dividerText}>OR</Text>
-      <View style={styles.dividerLine} />
+      <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
+      <Text style={[styles.dividerText, { color: theme.footerText }]}>OR</Text>
+      <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
     </View>
   );
 }
@@ -29,15 +33,17 @@ export function SocialSignInButtons({
   isLoading,
   onGoogleSignIn,
   onAppleSignIn,
-}: SocialSignInButtonsProps) {
+  theme,
+}: ThemedSocialSignInButtonsProps) {
   return (
     <>
-      <SocialDivider />
+      <SocialDivider theme={theme} />
       <View style={{ gap: 8 }}>
         {/* Google Sign-In */}
         <TouchableOpacity
           style={[
             styles.socialButton,
+            { backgroundColor: theme.input, borderColor: theme.border },
             isLoading && styles.socialButtonDisabled,
           ]}
           onPress={onGoogleSignIn}
@@ -49,7 +55,9 @@ export function SocialSignInButtons({
           accessibilityState={{ disabled: isLoading }}
         >
           <GoogleLogo size={20} />
-          <Text style={styles.socialButtonText}>Continue with Google</Text>
+          <Text style={[styles.socialButtonText, { color: theme.text }]}>
+            Continue with Google
+          </Text>
         </TouchableOpacity>
 
         {/* Apple Sign-In (iOS only) */}
@@ -57,6 +65,7 @@ export function SocialSignInButtons({
           <TouchableOpacity
             style={[
               styles.socialButton,
+              { backgroundColor: theme.input, borderColor: theme.border },
               isLoading && styles.socialButtonDisabled,
             ]}
             onPress={onAppleSignIn}
@@ -70,11 +79,13 @@ export function SocialSignInButtons({
             <Ionicons
               name="logo-apple"
               size={18}
-              color={palette.gray[900]}
+              color={theme.text}
               accessibilityElementsHidden
               importantForAccessibility="no"
             />
-            <Text style={styles.socialButtonText}>Continue with Apple</Text>
+            <Text style={[styles.socialButtonText, { color: theme.text }]}>
+              Continue with Apple
+            </Text>
           </TouchableOpacity>
         )}
       </View>

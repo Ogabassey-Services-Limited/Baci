@@ -1,11 +1,14 @@
-import { jest } from '@jest/globals';
+import { afterEach, jest } from '@jest/globals';
 import {
   DEFAULT_FALLBACK_VAT_RATE_PERCENT,
   FALLBACK_VAT_RATE_ENV,
 } from '@/constants/tax';
+import { supabase } from '@/lib/supabase';
 import {
+  fetchMerchantPaymentSettings,
   getEnabledPaymentMethods,
   getMerchantTaxRate,
+  merchantPaymentSettingsQueryKey,
   normalizePaymentSettings,
 } from './useMerchantPaymentSettings';
 
@@ -150,5 +153,51 @@ describe('normalizePaymentSettings', () => {
     expect(getEnabledPaymentMethods(settings)).toContain('bank_transfer');
     expect(settings.wallet_order_auto_debit_enabled).toBe(true);
     expect(settings.wallet_paystack_dva_enabled).toBe(true);
+  });
+});
+
+describe('merchant payment settings query', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('exports the same stable key used to warm checkout payment options', () => {
+    expect(merchantPaymentSettingsQueryKey).toEqual([
+      'merchant-payment-settings',
+      'merchant-test-id',
+    ]);
+  });
+
+  it('fetches and normalizes merchant payment settings for React Query prefetching', async () => {
+    const single = jest.fn(async () => ({
+      data: {
+        klump_enabled: true,
+        paystack_enabled: false,
+        vat_rate: '7.5',
+        vat_registration_status: 'registered',
+      },
+      error: null,
+    }));
+    (supabase.rpc as jest.Mock).mockReturnValue({ single });
+
+    await expect(fetchMerchantPaymentSettings()).resolves.toMatchObject({
+      klump_enabled: true,
+      paystack_enabled: false,
+      vat_rate: 7.5,
+      vat_registration_status: 'registered',
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'get_storefront_payment_settings',
+      { p_merchant_id: 'merchant-test-id' }
+    );
+    expect(single).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws RPC errors so React Query can retry or surface the fallback path', async () => {
+    const rpcError = new Error('rpc failed');
+    const single = jest.fn(async () => ({ data: null, error: rpcError }));
+    (supabase.rpc as jest.Mock).mockReturnValue({ single });
+
+    await expect(fetchMerchantPaymentSettings()).rejects.toThrow(rpcError);
   });
 });

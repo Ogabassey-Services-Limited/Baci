@@ -19,18 +19,19 @@ describe('PaymentMethodTabSelector', () => {
   it('keeps full tab labels in regular layouts', () => {
     render(<PaymentMethodTabSelector {...baseProps} />);
 
-    expect(screen.getByText('Full Payment')).toBeTruthy();
-    expect(screen.getByText('Pay in Installments')).toBeTruthy();
-    expect(screen.getByText('Pay Later')).toBeTruthy();
+    expect(screen.getByText(/Pay\s+in full/)).toBeTruthy();
+    expect(screen.getByText(/Pay\s+in Installments/)).toBeTruthy();
+    expect(screen.getByText(/Pay\s+Later/)).toBeTruthy();
   });
 
   it('uses compact labels with readable accessible names', () => {
     render(<PaymentMethodTabSelector {...baseProps} compact />);
 
-    expect(screen.getByText(/Pay in\s+Full/)).toBeTruthy();
-    expect(screen.getByText(/Pay in\s+Installments/)).toBeTruthy();
+    expect(screen.getByText(/Pay\s+in full/)).toBeTruthy();
+    expect(screen.getByText(/Pay\s+in Installments/)).toBeTruthy();
+    expect(screen.getByText(/Pay\s+Later/)).toBeTruthy();
     expect(
-      screen.getByRole('tab', { name: 'Pay in Full' })
+      screen.getByRole('tab', { name: 'Pay in full' })
     ).toHaveAccessibilityState({ selected: true });
     expect(
       screen.getByRole('tab', { name: 'Pay in Installments' })
@@ -38,23 +39,21 @@ describe('PaymentMethodTabSelector', () => {
     expect(
       screen.getByRole('tab', { name: 'Pay Later' })
     ).toHaveAccessibilityState({ selected: false });
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
   });
 
   it('omits unavailable optional tabs in compact layouts', () => {
     const { rerender } = render(
-      <PaymentMethodTabSelector
-        {...baseProps}
-        compact
-        hasBNPLMethods={false}
-      />
+      <PaymentMethodTabSelector {...baseProps} compact hasBNPLMethods={false} />
     );
 
-    expect(screen.getByRole('tab', { name: 'Pay in Full' })).toBeTruthy();
-    expect(screen.queryByText(/Pay in\s+Installments/)).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Pay in full' })).toBeTruthy();
+    expect(screen.queryByText(/Pay\s+in Installments/)).toBeNull();
     expect(
       screen.queryByRole('tab', { name: 'Pay in Installments' })
     ).toBeNull();
     expect(screen.getByRole('tab', { name: 'Pay Later' })).toBeTruthy();
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
 
     rerender(
       <PaymentMethodTabSelector
@@ -64,12 +63,13 @@ describe('PaymentMethodTabSelector', () => {
       />
     );
 
-    expect(screen.getByRole('tab', { name: 'Pay in Full' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Pay in full' })).toBeTruthy();
     expect(
       screen.getByRole('tab', { name: 'Pay in Installments' })
     ).toBeTruthy();
-    expect(screen.queryByText('Pay Later')).toBeNull();
+    expect(screen.queryByText(/Pay\s+Later/)).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Pay Later' })).toBeNull();
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
   });
 
   it('hides the selector when only full payment is available', () => {
@@ -83,7 +83,7 @@ describe('PaymentMethodTabSelector', () => {
     );
 
     expect(screen.queryByRole('tablist', { name: 'Payment type' })).toBeNull();
-    expect(screen.queryByRole('tab', { name: 'Pay in Full' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Pay in full' })).toBeNull();
   });
 
   it('switches tabs when pressed', () => {

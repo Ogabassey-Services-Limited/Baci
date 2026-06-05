@@ -132,12 +132,6 @@ export default function TabLayout() {
             <TabBarLabel focused={focused} label="Cart" />
           ),
         }}
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault();
-            router.push('/cart');
-          },
-        }}
       />
       <Tabs.Screen
         name="wallet"

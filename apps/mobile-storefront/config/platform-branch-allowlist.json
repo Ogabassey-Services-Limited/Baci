@@ -89,6 +89,10 @@
       "justification": "Reviewed iOS-only Apple sign-in button rendering."
     },
     {
+      "path": "components/checkout/checkout-identity/components/SocialCheckoutButtons.tsx",
+      "justification": "Reviewed iOS-only Apple checkout button rendering."
+    },
+    {
       "path": "components/checkout/checkout-identity/hooks/useHapticFeedback.ts",
       "justification": "Reviewed native-only haptic support guard."
     },
@@ -123,6 +127,10 @@
     {
       "path": "components/payment-gateway/PaymentGatewayCheckoutView.tsx",
       "justification": "Reviewed Android WebView scaling behavior."
+    },
+    {
+      "path": "components/bnpl-checkout/BNPLCheckoutWebView.tsx",
+      "justification": "Reviewed Android WebView scaling behavior for BNPL provider checkout rendering."
     },
     {
       "path": "components/profile/MenuSection.tsx",

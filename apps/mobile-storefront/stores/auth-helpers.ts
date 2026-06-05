@@ -54,6 +54,20 @@ export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+export function isInitTimeoutError(error: unknown, label?: string): boolean {
+  if (!(error instanceof Error)) return false;
+
+  const expectedPrefix = label
+    ? `Timeout: ${label} took longer than `
+    : 'Timeout: ';
+
+  return (
+    error.message.startsWith(expectedPrefix) &&
+    error.message.endsWith('ms') &&
+    error.message.includes('took longer than ')
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object');
 }

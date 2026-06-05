@@ -4,7 +4,6 @@ import { DEFAULT_ASSURANCE_PERCENT_LABEL } from '@/constants/assurance';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import type { CartItem } from '@/stores/cart-store';
-import { CART_PRESS_FEEDBACK_STYLE } from './cart-press-feedback';
 import styles from './styles';
 
 interface AssuranceToggleProps {
@@ -24,10 +23,7 @@ export default function AssuranceToggle({
 }: AssuranceToggleProps) {
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.assuranceContainer,
-        pressed && CART_PRESS_FEEDBACK_STYLE,
-      ]}
+      style={styles.assuranceContainer}
       onPress={() => toggleAssurance(item.id)}
       accessibilityRole="switch"
       accessibilityState={{ checked: !!item.hasAssurance }}

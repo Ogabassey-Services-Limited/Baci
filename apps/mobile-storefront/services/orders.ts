@@ -90,6 +90,17 @@ export async function createOrder(
   try {
     const idempotencyKey =
       validatedRequest.idempotency_key ?? Crypto.randomUUID();
+    log.info('Submitting order request', {
+      apiUrl: API_URL,
+      itemCount: orderPayload.items.length,
+      paymentMethod: orderPayload.payment_method,
+      paymentStatus: orderPayload.payment_status,
+      selectedQuoteId: orderPayload.selected_quote_id,
+      shippingFee: orderPayload.shipping_fee,
+      shippingProvider: orderPayload.shipping_provider,
+      subtotal: orderPayload.subtotal,
+      taxAmount: orderPayload.tax_amount,
+    });
 
     const response = await fetchWithRetry(
       `${API_URL}/api/orders`,

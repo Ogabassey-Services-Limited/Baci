@@ -206,6 +206,30 @@ describe('useBNPLCheckoutController', () => {
     });
   });
 
+  it('returns to the app when a trusted merchant SPA navigation leaves BNPL checkout', () => {
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    };
+    const { result } = renderControllerHook('ogabassey.com');
+
+    act(() => {
+      result.current.handleWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: 'navigation',
+            url: 'https://ogabassey.com/',
+          }),
+        },
+      });
+    });
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(mockClearCart).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
   it('returns to the app when Credit Direct posts a provider close message', () => {
     const { result } = renderControllerHook('ogabassey.com');
 
@@ -245,6 +269,40 @@ describe('useBNPLCheckoutController', () => {
     act(() => {
       actions?.[1]?.onPress?.();
       actions?.[1]?.onPress?.();
+    });
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(result.current.status).not.toBe('error');
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('clears a transient provider error before returning to the app on close', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { result } = renderControllerHook('ogabassey.com');
+
+    act(() => {
+      result.current.handleOpenWindow({
+        nativeEvent: {
+          targetUrl: 'https://evil.example/popup',
+        },
+      });
+    });
+    expect(result.current.status).toBe('error');
+
+    act(() => {
+      result.current.handleWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            message: 'Provider postMessage received',
+            source: 'https://checkout.creditdirect.ng',
+            summary: {
+              payloadType: 'object',
+              type: 'checkout.widget.closed',
+            },
+            type: 'bnpl_log',
+          }),
+        },
+      });
     });
 
     expect(router.back).toHaveBeenCalledTimes(1);
@@ -294,6 +352,33 @@ describe('useBNPLCheckoutController', () => {
     });
 
     expect(shouldStart).toBe(true);
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('blocks trusted merchant home document navigations and returns to the app', () => {
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    };
+    const { result } = renderControllerHook('ogabassey.com');
+
+    let shouldStart = true;
+    act(() => {
+      shouldStart = result.current.handleShouldStartLoadWithRequest({
+        canGoBack: false,
+        canGoForward: false,
+        isTopFrame: true,
+        loading: true,
+        lockIdentifier: 1,
+        navigationType: 'other',
+        title: 'Ogabassey',
+        url: 'https://ogabassey.com/',
+      });
+    });
+
+    expect(shouldStart).toBe(false);
+    expect(router.back).toHaveBeenCalledTimes(1);
     expect(result.current.errorMessage).toBeNull();
   });
 

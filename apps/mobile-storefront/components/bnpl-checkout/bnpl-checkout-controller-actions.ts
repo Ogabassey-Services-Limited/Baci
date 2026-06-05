@@ -2,6 +2,7 @@ import { isAllowedBnplPopupUrl, isTrustedBnplReturnUrl } from '@/lib/bnpl-url';
 import {
   extractErrorFromUrl,
   extractReferenceFromUrl,
+  isBNPLCheckoutExitUrl,
 } from './bnpl-checkout.helpers';
 import { logBNPLCheckoutDebug } from './bnpl-checkout-message-handler';
 import { sanitizeBNPLDocumentUrl } from './bnpl-checkout-navigation';
@@ -18,6 +19,12 @@ type BNPLNavigationEffect =
   | {
       status: 'return-to-app';
     };
+
+type BNPLNavigationEffectOptions = {
+  apiBaseUrl?: string;
+  merchantDomain?: string;
+  merchantSlug?: string;
+};
 
 type NavigationMessageInput = {
   apiBaseUrl: string;
@@ -47,7 +54,8 @@ type BNPLPopupTargetAction =
     };
 
 export function resolveBNPLNavigationUrlEffect(
-  url: string
+  url: string,
+  options: BNPLNavigationEffectOptions = {}
 ): BNPLNavigationEffect | null {
   if (url.includes('/order-success') || url.includes('success=true')) {
     return {
@@ -67,6 +75,20 @@ export function resolveBNPLNavigationUrlEffect(
       errorMessage:
         extractErrorFromUrl(url) || 'Payment failed. Please try again.',
       status: 'error',
+    };
+  }
+
+  if (
+    options.apiBaseUrl &&
+    isBNPLCheckoutExitUrl({
+      apiBaseUrl: options.apiBaseUrl,
+      merchantDomain: options.merchantDomain,
+      merchantSlug: options.merchantSlug,
+      url,
+    })
+  ) {
+    return {
+      status: 'return-to-app',
     };
   }
 

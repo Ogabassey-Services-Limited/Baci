@@ -3,6 +3,7 @@
  * shouldInvalidateSessionOnGetUserError, and hydrateCustomer.
  */
 
+// biome-ignore-all lint/correctness/noUndeclaredVariables: Jest globals are provided by jest-expo in this legacy store test.
 import type { User } from '@supabase/supabase-js';
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,7 @@ import {
   hydrateCustomer,
   INIT_QUERY_TIMEOUT_MS,
   initTimeout,
+  isInitTimeoutError,
   shouldInvalidateSessionOnGetUserError,
 } from './auth-helpers';
 
@@ -147,6 +149,35 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(42)).toBe('42');
     expect(getErrorMessage(null)).toBe('null');
     expect(getErrorMessage(undefined)).toBe('undefined');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isInitTimeoutError
+// ---------------------------------------------------------------------------
+
+describe('isInitTimeoutError', () => {
+  it('matches initTimeout errors for the expected label', () => {
+    expect(
+      isInitTimeoutError(
+        new Error(
+          `Timeout: getSession took longer than ${INIT_QUERY_TIMEOUT_MS}ms`
+        ),
+        'getSession'
+      )
+    ).toBe(true);
+  });
+
+  it('rejects non-timeout and mismatched-label errors', () => {
+    expect(isInitTimeoutError(new Error('Network request failed'))).toBe(false);
+    expect(
+      isInitTimeoutError(
+        new Error(
+          `Timeout: merchant lookup took longer than ${INIT_QUERY_TIMEOUT_MS}ms`
+        ),
+        'getSession'
+      )
+    ).toBe(false);
   });
 });
 

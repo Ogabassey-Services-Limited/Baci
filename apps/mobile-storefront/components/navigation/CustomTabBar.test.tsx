@@ -118,7 +118,32 @@ describe('CustomTabBar', () => {
     expect(mockProps.navigation.dispatch).toHaveBeenCalledTimes(1);
   });
 
-  it('renders the cart stack launcher tab', () => {
+  it('renders the cart tab when another route is active', () => {
+    const cartProps: BottomTabBarProps = {
+      ...mockProps,
+      state: {
+        ...mockProps.state,
+        index: 0,
+        routes: [
+          mockProps.state.routes[0],
+          mockProps.state.routes[1],
+          { key: 'cart-key', name: 'cart-tab', params: {} },
+          mockProps.state.routes[2],
+        ],
+        routeNames: ['index', 'saved', 'cart-tab', 'categories'],
+      },
+      descriptors: {
+        ...mockProps.descriptors,
+        'cart-key': customTabBarTestUtils.createTabDescriptor('Cart'),
+      },
+    };
+
+    render(<CustomTabBar {...cartProps} />);
+
+    expect(screen.getByRole('tab', { name: 'Cart' })).toBeOnTheScreen();
+  });
+
+  it('hides the floating tab bar while the cart route is active', () => {
     const cartProps: BottomTabBarProps = {
       ...mockProps,
       state: {
@@ -138,9 +163,9 @@ describe('CustomTabBar', () => {
       },
     };
 
-    render(<CustomTabBar {...cartProps} />);
+    const { toJSON } = render(<CustomTabBar {...cartProps} />);
 
-    expect(screen.getByRole('tab', { name: 'Cart' })).toBeOnTheScreen();
+    expect(toJSON()).toBeNull();
   });
 
   it('hides the floating tab bar while the keyboard is visible', () => {
