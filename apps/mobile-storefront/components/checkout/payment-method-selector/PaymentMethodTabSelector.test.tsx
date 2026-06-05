@@ -27,8 +27,8 @@ describe('PaymentMethodTabSelector', () => {
   it('uses compact labels with readable accessible names', () => {
     render(<PaymentMethodTabSelector {...baseProps} compact />);
 
-    expect(screen.getByText(/Pay in\s+Full/i)).toBeTruthy();
-    expect(screen.getByText(/Pay in\s+Installments/i)).toBeTruthy();
+    expect(screen.getByText(/Pay in\s+Full/)).toBeTruthy();
+    expect(screen.getByText(/Pay in\s+Installments/)).toBeTruthy();
     expect(
       screen.getByRole('tab', { name: 'Pay in Full' })
     ).toHaveAccessibilityState({ selected: true });
