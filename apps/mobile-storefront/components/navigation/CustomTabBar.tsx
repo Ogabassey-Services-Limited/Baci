@@ -13,7 +13,11 @@ export function CustomTabBar({
   const activeRouteName = props.state.routes[props.state.index]?.name ?? '';
   const { isKeyboardVisible } = useKeyboard();
 
-  if (isKeyboardVisible || activeRouteName === 'cart') {
+  if (
+    isKeyboardVisible ||
+    activeRouteName === 'cart' ||
+    activeRouteName === 'cart-tab'
+  ) {
     return null;
   }
 

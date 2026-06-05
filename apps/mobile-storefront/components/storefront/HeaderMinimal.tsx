@@ -2,7 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { type Href, router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SPACING } from '@/constants/Colors';
-import { getHeaderStyles, type ThemeColors } from './header.styles';
+import type { getHeaderStyles, ThemeColors } from './header.styles';
 
 type HeaderStyles = ReturnType<typeof getHeaderStyles>;
 
@@ -51,7 +51,8 @@ export function HeaderMinimal({
             </Pressable>
           ) : null}
           <Pressable
-            onPress={() => router.push('/cart' as Href)}
+            onPressIn={() => router.prefetch('/cart' as Href)}
+            onPress={() => router.navigate('/cart' as Href)}
             hitSlop={12}
             style={[styles.iconBtn, styles.rightIconBtn]}
             accessibilityLabel={

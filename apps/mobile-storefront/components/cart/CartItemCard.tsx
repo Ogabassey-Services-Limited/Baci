@@ -10,7 +10,6 @@ import { resolveColorSwatchValue } from '@/lib/cart-display';
 import type { CartItem } from '@/stores/cart-store';
 import AssuranceToggle from './AssuranceToggle';
 import CartQuantityInput from './CartQuantityInput';
-import { CART_PRESS_FEEDBACK_STYLE } from './cart-press-feedback';
 import NegotiationButton from './NegotiationButton';
 import styles from './styles';
 
@@ -67,13 +66,12 @@ export default function CartItemCard({
     >
       <View style={styles.cardTop}>
         <Pressable
-          style={({ pressed }) => [
+          style={[
             styles.imageContainer,
             {
               backgroundColor: surfaceInset,
               borderColor: colors.border,
             },
-            pressed && CART_PRESS_FEEDBACK_STYLE,
           ]}
           onPress={() => router.push(`/product/${item.slug}`)}
           accessibilityRole="button"
@@ -178,10 +176,7 @@ export default function CartItemCard({
         </View>
 
         <Pressable
-          style={({ pressed }) => [
-            styles.removeButton,
-            pressed && CART_PRESS_FEEDBACK_STYLE,
-          ]}
+          style={styles.removeButton}
           onPress={() => handleRemoveItem(item)}
           hitSlop={12}
           accessibilityRole="button"
@@ -204,10 +199,7 @@ export default function CartItemCard({
           ]}
         >
           <Pressable
-            style={({ pressed }) => [
-              styles.quantityButton,
-              pressed && CART_PRESS_FEEDBACK_STYLE,
-            ]}
+            style={styles.quantityButton}
             onPress={() => handleQuantityChange(item, -1)}
             disabled={item.quantity <= 1}
             accessibilityRole="button"
@@ -227,10 +219,7 @@ export default function CartItemCard({
             onChange={(newQuantity) => updateQuantity(item.id, newQuantity)}
           />
           <Pressable
-            style={({ pressed }) => [
-              styles.quantityButton,
-              pressed && CART_PRESS_FEEDBACK_STYLE,
-            ]}
+            style={styles.quantityButton}
             onPress={() => handleQuantityChange(item, 1)}
             accessibilityRole="button"
             accessibilityLabel={`Increase quantity for ${item.name}`}

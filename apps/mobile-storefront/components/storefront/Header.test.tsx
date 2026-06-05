@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { Header } from './Header';
@@ -12,7 +13,11 @@ jest.mock('expo-constants', () => ({
 }));
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
+  router: {
+    navigate: jest.fn(),
+    prefetch: jest.fn(),
+    push: jest.fn(),
+  },
 }));
 
 jest.mock('react-native-safe-area-context', () => ({

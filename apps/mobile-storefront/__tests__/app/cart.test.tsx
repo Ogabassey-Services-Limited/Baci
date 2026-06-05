@@ -15,6 +15,8 @@ type MockAuthStatus = {
 
 const mockOpenNegotiation = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'dark');
+const mockQueryClient = { prefetchQuery: jest.fn() };
+const mockWarmCheckoutEntry = jest.fn();
 const mockRouterPrefetch = jest.fn();
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
@@ -42,6 +44,18 @@ jest.mock('expo-router', () => ({
     replace: (...args: unknown[]) => mockRouterReplace(...args),
   },
 }));
+
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => mockQueryClient,
+}));
+
+jest.mock(
+  '@/components/checkout/checkout-entry-prefetch',
+  () => ({
+    warmCheckoutEntry: (...args: unknown[]) => mockWarmCheckoutEntry(...args),
+  }),
+  { virtual: true }
+);
 
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -278,7 +292,15 @@ describe('CartScreen state', () => {
     fireEvent.press(checkoutButton);
 
     expect(mockRouterPrefetch).toHaveBeenCalledWith('/checkout');
+    expect(mockWarmCheckoutEntry).toHaveBeenCalledWith(mockQueryClient);
     expect(mockRouterPush).toHaveBeenCalledWith('/checkout');
+  });
+
+  it('warms checkout data while a populated cart is open', () => {
+    render(<CartScreen />);
+
+    expect(mockRouterPrefetch).toHaveBeenCalledWith('/checkout');
+    expect(mockWarmCheckoutEntry).toHaveBeenCalledWith(mockQueryClient);
   });
 
   it('falls back to home replacement when the cart header has no back stack', () => {

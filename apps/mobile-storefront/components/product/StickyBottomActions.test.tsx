@@ -5,12 +5,12 @@ import Colors from '@/constants/Colors';
 import { StickyBottomActions } from './StickyBottomActions';
 
 const mockPrefetch = jest.fn();
-const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: {
+    navigate: (...args: unknown[]) => mockNavigate(...args),
     prefetch: (...args: unknown[]) => mockPrefetch(...args),
-    push: (...args: unknown[]) => mockPush(...args),
   },
 }));
 
@@ -133,7 +133,7 @@ describe('StickyBottomActions', () => {
     fireEvent.press(viewCartButton);
 
     expect(mockPrefetch).toHaveBeenCalledWith('/cart');
-    expect(mockPush).toHaveBeenCalledWith('/cart');
+    expect(mockNavigate).toHaveBeenCalledWith('/cart');
   });
 
   it('uses the provided bottom inset padding instead of docking into the home indicator area', () => {

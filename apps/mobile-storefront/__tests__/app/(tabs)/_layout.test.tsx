@@ -236,21 +236,18 @@ describe('TabLayout', () => {
     expect(screen.getByLabelText('custom tab bar')).toBeOnTheScreen();
   });
 
-  it('uses the cart tab as a stack-route launcher with its header hidden', () => {
+  it('uses the cart tab as a real warmed tab screen with its header hidden', () => {
     render(<TabLayout />);
 
     const cartTabProps = mockTabsScreen.mock.calls.find(
       ([props]) => props.name === 'cart-tab'
     )?.[0];
-    const event = { preventDefault: jest.fn() };
-
-    cartTabProps?.listeners?.tabPress?.(event);
 
     expect(
       screen.getByLabelText('cart-tab screen header hidden')
     ).toBeOnTheScreen();
-    expect(event.preventDefault).toHaveBeenCalledTimes(1);
-    expect(mockRouterPush).toHaveBeenCalledWith('/cart');
+    expect(cartTabProps?.listeners?.tabPress).toBeUndefined();
+    expect(mockRouterPush).not.toHaveBeenCalled();
   });
 
   it('uses theme colors for the tab chrome while preserving badge contrast', () => {

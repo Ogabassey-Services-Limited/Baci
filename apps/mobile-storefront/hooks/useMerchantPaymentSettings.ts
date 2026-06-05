@@ -7,6 +7,10 @@ import { supabase } from '@/lib/supabase';
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
   '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+export const merchantPaymentSettingsQueryKey = [
+  'merchant-payment-settings',
+  MERCHANT_ID,
+] as const;
 
 export interface PaymentSettings {
   paystack_enabled: boolean;
@@ -75,19 +79,21 @@ export function normalizePaymentSettings(
  * Fetch merchant payment settings via SECURITY DEFINER RPC.
  * Bypasses RLS so anon/customer sessions can read payment toggles.
  */
+export async function fetchMerchantPaymentSettings(): Promise<PaymentSettings> {
+  const { data, error } = await supabase
+    .rpc('get_storefront_payment_settings', {
+      p_merchant_id: MERCHANT_ID,
+    })
+    .single();
+
+  if (error) throw error;
+  return normalizePaymentSettings(isPaymentSettingsRow(data) ? data : null);
+}
+
 export function useMerchantPaymentSettings() {
   return useQuery({
-    queryKey: ['merchant-payment-settings', MERCHANT_ID],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('get_storefront_payment_settings', {
-          p_merchant_id: MERCHANT_ID,
-        })
-        .single();
-
-      if (error) throw error;
-      return normalizePaymentSettings(isPaymentSettingsRow(data) ? data : null);
-    },
+    queryKey: merchantPaymentSettingsQueryKey,
+    queryFn: fetchMerchantPaymentSettings,
     staleTime: 5 * 60 * 1000,
   });
 }
