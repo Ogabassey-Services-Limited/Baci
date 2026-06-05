@@ -6,15 +6,30 @@ import {
   it,
   jest,
 } from '@jest/globals';
-import { act, render, screen } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import type React from 'react';
-import RootLayout from '@/app/_layout';
+import RootLayout, {
+  resetRootLayoutBootstrapStateForTest,
+} from '@/app/_layout';
 
 const mockInitializeStorage = jest.fn<() => Promise<void>>();
 const mockInitializeAuth = jest.fn<() => Promise<void>>();
 const mockCleanup = jest.fn();
 const mockRegisterPushNotifications = jest.fn();
 const mockPrefetchStartupStorefrontData = jest.fn<() => Promise<void>>();
+const mockAuthState = {
+  cleanup: mockCleanup,
+  initialize: mockInitializeAuth,
+  isInitialized: true,
+  merchantId: null,
+  user: null,
+};
 
 jest.mock('../../global.css', () => ({}));
 
@@ -28,20 +43,37 @@ jest.mock('expo-splash-screen', () => ({
 }));
 
 jest.mock('@/components/AnimatedSplash', () => ({
-  AnimatedSplash: ({ children }: { children: React.ReactNode }) => {
-    const { View } =
+  AnimatedSplash: ({
+    children,
+    onAnimationEnd,
+  }: {
+    children: React.ReactNode;
+    onAnimationEnd: () => void;
+  }) => {
+    const { Pressable } =
       jest.requireActual<typeof import('react-native')>('react-native');
-    return <View testID="animated-splash">{children}</View>;
+    return (
+      <Pressable testID="animated-splash" onPress={onAnimationEnd}>
+        {children}
+      </Pressable>
+    );
   },
 }));
 
 jest.mock('@/components/navigation/RootLayoutNav', () => ({
-  RootLayoutNav: ({ persistenceEnabled }: { persistenceEnabled: boolean }) => {
+  RootLayoutNav: ({
+    persistenceEnabled,
+    shouldResumeNavigation,
+  }: {
+    persistenceEnabled: boolean;
+    shouldResumeNavigation?: boolean;
+  }) => {
     const { Text } =
       jest.requireActual<typeof import('react-native')>('react-native');
     return (
       <Text testID="root-layout-nav">
-        persistence:{String(persistenceEnabled)}
+        persistence:{String(persistenceEnabled)};resume:
+        {String(shouldResumeNavigation)}
       </Text>
     );
   },
@@ -90,18 +122,17 @@ jest.mock('@/services/orders', () => ({
 }));
 
 jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (selector: (state: unknown) => unknown) =>
-    selector({
-      cleanup: mockCleanup,
-      initialize: mockInitializeAuth,
-      isInitialized: true,
-      merchantId: null,
-      user: null,
-    }),
+  // useAuthStore is a Zustand-style mock: callable as a selector over
+  // mockAuthState while also exposing getState() for direct store reads.
+  useAuthStore: Object.assign(
+    (selector: (state: unknown) => unknown) => selector(mockAuthState),
+    { getState: () => mockAuthState }
+  ),
 }));
 
 describe('RootLayout storage boot gate', () => {
   beforeEach(() => {
+    resetRootLayoutBootstrapStateForTest();
     jest.clearAllMocks();
     jest.useFakeTimers();
     mockInitializeAuth.mockResolvedValue(undefined);
@@ -127,5 +158,50 @@ describe('RootLayout storage boot gate', () => {
 
     expect(screen.queryByTestId('animated-splash')).toBeNull();
     expect(screen.queryByTestId('root-layout-nav')).toBeNull();
+  });
+
+  it('keeps the global auth subscription alive when the root view unmounts', async () => {
+    mockInitializeStorage.mockResolvedValue(undefined);
+
+    const { unmount } = render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockInitializeStorage).toHaveBeenCalledTimes(1);
+    });
+
+    unmount();
+
+    expect(mockCleanup).not.toHaveBeenCalled();
+  });
+
+  it('does not replay the animated splash after a completed boot remount', async () => {
+    mockInitializeStorage.mockResolvedValue(undefined);
+
+    const firstRender = render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
+        'persistence:false;resume:false'
+      );
+    });
+
+    fireEvent.press(screen.getByTestId('animated-splash'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('animated-splash')).toBeNull();
+    });
+    expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
+      'persistence:true;resume:true'
+    );
+
+    firstRender.unmount();
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
+        'persistence:true;resume:true'
+      );
+    });
+    expect(screen.queryByTestId('animated-splash')).toBeNull();
   });
 });

@@ -38,6 +38,29 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
+const bootstrapState = {
+  hasCompletedInitialBoot: false,
+  isStorageReady: false,
+};
+
+function resetRootLayoutBootstrapState() {
+  bootstrapState.hasCompletedInitialBoot = false;
+  bootstrapState.isStorageReady = false;
+}
+
+export function resetRootLayoutBootstrapStateForTest() {
+  if (process.env.NODE_ENV === 'test') {
+    resetRootLayoutBootstrapState();
+  }
+}
+
+if (process.env.NODE_ENV === 'development') {
+  const hotModule = module as {
+    hot?: { dispose(callback: () => void): void };
+  };
+  hotModule.hot?.dispose(resetRootLayoutBootstrapState);
+}
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -50,7 +73,6 @@ export default function RootLayout() {
   });
 
   const initialize = useAuthStore((state) => state.initialize);
-  const cleanup = useAuthStore((state) => state.cleanup);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const storeUser = useAuthStore((state) => state.user);
   const storeMerchantId = useAuthStore((state) => state.merchantId);
@@ -67,8 +89,15 @@ export default function RootLayout() {
     userId: null,
     count: 0,
   });
-  const [showSplash, setShowSplash] = useState(true);
-  const [isStorageReady, setIsStorageReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(
+    () => !bootstrapState.hasCompletedInitialBoot
+  );
+  const [hasCompletedInitialBoot, setHasCompletedInitialBoot] = useState(
+    () => bootstrapState.hasCompletedInitialBoot
+  );
+  const [isStorageReady, setIsStorageReady] = useState(
+    () => bootstrapState.isStorageReady
+  );
   const isPushRegisteredForCurrentUser = Boolean(
     storeUser?.id && isPushRegistered && registeredUserId === storeUser.id
   );
@@ -80,11 +109,19 @@ export default function RootLayout() {
   }, [isInitialized]);
 
   useEffect(() => {
+    let isMounted = true;
+    const markStorageReady = () => {
+      bootstrapState.isStorageReady = true;
+      if (isMounted) {
+        setIsStorageReady(true);
+      }
+    };
+
     const initializeApp = async () => {
       void prefetchStartupStorefrontData();
 
       await initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
-      setIsStorageReady(true);
+      markStorageReady();
 
       if (!useAuthStore.getState().isInitialized) {
         await initialize();
@@ -104,15 +141,27 @@ export default function RootLayout() {
         // own errors, but failures after that point were previously unhandled
         // and could leave Android stuck on the splash screen.
         console.error('App initialization error:', err);
-        setIsStorageReady(true);
+        markStorageReady();
       });
     }
 
     return () => {
-      cleanup();
+      isMounted = false;
       offlineQueue.destroy();
     };
-  }, [initialize, cleanup]);
+  }, [initialize]);
+
+  useEffect(() => {
+    if (
+      !hasCompletedInitialBoot &&
+      !showSplash &&
+      isInitialized &&
+      isStorageReady
+    ) {
+      bootstrapState.hasCompletedInitialBoot = true;
+      setHasCompletedInitialBoot(true);
+    }
+  }, [hasCompletedInitialBoot, showSplash, isInitialized, isStorageReady]);
 
   // Clear attempt tracking on logout so the same account can re-register
   // after signing out and back in.
@@ -190,7 +239,12 @@ export default function RootLayout() {
         isReady={isInitialized && isStorageReady}
         onAnimationEnd={() => setShowSplash(false)}
       >
-        {isStorageReady ? <RootLayoutNav persistenceEnabled={false} /> : null}
+        {isStorageReady ? (
+          <RootLayoutNav
+            persistenceEnabled={false}
+            shouldResumeNavigation={hasCompletedInitialBoot}
+          />
+        ) : null}
       </AnimatedSplash>
     );
   }
@@ -199,5 +253,10 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav persistenceEnabled />;
+  return (
+    <RootLayoutNav
+      persistenceEnabled
+      shouldResumeNavigation={hasCompletedInitialBoot}
+    />
+  );
 }
