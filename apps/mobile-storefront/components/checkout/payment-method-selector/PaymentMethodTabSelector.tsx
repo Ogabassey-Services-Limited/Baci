@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { paymentMethodSelectorStyles as styles } from './styles';
 import type { PaymentTab } from './types';
 
@@ -15,15 +16,15 @@ interface PaymentMethodTabSelectorProps {
 }
 
 const COMPACT_TAB_LABELS: Record<PaymentTab, string> = {
-  full: 'Pay in\nFull',
-  installments: 'Pay in\nInstallments',
-  pay_later: 'Pay Later',
+  full: 'Pay\nin full',
+  installments: 'Pay\nin Installments',
+  pay_later: 'Pay\nLater',
 };
 
 const TAB_LABELS: Record<PaymentTab, string> = {
-  full: 'Full Payment',
-  installments: 'Pay in Installments',
-  pay_later: 'Pay Later',
+  full: 'Pay\nin full',
+  installments: 'Pay\nin Installments',
+  pay_later: 'Pay\nLater',
 };
 
 function getTabLabel(tab: PaymentTab, compact: boolean): string {
@@ -31,7 +32,7 @@ function getTabLabel(tab: PaymentTab, compact: boolean): string {
 }
 
 function getAccessibleTabLabel(tab: PaymentTab, compact: boolean): string {
-  return getTabLabel(tab, compact).replace(/\s+/g, ' ');
+  return getTabLabel(tab, compact).replace(/\s+/g, ' ').replace(/\.+$/, '');
 }
 
 export function PaymentMethodTabSelector({
@@ -48,7 +49,10 @@ export function PaymentMethodTabSelector({
 
   return (
     <View
-      style={[styles.tabContainer, { backgroundColor: colors.card }]}
+      style={[
+        styles.tabContainer,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
       accessibilityRole="tablist"
       accessibilityLabel="Payment type"
     >
@@ -69,7 +73,7 @@ export function PaymentMethodTabSelector({
         <Text
           adjustsFontSizeToFit
           minimumFontScale={0.82}
-          numberOfLines={compact ? 2 : 1}
+          numberOfLines={2}
           style={[
             styles.tabText,
             compact && styles.compactTabText,
@@ -79,6 +83,12 @@ export function PaymentMethodTabSelector({
           {getTabLabel('full', compact)}
         </Text>
       </Pressable>
+      {(hasBNPLMethods || hasPayLaterMethods) && (
+        <View
+          style={[styles.tabSeparator, { backgroundColor: colors.border }]}
+          testID="payment-tab-separator"
+        />
+      )}
 
       {hasBNPLMethods ? (
         <Pressable
@@ -98,7 +108,7 @@ export function PaymentMethodTabSelector({
           <Text
             adjustsFontSizeToFit
             minimumFontScale={0.82}
-            numberOfLines={compact ? 2 : 1}
+            numberOfLines={2}
             style={[
               styles.tabText,
               compact && styles.compactTabText,
@@ -111,6 +121,12 @@ export function PaymentMethodTabSelector({
             {getTabLabel('installments', compact)}
           </Text>
         </Pressable>
+      ) : null}
+      {hasBNPLMethods && hasPayLaterMethods ? (
+        <View
+          style={[styles.tabSeparator, { backgroundColor: colors.border }]}
+          testID="payment-tab-separator"
+        />
       ) : null}
 
       {hasPayLaterMethods ? (
@@ -131,7 +147,7 @@ export function PaymentMethodTabSelector({
           <Text
             adjustsFontSizeToFit
             minimumFontScale={0.82}
-            numberOfLines={compact ? 2 : 1}
+            numberOfLines={2}
             style={[
               styles.tabText,
               compact && styles.compactTabText,
