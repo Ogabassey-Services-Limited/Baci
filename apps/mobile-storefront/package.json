@@ -99,7 +99,7 @@
   },
   "devDependencies": {
     "@babel/plugin-transform-dynamic-import": "^7.29.7",
-    "@jest/globals": "^29.7.0",
+    "@jest/globals": "^30.4.1",
     "@react-native/metro-config": "0.85.3",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.2.2",
