@@ -21,30 +21,12 @@ import crypto from 'node:crypto';
 import { generateText } from 'ai';
 import { headers } from 'next/headers';
 import z from 'zod';
-import {
-  handleAddToCart,
-  handleCheckPaymentStatus,
-  handleCreateVirtualAccount,
-  handleGetProductDetails,
-  handleGetRecommendations,
-  handleSearchProducts,
-} from '@/ai/chat-tool-handlers';
-import {
-  type AddToCartParams,
-  addToCartSchema,
-  type CheckPaymentStatusParams,
-  type CreateVirtualAccountParams,
-  checkPaymentStatusSchema,
-  createVirtualAccountSchema,
-  type GetProductDetailsParams,
-  type GetRecommendationsParams,
-  getProductDetailsSchema,
-  getRecommendationsSchema,
-  type SearchProductsParams,
-  searchProductsSchema,
-  TOOL_DESCRIPTIONS,
-} from '@/ai/chat-tools';
 import { activeTextModel, checkRateLimit } from '@/ai/provider';
+import {
+  createAiSdkAgenticChatTools,
+  executeAgenticChatToolForOllama,
+} from '@/app/api/chat/chat-tool-runtime';
+import { ollamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
 import {
   bufferTextResponse,
   buildChatMessages,
@@ -65,7 +47,7 @@ import {
   getOllamaBasicAuth,
 } from '@/env';
 import { createLlmChatResponse } from '@/lib/llm-chat';
-import { createOllamaChatResponse } from '@/lib/ollama-chat';
+import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 export const maxDuration = 120; // VPS-hosted Gemma can be slower on cold starts
@@ -189,11 +171,18 @@ export async function POST(req: Request) {
         const chatModel = getAiChatModel();
         const basicAuth = getOllamaBasicAuth();
         try {
-          const ollamaResponse = await createOllamaChatResponse({
+          const ollamaResponse = await createOllamaAgenticChatResponse({
             baseUrl: ollamaBaseUrl,
             model: chatModel,
             basicAuth,
             messages: buildChatMessages(sanitizedMessages, chatModel),
+            tools: ollamaAgenticChatTools,
+            executeToolCall: (call) =>
+              executeAgenticChatToolForOllama(
+                call.function.name,
+                call.function.arguments,
+                sessionId
+              ),
             signal: req.signal,
             timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
           });
@@ -218,59 +207,7 @@ export async function POST(req: Request) {
         system: AGENTIC_SYSTEM_PROMPT,
         messages: sanitizedMessages,
         abortSignal: req.signal,
-        tools: {
-          searchProducts: {
-            description: TOOL_DESCRIPTIONS.searchProducts,
-            inputSchema: searchProductsSchema,
-            execute: async (params: SearchProductsParams) => {
-              const result = await handleSearchProducts(params);
-              return JSON.stringify(result);
-            },
-          },
-          getProductDetails: {
-            description: TOOL_DESCRIPTIONS.getProductDetails,
-            inputSchema: getProductDetailsSchema,
-            execute: async (params: GetProductDetailsParams) => {
-              const result = await handleGetProductDetails(params);
-              return JSON.stringify(result);
-            },
-          },
-          createVirtualAccount: {
-            description: TOOL_DESCRIPTIONS.createVirtualAccount,
-            inputSchema: createVirtualAccountSchema,
-            execute: async (params: CreateVirtualAccountParams) => {
-              const result = await handleCreateVirtualAccount(
-                params,
-                sessionId
-              );
-              return JSON.stringify(result);
-            },
-          },
-          checkPaymentStatus: {
-            description: TOOL_DESCRIPTIONS.checkPaymentStatus,
-            inputSchema: checkPaymentStatusSchema,
-            execute: async (params: CheckPaymentStatusParams) => {
-              const result = await handleCheckPaymentStatus(params);
-              return JSON.stringify(result);
-            },
-          },
-          getRecommendations: {
-            description: TOOL_DESCRIPTIONS.getRecommendations,
-            inputSchema: getRecommendationsSchema,
-            execute: async (params: GetRecommendationsParams) => {
-              const result = await handleGetRecommendations(params);
-              return JSON.stringify(result);
-            },
-          },
-          addToCart: {
-            description: TOOL_DESCRIPTIONS.addToCart,
-            inputSchema: addToCartSchema,
-            execute: async (params: AddToCartParams) => {
-              const result = await handleAddToCart(params);
-              return JSON.stringify(result);
-            },
-          },
-        },
+        tools: createAiSdkAgenticChatTools(sessionId),
       });
     } catch (error) {
       if (isChatAbortError(error, req.signal)) {
