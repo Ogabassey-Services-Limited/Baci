@@ -11,7 +11,39 @@ export function logBNPLCheckoutDebug(eventName: string, details: unknown) {
 }
 
 interface BNPLWebViewMessageHandlerOptions {
+  onCloseMessage?: () => void;
   onNavigationMessage?: (url: string) => void;
+}
+
+function isProviderCloseSummary(summary: unknown) {
+  if (!summary || typeof summary !== 'object') {
+    return false;
+  }
+
+  // Credit Direct emits its close signal in the structured postMessage summary.
+  const { status, type } = summary as Record<string, unknown>;
+  return [status, type].some(
+    (value) => typeof value === 'string' && value === 'checkout.widget.closed'
+  );
+}
+
+function isBNPLCloseMessage(payload: Record<string, unknown>) {
+  if (payload.type === 'bnpl_close') {
+    return true;
+  }
+
+  if (payload.type !== 'bnpl_log') {
+    return false;
+  }
+
+  if (
+    payload.message === 'Credit Direct checkout closed' ||
+    payload.message === 'Klump checkout closed'
+  ) {
+    return true;
+  }
+
+  return isProviderCloseSummary(payload.summary);
 }
 
 export function createBNPLWebViewMessageHandler(
@@ -41,6 +73,9 @@ export function createBNPLWebViewMessageHandler(
         payload.type === 'bnpl_close'
       ) {
         logBNPLCheckoutDebug('webview message', payload);
+        if (isBNPLCloseMessage(payload)) {
+          options.onCloseMessage?.();
+        }
       }
     } catch {
       logBNPLCheckoutDebug('ignored non-json webview message', {

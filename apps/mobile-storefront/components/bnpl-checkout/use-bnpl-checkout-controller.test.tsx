@@ -204,6 +204,49 @@ describe('useBNPLCheckoutController', () => {
     });
   });
 
+  it('returns to the app when Credit Direct posts a provider close message', () => {
+    const { result } = renderControllerHook('ogabassey.com');
+
+    act(() => {
+      result.current.handleWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            message: 'Provider postMessage received',
+            source: 'https://checkout.creditdirect.ng',
+            summary: {
+              payloadType: 'object',
+              type: 'checkout.widget.closed',
+            },
+            type: 'bnpl_log',
+          }),
+        },
+      });
+    });
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(result.current.status).not.toBe('error');
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('returns to the app for trusted checkout cancellation navigations', () => {
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    };
+    const { result } = renderControllerHook('ogabassey.com');
+
+    act(() => {
+      result.current.handleNavigationChange({
+        url: 'https://ogabassey.com/checkout?cancelled=true',
+      } as Parameters<typeof result.current.handleNavigationChange>[0]);
+    });
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(result.current.status).not.toBe('error');
+    expect(result.current.errorMessage).toBeNull();
+  });
+
   it('allows configured merchant domains for top-frame checkout document redirects', () => {
     mockRouteParams = {
       gateway: 'credit_direct',

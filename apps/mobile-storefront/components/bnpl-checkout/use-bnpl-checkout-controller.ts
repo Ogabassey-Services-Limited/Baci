@@ -48,6 +48,7 @@ export function useBNPLCheckoutController({
   const [status, setStatusState] = useState<BNPLCheckoutStatus>('loading');
   const [currentUrl, setCurrentUrl] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasReturnedToAppRef = useRef(false);
   const statusRef = useRef<BNPLCheckoutStatus>('loading');
 
   const setCheckoutStatus = (
@@ -111,6 +112,16 @@ export function useBNPLCheckoutController({
     }, 1000);
   };
 
+  const returnToAppFromProviderExit = () => {
+    if (hasReturnedToAppRef.current || statusRef.current === 'success') {
+      return;
+    }
+    hasReturnedToAppRef.current = true;
+    clearPendingLoadTimeout();
+    setErrorMessage(null);
+    router.back();
+  };
+
   const handleNavigationUrl = (url: string) => {
     const effect = resolveBNPLNavigationUrlEffect(url);
     if (!effect) {
@@ -118,6 +129,11 @@ export function useBNPLCheckoutController({
     }
 
     clearPendingLoadTimeout();
+    if (effect.status === 'return-to-app') {
+      returnToAppFromProviderExit();
+      return;
+    }
+
     setCheckoutStatus(effect.status);
     if (effect.status === 'success') {
       clearCart();
@@ -147,6 +163,7 @@ export function useBNPLCheckoutController({
   };
 
   const handleWebViewMessage = createBNPLWebViewMessageHandler({
+    onCloseMessage: returnToAppFromProviderExit,
     onNavigationMessage: (url) => {
       if (
         !shouldHandleBNPLNavigationMessage({
