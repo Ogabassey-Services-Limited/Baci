@@ -83,7 +83,7 @@ describe('RouteResumeController', () => {
     });
   });
 
-  it('does not let an empty home boot disable a later same-session restore', async () => {
+  it('does not let an empty home boot disable a later root reset restore', async () => {
     const { rerender } = render(<RouteResumeController shouldResume />);
 
     expect(mockReplace).not.toHaveBeenCalled();
@@ -91,6 +91,7 @@ describe('RouteResumeController', () => {
     mockPathname = '/checkout';
     rerender(<RouteResumeController shouldResume />);
     mockPathname = '/';
+    mockNavigationState = { key: 'root-reset' };
     rerender(<RouteResumeController shouldResume />);
 
     await waitFor(() => {
@@ -116,6 +117,7 @@ describe('RouteResumeController', () => {
 
     mockPathname = '/';
     mockSearchParams = {};
+    mockNavigationState = { key: 'root-reset' };
     rerender(<RouteResumeController shouldResume />);
 
     await waitFor(() => {
@@ -139,21 +141,20 @@ describe('RouteResumeController', () => {
 
   it('clears the remembered route when the customer intentionally returns home', () => {
     mockPathname = '/checkout';
-    const checkoutRender = render(
-      <RouteResumeController shouldResume={false} />
-    );
+    const { rerender } = render(<RouteResumeController shouldResume />);
 
-    checkoutRender.unmount();
     mockPathname = '/';
-    const homeRender = render(<RouteResumeController shouldResume={false} />);
+    rerender(<RouteResumeController shouldResume />);
 
-    homeRender.unmount();
-    render(<RouteResumeController shouldResume />);
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    mockNavigationState = { key: 'root-reset' };
+    rerender(<RouteResumeController shouldResume />);
 
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('waits until root navigation is ready before restoring', () => {
+  it('waits until root navigation is ready before restoring', async () => {
     mockPathname = '/cart';
     const firstRender = render(<RouteResumeController shouldResume={false} />);
 
@@ -161,8 +162,15 @@ describe('RouteResumeController', () => {
     mockPathname = '/';
     mockNavigationState = undefined;
 
-    render(<RouteResumeController shouldResume />);
+    const restoreRender = render(<RouteResumeController shouldResume />);
 
     expect(mockReplace).not.toHaveBeenCalled();
+
+    mockNavigationState = { key: 'root-reset' };
+    restoreRender.rerender(<RouteResumeController shouldResume />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/cart');
+    });
   });
 });

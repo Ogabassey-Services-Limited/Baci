@@ -21,17 +21,34 @@ const RESUMABLE_ROUTE_PREFIXES = [
 const AUTH_ROUTE_PREFIX = '/auth';
 
 let lastResumableHref: Href | null = null;
+let lastResumableNavigationKey: string | null = null;
+let didControllerUnmountSinceCapture = false;
 
 function getLastResumableHref(): Href | null {
   return lastResumableHref;
 }
 
-function setLastResumableHref(href: Href) {
+function getLastResumableNavigationKey(): string | null {
+  return lastResumableNavigationKey;
+}
+
+function hasControllerUnmountedSinceCapture(): boolean {
+  return didControllerUnmountSinceCapture;
+}
+
+function setLastResumableHref(
+  href: Href,
+  navigationKey: string | null | undefined
+) {
   lastResumableHref = href;
+  lastResumableNavigationKey = navigationKey ?? null;
+  didControllerUnmountSinceCapture = false;
 }
 
 function clearRouteResumeState() {
   lastResumableHref = null;
+  lastResumableNavigationKey = null;
+  didControllerUnmountSinceCapture = false;
 }
 
 function isHomePath(pathname: string | null | undefined): boolean {
@@ -107,20 +124,36 @@ export function RouteResumeController({
   const pathname = usePathname();
   const searchParams = useGlobalSearchParams() as RouteSearchParams;
   const navigationState = useRootNavigationState();
+  const navigationKey = navigationState?.key ?? null;
   const hasAttemptedResumeRef = useRef(false);
   const currentResumeHref = buildResumeHref(pathname, searchParams);
+
+  useEffect(() => {
+    return () => {
+      if (getLastResumableHref()) {
+        didControllerUnmountSinceCapture = true;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (
       !shouldResume ||
       hasAttemptedResumeRef.current ||
-      !navigationState?.key
+      !navigationKey
     ) {
       return;
     }
 
     const resumeHref = getLastResumableHref();
-    if (isHomePath(pathname) && resumeHref) {
+    const savedNavigationKey = getLastResumableNavigationKey();
+    const shouldResumeFromHome =
+      isHomePath(pathname) &&
+      resumeHref &&
+      (hasControllerUnmountedSinceCapture() ||
+        (savedNavigationKey !== null && savedNavigationKey !== navigationKey));
+
+    if (shouldResumeFromHome) {
       hasAttemptedResumeRef.current = true;
       try {
         router.replace(resumeHref);
@@ -131,11 +164,11 @@ export function RouteResumeController({
         );
       }
     }
-  }, [navigationState?.key, pathname, shouldResume]);
+  }, [navigationKey, pathname, shouldResume]);
 
   useEffect(() => {
     if (currentResumeHref) {
-      setLastResumableHref(currentResumeHref);
+      setLastResumableHref(currentResumeHref, navigationKey);
       hasAttemptedResumeRef.current = false;
       return;
     }
@@ -146,14 +179,19 @@ export function RouteResumeController({
 
     // Clear saved resume state once it is no longer usable, while preserving it
     // through auth routes used by checkout/payment sign-in flows.
-    if (
-      !shouldResume ||
-      hasAttemptedResumeRef.current ||
-      Boolean(pathname)
-    ) {
+    if (!shouldResume || hasAttemptedResumeRef.current) {
+      clearRouteResumeState();
+      return;
+    }
+
+    if (!navigationKey) {
+      return;
+    }
+
+    if (pathname) {
       clearRouteResumeState();
     }
-  }, [currentResumeHref, pathname, shouldResume]);
+  }, [currentResumeHref, navigationKey, pathname, shouldResume]);
 
   return null;
 }
