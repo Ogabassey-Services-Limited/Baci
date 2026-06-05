@@ -1,7 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { calculateLoyaltyRedemption } from '../../../src/lib/commerce-loyalty-redemption.ts';
 import {
-  getVtuCommissionRate,
+  getProviderVtuCommissionRate,
   normalizeVtuCommissionCategory,
 } from '../../../src/lib/vtu-commission-rates.ts';
 
@@ -28,12 +28,16 @@ Deno.serve(async (req) => {
         const {
           amount,
           provider,
+          providerSource,
           category = 'AIRTIME',
           merchantSplit = 50,
         } = data;
-        const { cap, rate } = getVtuCommissionRate(
+        const { cap, rate } = getProviderVtuCommissionRate(
           String(provider ?? ''),
-          normalizeVtuCommissionCategory(category)
+          normalizeVtuCommissionCategory(category),
+          providerSource === 'kuda' || providerSource === 'monnify'
+            ? providerSource
+            : undefined
         );
 
         let totalCommission = amount * rate;

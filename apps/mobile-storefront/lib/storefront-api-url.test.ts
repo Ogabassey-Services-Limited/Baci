@@ -49,6 +49,12 @@ describe('resolveStorefrontApiBaseUrl', () => {
     );
   });
 
+  it('uses a valid fallback when the primary config is blank', () => {
+    expect(
+      resolveStorefrontApiBaseUrl('   ', 'https://ogabassey.usebaci.com/api')
+    ).toBe('https://ogabassey.usebaci.com');
+  });
+
   it('prefers a valid storefront config over the fallback', () => {
     expect(
       resolveStorefrontApiBaseUrl(

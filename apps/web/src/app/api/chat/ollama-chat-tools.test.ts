@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { ollamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
 
 describe('ollama chat tools', () => {
-  it('exposes the same six commerce capabilities as the Gemini path', () => {
+  it('exposes only server-verifiable commerce capabilities', () => {
     expect(ollamaAgenticChatTools.map((tool) => tool.function.name)).toEqual([
       'searchProducts',
       'getProductDetails',
       'createVirtualAccount',
       'checkPaymentStatus',
       'getRecommendations',
-      'addToCart',
     ]);
   });
 
@@ -37,6 +36,23 @@ describe('ollama chat tools', () => {
             required: ['productId', 'name', 'price', 'quantity'],
           },
         },
+      },
+    });
+  });
+
+  it('tells Ollama that payment status needs an order id or email', () => {
+    const paymentTool = ollamaAgenticChatTools.find(
+      (tool) => tool.function.name === 'checkPaymentStatus'
+    );
+
+    expect(paymentTool?.function.description).toContain(
+      'either orderId or customerEmail'
+    );
+    expect(paymentTool?.function.parameters).toMatchObject({
+      anyOf: [{ required: ['orderId'] }, { required: ['customerEmail'] }],
+      properties: {
+        orderId: { type: 'string' },
+        customerEmail: { type: 'string' },
       },
     });
   });

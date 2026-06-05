@@ -34,6 +34,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    StatusBar: () => null,
     ActivityIndicator: ({ color }: { color?: string }) =>
       React.createElement('span', { 'data-color': color }, 'loading'),
     Pressable: ({

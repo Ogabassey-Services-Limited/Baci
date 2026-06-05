@@ -1,0 +1,153 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+
+export interface BillPaymentVerification {
+  verified: boolean;
+  customerName?: string;
+  inputKey?: string;
+  message?: string;
+  requireValidationRef?: boolean;
+  validationReference?: string;
+}
+
+export type BillPaymentVerifyPayload =
+  | {
+      billItemIdentifier: string;
+      customerIdentifier: string;
+      provider: 'kuda';
+    }
+  | {
+      billerCode: string;
+      customerIdentifier: string;
+      productCode: string;
+      provider: 'monnify';
+    };
+
+function getString(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function getBoolean(value: unknown) {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+async function readJsonRecord(response: Response) {
+  const parsed: unknown = await response.json().catch(() => ({}));
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return {};
+  }
+
+  return parsed as Record<string, unknown>;
+}
+
+function isAbortError(error: unknown) {
+  return (
+    error instanceof DOMException &&
+    (error.name === 'AbortError' || error.code === DOMException.ABORT_ERR)
+  );
+}
+
+function toVerification(
+  data: Record<string, unknown>,
+  inputKey: string
+): BillPaymentVerification {
+  return {
+    verified: data.verified === true,
+    customerName: getString(data.customerName),
+    inputKey,
+    message: getString(data.message),
+    requireValidationRef: getBoolean(data.requireValidationRef),
+    validationReference: getString(data.validationReference),
+  };
+}
+
+function getErrorMessage(data: Record<string, unknown>, fallback: string) {
+  return getString(data.error) ?? getString(data.message) ?? fallback;
+}
+
+export function useBillPaymentVerification(): {
+  setVerification: (nextVerification: BillPaymentVerification | null) => void;
+  verification: BillPaymentVerification | null;
+  verify: (payload: BillPaymentVerifyPayload, inputKey: string) => Promise<void>;
+  verifying: boolean;
+} {
+  const [verification, setVerificationState] =
+    useState<BillPaymentVerification | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const activeControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      activeControllerRef.current?.abort();
+    };
+  }, []);
+
+  const setVerification = (
+    nextVerification: BillPaymentVerification | null
+  ) => {
+    activeControllerRef.current?.abort();
+    activeControllerRef.current = null;
+    requestIdRef.current += 1;
+    setVerifying(false);
+    setVerificationState(nextVerification);
+  };
+
+  const verify = async (
+    payload: BillPaymentVerifyPayload,
+    inputKey: string
+  ) => {
+    activeControllerRef.current?.abort();
+    const controller = new AbortController();
+    activeControllerRef.current = controller;
+    requestIdRef.current += 1;
+    const requestId = requestIdRef.current;
+
+    setVerifying(true);
+    setVerificationState(null);
+
+    try {
+      const res = await fetch('/api/vtu/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      const data = await readJsonRecord(res);
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      if (!res.ok) {
+        setVerificationState({
+          verified: false,
+          inputKey,
+          message: getErrorMessage(
+            data,
+            res.statusText || 'Verification failed'
+          ),
+        });
+        return;
+      }
+
+      setVerificationState(toVerification(data, inputKey));
+    } catch (error) {
+      if (isAbortError(error) || requestId !== requestIdRef.current) {
+        return;
+      }
+      setVerificationState({
+        verified: false,
+        inputKey,
+        message: 'Verification failed',
+      });
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setVerifying(false);
+      }
+    }
+  };
+
+  return { setVerification, verification, verify, verifying };
+}

@@ -103,10 +103,6 @@ vi.mock('@/components/ui/ScreenSkeleton', () => ({
   ScreenSkeleton: () => <div>loading</div>,
 }));
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
     <section>{children}</section>
@@ -114,6 +110,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,
   ActivityIndicator: () => <span>loading</span>,
   Alert: { alert: vi.fn() },
   Pressable: ({ children }: { children?: ReactNode }) => (

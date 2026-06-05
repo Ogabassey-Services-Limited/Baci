@@ -79,7 +79,9 @@ describe('useAccountLoyaltyPoints', () => {
   });
 
   it('refreshes loyalty points when the account screen is focused', async () => {
-    const { result } = renderHook(() => useAccountLoyaltyPoints(customer, true));
+    const { result } = renderHook(() =>
+      useAccountLoyaltyPoints(customer, true)
+    );
 
     expect(result.current).toBe(10);
 
@@ -93,7 +95,9 @@ describe('useAccountLoyaltyPoints', () => {
   });
 
   it('applies realtime loyalty point updates', async () => {
-    const { result } = renderHook(() => useAccountLoyaltyPoints(customer, true));
+    const { result } = renderHook(() =>
+      useAccountLoyaltyPoints(customer, true)
+    );
 
     await waitFor(() => expect(latestRealtimeCallback).not.toBeNull());
 
@@ -105,7 +109,9 @@ describe('useAccountLoyaltyPoints', () => {
   });
 
   it('does not subscribe while the account screen is not focused', () => {
-    const { result } = renderHook(() => useAccountLoyaltyPoints(customer, false));
+    const { result } = renderHook(() =>
+      useAccountLoyaltyPoints(customer, false)
+    );
 
     expect(result.current).toBe(10);
     expect(mockFrom).not.toHaveBeenCalled();
@@ -119,7 +125,9 @@ describe('useAccountLoyaltyPoints', () => {
 
     renderHook(() => useAccountLoyaltyPoints(customer, true));
 
-    await waitFor(() => expect(mockRemoveChannel).toHaveBeenCalledWith(staleChannel));
+    await waitFor(() =>
+      expect(mockRemoveChannel).toHaveBeenCalledWith(staleChannel)
+    );
     expect(mockChannels.map((channel) => channel.topic)).toEqual([
       'account-loyalty-customer-1',
     ]);

@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   Pressable,
   ScrollView,
   Text,
@@ -36,6 +38,15 @@ export function NewOrderCustomerCreateView({
   } = controller;
 
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const lastNameInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const phoneTextInputProps = {
+    ref: phoneInputRef,
+    onSubmitEditing: () => emailInputRef.current?.focus(),
+    returnKeyType: 'next' as const,
+    submitBehavior: 'submit' as const,
+  };
 
   return (
     <ScrollView
@@ -60,8 +71,11 @@ export function NewOrderCustomerCreateView({
             onChangeText={(text) =>
               setNewCustomer((previous) => ({ ...previous, firstName: text }))
             }
+            onSubmitEditing={() => lastNameInputRef.current?.focus()}
             placeholder="First Name"
             placeholderTextColor={colors.textMuted}
+            returnKeyType="next"
+            submitBehavior="submit"
             style={[
               styles.sheetInput,
               { backgroundColor: colors.inputBg, color: colors.text, flex: 1 },
@@ -69,11 +83,15 @@ export function NewOrderCustomerCreateView({
             value={newCustomer.firstName}
           />
           <TextInput
+            ref={lastNameInputRef}
             onChangeText={(text) =>
               setNewCustomer((previous) => ({ ...previous, lastName: text }))
             }
+            onSubmitEditing={() => phoneInputRef.current?.focus()}
             placeholder="Last Name"
             placeholderTextColor={colors.textMuted}
+            returnKeyType="next"
+            submitBehavior="submit"
             style={[
               styles.sheetInput,
               { backgroundColor: colors.inputBg, color: colors.text, flex: 1 },
@@ -110,17 +128,22 @@ export function NewOrderCustomerCreateView({
             color: colors.text,
             height: 50,
           }}
+          textInputProps={phoneTextInputProps}
           withDarkTheme
           withShadow={false}
         />
         <TextInput
+          ref={emailInputRef}
           autoCapitalize="none"
           keyboardType="email-address"
           onChangeText={(text) =>
             setNewCustomer((previous) => ({ ...previous, email: text }))
           }
+          onSubmitEditing={() => Keyboard.dismiss()}
           placeholder="Email Address (Optional)"
           placeholderTextColor={colors.textMuted}
+          returnKeyType="done"
+          submitBehavior="blurAndSubmit"
           style={[
             styles.sheetInput,
             { backgroundColor: colors.inputBg, color: colors.text },

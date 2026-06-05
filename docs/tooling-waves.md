@@ -18,6 +18,7 @@ This file is the registry. The `dependabot.yml` ignore section mirrors it.
 
 | Package | Workspace | Stuck-at | Target | Trigger to unblock | Notes |
 |---|---|---|---|---|---|
+| `Dependabot npm version updates` | `apps/web`, `apps/mobile-admin`, `apps/mobile-storefront`, `packages/shared` | `pnpm@11.5.0` manifest-only PRs | lockfile-backed version PRs | GitHub Dependabot documents pnpm lockfile support for this repo's package-manager generation | `open-pull-requests-limit: 0` is set on npm updaters to stop frozen-lockfile CI churn. Security updates keep their separate GitHub limit; re-enable version PRs when Dependabot supports pnpm 11 lockfile updates. |
 | `@vitejs/plugin-react` | `apps/web` | `5.x` | `6.x` | `vitest@5` releases | plugin-react@6 requires `vite ^8`; vitest@4 requires `vite ^6 \|\| ^7`. The whole vite/vitest/plugin-react triplet has to move together. **Scope:** `apps/web` only — `apps/mobile-admin` already runs plugin-react `^6.0.1` against vite 8 cleanly. |
 
 ## Closed waves (record)

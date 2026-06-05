@@ -48,6 +48,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', async () => ({
+    StatusBar: () => null,
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },

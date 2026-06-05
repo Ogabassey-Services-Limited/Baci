@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   push: vi.fn(),
   mutate: vi.fn(),
+  setNavigationBarStyle: vi.fn(),
 }));
 
 vi.mock('@/components/ui/AppFormScreen', async () => {
@@ -19,6 +20,7 @@ vi.mock('@/components/ui/AppFormScreen', async () => {
 vi.mock('react-native', async () => {
   const React = await import('react');
   return {
+    StatusBar: () => null,
     useColorScheme: vi.fn(() => 'light'),
     Alert: { alert: mocks.alert },
     StyleSheet: {
@@ -89,7 +91,9 @@ vi.mock('expo-linear-gradient', async () => {
   };
 });
 
-vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
+vi.mock('expo-navigation-bar', () => ({
+  setStyle: mocks.setNavigationBarStyle,
+}));
 
 vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');

@@ -17,6 +17,7 @@ vi.mock('react-native', async () => {
   };
 
   return {
+    StatusBar: () => null,
     Pressable: ({
       accessibilityLabel,
       accessibilityRole,

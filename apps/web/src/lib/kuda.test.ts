@@ -29,8 +29,8 @@ describe('Kuda API Client', () => {
       expect(getCommissionRate('9mobile', 'DATA')).toEqual({ rate: 0.045 });
       expect(
         getCommissionRate('EKEDC NG - EKEDC PREPAID', 'ELECTRICITY')
-      ).toEqual({ rate: 0.01 });
-      expect(getCommissionRate('DSTV', 'CABLE')).toEqual({ rate: 0.015 });
+      ).toEqual({ rate: 0.01, cap: 4000 });
+      expect(getCommissionRate('DSTV', 'CABLE')).toEqual({ rate: 0.016 });
       expect(getCommissionRate('BETPAWA', 'BETTING')).toEqual({ rate: 0.007 });
     });
   });

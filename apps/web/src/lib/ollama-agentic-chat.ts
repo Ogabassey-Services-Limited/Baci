@@ -11,6 +11,7 @@ interface CreateOllamaAgenticChatResponseOptions {
   messages: OllamaChatMessage[];
   tools: OllamaChatTool[];
   executeToolCall: (call: OllamaToolCall) => Promise<string>;
+  onToolExecuted?: (call: OllamaToolCall, result: string) => void;
   basicAuth?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -198,6 +199,7 @@ export async function createOllamaAgenticChatResponse({
   messages,
   tools,
   executeToolCall,
+  onToolExecuted,
   basicAuth,
   signal,
   timeoutMs = OLLAMA_AGENTIC_TIMEOUT_MS,
@@ -221,9 +223,10 @@ export async function createOllamaAgenticChatResponse({
     timeoutMs
   );
   const conversation: OllamaChatMessage[] = [...messages];
+  let toolRounds = 0;
 
   try {
-    for (let round = 0; round < OLLAMA_AGENTIC_MAX_TOOL_ROUNDS; round += 1) {
+    while (true) {
       const payload = await fetchOllamaPayload(
         baseUrl,
         headers,
@@ -242,6 +245,11 @@ export async function createOllamaAgenticChatResponse({
         });
       }
 
+      if (toolRounds >= OLLAMA_AGENTIC_MAX_TOOL_ROUNDS) {
+        break;
+      }
+      toolRounds += 1;
+
       conversation.push({
         role: 'assistant',
         content,
@@ -250,6 +258,7 @@ export async function createOllamaAgenticChatResponse({
 
       for (const call of toolCalls) {
         const result = await executeToolCall(call);
+        onToolExecuted?.(call, result);
         conversation.push({
           role: 'tool',
           tool_name: call.function.name,

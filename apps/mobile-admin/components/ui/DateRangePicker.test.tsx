@@ -30,6 +30,7 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,
   Dimensions: {
     get: () => ({ height: 800, width: 400 }),
   },

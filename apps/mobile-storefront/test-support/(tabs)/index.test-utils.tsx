@@ -117,10 +117,6 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-jest.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({
     top: 59,

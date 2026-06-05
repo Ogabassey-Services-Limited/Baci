@@ -103,6 +103,8 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
 const facebookAppId = process.env.STOREFRONT_FACEBOOK_APP_ID?.trim();
 const facebookClientToken =
   process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim();
+const merchantDomain =
+  process.env.EXPO_PUBLIC_MERCHANT_DOMAIN?.trim() || 'ogabassey.com';
 
 const isRequiredEnv =
   process.env.CI === 'true' ||
@@ -234,6 +236,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         backgroundColor: '#000000',
       },
     ],
+    [
+      'expo-navigation-bar',
+      {
+        enforceContrast: false,
+        hidden: false,
+        style: 'dark',
+      },
+    ],
     'expo-font',
     'expo-image',
     'expo-secure-store',
@@ -277,10 +287,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     './config/withObjCLinkerFlag.js',
     './config/withNoSplashImage.js',
     './config/withAdaptiveAndroidManifest.js',
+    './config/withAndroidSystemBars.js',
     './config/withAndroidGradleFixes.js',
     'expo-localization',
     'expo-apple-authentication',
-    'react-native-edge-to-edge',
     ...(facebookSdkPlugin ? [facebookSdkPlugin] : []),
   ],
   web: {
@@ -294,7 +304,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
     merchantSlug: 'ogabassey',
-    merchantDomain: process.env.EXPO_PUBLIC_MERCHANT_DOMAIN,
+    merchantDomain,
     businessType: 'electronics',
     templateId: 'default',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,

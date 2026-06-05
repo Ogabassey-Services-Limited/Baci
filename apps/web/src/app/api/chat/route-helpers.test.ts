@@ -33,12 +33,24 @@ describe('chat route helpers', () => {
   it('tells the VPS backend to use commerce tools for live data', () => {
     const [systemMessage] = buildChatMessages(
       [{ role: 'user', content: 'Can I pay now?' }],
-      'gemma4:e4b'
+      'gemma4:e4b',
+      { toolsEnabled: true }
     );
 
     expect(systemMessage.content).toContain('commerce tools');
     expect(systemMessage.content).toContain('live inventory');
     expect(systemMessage.content).toContain('payment status');
+  });
+
+  it('keeps safe live-data guidance for toolless VPS backends', () => {
+    const [systemMessage] = buildChatMessages(
+      [{ role: 'user', content: 'Can I pay now?' }],
+      'gemma4:e4b'
+    );
+
+    expect(systemMessage.content).toContain('cannot access live inventory');
+    expect(systemMessage.content).toContain('WhatsApp support');
+    expect(systemMessage.content).not.toContain('commerce tools');
   });
 
   it('buffers non-empty upstream text responses', async () => {

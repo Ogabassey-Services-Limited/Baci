@@ -31,7 +31,6 @@
     "src/ai/provider.ts"
   ],
   "ignoreDependencies": [
-    "eslint-config-next",
     "postcss",
     "autoprefixer",
     "tailwindcss",

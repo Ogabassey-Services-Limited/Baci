@@ -1,8 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+import { Pressable, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { InviteStaffSheet } from '@/components/staff/InviteStaffSheet';
 import { StaffListSection } from '@/components/staff/StaffListSection';
@@ -114,7 +113,7 @@ export default function StaffScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <SystemBars style={isDark ? 'light' : 'dark'} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         <StaffSummaryCards
           colors={colors}

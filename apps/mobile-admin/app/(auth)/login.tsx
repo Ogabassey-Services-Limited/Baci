@@ -1,14 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Pressable,
   Text,
   type TextInput,
-  View,
-} from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+  View, StatusBar } from 'react-native';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { LoginSecondaryActions } from '@/components/auth/LoginSecondaryActions';
 import { styles } from '@/components/auth/login.styles';
@@ -24,7 +21,7 @@ import { getEmailError } from '@/lib/sanitize';
 export default function LoginScreen() {
   // 2026 Best Practice: Destructure for React Compiler stable refs
   const { push, replace } = useRouter();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const {
     activeAuthProvider,
     isAuthenticating,
@@ -95,7 +92,7 @@ export default function LoginScreen() {
       scrollEnabled={false}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <SystemBars style="auto" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <View style={styles.contentContainer}>
         {/* Baci Branding */}
         <View style={styles.header}>

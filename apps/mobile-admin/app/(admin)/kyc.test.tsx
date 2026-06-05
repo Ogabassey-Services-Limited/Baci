@@ -31,10 +31,6 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('@/components/kyc/NinVerificationCard', () => ({
   default: ({ onVerified }: VerificationCardProps) => (
     <button onClick={() => void onVerified?.()} type="button">
@@ -105,6 +101,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,
   ActivityIndicator: () => <span>loading</span>,
   Pressable: ({
     children,

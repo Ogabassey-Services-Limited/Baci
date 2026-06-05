@@ -19,6 +19,10 @@ const googlePlacesState = vi.hoisted(() => ({
   lastProps: null as GooglePlacesProps | null,
 }));
 
+const keyboardState = vi.hoisted(() => ({
+  dismiss: vi.fn(),
+}));
+
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
@@ -57,16 +61,31 @@ vi.mock('react-native-phone-number-input', () => ({
     defaultValue,
     onChangeCountry,
     onChangeFormattedText,
+    textInputProps,
   }: {
     defaultValue?: string;
     onChangeCountry?: (country: { cca2: CountryCode }) => void;
     onChangeFormattedText?: (value: string) => void;
+    textInputProps?: {
+      onSubmitEditing?: () => void;
+      ref?: React.Ref<HTMLInputElement>;
+      returnKeyType?: string;
+      submitBehavior?: string;
+    };
   }) => (
     <div>
       <input
         aria-label="Phone Number"
         defaultValue={defaultValue ?? ''}
+        data-return-key-type={textInputProps?.returnKeyType}
+        data-submit-behavior={textInputProps?.submitBehavior}
         onChange={(event) => onChangeFormattedText?.(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            textInputProps?.onSubmitEditing?.();
+          }
+        }}
+        ref={textInputProps?.ref}
       />
       <button
         aria-label="Switch phone country"
@@ -83,9 +102,11 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    StatusBar: () => null,
     ActivityIndicator: () =>
       React.createElement('span', { role: 'progressbar' }, 'loading'),
     Alert: { alert: vi.fn() },
+    Keyboard: { dismiss: keyboardState.dismiss },
     Pressable: ({
       children,
       disabled,
@@ -114,21 +135,40 @@ vi.mock('react-native', async () => {
     },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
-    TextInput: ({
-      onChangeText,
-      placeholder,
-      value,
-    }: {
-      onChangeText?: (value: string) => void;
-      placeholder?: string;
-      value?: string;
-    }) =>
-      React.createElement('input', {
-        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-          onChangeText?.(event.target.value),
-        placeholder,
-        value: value ?? '',
-      }),
+    TextInput: React.forwardRef(
+      (
+        {
+          onChangeText,
+          onSubmitEditing,
+          placeholder,
+          returnKeyType,
+          submitBehavior,
+          value,
+        }: {
+          onChangeText?: (value: string) => void;
+          onSubmitEditing?: () => void;
+          placeholder?: string;
+          returnKeyType?: string;
+          submitBehavior?: string;
+          value?: string;
+        },
+        ref: React.Ref<HTMLInputElement>
+      ) =>
+        React.createElement('input', {
+          'data-return-key-type': returnKeyType,
+          'data-submit-behavior': submitBehavior,
+          onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+            onChangeText?.(event.target.value),
+          onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === 'Enter') {
+              onSubmitEditing?.();
+            }
+          },
+          placeholder,
+          ref,
+          value: value ?? '',
+        })
+    ),
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -219,6 +259,7 @@ describe('NewOrderCustomerCreateView', () => {
   beforeEach(() => {
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = 'maps-test-key';
     googlePlacesState.lastProps = null;
+    keyboardState.dismiss.mockReset();
   });
 
   afterEach(() => {
@@ -282,6 +323,35 @@ describe('NewOrderCustomerCreateView', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Save Customer' }));
     expect(harness.controller.handleCreateCustomer).toHaveBeenCalledTimes(1);
+  });
+
+  it('moves focus through customer fields from the keyboard return key', () => {
+    const harness = makeController();
+    render(<NewOrderCustomerCreateView controller={harness.snapshot()} />);
+
+    const firstNameInput = screen.getByPlaceholderText('First Name');
+    const lastNameInput = screen.getByPlaceholderText('Last Name');
+    const phoneInput = screen.getByLabelText('Phone Number');
+    const emailInput = screen.getByPlaceholderText('Email Address (Optional)');
+
+    expect(firstNameInput).toHaveAttribute('data-return-key-type', 'next');
+    expect(firstNameInput).toHaveAttribute('data-submit-behavior', 'submit');
+    fireEvent.keyDown(firstNameInput, { key: 'Enter' });
+    expect(lastNameInput).toHaveFocus();
+
+    fireEvent.keyDown(lastNameInput, { key: 'Enter' });
+    expect(phoneInput).toHaveFocus();
+
+    fireEvent.keyDown(phoneInput, { key: 'Enter' });
+    expect(emailInput).toHaveFocus();
+
+    expect(emailInput).toHaveAttribute('data-return-key-type', 'done');
+    expect(emailInput).toHaveAttribute(
+      'data-submit-behavior',
+      'blurAndSubmit'
+    );
+    fireEvent.keyDown(emailInput, { key: 'Enter' });
+    expect(keyboardState.dismiss).toHaveBeenCalledTimes(1);
   });
 
   it('renders a loading state while the customer mutation is pending', () => {

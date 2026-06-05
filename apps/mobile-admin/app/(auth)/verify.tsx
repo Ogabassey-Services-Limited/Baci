@@ -2,16 +2,13 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+  View, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -190,7 +187,7 @@ export default function VerifyScreen() {
 
   return (
     <View style={styles.container}>
-      <SystemBars style={isDark ? 'light' : 'dark'} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <LinearGradient
         colors={[colors.background, colors.backgroundLight]}
         style={StyleSheet.absoluteFill}

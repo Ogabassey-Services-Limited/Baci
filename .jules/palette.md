@@ -83,3 +83,6 @@
 ## 2026-06-03 - Submit button accessibilityState and Pressable feedback
 **Learning:** Actionable buttons in React Native (`Pressable`) that are bound to an `isSubmitting` or `isPending` state often disable correctly but fail to announce to screen readers that a background process is active. Additionally, many of these buttons miss visual feedback upon press.
 **Action:** Always ensure that disabled primary action buttons implement `accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}` and utilize the `({ pressed }) => [...]` style array to provide visual feedback (like `opacity: 0.7`) to the user.
+## 2026-06-04 - Improved Keyboard UX in Forms
+**Learning:** In React Native apps, relying on default keyboard behavior for text inputs creates friction. `returnKeyType` improves the visible keyboard label, but smooth field navigation also needs `onSubmitEditing`, `TextInput` refs, and `submitBehavior`, which controls whether Return submits or inserts a newline.
+**Action:** For sequences of `TextInput` components, combine `returnKeyType="next"` with `submitBehavior="submit"` and `onSubmitEditing={() => nextInputRef.current?.focus()}` on intermediate fields. Use `returnKeyType="done"` with `submitBehavior="blurAndSubmit"` and a dismiss handler on the final field.

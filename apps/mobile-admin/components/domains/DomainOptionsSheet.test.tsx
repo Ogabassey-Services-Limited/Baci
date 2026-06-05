@@ -106,6 +106,7 @@ vi.mock('react-native', () => ({
     absoluteFillObject: {},
     create: (styles: Record<string, unknown>) => styles,
   },
+  StatusBar: () => null,
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));

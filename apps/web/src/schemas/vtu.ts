@@ -36,6 +36,12 @@ const purchaseSchemaBase = z.object({
   // wallet-only path. Cross-field rule (walletAmount <= amount) is in
   // applyPurchaseRequirements so every derived schema picks it up.
   walletAmount: z.number().nonnegative().optional(),
+  // Monnify checkout additions
+  provider: z.enum(['kuda', 'monnify']).optional(),
+  validationReference: z.string().optional(),
+  billerCode: z.string().optional(),
+  productCode: z.string().optional(),
+  requireValidationRef: z.boolean().optional(),
 });
 
 type PurchaseRequirementValues = z.infer<typeof purchaseSchemaBase>;
@@ -45,6 +51,14 @@ function applyPurchaseRequirements(
   ctx: z.RefinementCtx
 ) {
   if (data.type === 'airtime' || data.type === 'data') {
+    if (data.provider === 'monnify') {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Monnify does not support airtime/data purchases',
+        path: ['provider'],
+      });
+    }
+
     if (!data.phoneNumber) {
       ctx.addIssue({
         code: 'custom',
@@ -75,20 +89,101 @@ function applyPurchaseRequirements(
     data.type === 'cable_tv' ||
     data.type === 'betting'
   ) {
-    if (!data.billItemIdentifier) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'billItemIdentifier is required for bill payments',
-        path: ['billItemIdentifier'],
-      });
-    }
-
-    if (!data.customerIdentifier) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'customerIdentifier is required for bill payments',
-        path: ['customerIdentifier'],
-      });
+    if (data.provider === 'monnify') {
+      if (!data.billerCode) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'billerCode is required for Monnify checkout',
+          path: ['billerCode'],
+        });
+      }
+      if (!data.productCode) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'productCode is required for Monnify checkout',
+          path: ['productCode'],
+        });
+      }
+      if (!data.customerIdentifier) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'customerIdentifier is required for Monnify checkout',
+          path: ['customerIdentifier'],
+        });
+      }
+      if (data.requireValidationRef && !data.validationReference) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            'validationReference is required when requireValidationRef is true',
+          path: ['validationReference'],
+        });
+      }
+    } else if (data.provider === 'kuda') {
+      if (!data.billItemIdentifier) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'billItemIdentifier is required for Kuda checkout',
+          path: ['billItemIdentifier'],
+        });
+      }
+      if (!data.customerIdentifier) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'customerIdentifier is required for Kuda checkout',
+          path: ['customerIdentifier'],
+        });
+      }
+    } else {
+      // Auto mode: check if they are trying to use Monnify (has Monnify hints)
+      const hasMonnifyHint = !!(data.billerCode || data.productCode);
+      if (hasMonnifyHint) {
+        if (!data.billerCode) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'billerCode is required for Monnify checkout',
+            path: ['billerCode'],
+          });
+        }
+        if (!data.productCode) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'productCode is required for Monnify checkout',
+            path: ['productCode'],
+          });
+        }
+        if (!data.customerIdentifier) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'customerIdentifier is required for Monnify checkout',
+            path: ['customerIdentifier'],
+          });
+        }
+        if (data.requireValidationRef && !data.validationReference) {
+          ctx.addIssue({
+            code: 'custom',
+            message:
+              'validationReference is required when requireValidationRef is true',
+            path: ['validationReference'],
+          });
+        }
+      } else {
+        // Default to Kuda requirements
+        if (!data.billItemIdentifier) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'billItemIdentifier is required for Kuda checkout',
+            path: ['billItemIdentifier'],
+          });
+        }
+        if (!data.customerIdentifier) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'customerIdentifier is required for Kuda checkout',
+            path: ['customerIdentifier'],
+          });
+        }
+      }
     }
   }
 
@@ -126,15 +221,49 @@ export const purchaseSchema = purchaseSchemaBase.superRefine(
 
 export type PurchaseInput = z.infer<typeof purchaseSchema>;
 
-export const verifySchema = z.object({
-  billItemIdentifier: z.string().min(1, 'Bill item identifier is required'),
-  customerIdentifier: z.string().min(1, 'Customer identifier is required'),
-});
+export const verifySchema = z
+  .object({
+    customerIdentifier: z.string().min(1, 'Customer identifier is required'),
+    provider: z.enum(['kuda', 'monnify']).default('kuda'),
+    // Kuda-specific
+    billItemIdentifier: z.string().optional(),
+    // Monnify-specific
+    billerCode: z.string().optional(),
+    productCode: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.provider === 'monnify') {
+      if (!data.billerCode) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'billerCode is required for Monnify validation',
+          path: ['billerCode'],
+        });
+      }
+      if (!data.productCode) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'productCode is required for Monnify validation',
+          path: ['productCode'],
+        });
+      }
+    } else if (!data.billItemIdentifier) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Bill item identifier is required',
+        path: ['billItemIdentifier'],
+      });
+    }
+  });
 
 export type VerifyInput = z.infer<typeof verifySchema>;
 
 export const billersQuerySchema = z.object({
   type: billTypeEnum,
+  includeMonnify: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
 });
 
 export const historyQuerySchema = z.object({

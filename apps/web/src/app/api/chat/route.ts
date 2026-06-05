@@ -22,10 +22,8 @@ import { generateText } from 'ai';
 import { headers } from 'next/headers';
 import z from 'zod';
 import { activeTextModel, checkRateLimit } from '@/ai/provider';
-import {
-  createAiSdkAgenticChatTools,
-  executeAgenticChatToolForOllama,
-} from '@/app/api/chat/chat-tool-runtime';
+import { createAiSdkAgenticChatTools } from '@/app/api/chat/chat-tool-runtime';
+import { executeAgenticChatToolForOllama } from '@/app/api/chat/ollama-chat-tool-runtime';
 import { ollamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
 import {
   bufferTextResponse,
@@ -48,6 +46,7 @@ import {
 } from '@/env';
 import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
+import type { OllamaToolCall } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 export const maxDuration = 120; // VPS-hosted Gemma can be slower on cold starts
@@ -62,8 +61,51 @@ const chatRequestSchema = z.object({
     )
     .min(1)
     .max(50),
-  sessionId: z.string().optional(),
+  sessionId: z
+    .string()
+    .trim()
+    .min(16)
+    .max(128)
+    .regex(/^[A-Za-z0-9:_-]+$/)
+    .optional(),
 });
+
+const SIDE_EFFECTING_OLLAMA_TOOL_NAMES = new Set(['createVirtualAccount']);
+
+function isSideEffectingOllamaToolCall(call: OllamaToolCall): boolean {
+  return SIDE_EFFECTING_OLLAMA_TOOL_NAMES.has(call.function.name);
+}
+
+function didOllamaToolCreateSideEffect(result: string): boolean {
+  try {
+    const parsed = JSON.parse(result) as unknown;
+    if (typeof parsed !== 'object' || parsed === null) {
+      return false;
+    }
+
+    const maybeResult = parsed as {
+      accountNumber?: unknown;
+      orderId?: unknown;
+      success?: unknown;
+    };
+
+    return (
+      (typeof maybeResult.orderId === 'string' &&
+        maybeResult.orderId.length > 0) ||
+      (maybeResult.success === true &&
+        typeof maybeResult.accountNumber === 'string' &&
+        maybeResult.accountNumber.length > 0)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function createRepeatedSideEffectToolResult(toolName: string): string {
+  return JSON.stringify({
+    error: `${toolName} already created an order in this chat turn. Use the existing tool result instead of creating another order.`,
+  });
+}
 
 function generateSessionId(ip: string): string {
   return crypto
@@ -148,7 +190,9 @@ export async function POST(req: Request) {
           baseUrl: llmServerUrl,
           bearer,
           model: chatModel,
-          messages: buildChatMessages(sanitizedMessages, chatModel),
+          messages: buildChatMessages(sanitizedMessages, chatModel, {
+            toolsEnabled: false,
+          }),
           signal: req.signal,
           timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
         });
@@ -170,19 +214,49 @@ export async function POST(req: Request) {
       if (ollamaBaseUrl) {
         const chatModel = getAiChatModel();
         const basicAuth = getOllamaBasicAuth();
+        let ollamaSideEffectingToolExecuted = false;
+        const sideEffectingOllamaToolsWithEffects = new Set<string>();
         try {
           const ollamaResponse = await createOllamaAgenticChatResponse({
             baseUrl: ollamaBaseUrl,
             model: chatModel,
             basicAuth,
-            messages: buildChatMessages(sanitizedMessages, chatModel),
+            messages: buildChatMessages(sanitizedMessages, chatModel, {
+              toolsEnabled: true,
+            }),
             tools: ollamaAgenticChatTools,
-            executeToolCall: (call) =>
-              executeAgenticChatToolForOllama(
+            executeToolCall: async (call) => {
+              const toolName = call.function.name;
+              if (
+                isSideEffectingOllamaToolCall(call) &&
+                sideEffectingOllamaToolsWithEffects.has(toolName)
+              ) {
+                return createRepeatedSideEffectToolResult(toolName);
+              }
+
+              const result = await executeAgenticChatToolForOllama(
                 call.function.name,
                 call.function.arguments,
                 sessionId
-              ),
+              );
+
+              if (
+                isSideEffectingOllamaToolCall(call) &&
+                didOllamaToolCreateSideEffect(result)
+              ) {
+                sideEffectingOllamaToolsWithEffects.add(toolName);
+              }
+
+              return result;
+            },
+            onToolExecuted: (call, result) => {
+              if (
+                isSideEffectingOllamaToolCall(call) &&
+                didOllamaToolCreateSideEffect(result)
+              ) {
+                ollamaSideEffectingToolExecuted = true;
+              }
+            },
             signal: req.signal,
             timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
           });
@@ -192,9 +266,18 @@ export async function POST(req: Request) {
             return createClientClosedRequestResponse();
           }
 
+          const safeErrorMessage = getSafeChatBackendErrorMessage(error);
+          if (ollamaSideEffectingToolExecuted) {
+            console.warn(
+              '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
+              safeErrorMessage
+            );
+            return createStaticChatFallbackResponse();
+          }
+
           console.warn(
             '[Agentic Chat] Ollama request failed; falling back to Gemini:',
-            getSafeChatBackendErrorMessage(error)
+            safeErrorMessage
           );
         }
       }

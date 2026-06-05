@@ -20,6 +20,7 @@ vi.mock('react-native', async () => {
   const ReactModule = await import('react');
 
   return {
+    StatusBar: () => null,
     ActivityIndicator: () => <span data-testid="activity-indicator" />,
     Image: ({ source }: { source: unknown }) => (
       <div data-source={JSON.stringify(source)} data-testid="native-image" />

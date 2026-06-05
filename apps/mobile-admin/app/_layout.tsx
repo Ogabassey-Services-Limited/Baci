@@ -11,15 +11,16 @@ import {
   ThemeProvider,
 } from 'expo-router/react-navigation';
 import { useFonts } from 'expo-font';
+import * as NavigationBar from 'expo-navigation-bar';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { useColorScheme } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+import { useColorScheme, StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { NetworkProvider } from '@/context/NetworkContext';
 import { OnboardingProvider } from '@/context/OnboardingContext';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
@@ -56,6 +57,7 @@ const AdminLightTheme = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   // Initialize RevenueCat (IAP)
   useRevenueCat();
 
@@ -85,18 +87,24 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  useEffect(() => {
+    if (!isRuntimePlatform('android')) {
+      return;
+    }
+
+    void NavigationBar.setStyle(isDark ? 'light' : 'dark');
+  }, [isDark]);
+
   if (!loaded) {
     return null;
   }
-
-  const isDark = colorScheme === 'dark';
 
   return (
     <SafeAreaProvider>
       <QueryProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
-            <SystemBars style={isDark ? 'light' : 'dark'} />
+            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
             <NetworkProvider>
               <OnboardingProvider>
                 <Slot />

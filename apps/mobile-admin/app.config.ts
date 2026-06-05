@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import 'tsx/cjs';
+import './config/app-config-env';
+
 import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
@@ -178,6 +180,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         backgroundColor: '#f0bf58',
       },
     ],
+    [
+      'expo-navigation-bar',
+      {
+        enforceContrast: false,
+        hidden: false,
+        style: 'dark',
+      },
+    ],
     'expo-secure-store',
     [
       'expo-notifications',
@@ -220,7 +230,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-sharing',
     '@react-native-vector-icons/ionicons',
     '@react-native-vector-icons/fontawesome',
-    'react-native-edge-to-edge',
+    './config/withAndroidSystemBars.js',
     './config/withAndroidGradleFixes.js',
     [
       './plugins/with-ios-release-hardening',

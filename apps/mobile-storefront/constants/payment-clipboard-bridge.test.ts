@@ -55,7 +55,9 @@ function runClipboardBridgeInSandbox({
   window: unknown;
 }) {
   const windowMutationObserver =
-    typeof window === 'object' && window !== null && 'MutationObserver' in window
+    typeof window === 'object' &&
+    window !== null &&
+    'MutationObserver' in window
       ? (window as { MutationObserver?: unknown }).MutationObserver
       : undefined;
 

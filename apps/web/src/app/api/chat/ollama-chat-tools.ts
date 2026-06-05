@@ -87,9 +87,10 @@ export const ollamaAgenticChatTools: OllamaChatTool[] = [
     type: 'function',
     function: {
       name: 'checkPaymentStatus',
-      description: TOOL_DESCRIPTIONS.checkPaymentStatus,
+      description: `${TOOL_DESCRIPTIONS.checkPaymentStatus} Provide either orderId or customerEmail.`,
       parameters: {
         type: 'object',
+        anyOf: [{ required: ['orderId'] }, { required: ['customerEmail'] }],
         properties: {
           orderId: { ...STRING_SCHEMA, description: 'The chat order ID' },
           customerEmail: {
@@ -118,24 +119,6 @@ export const ollamaAgenticChatTools: OllamaChatTool[] = [
             enum: ['upsell', 'cross_sell', 'accessories'],
             description: 'Recommendation type',
           },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'addToCart',
-      description: TOOL_DESCRIPTIONS.addToCart,
-      parameters: {
-        type: 'object',
-        required: ['productId'],
-        properties: {
-          productId: {
-            ...STRING_SCHEMA,
-            description: 'Product ID to add to cart',
-          },
-          quantity: { ...NUMBER_SCHEMA, description: 'Quantity to add' },
         },
       },
     },

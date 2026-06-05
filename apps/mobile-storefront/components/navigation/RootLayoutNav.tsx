@@ -4,14 +4,14 @@ import {
   ThemeProvider,
 } from 'expo-router/react-navigation';
 import { Stack } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { GlobalErrorBoundary } from '@/components/ErrorBoundary';
 import { NegotiationModal } from '@/components/modals/NegotiationModal';
 import { DrawerMenu } from '@/components/navigation/DrawerMenu';
+import { NavigationBarStyleProvider } from '@/components/navigation/NavigationBarStyleProvider';
 import { renderRootStackScreens } from '@/components/navigation/RootStackScreens';
 import AppKeyboardProvider from '@/components/ui/AppKeyboardProvider';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -63,6 +63,7 @@ export function RootLayoutNav({
   const enableChatWidget = template.features?.chatWidget ?? true;
   const enableNegotiationModal = template.features?.negotiationModal ?? true;
   const enableDrawerMenu = template.features?.drawerMenu ?? true;
+  const rootNavigationBarStyle = colorScheme === 'dark' ? 'light' : 'dark';
 
   // Auth guard handles sign out redirects before protected screens render.
   useAuthGuard();
@@ -72,74 +73,80 @@ export function RootLayoutNav({
       <GestureHandlerRootView
         style={[styles.root, { backgroundColor: colors.background }]}
       >
-        <SafeAreaProvider>
-          <AppKeyboardProvider>
-            <ThemeProvider
-              value={
-                colorScheme === 'dark'
-                  ? OgabasseyDarkTheme
-                  : OgabasseyLightTheme
-              }
-            >
-              <SystemBars style={colorScheme === 'dark' ? 'light' : 'dark'} />
-              <View
-                style={[
-                  styles.appShell,
-                  { backgroundColor: colors.background },
-                ]}
+        <NavigationBarStyleProvider rootStyle={rootNavigationBarStyle}>
+          <SafeAreaProvider>
+            <AppKeyboardProvider>
+              <ThemeProvider
+                value={
+                  colorScheme === 'dark'
+                    ? OgabasseyDarkTheme
+                    : OgabasseyLightTheme
+                }
               >
-                <GlobalErrorBoundary context="RootNavigation">
-                  {/*
-                   * No custom `header` function in screenOptions — that would
-                   * make react-native-screens NativeStack reserve a header zone
-                   * via additionalSafeAreaInsets on every screen, even ones
-                   * with `headerShown: false`, which combined with screens'
-                   * own `<SafeAreaView edges={['top']}>` produced ~120pt of
-                   * stacked blank padding above content. Mirrors apps/mobile-admin
-                   * which uses the native iOS UINavigationBar.
-                   *
-                   * Screens that need a custom JS header can opt in
-                   * per-Stack.Screen via `options.header`. Inner-content
-                   * customization (back button, title node, right action) is
-                   * available via `headerLeft`, `headerRight`, `headerTitle`
-                   * without triggering the inset reservation.
-                   */}
-                  <Stack
-                    screenOptions={{
-                      headerStyle: {
-                        backgroundColor: colors.background,
-                      },
-                      headerTintColor: colors.text,
-                      headerTitleStyle: {
-                        fontWeight: '600',
-                      },
-                      headerShadowVisible: false,
-                      contentStyle: {
-                        backgroundColor: colors.background,
-                      },
-                      animation: 'slide_from_right',
-                      gestureEnabled: true,
-                      gestureDirection: 'horizontal',
-                      headerBackTitle: '',
-                    }}
-                  >
-                    {renderRootStackScreens({
-                      mutedContentBackgroundColor: colors.muted,
-                    })}
-                  </Stack>
-                </GlobalErrorBoundary>
-                {enableConnectivityBanner ? <ConnectivityBanner /> : null}
-                {enableChatWidget ? (
-                  <ChatWidget
-                    bottomOffset={CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET}
-                  />
-                ) : null}
-                {enableNegotiationModal ? <NegotiationModal /> : null}
-                {enableDrawerMenu ? <DrawerMenu /> : null}
-              </View>
-            </ThemeProvider>
-          </AppKeyboardProvider>
-        </SafeAreaProvider>
+                <StatusBar
+                  barStyle={
+                    colorScheme === 'dark' ? 'light-content' : 'dark-content'
+                  }
+                />
+                <View
+                  style={[
+                    styles.appShell,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <GlobalErrorBoundary context="RootNavigation">
+                    {/*
+                     * No custom `header` function in screenOptions — that would
+                     * make react-native-screens NativeStack reserve a header zone
+                     * via additionalSafeAreaInsets on every screen, even ones
+                     * with `headerShown: false`, which combined with screens'
+                     * own `<SafeAreaView edges={['top']}>` produced ~120pt of
+                     * stacked blank padding above content. Mirrors apps/mobile-admin
+                     * which uses the native iOS UINavigationBar.
+                     *
+                     * Screens that need a custom JS header can opt in
+                     * per-Stack.Screen via `options.header`. Inner-content
+                     * customization (back button, title node, right action) is
+                     * available via `headerLeft`, `headerRight`, `headerTitle`
+                     * without triggering the inset reservation.
+                     */}
+                    <Stack
+                      screenOptions={{
+                        headerStyle: {
+                          backgroundColor: colors.background,
+                        },
+                        headerTintColor: colors.text,
+                        headerTitleStyle: {
+                          fontWeight: '600',
+                        },
+                        headerShadowVisible: false,
+                        contentStyle: {
+                          backgroundColor: colors.background,
+                        },
+                        animation: 'slide_from_right',
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal',
+                        headerBackTitle: '',
+                      }}
+                    >
+                      {renderRootStackScreens({
+                        mutedContentBackgroundColor: colors.muted,
+                      })}
+                    </Stack>
+                  </GlobalErrorBoundary>
+                  {enableConnectivityBanner ? <ConnectivityBanner /> : null}
+                  {enableChatWidget ? (
+                    <ChatWidget
+                      bottomOffset={CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET}
+                    />
+                  ) : null}
+                  {enableNegotiationModal ? <NegotiationModal /> : null}
+                  {enableDrawerMenu ? <DrawerMenu /> : null}
+                </View>
+              </ThemeProvider>
+            </AppKeyboardProvider>
+          </SafeAreaProvider>
+        </NavigationBarStyleProvider>
       </GestureHandlerRootView>
     </QueryProvider>
   );

@@ -1,13 +1,19 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewOrderQuickAddDialog } from './NewOrderQuickAddDialog';
+
+const keyboardState = vi.hoisted(() => ({
+  dismiss: vi.fn(),
+}));
 
 vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    Keyboard: { dismiss: keyboardState.dismiss },
+    StatusBar: () => null,
     Pressable: ({
       accessibilityLabel,
       children,
@@ -31,21 +37,40 @@ vi.mock('react-native', async () => {
     },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
-    TextInput: ({
-      onChangeText,
-      placeholder,
-      value,
-    }: {
-      onChangeText?: (text: string) => void;
-      placeholder?: string;
-      value?: string;
-    }) =>
-      React.createElement('input', {
-        onChange: (event: { target: { value: string } }) =>
-          onChangeText?.(event.target.value),
-        placeholder,
-        value: value ?? '',
-      }),
+    TextInput: React.forwardRef(
+      (
+        {
+          onChangeText,
+          onSubmitEditing,
+          placeholder,
+          returnKeyType,
+          submitBehavior,
+          value,
+        }: {
+          onChangeText?: (text: string) => void;
+          onSubmitEditing?: () => void;
+          placeholder?: string;
+          returnKeyType?: string;
+          submitBehavior?: string;
+          value?: string;
+        },
+        ref: React.Ref<HTMLInputElement>
+      ) =>
+        React.createElement('input', {
+          'data-return-key-type': returnKeyType,
+          'data-submit-behavior': submitBehavior,
+          onChange: (event: { target: { value: string } }) =>
+            onChangeText?.(event.target.value),
+          onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === 'Enter') {
+              onSubmitEditing?.();
+            }
+          },
+          placeholder,
+          ref,
+          value: value ?? '',
+        })
+    ),
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -129,6 +154,10 @@ const makeController = (
 });
 
 describe('NewOrderQuickAddDialog', () => {
+  beforeEach(() => {
+    keyboardState.dismiss.mockReset();
+  });
+
   it('renders the dialog with title and inputs when visible', () => {
     const controller = makeController();
 
@@ -147,6 +176,36 @@ describe('NewOrderQuickAddDialog', () => {
       screen.getByPlaceholderText('Item Name (e.g. Red Cake, Delivery)')
     ).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Amount (0.00)')).toBeInTheDocument();
+  });
+
+  it('moves focus from item name to amount and dismisses from the final input', () => {
+    const controller = makeController();
+
+    render(
+      <NewOrderQuickAddDialog
+        controller={
+          controller as unknown as React.ComponentProps<
+            typeof NewOrderQuickAddDialog
+          >['controller']
+        }
+      />
+    );
+
+    const nameInput = screen.getByPlaceholderText(
+      'Item Name (e.g. Red Cake, Delivery)'
+    );
+    const priceInput = screen.getByPlaceholderText('Amount (0.00)');
+
+    expect(nameInput).toHaveAttribute('data-return-key-type', 'next');
+    expect(nameInput).toHaveAttribute('data-submit-behavior', 'submit');
+    fireEvent.keyDown(nameInput, { key: 'Enter' });
+    expect(priceInput).toHaveFocus();
+
+    expect(priceInput).toHaveAttribute('data-return-key-type', 'done');
+    expect(priceInput).toHaveAttribute('data-submit-behavior', 'blurAndSubmit');
+    fireEvent.keyDown(priceInput, { key: 'Enter' });
+    expect(keyboardState.dismiss).toHaveBeenCalledTimes(1);
+    expect(controller.handleContinueAsCustomItem).not.toHaveBeenCalled();
   });
 
   it('does not render when showCustomItemModal is false', () => {

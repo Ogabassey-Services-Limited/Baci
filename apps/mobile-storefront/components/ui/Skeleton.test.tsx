@@ -17,8 +17,9 @@ describe('Skeleton', () => {
   it('marks the base skeleton as loading content', () => {
     render(<Skeleton width={120} height={24} borderRadius={8} />);
 
-    expect(screen.getByRole('progressbar', { name: 'Loading content' }))
-      .toBeOnTheScreen();
+    expect(
+      screen.getByRole('progressbar', { name: 'Loading content' })
+    ).toBeOnTheScreen();
   });
 
   it('renders product card placeholders', () => {

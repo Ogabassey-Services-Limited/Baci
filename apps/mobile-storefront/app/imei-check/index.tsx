@@ -32,7 +32,8 @@ import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('ImeiChecker');
 const API_BASE_URL = resolveStorefrontApiBaseUrl(
-  process.env.EXPO_PUBLIC_STOREFRONT_API_URL || process.env.EXPO_PUBLIC_API_URL
+  process.env.EXPO_PUBLIC_STOREFRONT_API_URL,
+  process.env.EXPO_PUBLIC_API_URL
 );
 
 export default function ImeiCheckerScreen() {

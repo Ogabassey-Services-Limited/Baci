@@ -5,6 +5,9 @@ export interface BillItem {
   itemCurrencySymbol: string;
   isAmountFixed: boolean;
   itemFee: number;
+  provider?: 'kuda' | 'monnify';
+  billerCode?: string;
+  productCode?: string;
   billItems?: BillItem[];
 }
 

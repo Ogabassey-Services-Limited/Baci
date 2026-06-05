@@ -57,8 +57,8 @@ overrides:
   markdown-it: "^14.1.1"
   "@modelcontextprotocol/sdk": "^1.25.2"
   react-native-worklets: "0.8.3"
-  # Keep Hono at 4.12.21+ to mitigate GHSA-f577-qrjj-4474, GHSA-xrhx-7g5j-rcj5, GHSA-2gcr-mfcq-wcc3, and GHSA-3hrh-pfw6-9m5x across CopilotKit/MCP transitive consumers.
-  hono: "^4.12.21"
+  # Pin patched Hono floor for GHSA-2gcr-mfcq-wcc3, GHSA-xrhx-7g5j-rcj5, GHSA-3hrh-pfw6-9m5x, and GHSA-f577-qrjj-4474.
+  hono: "^4.12.23"
   "@hono/node-server": "^2.0.2"
   svgo: "^3.3.3"
   underscore: "^1.13.8"
@@ -105,8 +105,8 @@ overrides:
   "uuid@>=13 <13.0.1": "13.0.1"
   # Pin to 10.2.0 to mitigate GHSA-v2v4-37r5-5v8g via transitive Lighthouse/Puppeteer proxy tooling.
   ip-address: "10.2.0"
-  # Pin to 16.2.4 to mitigate GHSA-q4gf-8mx6-v5v3 in Server Components.
-  next: "16.2.6"
+  # Pin to 16.2.7 to mitigate GHSA-q4gf-8mx6-v5v3 in Server Components while staying on the current Next.js 16 patch.
+  next: "16.2.7"
   flatted: "3.4.2"
   lodash: "4.18.1"
   lodash-es: "4.18.1"
@@ -188,7 +188,7 @@ patchedDependencies:
   '@react-native/gradle-plugin@0.85.3': patches/@react-native__gradle-plugin@0.85.3.patch
   "lottie-react-native@7.3.8": "patches/lottie-react-native@7.3.8.patch"
   "novel@1.0.2": "patches/novel@1.0.2.patch"
-  "react-native-edge-to-edge@1.8.1": "patches/react-native-edge-to-edge@1.8.1.patch"
+  "react-native@0.85.3": "patches/react-native@0.85.3.patch"
   "react-native-mmkv@4.3.1": "patches/react-native-mmkv@4.3.1.patch"
   "react-native-nitro-modules@0.35.9": "patches/react-native-nitro-modules@0.35.9.patch"
   "react-native-phone-number-input@2.1.0": "patches/react-native-phone-number-input@2.1.0.patch"

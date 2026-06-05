@@ -11,10 +11,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/ai/chat-tool-handlers', () => mocks);
 
-import {
-  createAiSdkAgenticChatTools,
-  executeAgenticChatToolForOllama,
-} from '@/app/api/chat/chat-tool-runtime';
+import { createAiSdkAgenticChatTools } from '@/app/api/chat/chat-tool-runtime';
 
 describe('chat tool runtime', () => {
   beforeEach(() => {
@@ -27,47 +24,10 @@ describe('chat tool runtime', () => {
       success: false,
       error: 'Unavailable',
     });
-  });
-
-  it('executes Ollama tool calls with parsed JSON arguments', async () => {
-    const result = await executeAgenticChatToolForOllama(
-      'searchProducts',
-      '{"query":"iPhone 11","maxPrice":200000}',
-      'session-1'
-    );
-
-    expect(JSON.parse(result)).toEqual({
-      products: [{ id: 'p1', name: 'iPhone 11' }],
-      total: 1,
+    mocks.handleCheckPaymentStatus.mockResolvedValue({
+      status: 'pending',
+      orderId: 'order-1',
     });
-    expect(mocks.handleSearchProducts).toHaveBeenCalledWith({
-      query: 'iPhone 11',
-      maxPrice: 200000,
-    });
-  });
-
-  it('returns a tool error for unknown Ollama tool names', async () => {
-    const result = await executeAgenticChatToolForOllama(
-      'deleteProduct',
-      {},
-      'session-1'
-    );
-
-    expect(JSON.parse(result)).toEqual({
-      error: 'Unknown tool: deleteProduct',
-    });
-    expect(mocks.handleSearchProducts).not.toHaveBeenCalled();
-  });
-
-  it('returns a validation error for malformed Ollama arguments', async () => {
-    const result = await executeAgenticChatToolForOllama(
-      'searchProducts',
-      {},
-      'session-1'
-    );
-
-    expect(JSON.parse(result)).toEqual({ error: 'Invalid tool arguments' });
-    expect(mocks.handleSearchProducts).not.toHaveBeenCalled();
   });
 
   it('passes session-scoped tools to the AI SDK Gemini path', async () => {
@@ -94,6 +54,22 @@ describe('chat tool runtime', () => {
           { productId: 'p1', name: 'iPhone 11', price: 150000, quantity: 1 },
         ],
       },
+      'session-1'
+    );
+  });
+
+  it('passes the chat session to payment status lookups', async () => {
+    const tools = createAiSdkAgenticChatTools('session-1');
+    const response = await tools.checkPaymentStatus.execute({
+      orderId: 'order-1',
+    });
+
+    expect(JSON.parse(response)).toEqual({
+      status: 'pending',
+      orderId: 'order-1',
+    });
+    expect(mocks.handleCheckPaymentStatus).toHaveBeenCalledWith(
+      { orderId: 'order-1' },
       'session-1'
     );
   });

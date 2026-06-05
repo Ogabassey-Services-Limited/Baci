@@ -45,6 +45,7 @@ export function createCustomizeReactNativeMock(
           ),
         }
       : {}),
+    StatusBar: () => null,
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
