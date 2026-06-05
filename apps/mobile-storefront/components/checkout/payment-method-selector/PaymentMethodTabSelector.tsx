@@ -15,24 +15,18 @@ interface PaymentMethodTabSelectorProps {
   selectedTab: PaymentTab;
 }
 
-const COMPACT_TAB_LABELS: Record<PaymentTab, string> = {
-  full: 'Pay\nin full',
-  installments: 'Pay\nin Installments',
-  pay_later: 'Pay\nLater',
-};
-
 const TAB_LABELS: Record<PaymentTab, string> = {
   full: 'Pay\nin full',
   installments: 'Pay\nin Installments',
   pay_later: 'Pay\nLater',
 };
 
-function getTabLabel(tab: PaymentTab, compact: boolean): string {
-  return compact ? COMPACT_TAB_LABELS[tab] : TAB_LABELS[tab];
+function getTabLabel(tab: PaymentTab): string {
+  return TAB_LABELS[tab];
 }
 
-function getAccessibleTabLabel(tab: PaymentTab, compact: boolean): string {
-  return getTabLabel(tab, compact).replace(/\s+/g, ' ').replace(/\.+$/, '');
+function getAccessibleTabLabel(tab: PaymentTab): string {
+  return getTabLabel(tab).replace(/\s+/g, ' ').replace(/\.+$/, '');
 }
 
 export function PaymentMethodTabSelector({
@@ -68,7 +62,7 @@ export function PaymentMethodTabSelector({
         onPress={() => onSelectTab('full')}
         accessibilityRole="tab"
         accessibilityState={{ selected: selectedTab === 'full' }}
-        accessibilityLabel={getAccessibleTabLabel('full', compact)}
+        accessibilityLabel={getAccessibleTabLabel('full')}
       >
         <Text
           adjustsFontSizeToFit
@@ -80,7 +74,7 @@ export function PaymentMethodTabSelector({
             { color: selectedTab === 'full' ? colors.white : colors.text },
           ]}
         >
-          {getTabLabel('full', compact)}
+          {getTabLabel('full')}
         </Text>
       </Pressable>
       {(hasBNPLMethods || hasPayLaterMethods) && (
@@ -103,7 +97,7 @@ export function PaymentMethodTabSelector({
           onPress={() => onSelectTab('installments')}
           accessibilityRole="tab"
           accessibilityState={{ selected: selectedTab === 'installments' }}
-          accessibilityLabel={getAccessibleTabLabel('installments', compact)}
+          accessibilityLabel={getAccessibleTabLabel('installments')}
         >
           <Text
             adjustsFontSizeToFit
@@ -118,7 +112,7 @@ export function PaymentMethodTabSelector({
               },
             ]}
           >
-            {getTabLabel('installments', compact)}
+            {getTabLabel('installments')}
           </Text>
         </Pressable>
       ) : null}
@@ -142,7 +136,7 @@ export function PaymentMethodTabSelector({
           onPress={() => onSelectTab('pay_later')}
           accessibilityRole="tab"
           accessibilityState={{ selected: selectedTab === 'pay_later' }}
-          accessibilityLabel={getAccessibleTabLabel('pay_later', compact)}
+          accessibilityLabel={getAccessibleTabLabel('pay_later')}
         >
           <Text
             adjustsFontSizeToFit
@@ -156,7 +150,7 @@ export function PaymentMethodTabSelector({
               },
             ]}
           >
-            {getTabLabel('pay_later', compact)}
+            {getTabLabel('pay_later')}
           </Text>
         </Pressable>
       ) : null}

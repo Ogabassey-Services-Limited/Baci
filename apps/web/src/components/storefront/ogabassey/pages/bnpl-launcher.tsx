@@ -458,6 +458,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                         },
                         onClose: () => {
                             if (notifyNativeBnplClose('credpal')) {
+                                clearPaymentLaunch();
                                 return;
                             }
 

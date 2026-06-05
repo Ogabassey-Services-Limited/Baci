@@ -21,6 +21,10 @@ function createRequest(state: string) {
   );
 }
 
+function createLocationsRequest(query = '') {
+  return new NextRequest(`https://usebaci.com/api/shipping/locations${query}`);
+}
+
 describe('GET /api/shipping/locations', () => {
   beforeEach(() => {
     mockTopshipProvider.getStates.mockResolvedValue([
@@ -63,5 +67,16 @@ describe('GET /api/shipping/locations', () => {
       ])
     );
     expect(mockTopshipProvider.getCities).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for invalid query parameters', async () => {
+    const response = await GET(createLocationsRequest('?search=x'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toMatchObject({
+      error: 'Invalid query parameters',
+      details: expect.any(Object),
+    });
   });
 });

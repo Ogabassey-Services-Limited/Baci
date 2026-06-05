@@ -55,6 +55,29 @@ describe('useCartCheckoutPrewarm', () => {
     expect(mockWarmCheckoutEntry).not.toHaveBeenCalled();
   });
 
+  it('warms checkout entry when cart transitions from unavailable to populated', () => {
+    const { rerender } = renderHook(
+      (props: { enabled: boolean; itemCount: number }) =>
+        useCartCheckoutPrewarm(props),
+      {
+        initialProps: {
+          enabled: false,
+          itemCount: 0,
+        },
+      }
+    );
+
+    rerender({
+      enabled: true,
+      itemCount: 1,
+    });
+
+    expect(mockRouterPrefetch).toHaveBeenCalledTimes(1);
+    expect(mockRouterPrefetch).toHaveBeenCalledWith('/checkout');
+    expect(mockWarmCheckoutEntry).toHaveBeenCalledTimes(1);
+    expect(mockWarmCheckoutEntry).toHaveBeenCalledWith(mockQueryClient);
+  });
+
   it('returns an imperative prewarm handler for checkout press-in', () => {
     const { result } = renderHook(() =>
       useCartCheckoutPrewarm({

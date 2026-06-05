@@ -67,4 +67,26 @@ describe('checkout-shipping-requests', () => {
     ).resolves.toEqual(['Lagos', 'FCT - Abuja']);
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
+
+  it('does not cache malformed warmed checkout state responses', async () => {
+    const mockFetch = jest
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce({
+        json: async () => ({ states: null }),
+        ok: true,
+      } as Response)
+      .mockResolvedValueOnce({
+        json: async () => ({ states: ['Lagos', 'FCT - Abuja'] }),
+        ok: true,
+      } as Response);
+    global.fetch = mockFetch;
+
+    await expect(
+      fetchCheckoutShippingStates('https://checkout-malformed.example')
+    ).resolves.toEqual([]);
+    await expect(
+      fetchCheckoutShippingStates('https://checkout-malformed.example')
+    ).resolves.toEqual(['Lagos', 'FCT - Abuja']);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
 });

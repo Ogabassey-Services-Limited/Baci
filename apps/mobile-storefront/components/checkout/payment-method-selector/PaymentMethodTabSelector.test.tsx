@@ -39,7 +39,7 @@ describe('PaymentMethodTabSelector', () => {
     expect(
       screen.getByRole('tab', { name: 'Pay Later' })
     ).toHaveAccessibilityState({ selected: false });
-    expect(screen.getAllByTestId('payment-tab-separator')).toHaveLength(2);
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
   });
 
   it('omits unavailable optional tabs in compact layouts', () => {
@@ -53,7 +53,7 @@ describe('PaymentMethodTabSelector', () => {
       screen.queryByRole('tab', { name: 'Pay in Installments' })
     ).toBeNull();
     expect(screen.getByRole('tab', { name: 'Pay Later' })).toBeTruthy();
-    expect(screen.getAllByTestId('payment-tab-separator')).toHaveLength(1);
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
 
     rerender(
       <PaymentMethodTabSelector
@@ -69,7 +69,7 @@ describe('PaymentMethodTabSelector', () => {
     ).toBeTruthy();
     expect(screen.queryByText(/Pay\s+Later/)).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Pay Later' })).toBeNull();
-    expect(screen.getAllByTestId('payment-tab-separator')).toHaveLength(1);
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
   });
 
   it('hides the selector when only full payment is available', () => {

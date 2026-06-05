@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { Header } from './Header';
 
@@ -126,6 +127,23 @@ describe('Header search behavior', () => {
     expect(onSearchQueryChange).toHaveBeenCalledWith('samsung');
     expect(onSearchSubmit).toHaveBeenCalledTimes(1);
     expect(onSearchCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('prefetches and navigates to the cart when the cart button is pressed', () => {
+    render(<Header showSearch={false} />);
+
+    const cartButton = screen.getByRole('button', {
+      name: 'Shopping cart, empty',
+    });
+
+    fireEvent(cartButton, 'pressIn');
+    fireEvent.press(cartButton);
+
+    expect(router.prefetch).toHaveBeenCalledWith('/cart');
+    expect(router.navigate).toHaveBeenCalledWith('/cart');
+    expect(
+      (router.prefetch as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan((router.navigate as jest.Mock).mock.invocationCallOrder[0]);
   });
 });
 

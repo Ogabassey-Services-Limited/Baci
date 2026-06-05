@@ -8,6 +8,7 @@ import { createLogger } from '@/lib/logger';
 import { trackError } from '@/services/analytics';
 
 const log = createLogger('Order');
+const REDACTED_API_ERROR_BODY = '[REDACTED]';
 
 export class OrderError extends Error {
   code: string;
@@ -85,7 +86,7 @@ function getErrorDiagnostics(error: Error): Record<string, unknown> {
   if (error instanceof ApiError) {
     diagnostics.status = error.status;
     diagnostics.statusText = error.statusText;
-    diagnostics.body = error.body;
+    diagnostics.body = REDACTED_API_ERROR_BODY;
   }
 
   return diagnostics;

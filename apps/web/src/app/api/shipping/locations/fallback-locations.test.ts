@@ -14,6 +14,10 @@ describe('fallback-locations', () => {
     );
   });
 
+  it('returns an empty city list for unknown states', () => {
+    expect(getFallbackCitiesForState('Atlantis')).toEqual([]);
+  });
+
   it('uses fallback cities when provider returns a country-wide city dump', () => {
     const providerCities = Array.from({ length: 300 }, (_, index) => {
       return `City ${index}`;
@@ -22,6 +26,20 @@ describe('fallback-locations', () => {
     expect(shouldUseFallbackCitiesForState(providerCities, 'Lagos')).toBe(true);
     expect(shouldUseFallbackCitiesForState(['Ikeja', 'Lekki'], 'Lagos')).toBe(
       false
+    );
+  });
+
+  it('uses fallback cities only above the state city-count cutoff', () => {
+    const cutoffCities = Array.from({ length: 250 }, (_, index) => {
+      return `City ${index}`;
+    });
+    const overCutoffCities = Array.from({ length: 251 }, (_, index) => {
+      return `City ${index}`;
+    });
+
+    expect(shouldUseFallbackCitiesForState(cutoffCities, 'Lagos')).toBe(false);
+    expect(shouldUseFallbackCitiesForState(overCutoffCities, 'Lagos')).toBe(
+      true
     );
   });
 });

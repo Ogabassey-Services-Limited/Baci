@@ -23,10 +23,6 @@
       "lineCount": 306
     },
     {
-      "path": "components/checkout/checkout-identity/styles.ts",
-      "lineCount": 390
-    },
-    {
       "path": "components/track-order/TrackOrderDetailsContent.tsx",
       "lineCount": 345
     },

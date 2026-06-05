@@ -59,9 +59,10 @@ async function requestCheckoutShippingStates(
   const res = await fetch(`${apiBaseUrl}/api/shipping/locations`);
   if (!res.ok) return { cacheable: false, states: [] };
   const data = await res.json();
+  const hasValidStates = Array.isArray(data.states);
   return {
-    cacheable: true,
-    states: Array.isArray(data.states) ? data.states : [],
+    cacheable: hasValidStates,
+    states: hasValidStates ? data.states : [],
   };
 }
 

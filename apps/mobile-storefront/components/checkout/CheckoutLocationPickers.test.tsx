@@ -71,4 +71,13 @@ describe('CheckoutLocationPickers', () => {
     ).toBeNull();
     expect(screen.getByText('Ikeja')).toBeTruthy();
   });
+
+  it('filters city suggestions using trimmed typed city text', () => {
+    renderCityPicker({ citySearch: 'Ikeja ' });
+
+    expect(screen.getByText('Ikeja')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Use Ikeja as city' })
+    ).toBeNull();
+  });
 });

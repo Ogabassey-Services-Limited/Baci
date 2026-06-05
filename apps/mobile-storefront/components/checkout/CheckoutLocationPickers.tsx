@@ -53,12 +53,12 @@ export function CheckoutLocationPickers({
   watchedCity,
   watchedState,
 }: CheckoutLocationPickersProps) {
-  const filteredCities = citySearch
+  const typedCity = citySearch.trim();
+  const filteredCities = typedCity
     ? shippingCities.filter((city) =>
-        city.toLowerCase().includes(citySearch.toLowerCase())
+        city.toLowerCase().includes(typedCity.toLowerCase())
       )
     : shippingCities;
-  const typedCity = citySearch.trim();
   const hasExactCityMatch =
     typedCity.length > 0 &&
     shippingCities.some(
