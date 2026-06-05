@@ -74,6 +74,13 @@ runs:
 
     - name: Install Dependencies
       shell: bash
+      env:
+        # CI jobs use system/tool-provided browsers when needed; avoid
+        # Puppeteer's install-time Chrome downloads on shared runners.
+        PUPPETEER_SKIP_DOWNLOAD: 'true'
+        PUPPETEER_CHROME_SKIP_DOWNLOAD: 'true'
+        PUPPETEER_CHROME_HEADLESS_SHELL_SKIP_DOWNLOAD: 'true'
+        PUPPETEER_SKIP_CHROME_HEADLESS_SHELL_DOWNLOAD: 'true'
       run: ${{ inputs.install-command }}
 
     # Cache Save Engine: PR branches are strictly RESTORE-ONLY to prevent cache poisoning & save storage limit (10GB)

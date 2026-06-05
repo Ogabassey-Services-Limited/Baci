@@ -73,6 +73,11 @@ jobs:
         run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
 
       - name: Install JS dependencies
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+          PUPPETEER_CHROME_SKIP_DOWNLOAD: 'true'
+          PUPPETEER_CHROME_HEADLESS_SHELL_SKIP_DOWNLOAD: 'true'
+          PUPPETEER_SKIP_CHROME_HEADLESS_SHELL_DOWNLOAD: 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Resolve build number
