@@ -54,19 +54,15 @@ export function CheckoutLocationPickers({
   watchedState,
 }: CheckoutLocationPickersProps) {
   const typedCity = citySearch.trim();
+  const typedCityLower = typedCity.toLowerCase();
   const filteredCities = typedCity
-    ? shippingCities.filter((city) =>
-        city.toLowerCase().includes(typedCity.toLowerCase())
-      )
+    ? shippingCities.filter((city) => city.toLowerCase().includes(typedCityLower))
     : shippingCities;
   const exactCityMatch =
     typedCity.length > 0
-      ? shippingCities.find(
-          (city) => city.toLowerCase() === typedCity.toLowerCase()
-        )
+      ? shippingCities.find((city) => city.toLowerCase() === typedCityLower)
       : undefined;
-  const hasExactCityMatch = Boolean(exactCityMatch);
-  const shouldShowTypedCity = typedCity.length > 0 && !hasExactCityMatch;
+  const shouldShowTypedCity = typedCity.length > 0 && !exactCityMatch;
 
   return (
     <>

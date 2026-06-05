@@ -99,9 +99,10 @@ async function requestCheckoutShippingLocations(
   cacheable: boolean;
   payload: CheckoutShippingLocationsPayload;
 }> {
-  const res = await fetch(getShippingLocationsUrl(apiBaseUrl, state), {
-    signal,
-  });
+  const res = await fetch(
+    getShippingLocationsUrl(apiBaseUrl, state),
+    signal ? { signal } : undefined
+  );
   if (!res.ok) {
     return { cacheable: false, payload: { locations: [], states: [] } };
   }
@@ -148,19 +149,17 @@ export async function fetchCheckoutShippingCities(
       : getCitiesFromLocations(payload.locations, state);
   }
 
-  const promise = requestCheckoutShippingLocations(
-    apiBaseUrl,
-    state,
-    signal
-  ).then((result) => {
-    if (!signal.aborted && result.cacheable) {
-      warmedShippingLocations.set(stateCacheKey, {
-        expiresAt: Date.now() + CHECKOUT_SHIPPING_STATES_CACHE_MS,
-        payload: result.payload,
-      });
+  const promise = requestCheckoutShippingLocations(apiBaseUrl, state).then(
+    (result) => {
+      if (result.cacheable) {
+        warmedShippingLocations.set(stateCacheKey, {
+          expiresAt: Date.now() + CHECKOUT_SHIPPING_STATES_CACHE_MS,
+          payload: result.payload,
+        });
+      }
+      return result.payload;
     }
-    return result.payload;
-  });
+  );
   pendingShippingLocations.set(stateCacheKey, promise);
 
   try {

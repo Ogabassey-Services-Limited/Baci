@@ -94,6 +94,45 @@ describe('checkout-shipping-requests', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps active city subscribers alive when another subscriber aborts', async () => {
+    let resolveResponse: ((value: Response) => void) | undefined;
+    global.fetch = jest.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveResponse = resolve;
+        })
+    ) as unknown as typeof fetch;
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+
+    const first = fetchCheckoutShippingCities(
+      'https://checkout-shared-city-abort.example',
+      'Lagos',
+      firstController.signal
+    );
+    const second = fetchCheckoutShippingCities(
+      'https://checkout-shared-city-abort.example',
+      'Lagos',
+      secondController.signal
+    );
+    firstController.abort();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://checkout-shared-city-abort.example/api/shipping/locations?state=Lagos',
+      undefined
+    );
+    resolveResponse?.({
+      json: async () => ({
+        locations: [{ city: 'Ikeja', state: 'Lagos' }],
+      }),
+      ok: true,
+    } as Response);
+
+    await expect(first).resolves.toEqual([]);
+    await expect(second).resolves.toEqual(['Ikeja']);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('does not cache malformed warmed checkout state responses', async () => {
     const mockFetch = jest
       .fn<typeof fetch>()
