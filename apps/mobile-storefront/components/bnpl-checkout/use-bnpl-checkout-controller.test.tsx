@@ -8,6 +8,7 @@ import {
 } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { Alert } from 'react-native';
 import { BNPL_UNTRUSTED_POPUP_MESSAGE } from './bnpl-checkout.helpers';
 import { useBNPLCheckoutController } from './use-bnpl-checkout-controller';
 
@@ -57,6 +58,7 @@ describe('useBNPLCheckoutController', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
@@ -221,6 +223,28 @@ describe('useBNPLCheckoutController', () => {
           }),
         },
       });
+    });
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(result.current.status).not.toBe('error');
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('routes manual close confirmation through the guarded provider exit handler', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { result } = renderControllerHook('ogabassey.com');
+
+    act(() => {
+      result.current.handleClose();
+    });
+
+    const actions = alertSpy.mock.calls[0]?.[2] as
+      | Array<{ onPress?: () => void }>
+      | undefined;
+
+    act(() => {
+      actions?.[1]?.onPress?.();
+      actions?.[1]?.onPress?.();
     });
 
     expect(router.back).toHaveBeenCalledTimes(1);

@@ -46,7 +46,7 @@ export function createBNPLCheckoutAppNavigation() {
     }, ORDER_SUCCESS_NAVIGATION_DELAY_MS);
   };
 
-  const showCancelAlert = () => {
+  const showCancelAlert = (onConfirmCancel = returnToApp) => {
     Alert.alert(
       'Cancel Payment?',
       'Are you sure you want to cancel this payment?',
@@ -55,7 +55,7 @@ export function createBNPLCheckoutAppNavigation() {
         {
           text: 'Cancel',
           style: 'destructive',
-          onPress: returnToApp,
+          onPress: onConfirmCancel,
         },
       ]
     );

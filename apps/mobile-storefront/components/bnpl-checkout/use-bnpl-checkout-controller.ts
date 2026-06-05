@@ -140,7 +140,9 @@ export function useBNPLCheckoutController({
     handleNavigationUrl(navState.url);
   };
 
-  const handleClose = appNavigation.showCancelAlert;
+  const handleClose = () => {
+    appNavigation.showCancelAlert(returnToAppFromProviderExit);
+  };
 
   const handleWebViewMessage = createBNPLWebViewMessageHandler({
     onCloseMessage: returnToAppFromProviderExit,
