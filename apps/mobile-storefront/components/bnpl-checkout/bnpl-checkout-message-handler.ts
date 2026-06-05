@@ -20,9 +20,8 @@ function isProviderCloseSummary(summary: unknown) {
     return false;
   }
 
-  // Credit Direct emits its close signal in the structured postMessage summary.
-  const { status, type } = summary as Record<string, unknown>;
-  return [status, type].some(
+  const { message, name, status, type } = summary as Record<string, unknown>;
+  return [message, name, status, type].some(
     (value) => typeof value === 'string' && value === 'checkout.widget.closed'
   );
 }

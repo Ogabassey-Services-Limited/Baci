@@ -8,6 +8,7 @@ export const BNPL_DOCUMENT_ACCEPT_HEADER =
 
 const NEXT_DATA_QUERY_PARAMS = new Set(['_rsc', '_nocache']);
 const BNPL_MERCHANT_CONTEXT_QUERY_PARAMS = new Set(['merchant_slug', 'slug']);
+const BNPL_OUTCOME_QUERY_PARAMS = new Set(['cancelled', 'error', 'success']);
 
 export function sanitizeBNPLDocumentUrl(url: string) {
   try {
@@ -65,6 +66,25 @@ function isBaciDocumentNavigation(
   return false;
 }
 
+function normalizeBNPLMerchantPath(pathname: string, merchantSlug?: string) {
+  let path = pathname.replace(/^\/|\/$/g, '').toLowerCase();
+  if (merchantSlug) {
+    const slugPrefix = `${merchantSlug.toLowerCase()}/`;
+    if (path.startsWith(slugPrefix)) {
+      path = path.slice(slugPrefix.length);
+    }
+  }
+  return path;
+}
+
+function isBNPLCheckoutPath(path: string) {
+  return path === 'checkout/bnpl' || path.endsWith('/checkout/bnpl');
+}
+
+function isBNPLSuccessPath(path: string) {
+  return path === 'order-success' || path.endsWith('/order-success');
+}
+
 type BNPLDocumentNavigationDecision =
   | {
       nextUrl?: string;
@@ -73,9 +93,43 @@ type BNPLDocumentNavigationDecision =
     }
   | {
       nextUrl: string;
-      reason: 'rewrite' | 'untrusted';
+      reason: 'return-to-app' | 'rewrite' | 'untrusted';
       shouldStart: false;
     };
+
+export function isBNPLCheckoutExitUrl({
+  apiBaseUrl,
+  merchantDomain,
+  merchantSlug,
+  url,
+}: {
+  apiBaseUrl: string;
+  merchantDomain?: string;
+  merchantSlug?: string;
+  url: string;
+}) {
+  if (!isBaciDocumentNavigation(url, apiBaseUrl, merchantDomain)) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const path = normalizeBNPLMerchantPath(parsedUrl.pathname, merchantSlug);
+    if (isBNPLCheckoutPath(path) || isBNPLSuccessPath(path)) {
+      return false;
+    }
+
+    for (const paramName of BNPL_OUTCOME_QUERY_PARAMS) {
+      if (parsedUrl.searchParams.has(paramName)) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function areBNPLCheckoutUrlsEquivalent(
   urlA: string,
@@ -86,19 +140,8 @@ export function areBNPLCheckoutUrlsEquivalent(
     const parsedA = new URL(urlA);
     const parsedB = new URL(urlB);
 
-    const normalizePath = (pathname: string, slug?: string): string => {
-      let path = pathname.replace(/^\/|\/$/g, '').toLowerCase();
-      if (slug) {
-        const slugPrefix = `${slug.toLowerCase()}/`;
-        if (path.startsWith(slugPrefix)) {
-          path = path.slice(slugPrefix.length);
-        }
-      }
-      return path;
-    };
-
-    const pathA = normalizePath(parsedA.pathname, merchantSlug);
-    const pathB = normalizePath(parsedB.pathname, merchantSlug);
+    const pathA = normalizeBNPLMerchantPath(parsedA.pathname, merchantSlug);
+    const pathB = normalizeBNPLMerchantPath(parsedB.pathname, merchantSlug);
 
     const isBnplPathA = pathA === 'checkout/bnpl';
     const isBnplPathB = pathB === 'checkout/bnpl';
@@ -220,6 +263,21 @@ export function resolveBNPLDocumentNavigation({
     return {
       nextUrl,
       reason: 'untrusted' as const,
+      shouldStart: false,
+    };
+  }
+
+  if (
+    isBNPLCheckoutExitUrl({
+      apiBaseUrl,
+      merchantDomain,
+      merchantSlug,
+      url: nextUrl,
+    })
+  ) {
+    return {
+      nextUrl,
+      reason: 'return-to-app' as const,
       shouldStart: false,
     };
   }

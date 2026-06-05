@@ -42,6 +42,18 @@ describe('resolveBNPLNavigationUrlEffect', () => {
     });
   });
 
+  it('returns app-exit effects for trusted merchant URLs outside checkout', () => {
+    expect(
+      resolveBNPLNavigationUrlEffect('https://ogabassey.com/', {
+        apiBaseUrl: 'https://usebaci.com',
+        merchantDomain: 'ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toEqual({
+      status: 'return-to-app',
+    });
+  });
+
   it('ignores unrelated navigation URLs', () => {
     expect(
       resolveBNPLNavigationUrlEffect('https://shop.example.com/products')

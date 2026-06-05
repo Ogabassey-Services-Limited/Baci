@@ -14,6 +14,7 @@ export {
   areBNPLCheckoutUrlsEquivalent,
   BNPL_DOCUMENT_ACCEPT_HEADER,
   buildBNPLDocumentSource,
+  isBNPLCheckoutExitUrl,
   resolveBNPLDocumentNavigation,
   sanitizeBNPLDocumentUrl,
 } from './bnpl-checkout-navigation';
@@ -66,6 +67,7 @@ export function buildBNPLCheckoutUrl({
   if (!params.isValid || !params.data?.orderId) return '';
 
   const {
+    amount,
     authorizationUrl,
     customerEmail,
     customerName,
@@ -103,6 +105,7 @@ export function buildBNPLCheckoutUrl({
   if (customerEmail?.trim()) query.set('email', customerEmail.trim());
   if (customerName?.trim()) query.set('customerName', customerName.trim());
   if (customerPhone?.trim()) query.set('customerPhone', customerPhone.trim());
+  if (amount?.trim()) query.set('amount', amount.trim());
   if (trackingToken?.trim()) query.set('token', trackingToken.trim());
 
   return `${baseUrl}/${slug}/checkout/bnpl?${query.toString()}`;

@@ -22,6 +22,14 @@ import {
 } from '@/lib/klump-utils';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
+declare global {
+    interface Window {
+        ReactNativeWebView?: {
+            postMessage: (message: string) => void;
+        };
+    }
+}
+
 const KLUMP_TRANSACTION_ID_KEYS = [
     'klump_transaction_id',
     'klumpTransactionId',
@@ -153,6 +161,29 @@ function hasPendingKlumpRedirect(expectedRedirectUrl: string) {
 
         clearPendingKlumpRedirect();
         return false;
+    } catch {
+        return false;
+    }
+}
+
+function notifyNativeBnplClose(gateway: 'credit_direct' | 'klump') {
+    const bridge = window.ReactNativeWebView;
+    if (typeof bridge?.postMessage !== 'function') {
+        return false;
+    }
+
+    try {
+        bridge.postMessage(
+            JSON.stringify({
+                gateway,
+                message:
+                    gateway === 'credit_direct'
+                        ? 'Credit Direct checkout closed'
+                        : 'Klump checkout closed',
+                type: 'bnpl_close',
+            })
+        );
+        return true;
     } catch {
         return false;
     }
@@ -390,6 +421,11 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                             }
                         },
                         onClose: () => {
+                            if (notifyNativeBnplClose('credit_direct')) {
+                                clearPaymentLaunch();
+                                return;
+                            }
+
                             window.setTimeout(() => {
                                 if (document.getElementById('klump_checkout')) {
                                     return;
@@ -539,6 +575,11 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                                     hasPendingKlumpRedirect(klumpRedirectUrl) ||
                                     document.getElementById('klump_checkout')
                                 ) {
+                                    return;
+                                }
+
+                                if (notifyNativeBnplClose('klump')) {
+                                    clearPaymentLaunch();
                                     return;
                                 }
 

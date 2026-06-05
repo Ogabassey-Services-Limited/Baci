@@ -6,7 +6,10 @@ export const BNPLParamsSchema = z.object({
     message: 'Invalid payment gateway',
   }),
   authorizationUrl: z.string().min(1).optional(),
-  amount: z.string().regex(/^\d+$/, 'Amount must be a number').optional(),
+  amount: z
+    .string()
+    .regex(/^\d+(?:\.\d{1,2})?$/, 'Amount must be a number')
+    .optional(),
   customerEmail: z.email().optional(),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),

@@ -50,6 +50,7 @@ describe('BnplLauncher', () => {
     window.history.replaceState({}, '', '/checkout/bnpl');
     window.sessionStorage.clear();
     window.localStorage.clear();
+    Reflect.deleteProperty(window, 'ReactNativeWebView');
     document
       .querySelectorAll('script[src="https://js.useklump.com/klump.js"]')
       .forEach((script) => script.remove());
@@ -297,6 +298,33 @@ describe('BnplLauncher', () => {
         }
       );
     });
+  });
+
+  it('bridges Credit Direct close events to React Native without rendering cancellation UI', async () => {
+    const postMessage = vi.fn();
+    Object.defineProperty(window, 'ReactNativeWebView', {
+      configurable: true,
+      value: { postMessage },
+    });
+    mockOpenCreditDirectCheckout.mockImplementation(({ onClose }) => {
+      onClose();
+      return Promise.resolve();
+    });
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(postMessage).toHaveBeenCalledWith(
+        JSON.stringify({
+          gateway: 'credit_direct',
+          message: 'Credit Direct checkout closed',
+          type: 'bnpl_close',
+        })
+      );
+    });
+    expect(
+      screen.queryByText('Payment cancelled. Please try again.')
+    ).not.toBeInTheDocument();
   });
 
   it('logs and continues when Credit Direct popup reference persistence fails', async () => {
@@ -637,6 +665,48 @@ describe('BnplLauncher', () => {
     await waitFor(() => {
       expect(window.localStorage.getItem(KLUMP_REDIRECT_URL_KEY)).toBeNull();
     });
+  });
+
+  it('bridges Klump close events to React Native without rendering cancellation UI', async () => {
+    const postMessage = vi.fn();
+    Object.defineProperty(window, 'ReactNativeWebView', {
+      configurable: true,
+      value: { postMessage },
+    });
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockKlumpConstructor).toHaveBeenCalled();
+    });
+
+    const config = mockKlumpConstructor.mock.calls[0][0] as {
+      onClose?: () => void;
+    };
+    config.onClose?.();
+
+    await waitFor(() => {
+      expect(postMessage).toHaveBeenCalledWith(
+        JSON.stringify({
+          gateway: 'klump',
+          message: 'Klump checkout closed',
+          type: 'bnpl_close',
+        })
+      );
+    });
+    expect(
+      screen.queryByText('Payment cancelled. Please try again.')
+    ).not.toBeInTheDocument();
   });
 
   it('marks Klump checkout cancelled when the stored SDK redirect belongs to a previous checkout', async () => {

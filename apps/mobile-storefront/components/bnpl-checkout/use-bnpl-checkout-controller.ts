@@ -107,11 +107,16 @@ export function useBNPLCheckoutController({
     hasReturnedToAppRef.current = true;
     clearPendingLoadTimeout();
     setErrorMessage(null);
+    setCheckoutStatus('ready');
     appNavigation.returnToApp();
   };
 
   const handleNavigationUrl = (url: string) => {
-    const effect = resolveBNPLNavigationUrlEffect(url);
+    const effect = resolveBNPLNavigationUrlEffect(url, {
+      apiBaseUrl,
+      merchantDomain,
+      merchantSlug,
+    });
     if (!effect) {
       return;
     }
@@ -251,6 +256,11 @@ export function useBNPLCheckoutController({
       clearPendingLoadTimeout();
       setCheckoutStatus('error');
       setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
+      return false;
+    }
+
+    if (decision.reason === 'return-to-app') {
+      returnToAppFromProviderExit();
       return false;
     }
 
