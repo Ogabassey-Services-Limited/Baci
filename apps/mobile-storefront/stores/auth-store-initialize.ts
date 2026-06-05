@@ -1,15 +1,17 @@
-import { queryClient } from '../lib/query-client';
+import type { Session } from '@supabase/supabase-js';
+import { createLogger } from '../lib/logger';
 import { getStoredPushToken } from '../lib/push-token-storage';
+import { queryClient } from '../lib/query-client';
 import { supabase } from '../lib/supabase';
 import { MerchantRowSchema } from '../lib/validation';
-import { createLogger } from '../lib/logger';
 import {
   initTimeout,
+  isInitTimeoutError,
   shouldInvalidateSessionOnGetUserError,
 } from './auth-helpers';
+import type { AuthStoreGet, AuthStoreSet } from './auth-store.types';
 import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import { syncAuthenticatedState } from './auth-store-sync';
-import type { AuthStoreGet, AuthStoreSet } from './auth-store.types';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
 import { useSavedStore } from './saved-store';
@@ -56,10 +58,25 @@ export function createInitializeAction({
         set({ merchantId: resolvedMerchantId });
       }
 
-      const {
-        data: { session: initialSession },
-        error: sessionError,
-      } = await initTimeout(supabase.auth.getSession(), 'getSession');
+      let initialSession: Session | null = null;
+      let sessionError: unknown = null;
+      try {
+        const sessionResult = await initTimeout(
+          supabase.auth.getSession(),
+          'getSession'
+        );
+        initialSession = sessionResult.data.session;
+        sessionError = sessionResult.error;
+      } catch (sessionReadError) {
+        if (!isInitTimeoutError(sessionReadError, 'getSession')) {
+          throw sessionReadError;
+        }
+
+        log.warn(
+          'getSession timed out during startup; continuing as guest until auth state changes.',
+          sessionReadError
+        );
+      }
       if (get()._initGen !== initGen) return;
       if (sessionError) throw sessionError;
 
@@ -80,7 +97,9 @@ export function createInitializeAction({
           );
           if (get()._initGen !== initGen) return;
           if (refreshError || !refreshedSession) {
-            await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+            await supabase.auth
+              .signOut({ scope: 'local' })
+              .catch(() => undefined);
             session = null;
           } else {
             session = refreshedSession;

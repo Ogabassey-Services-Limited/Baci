@@ -8,6 +8,7 @@
  * - cleanup() unsubscribes auth listener
  */
 
+// biome-ignore-all lint/correctness/noUndeclaredVariables: Jest globals are provided by jest-expo in this legacy store test.
 import { act } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -577,6 +578,29 @@ describe('useAuthStore', () => {
       const state = useAuthStore.getState();
       expect(state.merchantId).toBeNull();
       expect(state.isInitialized).toBe(true);
+    });
+
+    it('continues as guest and keeps the auth listener when getSession times out', async () => {
+      // Arrange
+      (supabase.auth.getSession as jest.Mock).mockRejectedValueOnce(
+        new Error('Timeout: getSession took longer than 10000ms')
+      );
+
+      // Act
+      await act(async () => {
+        await useAuthStore.getState().initialize();
+      });
+
+      // Assert
+      const state = useAuthStore.getState();
+      expect(state.user).toBeNull();
+      expect(state.session).toBeNull();
+      expect(state.customer).toBeNull();
+      expect(state.error).toBeNull();
+      expect(state.isLoading).toBe(false);
+      expect(state.isInitialized).toBe(true);
+      expect(state._initializationInProgress).toBe(false);
+      expect(supabase.auth.onAuthStateChange).toHaveBeenCalledTimes(1);
     });
   });
 

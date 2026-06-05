@@ -4,6 +4,7 @@ import { renderHook } from '@testing-library/react-native';
 import { createElement, type ReactNode } from 'react';
 import { usePrefetchBillers, vtuBillerKeys } from '@/hooks/use-vtu-billers';
 import { fetchWithRetry } from '@/lib/api';
+import { logger } from '@/lib/logger';
 
 jest.mock('@/lib/api', () => ({
   fetchWithRetry: jest.fn(),
@@ -20,6 +21,7 @@ jest.mock('@/lib/logger', () => ({
 const mockFetchWithRetry = fetchWithRetry as jest.MockedFunction<
   typeof fetchWithRetry
 >;
+const mockLogger = logger as jest.Mocked<typeof logger>;
 
 function createQueryClient() {
   return new QueryClient({
@@ -139,6 +141,37 @@ describe('usePrefetchBillers', () => {
     expect(
       queryClient.getQueryData(vtuBillerKeys.byType('data'))
     ).toBeUndefined();
+
+    unmount();
+    queryClient.clear();
+    requestFrameSpy.mockRestore();
+    cancelFrameSpy.mockRestore();
+  });
+
+  it('does not log canceled prefetch requests as VTU errors', async () => {
+    const { frameCallbacks, requestFrameSpy, cancelFrameSpy } =
+      mockFrameScheduler();
+    const queryClient = createQueryClient();
+    mockFetchWithRetry.mockRejectedValue(
+      new Error(
+        'Request failed after 0 attempts: fetch failed: Fetch request has been canceled'
+      )
+    );
+
+    const { unmount } = renderHook(() => usePrefetchBillers(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    flushFrames(frameCallbacks);
+    jest.advanceTimersByTime(1450);
+    await Promise.resolve();
+
+    expect(mockFetchWithRetry).toHaveBeenCalledTimes(4);
+    expect(mockLogger.error).not.toHaveBeenCalled();
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'VTU',
+      expect.stringContaining('Biller fetch canceled:')
+    );
 
     unmount();
     queryClient.clear();

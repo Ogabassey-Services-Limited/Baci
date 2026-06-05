@@ -4,7 +4,10 @@ import {
   RetryExhaustedError,
   TimeoutError,
 } from '@/lib/api';
+import { createLogger } from '@/lib/logger';
 import { trackError } from '@/services/analytics';
+
+const log = createLogger('Order');
 
 export class OrderError extends Error {
   code: string;
@@ -71,6 +74,21 @@ function normalizeConflictCode(value: unknown): string {
   }
 
   return normalizedCode;
+}
+
+function getErrorDiagnostics(error: Error): Record<string, unknown> {
+  const diagnostics: Record<string, unknown> = {
+    message: error.message,
+    name: error.name,
+  };
+
+  if (error instanceof ApiError) {
+    diagnostics.status = error.status;
+    diagnostics.statusText = error.statusText;
+    diagnostics.body = error.body;
+  }
+
+  return diagnostics;
 }
 
 export async function throwOrderHttpError(
@@ -141,9 +159,17 @@ export function mapCreateOrderException(
   if (error instanceof OrderError) return error;
 
   if (error instanceof RetryExhaustedError) {
+    const lastError =
+      error.lastError instanceof Error
+        ? error.lastError
+        : new Error(String(error.lastError ?? 'Unknown error'));
+    log.warn('Create order request failed before retry completion', {
+      attempts: error.attempts,
+      lastError: getErrorDiagnostics(lastError),
+    });
     trackError('order_creation_retry_exhausted', error.message, {
       attempts: error.attempts,
-      lastError: error.lastError.message,
+      lastError: lastError.message,
       duration_ms: Date.now() - startTime,
     });
     return new OrderError(
