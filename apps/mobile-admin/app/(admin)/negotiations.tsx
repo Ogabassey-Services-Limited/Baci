@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { apiClient } from '@/lib/api-client';
+import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency as formatPrice } from '@/utils/format';
 
@@ -33,6 +34,7 @@ interface NegotiationRequest {
 }
 
 export default function NegotiationsScreen() {
+  const { merchant } = useMerchant();
   const [requests, setRequests] = useState<NegotiationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -81,6 +83,10 @@ export default function NegotiationsScreen() {
 
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
     if (actionLoadingId) return; // Prevent double-submit
+    if (!merchant?.id) {
+      Alert.alert('Error', 'Merchant not found');
+      return;
+    }
     setActionLoadingId(id);
     // Capture before state update to avoid stale closure after fetchRequests()
     const negotiation = requests.find((r) => r.id === id);
@@ -88,7 +94,8 @@ export default function NegotiationsScreen() {
       const { error } = await supabase
         .from('negotiation_requests')
         .update({ status })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('merchant_id', merchant.id);
 
       if (error) throw error;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
