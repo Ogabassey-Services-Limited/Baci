@@ -10,6 +10,12 @@ updates:
     directory: "/apps/web"
     schedule:
       interval: "weekly"
+    # GitHub's current Dependabot docs list pnpm support through v10. This
+    # repo runs pnpm 11, and version-update PRs are currently manifest-only,
+    # so frozen-lockfile CI fails before the real checks can run. Keep security
+    # updates enabled while blocking version-update churn until lockfile-backed
+    # pnpm 11 updates are supported.
+    open-pull-requests-limit: 0
 
     # 2026 wave coordination — see docs/tooling-waves.md for the registry.
     # Each entry blocks Dependabot from churn-opening PRs that can't merge
@@ -54,6 +60,9 @@ updates:
       - "/packages/shared"
     schedule:
       interval: "weekly"
+    # See the apps/web updater note above: pnpm 11 version-update PRs are
+    # manifest-only today and cannot satisfy this repo's frozen lockfile gate.
+    open-pull-requests-limit: 0
     groups:
       react-runtime-minor:
         patterns:
