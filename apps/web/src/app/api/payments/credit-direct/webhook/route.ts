@@ -28,7 +28,9 @@ export async function POST(request: NextRequest) {
   try {
     // Get raw body for signature verification
     const rawBody = await request.text();
-    const signature = request.headers.get('x-creditdirect-signature') || '';
+    const svixId = request.headers.get('svix-id');
+    const svixTimestamp = request.headers.get('svix-timestamp');
+    const svixSignature = request.headers.get('svix-signature');
 
     // Verify webhook signature
     let webhookSecret: string;
@@ -42,10 +44,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Skip signature verification in development if no signature provided
+    // Local webhook testing can omit provider headers, but production fails closed.
     const isDev = process.env.NODE_ENV === 'development';
-    if (signature && !isDev) {
-      const isValid = verifyWebhookSignature(rawBody, signature, webhookSecret);
+    const hasProviderSignatureHeaders = Boolean(
+      svixId || svixTimestamp || svixSignature
+    );
+    if (!isDev || hasProviderSignatureHeaders) {
+      const isValid = verifyWebhookSignature({
+        rawBody,
+        secret: webhookSecret,
+        svixId,
+        svixTimestamp,
+        svixSignature,
+      });
       if (!isValid) {
         logger.warn({ message: 'Invalid Credit Direct webhook signature' });
         return NextResponse.json(
