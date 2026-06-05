@@ -44,6 +44,33 @@ interface KlumpRecordResponse {
     error?: string;
 }
 
+type NativeBNPLBridgeGateway = 'credpal' | 'credit_direct' | 'klump';
+
+interface ReactNativeWebViewBridgeWindow extends Window {
+    ReactNativeWebView?: {
+        postMessage: (message: string) => void;
+    };
+}
+
+function postNativeBnplClose(gateway: NativeBNPLBridgeGateway): boolean {
+    try {
+        const bridge = (window as ReactNativeWebViewBridgeWindow).ReactNativeWebView;
+        if (!bridge) {
+            return false;
+        }
+
+        bridge.postMessage(
+            JSON.stringify({
+                gateway,
+                type: 'bnpl_close',
+            })
+        );
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 function readSearchParam(
     searchParams: SearchParamReader,
     keys: readonly string[]
@@ -417,6 +444,10 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                             router.push(`/order-success?${successQuery.toString()}`);
                         },
                         onClose: () => {
+                            if (postNativeBnplClose('credpal')) {
+                                return;
+                            }
+
                             clearPaymentLaunch();
                             setStatus('error');
                             setErrorMessage('Payment cancelled.');

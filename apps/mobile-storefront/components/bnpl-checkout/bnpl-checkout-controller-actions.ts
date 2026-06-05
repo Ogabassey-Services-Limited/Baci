@@ -14,6 +14,9 @@ type BNPLNavigationEffect =
   | {
       errorMessage: string;
       status: 'error';
+    }
+  | {
+      status: 'return-to-app';
     };
 
 type NavigationMessageInput = {
@@ -55,8 +58,7 @@ export function resolveBNPLNavigationUrlEffect(
 
   if (url.includes('/checkout') && url.includes('cancelled=true')) {
     return {
-      errorMessage: 'Payment was cancelled.',
-      status: 'error',
+      status: 'return-to-app',
     };
   }
 

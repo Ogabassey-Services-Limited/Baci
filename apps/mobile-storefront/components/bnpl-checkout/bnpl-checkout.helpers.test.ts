@@ -169,6 +169,10 @@ describe('BNPL_INJECTED_JAVASCRIPT', () => {
       /window\.addEventListener\('error',\s*function\(event\)[\s\S]*}, true\);/
     );
   });
+
+  it('allows same-origin close bridge messages through to React Native', () => {
+    expect(BNPL_INJECTED_JAVASCRIPT).toContain("'bnpl_close'");
+  });
 });
 
 describe('areBNPLCheckoutUrlsEquivalent', () => {

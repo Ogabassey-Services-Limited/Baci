@@ -203,7 +203,7 @@ export const BNPL_INJECTED_JAVASCRIPT = `
       });
     });
 
-    const allowedMessageTypes = new Set(['checkoutStatus', 'paymentResult', 'bnpl_log', 'bnpl_error_log', 'navigation']);
+    const allowedMessageTypes = new Set(['checkoutStatus', 'paymentResult', 'bnpl_log', 'bnpl_error_log', 'bnpl_close', 'navigation']);
     window.addEventListener('message', function(event) {
       if (isProviderOrigin(event.origin)) {
         postDebugMessage({

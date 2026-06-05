@@ -14,42 +14,132 @@ afterEach(() => {
 
 describe('verifyWebhookSignature', () => {
   const payload = JSON.stringify({ event: 'payment.completed', id: 'evt_123' });
-  const secret = crypto.randomBytes(32).toString('hex');
+  const secretBytes = crypto.randomBytes(32);
+  const secret = `whsec_${secretBytes.toString('base64')}`;
+  const svixId = 'msg_123';
+  const nowTimestampSeconds = 1_700_000_000;
+  const svixTimestamp = String(nowTimestampSeconds);
 
-  it('returns true for a valid webhook signature', () => {
+  function signPayload(rawBody: string, timestamp = svixTimestamp) {
+    const signedContent = `${svixId}.${timestamp}.${rawBody}`;
     const signature = crypto
-      .createHmac('sha256', secret)
-      .update(payload)
-      .digest('hex');
+      .createHmac('sha256', secretBytes)
+      .update(signedContent)
+      .digest('base64');
+    return `v1,${signature}`;
+  }
 
-    expect(verifyWebhookSignature(payload, signature, secret)).toBe(true);
+  it('returns true for a valid Svix-style webhook signature', () => {
+    expect(
+      verifyWebhookSignature({
+        rawBody: payload,
+        secret,
+        svixId,
+        svixTimestamp,
+        svixSignature: signPayload(payload),
+        nowTimestampSeconds,
+      })
+    ).toBe(true);
   });
 
-  it('returns false instead of throwing when the signature length is invalid', () => {
+  it('returns false instead of throwing when required Svix headers are missing', () => {
     expect(() =>
-      verifyWebhookSignature(payload, 'short-signature', secret)
+      verifyWebhookSignature({
+        rawBody: payload,
+        secret,
+        svixId: null,
+        svixTimestamp,
+        svixSignature: signPayload(payload),
+        nowTimestampSeconds,
+      })
     ).not.toThrow();
-    expect(verifyWebhookSignature(payload, 'short-signature', secret)).toBe(
-      false
-    );
+    expect(
+      verifyWebhookSignature({
+        rawBody: payload,
+        secret,
+        svixId: null,
+        svixTimestamp,
+        svixSignature: signPayload(payload),
+        nowTimestampSeconds,
+      })
+    ).toBe(false);
   });
 
   it('returns false for an empty signature', () => {
-    expect(verifyWebhookSignature(payload, '', secret)).toBe(false);
+    expect(
+      verifyWebhookSignature({
+        rawBody: payload,
+        secret,
+        svixId,
+        svixTimestamp,
+        svixSignature: '',
+        nowTimestampSeconds,
+      })
+    ).toBe(false);
   });
 
   it('returns false for an incorrect signature with the expected length', () => {
-    const invalidSignature = '0'.repeat(64);
+    const invalidSignature = `v1,${Buffer.from(crypto.randomBytes(32)).toString(
+      'base64'
+    )}`;
 
-    expect(verifyWebhookSignature(payload, invalidSignature, secret)).toBe(
-      false
-    );
+    expect(
+      verifyWebhookSignature({
+        rawBody: payload,
+        secret,
+        svixId,
+        svixTimestamp,
+        svixSignature: invalidSignature,
+        nowTimestampSeconds,
+      })
+    ).toBe(false);
   });
 
-  it('returns false for a signature longer than expected', () => {
-    const longSignature = '0'.repeat(128);
+  it('returns false for a stale timestamp', () => {
+    const staleTimestamp = String(nowTimestampSeconds - 301);
 
-    expect(verifyWebhookSignature(payload, longSignature, secret)).toBe(false);
+    expect(
+      verifyWebhookSignature({
+        rawBody: payload,
+        secret,
+        svixId,
+        svixTimestamp: staleTimestamp,
+        svixSignature: signPayload(payload, staleTimestamp),
+        nowTimestampSeconds,
+      })
+    ).toBe(false);
+  });
+
+  it('returns false for a future timestamp outside tolerance', () => {
+    const futureTimestamp = String(nowTimestampSeconds + 301);
+
+    expect(
+      verifyWebhookSignature({
+        rawBody: payload,
+        secret,
+        svixId,
+        svixTimestamp: futureTimestamp,
+        svixSignature: signPayload(payload, futureTimestamp),
+        nowTimestampSeconds,
+      })
+    ).toBe(false);
+  });
+
+  it('accepts a matching signature from a space-delimited signature list', () => {
+    const invalidSignature = Buffer.from(crypto.randomBytes(32)).toString(
+      'base64'
+    );
+
+    expect(
+      verifyWebhookSignature({
+        rawBody: payload,
+        secret,
+        svixId,
+        svixTimestamp,
+        svixSignature: `v1,${invalidSignature} ${signPayload(payload)}`,
+        nowTimestampSeconds,
+      })
+    ).toBe(true);
   });
 });
 

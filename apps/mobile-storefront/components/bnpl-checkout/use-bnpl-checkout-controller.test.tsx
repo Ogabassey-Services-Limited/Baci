@@ -8,6 +8,7 @@ import {
 } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { Alert } from 'react-native';
 import { BNPL_UNTRUSTED_POPUP_MESSAGE } from './bnpl-checkout.helpers';
 import { useBNPLCheckoutController } from './use-bnpl-checkout-controller';
 
@@ -57,6 +58,7 @@ describe('useBNPLCheckoutController', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
@@ -202,6 +204,71 @@ describe('useBNPLCheckoutController', () => {
         trackingToken: 'track-token-123',
       },
     });
+  });
+
+  it('returns to the app when Credit Direct posts a provider close message', () => {
+    const { result } = renderControllerHook('ogabassey.com');
+
+    act(() => {
+      result.current.handleWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            message: 'Provider postMessage received',
+            source: 'https://checkout.creditdirect.ng',
+            summary: {
+              payloadType: 'object',
+              type: 'checkout.widget.closed',
+            },
+            type: 'bnpl_log',
+          }),
+        },
+      });
+    });
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(result.current.status).not.toBe('error');
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('routes manual close confirmation through the guarded provider exit handler', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { result } = renderControllerHook('ogabassey.com');
+
+    act(() => {
+      result.current.handleClose();
+    });
+
+    const actions = alertSpy.mock.calls[0]?.[2] as
+      | Array<{ onPress?: () => void }>
+      | undefined;
+
+    act(() => {
+      actions?.[1]?.onPress?.();
+      actions?.[1]?.onPress?.();
+    });
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(result.current.status).not.toBe('error');
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('returns to the app for trusted checkout cancellation navigations', () => {
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    };
+    const { result } = renderControllerHook('ogabassey.com');
+
+    act(() => {
+      result.current.handleNavigationChange({
+        url: 'https://ogabassey.com/checkout?cancelled=true',
+      } as Parameters<typeof result.current.handleNavigationChange>[0]);
+    });
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(result.current.status).not.toBe('error');
+    expect(result.current.errorMessage).toBeNull();
   });
 
   it('allows configured merchant domains for top-frame checkout document redirects', () => {

@@ -126,31 +126,127 @@ export function generateSessionId(length: number = 15): string {
 // Webhook Verification
 // ============================================================================
 
-/**
- * Verify Credit Direct webhook signature
- *
- * @param payload - Raw webhook payload string
- * @param signature - Signature from webhook header
- * @param secret - Webhook secret from Credit Direct dashboard
- * @returns Whether the signature is valid
- */
-export function verifyWebhookSignature(
-  payload: string,
-  signature: string,
-  secret: string
+const CREDIT_DIRECT_WEBHOOK_SECRET_PREFIX = 'whsec_';
+const CREDIT_DIRECT_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS = 5 * 60;
+
+export interface CreditDirectWebhookSignatureInput {
+  rawBody: string;
+  secret: string;
+  svixId: string | null;
+  svixTimestamp: string | null;
+  svixSignature: string | null;
+  nowTimestampSeconds?: number;
+  timestampToleranceSeconds?: number;
+}
+
+function decodeBase64Strict(value: string): Buffer | null {
+  const normalized = value.trim();
+  if (!normalized || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
+    return null;
+  }
+
+  const decoded = Buffer.from(normalized, 'base64');
+  if (decoded.length === 0) {
+    return null;
+  }
+
+  const normalizedWithoutPadding = normalized.replace(/=+$/, '');
+  const roundTripWithoutPadding = decoded.toString('base64').replace(/=+$/, '');
+  return roundTripWithoutPadding === normalizedWithoutPadding ? decoded : null;
+}
+
+function getWebhookSecretBytes(secret: string): Buffer | null {
+  const normalizedSecret = normalizeCreditDirectEnvValue(secret);
+  const secretValue = normalizedSecret.startsWith(
+    CREDIT_DIRECT_WEBHOOK_SECRET_PREFIX
+  )
+    ? normalizedSecret.slice(CREDIT_DIRECT_WEBHOOK_SECRET_PREFIX.length)
+    : normalizedSecret;
+
+  return decodeBase64Strict(secretValue);
+}
+
+function getSvixSignatureBuffers(svixSignature: string): Buffer[] {
+  return svixSignature
+    .split(/\s+/)
+    .map((signature) => signature.trim())
+    .filter((signature) => signature.startsWith('v1,'))
+    .map((signature) => decodeBase64Strict(signature.slice('v1,'.length)))
+    .filter((signature): signature is Buffer => signature !== null);
+}
+
+function isWebhookTimestampWithinTolerance(
+  svixTimestamp: string,
+  nowTimestampSeconds: number,
+  timestampToleranceSeconds: number
 ): boolean {
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(payload);
-  const expectedSignature = hmac.digest('hex');
-
-  const signatureBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expectedSignature);
-
-  if (signatureBuffer.length !== expectedBuffer.length) {
+  if (!/^\d+$/.test(svixTimestamp)) {
     return false;
   }
 
-  return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+  const webhookTimestampSeconds = Number(svixTimestamp);
+  if (!Number.isSafeInteger(webhookTimestampSeconds)) {
+    return false;
+  }
+
+  return (
+    Math.abs(nowTimestampSeconds - webhookTimestampSeconds) <=
+    timestampToleranceSeconds
+  );
+}
+
+/**
+ * Verify Credit Direct webhook signature using the current Lenda/Svix scheme.
+ *
+ * The signature is computed over `${svix-id}.${svix-timestamp}.${rawBody}`
+ * using the base64-decoded `whsec_` signing secret.
+ *
+ * @returns Whether the signature is valid
+ */
+export function verifyWebhookSignature({
+  rawBody,
+  secret,
+  svixId,
+  svixTimestamp,
+  svixSignature,
+  nowTimestampSeconds = Math.floor(Date.now() / 1000),
+  timestampToleranceSeconds = CREDIT_DIRECT_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS,
+}: CreditDirectWebhookSignatureInput): boolean {
+  if (!svixId?.trim() || !svixTimestamp?.trim() || !svixSignature?.trim()) {
+    return false;
+  }
+
+  if (
+    !isWebhookTimestampWithinTolerance(
+      svixTimestamp,
+      nowTimestampSeconds,
+      timestampToleranceSeconds
+    )
+  ) {
+    return false;
+  }
+
+  const secretBytes = getWebhookSecretBytes(secret);
+  if (!secretBytes) {
+    return false;
+  }
+
+  const signatureBuffers = getSvixSignatureBuffers(svixSignature);
+  if (signatureBuffers.length === 0) {
+    return false;
+  }
+
+  const signedContent = `${svixId}.${svixTimestamp}.${rawBody}`;
+  const expectedSignature = crypto
+    .createHmac('sha256', secretBytes)
+    .update(signedContent)
+    .digest();
+
+  return signatureBuffers.some(
+    (signatureBuffer) =>
+      signatureBuffer.length === expectedSignature.length &&
+      crypto.timingSafeEqual(signatureBuffer, expectedSignature)
+  );
 }
 
 /**

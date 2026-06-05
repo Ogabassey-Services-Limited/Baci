@@ -62,6 +62,8 @@ const { logger } = await import('@/lib/logger');
 // ============================================================================
 
 const VALID_SIGNATURE = 'valid-signature';
+const VALID_SVIX_ID = 'msg_123456789';
+const VALID_SVIX_TIMESTAMP = '1700000000';
 
 const customerPaymentPayload = {
   checkoutCustomer: {
@@ -122,8 +124,11 @@ const mockOrder = {
 
 function createMockRequest(
   payload: unknown,
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
+  options: { includeSignatureHeaders?: boolean } = {}
 ): NextRequest {
+  const includeSignatureHeaders = options.includeSignatureHeaders ?? true;
+
   return new NextRequest(
     'https://example.com/api/payments/credit-direct/webhook',
     {
@@ -131,7 +136,13 @@ function createMockRequest(
       body: JSON.stringify(payload),
       headers: {
         'Content-Type': 'application/json',
-        'x-creditdirect-signature': VALID_SIGNATURE,
+        ...(includeSignatureHeaders
+          ? {
+              'svix-id': VALID_SVIX_ID,
+              'svix-timestamp': VALID_SVIX_TIMESTAMP,
+              'svix-signature': VALID_SIGNATURE,
+            }
+          : {}),
         ...headers,
       },
     }
@@ -202,6 +213,36 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       expect(logger.warn).toHaveBeenCalledWith({
         message: 'Invalid Credit Direct webhook signature',
       });
+      expect(verifyWebhookSignature).toHaveBeenCalledWith({
+        rawBody: JSON.stringify(customerPaymentPayload),
+        secret: 'webhook_secret',
+        svixId: VALID_SVIX_ID,
+        svixTimestamp: VALID_SVIX_TIMESTAMP,
+        svixSignature: VALID_SIGNATURE,
+      });
+    });
+
+    it('returns 401 when Svix signature headers are missing in production', async () => {
+      vi.mocked(verifyWebhookSignature).mockReturnValue(false);
+
+      const request = createMockRequest(
+        customerPaymentPayload,
+        {},
+        { includeSignatureHeaders: false }
+      );
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data).toEqual({ error: 'Invalid signature' });
+      expect(parseWebhookPayload).not.toHaveBeenCalled();
+      expect(verifyWebhookSignature).toHaveBeenCalledWith({
+        rawBody: JSON.stringify(customerPaymentPayload),
+        secret: 'webhook_secret',
+        svixId: null,
+        svixTimestamp: null,
+        svixSignature: null,
+      });
     });
 
     it('skips signature verification in development when no signature provided', async () => {
@@ -239,9 +280,11 @@ describe('POST /api/payments/credit-direct/webhook', () => {
         return createMockSupabaseClient().from(table);
       });
 
-      const request = createMockRequest(customerPaymentPayload, {
-        'x-creditdirect-signature': '',
-      });
+      const request = createMockRequest(
+        customerPaymentPayload,
+        {},
+        { includeSignatureHeaders: false }
+      );
       const response = await POST(request);
       const data = await response.json();
 
@@ -275,7 +318,9 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           body: 'invalid-json',
           headers: {
             'Content-Type': 'application/json',
-            'x-creditdirect-signature': VALID_SIGNATURE,
+            'svix-id': VALID_SVIX_ID,
+            'svix-timestamp': VALID_SVIX_TIMESTAMP,
+            'svix-signature': VALID_SIGNATURE,
           },
         }
       );

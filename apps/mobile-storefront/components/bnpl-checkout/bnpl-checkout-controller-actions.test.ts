@@ -21,14 +21,13 @@ describe('resolveBNPLNavigationUrlEffect', () => {
     });
   });
 
-  it('returns cancelled payment errors for checkout cancellation URLs', () => {
+  it('returns to the app for checkout cancellation URLs', () => {
     expect(
       resolveBNPLNavigationUrlEffect(
         'https://shop.example.com/checkout?cancelled=true'
       )
     ).toEqual({
-      errorMessage: 'Payment was cancelled.',
-      status: 'error',
+      status: 'return-to-app',
     });
   });
 
