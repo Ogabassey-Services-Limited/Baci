@@ -167,6 +167,8 @@ export async function fetchCheckoutShippingCities(
     if (signal.aborted) return [];
     return getCitiesFromLocations(payload.locations, state);
   } finally {
-    pendingShippingLocations.delete(stateCacheKey);
+    if (pendingShippingLocations.get(stateCacheKey) === promise) {
+      pendingShippingLocations.delete(stateCacheKey);
+    }
   }
 }
