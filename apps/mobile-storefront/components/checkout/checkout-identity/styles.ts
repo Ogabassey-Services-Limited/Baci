@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
   handleContainer: {
     alignItems: 'center',
     paddingTop: 12,
-    paddingBottom: 4,
+    paddingBottom: 8,
   },
   handle: {
     width: 40,
@@ -57,6 +57,18 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: palette.gray[100],
   },
+  floatingCloseButton: {
+    position: 'absolute',
+    top: 12,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.gray[100],
+    zIndex: 3,
+  },
   // Tabs
   tabContainer: {
     flexDirection: 'row',
@@ -87,7 +99,9 @@ export const styles = StyleSheet.create({
   },
   // Content
   content: {
-    padding: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg,
     gap: SPACING.md, // Reduced from lg (24) to md (16) for more compact forms
   },
   // Option Cards
@@ -103,6 +117,12 @@ export const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderColor: '#FEE2E2',
     alignItems: 'center',
+  },
+  guestPassiveCard: {
+    padding: 16,
+    alignItems: 'stretch',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   optionHeader: {
     flexDirection: 'row',
@@ -165,6 +185,23 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#DC2626',
   },
+  passiveButton: {
+    height: 48,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: palette.gray[200],
+    borderRadius: 12,
+  },
+  passiveButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: palette.gray[900],
+  },
   // Social Buttons
   socialButton: {
     height: 54,
@@ -185,6 +222,63 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: palette.gray[900],
+  },
+  socialCheckoutSection: {
+    gap: 10,
+  },
+  socialCheckoutLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  socialCheckoutRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  socialCheckoutButton: {
+    flex: 1,
+    height: 52,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: palette.gray[200],
+    borderRadius: 14,
+    gap: 10,
+    ...SHADOWS.sm,
+  },
+  socialCheckoutButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: palette.gray[900],
+  },
+  emailSignInButton: {
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderTopWidth: 1,
+  },
+  emailSignInButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.gray[500],
+  },
+  emailBackButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+  },
+  emailBackButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: BRAND.primary,
   },
   // Divider
   divider: {
@@ -279,15 +373,18 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
     paddingHorizontal: SPACING.lg,
     backgroundColor: palette.gray[50],
     borderTopWidth: 1,
     borderTopColor: palette.gray[100],
   },
   footerText: {
+    flexShrink: 1,
     fontSize: 10,
     color: palette.gray[400],
     fontWeight: '500',
+    textAlign: 'center',
   },
 });

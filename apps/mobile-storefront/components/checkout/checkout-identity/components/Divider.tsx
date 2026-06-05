@@ -9,22 +9,26 @@
 
 import React from 'react';
 import { Text, View } from 'react-native';
+import type { CheckoutIdentityTheme } from '../colors';
 import { styles } from '../styles';
 
 interface DividerProps {
   text?: string;
+  theme: CheckoutIdentityTheme;
 }
 
-export function Divider({ text = 'or' }: DividerProps) {
+export function Divider({ text = 'or', theme }: DividerProps) {
   return (
     <View
       style={styles.divider}
       accessible={false}
       importantForAccessibility="no"
     >
-      <View style={styles.dividerLine} />
-      <Text style={styles.dividerText}>{text}</Text>
-      <View style={styles.dividerLine} />
+      <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
+      <Text style={[styles.dividerText, { color: theme.footerText }]}>
+        {text}
+      </Text>
+      <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
     </View>
   );
 }

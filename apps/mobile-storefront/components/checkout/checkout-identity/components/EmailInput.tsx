@@ -11,9 +11,13 @@
 import React from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { Controller } from 'react-hook-form';
-import { palette } from '@/constants/Colors';
+import type { CheckoutIdentityTheme } from '../colors';
 import type { EmailInputProps, SignInFormData } from '../types';
 import { styles } from '../styles';
+
+interface ThemedEmailInputProps extends EmailInputProps {
+  theme: CheckoutIdentityTheme;
+}
 
 /**
  * Email input with label and React Hook Form integration
@@ -25,10 +29,14 @@ export function EmailInput({
   onClearError,
   returnKeyType,
   onSubmitEditing,
-}: EmailInputProps) {
+  theme,
+}: ThemedEmailInputProps) {
   return (
     <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel} nativeID="email-label">
+      <Text
+        style={[styles.inputLabel, { color: theme.mutedText }]}
+        nativeID="email-label"
+      >
         Email Address
       </Text>
       <Controller<SignInFormData>
@@ -38,13 +46,18 @@ export function EmailInput({
           <TextInput
             style={[
               styles.input,
+              {
+                backgroundColor: theme.input,
+                borderColor: theme.border,
+                color: theme.text,
+              },
               errors.email && {
-                borderColor: '#DC2626',
+                borderColor: theme.error,
                 borderWidth: 1.5,
               },
             ]}
             placeholder="name@example.com"
-            placeholderTextColor={palette.gray[400]}
+            placeholderTextColor={theme.placeholder}
             value={value}
             onChangeText={(text) => {
               onChange(text);
@@ -70,7 +83,7 @@ export function EmailInput({
         <Text
           style={{
             fontSize: 12,
-            color: '#DC2626',
+            color: theme.error,
             marginTop: 4,
           }}
           accessibilityRole="alert"
