@@ -396,6 +396,7 @@ describe('BnplLauncher', () => {
       expect(postMessage).toHaveBeenCalledWith(
         JSON.stringify({
           gateway: 'credpal',
+          message: 'CredPal checkout closed',
           type: 'bnpl_close',
         })
       );

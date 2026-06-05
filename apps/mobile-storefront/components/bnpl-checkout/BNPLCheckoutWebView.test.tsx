@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { render } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
+import { Platform } from 'react-native';
 import Colors from '@/constants/Colors';
 import { BNPLCheckoutWebView } from './BNPLCheckoutWebView';
 
@@ -57,6 +58,22 @@ describe('BNPLCheckoutWebView', () => {
 
     expect(mockWebView).toHaveBeenCalledWith(
       expect.objectContaining({ onHttpError })
+    );
+  });
+
+  it('injects viewport fixes before provider checkout content loads', () => {
+    render(<BNPLCheckoutWebView {...createProps()} />);
+
+    expect(mockWebView).toHaveBeenCalledWith(
+      expect.objectContaining({
+        injectedJavaScriptBeforeContentLoaded: expect.stringContaining(
+          'width=device-width, initial-scale=1'
+        ),
+        injectedJavaScriptBeforeContentLoadedForMainFrameOnly: false,
+        injectedJavaScriptForMainFrameOnly: false,
+        scalesPageToFit: Platform.OS === 'android',
+        textZoom: 100,
+      })
     );
   });
 

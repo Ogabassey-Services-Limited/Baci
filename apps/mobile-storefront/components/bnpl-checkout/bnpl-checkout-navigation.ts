@@ -7,7 +7,6 @@ export const BNPL_DOCUMENT_ACCEPT_HEADER =
   'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 
 const NEXT_DATA_QUERY_PARAMS = new Set(['_rsc', '_nocache']);
-const BNPL_MERCHANT_CONTEXT_QUERY_PARAMS = new Set(['merchant_slug', 'slug']);
 const BNPL_OUTCOME_QUERY_PARAMS = new Set(['cancelled', 'error', 'success']);
 
 export function sanitizeBNPLDocumentUrl(url: string) {
@@ -160,6 +159,14 @@ export function areBNPLCheckoutUrlsEquivalent(
     if (!gatewayA || !gatewayB || gatewayA !== gatewayB) {
       return false;
     }
+    for (const paramName of BNPL_OUTCOME_QUERY_PARAMS) {
+      if (
+        parsedA.searchParams.has(paramName) ||
+        parsedB.searchParams.has(paramName)
+      ) {
+        return false;
+      }
+    }
 
     const getMerchantContextParam = (params: URLSearchParams) =>
       (params.get('merchant_slug') || params.get('slug'))?.trim().toLowerCase();
@@ -182,27 +189,7 @@ export function areBNPLCheckoutUrlsEquivalent(
       return false;
     }
 
-    const getComparableSearchParamEntries = (params: URLSearchParams) =>
-      Array.from(params.entries())
-        .filter(
-          ([key]) =>
-            !NEXT_DATA_QUERY_PARAMS.has(key) &&
-            !BNPL_MERCHANT_CONTEXT_QUERY_PARAMS.has(key)
-        )
-        .sort(([keyA, valueA], [keyB, valueB]) =>
-          keyA === keyB
-            ? valueA.localeCompare(valueB)
-            : keyA.localeCompare(keyB)
-        );
-
-    const entriesA = getComparableSearchParamEntries(parsedA.searchParams);
-    const entriesB = getComparableSearchParamEntries(parsedB.searchParams);
-    if (entriesA.length !== entriesB.length) return false;
-
-    return entriesA.every(([key, value], index) => {
-      const [otherKey, otherValue] = entriesB[index] || [];
-      return key === otherKey && value === otherValue;
-    });
+    return true;
   } catch {
     return false;
   }

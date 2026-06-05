@@ -15,7 +15,7 @@ type MockAuthStatus = {
 
 const mockOpenNegotiation = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'dark');
-const mockQueryClient = { prefetchQuery: jest.fn() };
+const mockQueryClient = { prefetchQuery: jest.fn(() => Promise.resolve()) };
 const mockWarmCheckoutEntry = jest.fn();
 const mockRouterPrefetch = jest.fn();
 const mockRouterPush = jest.fn();
@@ -53,8 +53,7 @@ jest.mock(
   '@/components/checkout/checkout-entry-prefetch',
   () => ({
     warmCheckoutEntry: (...args: unknown[]) => mockWarmCheckoutEntry(...args),
-  }),
-  { virtual: true }
+  })
 );
 
 jest.mock('expo-haptics', () => ({

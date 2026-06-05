@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { ComponentProps, RefObject } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
@@ -9,6 +9,7 @@ import {
   BNPL_INJECTED_JAVASCRIPT,
   buildBNPLDocumentSource,
 } from './bnpl-checkout.helpers';
+import { BNPL_VIEWPORT_JAVASCRIPT } from './bnpl-checkout-viewport';
 
 type ColorsScheme = (typeof Colors)['light'];
 type WebViewProps = ComponentProps<typeof WebView>;
@@ -111,14 +112,18 @@ export function BNPLCheckoutWebView({
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onMessage={onMessage}
         onOpenWindow={onOpenWindow}
+        injectedJavaScriptBeforeContentLoaded={BNPL_VIEWPORT_JAVASCRIPT}
         injectedJavaScript={BNPL_INJECTED_JAVASCRIPT}
+        injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
+        injectedJavaScriptForMainFrameOnly={false}
         javaScriptEnabled={true}
         javaScriptCanOpenWindowsAutomatically={true}
         domStorageEnabled={true}
         sharedCookiesEnabled={true}
         thirdPartyCookiesEnabled={true}
         startInLoadingState={true}
-        scalesPageToFit={true}
+        scalesPageToFit={Platform.OS === 'android'}
+        textZoom={100}
         mixedContentMode="never"
         allowsInlineMediaPlayback={true}
         onError={(syntheticEvent) => {

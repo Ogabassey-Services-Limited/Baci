@@ -110,6 +110,32 @@ describe('resolveBNPLPopupTargetAction', () => {
     });
   });
 
+  it('loads trusted Paystack auxiliary checkout subdomains', () => {
+    expect(
+      resolveBNPLPopupTargetAction({
+        apiBaseUrl,
+        merchantSlug: 'demo',
+        targetUrl: 'https://link.paystack.com/90lqd13ljptyujh',
+      })
+    ).toEqual({
+      targetUrl: 'https://link.paystack.com/90lqd13ljptyujh',
+      type: 'load',
+    });
+  });
+
+  it('rejects Paystack lookalike auxiliary checkout hosts', () => {
+    expect(
+      resolveBNPLPopupTargetAction({
+        apiBaseUrl,
+        merchantSlug: 'demo',
+        targetUrl: 'https://paystack.com.evil.example/90lqd13ljptyujh',
+      })
+    ).toEqual({
+      targetUrl: 'https://paystack.com.evil.example/90lqd13ljptyujh',
+      type: 'untrusted',
+    });
+  });
+
   it('rejects untrusted auxiliary windows', () => {
     expect(
       resolveBNPLPopupTargetAction({

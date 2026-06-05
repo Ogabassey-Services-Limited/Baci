@@ -4,6 +4,7 @@ import {
   BNPL_INJECTED_JAVASCRIPT,
   buildBNPLCheckoutUrl,
   buildBNPLDocumentSource,
+  getBNPLDebugUrlDetails,
   isBNPLCheckoutExitUrl,
   parseBNPLParams,
   resolveBNPLDocumentNavigation,
@@ -242,6 +243,53 @@ describe('BNPL_INJECTED_JAVASCRIPT', () => {
   it('allows same-origin close bridge messages through to React Native', () => {
     expect(BNPL_INJECTED_JAVASCRIPT).toContain("'bnpl_close'");
   });
+
+  it('captures window.open calls before native popup handling', () => {
+    expect(BNPL_INJECTED_JAVASCRIPT).toContain(
+      "message: 'window.open called'"
+    );
+  });
+});
+
+describe('getBNPLDebugUrlDetails', () => {
+  it('returns structured URL details for popup diagnostics', () => {
+    expect(
+      getBNPLDebugUrlDetails(
+        'https://checkout.paystack.com/pay/abc?reference=ref_123#step'
+      )
+    ).toEqual({
+      hasHash: true,
+      hasSearch: true,
+      hostname: 'checkout.paystack.com',
+      origin: 'https://checkout.paystack.com',
+      parsed: true,
+      pathname: '/pay/abc',
+      protocol: 'https:',
+      rawUrl: 'https://checkout.paystack.com/pay/abc?reference=ref_123#step',
+      searchKeys: ['reference'],
+    });
+  });
+
+  it('returns empty diagnostics for missing popup URLs', () => {
+    expect(getBNPLDebugUrlDetails()).toEqual({
+      parsed: false,
+      rawUrl: '',
+      reason: 'empty',
+    });
+    expect(getBNPLDebugUrlDetails('')).toEqual({
+      parsed: false,
+      rawUrl: '',
+      reason: 'empty',
+    });
+  });
+
+  it('returns invalid diagnostics for malformed popup URLs', () => {
+    expect(getBNPLDebugUrlDetails('not a url')).toEqual({
+      parsed: false,
+      rawUrl: 'not a url',
+      reason: 'invalid-url',
+    });
+  });
 });
 
 describe('buildBNPLCheckoutUrl', () => {
@@ -306,11 +354,19 @@ describe('areBNPLCheckoutUrlsEquivalent', () => {
     expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(false);
   });
 
-  it('returns false if meaningful parameters do not match', () => {
+  it('ignores launch-only params that may be omitted across domain redirects', () => {
     const urlA =
-      'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123&amount=250000';
+      'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123';
     const urlB =
-      'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-123&amount=999999';
+      'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-123&amount=250000&email=customer%40example.com&token=track-123';
+    expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(true);
+  });
+
+  it('returns false if an outcome parameter is present', () => {
+    const urlA =
+      'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123&error=cancelled';
+    const urlB =
+      'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-123';
     expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(false);
   });
 

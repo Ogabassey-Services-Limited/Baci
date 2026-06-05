@@ -10,6 +10,7 @@ import type {
 import {
   BNPL_UNTRUSTED_POPUP_MESSAGE,
   buildBNPLCheckoutUrl,
+  getBNPLDebugUrlDetails,
   getBNPLGatewayName,
   parseBNPLParams,
   resolveBNPLDocumentNavigation,
@@ -198,6 +199,11 @@ export function useBNPLCheckoutController({
   };
 
   const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
+    const targetDetails = getBNPLDebugUrlDetails(event.nativeEvent.targetUrl);
+    logBNPLCheckoutDebug('auxiliary window requested', {
+      target: targetDetails,
+    });
+
     const action = resolveBNPLPopupTargetAction({
       apiBaseUrl,
       merchantDomain,
@@ -208,12 +214,19 @@ export function useBNPLCheckoutController({
       return;
     }
 
+    logBNPLCheckoutDebug('auxiliary window decision', {
+      actionType: action.type,
+      target: targetDetails,
+      targetUrl: action.targetUrl,
+    });
+
     if (action.type === 'untrusted') {
       clearPendingLoadTimeout();
       setCheckoutStatus('error');
       setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         console.warn('[BNPLCheckout] Ignored untrusted auxiliary window', {
+          target: targetDetails,
           targetUrl: action.targetUrl,
         });
       }

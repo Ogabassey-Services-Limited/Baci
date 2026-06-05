@@ -54,31 +54,6 @@ interface KlumpRecordResponse {
 
 type NativeBNPLBridgeGateway = 'credpal' | 'credit_direct' | 'klump';
 
-interface ReactNativeWebViewBridgeWindow extends Window {
-    ReactNativeWebView?: {
-        postMessage: (message: string) => void;
-    };
-}
-
-function postNativeBnplClose(gateway: NativeBNPLBridgeGateway): boolean {
-    try {
-        const bridge = (window as ReactNativeWebViewBridgeWindow).ReactNativeWebView;
-        if (!bridge) {
-            return false;
-        }
-
-        bridge.postMessage(
-            JSON.stringify({
-                gateway,
-                type: 'bnpl_close',
-            })
-        );
-        return true;
-    } catch {
-        return false;
-    }
-}
-
 function readSearchParam(
     searchParams: SearchParamReader,
     keys: readonly string[]
@@ -166,7 +141,7 @@ function hasPendingKlumpRedirect(expectedRedirectUrl: string) {
     }
 }
 
-function notifyNativeBnplClose(gateway: 'credit_direct' | 'klump') {
+function notifyNativeBnplClose(gateway: NativeBNPLBridgeGateway) {
     const bridge = window.ReactNativeWebView;
     if (typeof bridge?.postMessage !== 'function') {
         return false;
@@ -179,7 +154,9 @@ function notifyNativeBnplClose(gateway: 'credit_direct' | 'klump') {
                 message:
                     gateway === 'credit_direct'
                         ? 'Credit Direct checkout closed'
-                        : 'Klump checkout closed',
+                        : gateway === 'credpal'
+                          ? 'CredPal checkout closed'
+                          : 'Klump checkout closed',
                 type: 'bnpl_close',
             })
         );
@@ -480,7 +457,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                             router.push(`/order-success?${successQuery.toString()}`);
                         },
                         onClose: () => {
-                            if (postNativeBnplClose('credpal')) {
+                            if (notifyNativeBnplClose('credpal')) {
                                 return;
                             }
 

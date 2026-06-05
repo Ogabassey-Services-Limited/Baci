@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
@@ -7,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import CartLoadedView from '@/components/cart/CartLoadedView';
 import CartStateView from '@/components/cart/CartStateView';
 import { unavailableCartActions } from '@/components/cart/unavailable-cart-actions';
-import { warmCheckoutEntry } from '@/components/checkout/checkout-entry-prefetch';
+import { useCartCheckoutPrewarm } from '@/components/cart/use-cart-checkout-prewarm';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
@@ -20,7 +19,6 @@ import { useUIStore } from '@/stores/ui-store';
 
 export default function CartScreen() {
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
   const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
   const colors = Colors[colorScheme];
   const { light: triggerHaptic } = useHaptics();
@@ -91,12 +89,10 @@ export default function CartScreen() {
     getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID).features
       ?.negotiationModal ?? true;
 
-  useEffect(() => {
-    if (!hasCartLoadError && items.length > 0) {
-      router.prefetch('/checkout');
-      warmCheckoutEntry(queryClient);
-    }
-  }, [hasCartLoadError, items.length, queryClient]);
+  const prewarmCheckout = useCartCheckoutPrewarm({
+    enabled: !hasCartLoadError,
+    itemCount: items.length,
+  });
 
   const handleQuantityChange = (item: CartItem, delta: number) => {
     if (pendingOperations.current.has(item.id)) return;
@@ -280,10 +276,7 @@ export default function CartScreen() {
         setShowNegotiateWarning(false);
         setPendingNegotiateItem(null);
       }}
-      onCheckoutPressIn={() => {
-        router.prefetch('/checkout');
-        warmCheckoutEntry(queryClient);
-      }}
+      onCheckoutPressIn={prewarmCheckout}
       onNegotiateItem={actuallyOpenItemNegotiation}
       onNegotiateTotal={() => {
         triggerHaptic();
