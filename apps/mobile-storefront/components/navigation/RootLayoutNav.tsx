@@ -12,6 +12,7 @@ import { GlobalErrorBoundary } from '@/components/ErrorBoundary';
 import { NegotiationModal } from '@/components/modals/NegotiationModal';
 import { DrawerMenu } from '@/components/navigation/DrawerMenu';
 import { NavigationBarStyleProvider } from '@/components/navigation/NavigationBarStyleProvider';
+import { RouteResumeController } from '@/components/navigation/RouteResumeController';
 import { renderRootStackScreens } from '@/components/navigation/RootStackScreens';
 import AppKeyboardProvider from '@/components/ui/AppKeyboardProvider';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -49,10 +50,12 @@ const OgabasseyDarkTheme = {
 
 interface RootLayoutNavProps {
   persistenceEnabled?: boolean;
+  shouldResumeNavigation?: boolean;
 }
 
 export function RootLayoutNav({
   persistenceEnabled = true,
+  shouldResumeNavigation = false,
 }: RootLayoutNavProps) {
   const { GestureHandlerRootView } = getOptionalGestureHandlerRuntime();
   const colorScheme = useColorScheme();
@@ -95,6 +98,9 @@ export function RootLayoutNav({
                   ]}
                 >
                   <GlobalErrorBoundary context="RootNavigation">
+                    <RouteResumeController
+                      shouldResume={shouldResumeNavigation}
+                    />
                     {/*
                      * No custom `header` function in screenOptions — that would
                      * make react-native-screens NativeStack reserve a header zone

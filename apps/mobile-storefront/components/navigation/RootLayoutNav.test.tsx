@@ -49,7 +49,13 @@ jest.mock('expo-router', () => {
 
   Stack.Screen = ({ name }: { name: string }) => <MockText>{name}</MockText>;
 
-  return { Stack };
+  return {
+    router: { replace: jest.fn() },
+    Stack,
+    useGlobalSearchParams: () => ({}),
+    usePathname: () => '/',
+    useRootNavigationState: () => ({ key: 'root' }),
+  };
 });
 
 jest.mock('expo-navigation-bar', () => ({
