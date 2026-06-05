@@ -1,10 +1,73 @@
 // @vitest-environment node
 
-import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  getConfiguredAgenticMerchantSlug,
+  isAgenticCheckoutRuntimeConfigured,
+  resolveAgenticMerchantContext,
+} from '@/lib/agentic/merchant-context';
 
 // server-only has no runtime exports; mock it so Vitest can import server modules.
 vi.mock('server-only', () => ({}));
+
+const mocks = vi.hoisted(() => {
+  const getFirstNonBlankEnv = (...keys: string[]) =>
+    keys
+      .map((key) => process.env[key])
+      .find(
+        (value): value is string =>
+          typeof value === 'string' && value.trim().length > 0
+      );
+
+  return {
+    getAgenticApiKey: vi.fn(() =>
+      getFirstNonBlankEnv('BACI_AGENTIC_ACCESS_TOKEN', 'OPENAI_AGENTIC_API_KEY')
+    ),
+    getAgenticConfirmationKeys: vi.fn(() => {
+      const value = getFirstNonBlankEnv(
+        'BACI_AGENTIC_CONFIRMATION_KEY',
+        'OPENAI_AGENTIC_CONFIRMATION_KEY'
+      );
+      return value ? [value] : [];
+    }),
+    getAgenticMerchantSlug: vi.fn(() =>
+      getFirstNonBlankEnv(
+        'BACI_AGENTIC_MERCHANT_SLUG',
+        'OPENAI_AGENTIC_MERCHANT_SLUG'
+      )
+    ),
+    getAgenticSigningKeys: vi.fn(() => {
+      const value = getFirstNonBlankEnv(
+        'BACI_AGENTIC_SIGNING_KEY',
+        'OPENAI_AGENTIC_SIGNING_KEY'
+      );
+      return value ? [value] : [];
+    }),
+    hasUsableAgenticJwtSigningMaterial: vi.fn(() => {
+      const privateJwk = process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK?.trim();
+      if (!privateJwk) {
+        return Boolean(process.env.SUPABASE_JWT_SECRET?.trim());
+      }
+
+      if (privateJwk === 'invalid-agentic-private-jwk') {
+        return Boolean(process.env.SUPABASE_JWT_SECRET?.trim());
+      }
+
+      return true;
+    }),
+  };
+});
+
+vi.mock('@/env', () => ({
+  getAgenticApiKey: mocks.getAgenticApiKey,
+  getAgenticConfirmationKeys: mocks.getAgenticConfirmationKeys,
+  getAgenticMerchantSlug: mocks.getAgenticMerchantSlug,
+  getAgenticSigningKeys: mocks.getAgenticSigningKeys,
+}));
+
+vi.mock('@/lib/agentic/jwt-signing-material', () => ({
+  hasUsableAgenticJwtSigningMaterial: mocks.hasUsableAgenticJwtSigningMaterial,
+}));
 
 function createMerchantLookupMock(data: unknown, error: unknown = null) {
   const maybeSingle = vi.fn().mockResolvedValue({ data, error });
@@ -66,55 +129,23 @@ function stubBaseEnv() {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
 }
 
-function createValidAgenticPrivateJwk() {
-  const { privateKey } = generateKeyPairSync('ec', {
-    namedCurve: 'P-256',
-  });
-  return JSON.stringify({
-    ...privateKey.export({ format: 'jwk' }),
-    alg: 'ES256',
-    kid: 'agentic-test-key',
-  });
-}
-
-function createInvalidAgenticJwk(): string {
-  return JSON.stringify({
-    alg: 'ES256',
-    crv: 'P-256',
-    d: 'not-importable',
-    kid: 'agentic-test-key',
-    kty: 'EC',
-    x: 'not-importable',
-    y: 'not-importable',
-  });
-}
-
 function stubCompleteAgenticRuntimeEnv() {
   vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
   vi.stubEnv('OPENAI_AGENTIC_API_KEY', 'agent-api-key');
   vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', 'signing-key');
   vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
-  vi.stubEnv(
-    'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
-    createValidAgenticPrivateJwk()
-  );
-}
-
-function loadMerchantContextModule() {
-  vi.resetModules();
-  return import('@/lib/agentic/merchant-context');
+  vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', 'valid-agentic-private-jwk');
 }
 
 afterEach(() => {
+  vi.clearAllMocks();
   vi.unstubAllEnvs();
-  vi.resetModules();
 });
 
 describe('resolveAgenticMerchantContext', () => {
   it('returns null when no agentic merchant slug is configured', async () => {
     stubBaseEnv();
-    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
     const mock = createMerchantLookupMock(null);
 
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
@@ -126,8 +157,6 @@ describe('resolveAgenticMerchantContext', () => {
   it('uses the configured agentic merchant slug when present', async () => {
     stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
-    const { getConfiguredAgenticMerchantSlug, resolveAgenticMerchantContext } =
-      await loadMerchantContextModule();
     const mock = createMerchantLookupMock({
       business_name: 'Demo Store',
       custom_domain: 'demo.example.com',
@@ -151,7 +180,6 @@ describe('resolveAgenticMerchantContext', () => {
   it('includes agentic checkout and pay-on-delivery controls in the merchant context', async () => {
     stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
-    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
     const mock = createMerchantWithFeatureSettingsLookupMock({
       featureSettings: {
         agentic_checkout_enabled: false,
@@ -181,7 +209,6 @@ describe('resolveAgenticMerchantContext', () => {
   it('fails closed for agentic checkout when feature settings cannot be read', async () => {
     stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
-    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
     const mock = createMerchantWithFeatureSettingsLookupMock({
       featureSettings: null,
       featureSettingsError: { message: 'settings unavailable' },
@@ -203,7 +230,6 @@ describe('resolveAgenticMerchantContext', () => {
   it('defaults agentic checkout to enabled when the feature settings row is missing', async () => {
     stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
-    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
     const mock = createMerchantWithFeatureSettingsLookupMock({
       featureSettings: null,
       merchant: {
@@ -223,7 +249,6 @@ describe('resolveAgenticMerchantContext', () => {
   it('returns null when the configured merchant cannot be resolved', async () => {
     stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'missing-store');
-    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
     const mock = createMerchantLookupMock(null, { message: 'not found' });
 
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
@@ -233,28 +258,21 @@ describe('resolveAgenticMerchantContext', () => {
 });
 
 describe('isAgenticCheckoutRuntimeConfigured', () => {
-  it('requires all runtime checkout secrets before advertising checkout', async () => {
+  it('requires all runtime checkout secrets before advertising checkout', () => {
     stubBaseEnv();
     stubCompleteAgenticRuntimeEnv();
-    const { isAgenticCheckoutRuntimeConfigured } =
-      await loadMerchantContextModule();
 
     expect(isAgenticCheckoutRuntimeConfigured()).toBe(true);
   });
 
-  it('accepts Baci-owned runtime secrets without OpenAI-named aliases', async () => {
+  it('accepts Baci-owned runtime secrets without OpenAI-named aliases', () => {
     stubBaseEnv();
     vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', 'demo-store');
     vi.stubEnv('BACI_AGENTIC_ACCESS_TOKEN', 'agent-api-key');
     vi.stubEnv('BACI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
     vi.stubEnv('BACI_AGENTIC_SIGNING_KEY', 'signing-key');
     vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
-    vi.stubEnv(
-      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
-      createValidAgenticPrivateJwk()
-    );
-    const { isAgenticCheckoutRuntimeConfigured } =
-      await loadMerchantContextModule();
+    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', 'valid-agentic-private-jwk');
 
     expect(isAgenticCheckoutRuntimeConfigured()).toBe(true);
   });
@@ -265,44 +283,42 @@ describe('isAgenticCheckoutRuntimeConfigured', () => {
     'OPENAI_AGENTIC_CONFIRMATION_KEY',
     'OPENAI_AGENTIC_SIGNING_KEY',
     'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
-  ])('does not advertise checkout when %s is missing', async (envKey) => {
+  ])('does not advertise checkout when %s is missing', (envKey) => {
     stubBaseEnv();
     stubCompleteAgenticRuntimeEnv();
     vi.stubEnv(envKey, '');
-    const { isAgenticCheckoutRuntimeConfigured } =
-      await loadMerchantContextModule();
 
     expect(isAgenticCheckoutRuntimeConfigured()).toBe(false);
   });
 
-  it('does not require Paystack configuration for the common agentic runtime', async () => {
+  it('does not require Paystack configuration for the common agentic runtime', () => {
     stubBaseEnv();
     stubCompleteAgenticRuntimeEnv();
     vi.stubEnv('PAYSTACK_SECRET_KEY', '');
-    const { isAgenticCheckoutRuntimeConfigured } =
-      await loadMerchantContextModule();
 
     expect(isAgenticCheckoutRuntimeConfigured()).toBe(true);
   });
 
-  it('advertises checkout when an invalid configured JWK can fall back to the legacy JWT secret', async () => {
+  it('advertises checkout when an invalid configured JWK can fall back to the legacy JWT secret', () => {
     stubBaseEnv();
     stubCompleteAgenticRuntimeEnv();
-    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', createInvalidAgenticJwk());
+    vi.stubEnv(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
+      'invalid-agentic-private-jwk'
+    );
     vi.stubEnv('SUPABASE_JWT_SECRET', 'legacy-secret');
-    const { isAgenticCheckoutRuntimeConfigured } =
-      await loadMerchantContextModule();
 
     expect(isAgenticCheckoutRuntimeConfigured()).toBe(true);
   });
 
-  it('does not advertise checkout when the configured JWK cannot be imported and no legacy JWT secret exists', async () => {
+  it('does not advertise checkout when the configured JWK cannot be imported and no legacy JWT secret exists', () => {
     stubBaseEnv();
     stubCompleteAgenticRuntimeEnv();
-    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', createInvalidAgenticJwk());
+    vi.stubEnv(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
+      'invalid-agentic-private-jwk'
+    );
     delete process.env.SUPABASE_JWT_SECRET;
-    const { isAgenticCheckoutRuntimeConfigured } =
-      await loadMerchantContextModule();
 
     expect(isAgenticCheckoutRuntimeConfigured()).toBe(false);
   });
