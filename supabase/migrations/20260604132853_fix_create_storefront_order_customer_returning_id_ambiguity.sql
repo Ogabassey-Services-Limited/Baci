@@ -916,10 +916,9 @@ BEGIN
 END;
 $$;
 
--- Re-GRANT to the same roles the baseline migration granted the
--- 24-arg signature to. DROP+CREATE wipes function grants, so this
--- block is mandatory — storefront callers are `anon` via PostgREST
--- and would 403 without it.
+-- create_storefront_order is updated with CREATE OR REPLACE FUNCTION, which
+-- preserves existing function grants. Re-GRANT explicitly to ensure consistent
+-- permissions regardless of prior state for anon PostgREST storefront callers.
 REVOKE ALL ON FUNCTION public.create_storefront_order(
   UUID, TEXT, TEXT, JSONB, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, TEXT,
   TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC,

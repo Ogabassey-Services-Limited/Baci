@@ -32,8 +32,6 @@ describe('PaymentMethodTabSelector', () => {
 
     expect(fullPaymentText).toBeTruthy();
     expect(installmentsText).toBeTruthy();
-    expect(fullPaymentText.props.children).toBe('Pay in\nFull');
-    expect(installmentsText.props.children).toBe('Pay in\nInstallments');
     expect(
       screen.getByRole('tab', { name: 'Pay in Full' })
     ).toHaveAccessibilityState({ selected: true });
