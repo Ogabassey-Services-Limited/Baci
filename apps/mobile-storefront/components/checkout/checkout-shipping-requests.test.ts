@@ -68,6 +68,32 @@ describe('checkout-shipping-requests', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('reuses warmed location payloads for city lookups when the payload contains locations', async () => {
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        locations: [
+          { city: 'Ikeja', state: 'Lagos' },
+          { city: 'Lekki', state: 'Lagos' },
+          { city: 'Garki', state: 'FCT - Abuja' },
+        ],
+        states: ['Lagos', 'FCT - Abuja'],
+      }),
+      ok: true,
+    })) as unknown as typeof fetch;
+
+    await expect(
+      fetchCheckoutShippingStates('https://checkout-warm-locations.example')
+    ).resolves.toEqual(['Lagos', 'FCT - Abuja']);
+    await expect(
+      fetchCheckoutShippingCities(
+        'https://checkout-warm-locations.example',
+        'Lagos',
+        new AbortController().signal
+      )
+    ).resolves.toEqual(['Ikeja', 'Lekki']);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('does not cache malformed warmed checkout state responses', async () => {
     const mockFetch = jest
       .fn<typeof fetch>()

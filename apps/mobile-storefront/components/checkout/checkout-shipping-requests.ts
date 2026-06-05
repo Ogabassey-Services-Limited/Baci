@@ -3,84 +3,45 @@ import type { ShippingLocation } from '@/components/checkout/checkout-shipping.h
 
 const CHECKOUT_SHIPPING_STATES_CACHE_MS = 5 * 60 * 1000;
 
-let warmedShippingStates:
-  | {
-      apiBaseUrl: string;
-      expiresAt: number;
-      states: string[];
-    }
-  | undefined;
-let pendingShippingStates:
-  | {
-      apiBaseUrl: string;
-      promise: Promise<string[]>;
-    }
-  | undefined;
+type CheckoutShippingLocationsPayload = {
+  locations: ShippingLocation[];
+  states: string[];
+};
 
-export async function fetchCheckoutShippingStates(
-  apiBaseUrl: string
-): Promise<string[]> {
-  const now = Date.now();
-  if (
-    warmedShippingStates?.apiBaseUrl === apiBaseUrl &&
-    warmedShippingStates.expiresAt > now
-  ) {
-    return warmedShippingStates.states;
+const warmedShippingLocations = new Map<
+  string,
+  {
+    expiresAt: number;
+    payload: CheckoutShippingLocationsPayload;
   }
+>();
+const pendingShippingLocations = new Map<
+  string,
+  Promise<CheckoutShippingLocationsPayload>
+>();
 
-  if (pendingShippingStates?.apiBaseUrl === apiBaseUrl) {
-    return pendingShippingStates.promise;
-  }
-
-  const promise = requestCheckoutShippingStates(apiBaseUrl).then((result) => {
-    if (result.cacheable) {
-      warmedShippingStates = {
-        apiBaseUrl,
-        expiresAt: Date.now() + CHECKOUT_SHIPPING_STATES_CACHE_MS,
-        states: result.states,
-      };
-    }
-    return result.states;
-  });
-
-  pendingShippingStates = { apiBaseUrl, promise };
-  try {
-    return await promise;
-  } finally {
-    if (pendingShippingStates?.promise === promise) {
-      pendingShippingStates = undefined;
-    }
-  }
+function getShippingLocationsUrl(apiBaseUrl: string, state?: string) {
+  const baseUrl = `${apiBaseUrl}/api/shipping/locations`;
+  return state ? `${baseUrl}?state=${encodeURIComponent(state)}` : baseUrl;
 }
 
-async function requestCheckoutShippingStates(
-  apiBaseUrl: string
-): Promise<{ cacheable: boolean; states: string[] }> {
-  const res = await fetch(`${apiBaseUrl}/api/shipping/locations`);
-  if (!res.ok) return { cacheable: false, states: [] };
-  const data = await res.json();
-  const hasValidStates = Array.isArray(data.states);
-  return {
-    cacheable: hasValidStates,
-    states: hasValidStates ? data.states : [],
-  };
+function getCachedShippingLocations(
+  cacheKey: string,
+  now = Date.now()
+): CheckoutShippingLocationsPayload | undefined {
+  const cached = warmedShippingLocations.get(cacheKey);
+  if (!cached) return undefined;
+  if (cached.expiresAt <= now) {
+    warmedShippingLocations.delete(cacheKey);
+    return undefined;
+  }
+  return cached.payload;
 }
 
-export async function fetchCheckoutShippingCities(
-  apiBaseUrl: string,
-  state: string,
-  signal: AbortSignal
-): Promise<string[]> {
-  const res = await fetch(
-    `${apiBaseUrl}/api/shipping/locations?state=${encodeURIComponent(state)}`,
-    { signal }
-  );
-  if (!res.ok || signal.aborted) return [];
-
-  const data = await res.json();
-  const locations = Array.isArray(data.locations)
-    ? (data.locations as ShippingLocation[])
-    : [];
+function getCitiesFromLocations(
+  locations: ShippingLocation[],
+  state: string
+): string[] {
   return [
     ...new Set(
       locations
@@ -93,4 +54,120 @@ export async function fetchCheckoutShippingCities(
         .map((location) => location.city)
     ),
   ].sort();
+}
+
+export async function fetchCheckoutShippingStates(
+  apiBaseUrl: string
+): Promise<string[]> {
+  const cacheKey = getShippingLocationsUrl(apiBaseUrl);
+  const cached = getCachedShippingLocations(cacheKey);
+  if (cached) {
+    return cached.states;
+  }
+
+  const pending = pendingShippingLocations.get(cacheKey);
+  if (pending) {
+    return pending.then((payload) => payload.states);
+  }
+
+  const promise = requestCheckoutShippingLocations(apiBaseUrl).then((result) => {
+    if (result.cacheable) {
+      warmedShippingLocations.set(cacheKey, {
+        expiresAt: Date.now() + CHECKOUT_SHIPPING_STATES_CACHE_MS,
+        payload: result.payload,
+      });
+    }
+    return result.payload;
+  });
+
+  pendingShippingLocations.set(cacheKey, promise);
+  try {
+    const payload = await promise;
+    return payload.states;
+  } finally {
+    if (pendingShippingLocations.get(cacheKey) === promise) {
+      pendingShippingLocations.delete(cacheKey);
+    }
+  }
+}
+
+async function requestCheckoutShippingLocations(
+  apiBaseUrl: string,
+  state?: string,
+  signal?: AbortSignal
+): Promise<{
+  cacheable: boolean;
+  payload: CheckoutShippingLocationsPayload;
+}> {
+  const res = await fetch(getShippingLocationsUrl(apiBaseUrl, state), {
+    signal,
+  });
+  if (!res.ok) {
+    return { cacheable: false, payload: { locations: [], states: [] } };
+  }
+  const data = await res.json();
+  const hasValidStates = Array.isArray(data.states);
+  const hasValidLocations = Array.isArray(data.locations);
+  return {
+    cacheable: hasValidStates || hasValidLocations,
+    payload: {
+      locations: hasValidLocations ? data.locations : [],
+      states: hasValidStates ? data.states : [],
+    },
+  };
+}
+
+export async function fetchCheckoutShippingCities(
+  apiBaseUrl: string,
+  state: string,
+  signal: AbortSignal
+): Promise<string[]> {
+  if (signal.aborted) return [];
+
+  const stateCacheKey = getShippingLocationsUrl(apiBaseUrl, state);
+  const cachedStatePayload = getCachedShippingLocations(stateCacheKey);
+  if (cachedStatePayload) {
+    return getCitiesFromLocations(cachedStatePayload.locations, state);
+  }
+
+  const baseCacheKey = getShippingLocationsUrl(apiBaseUrl);
+  const cachedBasePayload = getCachedShippingLocations(baseCacheKey);
+  if (cachedBasePayload?.locations.length) {
+    const cachedCities = getCitiesFromLocations(
+      cachedBasePayload.locations,
+      state
+    );
+    if (cachedCities.length > 0) return cachedCities;
+  }
+
+  const pending = pendingShippingLocations.get(stateCacheKey);
+  if (pending) {
+    const payload = await pending;
+    return signal.aborted
+      ? []
+      : getCitiesFromLocations(payload.locations, state);
+  }
+
+  const promise = requestCheckoutShippingLocations(
+    apiBaseUrl,
+    state,
+    signal
+  ).then((result) => {
+    if (!signal.aborted && result.cacheable) {
+      warmedShippingLocations.set(stateCacheKey, {
+        expiresAt: Date.now() + CHECKOUT_SHIPPING_STATES_CACHE_MS,
+        payload: result.payload,
+      });
+    }
+    return result.payload;
+  });
+  pendingShippingLocations.set(stateCacheKey, promise);
+
+  try {
+    const payload = await promise;
+    if (signal.aborted) return [];
+    return getCitiesFromLocations(payload.locations, state);
+  } finally {
+    pendingShippingLocations.delete(stateCacheKey);
+  }
 }

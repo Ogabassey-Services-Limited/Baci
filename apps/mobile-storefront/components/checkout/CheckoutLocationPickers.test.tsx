@@ -63,6 +63,19 @@ describe('CheckoutLocationPickers', () => {
     expect(onSelectCity).toHaveBeenCalledWith('Gwarinpa');
   });
 
+  it('submits the canonical suggestion casing from the keyboard done action', () => {
+    const onSelectCity = jest.fn();
+
+    renderCityPicker({ citySearch: 'ikeja', onSelectCity });
+
+    fireEvent(
+      screen.getByPlaceholderText('Search or type your city...'),
+      'submitEditing'
+    );
+
+    expect(onSelectCity).toHaveBeenCalledWith('Ikeja');
+  });
+
   it('does not duplicate the custom city action for an exact suggestion match', () => {
     renderCityPicker({ citySearch: 'Ikeja' });
 

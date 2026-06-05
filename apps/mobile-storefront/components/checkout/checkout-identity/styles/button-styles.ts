@@ -1,4 +1,4 @@
-import { palette } from '@/constants/Colors';
+import { RADIUS } from '@/constants/Colors';
 
 export const buttonStyles = {
   primaryButton: {
@@ -7,12 +7,10 @@ export const buttonStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DC2626',
-    borderRadius: 12,
+    borderRadius: RADIUS.xl,
   },
   primaryButtonPressed: {
     transform: [{ scale: 0.98 }],
-    backgroundColor: '#B91C1C',
   },
   primaryButtonDisabled: {
     opacity: 0.6,
@@ -20,7 +18,6 @@ export const buttonStyles = {
   primaryButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFF',
   },
   secondaryButton: {
     height: 54,
@@ -28,15 +25,12 @@ export const buttonStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF',
     borderWidth: 1.5,
-    borderColor: '#DC2626',
-    borderRadius: 12,
+    borderRadius: RADIUS.xl,
   },
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#DC2626',
   },
   passiveButton: {
     height: 48,
@@ -44,15 +38,12 @@ export const buttonStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF',
     borderWidth: 1,
-    borderColor: palette.gray[200],
-    borderRadius: 12,
+    borderRadius: RADIUS.xl,
   },
   passiveButtonText: {
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
-    color: palette.gray[900],
   },
 } as const;
