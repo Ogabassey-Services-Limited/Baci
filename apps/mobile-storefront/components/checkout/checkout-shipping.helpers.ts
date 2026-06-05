@@ -1,3 +1,4 @@
+import { resolveLocationStateLabel } from '@baci/shared/lib';
 import {
   getPreferredShippingQuoteId,
   normalizeShippingQuotes,
@@ -15,22 +16,6 @@ export interface ShippingLocation {
   city: string;
   state: string;
 }
-
-const GOOGLE_STATE_ALIASES: Record<string, string> = {
-  'federal capital territory': 'FCT - Abuja',
-  fct: 'FCT - Abuja',
-  abuja: 'FCT - Abuja',
-  'lagos state': 'Lagos',
-  'rivers state': 'Rivers',
-  'ogun state': 'Ogun',
-  'oyo state': 'Oyo',
-  'kano state': 'Kano',
-  'kaduna state': 'Kaduna',
-  'enugu state': 'Enugu',
-  'delta state': 'Delta',
-  'edo state': 'Edo',
-  'anambra state': 'Anambra',
-};
 
 export type FetchQuotesArgs = {
   apiUrl: string;
@@ -57,19 +42,7 @@ export function normalizeStateName(
   googleState: string,
   knownStates: string[]
 ): string {
-  const trimmed = googleState.trim();
-  if (knownStates.includes(trimmed)) return trimmed;
-  const lower = trimmed.toLowerCase();
-  const exactMatch = knownStates.find((state) => state.toLowerCase() === lower);
-  if (exactMatch) return exactMatch;
-  const alias = GOOGLE_STATE_ALIASES[lower];
-  if (alias && knownStates.includes(alias)) return alias;
-  const withoutSuffix = lower.replace(/\s+state$/i, '');
-  const suffixMatch = knownStates.find(
-    (state) => state.toLowerCase() === withoutSuffix
-  );
-  if (suffixMatch) return suffixMatch;
-  return trimmed;
+  return resolveLocationStateLabel(googleState, knownStates);
 }
 
 export const fetchShippingQuotes = async ({

@@ -1,9 +1,10 @@
+import { describe, expect, it, jest } from '@jest/globals';
 import type { CartItem } from '@/stores/cart-store';
-import type { ShippingQuote } from './types';
 import {
   fetchShippingQuotes,
   normalizeStateName,
 } from './checkout-shipping.helpers';
+import type { ShippingQuote } from './types';
 
 const createCartItem = (overrides: Partial<CartItem> = {}): CartItem => ({
   id: 'cart-1',
@@ -31,6 +32,9 @@ describe('checkout-shipping.helpers', () => {
       'FCT - Abuja'
     );
     expect(
+      normalizeStateName('Federal Capital Territory', ['Abuja', 'Lagos'])
+    ).toBe('Abuja');
+    expect(
       normalizeStateName('Lagos State', ['FCT - Abuja', 'Lagos', 'Ogun'])
     ).toBe('Lagos');
   });
@@ -47,7 +51,7 @@ describe('checkout-shipping.helpers', () => {
         },
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as unknown as typeof fetch;
 
     const setIsLoadingQuotes = jest.fn();
     const setSelectedQuoteId = jest.fn();
@@ -92,7 +96,7 @@ describe('checkout-shipping.helpers', () => {
   it('clears quotes when request fails and selection reset is required', async () => {
     global.fetch = jest.fn(async () => ({
       ok: false,
-    })) as jest.Mock;
+    })) as unknown as typeof fetch;
 
     const setIsLoadingQuotes = jest.fn();
     const setSelectedQuoteId = jest.fn();

@@ -2,6 +2,7 @@ export * from './cac-registration';
 export * from './dedupe-by-id';
 export * from './kuda-data-plan-bill-items';
 export * from './kuda-electricity-bill-items';
+export * from './location-state-aliases';
 export * from './product-condition';
 export * from './product-default-variant';
 export * from './product-image-alt';

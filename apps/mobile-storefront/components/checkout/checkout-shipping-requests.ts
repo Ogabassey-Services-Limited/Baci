@@ -1,12 +1,68 @@
+import { areLocationStateLabelsEquivalent } from '@baci/shared/lib';
 import type { ShippingLocation } from '@/components/checkout/checkout-shipping.helpers';
+
+const CHECKOUT_SHIPPING_STATES_CACHE_MS = 5 * 60 * 1000;
+
+let warmedShippingStates:
+  | {
+      apiBaseUrl: string;
+      expiresAt: number;
+      states: string[];
+    }
+  | undefined;
+let pendingShippingStates:
+  | {
+      apiBaseUrl: string;
+      promise: Promise<string[]>;
+    }
+  | undefined;
 
 export async function fetchCheckoutShippingStates(
   apiBaseUrl: string
 ): Promise<string[]> {
+  const now = Date.now();
+  if (
+    warmedShippingStates?.apiBaseUrl === apiBaseUrl &&
+    warmedShippingStates.expiresAt > now
+  ) {
+    return warmedShippingStates.states;
+  }
+
+  if (pendingShippingStates?.apiBaseUrl === apiBaseUrl) {
+    return pendingShippingStates.promise;
+  }
+
+  const promise = requestCheckoutShippingStates(apiBaseUrl).then((result) => {
+    if (result.cacheable) {
+      warmedShippingStates = {
+        apiBaseUrl,
+        expiresAt: Date.now() + CHECKOUT_SHIPPING_STATES_CACHE_MS,
+        states: result.states,
+      };
+    }
+    return result.states;
+  });
+
+  pendingShippingStates = { apiBaseUrl, promise };
+  try {
+    return await promise;
+  } finally {
+    if (pendingShippingStates?.promise === promise) {
+      pendingShippingStates = undefined;
+    }
+  }
+}
+
+async function requestCheckoutShippingStates(
+  apiBaseUrl: string
+): Promise<{ cacheable: boolean; states: string[] }> {
   const res = await fetch(`${apiBaseUrl}/api/shipping/locations`);
-  if (!res.ok) return [];
+  if (!res.ok) return { cacheable: false, states: [] };
   const data = await res.json();
-  return Array.isArray(data.states) ? data.states : [];
+  return {
+    cacheable: true,
+    states: Array.isArray(data.states) ? data.states : [],
+  };
 }
 
 export async function fetchCheckoutShippingCities(
@@ -24,13 +80,14 @@ export async function fetchCheckoutShippingCities(
   const locations = Array.isArray(data.locations)
     ? (data.locations as ShippingLocation[])
     : [];
-  const normalizedState = state.trim().toLowerCase();
   return [
     ...new Set(
       locations
         .filter((location: ShippingLocation) => {
-          const locationState = location.state?.trim().toLowerCase();
-          return locationState ? locationState === normalizedState : true;
+          const locationState = location.state?.trim();
+          return locationState
+            ? areLocationStateLabelsEquivalent(locationState, state)
+            : true;
         })
         .map((location) => location.city)
     ),
