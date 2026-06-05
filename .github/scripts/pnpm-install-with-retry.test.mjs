@@ -1,25 +1,44 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-const repoRoot = new URL('../..', import.meta.url);
 const scriptPath = new URL('pnpm-install-with-retry.sh', import.meta.url);
 
 function makeFakePnpm({ retryable }) {
   const tempDir = mkdtempSync(join(tmpdir(), 'baci-pnpm-retry-'));
   const binDir = join(tempDir, 'bin');
+  const errorFile = join(tempDir, 'first-error.log');
   const attemptsFile = join(tempDir, 'attempts');
   const storeDir = join(tempDir, 'store');
+  const workspaceDir = join(tempDir, 'workspace');
+  const nodeModulesDirs = [
+    join(workspaceDir, 'node_modules'),
+    join(workspaceDir, 'apps/web/node_modules'),
+    join(workspaceDir, 'packages/shared/node_modules'),
+  ];
 
-  execFileSync('mkdir', ['-p', binDir, storeDir]);
-  writeFileSync(join(tempDir, 'node_modules_marker'), 'keeps temp dir non-empty');
+  [
+    binDir,
+    storeDir,
+    ...nodeModulesDirs,
+  ].forEach((dir) => {
+    mkdirSync(dir, { recursive: true });
+  });
 
   const firstError = retryable
-    ? 'Error: database disk image is malformed\\ncode: ERR_SQLITE_ERROR\\n'
-    : 'Error: non-retryable install failure\\n';
+    ? 'Error: database disk image is malformed\ncode: ERR_SQLITE_ERROR\n'
+    : 'Error: non-retryable install failure\n';
+  writeFileSync(errorFile, firstError);
 
   writeFileSync(
     join(binDir, 'pnpm'),
@@ -40,7 +59,7 @@ fi
 attempt=$((attempt + 1))
 echo "$attempt" > "$attempts_file"
 if [ "$attempt" -eq 1 ]; then
-  printf '${firstError}' >&2
+  cat "${errorFile}" >&2
   exit 1
 fi
 echo "fake install succeeded"
@@ -48,12 +67,12 @@ echo "fake install succeeded"
     { mode: 0o755 }
   );
 
-  return { attemptsFile, binDir, storeDir, tempDir };
+  return { attemptsFile, binDir, nodeModulesDirs, storeDir, tempDir, workspaceDir };
 }
 
 function runScript(fakePnpm) {
   return spawnSync('bash', [scriptPath.pathname, '--frozen-lockfile'], {
-    cwd: repoRoot.pathname,
+    cwd: fakePnpm.workspaceDir,
     env: {
       ...process.env,
       BACKOFF_SECONDS: '0',
@@ -75,6 +94,13 @@ test('retries after pnpm sqlite store corruption and succeeds', () => {
     assert.match(result.stdout, /Cleaning install artifacts before retry/);
     assert.match(result.stdout, /fake install succeeded/);
     assert.equal(readFileSync(fakePnpm.attemptsFile, 'utf8').trim(), '2');
+    fakePnpm.nodeModulesDirs.forEach((dir) => {
+      assert.equal(
+        existsSync(dir),
+        false,
+        `Expected ${dir} to be removed after retryable failure`
+      );
+    });
   } finally {
     rmSync(fakePnpm.tempDir, { recursive: true, force: true });
   }
@@ -89,6 +115,13 @@ test('does not retry unrelated install failures', () => {
     assert.equal(result.status, 1);
     assert.match(result.stdout, /pnpm install failed after 1 attempt/);
     assert.equal(readFileSync(fakePnpm.attemptsFile, 'utf8').trim(), '1');
+    fakePnpm.nodeModulesDirs.forEach((dir) => {
+      assert.equal(
+        existsSync(dir),
+        true,
+        `Expected ${dir} to be preserved after non-retryable failure`
+      );
+    });
   } finally {
     rmSync(fakePnpm.tempDir, { recursive: true, force: true });
   }
