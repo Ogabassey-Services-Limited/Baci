@@ -141,4 +141,20 @@ describe('createBNPLCheckoutAppNavigation', () => {
 
     expect(router.replace).not.toHaveBeenCalled();
   });
+
+  it('does not navigate when required order success params are missing', () => {
+    const navigation = createBNPLCheckoutAppNavigation();
+
+    navigation.scheduleOrderSuccess({
+      gateway: 'credit_direct',
+      orderId: 'order-123',
+    });
+    navigation.scheduleOrderSuccess({
+      gateway: 'credit_direct',
+    });
+
+    jest.advanceTimersByTime(1000);
+
+    expect(router.replace).not.toHaveBeenCalled();
+  });
 });

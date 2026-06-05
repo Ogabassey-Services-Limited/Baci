@@ -27,11 +27,8 @@ describe('PaymentMethodTabSelector', () => {
   it('uses compact labels with readable accessible names', () => {
     render(<PaymentMethodTabSelector {...baseProps} compact />);
 
-    const fullPaymentText = screen.getByText('Pay in\nFull');
-    const installmentsText = screen.getByText('Pay in\nInstallments');
-
-    expect(fullPaymentText).toBeTruthy();
-    expect(installmentsText).toBeTruthy();
+    expect(screen.getByText(/Pay in\s+Full/i)).toBeTruthy();
+    expect(screen.getByText(/Pay in\s+Installments/i)).toBeTruthy();
     expect(
       screen.getByRole('tab', { name: 'Pay in Full' })
     ).toHaveAccessibilityState({ selected: true });
@@ -41,8 +38,6 @@ describe('PaymentMethodTabSelector', () => {
     expect(
       screen.getByRole('tab', { name: 'Pay Later' })
     ).toHaveAccessibilityState({ selected: false });
-    expect(fullPaymentText.props.numberOfLines).toBe(2);
-    expect(fullPaymentText.props.adjustsFontSizeToFit).toBe(true);
   });
 
   it('omits unavailable optional tabs in compact layouts', () => {

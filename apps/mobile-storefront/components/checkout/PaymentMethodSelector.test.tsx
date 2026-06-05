@@ -627,7 +627,7 @@ describe('PaymentMethodSelector', () => {
 
       expect(textStyles.textAlign).toBe('center');
 
-      const tabElement = screen.getByRole('tab', { name: /full payment/i });
+      const tabElement = screen.getByRole('tab', { name: 'Full Payment' });
       const tabStyles = StyleSheet.flatten(tabElement.props.style);
 
       expect(tabStyles.paddingHorizontal).toBeGreaterThanOrEqual(4);

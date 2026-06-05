@@ -13,11 +13,11 @@ type BNPLOrderSuccessNavigationInput = {
 export function createBNPLCheckoutAppNavigation() {
   let orderSuccessTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  const returnToApp = () => {
+  const returnToApp = (): void => {
     router.back();
   };
 
-  const cancelOrderSuccessNavigation = () => {
+  const cancelOrderSuccessNavigation = (): void => {
     if (!orderSuccessTimeout) {
       return;
     }
@@ -30,8 +30,12 @@ export function createBNPLCheckoutAppNavigation() {
     orderId,
     reference,
     trackingToken,
-  }: BNPLOrderSuccessNavigationInput) => {
+  }: BNPLOrderSuccessNavigationInput): void => {
     cancelOrderSuccessNavigation();
+    if (!gateway || !orderId) {
+      return;
+    }
+
     orderSuccessTimeout = setTimeout(() => {
       orderSuccessTimeout = null;
       router.replace({
@@ -46,7 +50,7 @@ export function createBNPLCheckoutAppNavigation() {
     }, ORDER_SUCCESS_NAVIGATION_DELAY_MS);
   };
 
-  const showCancelAlert = (onConfirmCancel = returnToApp) => {
+  const showCancelAlert = (onConfirmCancel = returnToApp): void => {
     Alert.alert(
       'Cancel Payment?',
       'Are you sure you want to cancel this payment?',

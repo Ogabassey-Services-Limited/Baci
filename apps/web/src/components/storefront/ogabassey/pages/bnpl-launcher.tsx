@@ -52,19 +52,23 @@ interface ReactNativeWebViewBridgeWindow extends Window {
     };
 }
 
-function postNativeBnplClose(gateway: NativeBNPLBridgeGateway) {
-    const bridge = (window as ReactNativeWebViewBridgeWindow).ReactNativeWebView;
-    if (!bridge) {
+function postNativeBnplClose(gateway: NativeBNPLBridgeGateway): boolean {
+    try {
+        const bridge = (window as ReactNativeWebViewBridgeWindow).ReactNativeWebView;
+        if (!bridge) {
+            return false;
+        }
+
+        bridge.postMessage(
+            JSON.stringify({
+                gateway,
+                type: 'bnpl_close',
+            })
+        );
+        return true;
+    } catch {
         return false;
     }
-
-    bridge.postMessage(
-        JSON.stringify({
-            gateway,
-            type: 'bnpl_close',
-        })
-    );
-    return true;
 }
 
 function readSearchParam(
