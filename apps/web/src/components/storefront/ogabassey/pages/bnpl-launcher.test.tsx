@@ -11,6 +11,12 @@ const mockOpenCredPalCheckout = vi.fn();
 const mockApiPost = vi.fn();
 const mockKlumpConstructor = vi.fn();
 
+interface TestReactNativeWebViewWindow extends Window {
+  ReactNativeWebView?: {
+    postMessage: (message: string) => void;
+  };
+}
+
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
   useSearchParams: vi.fn(() => mockSearchParams()),
@@ -50,6 +56,7 @@ describe('BnplLauncher', () => {
     document
       .querySelectorAll('#klump_checkout, #klump__checkout')
       .forEach((element) => element.remove());
+    delete (window as TestReactNativeWebViewWindow).ReactNativeWebView;
     resetKlumpSdkLoadForTests();
     window.Klump = mockKlumpConstructor as never;
     mockSearchParams.mockReturnValue(
@@ -335,6 +342,56 @@ describe('BnplLauncher', () => {
         '/order-success?orderId=order-1&reference=credpal-ref-1&type=credpal&trackingToken=track-order-token'
       );
     });
+  });
+
+  it('posts CredPal close events to the native WebView bridge', async () => {
+    const postMessage = vi.fn();
+    (window as TestReactNativeWebViewWindow).ReactNativeWebView = {
+      postMessage,
+    };
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'credpal',
+        merchant_slug: 'test-store',
+        trackingToken: 'tok-123',
+      })
+    );
+    mockOpenCredPalCheckout.mockImplementation(({ onClose }) => {
+      onClose();
+      return Promise.resolve();
+    });
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(postMessage).toHaveBeenCalledWith(
+        JSON.stringify({
+          gateway: 'credpal',
+          type: 'bnpl_close',
+        })
+      );
+    });
+    expect(screen.queryByText('Payment cancelled.')).not.toBeInTheDocument();
+  });
+
+  it('keeps the web CredPal cancellation fallback when no native bridge exists', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'credpal',
+        merchant_slug: 'test-store',
+        trackingToken: 'tok-123',
+      })
+    );
+    mockOpenCredPalCheckout.mockImplementation(({ onClose }) => {
+      onClose();
+      return Promise.resolve();
+    });
+
+    render(<BnplLauncher />);
+
+    expect(await screen.findByText('Payment cancelled.')).toBeInTheDocument();
   });
 
   it('launches Klump checkout with BAC reference and callback route', async () => {
