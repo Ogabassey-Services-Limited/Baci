@@ -42,6 +42,42 @@ describe('createBNPLWebViewMessageHandler', () => {
     );
   });
 
+  it('delegates explicit BNPL close messages to the controller', () => {
+    const onCloseMessage = jest.fn();
+    const handler = createBNPLWebViewMessageHandler({ onCloseMessage });
+
+    handler({
+      nativeEvent: {
+        data: JSON.stringify({
+          type: 'bnpl_close',
+        }),
+      },
+    });
+
+    expect(onCloseMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('delegates Credit Direct provider close messages to the controller', () => {
+    const onCloseMessage = jest.fn();
+    const handler = createBNPLWebViewMessageHandler({ onCloseMessage });
+
+    handler({
+      nativeEvent: {
+        data: JSON.stringify({
+          message: 'Provider postMessage received',
+          source: 'https://checkout.creditdirect.ng',
+          summary: {
+            payloadType: 'object',
+            type: 'checkout.widget.closed',
+          },
+          type: 'bnpl_log',
+        }),
+      },
+    });
+
+    expect(onCloseMessage).toHaveBeenCalledTimes(1);
+  });
+
   it('logs navigation messages and delegates URL handling to the controller', () => {
     process.env.NODE_ENV = 'development';
     (globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__ = true;

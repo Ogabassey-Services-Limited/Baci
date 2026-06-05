@@ -1,6 +1,4 @@
-import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import type { WebView, WebViewNavigation } from 'react-native-webview';
 import { useCartStore } from '@/stores/cart-store';
 import type {
@@ -21,6 +19,7 @@ import {
   resolveBNPLPopupTargetAction,
   shouldHandleBNPLNavigationMessage,
 } from './bnpl-checkout-controller-actions';
+import { createBNPLCheckoutAppNavigation } from './bnpl-checkout-app-navigation';
 import {
   createBNPLWebViewMessageHandler,
   logBNPLCheckoutDebug,
@@ -44,10 +43,13 @@ export function useBNPLCheckoutController({
   const webViewRef = useRef<WebView>(null);
   const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearCart = useCartStore((state) => state.clearCart);
+  const appNavigationRef = useRef(createBNPLCheckoutAppNavigation());
+  const appNavigation = appNavigationRef.current;
 
   const [status, setStatusState] = useState<BNPLCheckoutStatus>('loading');
   const [currentUrl, setCurrentUrl] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasReturnedToAppRef = useRef(false);
   const statusRef = useRef<BNPLCheckoutStatus>('loading');
 
   const setCheckoutStatus = (
@@ -82,8 +84,9 @@ export function useBNPLCheckoutController({
         clearTimeout(loadTimeoutRef.current);
         loadTimeoutRef.current = null;
       }
+      appNavigation.cancelOrderSuccessNavigation();
     },
-    []
+    [appNavigation]
   );
 
   const bnplUrl = buildBNPLCheckoutUrl({
@@ -97,18 +100,14 @@ export function useBNPLCheckoutController({
     }
   }, [bnplUrl]);
 
-  const replaceWithOrderSuccess = (reference?: string | null) => {
-    setTimeout(() => {
-      router.replace({
-        pathname: '/order-success',
-        params: {
-          orderId,
-          reference: reference || undefined,
-          paymentMethod: gateway,
-          ...(trackingToken && { trackingToken }),
-        },
-      });
-    }, 1000);
+  const returnToAppFromProviderExit = () => {
+    if (hasReturnedToAppRef.current || statusRef.current === 'success') {
+      return;
+    }
+    hasReturnedToAppRef.current = true;
+    clearPendingLoadTimeout();
+    setErrorMessage(null);
+    appNavigation.returnToApp();
   };
 
   const handleNavigationUrl = (url: string) => {
@@ -118,10 +117,20 @@ export function useBNPLCheckoutController({
     }
 
     clearPendingLoadTimeout();
+    if (effect.status === 'return-to-app') {
+      returnToAppFromProviderExit();
+      return;
+    }
+
     setCheckoutStatus(effect.status);
     if (effect.status === 'success') {
       clearCart();
-      replaceWithOrderSuccess(effect.reference);
+      appNavigation.scheduleOrderSuccess({
+        gateway,
+        orderId,
+        reference: effect.reference,
+        trackingToken,
+      });
       return;
     }
     setErrorMessage(effect.errorMessage);
@@ -132,21 +141,11 @@ export function useBNPLCheckoutController({
   };
 
   const handleClose = () => {
-    Alert.alert(
-      'Cancel Payment?',
-      'Are you sure you want to cancel this payment?',
-      [
-        { text: 'Continue Payment', style: 'cancel' },
-        {
-          text: 'Cancel',
-          style: 'destructive',
-          onPress: () => router.back(),
-        },
-      ]
-    );
+    appNavigation.showCancelAlert(returnToAppFromProviderExit);
   };
 
   const handleWebViewMessage = createBNPLWebViewMessageHandler({
+    onCloseMessage: returnToAppFromProviderExit,
     onNavigationMessage: (url) => {
       if (
         !shouldHandleBNPLNavigationMessage({
