@@ -1,7 +1,7 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
-import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-readiness';
+import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-discovery-link-header';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,

@@ -8,8 +8,6 @@ import {
 } from '@/config/agent-readiness';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 
-export const runtime = 'nodejs';
-
 export function GET(request: Request): NextResponse {
   const skillMarkdownDigest = createHash('sha256')
     .update(buildAgentSkillMarkdown(buildRequestBaseUrl(request)))

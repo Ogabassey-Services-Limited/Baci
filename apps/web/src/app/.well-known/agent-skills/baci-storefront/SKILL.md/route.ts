@@ -4,8 +4,6 @@ import {
 } from '@/config/agent-readiness';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 
-export const runtime = 'nodejs';
-
 export function GET(request: Request): Response {
   return new Response(buildAgentSkillMarkdown(buildRequestBaseUrl(request)), {
     status: 200,

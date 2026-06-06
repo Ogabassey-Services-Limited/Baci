@@ -1,5 +1,7 @@
 import { env } from '@/env';
 
+export { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './agent-discovery-link-header';
+
 export const AGENT_READINESS_CACHE_CONTROL =
   'public, max-age=3600, s-maxage=3600';
 
@@ -23,15 +25,6 @@ export const BACI_MCP_HEALTH_URL =
   env.MCP_PUBLIC_HEALTH_URL ??
   env.NEXT_PUBLIC_MCP_HEALTH_URL ??
   `${DEFAULT_MCP_ORIGIN}/health`;
-
-export const OGABASSEY_AGENT_DISCOVERY_LINK_HEADER = [
-  '<https://cdn.ogabassey.com>; rel=preconnect',
-  '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
-  '</.well-known/agent-skills/index.json>; rel="service-meta"; type="application/json"',
-  '</.well-known/mcp/server-card.json>; rel="service-desc"; type="application/json"',
-  '</openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json"',
-  '</auth.md>; rel="service-doc"; type="text/markdown"',
-].join(', ');
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, '') || OGABASSEY_ORIGIN;
