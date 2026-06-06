@@ -123,4 +123,27 @@ export const ollamaAgenticChatTools: OllamaChatTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'cancelOrder',
+      description: `${TOOL_DESCRIPTIONS.cancelOrder} Provide either orderId or orderNumber, and always provide customerEmail.`,
+      parameters: {
+        type: 'object',
+        required: ['customerEmail'],
+        anyOf: [{ required: ['orderId'] }, { required: ['orderNumber'] }],
+        properties: {
+          orderId: { ...STRING_SCHEMA, description: 'The Baci order UUID' },
+          orderNumber: {
+            ...STRING_SCHEMA,
+            description: 'The customer-facing order number',
+          },
+          customerEmail: {
+            ...STRING_SCHEMA,
+            description: 'Customer email address on the order',
+          },
+        },
+      },
+    },
+  },
 ];
