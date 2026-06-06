@@ -6,9 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   channelOn: vi.fn(),
   channelSubscribe: vi.fn(),
+  merchant: { id: 'merchant-1' } as { id?: string } | null,
   notificationAsync: vi.fn().mockResolvedValue(undefined),
   queryCalls: [] as Array<{ method: string; args: unknown[] }>,
   removeChannel: vi.fn(),
+  selectResult: null as QueryResult | null,
+  updateResult: null as QueryResult | null,
 }));
 
 type QueryResult = {
@@ -30,11 +33,15 @@ const negotiationRows = [
   },
 ];
 
-function makeQueryChain(result: QueryResult = { data: negotiationRows, error: null }) {
+function makeQueryChain() {
   const chain: Record<string, unknown> = {};
+  let isMutation = false;
   const passthrough =
     (method: string) =>
     (...args: unknown[]) => {
+      if (method === 'update') {
+        isMutation = true;
+      }
       mocks.queryCalls.push({ method, args });
       return chain;
     };
@@ -46,13 +53,18 @@ function makeQueryChain(result: QueryResult = { data: negotiationRows, error: nu
   chain.then = (
     resolve: (value: QueryResult) => unknown,
     reject?: (reason?: unknown) => unknown
-  ) => Promise.resolve(result).then(resolve, reject);
+  ) =>
+    Promise.resolve(
+      isMutation
+        ? (mocks.updateResult ?? { data: null, error: null })
+        : (mocks.selectResult ?? { data: negotiationRows, error: null })
+    ).then(resolve, reject);
 
   return chain;
 }
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
+  useMerchant: () => ({ merchant: mocks.merchant }),
 }));
 
 vi.mock('@/lib/api-client', () => ({
@@ -127,11 +139,15 @@ vi.mock('react-native', () => ({
 }));
 
 import NegotiationsScreen from './negotiations';
+import { Alert } from 'react-native';
 
 describe('NegotiationsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.merchant = { id: 'merchant-1' };
     mocks.queryCalls.length = 0;
+    mocks.selectResult = { data: negotiationRows, error: null };
+    mocks.updateResult = { data: null, error: null };
   });
 
   it('scopes negotiation status updates to the active merchant', async () => {
@@ -153,5 +169,33 @@ describe('NegotiationsScreen', () => {
       method: 'eq',
       args: ['merchant_id', 'merchant-1'],
     });
+  });
+
+  it('aborts status updates when the merchant context is missing', async () => {
+    mocks.merchant = null;
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('Accept Offer'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith('Error', 'Merchant not found');
+    });
+    expect(
+      mocks.queryCalls.some(({ method }) => method === 'update')
+    ).toBe(false);
+  });
+
+  it('shows an error when the scoped Supabase update fails', async () => {
+    mocks.updateResult = { data: null, error: new Error('permission denied') };
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('Accept Offer'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith('Error', 'permission denied');
+    });
+    expect(mocks.notificationAsync).toHaveBeenCalledWith('error');
   });
 });
