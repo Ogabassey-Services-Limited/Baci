@@ -116,6 +116,14 @@ function isPublicMachineReadablePath(pathname: string): boolean {
   return PUBLIC_MACHINE_READABLE_PATHS.has(pathname);
 }
 
+function isPlatformHost(hostname: string): boolean {
+  return (
+    isRootDomain(hostname, ROOT_DOMAIN) ||
+    isVercelPreview(hostname) ||
+    (isLocalhost(hostname) && extractLocalhostSubdomain(hostname) === null)
+  );
+}
+
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
 const STATIC_FILES_REGEX =
   /\.(jpg|jpeg|png|gif|svg|ico|webp|avif|woff|woff2|ttf|eot|css|js|json)$/;
@@ -143,15 +151,7 @@ const BLOG_PATH_REGEX =
 function isSlugPrefixedStorefrontRequest(
   hostname: string | undefined
 ): boolean {
-  if (!hostname) {
-    return false;
-  }
-
-  return (
-    isRootDomain(hostname, ROOT_DOMAIN) ||
-    isVercelPreview(hostname) ||
-    (isLocalhost(hostname) && extractLocalhostSubdomain(hostname) === null)
-  );
+  return hostname ? isPlatformHost(hostname) : false;
 }
 
 function getStorefrontContentSegments(
@@ -1212,6 +1212,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // ==== PLATFORM MACHINE-READABLE PASSTHROUGH ====
+  // App-owned agent discovery routes such as /auth.md must reach App Router on
+  // the root platform host. Otherwise the slug-based markdown mirror below can
+  // mistake /auth.md for a merchant mirror and rewrite it to /api/llm/auth.md.
+  if (isPlatformHost(hostname) && isPublicMachineReadablePath(pathname)) {
+    return buildMerchantFeedPassThroughResponse({
+      request,
+      pathname,
+      userAgent,
+      hostname,
+    });
+  }
+
   // ==== LLM DISCOVERY PASSTHROUGH ====
   // Keep host-scoped llms files available on both the platform domain and
   // merchant storefront domains without proxy rewrites.
@@ -1237,10 +1250,7 @@ export async function proxy(request: NextRequest) {
   // For root-domain paths like /ogabassey/about.md, rewrite to /api/llm/ogabassey/about
   // to avoid route collisions with dynamic [category] segments.
   // Custom domain and subdomain .md paths are handled in their respective sections below.
-  const isPlatformMarkdownHost =
-    isRootDomain(hostname, ROOT_DOMAIN) ||
-    isVercelPreview(hostname) ||
-    (isLocalhost(hostname) && extractLocalhostSubdomain(hostname) === null);
+  const isPlatformMarkdownHost = isPlatformHost(hostname);
 
   if (
     isPlatformMarkdownHost &&

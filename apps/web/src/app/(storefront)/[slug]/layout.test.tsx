@@ -10,6 +10,7 @@ import {
 const providerSnapshots: unknown[] = [];
 let themeProviderRenders = 0;
 const mockConnection = vi.hoisted(() => vi.fn());
+const mockWebMcp = vi.hoisted(() => vi.fn(() => null));
 const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
   vi.fn(
     ({
@@ -40,6 +41,10 @@ vi.mock('@/components/storefront/ogabassey/storefront-layout', () => ({
 
 vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
   DeferredPageViewTracker: () => <div data-testid="page-view-tracker" />,
+}));
+
+vi.mock('@/components/storefront/webmcp-storefront-tools', () => ({
+  WebMcpStorefrontTools: mockWebMcp,
 }));
 
 vi.mock('@/components/storefront/store-not-published', () => ({
@@ -177,6 +182,7 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshot).mockReset();
     notFound.mockClear();
     mockConnection.mockClear();
+    mockWebMcp.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
     themeProviderRenders = 0;
@@ -220,6 +226,13 @@ describe('storefront layout', () => {
     expect(screen.getByTestId('ogabassey-layout')).toHaveAttribute(
       'data-preload-hero-lcp',
       'false'
+    );
+    expect(mockWebMcp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+      }),
+      undefined
     );
     expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
