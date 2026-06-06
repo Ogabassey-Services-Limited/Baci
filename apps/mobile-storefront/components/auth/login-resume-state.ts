@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { createLogger } from '@/lib/logger';
+import { EmailSchema } from '@/lib/validation';
 
 const log = createLogger('LoginResume');
 const AUTH_LOGIN_RESUME_STORAGE_KEY = 'auth-login-resume-state';
@@ -36,6 +37,51 @@ function removeWebStorageValue() {
   }
 }
 
+
+function hasControlCharacters(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const charCode = value.charCodeAt(index);
+    if (charCode <= 0x1f || charCode === 0x7f) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasScheme(value: string): boolean {
+  return /^[a-z][a-z\d+.-]*:/iu.test(value);
+}
+
+function isSafeRelativeReturnTo(value: string | null): boolean {
+  if (value === null) {
+    return true;
+  }
+
+  if (
+    !value.startsWith('/') ||
+    value.startsWith('//') ||
+    value.includes('\\') ||
+    hasControlCharacters(value) ||
+    hasScheme(value)
+  ) {
+    return false;
+  }
+
+  try {
+    const decodedValue = decodeURIComponent(value);
+    return (
+      decodedValue.startsWith('/') &&
+      !decodedValue.startsWith('//') &&
+      !decodedValue.includes('\\') &&
+      !hasControlCharacters(decodedValue) &&
+      !hasScheme(decodedValue)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function parseStoredAuthLoginResumeState(
   rawValue: string | null,
   expectedReturnTo: string | null
@@ -49,7 +95,7 @@ function parseStoredAuthLoginResumeState(
     if (
       parsed.step !== 'otp' ||
       typeof parsed.email !== 'string' ||
-      parsed.email.length === 0 ||
+      !EmailSchema.safeParse(parsed.email).success ||
       typeof parsed.savedAt !== 'number' ||
       Date.now() - parsed.savedAt > AUTH_LOGIN_RESUME_TTL_MS
     ) {
@@ -58,7 +104,11 @@ function parseStoredAuthLoginResumeState(
 
     const storedReturnTo =
       typeof parsed.returnTo === 'string' ? parsed.returnTo : null;
-    if (storedReturnTo !== expectedReturnTo) {
+    if (
+      storedReturnTo !== expectedReturnTo ||
+      !isSafeRelativeReturnTo(storedReturnTo) ||
+      !isSafeRelativeReturnTo(expectedReturnTo)
+    ) {
       return null;
     }
 

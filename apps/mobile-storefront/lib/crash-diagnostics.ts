@@ -1,7 +1,7 @@
 import { createLogger } from './logger';
 
 const log = createLogger('CrashDiagnostics');
-const MAX_BREADCRUMBS = 30;
+export const MAX_BREADCRUMBS = 30;
 
 export interface CrashBreadcrumb {
   details?: Record<string, unknown>;

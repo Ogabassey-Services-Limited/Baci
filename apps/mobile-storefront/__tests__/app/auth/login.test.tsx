@@ -124,6 +124,8 @@ jest.mock('@/stores/auth-store', () => ({
 
 let LoginScreen: typeof import('@/app/auth/login').default;
 
+// Import LoginScreen after jest mocks are registered because the route module
+// reads router/auth hooks during module evaluation.
 beforeAll(async () => {
   LoginScreen = (await import('@/app/auth/login')).default;
 });

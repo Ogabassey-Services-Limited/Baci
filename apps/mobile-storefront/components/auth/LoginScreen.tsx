@@ -30,6 +30,16 @@ import { runLoginSocialSignIn } from './login-social-sign-in';
 const log = createLogger('Login');
 
 type AuthStep = 'email' | 'otp' | 'password';
+type LoginMode = 'otp';
+
+function getValidatedLoginMode(mode: string | string[] | undefined): LoginMode | null {
+  const rawMode = Array.isArray(mode) ? mode[0] : mode;
+  return rawMode === 'otp' ? 'otp' : null;
+}
+
+function normalizeEmail(value: string) {
+  return value.toLowerCase().trim();
+}
 
 interface AuthStepResetHandlers {
   setOtp: Dispatch<SetStateAction<string>>;
@@ -66,6 +76,7 @@ export function LoginScreen() {
     returnTo?: string;
   }>();
   const resumeReturnTo = returnTo ?? null;
+  const validatedMode = getValidatedLoginMode(mode);
 
   const dismissAndNavigate = () => {
     void clearAuthLoginResumeState();
@@ -148,7 +159,7 @@ export function LoginScreen() {
   }, [isInitialized, user, returnTo]);
 
   useEffect(() => {
-    if (mode !== 'otp') {
+    if (validatedMode !== 'otp') {
       return;
     }
 
@@ -164,7 +175,6 @@ export function LoginScreen() {
         setStep('otp');
         setOtp('');
         setOtpError(null);
-        setTimeout(() => otpInputRef.current?.focus(), 300);
       })
       .catch((error) => {
         log.warn('Failed to restore pending OTP login state', error);
@@ -173,7 +183,22 @@ export function LoginScreen() {
     return () => {
       isActive = false;
     };
-  }, [mode, resumeReturnTo]);
+  }, [validatedMode, resumeReturnTo]);
+
+
+  useEffect(() => {
+    if (step !== 'otp') {
+      return;
+    }
+
+    const animationFrameId = requestAnimationFrame(() => {
+      otpInputRef.current?.focus();
+    });
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [step]);
 
   // 2026 Best Practice: Dismiss keyboard on submit
   const handleContinue = withKeyboardDismiss(async () => {
@@ -188,7 +213,7 @@ export function LoginScreen() {
 
     setEmailError(null);
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = normalizeEmail(email);
 
     if (authMethod === 'otp') {
       const result = await signInWithOtp(normalizedEmail);
@@ -201,7 +226,6 @@ export function LoginScreen() {
         setEmail(normalizedEmail);
         setStep('otp');
         router.setParams({ mode: 'otp' });
-        setTimeout(() => otpInputRef.current?.focus(), 300);
       } else {
         Alert.alert(
           'Error',
@@ -209,6 +233,7 @@ export function LoginScreen() {
         );
       }
     } else {
+      setEmail(normalizedEmail);
       setStep('password');
     }
   });
@@ -221,7 +246,7 @@ export function LoginScreen() {
     }
 
     const result = await signInWithPassword(
-      email.toLowerCase().trim(),
+      normalizeEmail(email),
       password
     );
 
@@ -234,11 +259,12 @@ export function LoginScreen() {
 
   const handleResendOtp = async () => {
     setOtp('');
-    const result = await signInWithOtp(email.toLowerCase().trim());
+    const normalizedEmail = normalizeEmail(email);
+    const result = await signInWithOtp(normalizedEmail);
 
     if (result.success) {
       await saveAuthLoginResumeState({
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         returnTo: resumeReturnTo,
         step: 'otp',
       });

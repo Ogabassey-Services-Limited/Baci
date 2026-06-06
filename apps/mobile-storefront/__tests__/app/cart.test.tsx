@@ -49,13 +49,9 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => mockQueryClient,
 }));
 
-jest.mock(
-  '@/components/checkout/checkout-entry-prefetch',
-  () => ({
-    warmCheckoutEntry: (...args: unknown[]) => mockWarmCheckoutEntry(...args),
-  }),
-  { virtual: true }
-);
+jest.mock('@/components/checkout/checkout-entry-prefetch', () => ({
+  warmCheckoutEntry: (...args: unknown[]) => mockWarmCheckoutEntry(...args),
+}));
 
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),

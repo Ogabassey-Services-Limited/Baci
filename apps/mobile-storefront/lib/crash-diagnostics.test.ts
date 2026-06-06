@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import {
   getCrashBreadcrumbsForTest,
+  MAX_BREADCRUMBS,
   installCrashDiagnostics,
   recordCrashBreadcrumb,
   resetCrashDiagnosticsForTest,
@@ -32,14 +33,24 @@ describe('crash diagnostics', () => {
   });
 
   it('records bounded crash breadcrumbs', () => {
-    recordCrashBreadcrumb('home:mounted', { focused: true });
+    for (let index = 0; index <= MAX_BREADCRUMBS; index += 1) {
+      recordCrashBreadcrumb(`home:state:${index}`, { index });
+    }
 
-    expect(getCrashBreadcrumbsForTest()).toEqual([
+    const breadcrumbs = getCrashBreadcrumbsForTest();
+    expect(breadcrumbs).toHaveLength(MAX_BREADCRUMBS);
+    expect(breadcrumbs[0]).toEqual(
       expect.objectContaining({
-        details: { focused: true },
-        name: 'home:mounted',
-      }),
-    ]);
+        details: { index: 1 },
+        name: 'home:state:1',
+      })
+    );
+    expect(breadcrumbs.at(-1)).toEqual(
+      expect.objectContaining({
+        details: { index: MAX_BREADCRUMBS },
+        name: `home:state:${MAX_BREADCRUMBS}`,
+      })
+    );
   });
 
   it('logs breadcrumbs when the global JS error handler fires', () => {

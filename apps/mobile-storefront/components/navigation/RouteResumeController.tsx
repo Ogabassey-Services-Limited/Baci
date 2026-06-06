@@ -47,7 +47,7 @@ function hasControllerUnmountedSinceCapture(): boolean {
   return didControllerUnmountSinceCapture;
 }
 
-function setLastResumableHref(
+async function setLastResumableHref(
   href: Href,
   navigationKey: string | null | undefined,
   persistableHref: Href | null
@@ -56,17 +56,17 @@ function setLastResumableHref(
   lastResumableNavigationKey = navigationKey ?? null;
   didControllerUnmountSinceCapture = false;
   if (persistableHref) {
-    void persistRouteResumeState(persistableHref, navigationKey ?? null);
+    await persistRouteResumeState(persistableHref, navigationKey ?? null);
   } else {
-    void asyncStorage.removeItem(ROUTE_RESUME_STORAGE_KEY);
+    await asyncStorage.removeItem(ROUTE_RESUME_STORAGE_KEY);
   }
 }
 
-function clearRouteResumeState() {
+async function clearRouteResumeState() {
   lastResumableHref = null;
   lastResumableNavigationKey = null;
   didControllerUnmountSinceCapture = false;
-  void asyncStorage.removeItem(ROUTE_RESUME_STORAGE_KEY);
+  await asyncStorage.removeItem(ROUTE_RESUME_STORAGE_KEY);
 }
 
 function isHomePath(pathname: string | null | undefined): boolean {
@@ -210,7 +210,6 @@ async function hydrateRouteResumeState() {
 
   lastResumableHref = persistedState.href as Href;
   lastResumableNavigationKey = persistedState.navigationKey;
-  didControllerUnmountSinceCapture = true;
 }
 
 function buildResumeHref(
@@ -267,7 +266,7 @@ function buildPersistableResumeHref(
 
 export function resetRouteResumeForTest() {
   if (process.env.NODE_ENV === 'test') {
-    clearRouteResumeState();
+    void clearRouteResumeState();
   }
 }
 
@@ -283,7 +282,9 @@ if (process.env.NODE_ENV === 'development') {
   const hotModule = module as {
     hot?: { dispose(callback: () => void): void };
   };
-  hotModule.hot?.dispose(clearRouteResumeState);
+  hotModule.hot?.dispose(() => {
+    void clearRouteResumeState();
+  });
 }
 
 interface RouteResumeControllerProps {
@@ -367,48 +368,65 @@ export function RouteResumeController({
   }, [hasHydratedPersistedResume, navigationKey, pathname, shouldResume]);
 
   useEffect(() => {
-    if (currentResumeHref) {
-      setLastResumableHref(
-        currentResumeHref,
-        navigationKey,
-        currentPersistableResumeHref
+    let isActive = true;
+
+    const syncRouteResumeState = async () => {
+      if (currentResumeHref) {
+        await setLastResumableHref(
+          currentResumeHref,
+          navigationKey,
+          currentPersistableResumeHref
+        );
+        if (isActive) {
+          hasAttemptedResumeRef.current = false;
+        }
+        return;
+      }
+
+      if (
+        isHomePath(pathname) &&
+        getLastResumableHref() &&
+        getLastResumableNavigationKey() === navigationKey &&
+        !hasControllerUnmountedSinceCapture()
+      ) {
+        await clearRouteResumeState();
+        return;
+      }
+
+      if (!hasHydratedPersistedResume) {
+        return;
+      }
+
+      if (isAuthPath(pathname)) {
+        return;
+      }
+
+      // Clear saved resume state once it is no longer usable, while preserving it
+      // through auth routes used by checkout/payment sign-in flows.
+      if (!shouldResume || hasAttemptedResumeRef.current) {
+        await clearRouteResumeState();
+        return;
+      }
+
+      if (!navigationKey) {
+        return;
+      }
+
+      if (pathname) {
+        await clearRouteResumeState();
+      }
+    };
+
+    void syncRouteResumeState().catch((error) => {
+      console.warn(
+        '[RouteResumeController] Failed to sync route resume state',
+        error
       );
-      hasAttemptedResumeRef.current = false;
-      return;
-    }
+    });
 
-    if (
-      isHomePath(pathname) &&
-      getLastResumableHref() &&
-      getLastResumableNavigationKey() === navigationKey &&
-      !hasControllerUnmountedSinceCapture()
-    ) {
-      clearRouteResumeState();
-      return;
-    }
-
-    if (!hasHydratedPersistedResume) {
-      return;
-    }
-
-    if (isAuthPath(pathname)) {
-      return;
-    }
-
-    // Clear saved resume state once it is no longer usable, while preserving it
-    // through auth routes used by checkout/payment sign-in flows.
-    if (!shouldResume || hasAttemptedResumeRef.current) {
-      clearRouteResumeState();
-      return;
-    }
-
-    if (!navigationKey) {
-      return;
-    }
-
-    if (pathname) {
-      clearRouteResumeState();
-    }
+    return () => {
+      isActive = false;
+    };
   }, [
     currentResumeHref,
     currentPersistableResumeHref,

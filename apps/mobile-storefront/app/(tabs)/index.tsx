@@ -1,5 +1,5 @@
 import { router, useIsFocused } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Keyboard } from 'react-native';
 import {
   runOnJS,
@@ -32,6 +32,7 @@ export default function HomeScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const lastHomeStateBreadcrumbRef = useRef<string | null>(null);
 
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const isChatWidgetEnabled = template.features?.chatWidget ?? true;
@@ -215,13 +216,26 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    const stateSignature = JSON.stringify({
+      blockCount: blocks.length,
+      hasPageConfig,
+      isError,
+      isFocused,
+      primaryProductGridIndex,
+      productGridBlockCount,
+      selectedCategoryId,
+    });
+
+    if (lastHomeStateBreadcrumbRef.current === stateSignature) {
+      return;
+    }
+
+    lastHomeStateBreadcrumbRef.current = stateSignature;
     recordCrashBreadcrumb('home:state', {
       blockCount: blocks.length,
       hasPageConfig,
-      isConfigLoading,
       isError,
       isFocused,
-      isOnline,
       primaryProductGridIndex,
       productGridBlockCount,
       selectedCategoryId,
@@ -229,10 +243,8 @@ export default function HomeScreen() {
   }, [
     blocks.length,
     hasPageConfig,
-    isConfigLoading,
     isError,
     isFocused,
-    isOnline,
     primaryProductGridIndex,
     productGridBlockCount,
     selectedCategoryId,
