@@ -268,7 +268,7 @@ describe('TabLayout', () => {
     );
 
     expect(tabsProps?.screenOptions).toMatchObject({
-      freezeOnBlur: false,
+      freezeOnBlur: true,
       headerStyle: {
         backgroundColor: mockThemeColors.background,
       },
@@ -277,7 +277,7 @@ describe('TabLayout', () => {
       tabBarInactiveTintColor: mockThemeColors.mutedForeground,
       lazy: true,
     });
-    expect(tabsProps?.detachInactiveScreens).toBe(false);
+    expect(tabsProps?.detachInactiveScreens).toBe(true);
     expect(homeScreenProps?.options?.freezeOnBlur).toBe(true);
     expect(cartBadgeStyle).toMatchObject({
       backgroundColor: mockThemeColors.primary,

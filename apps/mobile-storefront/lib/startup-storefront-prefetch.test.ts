@@ -217,7 +217,7 @@ describe('prefetchStartupStorefrontData', () => {
         queryKey: ['products', 'merchant-123', STARTUP_HOME_PRODUCTS_OPTIONS],
       })
     );
-    expect(STARTUP_HOME_PRODUCTS_OPTIONS).toEqual({ limit: 48 });
+    expect(STARTUP_HOME_PRODUCTS_OPTIONS).toEqual({ limit: 12 });
   });
 
   it('allows startup prewarm to retry after a rejected prefetch', async () => {

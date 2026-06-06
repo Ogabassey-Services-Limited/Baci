@@ -33,6 +33,10 @@
       "justification": "Reviewed web guard for native-only swap interactions."
     },
     {
+      "path": "components/auth/login-resume-state.ts",
+      "justification": "Reviewed web sessionStorage versus native SecureStore split for pending OTP login resume state, with web and native test coverage."
+    },
+    {
       "path": "components/ConnectivityBanner.tsx",
       "justification": "Reviewed platform-specific banner shadow/elevation styling."
     },

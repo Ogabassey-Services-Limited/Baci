@@ -15,6 +15,7 @@ interface FilterBarProps {
   maxPrice: number;
   onPriceChange: (min: number, max: number) => void;
   brands: string[];
+  onBrandFilterVisible: () => void;
   selectedBrand: string;
   onSelectBrand: (brand: string) => void;
   selectedCondition: string;
@@ -46,6 +47,7 @@ export function FilterBar({
   maxPrice,
   onPriceChange,
   brands,
+  onBrandFilterVisible,
   selectedBrand,
   onSelectBrand,
   selectedCondition,
@@ -157,6 +159,9 @@ export function FilterBar({
                   <Pressable
                     key={item.id}
                     onPress={() => {
+                      if (item.id === 'brand') {
+                        onBrandFilterVisible();
+                      }
                       setActiveFilterType(item.id as FilterType);
                       setIsFilterMenuOpen(false);
                     }}

@@ -18,6 +18,7 @@ import iconImage from '../assets/images/icon.png';
 
 type AnimatedSplashProps = {
   isReady: boolean;
+  isVisible?: boolean;
   onAnimationEnd: () => void;
   children: ReactNode;
 };
@@ -30,6 +31,7 @@ type AnimatedSplashProps = {
  */
 export function AnimatedSplash({
   isReady,
+  isVisible = true,
   onAnimationEnd,
   children,
 }: AnimatedSplashProps) {
@@ -41,6 +43,8 @@ export function AnimatedSplash({
 
   // Shimmer pulse: fade in then loop
   useEffect(() => {
+    if (!isVisible) return;
+
     shimmerOpacity.set(
       withDelay(
         300,
@@ -63,11 +67,11 @@ export function AnimatedSplash({
         })
       )
     );
-  }, [shimmerOpacity]);
+  }, [isVisible, shimmerOpacity]);
 
   // Exit animation when app is ready
   useEffect(() => {
-    if (!isReady || hasExited.get() === 1) return;
+    if (!isVisible || !isReady || hasExited.get() === 1) return;
 
     // Stop the infinite shimmer loop so the worklet is released cleanly
     cancelAnimation(shimmerOpacity);
@@ -96,6 +100,7 @@ export function AnimatedSplash({
     );
   }, [
     isReady,
+    isVisible,
     logoScale,
     containerOpacity,
     onAnimationEnd,
@@ -118,25 +123,31 @@ export function AnimatedSplash({
   return (
     <View style={styles.wrapper}>
       {children}
-      <Animated.View
-        style={[
-          styles.container,
-          containerStyle,
-          { pointerEvents: isReady ? 'none' : 'auto' },
-        ]}
-      >
-        <Animated.View style={[styles.logoContainer, logoStyle]}>
-          <Image source={iconImage} style={styles.logo} contentFit="contain" />
-        </Animated.View>
+      {isVisible ? (
+        <Animated.View
+          style={[
+            styles.container,
+            containerStyle,
+            { pointerEvents: isReady ? 'none' : 'auto' },
+          ]}
+        >
+          <Animated.View style={[styles.logoContainer, logoStyle]}>
+            <Image
+              source={iconImage}
+              style={styles.logo}
+              contentFit="contain"
+            />
+          </Animated.View>
 
-        <Animated.View style={[styles.shimmerBar, shimmerStyle]}>
-          <View style={styles.shimmerFill} />
-        </Animated.View>
+          <Animated.View style={[styles.shimmerBar, shimmerStyle]}>
+            <View style={styles.shimmerFill} />
+          </Animated.View>
 
-        <Animated.Text style={[styles.tagline, shimmerStyle]}>
-          Buy Now, Pay Later
-        </Animated.Text>
-      </Animated.View>
+          <Animated.Text style={[styles.tagline, shimmerStyle]}>
+            Buy Now, Pay Later
+          </Animated.Text>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }

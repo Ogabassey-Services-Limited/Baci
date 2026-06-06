@@ -13,6 +13,10 @@ import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ErrorFallback } from '@/components/ErrorBoundary';
 import { RootLayoutNav } from '@/components/navigation/RootLayoutNav';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import {
+  installCrashDiagnostics,
+  recordCrashBreadcrumb,
+} from '@/lib/crash-diagnostics';
 import { offlineQueue } from '@/lib/offline-queue';
 import { prefetchStartupStorefrontData } from '@/lib/startup-storefront-prefetch';
 import { DEFAULT_SYNC_STORAGE_KEYS, initializeStorage } from '@/lib/storage';
@@ -103,6 +107,12 @@ export default function RootLayout() {
   );
 
   useEffect(() => {
+    installCrashDiagnostics('RootLayout');
+    recordCrashBreadcrumb('root_layout:mounted');
+    return () => recordCrashBreadcrumb('root_layout:unmounted');
+  }, []);
+
+  useEffect(() => {
     if (!isInitialized) {
       initPromiseRef.current = null;
     }
@@ -118,20 +128,32 @@ export default function RootLayout() {
     };
 
     const initializeApp = async () => {
+      recordCrashBreadcrumb('root_layout:initialize_start');
       void prefetchStartupStorefrontData();
+      recordCrashBreadcrumb('root_layout:startup_prefetch_scheduled');
 
       await initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
       markStorageReady();
+      recordCrashBreadcrumb('root_layout:storage_ready', {
+        storageKeyCount: DEFAULT_SYNC_STORAGE_KEYS.length,
+      });
 
       if (!useAuthStore.getState().isInitialized) {
         await initialize();
       }
+      recordCrashBreadcrumb('root_layout:auth_initialized', {
+        hasUser: Boolean(useAuthStore.getState().user?.id),
+      });
       await initAnalytics();
+      recordCrashBreadcrumb('root_layout:analytics_initialized');
       await initAdTracking();
+      recordCrashBreadcrumb('root_layout:ad_tracking_initialized');
       await offlineQueue.initialize();
+      recordCrashBreadcrumb('root_layout:offline_queue_initialized');
       offlineQueue.registerHandler('create_order', async (orderData) => {
         return await createOrder(orderData as CreateOrderRequest);
       });
+      recordCrashBreadcrumb('root_layout:initialize_complete');
     };
 
     if (!initPromiseRef.current) {
@@ -141,6 +163,9 @@ export default function RootLayout() {
         // own errors, but failures after that point were previously unhandled
         // and could leave Android stuck on the splash screen.
         console.error('App initialization error:', err);
+        recordCrashBreadcrumb('root_layout:initialize_error', {
+          message: err instanceof Error ? err.message : String(err),
+        });
         markStorageReady();
       });
     }
@@ -215,10 +240,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (!showSplash) return;
     const timeout = setTimeout(() => {
+      recordCrashBreadcrumb('root_layout:splash_timeout', {
+        isInitialized,
+        isStorageReady,
+      });
       setShowSplash(false);
     }, 8000);
     return () => clearTimeout(timeout);
-  }, [showSplash]);
+  }, [isInitialized, isStorageReady, showSplash]);
 
   // Hide the native splash as soon as fonts load so the JS AnimatedSplash takes over
   useEffect(() => {
@@ -233,30 +262,22 @@ export default function RootLayout() {
     return null;
   }
 
-  if (showSplash) {
-    return (
-      <AnimatedSplash
-        isReady={isInitialized && isStorageReady}
-        onAnimationEnd={() => setShowSplash(false)}
-      >
-        {isStorageReady ? (
-          <RootLayoutNav
-            persistenceEnabled={false}
-            shouldResumeNavigation={hasCompletedInitialBoot}
-          />
-        ) : null}
-      </AnimatedSplash>
-    );
-  }
-
-  if (!isStorageReady) {
+  if (!isStorageReady && !showSplash) {
     return null;
   }
 
   return (
-    <RootLayoutNav
-      persistenceEnabled
-      shouldResumeNavigation={hasCompletedInitialBoot}
-    />
+    <AnimatedSplash
+      isReady={isInitialized && isStorageReady}
+      isVisible={showSplash}
+      onAnimationEnd={() => setShowSplash(false)}
+    >
+      {isStorageReady ? (
+        <RootLayoutNav
+          persistenceEnabled={!showSplash}
+          shouldResumeNavigation={hasCompletedInitialBoot}
+        />
+      ) : null}
+    </AnimatedSplash>
   );
 }

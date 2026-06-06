@@ -15,7 +15,7 @@ type MockAuthStatus = {
 
 const mockOpenNegotiation = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'dark');
-const mockQueryClient = { prefetchQuery: jest.fn(() => Promise.resolve()) };
+const mockQueryClient = { prefetchQuery: jest.fn() };
 const mockWarmCheckoutEntry = jest.fn();
 const mockRouterPrefetch = jest.fn();
 const mockRouterPush = jest.fn();
@@ -49,12 +49,9 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => mockQueryClient,
 }));
 
-jest.mock(
-  '@/components/checkout/checkout-entry-prefetch',
-  () => ({
-    warmCheckoutEntry: (...args: unknown[]) => mockWarmCheckoutEntry(...args),
-  })
-);
+jest.mock('@/components/checkout/checkout-entry-prefetch', () => ({
+  warmCheckoutEntry: (...args: unknown[]) => mockWarmCheckoutEntry(...args),
+}));
 
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -266,8 +263,6 @@ describe('CartScreen state', () => {
   it('opens guest identity modal for guests and routes signed-in users straight to checkout', () => {
     const { rerender } = render(<CartScreen />);
 
-    expect(mockRouterPrefetch).toHaveBeenCalledWith('/checkout');
-
     fireEvent.press(
       screen.getByRole('button', { name: /Proceed to checkout, total/i })
     );
@@ -284,6 +279,7 @@ describe('CartScreen state', () => {
     );
 
     rerender(<CartScreen />);
+    jest.clearAllMocks();
     const checkoutButton = screen.getByRole('button', {
       name: /Proceed to checkout, total/i,
     });
@@ -295,11 +291,11 @@ describe('CartScreen state', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/checkout');
   });
 
-  it('warms checkout data while a populated cart is open', () => {
+  it('does not warm checkout data while a populated cart is open', () => {
     render(<CartScreen />);
 
-    expect(mockRouterPrefetch).toHaveBeenCalledWith('/checkout');
-    expect(mockWarmCheckoutEntry).toHaveBeenCalledWith(mockQueryClient);
+    expect(mockRouterPrefetch).not.toHaveBeenCalled();
+    expect(mockWarmCheckoutEntry).not.toHaveBeenCalled();
   });
 
   it('falls back to home replacement when the cart header has no back stack', () => {

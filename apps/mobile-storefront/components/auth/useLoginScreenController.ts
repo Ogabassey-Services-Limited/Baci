@@ -1,0 +1,298 @@
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, type TextInput } from 'react-native';
+import type { LoginAuthMethod } from '@/components/auth/LoginEmailStep';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
+import { useKeyboard } from '@/hooks/use-keyboard';
+import { createLogger } from '@/lib/logger';
+import { EmailSchema, getFirstError } from '@/lib/validation';
+import { useAuthStore } from '@/stores/auth-store';
+import { useShallow } from 'zustand/react/shallow';
+import {
+  clearAuthLoginResumeState,
+  getAuthLoginResumeState,
+  saveAuthLoginResumeState,
+} from './login-resume-state';
+import {
+  type AuthStep,
+  getValidatedLoginMode,
+  normalizeEmail,
+  returnToEmailFromAuthStep,
+} from './login-screen-controller.helpers';
+import { runLoginSocialSignIn } from './login-social-sign-in';
+import { useLoginHardwareBackHandler } from './useLoginHardwareBackHandler';
+
+const log = createLogger('Login');
+
+export function useLoginScreenController() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const { mode, returnTo } = useLocalSearchParams<{
+    mode?: string;
+    returnTo?: string;
+  }>();
+  const resumeReturnTo = returnTo ?? null;
+  const validatedMode = getValidatedLoginMode(mode);
+
+  const dismissAndNavigate = () => {
+    void clearAuthLoginResumeState();
+    if (returnTo) {
+      router.replace(decodeURIComponent(returnTo) as '/');
+    } else if (router.canDismiss()) {
+      router.dismiss();
+    } else {
+      router.replace('/');
+    }
+  };
+
+  const {
+    signInWithOtp,
+    verifyOtp,
+    signInWithGoogle,
+    isLoading,
+    signInWithPassword,
+    signInWithApple,
+    user,
+    isInitialized,
+  } = useAuthStore(
+    useShallow((state) => ({
+      signInWithOtp: state.signInWithOtp,
+      verifyOtp: state.verifyOtp,
+      signInWithGoogle: state.signInWithGoogle,
+      isLoading: state.isLoading,
+      signInWithPassword: state.signInWithPassword,
+      signInWithApple: state.signInWithApple,
+      user: state.user,
+      isInitialized: state.isInitialized,
+    }))
+  );
+
+  const [step, setStep] = useState<AuthStep>('email');
+  const [authMethod, setAuthMethod] = useState<LoginAuthMethod>('otp');
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [_isAppleAvailable, setIsAppleAvailable] = useState(false);
+
+  const { withKeyboardDismiss } = useKeyboard();
+
+  const otpInputRef = useRef<TextInput>(null);
+  const isMountedRef = useRef(true);
+  const isVerifyingRef = useRef(false);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isInitialized && user) {
+      void clearAuthLoginResumeState();
+      if (returnTo) {
+        router.replace(decodeURIComponent(returnTo) as '/');
+      } else if (router.canDismiss()) {
+        router.dismiss();
+      } else {
+        router.replace('/');
+      }
+    }
+  }, [isInitialized, user, returnTo]);
+
+  useEffect(() => {
+    if (validatedMode !== 'otp') {
+      return;
+    }
+
+    let isActive = true;
+
+    getAuthLoginResumeState(resumeReturnTo)
+      .then((resumeState) => {
+        if (!(isActive && resumeState)) {
+          return;
+        }
+
+        setEmail(resumeState.email);
+        setStep('otp');
+        setOtp('');
+        setOtpError(null);
+      })
+      .catch((error) => {
+        log.warn('Failed to restore pending OTP login state', error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [validatedMode, resumeReturnTo]);
+
+  useEffect(() => {
+    if (step !== 'otp') {
+      return;
+    }
+
+    const animationFrameId = requestAnimationFrame(() => {
+      otpInputRef.current?.focus();
+    });
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [step]);
+
+  const handleContinue = withKeyboardDismiss(async () => {
+    const emailResult = EmailSchema.safeParse(email.trim());
+    const error = getFirstError(emailResult);
+
+    if (error) {
+      setEmailError(error);
+      return;
+    }
+
+    setEmailError(null);
+
+    const normalizedEmail = normalizeEmail(email);
+
+    if (authMethod === 'otp') {
+      const result = await signInWithOtp(normalizedEmail);
+      if (result.success) {
+        await saveAuthLoginResumeState({
+          email: normalizedEmail,
+          returnTo: resumeReturnTo,
+          step: 'otp',
+        });
+        setEmail(normalizedEmail);
+        setStep('otp');
+        router.setParams({ mode: 'otp' });
+      } else {
+        Alert.alert(
+          'Error',
+          result.error || 'Failed to send verification code'
+        );
+      }
+    } else {
+      setEmail(normalizedEmail);
+      setStep('password');
+    }
+  });
+
+  const handlePasswordSignIn = withKeyboardDismiss(async () => {
+    if (!password) {
+      setPasswordError('Password is required');
+      return;
+    }
+
+    const result = await signInWithPassword(normalizeEmail(email), password);
+
+    if (result.success) {
+      dismissAndNavigate();
+    } else {
+      Alert.alert('Error', result.error || 'Failed to sign in');
+    }
+  });
+
+  const handleResendOtp = async () => {
+    setOtp('');
+    const normalizedEmail = normalizeEmail(email);
+    const result = await signInWithOtp(normalizedEmail);
+
+    if (result.success) {
+      await saveAuthLoginResumeState({
+        email: normalizedEmail,
+        returnTo: resumeReturnTo,
+        step: 'otp',
+      });
+      Alert.alert(
+        'Success',
+        'A new verification code has been sent to your email'
+      );
+    } else {
+      Alert.alert(
+        'Error',
+        result.error || 'Failed to resend verification code'
+      );
+    }
+  };
+
+  const handleBack = () => {
+    if (returnToEmailFromAuthStep(step, { setOtp, setPassword, setStep })) {
+      return;
+    }
+
+    router.back();
+  };
+
+  useLoginHardwareBackHandler({
+    setIsAppleAvailable,
+    setOtp,
+    setPassword,
+    setStep,
+    step,
+  });
+
+  const handleGoogleSignIn = async () => {
+    await runLoginSocialSignIn({
+      errorMessage: 'Failed to sign in with Google',
+      loading: setIsGoogleLoading,
+      log,
+      provider: 'Google',
+      signIn: signInWithGoogle,
+    });
+  };
+
+  const handleAppleSignIn = async () => {
+    await runLoginSocialSignIn({
+      errorMessage: 'Failed to sign in with Apple',
+      loading: setIsAppleLoading,
+      log,
+      provider: 'Apple',
+      signIn: signInWithApple,
+    });
+  };
+
+  return {
+    authMethod,
+    colorScheme,
+    colors,
+    dismissAndNavigate,
+    email,
+    emailError,
+    handleAppleSignIn,
+    handleBack,
+    handleContinue,
+    handleGoogleSignIn,
+    handlePasswordSignIn,
+    handleResendOtp,
+    isAppleLoading,
+    isGoogleLoading,
+    isLoading,
+    isMountedRef,
+    isVerifyingRef,
+    otp,
+    otpError,
+    otpInputRef,
+    password,
+    passwordError,
+    setAuthMethod,
+    setEmail,
+    setEmailError,
+    setOtp,
+    setOtpError,
+    setPassword,
+    setPasswordError,
+    setShowPassword,
+    setStep,
+    showPassword,
+    signInWithOtp,
+    step,
+    verifyOtp,
+  };
+}

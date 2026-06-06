@@ -56,7 +56,7 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
-      detachInactiveScreens={false}
+      detachInactiveScreens={true}
       tabBar={(props) => (
         <CustomTabBar
           {...(props as unknown as BottomTabBarProps)}
@@ -77,7 +77,7 @@ export default function TabLayout() {
         headerTintColor: colors.text,
         headerShadowVisible: false,
         lazy: true,
-        freezeOnBlur: false,
+        freezeOnBlur: true,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true, // Needed for our custom label component
       }}

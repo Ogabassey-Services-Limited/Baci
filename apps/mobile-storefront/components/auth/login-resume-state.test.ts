@@ -1,0 +1,219 @@
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+import {
+  clearAuthLoginResumeState,
+  getAuthLoginResumeState,
+  saveAuthLoginResumeState,
+} from './login-resume-state';
+
+jest.mock('expo-secure-store', () => ({
+  deleteItemAsync: jest.fn(),
+  getItemAsync: jest.fn(),
+  setItemAsync: jest.fn(),
+}));
+
+jest.mock('@/lib/logger', () => ({
+  createLogger: () => ({
+    warn: jest.fn(),
+  }),
+}));
+
+const mockDeleteItemAsync = SecureStore.deleteItemAsync as jest.MockedFunction<
+  typeof SecureStore.deleteItemAsync
+>;
+const mockGetItemAsync = SecureStore.getItemAsync as jest.MockedFunction<
+  typeof SecureStore.getItemAsync
+>;
+const mockSetItemAsync = SecureStore.setItemAsync as jest.MockedFunction<
+  typeof SecureStore.setItemAsync
+>;
+const originalPlatformOS = Platform.OS;
+
+function setPlatformOS(value: typeof Platform.OS) {
+  Object.defineProperty(Platform, 'OS', {
+    configurable: true,
+    value,
+  });
+}
+
+function mockWebSessionStorage(overrides: Partial<Storage> = {}) {
+  const sessionStorage = {
+    getItem: jest.fn(() => null),
+    removeItem: jest.fn(),
+    setItem: jest.fn(),
+    ...overrides,
+  } as unknown as Storage;
+
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { sessionStorage },
+  });
+
+  return sessionStorage;
+}
+
+describe('login resume state', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    mockDeleteItemAsync.mockResolvedValue(undefined);
+    mockGetItemAsync.mockResolvedValue(null);
+    mockSetItemAsync.mockResolvedValue(undefined);
+    setPlatformOS(originalPlatformOS);
+  });
+
+  afterEach(() => {
+    setPlatformOS(originalPlatformOS);
+    jest.restoreAllMocks();
+  });
+
+  it('stores pending OTP login state with a timestamp', async () => {
+    await saveAuthLoginResumeState({
+      email: 'shopper@example.com',
+      returnTo: '/checkout',
+      step: 'otp',
+    });
+
+    expect(mockSetItemAsync).toHaveBeenCalledTimes(1);
+    const [, serializedState] = mockSetItemAsync.mock.calls[0];
+    expect(JSON.parse(serializedState)).toEqual({
+      email: 'shopper@example.com',
+      returnTo: '/checkout',
+      savedAt: 1_000_000,
+      step: 'otp',
+    });
+  });
+
+  it('returns pending OTP state only for the expected safe return target', async () => {
+    mockGetItemAsync.mockResolvedValueOnce(
+      JSON.stringify({
+        email: 'shopper@example.com',
+        returnTo: '/checkout',
+        savedAt: 1_000_000,
+        step: 'otp',
+      })
+    );
+
+    await expect(getAuthLoginResumeState('/checkout')).resolves.toEqual({
+      email: 'shopper@example.com',
+      returnTo: '/checkout',
+      step: 'otp',
+    });
+
+    mockGetItemAsync.mockResolvedValueOnce(
+      JSON.stringify({
+        email: 'shopper@example.com',
+        returnTo: '/checkout',
+        savedAt: 1_000_000,
+        step: 'otp',
+      })
+    );
+
+    await expect(getAuthLoginResumeState('/cart')).resolves.toBeNull();
+
+    mockGetItemAsync.mockResolvedValueOnce(
+      JSON.stringify({
+        email: 'shopper@example.com',
+        returnTo: 'https://evil.example/checkout',
+        savedAt: 1_000_000,
+        step: 'otp',
+      })
+    );
+
+    await expect(
+      getAuthLoginResumeState('https://evil.example/checkout')
+    ).resolves.toBeNull();
+  });
+
+  it('ignores malformed or stale pending OTP state', async () => {
+    mockGetItemAsync.mockResolvedValueOnce('not json');
+    await expect(getAuthLoginResumeState('/checkout')).resolves.toBeNull();
+
+    mockGetItemAsync.mockResolvedValueOnce(
+      JSON.stringify({
+        email: 'shopper@example.com',
+        returnTo: '/checkout',
+        savedAt: 1,
+        step: 'otp',
+      })
+    );
+    await expect(getAuthLoginResumeState('/checkout')).resolves.toBeNull();
+
+    mockGetItemAsync.mockResolvedValueOnce(
+      JSON.stringify({
+        email: 'not-an-email',
+        returnTo: '/checkout',
+        savedAt: 1_000_000,
+        step: 'otp',
+      })
+    );
+    await expect(getAuthLoginResumeState('/checkout')).resolves.toBeNull();
+  });
+
+  it('uses sessionStorage for web pending OTP login state', async () => {
+    setPlatformOS('web');
+    const sessionStorage = mockWebSessionStorage();
+
+    await saveAuthLoginResumeState({
+      email: 'shopper@example.com',
+      returnTo: '/checkout',
+      step: 'otp',
+    });
+
+    expect(sessionStorage.setItem).toHaveBeenCalledTimes(1);
+    expect(mockSetItemAsync).not.toHaveBeenCalled();
+
+    const [, serializedState] = (sessionStorage.setItem as jest.Mock).mock
+      .calls[0];
+    (sessionStorage.getItem as jest.Mock).mockReturnValueOnce(serializedState);
+
+    await expect(getAuthLoginResumeState('/checkout')).resolves.toEqual({
+      email: 'shopper@example.com',
+      returnTo: '/checkout',
+      step: 'otp',
+    });
+
+    await clearAuthLoginResumeState();
+
+    expect(sessionStorage.removeItem).toHaveBeenCalledTimes(1);
+    expect(mockDeleteItemAsync).not.toHaveBeenCalled();
+  });
+
+  it('handles web sessionStorage errors without falling back to native storage', async () => {
+    setPlatformOS('web');
+    const sessionStorage = mockWebSessionStorage({
+      getItem: jest.fn(() => {
+        throw new Error('read failed');
+      }),
+      removeItem: jest.fn(() => {
+        throw new Error('remove failed');
+      }),
+      setItem: jest.fn(() => {
+        throw new Error('write failed');
+      }),
+    });
+
+    await expect(
+      saveAuthLoginResumeState({
+        email: 'shopper@example.com',
+        returnTo: '/checkout',
+        step: 'otp',
+      })
+    ).resolves.toBeUndefined();
+    await expect(getAuthLoginResumeState('/checkout')).resolves.toBeNull();
+    await expect(clearAuthLoginResumeState()).resolves.toBeUndefined();
+
+    expect(sessionStorage.setItem).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.removeItem).toHaveBeenCalledTimes(1);
+    expect(mockSetItemAsync).not.toHaveBeenCalled();
+    expect(mockGetItemAsync).not.toHaveBeenCalled();
+    expect(mockDeleteItemAsync).not.toHaveBeenCalled();
+  });
+
+  it('clears pending OTP login state', async () => {
+    await clearAuthLoginResumeState();
+
+    expect(mockDeleteItemAsync).toHaveBeenCalledTimes(1);
+  });
+});

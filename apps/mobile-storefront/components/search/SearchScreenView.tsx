@@ -269,6 +269,7 @@ export default function SearchScreenView({
           maxPrice={maxPrice}
           onPriceChange={onPriceChange}
           brands={brandNames}
+          onBrandFilterVisible={() => undefined}
           selectedBrand={selectedBrand}
           onSelectBrand={onSelectBrand}
           selectedCondition={selectedCondition}

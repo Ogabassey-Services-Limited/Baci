@@ -23,6 +23,8 @@ const mockInitializeAuth = jest.fn<() => Promise<void>>();
 const mockCleanup = jest.fn();
 const mockRegisterPushNotifications = jest.fn();
 const mockPrefetchStartupStorefrontData = jest.fn<() => Promise<void>>();
+const mockRootLayoutNavMount = jest.fn();
+const mockRootLayoutNavUnmount = jest.fn();
 const mockAuthState = {
   cleanup: mockCleanup,
   initialize: mockInitializeAuth,
@@ -45,17 +47,22 @@ jest.mock('expo-splash-screen', () => ({
 jest.mock('@/components/AnimatedSplash', () => ({
   AnimatedSplash: ({
     children,
+    isVisible = true,
     onAnimationEnd,
   }: {
     children: React.ReactNode;
+    isVisible?: boolean;
     onAnimationEnd: () => void;
   }) => {
-    const { Pressable } =
+    const { Pressable, View } =
       jest.requireActual<typeof import('react-native')>('react-native');
     return (
-      <Pressable testID="animated-splash" onPress={onAnimationEnd}>
+      <View testID="animated-splash-wrapper">
         {children}
-      </Pressable>
+        {isVisible ? (
+          <Pressable testID="animated-splash" onPress={onAnimationEnd} />
+        ) : null}
+      </View>
     );
   },
 }));
@@ -68,8 +75,17 @@ jest.mock('@/components/navigation/RootLayoutNav', () => ({
     persistenceEnabled: boolean;
     shouldResumeNavigation?: boolean;
   }) => {
+    const { useEffect } =
+      jest.requireActual<typeof import('react')>('react');
     const { Text } =
       jest.requireActual<typeof import('react-native')>('react-native');
+    useEffect(() => {
+      mockRootLayoutNavMount();
+      return () => {
+        mockRootLayoutNavUnmount();
+      };
+    }, []);
+
     return (
       <Text testID="root-layout-nav">
         persistence:{String(persistenceEnabled)};resume:
@@ -172,6 +188,30 @@ describe('RootLayout storage boot gate', () => {
     unmount();
 
     expect(mockCleanup).not.toHaveBeenCalled();
+  });
+
+  it('keeps the navigator mounted when the startup splash finishes', async () => {
+    mockInitializeStorage.mockResolvedValue(undefined);
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
+        'persistence:false;resume:false'
+      );
+    });
+    expect(mockRootLayoutNavMount).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(screen.getByTestId('animated-splash'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('animated-splash')).toBeNull();
+    });
+    expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
+      'persistence:true;resume:true'
+    );
+    expect(mockRootLayoutNavMount).toHaveBeenCalledTimes(1);
+    expect(mockRootLayoutNavUnmount).not.toHaveBeenCalled();
   });
 
   it('does not replay the animated splash after a completed boot remount', async () => {

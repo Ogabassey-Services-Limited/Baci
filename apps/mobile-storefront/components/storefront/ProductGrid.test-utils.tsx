@@ -13,11 +13,14 @@ export const mockProductCard = jest.fn(({ product }: { product: Product }) => (
 ));
 
 let mockFilterBarProps: {
+  brands?: string[];
   categories?: string[];
   selectedCategory?: string;
+  selectedBrand?: string;
   onSelectCategory: (category: string) => void;
   onSelectBrand: (brand: string) => void;
   onSelectCondition?: (condition: string) => void;
+  onBrandFilterVisible?: () => void;
   onPriceChange?: (min: number, max: number) => void;
   onSelectRating?: (rating: number) => void;
 } | null = null;
@@ -97,11 +100,14 @@ jest.mock('./ProductCard', () => ({
 
 jest.mock('./FilterBar', () => ({
   FilterBar: (props: {
+    brands?: string[];
     categories?: string[];
     selectedCategory?: string;
+    selectedBrand?: string;
     onSelectCategory: (category: string) => void;
     onSelectBrand: (brand: string) => void;
     onSelectCondition?: (condition: string) => void;
+    onBrandFilterVisible?: () => void;
     onPriceChange?: (min: number, max: number) => void;
     onSelectRating?: (rating: number) => void;
   }) => {
@@ -184,6 +190,21 @@ export function mockProductsHook(overrides?: Partial<UseProductsResult>) {
   return refetch;
 }
 
+export function mockProductBrandsHook(
+  overrides?: Partial<UseProductBrandsResult>
+) {
+  const refetch = jest.fn();
+  mockUseProductBrandsFactory.mockReturnValue({
+    brands: ['Samsung', 'Apple'],
+    isLoading: false,
+    isError: false,
+    error: null,
+    refetch,
+    ...overrides,
+  });
+  return refetch;
+}
+
 export function getMockFilterBarProps() {
   return mockFilterBarProps;
 }
@@ -201,13 +222,7 @@ export function resetProductGridTestState() {
     isFetching: false,
     isError: false,
   });
-  mockUseProductBrandsFactory.mockReturnValue({
-    brands: ['Samsung', 'Apple'],
-    isLoading: false,
-    isError: false,
-    error: null,
-    refetch: jest.fn(),
-  });
+  mockProductBrandsHook();
   mockProductsHook();
 }
 
