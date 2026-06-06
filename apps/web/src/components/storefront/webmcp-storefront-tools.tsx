@@ -1,6 +1,8 @@
+// Required for WebMCP registration through browser globals (`document` and `navigator`).
 'use client';
 
 import { useEffect } from 'react';
+import { z } from 'zod';
 
 type JsonObject = Record<string, unknown>;
 
@@ -32,6 +34,30 @@ type StorefrontProductResponse = {
 };
 
 const MAX_CATALOG_LIMIT = 50;
+const CATALOG_SORT_VALUES = ['newest', 'price-asc', 'price-desc'] as const;
+const optionalTrimmedStringSchema = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim() : undefined),
+  z.string().min(1).optional()
+);
+const catalogSearchInputSchema = z.object({
+  query: optionalTrimmedStringSchema,
+  category: optionalTrimmedStringSchema,
+  brand: optionalTrimmedStringSchema,
+  sort: z.enum(CATALOG_SORT_VALUES).optional().catch(undefined),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_CATALOG_LIMIT)
+    .optional()
+    .catch(undefined),
+});
+const productLookupInputSchema = z.object({
+  product_id: z.string().trim().min(1),
+});
+const storePoliciesInputSchema = z.object({}).optional();
+
+type CatalogSearchInput = z.infer<typeof catalogSearchInputSchema>;
 
 type JsonResult<T> =
   | {
@@ -61,45 +87,26 @@ function getModelContext(): WebMcpModelContext | null {
     : null;
 }
 
-function getString(input: JsonObject, key: string): string | null {
-  const value = input[key];
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
+function parseCatalogSearchInput(input: unknown): CatalogSearchInput {
+  const result = catalogSearchInputSchema.safeParse(input);
+  return result.success ? result.data : {};
 }
 
-function getPositiveInteger(
-  input: JsonObject,
-  key: string,
-  fallback: number
-): number {
-  const value = input[key];
-  return typeof value === 'number' && Number.isInteger(value) && value > 0
-    ? Math.min(value, MAX_CATALOG_LIMIT)
-    : fallback;
-}
-
-function asJsonObject(input: unknown): JsonObject {
-  return input && typeof input === 'object' && !Array.isArray(input)
-    ? (input as JsonObject)
-    : {};
-}
-
-function buildProductsUrl(merchantId: string, input: JsonObject): string {
+function buildProductsUrl(
+  merchantId: string,
+  input: CatalogSearchInput
+): string {
   const params = new URLSearchParams({
     compact: 'false',
     merchant_id: merchantId,
-    limit: String(getPositiveInteger(input, 'limit', 10)),
+    limit: String(input.limit ?? 10),
   });
-  const query = getString(input, 'query');
-  const category = getString(input, 'category');
-  const brand = getString(input, 'brand');
-  const sort = getString(input, 'sort');
+  const { brand, category, query, sort } = input;
 
   if (query) params.set('q', query);
   if (category) params.set('category', category);
   if (brand) params.set('brand', brand);
-  if (sort && ['newest', 'price-asc', 'price-desc'].includes(sort)) {
-    params.set('sort', sort);
-  }
+  if (sort) params.set('sort', sort);
 
   return `/api/storefront/products?${params.toString()}`;
 }
@@ -171,7 +178,7 @@ function buildStorefrontWebMcpTools({
       annotations: READ_ONLY_ANNOTATIONS,
       execute: async (input) => {
         const result = await fetchJson<StorefrontProductResponse>(
-          buildProductsUrl(merchantId, asJsonObject(input))
+          buildProductsUrl(merchantId, parseCatalogSearchInput(input))
         );
 
         return result.ok
@@ -191,11 +198,21 @@ function buildStorefrontWebMcpTools({
       },
       annotations: READ_ONLY_ANNOTATIONS,
       execute: async (input) => {
-        const productId = getString(asJsonObject(input), 'product_id');
-        if (!productId) {
-          return { error: 'product_id is required', status: 400 };
+        const parsedInput = productLookupInputSchema.safeParse(input);
+        if (!parsedInput.success) {
+          const hasProductId =
+            input !== null &&
+            typeof input === 'object' &&
+            'product_id' in input;
+          return {
+            error: hasProductId
+              ? 'Invalid product_id'
+              : 'product_id is required',
+            status: 400,
+          };
         }
 
+        const productId = parsedInput.data.product_id;
         const params = new URLSearchParams({
           compact: 'false',
           ids: productId,
@@ -222,7 +239,12 @@ function buildStorefrontWebMcpTools({
         properties: {},
       },
       annotations: READ_ONLY_ANNOTATIONS,
-      execute: async () => {
+      execute: async (input) => {
+        const parsedInput = storePoliciesInputSchema.safeParse(input);
+        if (!parsedInput.success) {
+          return { error: 'Invalid input', status: 400 };
+        }
+
         const [authMarkdown, agentCommerceResult] = await Promise.all([
           fetchText('/auth.md'),
           fetchJson<JsonObject>('/agent-commerce.json'),

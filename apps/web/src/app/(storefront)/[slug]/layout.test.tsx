@@ -10,6 +10,7 @@ import {
 const providerSnapshots: unknown[] = [];
 let themeProviderRenders = 0;
 const mockConnection = vi.hoisted(() => vi.fn());
+const mockWebMcp = vi.hoisted(() => vi.fn(() => null));
 const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
   vi.fn(
     ({
@@ -43,19 +44,7 @@ vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
 }));
 
 vi.mock('@/components/storefront/webmcp-storefront-tools', () => ({
-  WebMcpStorefrontTools: ({
-    merchantId,
-    merchantSlug,
-  }: {
-    merchantId: string;
-    merchantSlug: string;
-  }) => (
-    <div
-      data-merchant-id={merchantId}
-      data-merchant-slug={merchantSlug}
-      data-testid="webmcp-storefront-tools"
-    />
-  ),
+  WebMcpStorefrontTools: mockWebMcp,
 }));
 
 vi.mock('@/components/storefront/store-not-published', () => ({
@@ -193,6 +182,7 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshot).mockReset();
     notFound.mockClear();
     mockConnection.mockClear();
+    mockWebMcp.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
     themeProviderRenders = 0;
@@ -237,13 +227,12 @@ describe('storefront layout', () => {
       'data-preload-hero-lcp',
       'false'
     );
-    expect(screen.getByTestId('webmcp-storefront-tools')).toHaveAttribute(
-      'data-merchant-slug',
-      'ogabassey'
-    );
-    expect(screen.getByTestId('webmcp-storefront-tools')).toHaveAttribute(
-      'data-merchant-id',
-      'merchant-1'
+    expect(mockWebMcp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+      }),
+      undefined
     );
     expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();

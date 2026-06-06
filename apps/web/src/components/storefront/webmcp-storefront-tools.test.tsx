@@ -189,7 +189,10 @@ describe('WebMcpStorefrontTools', () => {
       error: 'product_id is required',
       status: 400,
     });
-
+    await expect(productTool.execute({ product_id: ' ' })).resolves.toEqual({
+      error: 'Invalid product_id',
+      status: 400,
+    });
     const result = await productTool.execute({ product_id: 'product-1' });
 
     expect(result).toEqual({ product: { id: 'product-1' } });
