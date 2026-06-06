@@ -6,6 +6,7 @@
  * - Search and retrieve products
  * - Generate virtual bank accounts for payment
  * - Check payment status
+ * - Cancel unpaid, unfulfilled orders
  * - Get upsell/cross-sell recommendations
  */
 
@@ -61,6 +62,32 @@ export const checkPaymentStatusSchema = z
     message: 'Either orderId or customerEmail is required',
   });
 
+export const cancelOrderSchema = z
+  .object({
+    orderId: z
+      .string()
+      .trim()
+      .uuid()
+      .optional()
+      .describe('The Baci order UUID to cancel'),
+    orderNumber: z
+      .string()
+      .trim()
+      .min(1)
+      .max(64)
+      .optional()
+      .describe('The customer-facing order number to cancel'),
+    customerEmail: z
+      .string()
+      .trim()
+      .email()
+      .transform((value) => value.toLowerCase())
+      .describe('Customer email address on the order'),
+  })
+  .refine((data) => data.orderId || data.orderNumber, {
+    message: 'Either orderId or orderNumber is required',
+  });
+
 export const getRecommendationsSchema = z.object({
   productId: z.string().describe('Product ID to get recommendations for'),
   type: z
@@ -88,6 +115,8 @@ export const TOOL_DESCRIPTIONS = {
     'Generate a bank account number for the customer to pay via bank transfer. Use this when the customer is ready to pay.',
   checkPaymentStatus:
     'Check if payment has been received for a pending order. Use this when customer says they have paid.',
+  cancelOrder:
+    'Cancel an unpaid, unfulfilled customer order. Requires orderId or orderNumber plus customerEmail. If the order is paid, processing, shipped, or delivered, direct the customer to WhatsApp support instead.',
   getRecommendations:
     'Get related product recommendations. Use "upsell" for better alternatives, "cross_sell" for complementary products, "accessories" for add-ons.',
   addToCart:
@@ -104,5 +133,6 @@ export type CreateVirtualAccountParams = z.infer<
   typeof createVirtualAccountSchema
 >;
 export type CheckPaymentStatusParams = z.infer<typeof checkPaymentStatusSchema>;
+export type CancelOrderParams = z.infer<typeof cancelOrderSchema>;
 export type GetRecommendationsParams = z.infer<typeof getRecommendationsSchema>;
 export type AddToCartParams = z.infer<typeof addToCartSchema>;

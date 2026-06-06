@@ -1,4 +1,5 @@
 import { ZodError } from 'zod';
+import { handleCancelOrder } from '@/ai/chat-order-cancellation';
 import {
   handleCheckPaymentStatus,
   handleCreateVirtualAccount,
@@ -7,6 +8,7 @@ import {
   handleSearchProducts,
 } from '@/ai/chat-tool-handlers';
 import {
+  cancelOrderSchema,
   checkPaymentStatusSchema,
   createVirtualAccountSchema,
   getProductDetailsSchema,
@@ -19,6 +21,7 @@ const AGENTIC_CHAT_TOOL_NAME_LIST = [
   'getProductDetails',
   'createVirtualAccount',
   'checkPaymentStatus',
+  'cancelOrder',
   'getRecommendations',
 ] as const;
 
@@ -75,6 +78,8 @@ function executeAgenticChatTool(
         checkPaymentStatusSchema.parse(argumentsValue),
         sessionId
       );
+    case 'cancelOrder':
+      return handleCancelOrder(cancelOrderSchema.parse(argumentsValue));
     case 'getRecommendations':
       return handleGetRecommendations(
         getRecommendationsSchema.parse(argumentsValue)
