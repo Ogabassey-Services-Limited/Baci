@@ -105,7 +105,13 @@ describe('next.config OgaBassey resource headers', () => {
       expect.arrayContaining([
         {
           source: '/',
-          has: [{ type: 'header', key: 'accept', value: '.*text/markdown.*' }],
+          has: [
+            {
+              type: 'header',
+              key: 'accept',
+              value: '(?<accept>.*text/markdown.*)',
+            },
+          ],
           destination: '/llms-full.txt',
         },
         {

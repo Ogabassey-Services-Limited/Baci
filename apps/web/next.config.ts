@@ -439,7 +439,13 @@ const nextConfig: NextConfig = {
     const beforeFiles = [
       {
         source: '/',
-        has: [{ type: 'header', key: 'accept', value: '.*text/markdown.*' }],
+        has: [
+          {
+            type: 'header',
+            key: 'accept',
+            value: '(?<accept>.*text/markdown.*)',
+          },
+        ],
         destination: '/llms-full.txt',
       },
       {
