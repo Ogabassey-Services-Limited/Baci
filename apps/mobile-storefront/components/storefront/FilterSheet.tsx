@@ -164,8 +164,6 @@ export function FilterSheet({
                       accessibilityLabel="Minimum price in Naira"
                       accessibilityHint="Enter the minimum price for filtering products"
                       accessibilityLabelledBy="minPriceLabel"
-                      // BUG-5-005: focus price input on open
-                      autoFocus
                     />
                   </View>
                 </View>
