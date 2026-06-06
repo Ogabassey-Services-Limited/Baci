@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  InputAccessoryView,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -18,15 +19,29 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
+const OTP_INPUT_ACCESSORY_ID = 'verify-otp-input-accessory';
+const OTP_DIGIT_KEYS = [
+  'otp-digit-0',
+  'otp-digit-1',
+  'otp-digit-2',
+  'otp-digit-3',
+  'otp-digit-4',
+  'otp-digit-5',
+] as const;
+const LAST_OTP_INDEX = OTP_DIGIT_KEYS.length - 1;
+
 export default function VerifyScreen() {
   const { colors, isDark } = useTheme();
   const styles = getStyles(colors);
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
-  const [code, setCode] = useState(['', '', '', '', '', '']); // 6 digits
+  const [code, setCode] = useState<string[]>(() =>
+    OTP_DIGIT_KEYS.map(() => '')
+  ); // 6 digits
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false); // Custom success state
   const [timer, setTimer] = useState(30); // 30s countdown for resend
+  const [focusedOtpIndex, setFocusedOtpIndex] = useState(0);
   const inputs = useRef<Array<TextInput | null>>([]);
 
   // Refs for proper cleanup
@@ -100,12 +115,12 @@ export default function VerifyScreen() {
     setCode(newCode);
 
     // Auto-focus next input
-    if (text && index < 5) {
+    if (text && index < LAST_OTP_INDEX) {
       inputs.current[index + 1]?.focus();
     }
 
     // Auto-submit if all filled
-    if (index === 5 && text) {
+    if (index === LAST_OTP_INDEX && text) {
       // verifyCode(newCode.join('') + text.slice(-1)); // careful with state updates
       // better to use explicit submit or updated array
     }
@@ -122,7 +137,7 @@ export default function VerifyScreen() {
 
   const verifyOtp = async () => {
     const token = code.join('');
-    if (token.length !== 6) {
+    if (token.length !== OTP_DIGIT_KEYS.length) {
       Alert.alert('Error', 'Please enter a complete 6-digit code');
       return;
     }
@@ -188,6 +203,20 @@ export default function VerifyScreen() {
     }
   };
 
+  const focusOtpInput = (index: number) => {
+    inputs.current[index]?.focus();
+    setFocusedOtpIndex(index);
+  };
+
+  const handleOtpAccessoryNext = () => {
+    if (focusedOtpIndex < LAST_OTP_INDEX) {
+      focusOtpInput(focusedOtpIndex + 1);
+      return;
+    }
+
+    void verifyOtp();
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
@@ -218,18 +247,20 @@ export default function VerifyScreen() {
         </View>
 
         <View style={styles.otpContainer}>
-          {code.map((digit, index) => (
+          {OTP_DIGIT_KEYS.map((digitKey, index) => (
             <TextInput
-              key={index}
+              key={digitKey}
               ref={(ref) => {
                 inputs.current[index] = ref;
               }}
               style={styles.otpInput}
               keyboardType="number-pad"
               returnKeyType="done"
+              inputAccessoryViewID={OTP_INPUT_ACCESSORY_ID}
               maxLength={1}
-              value={digit}
+              value={code[index] ?? ''}
               onChangeText={(text) => handleCodeChange(text, index)}
+              onFocus={() => setFocusedOtpIndex(index)}
               onKeyPress={(e) => handleKeyPress(e, index)}
               placeholder="-"
               placeholderTextColor={colors.textMuted}
@@ -238,6 +269,43 @@ export default function VerifyScreen() {
             />
           ))}
         </View>
+        <InputAccessoryView nativeID={OTP_INPUT_ACCESSORY_ID}>
+          <View style={styles.keyboardAccessory}>
+            <Pressable
+              accessibilityLabel="Previous code digit"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: focusedOtpIndex === 0 }}
+              disabled={focusedOtpIndex === 0}
+              onPress={() => focusOtpInput(focusedOtpIndex - 1)}
+              style={({ pressed }) => [
+                styles.keyboardAccessoryButton,
+                focusedOtpIndex === 0 && styles.keyboardAccessoryDisabled,
+                pressed &&
+                  focusedOtpIndex > 0 &&
+                  styles.keyboardAccessoryPressed,
+              ]}
+            >
+              <Text style={styles.keyboardAccessoryText}>Previous</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel={
+                focusedOtpIndex < LAST_OTP_INDEX
+                  ? 'Next code digit'
+                  : 'Verify code'
+              }
+              accessibilityRole="button"
+              onPress={handleOtpAccessoryNext}
+              style={({ pressed }) => [
+                styles.keyboardAccessoryPrimaryButton,
+                pressed && styles.keyboardAccessoryPressed,
+              ]}
+            >
+              <Text style={styles.keyboardAccessoryPrimaryText}>
+                {focusedOtpIndex < LAST_OTP_INDEX ? 'Next' : 'Verify'}
+              </Text>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
 
         <Pressable
           style={({ pressed }) => [
@@ -369,6 +437,43 @@ const getStyles = (colors: ThemeColors) =>
       color: colors.text,
       fontSize: TYPOGRAPHY.size.xl,
       textAlign: 'center',
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    keyboardAccessory: {
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderTopColor: colors.border,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+    },
+    keyboardAccessoryButton: {
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+    },
+    keyboardAccessoryPrimaryButton: {
+      backgroundColor: colors.primary,
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+    },
+    keyboardAccessoryDisabled: {
+      opacity: 0.4,
+    },
+    keyboardAccessoryPressed: {
+      opacity: 0.7,
+    },
+    keyboardAccessoryText: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.md,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    keyboardAccessoryPrimaryText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.md,
       fontFamily: TYPOGRAPHY.fontFamily.bold,
     },
     button: {
