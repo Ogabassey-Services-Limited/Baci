@@ -26,6 +26,10 @@ describe('buildWebBotAuthDirectoryResponse', () => {
     expect(response?.headers.get('signature-input')).toContain(
       'created=1780747200'
     );
+    expect(response?.headers.get('signature-input')).toContain(
+      'expires=1780747500'
+    );
+    expect(response?.headers.get('cache-control')).toBe('public, max-age=60');
 
     await expect(response?.json()).resolves.toMatchObject({
       keys: [expect.objectContaining({ crv: 'Ed25519', kty: 'OKP' })],

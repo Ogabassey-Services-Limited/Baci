@@ -1,17 +1,12 @@
 import { createHash, createPrivateKey, randomBytes, sign } from 'node:crypto';
-import { z } from 'zod';
+import type { z } from 'zod';
+import {
+  type ED25519_JWK_SCHEMA,
+  WEB_BOT_AUTH_JWKS_SCHEMA,
+} from '@/schemas/web-bot-auth-directory';
 
-const ED25519_JWK_SCHEMA = z
-  .object({
-    crv: z.literal('Ed25519'),
-    kty: z.literal('OKP'),
-    x: z.string().min(1),
-  })
-  .passthrough();
-
-const WEB_BOT_AUTH_JWKS_SCHEMA = z.object({
-  keys: z.array(ED25519_JWK_SCHEMA).min(1),
-});
+const WEB_BOT_AUTH_DIRECTORY_CACHE_MAX_AGE_SECONDS = 60;
+const WEB_BOT_AUTH_SIGNATURE_VALIDITY_SECONDS = 300;
 
 export const WEB_BOT_AUTH_CONTENT_TYPE =
   'application/http-message-signatures-directory+json';
@@ -78,7 +73,7 @@ export function buildWebBotAuthDirectoryResponse({
   // The first JWKS entry is the active Web Bot Auth public key for this site.
   const keyid = getJwkThumbprint(parsed.data.keys[0]);
   const created = Math.floor(now.getTime() / 1000);
-  const expires = created + 60;
+  const expires = created + WEB_BOT_AUTH_SIGNATURE_VALIDITY_SECONDS;
   const nonce = randomBytes(32).toString('base64');
   const signatureParams = buildSignatureParams({
     created,
@@ -101,7 +96,7 @@ export function buildWebBotAuthDirectoryResponse({
     status: 200,
     headers: {
       'Content-Type': WEB_BOT_AUTH_CONTENT_TYPE,
-      'Cache-Control': 'public, max-age=60',
+      'Cache-Control': `public, max-age=${WEB_BOT_AUTH_DIRECTORY_CACHE_MAX_AGE_SECONDS}`,
       Signature: `sig1=:${signature}:`,
       'Signature-Input': `sig1=${signatureParams}`,
     },
