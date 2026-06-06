@@ -281,7 +281,7 @@ export default function CompleteProfileScreen() {
               value={formData.fullName}
               onChangeText={(t) => updateForm('fullName', t)}
               returnKeyType="next"
-              blurOnSubmit={false}
+              submitBehavior="submit"
               onSubmitEditing={() => phoneRef.current?.focus()}
             />
           </View>
@@ -307,7 +307,7 @@ export default function CompleteProfileScreen() {
               onChangeText={(t) => updateForm('phone', t)}
               keyboardType="phone-pad"
               returnKeyType="next"
-              blurOnSubmit={false}
+              submitBehavior="submit"
               onSubmitEditing={() => businessNameRef.current?.focus()}
             />
           </View>
@@ -332,7 +332,7 @@ export default function CompleteProfileScreen() {
               value={formData.businessName}
               onChangeText={(t) => updateForm('businessName', t)}
               returnKeyType="next"
-              blurOnSubmit={false}
+              submitBehavior="submit"
               onSubmitEditing={() => slugRef.current?.focus()}
             />
           </View>
@@ -363,6 +363,7 @@ export default function CompleteProfileScreen() {
                 value={formData.slug}
                 onChangeText={handleSlugChange}
                 returnKeyType="done"
+                submitBehavior="blurAndSubmit"
                 onSubmitEditing={handleCompleteSetup}
               />
               <Text
