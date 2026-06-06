@@ -40,6 +40,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiPatch } from '@/lib/api-client';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
+import type { DeviceInsuranceDetails } from '@/services/insurance';
 import {
   type Order,
   resendOrderConfirmation,
@@ -154,7 +155,9 @@ export default function OrderDetailsClientPage({
     }
   };
 
-  const handleConfirmationSubmit = async (data: Record<string, unknown>) => {
+  const handleConfirmationSubmit = async (
+    data: Partial<DeviceInsuranceDetails>
+  ) => {
     try {
       const response = await fetch(`/api/orders/${order.id}/confirm`, {
         method: 'POST',
