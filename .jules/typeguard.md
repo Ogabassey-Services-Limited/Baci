@@ -22,3 +22,6 @@
 
 **Learning:** Using `any` to type cart items in React components (e.g., `cart.map((item: any) => ...)`) breaks type safety and can lead to runtime errors when accessing properties that do not exist or have different names (like `variant_id` vs `variantId`).
 **Action:** Always import and use the `CartItem` interface from `@/hooks/cart/cart-types` to explicitly type cart items in map, filter, and reduce operations to ensure properties are correctly referenced.
+## 2025-02-24 - Typed Confirm Insurance Dialog Payload
+**Learning:** Replaced `any` with proper domain types `Partial<DeviceInsuranceDetails>` and `OrderDetailsItem[]` in `ConfirmInsuranceDialog`, matching the backend payload used for purchasing insurance and enabling better downstream type inferences in `client-page.tsx`. Used type-only imports and replaced type assumptions with `as const` assertion on deviceType literals where required by the interface.
+**Action:** Always search for the destination interface where the data will be used (e.g. `DeviceInsuranceDetails` used by the backend service) and apply it to the component firing the data event instead of using `any` or `Record<string, unknown>`.
