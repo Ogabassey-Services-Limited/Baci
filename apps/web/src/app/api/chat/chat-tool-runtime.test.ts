@@ -5,11 +5,15 @@ const mocks = vi.hoisted(() => ({
   handleGetProductDetails: vi.fn(),
   handleCreateVirtualAccount: vi.fn(),
   handleCheckPaymentStatus: vi.fn(),
+  handleCancelOrder: vi.fn(),
   handleGetRecommendations: vi.fn(),
   handleAddToCart: vi.fn(),
 }));
 
 vi.mock('@/ai/chat-tool-handlers', () => mocks);
+vi.mock('@/ai/chat-order-cancellation', () => ({
+  handleCancelOrder: mocks.handleCancelOrder,
+}));
 
 import { createAiSdkAgenticChatTools } from '@/app/api/chat/chat-tool-runtime';
 
@@ -26,6 +30,11 @@ describe('chat tool runtime', () => {
     });
     mocks.handleCheckPaymentStatus.mockResolvedValue({
       status: 'pending',
+      orderId: 'order-1',
+    });
+    mocks.handleCancelOrder.mockResolvedValue({
+      success: true,
+      status: 'cancelled',
       orderId: 'order-1',
     });
   });
@@ -72,5 +81,23 @@ describe('chat tool runtime', () => {
       { orderId: 'order-1' },
       'session-1'
     );
+  });
+
+  it('executes order cancellation through the AI SDK tools', async () => {
+    const tools = createAiSdkAgenticChatTools('session-1');
+    const response = await tools.cancelOrder.execute({
+      orderNumber: '#00001234',
+      customerEmail: 'buyer@example.com',
+    });
+
+    expect(JSON.parse(response)).toEqual({
+      success: true,
+      status: 'cancelled',
+      orderId: 'order-1',
+    });
+    expect(mocks.handleCancelOrder).toHaveBeenCalledWith({
+      orderNumber: '#00001234',
+      customerEmail: 'buyer@example.com',
+    });
   });
 });

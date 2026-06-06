@@ -5,10 +5,14 @@ const mocks = vi.hoisted(() => ({
   handleGetProductDetails: vi.fn(),
   handleCreateVirtualAccount: vi.fn(),
   handleCheckPaymentStatus: vi.fn(),
+  handleCancelOrder: vi.fn(),
   handleGetRecommendations: vi.fn(),
 }));
 
 vi.mock('@/ai/chat-tool-handlers', () => mocks);
+vi.mock('@/ai/chat-order-cancellation', () => ({
+  handleCancelOrder: mocks.handleCancelOrder,
+}));
 
 import { executeAgenticChatToolForOllama } from '@/app/api/chat/ollama-chat-tool-runtime';
 
@@ -22,6 +26,11 @@ describe('ollama chat tool runtime', () => {
     mocks.handleCreateVirtualAccount.mockResolvedValue({
       success: true,
       accountNumber: '1234567890',
+    });
+    mocks.handleCancelOrder.mockResolvedValue({
+      success: true,
+      status: 'cancelled',
+      orderId: 'order-1',
     });
   });
 
@@ -112,6 +121,26 @@ describe('ollama chat tool runtime', () => {
       { orderId: 'order-1' },
       'session-42'
     );
+  });
+
+  it('executes Ollama order cancellation calls', async () => {
+    const args = {
+      orderNumber: '#00001234',
+      customerEmail: 'buyer@example.com',
+    };
+
+    const result = await executeAgenticChatToolForOllama(
+      'cancelOrder',
+      JSON.stringify(args),
+      'session-42'
+    );
+
+    expect(JSON.parse(result)).toEqual({
+      success: true,
+      status: 'cancelled',
+      orderId: 'order-1',
+    });
+    expect(mocks.handleCancelOrder).toHaveBeenCalledWith(args);
   });
 
   it('does not execute cart mutation requests in the Ollama path', async () => {

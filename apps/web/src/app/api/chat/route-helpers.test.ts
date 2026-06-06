@@ -40,6 +40,10 @@ describe('chat route helpers', () => {
     expect(systemMessage.content).toContain('commerce tools');
     expect(systemMessage.content).toContain('live inventory');
     expect(systemMessage.content).toContain('payment status');
+    expect(systemMessage.content).toContain('order cancellation');
+    expect(systemMessage.content).not.toMatch(
+      /cart|add to cart|remove from cart|update cart/i
+    );
   });
 
   it('keeps safe live-data guidance for toolless VPS backends', () => {
