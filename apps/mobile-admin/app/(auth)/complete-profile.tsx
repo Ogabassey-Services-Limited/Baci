@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  InputAccessoryView,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -22,8 +21,6 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useRegistration } from '@/hooks/useRegistration';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-
-const PHONE_INPUT_ACCESSORY_ID = 'complete-profile-phone-input-accessory';
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
@@ -311,40 +308,29 @@ export default function CompleteProfileScreen() {
               keyboardType="phone-pad"
               returnKeyType="next"
               submitBehavior="submit"
-              inputAccessoryViewID={PHONE_INPUT_ACCESSORY_ID}
               onSubmitEditing={() => businessNameRef.current?.focus()}
             />
-            <InputAccessoryView nativeID={PHONE_INPUT_ACCESSORY_ID}>
-              <View
-                style={[
-                  styles.inputAccessory,
-                  {
-                    backgroundColor: colors.card,
-                    borderTopColor: colors.border,
-                  },
+            <View style={styles.fieldActionRow}>
+              <Pressable
+                accessibilityLabel="Next field"
+                accessibilityRole="button"
+                onPress={() => businessNameRef.current?.focus()}
+                style={({ pressed }) => [
+                  styles.fieldActionButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  pressed && { opacity: 0.7 },
                 ]}
               >
-                <Pressable
-                  accessibilityLabel="Next field"
-                  accessibilityRole="button"
-                  onPress={() => businessNameRef.current?.focus()}
-                  style={({ pressed }) => [
-                    styles.inputAccessoryButton,
-                    { backgroundColor: colors.primary },
-                    pressed && { opacity: 0.7 },
+                <Text
+                  style={[
+                    styles.fieldActionButtonText,
+                    { color: colors.primary },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.inputAccessoryButtonText,
-                      { color: colors.textOnPrimary },
-                    ]}
-                  >
-                    Next
-                  </Text>
-                </Pressable>
-              </View>
-            </InputAccessoryView>
+                  Next: Business name
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -399,7 +385,6 @@ export default function CompleteProfileScreen() {
                 onChangeText={handleSlugChange}
                 returnKeyType="done"
                 submitBehavior="blurAndSubmit"
-                onSubmitEditing={handleCompleteSetup}
               />
               <Text
                 style={[
@@ -671,21 +656,17 @@ const styles = StyleSheet.create({
   termsLink: {
     textDecorationLine: 'underline',
   },
-  inputAccessory: {
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+  fieldActionRow: {
+    alignItems: 'flex-end',
+  },
+  fieldActionButton: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
   },
-  inputAccessoryButton: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-  },
-  inputAccessoryButtonText: {
-    fontSize: TYPOGRAPHY.size.md,
+  fieldActionButtonText: {
+    fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
 });

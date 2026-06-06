@@ -27,8 +27,6 @@ vi.mock('react-native', async () => {
     StatusBar: () => null,
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Alert: { alert: mocks.alert },
-    InputAccessoryView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
     Linking: { openURL: vi.fn() },
     Pressable: ({
       accessibilityLabel,

@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  InputAccessoryView,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -19,7 +18,6 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
-const OTP_INPUT_ACCESSORY_ID = 'verify-otp-input-accessory';
 const OTP_DIGIT_KEYS = [
   'otp-digit-0',
   'otp-digit-1',
@@ -254,9 +252,9 @@ export default function VerifyScreen() {
                 inputs.current[index] = ref;
               }}
               style={styles.otpInput}
+              accessibilityLabel={`Digit ${index + 1} of ${OTP_DIGIT_KEYS.length}`}
               keyboardType="number-pad"
               returnKeyType="done"
-              inputAccessoryViewID={OTP_INPUT_ACCESSORY_ID}
               maxLength={1}
               value={code[index] ?? ''}
               onChangeText={(text) => handleCodeChange(text, index)}
@@ -269,43 +267,39 @@ export default function VerifyScreen() {
             />
           ))}
         </View>
-        <InputAccessoryView nativeID={OTP_INPUT_ACCESSORY_ID}>
-          <View style={styles.keyboardAccessory}>
-            <Pressable
-              accessibilityLabel="Previous code digit"
-              accessibilityRole="button"
-              accessibilityState={{ disabled: focusedOtpIndex === 0 }}
-              disabled={focusedOtpIndex === 0}
-              onPress={() => focusOtpInput(focusedOtpIndex - 1)}
-              style={({ pressed }) => [
-                styles.keyboardAccessoryButton,
-                focusedOtpIndex === 0 && styles.keyboardAccessoryDisabled,
-                pressed &&
-                  focusedOtpIndex > 0 &&
-                  styles.keyboardAccessoryPressed,
-              ]}
-            >
-              <Text style={styles.keyboardAccessoryText}>Previous</Text>
-            </Pressable>
-            <Pressable
-              accessibilityLabel={
-                focusedOtpIndex < LAST_OTP_INDEX
-                  ? 'Next code digit'
-                  : 'Verify code'
-              }
-              accessibilityRole="button"
-              onPress={handleOtpAccessoryNext}
-              style={({ pressed }) => [
-                styles.keyboardAccessoryPrimaryButton,
-                pressed && styles.keyboardAccessoryPressed,
-              ]}
-            >
-              <Text style={styles.keyboardAccessoryPrimaryText}>
-                {focusedOtpIndex < LAST_OTP_INDEX ? 'Next' : 'Verify'}
-              </Text>
-            </Pressable>
-          </View>
-        </InputAccessoryView>
+        <View style={styles.otpActionRow}>
+          <Pressable
+            accessibilityLabel="Previous code digit"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: focusedOtpIndex === 0 }}
+            disabled={focusedOtpIndex === 0}
+            onPress={() => focusOtpInput(focusedOtpIndex - 1)}
+            style={({ pressed }) => [
+              styles.otpActionButton,
+              focusedOtpIndex === 0 && styles.otpActionDisabled,
+              pressed && focusedOtpIndex > 0 && styles.otpActionPressed,
+            ]}
+          >
+            <Text style={styles.otpActionText}>Previous</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel={
+              focusedOtpIndex < LAST_OTP_INDEX
+                ? 'Next code digit'
+                : 'Verify code'
+            }
+            accessibilityRole="button"
+            onPress={handleOtpAccessoryNext}
+            style={({ pressed }) => [
+              styles.otpActionPrimaryButton,
+              pressed && styles.otpActionPressed,
+            ]}
+          >
+            <Text style={styles.otpActionPrimaryText}>
+              {focusedOtpIndex < LAST_OTP_INDEX ? 'Next' : 'Verify'}
+            </Text>
+          </Pressable>
+        </View>
 
         <Pressable
           style={({ pressed }) => [
@@ -425,7 +419,7 @@ const getStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       gap: SPACING.xs,
-      marginBottom: SPACING.xl,
+      marginBottom: SPACING.sm,
     },
     otpInput: {
       width: 45,
@@ -439,39 +433,35 @@ const getStyles = (colors: ThemeColors) =>
       textAlign: 'center',
       fontFamily: TYPOGRAPHY.fontFamily.bold,
     },
-    keyboardAccessory: {
+    otpActionRow: {
       alignItems: 'center',
-      backgroundColor: colors.card,
-      borderTopColor: colors.border,
-      borderTopWidth: StyleSheet.hairlineWidth,
       flexDirection: 'row',
       justifyContent: 'space-between',
-      paddingHorizontal: SPACING.md,
-      paddingVertical: SPACING.sm,
+      marginBottom: SPACING.xl,
     },
-    keyboardAccessoryButton: {
+    otpActionButton: {
       borderRadius: RADIUS.full,
       paddingHorizontal: SPACING.lg,
       paddingVertical: SPACING.sm,
     },
-    keyboardAccessoryPrimaryButton: {
+    otpActionPrimaryButton: {
       backgroundColor: colors.primary,
       borderRadius: RADIUS.full,
       paddingHorizontal: SPACING.lg,
       paddingVertical: SPACING.sm,
     },
-    keyboardAccessoryDisabled: {
+    otpActionDisabled: {
       opacity: 0.4,
     },
-    keyboardAccessoryPressed: {
+    otpActionPressed: {
       opacity: 0.7,
     },
-    keyboardAccessoryText: {
+    otpActionText: {
       color: colors.text,
       fontSize: TYPOGRAPHY.size.md,
       fontFamily: TYPOGRAPHY.fontFamily.medium,
     },
-    keyboardAccessoryPrimaryText: {
+    otpActionPrimaryText: {
       color: colors.textOnPrimary,
       fontSize: TYPOGRAPHY.size.md,
       fontFamily: TYPOGRAPHY.fontFamily.bold,
