@@ -19,10 +19,17 @@ import { uploadImage } from '@/lib/storage';
 import type { DeviceInsuranceDetails } from '@/services/insurance';
 import type { OrderDetailsItem } from '../order-items';
 
+export type ConfirmInsurancePayload = Omit<
+  DeviceInsuranceDetails,
+  'customerPhoto'
+> & {
+  customerPhoto?: string;
+};
+
 interface ConfirmInsuranceDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (data: Partial<DeviceInsuranceDetails>) => Promise<void>;
+  onConfirm: (data: ConfirmInsurancePayload) => Promise<void>;
   orderItems: OrderDetailsItem[];
 }
 

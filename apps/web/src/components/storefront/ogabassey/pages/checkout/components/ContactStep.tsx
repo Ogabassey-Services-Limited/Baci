@@ -272,7 +272,6 @@ export function ContactStep({
                           setIsPasswordVisible(!isPasswordVisible)
                         }
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                        aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
                       >
                         {isPasswordVisible ? (
                           <EyeOff size={18} />

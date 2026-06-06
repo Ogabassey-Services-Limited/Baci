@@ -40,7 +40,6 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiPatch } from '@/lib/api-client';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
-import type { DeviceInsuranceDetails } from '@/services/insurance';
 import {
   type Order,
   resendOrderConfirmation,
@@ -50,7 +49,9 @@ import { getOrderItems, type OrderDetailsItem } from '../order-items';
 import { getOrderSourceLabel } from '../order-source-display';
 import { OrderSourceIcon } from '../order-source-icon';
 import { StatusBadge } from '../status-badge';
-import ConfirmInsuranceDialog from './confirm-insurance-dialog';
+import ConfirmInsuranceDialog, {
+  type ConfirmInsurancePayload,
+} from './confirm-insurance-dialog';
 
 // Type definitions
 interface OrderDetailsClientPageProps {
@@ -155,9 +156,7 @@ export default function OrderDetailsClientPage({
     }
   };
 
-  const handleConfirmationSubmit = async (
-    data: Partial<DeviceInsuranceDetails>
-  ) => {
+  const handleConfirmationSubmit = async (data: ConfirmInsurancePayload) => {
     try {
       const response = await fetch(`/api/orders/${order.id}/confirm`, {
         method: 'POST',
