@@ -6,6 +6,14 @@ import {
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
 } from './src/config/storefront-metadata-cache-bots';
 
+function expectStructuredRewrites(
+  rewrites: unknown
+): asserts rewrites is { beforeFiles?: unknown[]; afterFiles?: unknown[] } {
+  expect(Array.isArray(rewrites)).toBe(false);
+  expect(typeof rewrites).toBe('object');
+  expect(rewrites).not.toBeNull();
+}
+
 describe('next.config OgaBassey resource headers', () => {
   it('lets proxy handle legacy Klump webhook trailing slash compatibility', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
@@ -48,20 +56,100 @@ describe('next.config OgaBassey resource headers', () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
 
-    expect(headers).toEqual(
+    const ogabasseyLinkHeader = headers
+      ?.find(
+        (entry) =>
+          entry.source === '/(.*)' &&
+          JSON.stringify(entry.has) ===
+            JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+      )
+      ?.headers.find((header) => header.key === 'Link')?.value;
+
+    expect(ogabasseyLinkHeader).toContain(
+      '<https://cdn.ogabassey.com>; rel=preconnect'
+    );
+  });
+
+  it('advertises agent discovery resources in OgaBassey Link headers', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+
+    const ogabasseyLinkHeader = headers
+      ?.find(
+        (entry) =>
+          entry.source === '/(.*)' &&
+          JSON.stringify(entry.has) ===
+            JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+      )
+      ?.headers.find((header) => header.key === 'Link')?.value;
+
+    expect(ogabasseyLinkHeader).toContain(
+      '</.well-known/api-catalog>; rel="api-catalog"'
+    );
+    expect(ogabasseyLinkHeader).toContain(
+      '</.well-known/agent-skills/index.json>; rel="service-meta"'
+    );
+    expect(ogabasseyLinkHeader).toContain(
+      '</.well-known/mcp/server-card.json>; rel="service-desc"'
+    );
+    expect(ogabasseyLinkHeader).toContain('</auth.md>; rel="service-doc"');
+  });
+
+  it('rewrites agent-readable homepage and robots probes to machine endpoints', async () => {
+    expect(typeof nextConfig.rewrites).toBe('function');
+    const rewrites = await nextConfig.rewrites();
+    expectStructuredRewrites(rewrites);
+    const beforeFiles = rewrites.beforeFiles ?? [];
+
+    expect(beforeFiles).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          source: '/(.*)',
-          has: [{ type: 'host', value: 'ogabassey.com' }],
-          headers: expect.arrayContaining([
+        {
+          source: '/',
+          has: [
             {
-              key: 'Link',
-              value: '<https://cdn.ogabassey.com>; rel=preconnect',
+              type: 'header',
+              key: 'accept',
+              value: '(?<accept>.*text/markdown.*)',
             },
-          ]),
-        }),
+          ],
+          destination: '/llms-full.txt',
+        },
+        {
+          source: '/robots.txt',
+          destination: '/api/robots',
+        },
       ])
     );
+  });
+
+  it('keeps MCP proxy rewrites when MCP_SERVER_URL is configured', async () => {
+    expect(typeof nextConfig.rewrites).toBe('function');
+    const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+    process.env.MCP_SERVER_URL = 'https://mcp.example.test';
+
+    try {
+      const rewrites = await nextConfig.rewrites();
+
+      expect(Array.isArray(rewrites)).toBe(false);
+      expect(rewrites).toMatchObject({
+        afterFiles: expect.arrayContaining([
+          {
+            source: '/mcp/sse',
+            destination: 'https://mcp.example.test/sse',
+          },
+          {
+            source: '/mcp/messages',
+            destination: 'https://mcp.example.test/messages',
+          },
+        ]),
+      });
+    } finally {
+      if (originalMcpServerUrl === undefined) {
+        delete process.env.MCP_SERVER_URL;
+      } else {
+        process.env.MCP_SERVER_URL = originalMcpServerUrl;
+      }
+    }
   });
 
   it('does not partition OgaBassey storefront HTML cache by raw user agent', async () => {

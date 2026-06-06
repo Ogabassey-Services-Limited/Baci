@@ -622,12 +622,12 @@ describe('PaymentMethodSelector', () => {
         />
       );
 
-      const tabTextElement = screen.getByText('Full Payment');
+      const tabTextElement = screen.getByText(/Pay\s+in full/);
       const textStyles = StyleSheet.flatten(tabTextElement.props.style);
 
       expect(textStyles.textAlign).toBe('center');
 
-      const tabElement = screen.getByRole('tab', { name: 'Full Payment' });
+      const tabElement = screen.getByRole('tab', { name: 'Pay in full' });
       const tabStyles = StyleSheet.flatten(tabElement.props.style);
 
       expect(tabStyles.paddingHorizontal).toBeGreaterThanOrEqual(4);

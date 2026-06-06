@@ -8,8 +8,8 @@
  */
 
 import type { RefObject } from 'react';
-import type { TextInput, ReturnKeyTypeOptions } from 'react-native';
 import type { Control, FieldErrors, UseFormSetValue } from 'react-hook-form';
+import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
 
 /**
  * Sign-in form data structure
@@ -77,6 +77,7 @@ export interface SocialSignInButtonsProps {
  */
 export interface SignInFormProps {
   onSuccess: () => void;
+  showSocialButtons?: boolean;
 }
 
 /**

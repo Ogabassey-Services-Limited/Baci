@@ -6,6 +6,7 @@ export { GuestCheckoutCard } from './GuestCheckoutCard';
 export { PasswordInput } from './PasswordInput';
 export { SecurityFooter } from './SecurityFooter';
 export { SignInForm } from './SignInForm';
+export { SocialCheckoutButtons } from './SocialCheckoutButtons';
 export { SocialSignInButtons } from './SocialSignInButtons';
 export { SubmitButton } from './SubmitButton';
 export { TabSelector, type TabType } from './TabSelector';

@@ -4,8 +4,8 @@ import { type Href, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getEliteHeaderTopPadding } from '@/components/storefront/header-layout';
 import { HeaderMinimal } from '@/components/storefront/HeaderMinimal';
+import { getEliteHeaderTopPadding } from '@/components/storefront/header-layout';
 import { Logo } from '@/components/ui/Logo';
 import { BRAND, SPACING } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
@@ -117,7 +117,8 @@ export function Header({
 
             <View style={styles.actionRow}>
               <Pressable
-                onPress={() => router.push('/cart')}
+                onPressIn={() => router.prefetch('/cart')}
+                onPress={() => router.navigate('/cart')}
                 hitSlop={12}
                 style={[styles.iconBtn, styles.rightIconBtn]}
                 accessibilityLabel={
@@ -245,7 +246,8 @@ export function Header({
             />
           </Pressable>
           <Pressable
-            onPress={() => router.push('/cart')}
+            onPressIn={() => router.prefetch('/cart')}
+            onPress={() => router.navigate('/cart')}
             hitSlop={12}
             style={[styles.iconBtn, styles.rightIconBtn]}
             accessibilityLabel={

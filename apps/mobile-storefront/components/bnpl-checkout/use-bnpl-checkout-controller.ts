@@ -10,6 +10,7 @@ import type {
 import {
   BNPL_UNTRUSTED_POPUP_MESSAGE,
   buildBNPLCheckoutUrl,
+  getBNPLDebugUrlDetails,
   getBNPLGatewayName,
   parseBNPLParams,
   resolveBNPLDocumentNavigation,
@@ -107,11 +108,16 @@ export function useBNPLCheckoutController({
     hasReturnedToAppRef.current = true;
     clearPendingLoadTimeout();
     setErrorMessage(null);
+    setCheckoutStatus('ready');
     appNavigation.returnToApp();
   };
 
   const handleNavigationUrl = (url: string) => {
-    const effect = resolveBNPLNavigationUrlEffect(url);
+    const effect = resolveBNPLNavigationUrlEffect(url, {
+      apiBaseUrl,
+      merchantDomain,
+      merchantSlug,
+    });
     if (!effect) {
       return;
     }
@@ -193,6 +199,11 @@ export function useBNPLCheckoutController({
   };
 
   const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
+    const targetDetails = getBNPLDebugUrlDetails(event.nativeEvent.targetUrl);
+    logBNPLCheckoutDebug('auxiliary window requested', {
+      target: targetDetails,
+    });
+
     const action = resolveBNPLPopupTargetAction({
       apiBaseUrl,
       merchantDomain,
@@ -203,12 +214,19 @@ export function useBNPLCheckoutController({
       return;
     }
 
+    logBNPLCheckoutDebug('auxiliary window decision', {
+      actionType: action.type,
+      target: targetDetails,
+      targetUrl: action.targetUrl,
+    });
+
     if (action.type === 'untrusted') {
       clearPendingLoadTimeout();
       setCheckoutStatus('error');
       setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         console.warn('[BNPLCheckout] Ignored untrusted auxiliary window', {
+          target: targetDetails,
           targetUrl: action.targetUrl,
         });
       }
@@ -251,6 +269,11 @@ export function useBNPLCheckoutController({
       clearPendingLoadTimeout();
       setCheckoutStatus('error');
       setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
+      return false;
+    }
+
+    if (decision.reason === 'return-to-app') {
+      returnToAppFromProviderExit();
       return false;
     }
 

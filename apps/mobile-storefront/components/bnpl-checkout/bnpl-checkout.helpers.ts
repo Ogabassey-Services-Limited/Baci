@@ -14,6 +14,7 @@ export {
   areBNPLCheckoutUrlsEquivalent,
   BNPL_DOCUMENT_ACCEPT_HEADER,
   buildBNPLDocumentSource,
+  isBNPLCheckoutExitUrl,
   resolveBNPLDocumentNavigation,
   sanitizeBNPLDocumentUrl,
 } from './bnpl-checkout-navigation';
@@ -56,6 +57,40 @@ export function extractErrorFromUrl(url: string) {
   }
 }
 
+export function getBNPLDebugUrlDetails(targetUrl?: string) {
+  const rawUrl = targetUrl || '';
+  if (!rawUrl) {
+    return {
+      parsed: false,
+      rawUrl,
+      reason: 'empty',
+    };
+  }
+
+  try {
+    const parsedUrl = new URL(rawUrl);
+    const searchKeys = Array.from(new Set(parsedUrl.searchParams.keys()));
+
+    return {
+      hasHash: parsedUrl.hash.length > 0,
+      hasSearch: parsedUrl.search.length > 0,
+      hostname: parsedUrl.hostname,
+      origin: parsedUrl.origin,
+      parsed: true,
+      pathname: parsedUrl.pathname,
+      protocol: parsedUrl.protocol,
+      rawUrl,
+      searchKeys,
+    };
+  } catch {
+    return {
+      parsed: false,
+      rawUrl,
+      reason: 'invalid-url',
+    };
+  }
+}
+
 export function buildBNPLCheckoutUrl({
   apiBaseUrl,
   params,
@@ -66,6 +101,7 @@ export function buildBNPLCheckoutUrl({
   if (!params.isValid || !params.data?.orderId) return '';
 
   const {
+    amount,
     authorizationUrl,
     customerEmail,
     customerName,
@@ -103,6 +139,7 @@ export function buildBNPLCheckoutUrl({
   if (customerEmail?.trim()) query.set('email', customerEmail.trim());
   if (customerName?.trim()) query.set('customerName', customerName.trim());
   if (customerPhone?.trim()) query.set('customerPhone', customerPhone.trim());
+  if (amount?.trim()) query.set('amount', amount.trim());
   if (trackingToken?.trim()) query.set('token', trackingToken.trim());
 
   return `${baseUrl}/${slug}/checkout/bnpl?${query.toString()}`;
@@ -123,7 +160,9 @@ export const BNPL_INJECTED_JAVASCRIPT = `
       'creditdirect.ng',
       'credpal.com',
       'lendastack.io',
-      'mono.co'
+      'mono.co',
+      'paystack.com',
+      'paystack.co'
     ];
 
     const isProviderOrigin = function(origin) {
@@ -158,6 +197,43 @@ export const BNPL_INJECTED_JAVASCRIPT = `
       return summary;
     };
 
+    const getUrlDebugDetails = function(rawUrl) {
+      const stringUrl = rawUrl ? String(rawUrl) : '';
+      if (!stringUrl) {
+        return {
+          parsed: false,
+          rawUrl: '',
+          reason: 'empty'
+        };
+      }
+
+      try {
+        const parsedUrl = new URL(stringUrl, window.location.href);
+        const searchKeysSet = new Set();
+        parsedUrl.searchParams.forEach(function(_value, key) {
+          searchKeysSet.add(key);
+        });
+
+        return {
+          hasHash: parsedUrl.hash.length > 0,
+          hasSearch: parsedUrl.search.length > 0,
+          hostname: parsedUrl.hostname,
+          origin: parsedUrl.origin,
+          parsed: true,
+          pathname: parsedUrl.pathname,
+          protocol: parsedUrl.protocol,
+          rawUrl: stringUrl,
+          searchKeys: Array.from(searchKeysSet)
+        };
+      } catch (_error) {
+        return {
+          parsed: false,
+          rawUrl: stringUrl,
+          reason: 'invalid-url'
+        };
+      }
+    };
+
     const originalLog = console.log;
     console.log = function(...args) {
       originalLog.apply(console, args);
@@ -169,6 +245,22 @@ export const BNPL_INJECTED_JAVASCRIPT = `
         });
       }
     };
+
+    if (typeof window.open === 'function') {
+      const originalOpen = window.open;
+      window.open = function(url, target, features) {
+        postDebugMessage({
+          type: 'bnpl_log',
+          message: 'window.open called',
+          target: getUrlDebugDetails(url),
+          windowTarget: target ? String(target) : '',
+          features: typeof features === 'string' ? features : '',
+          url: window.location.href
+        });
+
+        return originalOpen.apply(this, arguments);
+      };
+    }
 
     window.addEventListener('error', function(event) {
       const target = event.target;

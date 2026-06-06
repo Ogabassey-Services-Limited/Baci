@@ -38,6 +38,36 @@ function withBillItemsForType(type: BillType, billers: Biller[]): Biller[] {
     : billers;
 }
 
+function getErrorMessages(error: unknown): string[] {
+  if (!(error instanceof Error)) {
+    return [String(error)];
+  }
+
+  const messages = [error.message];
+  const nestedError = (error as { lastError?: unknown }).lastError;
+  if (nestedError instanceof Error) {
+    messages.push(nestedError.message);
+  }
+
+  return messages;
+}
+
+function isCanceledFetchError(error: unknown): boolean {
+  if (error instanceof Error && error.name === 'AbortError') {
+    return true;
+  }
+
+  return getErrorMessages(error).some((message) => {
+    const normalizedMessage = message.toLowerCase();
+    return (
+      normalizedMessage.includes('fetch request has been canceled') ||
+      normalizedMessage.includes('fetch request has been cancelled') ||
+      normalizedMessage.includes('request has been canceled') ||
+      normalizedMessage.includes('request has been cancelled')
+    );
+  });
+}
+
 function scheduleDeferredBillerPrefetch(callback: () => void, index: number) {
   const frameIds: number[] = [];
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -123,10 +153,13 @@ async function fetchBillers(type: BillType): Promise<Biller[]> {
 
     return result.data.billers;
   } catch (error) {
-    log.error(
-      'VTU',
-      `Failed to fetch billers: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
+    if (isCanceledFetchError(error)) {
+      log.info('VTU', `Biller fetch canceled: ${errorMessage}`);
+    } else {
+      log.error('VTU', `Failed to fetch billers: ${errorMessage}`);
+    }
     throw error;
   }
 }

@@ -3,7 +3,7 @@ import Ionicons, {
 } from '@react-native-vector-icons/ionicons';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { BRAND, palette } from '@/constants/Colors';
+import type { CheckoutIdentityTheme } from '../colors';
 import { useHapticFeedback } from '../hooks';
 import { styles } from '../styles';
 
@@ -34,9 +34,14 @@ const TABS: Tab[] = [
 interface TabSelectorProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  theme: CheckoutIdentityTheme;
 }
 
-export function TabSelector({ activeTab, onTabChange }: TabSelectorProps) {
+export function TabSelector({
+  activeTab,
+  onTabChange,
+  theme,
+}: TabSelectorProps) {
   const { triggerHaptic } = useHapticFeedback();
 
   const handleTabPress = (tabId: TabType) => {
@@ -48,7 +53,7 @@ export function TabSelector({ activeTab, onTabChange }: TabSelectorProps) {
 
   return (
     <View
-      style={styles.tabContainer}
+      style={[styles.tabContainer, { borderBottomColor: theme.border }]}
       accessibilityRole="tablist"
       accessible={false}
     >
@@ -57,7 +62,16 @@ export function TabSelector({ activeTab, onTabChange }: TabSelectorProps) {
         return (
           <Pressable
             key={tab.id}
-            style={[styles.tab, isActive && styles.tabActive]}
+            style={[
+              styles.tab,
+              isActive && [
+                styles.tabActive,
+                {
+                  backgroundColor: theme.primarySubtle,
+                  borderBottomColor: theme.primary,
+                },
+              ],
+            ]}
             onPress={() => handleTabPress(tab.id)}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
@@ -71,11 +85,17 @@ export function TabSelector({ activeTab, onTabChange }: TabSelectorProps) {
             <Ionicons
               name={tab.icon}
               size={16}
-              color={isActive ? BRAND.primary : palette.gray[500]}
+              color={isActive ? theme.primary : theme.mutedText}
               accessibilityElementsHidden={true}
               importantForAccessibility="no"
             />
-            <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+            <Text
+              style={[
+                styles.tabText,
+                { color: theme.mutedText },
+                isActive && [styles.tabTextActive, { color: theme.primary }],
+              ]}
+            >
               {tab.label}
             </Text>
           </Pressable>

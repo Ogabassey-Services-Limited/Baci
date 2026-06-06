@@ -58,6 +58,12 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return trimmed || undefined;
 }, z.string().optional());
 
+const optionalTrimmedUrlSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}, z.url().optional());
+
 const ENV_VALUE_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
 
 const aiChatProviderSchema = z.preprocess(
@@ -183,6 +189,9 @@ const serverSchema = z
     OPENAI_AGENTIC_MERCHANT_SLUG: z.string().optional(),
     OPENAI_AGENTIC_SIGNING_KEY: z.string().optional(),
     OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS: z.string().optional(),
+    OGABASSEY_AGENT_ORIGIN: optionalTrimmedUrlSchema,
+    MCP_PUBLIC_SERVER_URL: optionalTrimmedUrlSchema,
+    MCP_PUBLIC_HEALTH_URL: optionalTrimmedUrlSchema,
 
     // Debug
     KUDA_BILL_DEBUG: z.string().optional(),
@@ -380,6 +389,8 @@ const clientSchema = z.object({
       message: 'CDN origin must use HTTPS',
     })
     .optional(),
+  NEXT_PUBLIC_MCP_SERVER_URL: optionalTrimmedUrlSchema,
+  NEXT_PUBLIC_MCP_HEALTH_URL: optionalTrimmedUrlSchema,
 
   // Payments (Public keys)
   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: z.string().optional(),
@@ -429,6 +440,8 @@ const getEnv = () => {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN:
       process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN,
+    NEXT_PUBLIC_MCP_SERVER_URL: process.env.NEXT_PUBLIC_MCP_SERVER_URL,
+    NEXT_PUBLIC_MCP_HEALTH_URL: process.env.NEXT_PUBLIC_MCP_HEALTH_URL,
     NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY:
       process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
     KORAPAY_PUBLIC_KEY: process.env.KORAPAY_PUBLIC_KEY,
@@ -477,6 +490,9 @@ const getEnv = () => {
         OPENAI_AGENTIC_SIGNING_KEY: process.env.OPENAI_AGENTIC_SIGNING_KEY,
         OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS:
           process.env.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
+        OGABASSEY_AGENT_ORIGIN: process.env.OGABASSEY_AGENT_ORIGIN,
+        MCP_PUBLIC_SERVER_URL: process.env.MCP_PUBLIC_SERVER_URL,
+        MCP_PUBLIC_HEALTH_URL: process.env.MCP_PUBLIC_HEALTH_URL,
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
         ZEPTOMAIL_FROM_DOMAIN: process.env.ZEPTOMAIL_FROM_DOMAIN,
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,

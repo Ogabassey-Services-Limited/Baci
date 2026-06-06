@@ -9,8 +9,9 @@
  * - Full accessibility support
  */
 
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import type { TextInput } from 'react-native';
+import type { CheckoutIdentityTheme } from '../colors';
 import { useSignInForm } from '../hooks';
 import type { SignInFormProps } from '../types';
 import { EmailInput } from './EmailInput';
@@ -18,6 +19,10 @@ import { ErrorAlert } from './ErrorAlert';
 import { PasswordInput } from './PasswordInput';
 import { SocialSignInButtons } from './SocialSignInButtons';
 import { SubmitButton } from './SubmitButton';
+
+interface ThemedSignInFormProps extends SignInFormProps {
+  theme: CheckoutIdentityTheme;
+}
 
 /**
  * Sign-in form with email/password and social authentication
@@ -29,7 +34,11 @@ import { SubmitButton } from './SubmitButton';
  * - SubmitButton: Primary action button
  * - SocialSignInButtons: Google/Apple sign-in
  */
-export function SignInForm({ onSuccess }: SignInFormProps) {
+export function SignInForm({
+  onSuccess,
+  showSocialButtons = true,
+  theme,
+}: ThemedSignInFormProps) {
   const passwordInputRef = useRef<TextInput>(null);
   const {
     control,
@@ -46,7 +55,7 @@ export function SignInForm({ onSuccess }: SignInFormProps) {
   return (
     <>
       {/* Error Message */}
-      <ErrorAlert error={error} />
+      <ErrorAlert error={error} theme={theme} />
 
       {/* Email Input */}
       <EmailInput
@@ -56,6 +65,7 @@ export function SignInForm({ onSuccess }: SignInFormProps) {
         onClearError={clearError}
         returnKeyType="next"
         onSubmitEditing={() => passwordInputRef.current?.focus()}
+        theme={theme}
       />
 
       {/* Password Input */}
@@ -68,17 +78,25 @@ export function SignInForm({ onSuccess }: SignInFormProps) {
         inputRef={passwordInputRef}
         returnKeyType="go"
         onSubmitEditing={handleSignIn}
+        theme={theme}
       />
 
       {/* Submit Button */}
-      <SubmitButton isLoading={isLoading} onPress={handleSignIn} />
+      <SubmitButton
+        isLoading={isLoading}
+        onPress={handleSignIn}
+        theme={theme}
+      />
 
       {/* Social Sign-In */}
-      <SocialSignInButtons
-        isLoading={isLoading}
-        onGoogleSignIn={handleGoogleSignIn}
-        onAppleSignIn={handleAppleSignIn}
-      />
+      {showSocialButtons && (
+        <SocialSignInButtons
+          isLoading={isLoading}
+          onGoogleSignIn={handleGoogleSignIn}
+          onAppleSignIn={handleAppleSignIn}
+          theme={theme}
+        />
+      )}
     </>
   );
 }

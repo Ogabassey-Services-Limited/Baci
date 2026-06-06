@@ -18,6 +18,7 @@ const BNPL_PROVIDER_POPUP_ORIGINS = new Set([
   'https://js.useklump.com',
   'https://asset.useklump.com',
 ]);
+const BNPL_PROVIDER_POPUP_HOSTNAMES = ['paystack.com', 'paystack.co'] as const;
 const MERCHANT_DOMAIN_SLUG_PATTERN =
   /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
@@ -225,6 +226,15 @@ function isBaciReturnOrigin(
   return false;
 }
 
+function isAllowedBnplProviderHostname(hostname: string) {
+  const normalizedHost = hostname.trim().toLowerCase();
+  return BNPL_PROVIDER_POPUP_HOSTNAMES.some(
+    (allowedHostname) =>
+      normalizedHost === allowedHostname ||
+      normalizedHost.endsWith(`.${allowedHostname}`)
+  );
+}
+
 export function isTrustedBnplReturnUrl(
   targetUrl: string,
   baseUrl: string,
@@ -259,6 +269,8 @@ export function isAllowedBnplPopupUrl(
 
     return (
       BNPL_PROVIDER_POPUP_ORIGINS.has(parsedTargetUrl.origin) ||
+      (parsedTargetUrl.protocol === 'https:' &&
+        isAllowedBnplProviderHostname(parsedTargetUrl.hostname)) ||
       isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantDomain)
     );
   } catch {

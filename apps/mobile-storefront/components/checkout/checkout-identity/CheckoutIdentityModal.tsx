@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Keyboard,
   Modal,
@@ -12,18 +12,21 @@ import {
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
-import { palette } from '@/constants/Colors';
-
+import { useColorScheme } from '@/components/useColorScheme';
+import { getCheckoutIdentityTheme } from './colors';
 import {
-  CreateAccountCard,
   Divider,
+  ErrorAlert,
   GuestCheckoutCard,
   SecurityFooter,
   SignInForm,
-  TabSelector,
-  type TabType,
+  SocialCheckoutButtons,
 } from './components';
-import { useBottomSheetAnimation, useHapticFeedback } from './hooks';
+import {
+  useBottomSheetAnimation,
+  useHapticFeedback,
+  useSignInForm,
+} from './hooks';
 import { styles } from './styles';
 
 interface CheckoutIdentityModalProps {
@@ -36,8 +39,10 @@ export function CheckoutIdentityModal({
   onClose,
 }: CheckoutIdentityModalProps) {
   const insets = useSafeAreaInsets();
+  const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
+  const theme = getCheckoutIdentityTheme(colorScheme);
   const { triggerHaptic } = useHapticFeedback();
-  const [activeTab, setActiveTab] = useState<TabType>('new');
+  const [showEmailSignIn, setShowEmailSignIn] = useState(false);
 
   // Bottom sheet animations with reduced motion support
   const { animatedBackdropStyle, animatedSheetStyle } = useBottomSheetAnimation(
@@ -46,26 +51,41 @@ export function CheckoutIdentityModal({
     }
   );
 
+  const handleSignInSuccess = () => {
+    setShowEmailSignIn(false);
+    onClose();
+  };
+
+  const {
+    error: socialAuthError,
+    handleAppleSignIn,
+    handleGoogleSignIn,
+    isLoading: isSocialAuthLoading,
+  } = useSignInForm({ onSuccess: handleSignInSuccess });
+
   const handleClose = () => {
     triggerHaptic('light');
     Keyboard.dismiss();
+    setShowEmailSignIn(false);
     onClose();
   };
 
   const handleGuestCheckout = () => {
     triggerHaptic('light');
+    setShowEmailSignIn(false);
     onClose();
     router.push('/checkout');
   };
 
-  const handleRegister = () => {
+  const handleShowEmailSignIn = () => {
     triggerHaptic('light');
-    onClose();
-    router.push('/auth/login?mode=register&redirect=checkout');
+    setShowEmailSignIn(true);
   };
 
-  const handleSignInSuccess = () => {
-    onClose();
+  const handleShowCheckoutOptions = () => {
+    triggerHaptic('light');
+    Keyboard.dismiss();
+    setShowEmailSignIn(false);
   };
 
   // Early return for closed state
@@ -85,7 +105,13 @@ export function CheckoutIdentityModal({
     >
       <AppKeyboardContainer style={styles.container}>
         {/* Backdrop */}
-        <Animated.View style={[styles.backdrop, animatedBackdropStyle]}>
+        <Animated.View
+          style={[
+            styles.backdrop,
+            { backgroundColor: theme.backdrop },
+            animatedBackdropStyle,
+          ]}
+        >
           <Pressable
             style={styles.backdropPressable}
             onPress={handleClose}
@@ -100,7 +126,10 @@ export function CheckoutIdentityModal({
           style={[
             styles.sheet,
             animatedSheetStyle,
-            { paddingBottom: insets.bottom + 16 },
+            {
+              backgroundColor: theme.sheet,
+              paddingBottom: 0,
+            },
           ]}
           accessibilityRole="none"
         >
@@ -110,34 +139,27 @@ export function CheckoutIdentityModal({
             accessible={false}
             importantForAccessibility="no"
           >
-            <View style={styles.handle} />
+            <View style={[styles.handle, { backgroundColor: theme.handle }]} />
           </View>
-
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle} accessibilityRole="header">
-              Checkout
-            </Text>
-            <Pressable
-              onPress={handleClose}
-              style={styles.closeButton}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              accessibilityHint="Close checkout modal"
-            >
-              <Ionicons
-                name="close"
-                size={22}
-                color={palette.gray[500]}
-                accessibilityElementsHidden={true}
-                importantForAccessibility="no"
-              />
-            </Pressable>
-          </View>
-
-          {/* Tabs */}
-          <TabSelector activeTab={activeTab} onTabChange={setActiveTab} />
+          <Pressable
+            onPress={handleClose}
+            style={[
+              styles.floatingCloseButton,
+              { backgroundColor: theme.closeButton },
+            ]}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            accessibilityHint="Close checkout modal"
+          >
+            <Ionicons
+              name="close"
+              size={22}
+              color={theme.mutedText}
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no"
+            />
+          </Pressable>
 
           {/* Content */}
           <ScrollView
@@ -147,19 +169,83 @@ export function CheckoutIdentityModal({
             keyboardShouldPersistTaps="handled"
             accessibilityRole="none"
           >
-            {activeTab === 'new' ? (
+            {showEmailSignIn ? (
               <>
-                <GuestCheckoutCard onPress={handleGuestCheckout} />
-                <Divider />
-                <CreateAccountCard onPress={handleRegister} />
+                <Pressable
+                  onPress={handleShowCheckoutOptions}
+                  style={styles.emailBackButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to checkout options"
+                  accessibilityHint="Return to guest, Apple, and Google checkout options"
+                >
+                  <Ionicons
+                    name="chevron-back"
+                    size={16}
+                    color={theme.primary}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                  />
+                  <Text
+                    style={[
+                      styles.emailBackButtonText,
+                      { color: theme.primary },
+                    ]}
+                  >
+                    Checkout options
+                  </Text>
+                </Pressable>
+                <SignInForm
+                  onSuccess={handleSignInSuccess}
+                  showSocialButtons={false}
+                  theme={theme}
+                />
               </>
             ) : (
-              <SignInForm onSuccess={handleSignInSuccess} />
+              <>
+                <ErrorAlert error={socialAuthError} theme={theme} />
+                <GuestCheckoutCard
+                  onPress={handleGuestCheckout}
+                  theme={theme}
+                />
+                <Divider text="or sign in instantly" theme={theme} />
+                <SocialCheckoutButtons
+                  isLoading={isSocialAuthLoading}
+                  onAppleSignIn={handleAppleSignIn}
+                  onGoogleSignIn={handleGoogleSignIn}
+                  theme={theme}
+                />
+                <Pressable
+                  onPress={handleShowEmailSignIn}
+                  style={[
+                    styles.emailSignInButton,
+                    { borderColor: theme.border },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign in with email"
+                  accessibilityHint="Show the email and password sign in form"
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={16}
+                    color={theme.mutedText}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                  />
+                  <Text
+                    style={[
+                      styles.emailSignInButtonText,
+                      { color: theme.mutedText },
+                    ]}
+                  >
+                    Sign in with email
+                  </Text>
+                </Pressable>
+              </>
             )}
           </ScrollView>
 
           {/* Footer */}
-          <SecurityFooter />
+          <SecurityFooter bottomInset={insets.bottom} theme={theme} />
         </Animated.View>
       </AppKeyboardContainer>
     </Modal>

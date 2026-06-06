@@ -42,6 +42,18 @@ describe('resolveBNPLNavigationUrlEffect', () => {
     });
   });
 
+  it('returns app-exit effects for trusted merchant URLs outside checkout', () => {
+    expect(
+      resolveBNPLNavigationUrlEffect('https://ogabassey.com/', {
+        apiBaseUrl: 'https://usebaci.com',
+        merchantDomain: 'ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toEqual({
+      status: 'return-to-app',
+    });
+  });
+
   it('ignores unrelated navigation URLs', () => {
     expect(
       resolveBNPLNavigationUrlEffect('https://shop.example.com/products')
@@ -95,6 +107,32 @@ describe('resolveBNPLPopupTargetAction', () => {
     ).toEqual({
       targetUrl: 'https://www.baci.shop/demo/checkout/bnpl',
       type: 'load',
+    });
+  });
+
+  it('loads trusted Paystack auxiliary checkout subdomains', () => {
+    expect(
+      resolveBNPLPopupTargetAction({
+        apiBaseUrl,
+        merchantSlug: 'demo',
+        targetUrl: 'https://link.paystack.com/90lqd13ljptyujh',
+      })
+    ).toEqual({
+      targetUrl: 'https://link.paystack.com/90lqd13ljptyujh',
+      type: 'load',
+    });
+  });
+
+  it('rejects Paystack lookalike auxiliary checkout hosts', () => {
+    expect(
+      resolveBNPLPopupTargetAction({
+        apiBaseUrl,
+        merchantSlug: 'demo',
+        targetUrl: 'https://paystack.com.evil.example/90lqd13ljptyujh',
+      })
+    ).toEqual({
+      targetUrl: 'https://paystack.com.evil.example/90lqd13ljptyujh',
+      type: 'untrusted',
     });
   });
 

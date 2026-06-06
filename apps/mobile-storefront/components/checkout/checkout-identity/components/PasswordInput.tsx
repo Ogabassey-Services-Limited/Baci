@@ -11,9 +11,13 @@
 import React, { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Controller } from 'react-hook-form';
-import { palette } from '@/constants/Colors';
+import type { CheckoutIdentityTheme } from '../colors';
 import type { PasswordInputProps, SignInFormData } from '../types';
 import { styles } from '../styles';
+
+interface ThemedPasswordInputProps extends PasswordInputProps {
+  theme: CheckoutIdentityTheme;
+}
 
 /**
  * Password input with visibility toggle and forgot link
@@ -27,13 +31,17 @@ export function PasswordInput({
   inputRef,
   returnKeyType,
   onSubmitEditing,
-}: PasswordInputProps) {
+  theme,
+}: ThemedPasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
     <View style={styles.inputGroup}>
       <View style={styles.inputLabelRow}>
-        <Text style={styles.inputLabel} nativeID="password-label">
+        <Text
+          style={[styles.inputLabel, { color: theme.mutedText }]}
+          nativeID="password-label"
+        >
           Password
         </Text>
         <Pressable
@@ -43,14 +51,17 @@ export function PasswordInput({
           accessibilityHint="Navigate to password reset"
           disabled={isLoading}
         >
-          <Text style={styles.forgotLink}>Forgot password?</Text>
+          <Text style={[styles.forgotLink, { color: theme.primary }]}>
+            Forgot password?
+          </Text>
         </Pressable>
       </View>
       <View
         style={[
           styles.passwordContainer,
+          { backgroundColor: theme.input, borderColor: theme.border },
           errors.password && {
-            borderColor: '#DC2626',
+            borderColor: theme.error,
             borderWidth: 1.5,
           },
         ]}
@@ -61,9 +72,9 @@ export function PasswordInput({
           render={({ field: { onChange, onBlur, value } }) => (
             <TextInput
               ref={inputRef}
-              style={styles.passwordInput}
+              style={[styles.passwordInput, { color: theme.text }]}
               placeholder="Enter password"
-              placeholderTextColor={palette.gray[400]}
+              placeholderTextColor={theme.placeholder}
               value={value}
               onChangeText={(text) => {
                 onChange(text);
@@ -94,7 +105,7 @@ export function PasswordInput({
           accessibilityHint="Toggle password visibility"
           disabled={isLoading}
         >
-          <Text style={styles.showPasswordText}>
+          <Text style={[styles.showPasswordText, { color: theme.mutedText }]}>
             {showPassword ? 'Hide' : 'Show'}
           </Text>
         </Pressable>
@@ -103,7 +114,7 @@ export function PasswordInput({
         <Text
           style={{
             fontSize: 12,
-            color: '#DC2626',
+            color: theme.error,
             marginTop: 4,
           }}
           accessibilityRole="alert"

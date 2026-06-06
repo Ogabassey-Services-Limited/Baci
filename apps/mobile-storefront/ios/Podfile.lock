@@ -1958,6 +1958,29 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-pager-view (8.0.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - SwiftUIIntrospect (~> 1.0)
+    - Yoga
   - react-native-render-html (6.3.4):
     - React-Core
   - react-native-safe-area-context (5.8.0):
@@ -2777,6 +2800,7 @@ PODS:
   - SDWebImageWebPCoder (0.14.6):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
+  - SwiftUIIntrospect (1.3.0)
   - TikTokBusinessSDK (1.6.1)
   - Yoga (0.0.0)
   - ZXingObjC/Core (3.6.9)
@@ -2884,6 +2908,7 @@ DEPENDENCIES:
   - react-native-fbsdk-next (from `../../../node_modules/react-native-fbsdk-next`)
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
+  - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-render-html (from `../../../node_modules/react-native-render-html`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-vector-icons-feather (from `../../../node_modules/@react-native-vector-icons/feather`)"
@@ -2956,6 +2981,7 @@ SPEC REPOS:
     - SDWebImageAVIFCoder
     - SDWebImageSVGCoder
     - SDWebImageWebPCoder
+    - SwiftUIIntrospect
     - TikTokBusinessSDK
     - ZXingObjC
 
@@ -3155,6 +3181,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-keyboard-controller"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
+  react-native-pager-view:
+    :path: "../../../node_modules/react-native-pager-view"
   react-native-render-html:
     :path: "../../../node_modules/react-native-render-html"
   react-native-safe-area-context:
@@ -3318,7 +3346,7 @@ SPEC CHECKSUMS:
   FirebaseCore: f4428e22415ea3b3eca652c2098413dabf2a23a9
   FirebaseCoreInternal: e7bbaeb00ab73011298f35ed223aa7371e212948
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
-  hermes-engine: 855204150974bba1b7ba0b0cd26ea1a6c51b1fe5
+  hermes-engine: 70f3279c68cb643cf5240097f52361889bbb79c7
   libavif: 5f8e715bea24debec477006f21ef9e95432e254d
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -3336,7 +3364,7 @@ SPEC CHECKSUMS:
   React: e2dc35338068bbd299c66f043ae0d7f25de8499e
   React-callinvoker: 28b25d21b124c26cebaea713ba7d801b9351dc48
   React-Core: 02ed7d2ffb70437bdf2aba074a13078a7b0b9ff0
-  React-Core-prebuilt: ba037525b41831233740db5f78791c93842d6022
+  React-Core-prebuilt: 2479a21e8085c88036d65e8704397fecf6f5d9ed
   React-CoreModules: b3a5a42dadcde3b5d47b325bd912eb2ced89e146
   React-cxxreact: fe8f88dda044e5905e99a00f41b7a874c3908716
   React-debug: 9af1e96a6069c996e3d9f1e493603e74bc9f1593
@@ -3368,6 +3396,7 @@ SPEC CHECKSUMS:
   react-native-fbsdk-next: 325e4973a478f098bb9406fb2a13fa2e1f5dffeb
   react-native-keyboard-controller: 6d7a5ed594b6370bd9c069ebcd2e7df574b7f995
   react-native-netinfo: a05f9b897e76ad24b53f615fed1cbb731932363d
+  react-native-pager-view: 4eb2faa444dc7caec9ed5749af4da2e0142e7ca7
   react-native-render-html: 5afc4751f1a98621b3009432ef84c47019dcb2bd
   react-native-safe-area-context: 0bbcdfba5c4a1b3203276f1ed9128e3239fdf199
   react-native-vector-icons-feather: 57093d5a5c8ff48c34032e03313103ef306e2d49
@@ -3407,7 +3436,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 25c9c516839be2c5e3d3344f95dc7da5f7e63fc2
   ReactCodegen: 5b2b5c009cec17b5e848bde3bc067c339009390d
   ReactCommon: 7dfc3250793bf36cf221096ff59e1179e13eef7f
-  ReactNativeDependencies: 387dff20e3d09d2f48428b1622349b4132961607
+  ReactNativeDependencies: 483d749c90930fbfdbcfe7a68c58360d4c66965e
   RNCMaskedView: 8069b4d4e23b3d28b4fcac70bf266be43ffc3d2e
   RNDateTimePicker: afe0288e6c7855994f7f2617b7b2c05799fea7f3
   RNFBApp: 79b63f3ffec455179e6cebb37d5750be022c6fb8
@@ -3420,6 +3449,7 @@ SPEC CHECKSUMS:
   SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
+  SwiftUIIntrospect: fee9aa07293ee280373a591e1824e8ddc869ba5d
   TikTokBusinessSDK: 349bb1dea1f90d01f9b39418ebe7c8eb981c04af
   Yoga: e240fec777ff1f21ef42ccebbb44b6d262125855
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5

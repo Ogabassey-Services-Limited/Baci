@@ -127,6 +127,22 @@ export const checkoutScreenViewStyles = StyleSheet.create({
     gap: 12,
   },
   pickerItemText: { fontSize: 14 },
+  customCityItem: {
+    borderWidth: 1,
+    borderBottomWidth: 1,
+    marginBottom: 10,
+  },
+  customCityLabel: {
+    color: palette.amber[500],
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  customCityText: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 2,
+  },
   citySearchContainer: {
     borderWidth: 1,
     borderRadius: 12,
