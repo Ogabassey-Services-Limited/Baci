@@ -73,4 +73,46 @@ describe('agent readiness config', () => {
       'https://mcp.staging.example/mcp'
     );
   });
+
+  it('falls back to NEXT_PUBLIC MCP URLs when MCP_PUBLIC values are absent', async () => {
+    const config = await importAgentReadiness({
+      NEXT_PUBLIC_MCP_SERVER_URL: 'https://mcp.public.example/mcp',
+      NEXT_PUBLIC_MCP_HEALTH_URL: 'https://mcp.public.example/health',
+      OGABASSEY_AGENT_ORIGIN: 'https://storefront.public.example',
+    });
+
+    expect(config.BACI_MCP_SERVER_URL).toBe('https://mcp.public.example/mcp');
+    expect(config.BACI_MCP_HEALTH_URL).toBe(
+      'https://mcp.public.example/health'
+    );
+    expect(config.BACI_AGENT_SKILL_MARKDOWN).toContain(
+      'https://storefront.public.example/llms.txt'
+    );
+    expect(config.BACI_AGENT_SKILL_MARKDOWN).toContain(
+      'https://mcp.public.example/mcp'
+    );
+  });
+
+  it('treats empty discovery environment values as unset', async () => {
+    const config = await importAgentReadiness({
+      MCP_PUBLIC_SERVER_URL: '   ',
+      MCP_PUBLIC_HEALTH_URL: '',
+      NEXT_PUBLIC_MCP_SERVER_URL: '\t',
+      NEXT_PUBLIC_MCP_HEALTH_URL: '  ',
+      OGABASSEY_AGENT_ORIGIN: ' ',
+    });
+
+    expect(config.BACI_MCP_SERVER_URL).toBe('https://mcp.ogabassey.com/mcp');
+    expect(config.BACI_MCP_HEALTH_URL).toBe('https://mcp.ogabassey.com/health');
+    expect(config.BACI_AGENT_SKILL_MARKDOWN).toContain(
+      'https://ogabassey.com/llms.txt'
+    );
+    expect(config.BACI_AGENT_SKILL_MARKDOWN).toContain(
+      'https://mcp.ogabassey.com/mcp'
+    );
+    expect(config.BACI_AGENT_SKILL_MARKDOWN).not.toContain(
+      '- Storefront origin: \n'
+    );
+    expect(config.BACI_AGENT_SKILL_MARKDOWN).not.toContain('- MCP server: \n');
+  });
 });

@@ -10,25 +10,27 @@ export const BACI_AGENT_SKILL_DESCRIPTION =
 export const BACI_AGENT_SKILL_PATH =
   '/.well-known/agent-skills/baci-storefront/SKILL.md';
 
+function readTrimmedEnv(...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
 const OGABASSEY_ORIGIN =
-  process.env.OGABASSEY_AGENT_ORIGIN ?? 'https://ogabassey.com';
+  readTrimmedEnv('OGABASSEY_AGENT_ORIGIN') ?? 'https://ogabassey.com';
 const DEFAULT_MCP_ORIGIN = 'https://mcp.ogabassey.com';
 
 export const BACI_MCP_SERVER_URL =
-  process.env.MCP_PUBLIC_SERVER_URL ??
-  process.env.NEXT_PUBLIC_MCP_SERVER_URL ??
+  readTrimmedEnv('MCP_PUBLIC_SERVER_URL', 'NEXT_PUBLIC_MCP_SERVER_URL') ??
   `${DEFAULT_MCP_ORIGIN}/mcp`;
 export const BACI_MCP_HEALTH_URL =
-  process.env.MCP_PUBLIC_HEALTH_URL ??
-  process.env.NEXT_PUBLIC_MCP_HEALTH_URL ??
+  readTrimmedEnv('MCP_PUBLIC_HEALTH_URL', 'NEXT_PUBLIC_MCP_HEALTH_URL') ??
   `${DEFAULT_MCP_ORIGIN}/health`;
-
-const LLM_GUIDE_URL = `${OGABASSEY_ORIGIN}/llms.txt`;
-const LLM_FULL_GUIDE_URL = `${OGABASSEY_ORIGIN}/llms-full.txt`;
-const UCP_PROFILE_URL = `${OGABASSEY_ORIGIN}/.well-known/ucp`;
-const ACP_PROFILE_URL = `${OGABASSEY_ORIGIN}/.well-known/acp.json`;
-const AGENT_COMMERCE_URL = `${OGABASSEY_ORIGIN}/agent-commerce.json`;
-const OPENAPI_URL = `${OGABASSEY_ORIGIN}/openapi.json`;
 
 export const OGABASSEY_AGENT_DISCOVERY_LINK_HEADER = [
   '<https://cdn.ogabassey.com>; rel=preconnect',
@@ -39,7 +41,20 @@ export const OGABASSEY_AGENT_DISCOVERY_LINK_HEADER = [
   '</auth.md>; rel="service-doc"; type="text/markdown"',
 ].join(', ');
 
-export const BACI_AGENT_SKILL_MARKDOWN = `---
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/+$/, '') || OGABASSEY_ORIGIN;
+}
+
+export function buildAgentSkillMarkdown(baseUrl: string): string {
+  const storefrontOrigin = normalizeBaseUrl(baseUrl);
+  const llmGuideUrl = `${storefrontOrigin}/llms.txt`;
+  const llmFullGuideUrl = `${storefrontOrigin}/llms-full.txt`;
+  const ucpProfileUrl = `${storefrontOrigin}/.well-known/ucp`;
+  const acpProfileUrl = `${storefrontOrigin}/.well-known/acp.json`;
+  const agentCommerceUrl = `${storefrontOrigin}/agent-commerce.json`;
+  const openApiUrl = `${storefrontOrigin}/openapi.json`;
+
+  return `---
 name: baci-storefront
 description: ${BACI_AGENT_SKILL_DESCRIPTION}
 ---
@@ -50,13 +65,13 @@ Use this skill when helping a user browse, compare, or buy from Ogabassey, a Bac
 
 ## Discovery
 
-- Storefront origin: ${OGABASSEY_ORIGIN}
-- LLM guide: ${LLM_GUIDE_URL}
-- Full LLM guide: ${LLM_FULL_GUIDE_URL}
-- UCP profile: ${UCP_PROFILE_URL}
-- ACP profile: ${ACP_PROFILE_URL}
-- Agent commerce manifest: ${AGENT_COMMERCE_URL}
-- OpenAPI description: ${OPENAPI_URL}
+- Storefront origin: ${storefrontOrigin}
+- LLM guide: ${llmGuideUrl}
+- Full LLM guide: ${llmFullGuideUrl}
+- UCP profile: ${ucpProfileUrl}
+- ACP profile: ${acpProfileUrl}
+- Agent commerce manifest: ${agentCommerceUrl}
+- OpenAPI description: ${openApiUrl}
 - MCP server: ${BACI_MCP_SERVER_URL}
 
 ## Safety
@@ -74,3 +89,7 @@ Use this skill when helping a user browse, compare, or buy from Ogabassey, a Bac
 - create_agentic_checkout_session: create a signed checkout session only after user confirmation.
 - check_order: look up order status from an order number or phone number supplied by the user.
 `;
+}
+
+export const BACI_AGENT_SKILL_MARKDOWN =
+  buildAgentSkillMarkdown(OGABASSEY_ORIGIN);

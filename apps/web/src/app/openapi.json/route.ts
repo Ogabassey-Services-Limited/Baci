@@ -213,6 +213,7 @@ export function GET(request: Request): NextResponse {
   return NextResponse.json(buildOpenApiDocument(buildRequestBaseUrl(request)), {
     headers: {
       'Cache-Control': AGENT_READINESS_CACHE_CONTROL,
+      'Vercel-CDN-Cache-Control': 'no-store',
     },
   });
 }

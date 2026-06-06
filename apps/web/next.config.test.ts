@@ -6,6 +6,14 @@ import {
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
 } from './src/config/storefront-metadata-cache-bots';
 
+function expectStructuredRewrites(
+  rewrites: unknown
+): asserts rewrites is { beforeFiles?: unknown[]; afterFiles?: unknown[] } {
+  expect(Array.isArray(rewrites)).toBe(false);
+  expect(typeof rewrites).toBe('object');
+  expect(rewrites).not.toBeNull();
+}
+
 describe('next.config OgaBassey resource headers', () => {
   it('lets proxy handle legacy Klump webhook trailing slash compatibility', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
@@ -90,9 +98,8 @@ describe('next.config OgaBassey resource headers', () => {
   it('rewrites agent-readable homepage and robots probes to machine endpoints', async () => {
     expect(typeof nextConfig.rewrites).toBe('function');
     const rewrites = await nextConfig.rewrites();
-    const beforeFiles = Array.isArray(rewrites)
-      ? rewrites
-      : (rewrites?.beforeFiles ?? []);
+    expectStructuredRewrites(rewrites);
+    const beforeFiles = rewrites.beforeFiles ?? [];
 
     expect(beforeFiles).toEqual(
       expect.arrayContaining([

@@ -32,6 +32,7 @@ export function GET(request: Request): Response {
     headers: {
       'Content-Type': 'text/markdown; charset=utf-8',
       'Cache-Control': AGENT_READINESS_CACHE_CONTROL,
+      'Vercel-CDN-Cache-Control': 'no-store',
       'X-Robots-Tag': 'noarchive',
     },
   });

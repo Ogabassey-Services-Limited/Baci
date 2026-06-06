@@ -9,10 +9,16 @@ describe('GET /.well-known/agent-skills/index.json', () => {
       import('./route'),
       import('../baci-storefront/SKILL.md/route'),
     ]);
+    const request = new Request(
+      'https://ogabassey.com/.well-known/agent-skills/index.json',
+      {
+        headers: { host: 'merchant.example.com' },
+      }
+    );
 
-    const response = GET();
+    const response = GET(request);
     const body = await response.json();
-    const skillResponse = getSkill();
+    const skillResponse = getSkill(request);
     const skillBody = await skillResponse.text();
     const digest = createHash('sha256').update(skillBody).digest('hex');
 
@@ -32,5 +38,7 @@ describe('GET /.well-known/agent-skills/index.json', () => {
       ],
     });
     expect(response.headers.get('cache-control')).toContain('max-age=3600');
+    expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
+    expect(skillBody).toContain('https://merchant.example.com/llms.txt');
   });
 });
