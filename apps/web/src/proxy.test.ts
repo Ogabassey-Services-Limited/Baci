@@ -1,6 +1,8 @@
 import type { User } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
+import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   getCustomDomainForSlug,
   getSlugForCustomDomain,
@@ -17,6 +19,10 @@ const AUTHENTICATED_USER: User = {
   id: 'merchant-user-id',
   user_metadata: {},
 };
+const MACHINE_READABLE_TEST_PATHS = [
+  ...Object.values(STOREFRONT_AGENT_ROUTES),
+  ...Object.values(STOREFRONT_FEED_ROUTES),
+];
 
 // Mock dependencies
 vi.mock('@/lib/supabase/middleware', () => ({
@@ -855,15 +861,9 @@ describe('Middleware Proxy', () => {
     );
   });
 
-  it.each([
-    '/agent-commerce.json',
-    '/agent-trust.json',
-    '/.well-known/agent-native-commerce',
-    '/.well-known/ucp',
-    '/feeds/google-merchant.xml',
-    '/feeds/openai.jsonl',
-    '/feeds/agent-products.jsonl',
-  ])('passes custom-domain machine-readable path %s to the app route', async (path) => {
+  it.each(
+    MACHINE_READABLE_TEST_PATHS
+  )('passes custom-domain machine-readable path %s to the app route', async (path) => {
     const req = new NextRequest(`https://ogabassey.com${path}`);
     req.headers.set('host', 'ogabassey.com');
 
@@ -878,6 +878,18 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-middleware-request-x-merchant-domain')).toBe(
       'ogabassey.com'
     );
+  });
+
+  it.each(
+    MACHINE_READABLE_TEST_PATHS
+  )('passes platform machine-readable path %s to the app route', async (path) => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}${path}`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('x-middleware-next')).toBe('1');
   });
 
   it('strips spoofed merchant slug headers from unresolved custom-domain machine-readable requests', async () => {
@@ -900,9 +912,16 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    '/auth.md',
+    '/openapi.json',
     '/agent-commerce.json',
     '/agent-trust.json',
+    '/.well-known/acp.json',
     '/.well-known/agent-native-commerce',
+    '/.well-known/agent-skills/index.json',
+    '/.well-known/agent-skills/baci-storefront/SKILL.md',
+    '/.well-known/api-catalog',
+    '/.well-known/mcp/server-card.json',
     '/.well-known/ucp',
     '/feeds/google-merchant.xml',
     '/feeds/openai.jsonl',

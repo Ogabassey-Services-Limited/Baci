@@ -42,6 +42,22 @@ vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
   DeferredPageViewTracker: () => <div data-testid="page-view-tracker" />,
 }));
 
+vi.mock('@/components/storefront/webmcp-storefront-tools', () => ({
+  WebMcpStorefrontTools: ({
+    merchantId,
+    merchantSlug,
+  }: {
+    merchantId: string;
+    merchantSlug: string;
+  }) => (
+    <div
+      data-merchant-id={merchantId}
+      data-merchant-slug={merchantSlug}
+      data-testid="webmcp-storefront-tools"
+    />
+  ),
+}));
+
 vi.mock('@/components/storefront/store-not-published', () => ({
   StoreNotPublished: ({ businessName }: { businessName: string }) => (
     <div>{businessName} unpublished</div>
@@ -220,6 +236,14 @@ describe('storefront layout', () => {
     expect(screen.getByTestId('ogabassey-layout')).toHaveAttribute(
       'data-preload-hero-lcp',
       'false'
+    );
+    expect(screen.getByTestId('webmcp-storefront-tools')).toHaveAttribute(
+      'data-merchant-slug',
+      'ogabassey'
+    );
+    expect(screen.getByTestId('webmcp-storefront-tools')).toHaveAttribute(
+      'data-merchant-id',
+      'merchant-1'
     );
     expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
