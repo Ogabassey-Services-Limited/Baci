@@ -163,6 +163,9 @@ export default function SignupForm() {
                             size="sm"
                             className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent z-20"
                             onClick={() => setShowPassword(!showPassword)}
+                            aria-label={
+                              showPassword ? 'Hide password' : 'Show password'
+                            }
                           >
                             {showPassword ? (
                               <EyeOff className="size-4 text-muted-foreground" />
@@ -200,6 +203,11 @@ export default function SignupForm() {
                             className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent z-20"
                             onClick={() =>
                               setShowConfirmPassword(!showConfirmPassword)
+                            }
+                            aria-label={
+                              showConfirmPassword
+                                ? 'Hide password'
+                                : 'Show password'
                             }
                           >
                             {showConfirmPassword ? (
