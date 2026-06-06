@@ -1,3 +1,4 @@
+import { handleCancelOrder } from '@/ai/chat-order-cancellation';
 import {
   handleAddToCart,
   handleCheckPaymentStatus,
@@ -9,8 +10,10 @@ import {
 import {
   type AddToCartParams,
   addToCartSchema,
+  type CancelOrderParams,
   type CheckPaymentStatusParams,
   type CreateVirtualAccountParams,
+  cancelOrderSchema,
   checkPaymentStatusSchema,
   createVirtualAccountSchema,
   type GetProductDetailsParams,
@@ -53,6 +56,17 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
       inputSchema: checkPaymentStatusSchema,
       execute: async (params: CheckPaymentStatusParams) => {
         const result = await handleCheckPaymentStatus(params, sessionId);
+        return JSON.stringify(result);
+      },
+    },
+    cancelOrder: {
+      description: TOOL_DESCRIPTIONS.cancelOrder,
+      inputSchema: cancelOrderSchema,
+      execute: async (params: CancelOrderParams) => {
+        // Order cancellation must work for existing storefront orders, not only
+        // orders created in this chat session. The handler verifies merchant
+        // scope, order reference, customer email, and cancellable order status.
+        const result = await handleCancelOrder(params);
         return JSON.stringify(result);
       },
     },

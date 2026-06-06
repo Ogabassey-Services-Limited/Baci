@@ -187,11 +187,20 @@ vi.mock('@/ai/chat-tool-handlers', () => ({
   handleAddToCart: vi.fn(async () => ({ success: true })),
 }));
 
+vi.mock('@/ai/chat-order-cancellation', () => ({
+  handleCancelOrder: vi.fn(async () => ({
+    success: true,
+    status: 'cancelled',
+    orderId: 'order-1',
+  })),
+}));
+
 vi.mock('@/ai/chat-tools', () => ({
   searchProductsSchema: { parse: vi.fn() },
   getProductDetailsSchema: { parse: vi.fn() },
   createVirtualAccountSchema: { parse: vi.fn() },
   checkPaymentStatusSchema: { parse: vi.fn() },
+  cancelOrderSchema: { parse: vi.fn() },
   getRecommendationsSchema: { parse: vi.fn() },
   addToCartSchema: { parse: vi.fn() },
   TOOL_DESCRIPTIONS: {
@@ -199,6 +208,7 @@ vi.mock('@/ai/chat-tools', () => ({
     getProductDetails: 'Get product details',
     createVirtualAccount: 'Create virtual account',
     checkPaymentStatus: 'Check payment status',
+    cancelOrder: 'Cancel order',
     getRecommendations: 'Get recommendations',
     addToCart: 'Add to cart',
   },
@@ -566,9 +576,76 @@ describe('POST /api/chat', () => {
     });
     expect(result.secondResult).toEqual({
       error:
-        'createVirtualAccount already created an order in this chat turn. Use the existing tool result instead of creating another order.',
+        'createVirtualAccount already completed a commerce action in this chat turn. Use the existing tool result instead of calling it again.',
     });
     expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('returns a static fallback when Ollama fails after canceling an order', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'cancelOrder';
+    ollamaExecutedToolResultBeforeFailure = JSON.stringify({
+      success: true,
+      status: 'cancelled',
+      orderId: 'order-1',
+    });
+    ollamaError = new Error('Chat returned an empty completion');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Cancel my order' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
+    expect(text).toContain('AI assistant is temporarily busy');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
+      'Chat returned an empty completion'
+    );
+  });
+
+  it('falls back to Gemini when cancelOrder did not mutate the order', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecutedToolNameBeforeFailure = 'cancelOrder';
+    ollamaExecutedToolResultBeforeFailure = JSON.stringify({
+      success: false,
+      status: 'not_cancellable',
+      orderId: 'order-1',
+    });
+    ollamaError = new Error('Chat returned an empty completion');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Cancel my order' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Chat returned an empty completion'
+    );
   });
 
   it('falls back to Gemini when a side-effecting Ollama tool only returned a validation error', async () => {
@@ -837,7 +914,7 @@ describe('POST /api/chat', () => {
     expect(sanitizeHtml).not.toHaveBeenCalledWith('Hello!');
   });
 
-  it('passes all 6 tools to generateText', async () => {
+  it('passes all 7 tools to generateText', async () => {
     // Act
     await POST(
       makeRequest({
@@ -862,6 +939,9 @@ describe('POST /api/chat', () => {
           }),
           checkPaymentStatus: expect.objectContaining({
             description: 'Check payment status',
+          }),
+          cancelOrder: expect.objectContaining({
+            description: 'Cancel order',
           }),
           getRecommendations: expect.objectContaining({
             description: 'Get recommendations',

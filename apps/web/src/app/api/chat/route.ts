@@ -7,6 +7,7 @@
  * - Search products and get details
  * - Generate virtual bank accounts for payment
  * - Check payment status
+ * - Cancel unpaid, unfulfilled orders
  * - Provide upsell/cross-sell recommendations
  * - Add items to cart
  *
@@ -70,13 +71,19 @@ const chatRequestSchema = z.object({
     .optional(),
 });
 
-const SIDE_EFFECTING_OLLAMA_TOOL_NAMES = new Set(['createVirtualAccount']);
+const SIDE_EFFECTING_OLLAMA_TOOL_NAMES = new Set([
+  'createVirtualAccount',
+  'cancelOrder',
+]);
 
 function isSideEffectingOllamaToolCall(call: OllamaToolCall): boolean {
   return SIDE_EFFECTING_OLLAMA_TOOL_NAMES.has(call.function.name);
 }
 
-function didOllamaToolCreateSideEffect(result: string): boolean {
+function didOllamaToolCreateSideEffect(
+  toolName: string,
+  result: string
+): boolean {
   try {
     const parsed = JSON.parse(result) as unknown;
     if (typeof parsed !== 'object' || parsed === null) {
@@ -87,7 +94,17 @@ function didOllamaToolCreateSideEffect(result: string): boolean {
       accountNumber?: unknown;
       orderId?: unknown;
       success?: unknown;
+      status?: unknown;
     };
+
+    if (toolName === 'cancelOrder') {
+      return (
+        maybeResult.success === true &&
+        maybeResult.status === 'cancelled' &&
+        typeof maybeResult.orderId === 'string' &&
+        maybeResult.orderId.length > 0
+      );
+    }
 
     return (
       (typeof maybeResult.orderId === 'string' &&
@@ -103,7 +120,7 @@ function didOllamaToolCreateSideEffect(result: string): boolean {
 
 function createRepeatedSideEffectToolResult(toolName: string): string {
   return JSON.stringify({
-    error: `${toolName} already created an order in this chat turn. Use the existing tool result instead of creating another order.`,
+    error: `${toolName} already completed a commerce action in this chat turn. Use the existing tool result instead of calling it again.`,
   });
 }
 
@@ -242,7 +259,7 @@ export async function POST(req: Request) {
 
               if (
                 isSideEffectingOllamaToolCall(call) &&
-                didOllamaToolCreateSideEffect(result)
+                didOllamaToolCreateSideEffect(toolName, result)
               ) {
                 sideEffectingOllamaToolsWithEffects.add(toolName);
               }
@@ -252,7 +269,7 @@ export async function POST(req: Request) {
             onToolExecuted: (call, result) => {
               if (
                 isSideEffectingOllamaToolCall(call) &&
-                didOllamaToolCreateSideEffect(result)
+                didOllamaToolCreateSideEffect(call.function.name, result)
               ) {
                 ollamaSideEffectingToolExecuted = true;
               }
