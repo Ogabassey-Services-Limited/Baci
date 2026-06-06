@@ -9,6 +9,7 @@ import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-v
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
+import { WebMcpStorefrontTools } from '@/components/storefront/webmcp-storefront-tools';
 import { MOBILE_APPS } from '@/config/platform';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
@@ -203,6 +204,10 @@ function StorefrontShellFrame({
         merchantSlug={merchantSlug}
         deferValidationUntilIdle
       >
+        <WebMcpStorefrontTools
+          merchantId={merchant.id}
+          merchantSlug={merchantSlug}
+        />
         <DeferredPageViewTracker merchantId={merchant.id} />
         {/*
           Global Layout Wrapper logic:
