@@ -18,3 +18,6 @@
 ## 2026-06-02 - Missing Tenant Isolation in Order Updates
 **Learning:** Even when modifying data derived from a known entity (like an `order_id`), Supabase `.update()` calls can act as IDOR (Insecure Direct Object Reference) vectors if not explicitly scoped by `merchant_id`. In `record-payment`, the order status was being updated purely by `id`, which could allow a malicious user to modify another tenant's order status if they guess the ID.
 **Action:** ALWAYS chain `.eq('merchant_id', merchantId)` onto database mutations (`.update()`, `.delete()`), even when selecting by the record's primary key (`.eq('id', id)`). This ensures defense-in-depth against cross-tenant data modification.
+## 2026-06-05 - Missing merchant_id scope in negotiation updates
+**Learning:** Updates to the `negotiation_requests` table lacked `.eq('merchant_id', merchant.id)` scoping. Although it checked `id`, omitting `merchant_id` could allow a cross-tenant data leak if an attacker somehow guesses another merchant's negotiation request ID. RLS is a defense line, but application code should always defensively scope updates to the authenticated context.
+**Action:** Always append `.eq('merchant_id', merchant.id)` when executing mutations (`.update()`, `.delete()`, `.insert()`) on tenant-specific tables to enforce defense-in-depth tenant isolation.
