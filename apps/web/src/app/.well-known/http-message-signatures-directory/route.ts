@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { env, getRootDomain } from '@/env';
 import { buildWebBotAuthDirectoryResponse } from '@/lib/agentic/web-bot-auth-directory';
-import { getRequestHost, stripPort } from '@/lib/storefront-host';
+import { buildRequestBaseUrl, stripPort } from '@/lib/storefront-host';
 
 const DEFAULT_ROOT_DOMAIN = 'usebaci.com';
 
 function getAllowedWebBotAuthAuthority(request: Request): string | null {
-  const authority = stripPort(getRequestHost(request));
+  const authority = stripPort(new URL(buildRequestBaseUrl(request)).host);
   const rootDomain = (getRootDomain() || DEFAULT_ROOT_DOMAIN)
     .split(/[\r\n]/)[0]
     .trim()
