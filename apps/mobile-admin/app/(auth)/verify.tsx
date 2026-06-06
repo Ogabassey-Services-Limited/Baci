@@ -2,13 +2,16 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Alert,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -196,7 +199,10 @@ export default function VerifyScreen() {
         <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
-            style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && { opacity: 0.7 },
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
@@ -234,7 +240,11 @@ export default function VerifyScreen() {
         </View>
 
         <Pressable
-          style={({ pressed }) => [styles.button, isLoading && { opacity: 0.7 }, pressed && !isLoading && { opacity: 0.7 }]}
+          style={({ pressed }) => [
+            styles.button,
+            isLoading && { opacity: 0.7 },
+            pressed && !isLoading && { opacity: 0.7 },
+          ]}
           onPress={verifyOtp}
           disabled={isLoading}
           accessibilityRole="button"
@@ -251,10 +261,16 @@ export default function VerifyScreen() {
         <Pressable
           onPress={resendCode}
           disabled={timer > 0 || isLoading}
-          style={({ pressed }) => [styles.resendButton, pressed && timer <= 0 && !isLoading && { opacity: 0.7 }]}
+          style={({ pressed }) => [
+            styles.resendButton,
+            pressed && timer <= 0 && !isLoading && { opacity: 0.7 },
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Resend code"
-          accessibilityState={{ disabled: timer > 0 || isLoading, busy: isLoading }}
+          accessibilityState={{
+            disabled: timer > 0 || isLoading,
+            busy: isLoading,
+          }}
         >
           <Text
             style={[
@@ -283,7 +299,10 @@ export default function VerifyScreen() {
               Your email has been successfully verified. Welcome to Baci.
             </Text>
             <Pressable
-              style={({ pressed }) => [styles.successButton, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [
+                styles.successButton,
+                pressed && { opacity: 0.7 },
+              ]}
               onPress={() => {
                 // Dismiss the modal — the auth layout will handle the redirect
                 // once the auth state updates from the Supabase listener

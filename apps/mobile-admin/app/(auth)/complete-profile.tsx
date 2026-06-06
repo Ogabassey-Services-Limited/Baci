@@ -2,13 +2,16 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Alert,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { BusinessTypeSelector } from '@/components/auth/BusinessTypeSelector';
 import { RegisterLegalText } from '@/components/auth/register/RegisterLegalText';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
@@ -434,7 +437,7 @@ export default function CompleteProfileScreen() {
                     accessibilityState={{ selected: isSelected }}
                     key={country.code}
                     onPress={() => updateForm('country', country.code)}
-                    style={[
+                    style={({ pressed }) => [
                       styles.countryOption,
                       {
                         backgroundColor: isSelected
@@ -444,6 +447,7 @@ export default function CompleteProfileScreen() {
                           ? colors.primary
                           : colors.border,
                       },
+                      pressed && { opacity: 0.7 },
                     ]}
                   >
                     <Text
@@ -465,17 +469,18 @@ export default function CompleteProfileScreen() {
           </View>
 
           <Pressable
-            style={[
+            style={({ pressed }) => [
               styles.button,
               { backgroundColor: colors.primary },
               isLoading && { opacity: 0.7 },
+              pressed && !isLoading && { opacity: 0.7 },
             ]}
             onPress={handleCompleteSetup}
             disabled={isLoading}
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Launch Store"
-            accessibilityState={{ disabled: isLoading }}
+            accessibilityState={{ disabled: isLoading, busy: isLoading }}
           >
             {isLoading ? (
               <ActivityIndicator color={colors.textOnPrimary} />
