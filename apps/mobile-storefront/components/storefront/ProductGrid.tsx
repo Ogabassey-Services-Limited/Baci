@@ -1,6 +1,6 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { dedupeById } from '@baci/shared/lib';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { PRODUCT_GRID_MAX_PRICE_LIMIT } from '@/constants/product-grid';
 import {
   type Category,
@@ -54,6 +54,7 @@ export default function ProductGrid({
     setViewMode,
     viewMode,
   } = useProductGridFilters();
+  const [brandOptionsRequested, setBrandOptionsRequested] = useState(false);
   const {
     data: categoriesData = [],
     isFetchedAfterMount: isCategoriesFetchedAfterMount,
@@ -135,8 +136,11 @@ export default function ProductGrid({
     products,
     selectedCategorySlug,
   });
-  const { brands = [] } = useProductBrands({
+  const shouldLoadBrandOptions =
+    brandOptionsRequested || selectedBrand !== 'All';
+  const { brands = [], isLoading: isBrandsLoading } = useProductBrands({
     category: normalizedCategoryId,
+    enabled: shouldLoadBrandOptions,
     minPrice: minPrice > 0 ? minPrice : undefined,
     maxPrice: maxPrice < PRODUCT_GRID_MAX_PRICE_LIMIT ? maxPrice : undefined,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
@@ -154,10 +158,21 @@ export default function ProductGrid({
   });
 
   useEffect(() => {
-    if (selectedBrand !== 'All' && !brands.includes(selectedBrand)) {
+    if (
+      shouldLoadBrandOptions &&
+      !isBrandsLoading &&
+      selectedBrand !== 'All' &&
+      !brands.includes(selectedBrand)
+    ) {
       setSelectedBrand('All');
     }
-  }, [brands, selectedBrand, setSelectedBrand]);
+  }, [
+    brands,
+    isBrandsLoading,
+    selectedBrand,
+    setSelectedBrand,
+    shouldLoadBrandOptions,
+  ]);
 
   const handleCategoryChipSelect = (categoryName: string) => {
     handleCategorySelect(
@@ -218,6 +233,7 @@ export default function ProductGrid({
       minPrice={minPrice}
       minRating={minRating}
       onPriceChange={handlePriceChange}
+      onBrandFilterVisible={() => setBrandOptionsRequested(true)}
       onRetry={handleRetry}
       onSelectBrand={setSelectedBrand}
       onSelectCategory={handleCategoryChipSelect}

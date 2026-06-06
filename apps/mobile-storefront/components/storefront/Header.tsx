@@ -117,7 +117,6 @@ export function Header({
 
             <View style={styles.actionRow}>
               <Pressable
-                onPressIn={() => router.prefetch('/cart')}
                 onPress={() => router.navigate('/cart')}
                 hitSlop={12}
                 style={[styles.iconBtn, styles.rightIconBtn]}
@@ -246,7 +245,6 @@ export function Header({
             />
           </Pressable>
           <Pressable
-            onPressIn={() => router.prefetch('/cart')}
             onPress={() => router.navigate('/cart')}
             hitSlop={12}
             style={[styles.iconBtn, styles.rightIconBtn]}

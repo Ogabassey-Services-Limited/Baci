@@ -21,6 +21,7 @@ interface ProductGridViewProps {
   minPrice: number;
   minRating: number;
   onPriceChange: (min: number, max: number) => void;
+  onBrandFilterVisible: () => void;
   onRetry: () => void;
   onSelectBrand: (brand: string) => void;
   onSelectCategory: (categoryName: string) => void;
@@ -49,6 +50,7 @@ export function ProductGridView({
   minPrice,
   minRating,
   onPriceChange,
+  onBrandFilterVisible,
   onRetry,
   onSelectBrand,
   onSelectCategory,
@@ -80,6 +82,7 @@ export function ProductGridView({
         maxPrice={maxPrice}
         onPriceChange={onPriceChange}
         brands={brands}
+        onBrandFilterVisible={onBrandFilterVisible}
         selectedBrand={selectedBrand}
         onSelectBrand={onSelectBrand}
         selectedCondition={selectedCondition}

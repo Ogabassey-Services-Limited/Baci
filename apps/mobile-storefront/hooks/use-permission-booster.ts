@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   canRequestTrackingTransparency,
+  getTrackingPermissionStatus,
   requestTrackingPermissionStatus,
 } from '@/lib/tracking-transparency';
 
@@ -21,7 +22,7 @@ interface PermissionState {
   reset: () => void;
 }
 
-const COOL_DOWN_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+export const PERMISSION_SOFT_ASK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 let notificationsModulePromise: Promise<
   typeof import('expo-notifications')
 > | null = null;
@@ -58,7 +59,7 @@ export const usePermissionStore = create<PermissionState>()(
         // If denied less than 3 times, check cool-down
         if (count < 3) {
           const now = Date.now();
-          return now - lastTime > COOL_DOWN_PERIOD_MS;
+          return now - lastTime > PERMISSION_SOFT_ASK_COOLDOWN_MS;
         }
 
         // If denied 3+ times, don't show again (or wait much longer/manual trigger only)
@@ -119,13 +120,12 @@ export const usePermissionBooster = () => {
       if (!canRequestTrackingTransparency()) {
         return 'granted';
       }
-      await requestTrackingPermissionStatus(); // This actually requests, we might want just get status first if possible?
-      // Expo Tracking Transparency doesn't have a separate "get" without "request" easily exposed in simple API,
-      // but if strictly following "Soft Ask", we should assume we need to ask if we haven't stored "granted".
-      // However, usually we check if we *can* ask.
-      // For simplicity in this hook, let's assume if we haven't successfully granted, we might need to ask.
-      // Actually tracking transparency `request` is the only way to get status on some versions, but it wont show alert if already determined.
-      status = 'undetermined'; // Placeholder, handled in logic below
+      try {
+        const trackingPermission = await getTrackingPermissionStatus();
+        status = trackingPermission.status;
+      } catch {
+        return 'denied';
+      }
     }
 
     // If already granted, nothing to do

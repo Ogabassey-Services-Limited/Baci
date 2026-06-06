@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { beforeAll } from '@jest/globals';
 import {
   fireEvent,
   render,
@@ -6,14 +7,17 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import LoginScreen from '@/app/auth/login';
 
 const mockAlert = jest.fn();
 const mockBack = jest.fn();
 const mockCanDismiss = jest.fn();
 const mockDismiss = jest.fn();
 const mockReplace = jest.fn();
+const mockSetParams = jest.fn();
 const mockUseLocalSearchParams = jest.fn(() => ({}));
+const mockClearAuthLoginResumeState = jest.fn();
+const mockGetAuthLoginResumeState = jest.fn();
+const mockSaveAuthLoginResumeState = jest.fn();
 const mockSignInWithApple = jest.fn();
 const mockSignInWithGoogle = jest.fn();
 const mockSignInWithOtp = jest.fn();
@@ -40,6 +44,7 @@ jest.mock('expo-router', () => ({
     canDismiss: mockCanDismiss,
     dismiss: mockDismiss,
     replace: mockReplace,
+    setParams: mockSetParams,
   },
   Stack: {
     Screen: () => null,
@@ -97,13 +102,28 @@ jest.mock('@/lib/logger', () => ({
   createLogger: () => ({
     error: jest.fn(),
     info: jest.fn(),
+    warn: jest.fn(),
   }),
+}));
+
+jest.mock('@/components/auth/login-resume-state', () => ({
+  clearAuthLoginResumeState: () => mockClearAuthLoginResumeState(),
+  getAuthLoginResumeState: (returnTo: string | null) =>
+    mockGetAuthLoginResumeState(returnTo),
+  saveAuthLoginResumeState: (state: unknown) =>
+    mockSaveAuthLoginResumeState(state),
 }));
 
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: (selector: (state: typeof mockAuthState) => unknown) =>
     selector(mockAuthState),
 }));
+
+let LoginScreen: typeof import('@/app/auth/login').default;
+
+beforeAll(async () => {
+  LoginScreen = (await import('@/app/auth/login')).default;
+});
 
 describe('LoginScreen', () => {
   beforeEach(() => {
@@ -118,6 +138,9 @@ describe('LoginScreen', () => {
     mockSignInWithOtp.mockResolvedValue({ success: true });
     mockSignInWithPassword.mockResolvedValue({ success: true });
     mockVerifyOtp.mockResolvedValue({ success: true });
+    mockClearAuthLoginResumeState.mockResolvedValue(undefined);
+    mockGetAuthLoginResumeState.mockResolvedValue(null);
+    mockSaveAuthLoginResumeState.mockResolvedValue(undefined);
     mockUseLocalSearchParams.mockReturnValue({});
   });
 
@@ -152,8 +175,34 @@ describe('LoginScreen', () => {
     await waitFor(() => {
       expect(mockSignInWithOtp).toHaveBeenCalledWith('shopper@example.com');
     });
+    expect(mockSaveAuthLoginResumeState).toHaveBeenCalledWith({
+      email: 'shopper@example.com',
+      returnTo: null,
+      step: 'otp',
+    });
+    expect(mockSetParams).toHaveBeenCalledWith({ mode: 'otp' });
     expect(await screen.findByText('Verify Your Email')).toBeOnTheScreen();
     expect(mockWithKeyboardDismiss).toHaveBeenCalled();
+  });
+
+  it('restores the pending OTP step from secure resume state', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      mode: 'otp',
+      returnTo: '/checkout',
+    });
+    mockGetAuthLoginResumeState.mockResolvedValueOnce({
+      email: 'shopper@example.com',
+      returnTo: '/checkout',
+      step: 'otp',
+    });
+
+    render(<LoginScreen />);
+
+    await waitFor(() => {
+      expect(mockGetAuthLoginResumeState).toHaveBeenCalledWith('/checkout');
+    });
+    expect(await screen.findByText('Verify Your Email')).toBeOnTheScreen();
+    expect(screen.getByText('shopper@example.com')).toBeOnTheScreen();
   });
 
   it('surfaces OTP send failures without advancing to verification', async () => {

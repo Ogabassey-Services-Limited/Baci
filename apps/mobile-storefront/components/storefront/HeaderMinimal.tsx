@@ -51,7 +51,6 @@ export function HeaderMinimal({
             </Pressable>
           ) : null}
           <Pressable
-            onPressIn={() => router.prefetch('/cart' as Href)}
             onPress={() => router.navigate('/cart' as Href)}
             hitSlop={12}
             style={[styles.iconBtn, styles.rightIconBtn]}

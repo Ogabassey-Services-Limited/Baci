@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { Header } from './Header';
 
@@ -128,22 +128,56 @@ describe('Header search behavior', () => {
     expect(onSearchSubmit).toHaveBeenCalledTimes(1);
     expect(onSearchCancel).toHaveBeenCalledTimes(1);
   });
+});
 
-  it('prefetches and navigates to the cart when the cart button is pressed', () => {
+describe('Header cart navigation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockTemplateHeaderStyle = 'elite';
+    mockIsSanta = false;
+  });
+
+  it('opens the elite cart button without prefetching the cart route on press-in', () => {
     render(<Header showSearch={false} />);
 
     const cartButton = screen.getByRole('button', {
       name: 'Shopping cart, empty',
     });
-
     fireEvent(cartButton, 'pressIn');
     fireEvent.press(cartButton);
 
-    expect(router.prefetch).toHaveBeenCalledWith('/cart');
+    expect(router.prefetch).not.toHaveBeenCalled();
     expect(router.navigate).toHaveBeenCalledWith('/cart');
-    expect(
-      (router.prefetch as jest.Mock).mock.invocationCallOrder[0]
-    ).toBeLessThan((router.navigate as jest.Mock).mock.invocationCallOrder[0]);
+  });
+
+  it('opens the minimal cart button without prefetching the cart route on press-in', () => {
+    mockTemplateHeaderStyle = 'minimal';
+
+    render(<Header showSearch={false} />);
+
+    const cartButton = screen.getByRole('button', {
+      name: 'Shopping cart, empty',
+    });
+    fireEvent(cartButton, 'pressIn');
+    fireEvent.press(cartButton);
+
+    expect(router.prefetch).not.toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith('/cart');
+  });
+
+  it('opens the default cart button without prefetching the cart route on press-in', () => {
+    mockTemplateHeaderStyle = 'default';
+
+    render(<Header showSearch={false} />);
+
+    const cartButton = screen.getByRole('button', {
+      name: 'Shopping cart, empty',
+    });
+    fireEvent(cartButton, 'pressIn');
+    fireEvent.press(cartButton);
+
+    expect(router.prefetch).not.toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith('/cart');
   });
 });
 

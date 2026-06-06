@@ -3,11 +3,13 @@ import {
   block,
   getMockFilterBarProps,
   mockGetProductGridCategoriesFactory,
+  mockProductBrandsHook,
   mockPrioritizeSmartphoneProductsFactory,
   mockProductCard,
   mockProductGridSkeleton,
   mockProductsHook,
   mockUseCategoriesFactory,
+  mockUseProductBrandsFactory,
   mockUseProductsFactory,
   ProductGrid,
   resetProductGridTestState,
@@ -236,6 +238,64 @@ describe('ProductGrid', () => {
       maxPrice: undefined,
       minRating: undefined,
     });
+  });
+
+  it('keeps brand options disabled until brand filtering is requested', () => {
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(mockUseProductBrandsFactory).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false })
+    );
+
+    act(() => {
+      getMockFilterBarProps()?.onBrandFilterVisible?.();
+    });
+
+    expect(mockUseProductBrandsFactory).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true })
+    );
+  });
+
+  it('keeps a selected brand while lazy brand options are still loading', () => {
+    mockProductBrandsHook({
+      brands: [],
+      isLoading: true,
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    act(() => {
+      getMockFilterBarProps()?.onSelectBrand('Samsung');
+    });
+
+    const latestOptions =
+      mockUseProductsFactory.mock.calls[
+        mockUseProductsFactory.mock.calls.length - 1
+      ]?.[0];
+    expect(getMockFilterBarProps()?.selectedBrand).toBe('Samsung');
+    expect(latestOptions).toMatchObject({ brand: 'Samsung' });
+  });
+
+  it('falls back to an empty brand list when lazy brand options fail', () => {
+    mockProductBrandsHook({
+      brands: [],
+      isError: true,
+      error: new Error('brands unavailable'),
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    act(() => {
+      getMockFilterBarProps()?.onBrandFilterVisible?.();
+    });
+
+    expect(getMockFilterBarProps()?.brands).toEqual([]);
   });
 
   it('does not refetch products just because the Home tab regains focus', () => {

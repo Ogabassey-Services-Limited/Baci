@@ -14,6 +14,11 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useShallow } from 'zustand/react/shallow';
 import { LoginScreenContent } from './LoginScreenContent';
 import { loginScreenStyles as styles } from './LoginScreen.styles';
+import {
+  clearAuthLoginResumeState,
+  getAuthLoginResumeState,
+  saveAuthLoginResumeState,
+} from './login-resume-state';
 import { runLoginSocialSignIn } from './login-social-sign-in';
 
 const log = createLogger('Login');
@@ -23,9 +28,14 @@ type AuthStep = 'email' | 'otp' | 'password';
 export function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const { mode, returnTo } = useLocalSearchParams<{
+    mode?: string;
+    returnTo?: string;
+  }>();
+  const resumeReturnTo = returnTo ?? null;
 
   const dismissAndNavigate = () => {
+    void clearAuthLoginResumeState();
     if (returnTo) {
       router.replace(decodeURIComponent(returnTo) as '/');
     } else if (router.canDismiss()) {
@@ -92,6 +102,7 @@ export function LoginScreen() {
    */
   useEffect(() => {
     if (isInitialized && user) {
+      void clearAuthLoginResumeState();
       // User is authenticated — inline navigation to avoid dep on dismissAndNavigate
       if (returnTo) {
         router.replace(decodeURIComponent(returnTo) as '/');
@@ -102,6 +113,34 @@ export function LoginScreen() {
       }
     }
   }, [isInitialized, user, returnTo]);
+
+  useEffect(() => {
+    if (mode !== 'otp') {
+      return;
+    }
+
+    let isActive = true;
+
+    getAuthLoginResumeState(resumeReturnTo)
+      .then((resumeState) => {
+        if (!(isActive && resumeState)) {
+          return;
+        }
+
+        setEmail(resumeState.email);
+        setStep('otp');
+        setOtp('');
+        setOtpError(null);
+        setTimeout(() => otpInputRef.current?.focus(), 300);
+      })
+      .catch((error) => {
+        log.warn('Failed to restore pending OTP login state', error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [mode, resumeReturnTo]);
 
   // 2026 Best Practice: Dismiss keyboard on submit
   const handleContinue = withKeyboardDismiss(async () => {
@@ -116,10 +155,19 @@ export function LoginScreen() {
 
     setEmailError(null);
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     if (authMethod === 'otp') {
-      const result = await signInWithOtp(email.toLowerCase().trim());
+      const result = await signInWithOtp(normalizedEmail);
       if (result.success) {
+        await saveAuthLoginResumeState({
+          email: normalizedEmail,
+          returnTo: resumeReturnTo,
+          step: 'otp',
+        });
+        setEmail(normalizedEmail);
         setStep('otp');
+        router.setParams({ mode: 'otp' });
         setTimeout(() => otpInputRef.current?.focus(), 300);
       } else {
         Alert.alert(
@@ -156,6 +204,11 @@ export function LoginScreen() {
     const result = await signInWithOtp(email.toLowerCase().trim());
 
     if (result.success) {
+      await saveAuthLoginResumeState({
+        email: email.toLowerCase().trim(),
+        returnTo: resumeReturnTo,
+        step: 'otp',
+      });
       Alert.alert(
         'Success',
         'A new verification code has been sent to your email'
@@ -170,8 +223,10 @@ export function LoginScreen() {
 
   const handleBack = () => {
     if (step === 'otp') {
+      void clearAuthLoginResumeState();
       setStep('email');
       setOtp('');
+      router.setParams({ mode: 'email' });
     } else if (step === 'password') {
       setStep('email');
       setPassword('');

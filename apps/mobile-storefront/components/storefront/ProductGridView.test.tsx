@@ -31,6 +31,7 @@ const defaultProps = {
   maxPrice: 1_000_000,
   minPrice: 0,
   minRating: 0,
+  onBrandFilterVisible: jest.fn(),
   onPriceChange: jest.fn(),
   onRetry: jest.fn(),
   onSelectBrand: jest.fn(),

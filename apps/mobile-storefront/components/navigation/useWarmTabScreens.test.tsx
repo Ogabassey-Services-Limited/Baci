@@ -52,7 +52,7 @@ describe('useWarmTabScreens', () => {
     jest.useRealTimers();
   });
 
-  it('preloads public tabs after the first tab chrome frames', () => {
+  it('does not preload public tabs from the tab chrome', () => {
     const { frameCallbacks, requestFrameSpy, cancelFrameSpy } =
       mockFrameScheduler();
     const navigation = {
@@ -78,25 +78,13 @@ describe('useWarmTabScreens', () => {
     flushFrames(frameCallbacks);
     jest.runOnlyPendingTimers();
 
-    expect(navigation.dispatch).toHaveBeenCalledTimes(2);
-    expect(navigation.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        payload: { name: 'saved', params: {} },
-        type: 'PRELOAD',
-      })
-    );
-    expect(navigation.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        payload: { name: 'cart', params: {} },
-        type: 'PRELOAD',
-      })
-    );
+    expect(navigation.dispatch).not.toHaveBeenCalled();
 
     requestFrameSpy.mockRestore();
     cancelFrameSpy.mockRestore();
   });
 
-  it('preloads protected tabs when preloadProtectedTabs is true', () => {
+  it('does not preload protected tabs when preloadProtectedTabs is true', () => {
     const { frameCallbacks, requestFrameSpy, cancelFrameSpy } =
       mockFrameScheduler();
     const navigation = {
@@ -115,12 +103,7 @@ describe('useWarmTabScreens', () => {
     flushFrames(frameCallbacks);
     jest.runOnlyPendingTimers();
 
-    expect(navigation.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        payload: { name: 'wallet', params: {} },
-        type: 'PRELOAD',
-      })
-    );
+    expect(navigation.dispatch).not.toHaveBeenCalled();
 
     requestFrameSpy.mockRestore();
     cancelFrameSpy.mockRestore();

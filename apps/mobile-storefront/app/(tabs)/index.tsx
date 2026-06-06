@@ -20,6 +20,7 @@ import { useDeferredFocusRender } from '@/hooks/use-deferred-focus-render';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
 import { CONFIG } from '@/lib/config';
+import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
 import { resolveHomeBlocks } from '@/lib/resolve-home-blocks';
 import { getTemplateConfig } from '@/lib/templates';
 
@@ -231,6 +232,10 @@ export default function HomeScreen() {
 
     return blocks.findIndex((block) => block.type === 'ProductGrid');
   })();
+  const productGridBlockCount = blocks.filter(
+    (block) => block.type === 'ProductGrid'
+  ).length;
+  const hasPageConfig = Boolean(pageConfig);
 
   useEffect(() => {
     void productGridDatasetKey;
@@ -242,6 +247,38 @@ export default function HomeScreen() {
     lastLoadMoreContentHeight,
     previousOffsetY,
     productGridDatasetKey,
+  ]);
+
+  useEffect(() => {
+    recordCrashBreadcrumb('home:mounted', {
+      businessType: CONFIG.BUSINESS_TYPE,
+      templateId: CONFIG.TEMPLATE_ID,
+    });
+    return () => recordCrashBreadcrumb('home:unmounted');
+  }, []);
+
+  useEffect(() => {
+    recordCrashBreadcrumb('home:state', {
+      blockCount: blocks.length,
+      hasPageConfig,
+      isConfigLoading,
+      isError,
+      isFocused,
+      isOnline,
+      primaryProductGridIndex,
+      productGridBlockCount,
+      selectedCategoryId,
+    });
+  }, [
+    blocks.length,
+    hasPageConfig,
+    isConfigLoading,
+    isError,
+    isFocused,
+    isOnline,
+    primaryProductGridIndex,
+    productGridBlockCount,
+    selectedCategoryId,
   ]);
 
   const resolvedHeaderHeight = headerHeight > 0 ? headerHeight : 150;
@@ -257,7 +294,7 @@ export default function HomeScreen() {
       blackColor={colors.black}
       blocks={blocks}
       contentBottomPadding={homeContentBottomPadding}
-      hasPageConfig={Boolean(pageConfig)}
+      hasPageConfig={hasPageConfig}
       headerVisibility={headerVisibility}
       isConfigLoading={isConfigLoading && !refreshing}
       isElite={isElite}

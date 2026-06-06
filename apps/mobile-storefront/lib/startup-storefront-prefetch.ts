@@ -14,7 +14,7 @@ import {
 } from '@/lib/validation/page-config-schema';
 
 export const STARTUP_HOME_PRODUCTS_OPTIONS = {
-  limit: 48,
+  limit: 12,
 } satisfies UseProductsOptions;
 
 const STARTUP_HOME_PAGE_SLUG = 'home';

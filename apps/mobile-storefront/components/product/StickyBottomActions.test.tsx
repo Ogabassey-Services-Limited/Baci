@@ -132,7 +132,7 @@ describe('StickyBottomActions', () => {
     fireEvent(viewCartButton, 'pressIn');
     fireEvent.press(viewCartButton);
 
-    expect(mockPrefetch).toHaveBeenCalledWith('/cart');
+    expect(mockPrefetch).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('/cart');
   });
 

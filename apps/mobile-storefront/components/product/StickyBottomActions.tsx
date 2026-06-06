@@ -110,7 +110,6 @@ export function StickyBottomActions({
 
         {/* View Cart Button */}
         <Pressable
-          onPressIn={() => router.prefetch('/cart')}
           onPress={() => router.navigate('/cart')}
           style={[
             styles.viewCartBtn,
