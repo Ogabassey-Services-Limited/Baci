@@ -16,14 +16,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { uploadImage } from '@/lib/storage';
+import type { DeviceInsuranceDetails } from '@/services/insurance';
+import type { OrderDetailsItem } from '../order-items';
+
+export type ConfirmInsurancePayload = Omit<
+  DeviceInsuranceDetails,
+  'customerPhoto'
+> & {
+  customerPhoto?: string;
+};
 
 interface ConfirmInsuranceDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic order data structure
-  onConfirm: (data: any) => Promise<void>;
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic order items
-  orderItems: any[];
+  onConfirm: (data: ConfirmInsurancePayload) => Promise<void>;
+  orderItems: OrderDetailsItem[];
 }
 
 export default function ConfirmInsuranceDialog({
@@ -92,7 +99,7 @@ export default function ConfirmInsuranceDialog({
         deviceColor: 'Black', // Default color, TODO: extract from product variant
         deviceModel: assuranceItems[0]?.name || 'Unknown Device',
         deviceMake: 'Generic', // TODO: Extract from product name
-        deviceType: 'Phone',
+        deviceType: 'Phone' as const,
         deviceValue: assuranceItems[0]?.price || 0,
         purchaseDate: new Date().toISOString().split('T')[0],
         devicePhotos: {

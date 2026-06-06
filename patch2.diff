@@ -1,5 +1,0 @@
-<<<<<<< SEARCH
-import { useAuthStore } from '@/stores/auth-store';
-=======
-import { useAuthStore } from '@/stores/auth-store';
->>>>>>> REPLACE
