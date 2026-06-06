@@ -27,8 +27,9 @@ describe('GET /.well-known/openid-configuration', () => {
     expect(response.status).toBe(200);
     expect(body.issuer).toBe('https://project.supabase.co/auth/v1');
     expect(body.scopes_supported).toContain('openid');
+    expect(body.code_challenge_methods_supported).toEqual(['S256']);
     expect(body.userinfo_endpoint).toBe(
-      'https://project.supabase.co/auth/v1/user'
+      'https://project.supabase.co/auth/v1/oauth/userinfo'
     );
   });
 });

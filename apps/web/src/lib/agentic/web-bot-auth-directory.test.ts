@@ -16,7 +16,7 @@ describe('buildWebBotAuthDirectoryResponse', () => {
 
     expect(response).not.toBeNull();
     expect(response?.status).toBe(200);
-    expect(response?.headers.get('content-type')).toContain(
+    expect(response?.headers.get('content-type')).toBe(
       WEB_BOT_AUTH_CONTENT_TYPE
     );
     expect(response?.headers.get('signature')).toMatch(/^sig1=:.+:$/);

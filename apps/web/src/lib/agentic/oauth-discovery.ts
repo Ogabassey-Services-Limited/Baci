@@ -10,6 +10,10 @@ function buildSupabaseIssuer(supabaseUrl: string): string {
   return new URL('/auth/v1', normalizeBaseUrl(supabaseUrl)).toString();
 }
 
+function buildSupabaseOAuthEndpoint(supabaseUrl: string, pathname: string) {
+  return new URL(pathname, normalizeBaseUrl(supabaseUrl)).toString();
+}
+
 export function buildOAuthAuthorizationServerMetadata({
   baseUrl,
   supabaseUrl,
@@ -22,9 +26,18 @@ export function buildOAuthAuthorizationServerMetadata({
 
   return {
     issuer,
-    authorization_endpoint: `${issuer}/authorize`,
-    token_endpoint: `${issuer}/token`,
-    userinfo_endpoint: `${issuer}/user`,
+    authorization_endpoint: buildSupabaseOAuthEndpoint(
+      supabaseUrl,
+      '/auth/v1/oauth/authorize'
+    ),
+    token_endpoint: buildSupabaseOAuthEndpoint(
+      supabaseUrl,
+      '/auth/v1/oauth/token'
+    ),
+    userinfo_endpoint: buildSupabaseOAuthEndpoint(
+      supabaseUrl,
+      '/auth/v1/oauth/userinfo'
+    ),
     jwks_uri: `${issuer}/.well-known/jwks.json`,
     response_types_supported: [...OAUTH_RESPONSE_TYPES],
     grant_types_supported: [...OAUTH_GRANT_TYPES],
@@ -36,6 +49,7 @@ export function buildOAuthAuthorizationServerMetadata({
       'client_secret_post',
       'none',
     ],
+    code_challenge_methods_supported: ['S256'],
     service_documentation: `${normalizedBaseUrl}/auth.md`,
   };
 }

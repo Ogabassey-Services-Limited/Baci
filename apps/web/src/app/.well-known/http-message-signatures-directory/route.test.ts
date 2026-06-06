@@ -45,7 +45,7 @@ describe('GET /.well-known/http-message-signatures-directory', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toContain(
+    expect(response.headers.get('content-type')).toBe(
       'application/http-message-signatures-directory+json'
     );
     expect(response.headers.get('signature')).toMatch(/^sig1=:.+:$/);

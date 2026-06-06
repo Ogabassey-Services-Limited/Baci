@@ -100,7 +100,7 @@ export function buildWebBotAuthDirectoryResponse({
   return new Response(JSON.stringify(parsed.data), {
     status: 200,
     headers: {
-      'Content-Type': `${WEB_BOT_AUTH_CONTENT_TYPE}; charset=utf-8`,
+      'Content-Type': WEB_BOT_AUTH_CONTENT_TYPE,
       'Cache-Control': 'public, max-age=60',
       Signature: `sig1=:${signature}:`,
       'Signature-Input': `sig1=${signatureParams}`,

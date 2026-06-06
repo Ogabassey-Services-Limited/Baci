@@ -13,11 +13,14 @@ describe('oauth-discovery', () => {
 
     expect(metadata).toMatchObject({
       issuer: 'https://project.supabase.co/auth/v1',
-      authorization_endpoint: 'https://project.supabase.co/auth/v1/authorize',
-      token_endpoint: 'https://project.supabase.co/auth/v1/token',
+      authorization_endpoint:
+        'https://project.supabase.co/auth/v1/oauth/authorize',
+      token_endpoint: 'https://project.supabase.co/auth/v1/oauth/token',
       jwks_uri: 'https://project.supabase.co/auth/v1/.well-known/jwks.json',
+      userinfo_endpoint: 'https://project.supabase.co/auth/v1/oauth/userinfo',
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
+      code_challenge_methods_supported: ['S256'],
       service_documentation: 'https://ogabassey.com/auth.md',
     });
   });
