@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addToCartSchema,
+  cancelOrderSchema,
   checkPaymentStatusSchema,
   createVirtualAccountSchema,
   getProductDetailsSchema,
@@ -98,6 +99,67 @@ describe('checkPaymentStatusSchema', () => {
   it('rejects invalid customerEmail', () => {
     const result = checkPaymentStatusSchema.safeParse({
       customerEmail: 'bad-email',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('cancelOrderSchema', () => {
+  it('validates with orderNumber and customerEmail', () => {
+    const result = cancelOrderSchema.safeParse({
+      orderNumber: '#00001234',
+      customerEmail: 'BUYER@example.com',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({
+      orderNumber: '#00001234',
+      customerEmail: 'buyer@example.com',
+    });
+  });
+
+  it('validates with orderId and customerEmail', () => {
+    const result = cancelOrderSchema.safeParse({
+      orderId: '11111111-1111-4111-8111-111111111111',
+      customerEmail: 'buyer@example.com',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects when neither orderId nor orderNumber is provided', () => {
+    const result = cancelOrderSchema.safeParse({
+      customerEmail: 'buyer@example.com',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid customerEmail', () => {
+    const result = cancelOrderSchema.safeParse({
+      orderNumber: 'ORD-123',
+      customerEmail: 'bad-email',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid orderId format', () => {
+    const result = cancelOrderSchema.safeParse({
+      orderId: 'not-a-uuid',
+      customerEmail: 'buyer@example.com',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects orderNumber values over 64 characters', () => {
+    const result = cancelOrderSchema.safeParse({
+      orderNumber: 'A'.repeat(65),
+      customerEmail: 'buyer@example.com',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects whitespace-only order references', () => {
+    const result = cancelOrderSchema.safeParse({
+      orderNumber: '   ',
+      customerEmail: 'buyer@example.com',
     });
     expect(result.success).toBe(false);
   });

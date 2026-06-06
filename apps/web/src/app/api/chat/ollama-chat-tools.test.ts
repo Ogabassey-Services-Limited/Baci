@@ -9,6 +9,7 @@ describe('ollama chat tools', () => {
       'createVirtualAccount',
       'checkPaymentStatus',
       'getRecommendations',
+      'cancelOrder',
     ]);
   });
 
@@ -52,6 +53,26 @@ describe('ollama chat tools', () => {
       anyOf: [{ required: ['orderId'] }, { required: ['customerEmail'] }],
       properties: {
         orderId: { type: 'string' },
+        customerEmail: { type: 'string' },
+      },
+    });
+  });
+
+  it('tells Ollama that order cancellation needs an order reference and email', () => {
+    const cancelTool = ollamaAgenticChatTools.find(
+      (tool) => tool.function.name === 'cancelOrder'
+    );
+
+    expect(cancelTool?.function.description).toContain(
+      'orderId or orderNumber'
+    );
+    expect(cancelTool?.function.description).toContain('customerEmail');
+    expect(cancelTool?.function.parameters).toMatchObject({
+      required: ['customerEmail'],
+      anyOf: [{ required: ['orderId'] }, { required: ['orderNumber'] }],
+      properties: {
+        orderId: { type: 'string' },
+        orderNumber: { type: 'string' },
         customerEmail: { type: 'string' },
       },
     });
