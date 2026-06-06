@@ -40,4 +40,18 @@ describe('GET /.well-known/oauth-authorization-server', () => {
       service_documentation: 'https://merchant.example/auth.md',
     });
   });
+
+  it('falls back to the request URL host when Host header is absent', async () => {
+    const { GET } = await import('./route');
+    const response = GET(
+      new Request(
+        'https://ogabassey.com/.well-known/oauth-authorization-server'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
+    expect(body.service_documentation).toBe('https://ogabassey.com/auth.md');
+  });
 });

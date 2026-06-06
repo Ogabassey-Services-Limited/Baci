@@ -450,7 +450,7 @@ const nextConfig: NextConfig = {
       },
       {
         source:
-          '/:storefrontIdentifier((?!auth\\.md|openapi\\.json|agent-commerce\\.json|agent-trust\\.json|llms\\.txt|llms-full\\.txt|robots\\.txt|api|_next|\\.well-known).+)',
+          '/:storefrontIdentifier((?!(?:auth\\.md|openapi\\.json|agent-commerce\\.json|agent-trust\\.json|llms\\.txt|llms-full\\.txt|robots\\.txt|api|_next|\\.well-known)(?:$|/)).+)',
         has: [
           {
             type: 'header',

@@ -40,4 +40,43 @@ describe('oauth-discovery', () => {
       bearer_methods_supported: ['header'],
     });
   });
+
+  it('normalizes whitespace and trailing slashes in metadata inputs', () => {
+    expect(
+      buildOAuthAuthorizationServerMetadata({
+        baseUrl: ' https://ogabassey.com/// ',
+        supabaseUrl: ' https://project.supabase.co/// ',
+      })
+    ).toMatchObject({
+      issuer: 'https://project.supabase.co/auth/v1',
+      authorization_endpoint:
+        'https://project.supabase.co/auth/v1/oauth/authorize',
+      service_documentation: 'https://ogabassey.com/auth.md',
+    });
+    expect(
+      buildOAuthProtectedResourceMetadata({
+        baseUrl: ' https://merchant.example/// ',
+        supabaseUrl: ' https://project.supabase.co/// ',
+      })
+    ).toMatchObject({
+      resource: 'https://merchant.example/api',
+      resource_documentation: 'https://merchant.example/auth.md',
+      authorization_servers: ['https://project.supabase.co/auth/v1'],
+    });
+  });
+
+  it('rejects malformed discovery URLs', () => {
+    expect(() =>
+      buildOAuthAuthorizationServerMetadata({
+        baseUrl: 'not-a-url',
+        supabaseUrl: 'https://project.supabase.co',
+      })
+    ).toThrow(TypeError);
+    expect(() =>
+      buildOAuthProtectedResourceMetadata({
+        baseUrl: 'https://merchant.example',
+        supabaseUrl: '',
+      })
+    ).toThrow(TypeError);
+  });
 });

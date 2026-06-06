@@ -36,4 +36,17 @@ describe('GET /.well-known/oauth-protected-resource', () => {
       bearer_methods_supported: ['header'],
     });
   });
+
+  it('uses the request URL host when Host header is absent', async () => {
+    const { GET } = await import('./route');
+    const response = GET(
+      new Request('https://ogabassey.com/.well-known/oauth-protected-resource')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
+    expect(body.resource).toBe('https://ogabassey.com/api');
+    expect(body.resource_documentation).toBe('https://ogabassey.com/auth.md');
+  });
 });

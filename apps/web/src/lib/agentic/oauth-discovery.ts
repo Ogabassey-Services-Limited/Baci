@@ -3,7 +3,10 @@ const OAUTH_RESPONSE_TYPES = ['code'] as const;
 const OAUTH_GRANT_TYPES = ['authorization_code', 'refresh_token'] as const;
 
 function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.trim().replace(/\/+$/, '');
+  const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, '');
+  const parsedUrl = new URL(normalizedBaseUrl);
+
+  return parsedUrl.toString().replace(/\/+$/, '');
 }
 
 function buildSupabaseIssuer(supabaseUrl: string): string {

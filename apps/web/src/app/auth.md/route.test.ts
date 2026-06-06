@@ -29,5 +29,6 @@ describe('GET /auth.md', () => {
     );
     expect(body).toContain('bearer_hmac');
     expect(body).toContain('Authorization: Bearer <credential>');
+    expect(body).toContain('409 responses as recoverable checkout');
   });
 });

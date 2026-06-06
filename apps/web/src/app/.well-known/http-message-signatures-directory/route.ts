@@ -11,7 +11,11 @@ export function GET(request: Request): Response {
     publicJwksJson: env.WEB_BOT_AUTH_PUBLIC_JWKS_JSON,
   });
 
-  if (response) return response;
+  if (response) {
+    response.headers.set('Vercel-CDN-Cache-Control', 'no-store');
+
+    return response;
+  }
 
   return NextResponse.json(
     { error: 'Service unavailable: signing key not configured' },

@@ -48,6 +48,7 @@ describe('GET /.well-known/http-message-signatures-directory', () => {
     expect(response.headers.get('content-type')).toBe(
       'application/http-message-signatures-directory+json'
     );
+    expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
     expect(response.headers.get('signature')).toMatch(/^sig1=:.+:$/);
     expect(body.keys).toEqual([
       expect.objectContaining({ crv: 'Ed25519', kty: 'OKP' }),

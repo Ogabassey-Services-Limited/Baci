@@ -35,7 +35,9 @@ idempotency keys.
 ## Errors
 
 Treat 401 responses as expired or invalid credentials, 403 responses as denied
-scope or merchant policy, and 428 responses as missing user confirmation.
+scope or merchant policy, 409 responses as recoverable checkout or account-state
+conflicts that require user resolution or retry, and 428 responses as missing
+user confirmation.
 Agents should not invent OAuth clients or request merchant/customer account
 access through browser sessions.
 `;
