@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   InputAccessoryView,
-  Platform,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -312,44 +311,40 @@ export default function CompleteProfileScreen() {
               keyboardType="phone-pad"
               returnKeyType="next"
               submitBehavior="submit"
-              inputAccessoryViewID={
-                Platform.OS === 'ios' ? PHONE_INPUT_ACCESSORY_ID : undefined
-              }
+              inputAccessoryViewID={PHONE_INPUT_ACCESSORY_ID}
               onSubmitEditing={() => businessNameRef.current?.focus()}
             />
-            {Platform.OS === 'ios' ? (
-              <InputAccessoryView nativeID={PHONE_INPUT_ACCESSORY_ID}>
-                <View
-                  style={[
-                    styles.inputAccessory,
-                    {
-                      backgroundColor: colors.card,
-                      borderTopColor: colors.border,
-                    },
+            <InputAccessoryView nativeID={PHONE_INPUT_ACCESSORY_ID}>
+              <View
+                style={[
+                  styles.inputAccessory,
+                  {
+                    backgroundColor: colors.card,
+                    borderTopColor: colors.border,
+                  },
+                ]}
+              >
+                <Pressable
+                  accessibilityLabel="Next field"
+                  accessibilityRole="button"
+                  onPress={() => businessNameRef.current?.focus()}
+                  style={({ pressed }) => [
+                    styles.inputAccessoryButton,
+                    { backgroundColor: colors.primary },
+                    pressed && { opacity: 0.7 },
                   ]}
                 >
-                  <Pressable
-                    accessibilityLabel="Next field"
-                    accessibilityRole="button"
-                    onPress={() => businessNameRef.current?.focus()}
-                    style={({ pressed }) => [
-                      styles.inputAccessoryButton,
-                      { backgroundColor: colors.primary },
-                      pressed && { opacity: 0.7 },
+                  <Text
+                    style={[
+                      styles.inputAccessoryButtonText,
+                      { color: colors.textOnPrimary },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.inputAccessoryButtonText,
-                        { color: colors.textOnPrimary },
-                      ]}
-                    >
-                      Next
-                    </Text>
-                  </Pressable>
-                </View>
-              </InputAccessoryView>
-            ) : null}
+                    Next
+                  </Text>
+                </Pressable>
+              </View>
+            </InputAccessoryView>
           </View>
 
           <View style={styles.inputGroup}>

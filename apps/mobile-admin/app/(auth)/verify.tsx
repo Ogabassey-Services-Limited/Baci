@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   InputAccessoryView,
-  Platform,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -246,9 +245,7 @@ export default function VerifyScreen() {
               style={styles.otpInput}
               keyboardType="number-pad"
               returnKeyType="done"
-              inputAccessoryViewID={
-                Platform.OS === 'ios' ? OTP_INPUT_ACCESSORY_ID : undefined
-              }
+              inputAccessoryViewID={OTP_INPUT_ACCESSORY_ID}
               maxLength={1}
               value={digit}
               onChangeText={(text) => handleCodeChange(text, index)}
@@ -261,43 +258,41 @@ export default function VerifyScreen() {
             />
           ))}
         </View>
-        {Platform.OS === 'ios' ? (
-          <InputAccessoryView nativeID={OTP_INPUT_ACCESSORY_ID}>
-            <View style={styles.keyboardAccessory}>
-              <Pressable
-                accessibilityLabel="Previous code digit"
-                accessibilityRole="button"
-                accessibilityState={{ disabled: focusedOtpIndex === 0 }}
-                disabled={focusedOtpIndex === 0}
-                onPress={() => focusOtpInput(focusedOtpIndex - 1)}
-                style={({ pressed }) => [
-                  styles.keyboardAccessoryButton,
-                  focusedOtpIndex === 0 && styles.keyboardAccessoryDisabled,
-                  pressed &&
-                    focusedOtpIndex > 0 &&
-                    styles.keyboardAccessoryPressed,
-                ]}
-              >
-                <Text style={styles.keyboardAccessoryText}>Previous</Text>
-              </Pressable>
-              <Pressable
-                accessibilityLabel={
-                  focusedOtpIndex < 5 ? 'Next code digit' : 'Verify code'
-                }
-                accessibilityRole="button"
-                onPress={handleOtpAccessoryNext}
-                style={({ pressed }) => [
-                  styles.keyboardAccessoryPrimaryButton,
-                  pressed && styles.keyboardAccessoryPressed,
-                ]}
-              >
-                <Text style={styles.keyboardAccessoryPrimaryText}>
-                  {focusedOtpIndex < 5 ? 'Next' : 'Verify'}
-                </Text>
-              </Pressable>
-            </View>
-          </InputAccessoryView>
-        ) : null}
+        <InputAccessoryView nativeID={OTP_INPUT_ACCESSORY_ID}>
+          <View style={styles.keyboardAccessory}>
+            <Pressable
+              accessibilityLabel="Previous code digit"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: focusedOtpIndex === 0 }}
+              disabled={focusedOtpIndex === 0}
+              onPress={() => focusOtpInput(focusedOtpIndex - 1)}
+              style={({ pressed }) => [
+                styles.keyboardAccessoryButton,
+                focusedOtpIndex === 0 && styles.keyboardAccessoryDisabled,
+                pressed &&
+                  focusedOtpIndex > 0 &&
+                  styles.keyboardAccessoryPressed,
+              ]}
+            >
+              <Text style={styles.keyboardAccessoryText}>Previous</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel={
+                focusedOtpIndex < 5 ? 'Next code digit' : 'Verify code'
+              }
+              accessibilityRole="button"
+              onPress={handleOtpAccessoryNext}
+              style={({ pressed }) => [
+                styles.keyboardAccessoryPrimaryButton,
+                pressed && styles.keyboardAccessoryPressed,
+              ]}
+            >
+              <Text style={styles.keyboardAccessoryPrimaryText}>
+                {focusedOtpIndex < 5 ? 'Next' : 'Verify'}
+              </Text>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
 
         <Pressable
           style={({ pressed }) => [
