@@ -2,7 +2,16 @@
 'use client';
 
 import { useEffect } from 'react';
-import { z } from 'zod';
+import {
+  WEBMCP_DEFAULT_CATALOG_LIMIT,
+  type WebMcpCatalogSearchInput,
+  webMcpCatalogSearchInputJsonSchema,
+  webMcpCatalogSearchInputSchema,
+  webMcpProductLookupInputJsonSchema,
+  webMcpProductLookupInputSchema,
+  webMcpStorePoliciesInputJsonSchema,
+  webMcpStorePoliciesInputSchema,
+} from '@/schemas/webmcp-storefront-tools';
 
 type JsonObject = Record<string, unknown>;
 
@@ -33,32 +42,6 @@ type StorefrontProductResponse = {
   products?: unknown[];
 };
 
-const MAX_CATALOG_LIMIT = 50;
-const CATALOG_SORT_VALUES = ['newest', 'price-asc', 'price-desc'] as const;
-const optionalTrimmedStringSchema = z.preprocess(
-  (value) => (typeof value === 'string' ? value.trim() : undefined),
-  z.string().min(1).optional()
-);
-const catalogSearchInputSchema = z.object({
-  query: optionalTrimmedStringSchema,
-  category: optionalTrimmedStringSchema,
-  brand: optionalTrimmedStringSchema,
-  sort: z.enum(CATALOG_SORT_VALUES).optional().catch(undefined),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(MAX_CATALOG_LIMIT)
-    .optional()
-    .catch(undefined),
-});
-const productLookupInputSchema = z.object({
-  product_id: z.string().trim().min(1),
-});
-const storePoliciesInputSchema = z.object({}).optional();
-
-type CatalogSearchInput = z.infer<typeof catalogSearchInputSchema>;
-
 type JsonResult<T> =
   | {
       ok: true;
@@ -87,19 +70,19 @@ function getModelContext(): WebMcpModelContext | null {
     : null;
 }
 
-function parseCatalogSearchInput(input: unknown): CatalogSearchInput {
-  const result = catalogSearchInputSchema.safeParse(input);
+function parseCatalogSearchInput(input: unknown): WebMcpCatalogSearchInput {
+  const result = webMcpCatalogSearchInputSchema.safeParse(input);
   return result.success ? result.data : {};
 }
 
 function buildProductsUrl(
   merchantId: string,
-  input: CatalogSearchInput
+  input: WebMcpCatalogSearchInput
 ): string {
   const params = new URLSearchParams({
     compact: 'false',
     merchant_id: merchantId,
-    limit: String(input.limit ?? 10),
+    limit: String(input.limit ?? WEBMCP_DEFAULT_CATALOG_LIMIT),
   });
   const { brand, category, query, sort } = input;
 
@@ -162,19 +145,7 @@ function buildStorefrontWebMcpTools({
       name: 'search_catalog',
       description:
         'Search public storefront products by query, category, brand, price sort, and limit.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: { type: 'string' },
-          category: { type: 'string' },
-          brand: { type: 'string' },
-          sort: {
-            type: 'string',
-            enum: ['newest', 'price-asc', 'price-desc'],
-          },
-          limit: { type: 'integer', minimum: 1, maximum: MAX_CATALOG_LIMIT },
-        },
-      },
+      inputSchema: webMcpCatalogSearchInputJsonSchema,
       annotations: READ_ONLY_ANNOTATIONS,
       execute: async (input) => {
         const result = await fetchJson<StorefrontProductResponse>(
@@ -189,16 +160,10 @@ function buildStorefrontWebMcpTools({
     {
       name: 'get_product',
       description: 'Fetch one public storefront product by product ID.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          product_id: { type: 'string' },
-        },
-        required: ['product_id'],
-      },
+      inputSchema: webMcpProductLookupInputJsonSchema,
       annotations: READ_ONLY_ANNOTATIONS,
       execute: async (input) => {
-        const parsedInput = productLookupInputSchema.safeParse(input);
+        const parsedInput = webMcpProductLookupInputSchema.safeParse(input);
         if (!parsedInput.success) {
           const hasProductId =
             input !== null &&
@@ -234,13 +199,10 @@ function buildStorefrontWebMcpTools({
       name: 'get_store_policies',
       description:
         'Read public agent discovery, authentication, and store policy links for this storefront.',
-      inputSchema: {
-        type: 'object',
-        properties: {},
-      },
+      inputSchema: webMcpStorePoliciesInputJsonSchema,
       annotations: READ_ONLY_ANNOTATIONS,
       execute: async (input) => {
-        const parsedInput = storePoliciesInputSchema.safeParse(input);
+        const parsedInput = webMcpStorePoliciesInputSchema.safeParse(input);
         if (!parsedInput.success) {
           return { error: 'Invalid input', status: 400 };
         }
