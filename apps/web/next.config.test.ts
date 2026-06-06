@@ -115,11 +115,31 @@ describe('next.config OgaBassey resource headers', () => {
           destination: '/llms-full.txt',
         },
         {
+          source:
+            '/:storefrontIdentifier((?!auth\\.md|openapi\\.json|agent-commerce\\.json|agent-trust\\.json|llms\\.txt|llms-full\\.txt|robots\\.txt|api|_next|\\.well-known).+)',
+          has: [
+            {
+              type: 'header',
+              key: 'accept',
+              value: '(?<accept>.*text/markdown.*)',
+            },
+          ],
+          destination: '/llms-full.txt',
+        },
+        {
           source: '/robots.txt',
           destination: '/api/robots',
         },
       ])
     );
+
+    expect(
+      beforeFiles.some(
+        (rewrite) =>
+          rewrite.source === '/:storefrontIdentifier' &&
+          rewrite.destination === '/llms-full.txt'
+      )
+    ).toBe(false);
   });
 
   it('keeps MCP proxy rewrites when MCP_SERVER_URL is configured', async () => {

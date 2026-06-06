@@ -1,0 +1,61 @@
+const OAUTH_SCOPES = ['openid', 'email', 'profile', 'offline_access'] as const;
+const OAUTH_RESPONSE_TYPES = ['code'] as const;
+const OAUTH_GRANT_TYPES = ['authorization_code', 'refresh_token'] as const;
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/+$/, '');
+}
+
+function buildSupabaseIssuer(supabaseUrl: string): string {
+  return new URL('/auth/v1', normalizeBaseUrl(supabaseUrl)).toString();
+}
+
+export function buildOAuthAuthorizationServerMetadata({
+  baseUrl,
+  supabaseUrl,
+}: {
+  baseUrl: string;
+  supabaseUrl: string;
+}) {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  const issuer = buildSupabaseIssuer(supabaseUrl);
+
+  return {
+    issuer,
+    authorization_endpoint: `${issuer}/authorize`,
+    token_endpoint: `${issuer}/token`,
+    userinfo_endpoint: `${issuer}/user`,
+    jwks_uri: `${issuer}/.well-known/jwks.json`,
+    response_types_supported: [...OAUTH_RESPONSE_TYPES],
+    grant_types_supported: [...OAUTH_GRANT_TYPES],
+    scopes_supported: [...OAUTH_SCOPES],
+    subject_types_supported: ['public'],
+    id_token_signing_alg_values_supported: ['ES256', 'RS256'],
+    token_endpoint_auth_methods_supported: [
+      'client_secret_basic',
+      'client_secret_post',
+      'none',
+    ],
+    service_documentation: `${normalizedBaseUrl}/auth.md`,
+  };
+}
+
+export function buildOAuthProtectedResourceMetadata({
+  baseUrl,
+  supabaseUrl,
+}: {
+  baseUrl: string;
+  supabaseUrl: string;
+}) {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  const authorizationServer = buildSupabaseIssuer(supabaseUrl);
+
+  return {
+    resource: `${normalizedBaseUrl}/api`,
+    resource_name: 'Ogabassey Agentic Commerce API',
+    resource_documentation: `${normalizedBaseUrl}/auth.md`,
+    authorization_servers: [authorizationServer],
+    scopes_supported: [...OAUTH_SCOPES],
+    bearer_methods_supported: ['header'],
+  };
+}

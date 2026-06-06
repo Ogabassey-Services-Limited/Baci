@@ -192,6 +192,8 @@ const serverSchema = z
     OGABASSEY_AGENT_ORIGIN: optionalTrimmedUrlSchema,
     MCP_PUBLIC_SERVER_URL: optionalTrimmedUrlSchema,
     MCP_PUBLIC_HEALTH_URL: optionalTrimmedUrlSchema,
+    WEB_BOT_AUTH_PUBLIC_JWKS_JSON: optionalTrimmedStringSchema,
+    WEB_BOT_AUTH_PRIVATE_KEY_PEM: optionalTrimmedStringSchema,
 
     // Debug
     KUDA_BILL_DEBUG: z.string().optional(),
@@ -493,6 +495,9 @@ const getEnv = () => {
         OGABASSEY_AGENT_ORIGIN: process.env.OGABASSEY_AGENT_ORIGIN,
         MCP_PUBLIC_SERVER_URL: process.env.MCP_PUBLIC_SERVER_URL,
         MCP_PUBLIC_HEALTH_URL: process.env.MCP_PUBLIC_HEALTH_URL,
+        WEB_BOT_AUTH_PUBLIC_JWKS_JSON:
+          process.env.WEB_BOT_AUTH_PUBLIC_JWKS_JSON,
+        WEB_BOT_AUTH_PRIVATE_KEY_PEM: process.env.WEB_BOT_AUTH_PRIVATE_KEY_PEM,
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
         ZEPTOMAIL_FROM_DOMAIN: process.env.ZEPTOMAIL_FROM_DOMAIN,
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
