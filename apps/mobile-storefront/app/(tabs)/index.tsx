@@ -9,6 +9,8 @@ import {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreenView } from '@/components/home/HomeScreenView';
+import { getHomeProductGridSummary } from '@/components/home/home-product-grid-summary';
+import { useHomePermissionPrompt } from '@/components/home/useHomePermissionPrompt';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import {
@@ -18,7 +20,6 @@ import {
 import { usePageConfig } from '@/hooks';
 import { useDeferredFocusRender } from '@/hooks/use-deferred-focus-render';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { usePermissionBooster } from '@/hooks/use-permission-booster';
 import { CONFIG } from '@/lib/config';
 import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
 import { resolveHomeBlocks } from '@/lib/resolve-home-blocks';
@@ -40,36 +41,12 @@ export default function HomeScreen() {
   );
   const [productGridLoadMoreSignal, setProductGridLoadMoreSignal] = useState(0);
 
-  const { requestPermission, triggerSystemPrompt, markDenied } =
-    usePermissionBooster();
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const {
+    handlePermissionDeny,
+    handlePermissionGrant,
+    showPermissionModal,
+  } = useHomePermissionPrompt();
   const shouldRenderDecorations = useDeferredFocusRender(isFocused);
-
-  useEffect(() => {
-    // Check for tracking permissions (Soft Ask) - ATT
-    // 2026 Best Practice: Ask during "personalized deal discovery" (Home screen)
-    // Wait for a moment so they see the "deals" (products) first
-    const timerId = setTimeout(async () => {
-      const result = await requestPermission('tracking');
-      if (result === 'soft-ask-needed') {
-        setShowPermissionModal(true);
-      }
-    }, 3000); // 3 seconds delay
-
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [requestPermission]);
-
-  const handlePermissionGrant = async () => {
-    setShowPermissionModal(false);
-    await triggerSystemPrompt('tracking');
-  };
-
-  const handlePermissionDeny = () => {
-    setShowPermissionModal(false);
-    markDenied('tracking');
-  };
 
   const {
     data: pageConfig,
@@ -210,31 +187,11 @@ export default function HomeScreen() {
     template.headerStyle === 'elite',
     isConfigLoading && !pageConfig
   );
-  const productGridDatasetKey = JSON.stringify({
-    selectedCategoryId,
-    productGridBlockIds: blocks
-      .filter((block) => block.type === 'ProductGrid')
-      .map((block) => block.props.id ?? block.type),
-  });
-  const primaryProductGridId =
-    blocks.find((block) => block.type === 'ProductGrid')?.props.id ?? null;
-  const primaryProductGridIndex = (() => {
-    if (primaryProductGridId) {
-      const matchingGridIndex = blocks.findIndex(
-        (block) =>
-          block.type === 'ProductGrid' &&
-          block.props.id === primaryProductGridId
-      );
-      if (matchingGridIndex !== -1) {
-        return matchingGridIndex;
-      }
-    }
-
-    return blocks.findIndex((block) => block.type === 'ProductGrid');
-  })();
-  const productGridBlockCount = blocks.filter(
-    (block) => block.type === 'ProductGrid'
-  ).length;
+  const {
+    primaryProductGridIndex,
+    productGridBlockCount,
+    productGridDatasetKey,
+  } = getHomeProductGridSummary(blocks, selectedCategoryId);
   const hasPageConfig = Boolean(pageConfig);
 
   useEffect(() => {
