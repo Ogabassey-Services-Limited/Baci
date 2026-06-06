@@ -81,6 +81,11 @@ describe('webmcp-storefront-tools schemas', () => {
     expect(webMcpStorePoliciesInputSchema.safeParse({})).toMatchObject({
       success: true,
     });
+    expect(
+      webMcpStorePoliciesInputSchema.safeParse({ extra: 'field' })
+    ).toMatchObject({
+      success: true,
+    });
     expect(webMcpStorePoliciesInputSchema.safeParse('bad')).toMatchObject({
       success: false,
     });
