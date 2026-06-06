@@ -74,6 +74,7 @@ function mockLookupThenUpdate(
 
 describe('handleCancelOrder', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
