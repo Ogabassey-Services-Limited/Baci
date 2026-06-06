@@ -8,6 +8,7 @@ const ENV_KEYS = [
   'NEXT_PUBLIC_MCP_SERVER_URL',
   'NEXT_PUBLIC_MCP_HEALTH_URL',
   'OGABASSEY_AGENT_ORIGIN',
+  'SUPABASE_SERVICE_ROLE_KEY',
 ] as const;
 
 const originalEnv = Object.fromEntries(
@@ -21,7 +22,10 @@ function importAgentReadiness(
   for (const key of ENV_KEYS) {
     delete process.env[key];
   }
-  Object.assign(process.env, overrides);
+  Object.assign(process.env, {
+    SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+    ...overrides,
+  });
 
   return import('./agent-readiness');
 }

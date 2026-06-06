@@ -1,3 +1,5 @@
+import { env } from '@/env';
+
 export const AGENT_READINESS_CACHE_CONTROL =
   'public, max-age=3600, s-maxage=3600';
 
@@ -10,26 +12,16 @@ export const BACI_AGENT_SKILL_DESCRIPTION =
 export const BACI_AGENT_SKILL_PATH =
   '/.well-known/agent-skills/baci-storefront/SKILL.md';
 
-function readTrimmedEnv(...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = process.env[key]?.trim();
-    if (value) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
-
-const OGABASSEY_ORIGIN =
-  readTrimmedEnv('OGABASSEY_AGENT_ORIGIN') ?? 'https://ogabassey.com';
+const OGABASSEY_ORIGIN = env.OGABASSEY_AGENT_ORIGIN ?? 'https://ogabassey.com';
 const DEFAULT_MCP_ORIGIN = 'https://mcp.ogabassey.com';
 
 export const BACI_MCP_SERVER_URL =
-  readTrimmedEnv('MCP_PUBLIC_SERVER_URL', 'NEXT_PUBLIC_MCP_SERVER_URL') ??
+  env.MCP_PUBLIC_SERVER_URL ??
+  env.NEXT_PUBLIC_MCP_SERVER_URL ??
   `${DEFAULT_MCP_ORIGIN}/mcp`;
 export const BACI_MCP_HEALTH_URL =
-  readTrimmedEnv('MCP_PUBLIC_HEALTH_URL', 'NEXT_PUBLIC_MCP_HEALTH_URL') ??
+  env.MCP_PUBLIC_HEALTH_URL ??
+  env.NEXT_PUBLIC_MCP_HEALTH_URL ??
   `${DEFAULT_MCP_ORIGIN}/health`;
 
 export const OGABASSEY_AGENT_DISCOVERY_LINK_HEADER = [
