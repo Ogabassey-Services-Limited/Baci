@@ -1,6 +1,12 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Alert, BackHandler, Pressable, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { LoginAuthMethod } from '@/components/auth/LoginEmailStep';
@@ -24,6 +30,33 @@ import { runLoginSocialSignIn } from './login-social-sign-in';
 const log = createLogger('Login');
 
 type AuthStep = 'email' | 'otp' | 'password';
+
+interface AuthStepResetHandlers {
+  setOtp: Dispatch<SetStateAction<string>>;
+  setPassword: Dispatch<SetStateAction<string>>;
+  setStep: Dispatch<SetStateAction<AuthStep>>;
+}
+
+function returnToEmailFromAuthStep(
+  step: AuthStep,
+  { setOtp, setPassword, setStep }: AuthStepResetHandlers
+) {
+  if (step === 'otp') {
+    void clearAuthLoginResumeState();
+    setStep('email');
+    setOtp('');
+    router.setParams({ mode: 'email' });
+    return true;
+  }
+
+  if (step === 'password') {
+    setStep('email');
+    setPassword('');
+    return true;
+  }
+
+  return false;
+}
 
 export function LoginScreen() {
   const colorScheme = useColorScheme();
@@ -222,17 +255,11 @@ export function LoginScreen() {
   };
 
   const handleBack = () => {
-    if (step === 'otp') {
-      void clearAuthLoginResumeState();
-      setStep('email');
-      setOtp('');
-      router.setParams({ mode: 'email' });
-    } else if (step === 'password') {
-      setStep('email');
-      setPassword('');
-    } else {
-      router.back();
+    if (returnToEmailFromAuthStep(step, { setOtp, setPassword, setStep })) {
+      return;
     }
+
+    router.back();
   };
 
   // 2026 Critical Fix: Handle Android hardware back button
@@ -251,13 +278,11 @@ export function LoginScreen() {
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
-        if (step === 'otp' || step === 'password') {
-          setStep('email');
-          setOtp('');
-          setPassword('');
-          return true;
-        }
-        return false;
+        return returnToEmailFromAuthStep(step, {
+          setOtp,
+          setPassword,
+          setStep,
+        });
       }
     );
 

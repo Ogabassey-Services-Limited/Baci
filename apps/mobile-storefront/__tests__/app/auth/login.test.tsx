@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 import { beforeAll } from '@jest/globals';
 import {
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
 } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, BackHandler } from 'react-native';
 
 const mockAlert = jest.fn();
 const mockBack = jest.fn();
@@ -23,6 +24,8 @@ const mockSignInWithGoogle = jest.fn();
 const mockSignInWithOtp = jest.fn();
 const mockSignInWithPassword = jest.fn();
 const mockVerifyOtp = jest.fn();
+const mockBackHandlerRemove = jest.fn();
+let hardwareBackPressHandler: (() => boolean | null | undefined) | null = null;
 const mockWithKeyboardDismiss = jest.fn(
   <T extends (...args: never[]) => unknown>(handler: T) => handler
 );
@@ -128,7 +131,16 @@ beforeAll(async () => {
 describe('LoginScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    hardwareBackPressHandler = null;
     jest.spyOn(Alert, 'alert').mockImplementation(mockAlert);
+    jest
+      .spyOn(BackHandler, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        hardwareBackPressHandler = handler;
+        return {
+          remove: mockBackHandlerRemove,
+        } as ReturnType<typeof BackHandler.addEventListener>;
+      });
     mockAuthState.isInitialized = true;
     mockAuthState.isLoading = false;
     mockAuthState.user = null;
@@ -183,6 +195,29 @@ describe('LoginScreen', () => {
     expect(mockSetParams).toHaveBeenCalledWith({ mode: 'otp' });
     expect(await screen.findByText('Verify Your Email')).toBeOnTheScreen();
     expect(mockWithKeyboardDismiss).toHaveBeenCalled();
+  });
+
+  it('clears pending OTP resume state on Android hardware back', async () => {
+    render(<LoginScreen />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('john@example.com'),
+      'shopper@example.com'
+    );
+    fireEvent.press(screen.getByText('Continue with Code'));
+
+    expect(await screen.findByText('Verify Your Email')).toBeOnTheScreen();
+
+    let handledBackPress = false;
+    act(() => {
+      handledBackPress = hardwareBackPressHandler?.() === true;
+    });
+
+    expect(handledBackPress).toBe(true);
+    expect(mockClearAuthLoginResumeState).toHaveBeenCalled();
+    expect(mockSetParams).toHaveBeenCalledWith({ mode: 'email' });
+    expect(screen.getByText('Welcome Back')).toBeOnTheScreen();
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('restores the pending OTP step from secure resume state', async () => {
