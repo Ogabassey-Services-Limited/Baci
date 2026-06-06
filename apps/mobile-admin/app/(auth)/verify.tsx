@@ -2,28 +2,44 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Alert,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
+const OTP_DIGIT_KEYS = [
+  'otp-digit-0',
+  'otp-digit-1',
+  'otp-digit-2',
+  'otp-digit-3',
+  'otp-digit-4',
+  'otp-digit-5',
+] as const;
+const LAST_OTP_INDEX = OTP_DIGIT_KEYS.length - 1;
+
 export default function VerifyScreen() {
   const { colors, isDark } = useTheme();
   const styles = getStyles(colors);
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
-  const [code, setCode] = useState(['', '', '', '', '', '']); // 6 digits
+  const [code, setCode] = useState<string[]>(() =>
+    OTP_DIGIT_KEYS.map(() => '')
+  ); // 6 digits
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false); // Custom success state
   const [timer, setTimer] = useState(30); // 30s countdown for resend
+  const [focusedOtpIndex, setFocusedOtpIndex] = useState(0);
   const inputs = useRef<Array<TextInput | null>>([]);
 
   // Refs for proper cleanup
@@ -97,12 +113,12 @@ export default function VerifyScreen() {
     setCode(newCode);
 
     // Auto-focus next input
-    if (text && index < 5) {
+    if (text && index < LAST_OTP_INDEX) {
       inputs.current[index + 1]?.focus();
     }
 
     // Auto-submit if all filled
-    if (index === 5 && text) {
+    if (index === LAST_OTP_INDEX && text) {
       // verifyCode(newCode.join('') + text.slice(-1)); // careful with state updates
       // better to use explicit submit or updated array
     }
@@ -119,7 +135,7 @@ export default function VerifyScreen() {
 
   const verifyOtp = async () => {
     const token = code.join('');
-    if (token.length !== 6) {
+    if (token.length !== OTP_DIGIT_KEYS.length) {
       Alert.alert('Error', 'Please enter a complete 6-digit code');
       return;
     }
@@ -185,6 +201,20 @@ export default function VerifyScreen() {
     }
   };
 
+  const focusOtpInput = (index: number) => {
+    inputs.current[index]?.focus();
+    setFocusedOtpIndex(index);
+  };
+
+  const handleOtpAccessoryNext = () => {
+    if (focusedOtpIndex < LAST_OTP_INDEX) {
+      focusOtpInput(focusedOtpIndex + 1);
+      return;
+    }
+
+    void verifyOtp();
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
@@ -194,7 +224,15 @@ export default function VerifyScreen() {
       />
       <SafeAreaView style={styles.content}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && { opacity: 0.7 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.title}>Check your email</Text>
@@ -207,17 +245,20 @@ export default function VerifyScreen() {
         </View>
 
         <View style={styles.otpContainer}>
-          {code.map((digit, index) => (
+          {OTP_DIGIT_KEYS.map((digitKey, index) => (
             <TextInput
-              key={index}
+              key={digitKey}
               ref={(ref) => {
                 inputs.current[index] = ref;
               }}
               style={styles.otpInput}
+              accessibilityLabel={`Digit ${index + 1} of ${OTP_DIGIT_KEYS.length}`}
               keyboardType="number-pad"
+              returnKeyType="done"
               maxLength={1}
-              value={digit}
+              value={code[index] ?? ''}
               onChangeText={(text) => handleCodeChange(text, index)}
+              onFocus={() => setFocusedOtpIndex(index)}
               onKeyPress={(e) => handleKeyPress(e, index)}
               placeholder="-"
               placeholderTextColor={colors.textMuted}
@@ -226,11 +267,51 @@ export default function VerifyScreen() {
             />
           ))}
         </View>
+        <View style={styles.otpActionRow}>
+          <Pressable
+            accessibilityLabel="Previous code digit"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: focusedOtpIndex === 0 }}
+            disabled={focusedOtpIndex === 0}
+            onPress={() => focusOtpInput(focusedOtpIndex - 1)}
+            style={({ pressed }) => [
+              styles.otpActionButton,
+              focusedOtpIndex === 0 && styles.otpActionDisabled,
+              pressed && focusedOtpIndex > 0 && styles.otpActionPressed,
+            ]}
+          >
+            <Text style={styles.otpActionText}>Previous</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel={
+              focusedOtpIndex < LAST_OTP_INDEX
+                ? 'Next code digit'
+                : 'Verify code'
+            }
+            accessibilityRole="button"
+            onPress={handleOtpAccessoryNext}
+            style={({ pressed }) => [
+              styles.otpActionPrimaryButton,
+              pressed && styles.otpActionPressed,
+            ]}
+          >
+            <Text style={styles.otpActionPrimaryText}>
+              {focusedOtpIndex < LAST_OTP_INDEX ? 'Next' : 'Verify'}
+            </Text>
+          </Pressable>
+        </View>
 
         <Pressable
-          style={[styles.button, isLoading && { opacity: 0.7 }]}
+          style={({ pressed }) => [
+            styles.button,
+            isLoading && { opacity: 0.7 },
+            pressed && !isLoading && { opacity: 0.7 },
+          ]}
           onPress={verifyOtp}
           disabled={isLoading}
+          accessibilityRole="button"
+          accessibilityLabel="Verify Email"
+          accessibilityState={{ disabled: isLoading, busy: isLoading }}
         >
           {isLoading ? (
             <ActivityIndicator color={colors.textOnPrimary} />
@@ -242,7 +323,16 @@ export default function VerifyScreen() {
         <Pressable
           onPress={resendCode}
           disabled={timer > 0 || isLoading}
-          style={styles.resendButton}
+          style={({ pressed }) => [
+            styles.resendButton,
+            pressed && timer <= 0 && !isLoading && { opacity: 0.7 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Resend code"
+          accessibilityState={{
+            disabled: timer > 0 || isLoading,
+            busy: isLoading,
+          }}
         >
           <Text
             style={[
@@ -271,12 +361,17 @@ export default function VerifyScreen() {
               Your email has been successfully verified. Welcome to Baci.
             </Text>
             <Pressable
-              style={styles.successButton}
+              style={({ pressed }) => [
+                styles.successButton,
+                pressed && { opacity: 0.7 },
+              ]}
               onPress={() => {
                 // Dismiss the modal — the auth layout will handle the redirect
                 // once the auth state updates from the Supabase listener
                 router.dismissAll();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Enter Dashboard"
             >
               <Text style={styles.successButtonText}>Enter Dashboard</Text>
               <Ionicons
@@ -324,7 +419,7 @@ const getStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       gap: SPACING.xs,
-      marginBottom: SPACING.xl,
+      marginBottom: SPACING.sm,
     },
     otpInput: {
       width: 45,
@@ -336,6 +431,39 @@ const getStyles = (colors: ThemeColors) =>
       color: colors.text,
       fontSize: TYPOGRAPHY.size.xl,
       textAlign: 'center',
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    otpActionRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: SPACING.xl,
+    },
+    otpActionButton: {
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+    },
+    otpActionPrimaryButton: {
+      backgroundColor: colors.primary,
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+    },
+    otpActionDisabled: {
+      opacity: 0.4,
+    },
+    otpActionPressed: {
+      opacity: 0.7,
+    },
+    otpActionText: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.md,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    otpActionPrimaryText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.md,
       fontFamily: TYPOGRAPHY.fontFamily.bold,
     },
     button: {

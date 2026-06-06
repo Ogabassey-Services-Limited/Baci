@@ -1,14 +1,17 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator,
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
   Alert,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { BusinessTypeSelector } from '@/components/auth/BusinessTypeSelector';
 import { RegisterLegalText } from '@/components/auth/register/RegisterLegalText';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
@@ -24,6 +27,9 @@ export default function CompleteProfileScreen() {
   const { colors, isDark } = useTheme();
 
   const { completeProfile, isLoading } = useRegistration();
+  const phoneRef = useRef<TextInput>(null);
+  const businessNameRef = useRef<TextInput>(null);
+  const slugRef = useRef<TextInput>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Form State
@@ -274,6 +280,9 @@ export default function CompleteProfileScreen() {
               placeholderTextColor={colors.textMuted}
               value={formData.fullName}
               onChangeText={(t) => updateForm('fullName', t)}
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => phoneRef.current?.focus()}
             />
           </View>
 
@@ -282,6 +291,7 @@ export default function CompleteProfileScreen() {
               Phone Number (Optional)
             </Text>
             <TextInput
+              ref={phoneRef}
               accessibilityLabel="Phone Number (Optional)"
               style={[
                 styles.input,
@@ -296,7 +306,31 @@ export default function CompleteProfileScreen() {
               value={formData.phone}
               onChangeText={(t) => updateForm('phone', t)}
               keyboardType="phone-pad"
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => businessNameRef.current?.focus()}
             />
+            <View style={styles.fieldActionRow}>
+              <Pressable
+                accessibilityLabel="Next field"
+                accessibilityRole="button"
+                onPress={() => businessNameRef.current?.focus()}
+                style={({ pressed }) => [
+                  styles.fieldActionButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.fieldActionButtonText,
+                    { color: colors.primary },
+                  ]}
+                >
+                  Next: Business name
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -304,6 +338,7 @@ export default function CompleteProfileScreen() {
               Business Name
             </Text>
             <TextInput
+              ref={businessNameRef}
               accessibilityLabel="Business Name"
               style={[
                 styles.input,
@@ -317,6 +352,9 @@ export default function CompleteProfileScreen() {
               placeholderTextColor={colors.textMuted}
               value={formData.businessName}
               onChangeText={(t) => updateForm('businessName', t)}
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => slugRef.current?.focus()}
             />
           </View>
 
@@ -334,6 +372,7 @@ export default function CompleteProfileScreen() {
               ]}
             >
               <TextInput
+                ref={slugRef}
                 accessibilityLabel="Store Link"
                 style={[
                   styles.urlInput,
@@ -344,6 +383,8 @@ export default function CompleteProfileScreen() {
                 autoCapitalize="none"
                 value={formData.slug}
                 onChangeText={handleSlugChange}
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
               />
               <Text
                 style={[
@@ -417,7 +458,7 @@ export default function CompleteProfileScreen() {
                     accessibilityState={{ selected: isSelected }}
                     key={country.code}
                     onPress={() => updateForm('country', country.code)}
-                    style={[
+                    style={({ pressed }) => [
                       styles.countryOption,
                       {
                         backgroundColor: isSelected
@@ -427,6 +468,7 @@ export default function CompleteProfileScreen() {
                           ? colors.primary
                           : colors.border,
                       },
+                      pressed && { opacity: 0.7 },
                     ]}
                   >
                     <Text
@@ -448,17 +490,18 @@ export default function CompleteProfileScreen() {
           </View>
 
           <Pressable
-            style={[
+            style={({ pressed }) => [
               styles.button,
               { backgroundColor: colors.primary },
               isLoading && { opacity: 0.7 },
+              pressed && !isLoading && { opacity: 0.7 },
             ]}
             onPress={handleCompleteSetup}
             disabled={isLoading}
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Launch Store"
-            accessibilityState={{ disabled: isLoading }}
+            accessibilityState={{ disabled: isLoading, busy: isLoading }}
           >
             {isLoading ? (
               <ActivityIndicator color={colors.textOnPrimary} />
@@ -612,5 +655,18 @@ const styles = StyleSheet.create({
   },
   termsLink: {
     textDecorationLine: 'underline',
+  },
+  fieldActionRow: {
+    alignItems: 'flex-end',
+  },
+  fieldActionButton: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  fieldActionButtonText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
 });
