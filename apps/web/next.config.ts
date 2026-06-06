@@ -1,6 +1,7 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
+import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-discovery-link-header';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
@@ -435,23 +436,44 @@ const nextConfig: NextConfig = {
   // Proxy MCP requests to VPS (only if MCP_SERVER_URL is configured)
   rewrites() {
     const mcpServerUrl = process.env.MCP_SERVER_URL;
-    if (!mcpServerUrl) {
-      return [];
-    }
-    return [
+    const beforeFiles = [
+      {
+        source: '/',
+        has: [
+          {
+            type: 'header',
+            key: 'accept',
+            value: '(?<accept>.*text/markdown.*)',
+          },
+        ],
+        destination: '/llms-full.txt',
+      },
+      {
+        source: '/robots.txt',
+        destination: '/api/robots',
+      },
       {
         source: '/blog/sitemap.xml',
         destination: '/sitemap/blog.xml',
       },
-      {
-        source: '/mcp/sse',
-        destination: `${mcpServerUrl}/sse`,
-      },
-      {
-        source: '/mcp/messages',
-        destination: `${mcpServerUrl}/messages`,
-      },
     ];
+
+    if (!mcpServerUrl) {
+      return { beforeFiles };
+    }
+    return {
+      beforeFiles,
+      afterFiles: [
+        {
+          source: '/mcp/sse',
+          destination: `${mcpServerUrl}/sse`,
+        },
+        {
+          source: '/mcp/messages',
+          destination: `${mcpServerUrl}/messages`,
+        },
+      ],
+    };
   },
 
   // Security headers
@@ -474,7 +496,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Link',
-            value: '<https://cdn.ogabassey.com>; rel=preconnect',
+            value: OGABASSEY_AGENT_DISCOVERY_LINK_HEADER,
           },
         ],
       },
