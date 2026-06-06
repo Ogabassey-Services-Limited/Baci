@@ -56,23 +56,3 @@ export function buildOAuthAuthorizationServerMetadata({
     service_documentation: `${normalizedBaseUrl}/auth.md`,
   };
 }
-
-export function buildOAuthProtectedResourceMetadata({
-  baseUrl,
-  supabaseUrl,
-}: {
-  baseUrl: string;
-  supabaseUrl: string;
-}) {
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
-  const authorizationServer = buildSupabaseIssuer(supabaseUrl);
-
-  return {
-    resource: `${normalizedBaseUrl}/api`,
-    resource_name: 'Ogabassey Agentic Commerce API',
-    resource_documentation: `${normalizedBaseUrl}/auth.md`,
-    authorization_servers: [authorizationServer],
-    scopes_supported: [...OAUTH_SCOPES],
-    bearer_methods_supported: ['header'],
-  };
-}

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { AGENT_READINESS_CACHE_CONTROL } from '@/config/agent-readiness';
 import { env } from '@/env';
-import { buildOAuthProtectedResourceMetadata } from '@/lib/agentic/oauth-discovery';
+import { buildOAuthProtectedResourceMetadata } from '@/lib/agentic/oauth-protected-resource-metadata';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 
 export function GET(request: Request): NextResponse {

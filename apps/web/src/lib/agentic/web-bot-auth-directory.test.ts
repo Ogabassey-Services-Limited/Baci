@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildWebBotAuthDirectoryResponse,
-  WEB_BOT_AUTH_CONTENT_TYPE,
-} from './web-bot-auth-directory';
+import { buildWebBotAuthDirectoryResponse } from './web-bot-auth-directory';
 import { buildTestKeys } from './web-bot-auth-test-keys';
 
 describe('buildWebBotAuthDirectoryResponse', () => {
@@ -17,7 +14,7 @@ describe('buildWebBotAuthDirectoryResponse', () => {
     expect(response).not.toBeNull();
     expect(response?.status).toBe(200);
     expect(response?.headers.get('content-type')).toBe(
-      WEB_BOT_AUTH_CONTENT_TYPE
+      'application/http-message-signatures-directory+json'
     );
     expect(response?.headers.get('signature')).toMatch(/^sig1=:.+:$/);
     expect(response?.headers.get('signature-input')).toContain(

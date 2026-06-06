@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { AGENT_READINESS_CACHE_CONTROL } from '@/config/agent-readiness';
 import { env } from '@/env';
-import { buildOAuthAuthorizationServerMetadata } from '@/lib/agentic/oauth-discovery';
+import { buildOAuthAuthorizationServerMetadata } from '@/lib/agentic/oauth-authorization-server-metadata';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 
 export function GET(request: Request): NextResponse {

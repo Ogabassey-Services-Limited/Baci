@@ -1,14 +1,10 @@
 import { createHash, createPrivateKey, randomBytes, sign } from 'node:crypto';
 import type { z } from 'zod';
-import {
-  type ED25519_JWK_SCHEMA,
-  WEB_BOT_AUTH_JWKS_SCHEMA,
-} from '@/schemas/web-bot-auth-directory';
+import { WEB_BOT_AUTH_JWKS_SCHEMA } from '@/schemas/web-bot-auth-directory';
 
 const WEB_BOT_AUTH_DIRECTORY_CACHE_MAX_AGE_SECONDS = 60;
 const WEB_BOT_AUTH_SIGNATURE_VALIDITY_SECONDS = 300;
-
-export const WEB_BOT_AUTH_CONTENT_TYPE =
+const WEB_BOT_AUTH_CONTENT_TYPE =
   'application/http-message-signatures-directory+json';
 
 function base64UrlSha256(value: string): string {
@@ -19,7 +15,9 @@ function normalizePem(value: string): string {
   return value.replace(/\\n/g, '\n').trim();
 }
 
-function getJwkThumbprint(jwk: z.infer<typeof ED25519_JWK_SCHEMA>): string {
+function getJwkThumbprint(
+  jwk: z.infer<typeof WEB_BOT_AUTH_JWKS_SCHEMA>['keys'][number]
+): string {
   return base64UrlSha256(
     JSON.stringify({
       crv: jwk.crv,

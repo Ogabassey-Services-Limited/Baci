@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ED25519_JWK_SCHEMA = z
+const ED25519_JWK_SCHEMA = z
   .object({
     alg: z.string().optional(),
     crv: z.literal('Ed25519'),
