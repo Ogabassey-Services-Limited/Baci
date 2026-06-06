@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  InputAccessoryView,
+  Platform,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -21,6 +23,8 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useRegistration } from '@/hooks/useRegistration';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+
+const PHONE_INPUT_ACCESSORY_ID = 'complete-profile-phone-input-accessory';
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
@@ -308,8 +312,44 @@ export default function CompleteProfileScreen() {
               keyboardType="phone-pad"
               returnKeyType="next"
               submitBehavior="submit"
+              inputAccessoryViewID={
+                Platform.OS === 'ios' ? PHONE_INPUT_ACCESSORY_ID : undefined
+              }
               onSubmitEditing={() => businessNameRef.current?.focus()}
             />
+            {Platform.OS === 'ios' ? (
+              <InputAccessoryView nativeID={PHONE_INPUT_ACCESSORY_ID}>
+                <View
+                  style={[
+                    styles.inputAccessory,
+                    {
+                      backgroundColor: colors.card,
+                      borderTopColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Pressable
+                    accessibilityLabel="Next field"
+                    accessibilityRole="button"
+                    onPress={() => businessNameRef.current?.focus()}
+                    style={({ pressed }) => [
+                      styles.inputAccessoryButton,
+                      { backgroundColor: colors.primary },
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.inputAccessoryButtonText,
+                        { color: colors.textOnPrimary },
+                      ]}
+                    >
+                      Next
+                    </Text>
+                  </Pressable>
+                </View>
+              </InputAccessoryView>
+            ) : null}
           </View>
 
           <View style={styles.inputGroup}>
@@ -635,5 +675,22 @@ const styles = StyleSheet.create({
   },
   termsLink: {
     textDecorationLine: 'underline',
+  },
+  inputAccessory: {
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  inputAccessoryButton: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  inputAccessoryButtonText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
 });

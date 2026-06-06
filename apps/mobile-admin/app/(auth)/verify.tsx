@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  InputAccessoryView,
+  Platform,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -18,6 +20,8 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
+const OTP_INPUT_ACCESSORY_ID = 'verify-otp-input-accessory';
+
 export default function VerifyScreen() {
   const { colors, isDark } = useTheme();
   const styles = getStyles(colors);
@@ -27,6 +31,7 @@ export default function VerifyScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false); // Custom success state
   const [timer, setTimer] = useState(30); // 30s countdown for resend
+  const [focusedOtpIndex, setFocusedOtpIndex] = useState(0);
   const inputs = useRef<Array<TextInput | null>>([]);
 
   // Refs for proper cleanup
@@ -188,6 +193,20 @@ export default function VerifyScreen() {
     }
   };
 
+  const focusOtpInput = (index: number) => {
+    inputs.current[index]?.focus();
+    setFocusedOtpIndex(index);
+  };
+
+  const handleOtpAccessoryNext = () => {
+    if (focusedOtpIndex < 5) {
+      focusOtpInput(focusedOtpIndex + 1);
+      return;
+    }
+
+    void verifyOtp();
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
@@ -227,9 +246,13 @@ export default function VerifyScreen() {
               style={styles.otpInput}
               keyboardType="number-pad"
               returnKeyType="done"
+              inputAccessoryViewID={
+                Platform.OS === 'ios' ? OTP_INPUT_ACCESSORY_ID : undefined
+              }
               maxLength={1}
               value={digit}
               onChangeText={(text) => handleCodeChange(text, index)}
+              onFocus={() => setFocusedOtpIndex(index)}
               onKeyPress={(e) => handleKeyPress(e, index)}
               placeholder="-"
               placeholderTextColor={colors.textMuted}
@@ -238,6 +261,43 @@ export default function VerifyScreen() {
             />
           ))}
         </View>
+        {Platform.OS === 'ios' ? (
+          <InputAccessoryView nativeID={OTP_INPUT_ACCESSORY_ID}>
+            <View style={styles.keyboardAccessory}>
+              <Pressable
+                accessibilityLabel="Previous code digit"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: focusedOtpIndex === 0 }}
+                disabled={focusedOtpIndex === 0}
+                onPress={() => focusOtpInput(focusedOtpIndex - 1)}
+                style={({ pressed }) => [
+                  styles.keyboardAccessoryButton,
+                  focusedOtpIndex === 0 && styles.keyboardAccessoryDisabled,
+                  pressed &&
+                    focusedOtpIndex > 0 &&
+                    styles.keyboardAccessoryPressed,
+                ]}
+              >
+                <Text style={styles.keyboardAccessoryText}>Previous</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel={
+                  focusedOtpIndex < 5 ? 'Next code digit' : 'Verify code'
+                }
+                accessibilityRole="button"
+                onPress={handleOtpAccessoryNext}
+                style={({ pressed }) => [
+                  styles.keyboardAccessoryPrimaryButton,
+                  pressed && styles.keyboardAccessoryPressed,
+                ]}
+              >
+                <Text style={styles.keyboardAccessoryPrimaryText}>
+                  {focusedOtpIndex < 5 ? 'Next' : 'Verify'}
+                </Text>
+              </Pressable>
+            </View>
+          </InputAccessoryView>
+        ) : null}
 
         <Pressable
           style={({ pressed }) => [
@@ -369,6 +429,43 @@ const getStyles = (colors: ThemeColors) =>
       color: colors.text,
       fontSize: TYPOGRAPHY.size.xl,
       textAlign: 'center',
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    keyboardAccessory: {
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderTopColor: colors.border,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+    },
+    keyboardAccessoryButton: {
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+    },
+    keyboardAccessoryPrimaryButton: {
+      backgroundColor: colors.primary,
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+    },
+    keyboardAccessoryDisabled: {
+      opacity: 0.4,
+    },
+    keyboardAccessoryPressed: {
+      opacity: 0.7,
+    },
+    keyboardAccessoryText: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.md,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    keyboardAccessoryPrimaryText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.md,
       fontFamily: TYPOGRAPHY.fontFamily.bold,
     },
     button: {
