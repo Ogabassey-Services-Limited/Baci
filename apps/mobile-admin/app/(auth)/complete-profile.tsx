@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   Pressable,
@@ -24,6 +24,9 @@ export default function CompleteProfileScreen() {
   const { colors, isDark } = useTheme();
 
   const { completeProfile, isLoading } = useRegistration();
+  const phoneRef = useRef<TextInput>(null);
+  const businessNameRef = useRef<TextInput>(null);
+  const slugRef = useRef<TextInput>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Form State
@@ -274,6 +277,9 @@ export default function CompleteProfileScreen() {
               placeholderTextColor={colors.textMuted}
               value={formData.fullName}
               onChangeText={(t) => updateForm('fullName', t)}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => phoneRef.current?.focus()}
             />
           </View>
 
@@ -282,6 +288,7 @@ export default function CompleteProfileScreen() {
               Phone Number (Optional)
             </Text>
             <TextInput
+              ref={phoneRef}
               accessibilityLabel="Phone Number (Optional)"
               style={[
                 styles.input,
@@ -296,6 +303,9 @@ export default function CompleteProfileScreen() {
               value={formData.phone}
               onChangeText={(t) => updateForm('phone', t)}
               keyboardType="phone-pad"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => businessNameRef.current?.focus()}
             />
           </View>
 
@@ -304,6 +314,7 @@ export default function CompleteProfileScreen() {
               Business Name
             </Text>
             <TextInput
+              ref={businessNameRef}
               accessibilityLabel="Business Name"
               style={[
                 styles.input,
@@ -317,6 +328,9 @@ export default function CompleteProfileScreen() {
               placeholderTextColor={colors.textMuted}
               value={formData.businessName}
               onChangeText={(t) => updateForm('businessName', t)}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => slugRef.current?.focus()}
             />
           </View>
 
@@ -334,6 +348,7 @@ export default function CompleteProfileScreen() {
               ]}
             >
               <TextInput
+                ref={slugRef}
                 accessibilityLabel="Store Link"
                 style={[
                   styles.urlInput,
@@ -344,6 +359,8 @@ export default function CompleteProfileScreen() {
                 autoCapitalize="none"
                 value={formData.slug}
                 onChangeText={handleSlugChange}
+                returnKeyType="done"
+                onSubmitEditing={handleCompleteSetup}
               />
               <Text
                 style={[

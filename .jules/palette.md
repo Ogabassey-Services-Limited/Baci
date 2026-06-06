@@ -86,3 +86,10 @@
 ## 2026-06-04 - Improved Keyboard UX in Forms
 **Learning:** In React Native apps, relying on default keyboard behavior for text inputs creates friction. `returnKeyType` improves the visible keyboard label, but smooth field navigation also needs `onSubmitEditing`, `TextInput` refs, and `submitBehavior`, which controls whether Return submits or inserts a newline.
 **Action:** For sequences of `TextInput` components, combine `returnKeyType="next"` with `submitBehavior="submit"` and `onSubmitEditing={() => nextInputRef.current?.focus()}` on intermediate fields. Use `returnKeyType="done"` with `submitBehavior="blurAndSubmit"` and a dismiss handler on the final field.
+## 2026-06-06 - Input Focus Chaining
+**Learning:** In React Native mobile apps, default keyboard transitions between text inputs create unnecessary friction if they close the keyboard instead of advancing.
+**Action:** When implementing sequential forms in React Native, use `useRef` to store input references and combine `returnKeyType="next"`, `blurOnSubmit={false}`, and `onSubmitEditing={() => nextInputRef.current?.focus()}` on the `TextInput` components. Ensure the final field uses `returnKeyType="done"` and handles final form submission.
+
+## 2026-06-06 - Pressable Style Feedback
+**Learning:** Interactive `Pressable` elements without visual feedback leave users uncertain if their tap registered.
+**Action:** Always provide visual feedback for `Pressable` interactions by using the render prop style pattern to dynamically apply opacity on press: `style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}`.

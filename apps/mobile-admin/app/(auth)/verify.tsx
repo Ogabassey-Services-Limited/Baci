@@ -194,7 +194,12 @@ export default function VerifyScreen() {
       />
       <SafeAreaView style={styles.content}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.title}>Check your email</Text>
@@ -215,6 +220,7 @@ export default function VerifyScreen() {
               }}
               style={styles.otpInput}
               keyboardType="number-pad"
+              returnKeyType="done"
               maxLength={1}
               value={digit}
               onChangeText={(text) => handleCodeChange(text, index)}
@@ -228,9 +234,12 @@ export default function VerifyScreen() {
         </View>
 
         <Pressable
-          style={[styles.button, isLoading && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.button, isLoading && { opacity: 0.7 }, pressed && !isLoading && { opacity: 0.7 }]}
           onPress={verifyOtp}
           disabled={isLoading}
+          accessibilityRole="button"
+          accessibilityLabel="Verify Email"
+          accessibilityState={{ disabled: isLoading, busy: isLoading }}
         >
           {isLoading ? (
             <ActivityIndicator color={colors.textOnPrimary} />
@@ -242,7 +251,10 @@ export default function VerifyScreen() {
         <Pressable
           onPress={resendCode}
           disabled={timer > 0 || isLoading}
-          style={styles.resendButton}
+          style={({ pressed }) => [styles.resendButton, pressed && timer <= 0 && !isLoading && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Resend code"
+          accessibilityState={{ disabled: timer > 0 || isLoading, busy: isLoading }}
         >
           <Text
             style={[
@@ -271,12 +283,14 @@ export default function VerifyScreen() {
               Your email has been successfully verified. Welcome to Baci.
             </Text>
             <Pressable
-              style={styles.successButton}
+              style={({ pressed }) => [styles.successButton, pressed && { opacity: 0.7 }]}
               onPress={() => {
                 // Dismiss the modal — the auth layout will handle the redirect
                 // once the auth state updates from the Supabase listener
                 router.dismissAll();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Enter Dashboard"
             >
               <Text style={styles.successButtonText}>Enter Dashboard</Text>
               <Ionicons
