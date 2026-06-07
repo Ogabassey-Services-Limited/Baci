@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
 import { AGENT_READINESS_CACHE_CONTROL } from '@/config/agent-readiness';
-import { buildOAuthProtectedResourceMetadata } from '@/lib/agentic/oauth-protected-resource-metadata';
+import { buildAgentAuthAuthorizationServerMetadata } from '@/lib/agentic/agent-auth-authorization-server-metadata';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 
 export function GET(request: Request): NextResponse {
   return NextResponse.json(
-    buildOAuthProtectedResourceMetadata({
-      baseUrl: buildRequestBaseUrl(request),
-    }),
+    buildAgentAuthAuthorizationServerMetadata(buildRequestBaseUrl(request)),
     {
       headers: {
         'Cache-Control': AGENT_READINESS_CACHE_CONTROL,

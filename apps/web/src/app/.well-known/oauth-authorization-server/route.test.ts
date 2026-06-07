@@ -67,6 +67,7 @@ describe('GET /.well-known/oauth-authorization-server', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
+    expect(body.issuer).toBe('https://project.supabase.co/auth/v1');
     expect(body.service_documentation).toBe('https://ogabassey.com/auth.md');
     expect(body.agent_auth.register_uri).toBe(
       'https://ogabassey.com/.well-known/agent-auth'

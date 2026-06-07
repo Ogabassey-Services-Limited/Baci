@@ -31,14 +31,10 @@ describe('GET /openapi.json', () => {
     ).toMatchObject({
       operationId: 'completeCheckoutSession',
       'x-payment-info': {
-        offers: [
-          {
-            intent: 'charge',
-            method: 'paystack_bank_transfer',
-            amount: null,
-            currency: 'NGN',
-          },
-        ],
+        intent: 'charge',
+        method: 'card',
+        amount: null,
+        currency: 'NGN',
       },
       responses: {
         '200': expect.any(Object),
