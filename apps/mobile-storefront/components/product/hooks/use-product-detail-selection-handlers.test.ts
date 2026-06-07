@@ -169,4 +169,60 @@ describe('useProductDetailSelectionHandlers', () => {
     });
     expect(routeData.setSelectedVariant).toHaveBeenCalledWith(null);
   });
+
+  it('updates the gallery image when a linked storage selection changes color', () => {
+    const routeData = createRouteData({
+      effectiveSelectedAttributes: { ram: '6GB' },
+      effectiveSelectedColor: 'Black',
+      effectiveSelectedStorage: '128GB',
+      productGalleryImages: [
+        'https://cdn.example.com/black.jpg',
+        'https://cdn.example.com/blue.jpg',
+      ],
+      resolvedColorImages: {
+        Black: ['https://cdn.example.com/black.jpg'],
+        Blue: ['https://cdn.example.com/blue.jpg'],
+      },
+      product: {
+        id: 'phone-with-color-linked-storage',
+        name: 'Phone With Color Linked Storage',
+        slug: 'phone-with-color-linked-storage',
+        price: 212651.16,
+        image: 'https://cdn.example.com/black.jpg',
+        has_variants: true,
+        manage_stock: false,
+        variants: [
+          {
+            id: 'black-6-128',
+            name: '6GB 128GB Black',
+            condition: 'new',
+            price: 1,
+            attributes: {
+              color: 'Black',
+              ram: '6GB',
+              storage: '128GB',
+            },
+          },
+          {
+            id: 'blue-8-256',
+            name: '8GB 256GB Blue',
+            condition: 'new',
+            price: 1,
+            attributes: {
+              color: 'Blue',
+              ram: '8GB',
+              storage: '256GB',
+            },
+          },
+        ],
+      },
+    });
+    const handlers = useProductDetailSelectionHandlers(routeData as never);
+
+    handlers.onSelectStorage('256GB');
+
+    expect(routeData.setSelectedColor).toHaveBeenCalledWith('Blue');
+    expect(routeData.setSelectedStorage).toHaveBeenCalledWith('256GB');
+    expect(routeData.setSelectedImageIndex).toHaveBeenCalledWith(1);
+  });
 });

@@ -8,14 +8,38 @@ import type { useProductDetailRouteData } from './use-product-detail-route-data'
 
 type RouteData = ReturnType<typeof useProductDetailRouteData>;
 
+function getImageIndexForSelectionColor(
+  routeData: RouteData,
+  color: string | null,
+  images?: string[]
+) {
+  return getFirstImageIndexForColor({
+    color,
+    colorImages: routeData.resolvedColorImages,
+    images: images?.length ? images : routeData.productGalleryImages,
+  });
+}
+
 function applyLinkedVariantSelection(
   routeData: RouteData,
-  selection: NonNullable<ReturnType<typeof resolveLinkedVariantSelection>>
+  selection: NonNullable<ReturnType<typeof resolveLinkedVariantSelection>>,
+  images?: string[],
+  forceImageIndexUpdate = false
 ) {
+  const shouldUpdateImageIndex =
+    forceImageIndexUpdate ||
+    selection.color !== routeData.effectiveSelectedColor;
+
   routeData.setSelectedStorage(selection.storage);
   routeData.setSelectedColor(selection.color);
   routeData.setSelectedAttributes(selection.attributes);
   routeData.setSelectedVariant(null);
+
+  if (shouldUpdateImageIndex) {
+    routeData.setSelectedImageIndex(
+      getImageIndexForSelectionColor(routeData, selection.color, images)
+    );
+  }
 }
 
 export function useProductDetailSelectionHandlers(routeData: RouteData) {
@@ -146,22 +170,26 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
       });
 
       if (linkedSelection) {
-        applyLinkedVariantSelection(routeData, linkedSelection);
+        applyLinkedVariantSelection(
+          routeData,
+          linkedSelection,
+          imgs?.length ? imgs : undefined,
+          true
+        );
       } else {
         routeData.setSelectedColor(color);
         routeData.setSelectedVariant(null);
         routeData.setSelectedAttributes((current) =>
           stripInternalSelectionAxes(current)
         );
+        routeData.setSelectedImageIndex(
+          getImageIndexForSelectionColor(
+            routeData,
+            color,
+            imgs?.length ? imgs : undefined
+          )
+        );
       }
-
-      routeData.setSelectedImageIndex(
-        getFirstImageIndexForColor({
-          color,
-          colorImages: routeData.resolvedColorImages,
-          images: imgs?.length ? imgs : routeData.productGalleryImages,
-        })
-      );
     },
     onSelectCondition: handleSelectCondition,
     onSelectStorage: (storage: string) => {
