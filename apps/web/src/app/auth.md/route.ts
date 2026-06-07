@@ -30,9 +30,9 @@ bearer_hmac contract described in agent-commerce.json.
 The OAuth Authorization Server Metadata includes an \`agent_auth\` block for
 agent registration discovery:
 
-- register_uri: ${baseUrl}/agent/auth
-- claim_uri: ${baseUrl}/agent/auth/claim
-- revocation_uri: ${baseUrl}/agent/auth/revoke
+- register_uri: ${baseUrl}/.well-known/agent-auth
+- claim_uri: ${baseUrl}/.well-known/agent-auth/claim
+- revocation_uri: ${baseUrl}/.well-known/agent-auth/revoke
 - identity_types_supported: identity_assertion
 - assertion_types_supported: urn:ietf:params:oauth:token-type:id-jag
 - credential_types_supported: api_key

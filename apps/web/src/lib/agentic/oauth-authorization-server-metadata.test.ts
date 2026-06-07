@@ -20,9 +20,9 @@ describe('buildOAuthAuthorizationServerMetadata', () => {
       code_challenge_methods_supported: ['S256'],
       service_documentation: 'https://ogabassey.com/auth.md',
       agent_auth: {
-        register_uri: 'https://ogabassey.com/agent/auth',
-        claim_uri: 'https://ogabassey.com/agent/auth/claim',
-        revocation_uri: 'https://ogabassey.com/agent/auth/revoke',
+        register_uri: 'https://ogabassey.com/.well-known/agent-auth',
+        claim_uri: 'https://ogabassey.com/.well-known/agent-auth/claim',
+        revocation_uri: 'https://ogabassey.com/.well-known/agent-auth/revoke',
         identity_types_supported: ['identity_assertion'],
         identity_assertion: {
           assertion_types_supported: [
@@ -48,7 +48,7 @@ describe('buildOAuthAuthorizationServerMetadata', () => {
         'https://project.supabase.co/auth/v1/oauth/authorize',
       service_documentation: 'https://ogabassey.com/auth.md',
       agent_auth: {
-        register_uri: 'https://ogabassey.com/agent/auth',
+        register_uri: 'https://ogabassey.com/.well-known/agent-auth',
       },
     });
   });

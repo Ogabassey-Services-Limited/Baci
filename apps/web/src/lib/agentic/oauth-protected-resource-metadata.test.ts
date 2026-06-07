@@ -17,9 +17,10 @@ describe('buildOAuthProtectedResourceMetadata', () => {
       bearer_methods_supported: ['header'],
       agent_auth: {
         skill: 'https://workos.com/auth.md',
-        register_uri: 'https://merchant.example/agent/auth',
-        claim_uri: 'https://merchant.example/agent/auth/claim',
-        revocation_uri: 'https://merchant.example/agent/auth/revoke',
+        register_uri: 'https://merchant.example/.well-known/agent-auth',
+        claim_uri: 'https://merchant.example/.well-known/agent-auth/claim',
+        revocation_uri:
+          'https://merchant.example/.well-known/agent-auth/revoke',
         identity_types_supported: ['identity_assertion'],
         identity_assertion: {
           assertion_types_supported: [
@@ -48,7 +49,7 @@ describe('buildOAuthProtectedResourceMetadata', () => {
       resource_documentation: 'https://merchant.example/auth.md',
       authorization_servers: ['https://project.supabase.co/auth/v1'],
       agent_auth: {
-        register_uri: 'https://merchant.example/agent/auth',
+        register_uri: 'https://merchant.example/.well-known/agent-auth',
       },
     });
   });

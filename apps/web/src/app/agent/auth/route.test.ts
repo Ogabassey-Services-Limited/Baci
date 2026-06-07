@@ -19,8 +19,9 @@ describe('GET /agent/auth', () => {
       credential_type: 'api_key',
       credential_format: 'bearer_hmac',
       documentation: 'https://merchant.example.com/auth.md',
-      claim_uri: 'https://merchant.example.com/agent/auth/claim',
-      revocation_uri: 'https://merchant.example.com/agent/auth/revoke',
+      claim_uri: 'https://merchant.example.com/.well-known/agent-auth/claim',
+      revocation_uri:
+        'https://merchant.example.com/.well-known/agent-auth/revoke',
     });
     expect(body).not.toHaveProperty('credential');
   });
