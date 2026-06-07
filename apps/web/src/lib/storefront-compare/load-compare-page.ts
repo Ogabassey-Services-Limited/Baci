@@ -1,4 +1,3 @@
-import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   type CachedMerchant,
@@ -21,9 +20,18 @@ import {
   getStorefrontLocale,
 } from '@/lib/storefront-localization';
 import {
+  buildProductComparisonMatrix,
+  type ProductComparisonMatrix,
+} from '@/lib/storefront-specs/spec-matrix';
+import type { ComparableProductKeySpecs } from '@/lib/storefront-specs/spec-taxonomy';
+import {
   buildBrandCompareCandidate,
   buildProductCompareCandidate,
 } from './compare-eligibility';
+import {
+  buildCuratedCompareSlugSet,
+  isCuratedCompareSlug,
+} from './compare-indexability-policy';
 import { parseCompareSlug } from './compare-slugs';
 
 interface CompareBreadcrumbItem {
@@ -48,6 +56,7 @@ interface ComparableCategoryProduct {
   brand: string | null;
   price: number;
   category_slug: string;
+  product_key_specs: ComparableProductKeySpecs | null;
 }
 
 interface ProductComparePageModel {
@@ -60,6 +69,7 @@ interface ProductComparePageModel {
   summaryVerdict: string;
   keyDifferences: string[];
   comparisonRows: ComparisonRow[];
+  comparisonMatrix: ProductComparisonMatrix;
   faqItems: CompareFAQItem[];
   breadcrumbItems: CompareBreadcrumbItem[];
   guideLinks: InformationalGuideLink[];
@@ -100,21 +110,13 @@ function isRawDbProduct(value: unknown): value is RawDbProduct {
   );
 }
 
-function normalizeComparableKeySpecs(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  return value as Record<string, unknown>;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function extractComparableKeySpecs(
   value: unknown
-): Record<string, unknown> | null {
+): ComparableProductKeySpecs | null {
   if (Array.isArray(value)) {
     const firstRecord = value.find(isRecord);
     return firstRecord ?? null;
@@ -123,33 +125,26 @@ function extractComparableKeySpecs(
   return isRecord(value) ? value : null;
 }
 
-function buildComparisonRows(
-  leftSpecs: ReturnType<typeof buildOgabasseyProductSpecData>['specs'],
-  rightSpecs: ReturnType<typeof buildOgabasseyProductSpecData>['specs']
-) {
-  return Array.from(
-    new Set([
-      ...leftSpecs.map((item) => item.label),
-      ...rightSpecs.map((item) => item.label),
-    ])
-  )
-    .map((label) => ({
-      label,
-      leftValue:
-        leftSpecs.find((candidate) => candidate.label === label)?.value || '—',
-      rightValue:
-        rightSpecs.find((candidate) => candidate.label === label)?.value || '—',
+function buildComparisonRowsFromMatrix(
+  matrix: ProductComparisonMatrix
+): ComparisonRow[] {
+  return matrix.flatRows
+    .map((row) => ({
+      label: row.label,
+      leftValue: row.values[0] || '—',
+      rightValue: row.values[1] || '—',
     }))
     .filter((row) => row.leftValue !== '—' || row.rightValue !== '—');
 }
 
-function buildComparableKeySpecsFromSpecRows(
-  specs: ReturnType<typeof buildOgabasseyProductSpecData>['specs']
-) {
+function buildComparableKeySpecsFromMatrix(
+  matrix: ProductComparisonMatrix,
+  columnIndex: number
+): ComparableProductKeySpecs {
   return Object.fromEntries(
-    specs
-      .filter((spec) => spec.label && spec.value)
-      .map((spec) => [generateSlug(spec.label), spec.value])
+    matrix.flatRows
+      .map((row) => [generateSlug(row.label), row.values[columnIndex]])
+      .filter(([_key, value]) => value && value !== '—')
       .filter(([key, value]) => Boolean(key) && Boolean(value))
   );
 }
@@ -252,17 +247,22 @@ export async function loadComparePage(args: {
   const rawProducts = ((categoryData.products ?? []) as unknown[]).filter(
     isRawDbProduct
   );
-  const normalizedProducts = rawProducts
-    .map((product) =>
-      normalizeProduct(product, { preferredCategorySlug: args.categorySlug })
-    )
-    .map((product) => ({
-      slug: product.slug,
-      name: product.name,
-      brand: product.brand,
-      price: product.price,
-      category_slug: product.category_slug,
-    }));
+  const normalizedProducts = rawProducts.map((product) => {
+    const normalizedProduct = normalizeProduct(product, {
+      preferredCategorySlug: args.categorySlug,
+    });
+
+    return {
+      slug: normalizedProduct.slug,
+      name: normalizedProduct.name,
+      brand: normalizedProduct.brand,
+      price: normalizedProduct.price,
+      category_slug: normalizedProduct.category_slug,
+      product_key_specs: extractComparableKeySpecs(
+        (product as { product_key_specs?: unknown }).product_key_specs
+      ),
+    };
+  });
 
   const storeUrl = buildStoreUrl(merchant);
   const categoryName = categoryData.fallbackName || args.categorySlug;
@@ -282,6 +282,16 @@ export async function loadComparePage(args: {
   );
   const countryContext = getCountryShoppingContext(merchant.country);
   const countrySuffix = countryContext ? ` ${countryContext}` : '';
+  const curatedCompareSlugs = buildCuratedCompareSlugSet({
+    storeUrl,
+    categorySlug: args.categorySlug,
+    categoryName,
+    products: normalizedProducts,
+  });
+
+  if (!isCuratedCompareSlug(parsed.canonicalSlug, curatedCompareSlugs)) {
+    return null;
+  }
 
   const leftProduct = normalizedProducts.find(
     (product) => product.slug === parsed.leftKey
@@ -304,22 +314,23 @@ export async function loadComparePage(args: {
       return null;
     }
 
-    const leftSpecData = buildOgabasseyProductSpecData({
-      ...leftDetails,
-      product_key_specs: normalizeComparableKeySpecs(
-        leftDetails.product_key_specs
-      ),
+    const comparisonMatrix = buildProductComparisonMatrix({
+      products: [
+        {
+          ...leftDetails,
+          product_key_specs: extractComparableKeySpecs(
+            leftDetails.product_key_specs
+          ),
+        },
+        {
+          ...rightDetails,
+          product_key_specs: extractComparableKeySpecs(
+            rightDetails.product_key_specs
+          ),
+        },
+      ],
     });
-    const rightSpecData = buildOgabasseyProductSpecData({
-      ...rightDetails,
-      product_key_specs: normalizeComparableKeySpecs(
-        rightDetails.product_key_specs
-      ),
-    });
-    const comparisonRows = buildComparisonRows(
-      leftSpecData.specs,
-      rightSpecData.specs
-    );
+    const comparisonRows = buildComparisonRowsFromMatrix(comparisonMatrix);
     const keyDifferences = buildDifferenceSummaries(
       leftDetails.name,
       rightDetails.name,
@@ -327,10 +338,10 @@ export async function loadComparePage(args: {
     );
     const leftComparableKeySpecs =
       extractComparableKeySpecs(leftDetails.product_key_specs) ||
-      buildComparableKeySpecsFromSpecRows(leftSpecData.specs);
+      buildComparableKeySpecsFromMatrix(comparisonMatrix, 0);
     const rightComparableKeySpecs =
       extractComparableKeySpecs(rightDetails.product_key_specs) ||
-      buildComparableKeySpecsFromSpecRows(rightSpecData.specs);
+      buildComparableKeySpecsFromMatrix(comparisonMatrix, 1);
     const candidate = buildProductCompareCandidate({
       categorySlug: args.categorySlug,
       leftProduct: {
@@ -371,6 +382,7 @@ export async function loadComparePage(args: {
       summaryVerdict: `${leftDetails.name} and ${rightDetails.name} both target ${categoryName.toLowerCase()} buyers${countrySuffix}, but the deciding factors are ${differenceLabels}.`,
       keyDifferences,
       comparisonRows,
+      comparisonMatrix,
       faqItems: [
         {
           question: `Which is better${countrySuffix}, ${leftDetails.name} or ${rightDetails.name}?`,

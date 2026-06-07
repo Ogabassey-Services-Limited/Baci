@@ -34,6 +34,32 @@ const comparePageModel = {
       rightValue: 'Snapdragon 8 Elite',
     },
   ],
+  comparisonMatrix: {
+    columns: [
+      { productId: 'left-product', label: 'iPhone 17 Pro Max' },
+      { productId: 'right-product', label: 'Samsung Galaxy Z TriFold' },
+    ],
+    groups: [
+      {
+        category: 'Platform',
+        rows: [
+          {
+            label: 'Chipset',
+            values: ['A19 Pro', 'Snapdragon 8 Elite'],
+            isDifferent: true,
+          },
+        ],
+      },
+    ],
+    flatRows: [
+      {
+        label: 'Chipset',
+        values: ['A19 Pro', 'Snapdragon 8 Elite'],
+        isDifferent: true,
+      },
+    ],
+    differentiatingRowCount: 1,
+  },
   faqItems: [
     {
       question: 'Which phone is better for multitasking?',
@@ -56,16 +82,23 @@ const comparePageModel = {
       kind: 'best-in-nigeria' as const,
     },
   ],
+  merchant: {
+    payout_currency: 'NGN',
+  },
   isIndexable: true,
   leftProduct: {
     id: 'left-product',
     name: 'iPhone 17 Pro Max',
     slug: 'iphone-17-pro-max',
+    category_slug: 'smartphones',
+    price: 2_200_000,
   },
   rightProduct: {
     id: 'right-product',
     name: 'Samsung Galaxy Z TriFold',
     slug: 'samsung-galaxy-z-trifold',
+    category_slug: 'smartphones',
+    price: 2_300_000,
   },
 };
 
@@ -107,7 +140,7 @@ describe('ComparePageContent', () => {
     );
   });
 
-  it('renders breadcrumb and FAQ JSON-LD scripts when faqItems exist', async () => {
+  it('renders breadcrumb and product ItemList JSON-LD scripts without FAQPage schema', async () => {
     const { ComparePageContent } = await import('./compare-page-content');
 
     const { container } = render(
@@ -126,10 +159,12 @@ describe('ComparePageContent', () => {
 
     expect(schemaScripts).toHaveLength(2);
     expect(schemaScripts[0]?.textContent).toContain('"@type":"BreadcrumbList"');
-    expect(schemaScripts[1]?.textContent).toContain('"@type":"FAQPage"');
+    expect(schemaScripts[1]?.textContent).toContain('"@type":"ItemList"');
+    expect(schemaScripts[1]?.textContent).toContain('"@type":"Product"');
+    expect(schemaScripts[1]?.textContent).not.toContain('"@type":"FAQPage"');
   });
 
-  it('renders only breadcrumb JSON-LD when faqItems are absent', async () => {
+  it('keeps product ItemList JSON-LD when visible FAQ items are absent', async () => {
     mockLoadComparePage.mockResolvedValueOnce({
       ...comparePageModel,
       faqItems: [],
@@ -150,9 +185,10 @@ describe('ComparePageContent', () => {
       'script[type="application/ld+json"]'
     );
 
-    expect(schemaScripts).toHaveLength(1);
+    expect(schemaScripts).toHaveLength(2);
     expect(schemaScripts[0]?.textContent).toContain('"@type":"BreadcrumbList"');
-    expect(schemaScripts[0]?.textContent).not.toContain('"@type":"FAQPage"');
+    expect(schemaScripts[1]?.textContent).toContain('"@type":"ItemList"');
+    expect(schemaScripts[1]?.textContent).not.toContain('"@type":"FAQPage"');
   });
 
   it('uses brand names as table column labels for brand compare pages', async () => {
@@ -188,6 +224,9 @@ describe('ComparePageContent', () => {
         },
       ],
       guideLinks: [],
+      merchant: {
+        payout_currency: 'NGN',
+      },
       isIndexable: true,
       leftBrand: 'Apple',
       rightBrand: 'Samsung',

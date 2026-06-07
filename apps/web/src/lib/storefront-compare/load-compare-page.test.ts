@@ -36,6 +36,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Apple',
       price: 2_200_000,
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
     },
     {
       id: 'product-b',
@@ -45,6 +46,11 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Samsung',
       price: 2_300_000,
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Elite',
+        ram_gb: 16,
+        storage_gb: 512,
+      },
     },
     {
       id: 'product-c',
@@ -54,6 +60,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Samsung',
       price: 480_000,
+      product_key_specs: { chipset: 'Exynos', ram_gb: 8, storage_gb: 128 },
     },
     {
       id: 'product-d',
@@ -63,6 +70,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Apple',
       price: 495_000,
+      product_key_specs: { chipset: 'A18', ram_gb: 8, storage_gb: 128 },
     },
     {
       id: 'product-e',
@@ -72,6 +80,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Apple',
       price: 650_000,
+      product_key_specs: { chipset: 'A17', ram_gb: 8, storage_gb: 128 },
     },
     {
       id: 'product-f',
@@ -81,6 +90,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Apple',
       price: 550_000,
+      product_key_specs: { chipset: 'A13', ram_gb: 4, storage_gb: 64 },
     },
     {
       id: 'product-g',
@@ -90,6 +100,11 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Samsung',
       price: 700_000,
+      product_key_specs: {
+        chipset: 'Exynos 2400e',
+        ram_gb: 8,
+        storage_gb: 256,
+      },
     },
     {
       id: 'product-h',
@@ -99,6 +114,11 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Samsung',
       price: 360_000,
+      product_key_specs: {
+        chipset: 'Snapdragon 6 Gen 3',
+        ram_gb: 8,
+        storage_gb: 128,
+      },
     },
   ],
 };

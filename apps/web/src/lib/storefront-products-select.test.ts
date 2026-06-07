@@ -15,6 +15,8 @@ describe('STOREFRONT_PRODUCTS_SELECT', () => {
     expect(STOREFRONT_PRODUCTS_SELECT).toEqual(
       expect.stringContaining('categories:category_id(id, name, slug)')
     );
+    expect(STOREFRONT_PRODUCTS_SELECT).toContain('product_key_specs (');
+    expect(STOREFRONT_PRODUCTS_SELECT).toContain('updated_at');
   });
 
   it('keeps the compact storefront product select free of PDP-only payloads', () => {

@@ -6,7 +6,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
-import { buildOgabasseyProductSpecData } from '../product-spec-data';
+import { buildProductSpecData } from '@/lib/storefront-specs/spec-data';
+import {
+    buildProductComparisonMatrix,
+    type ProductComparisonMatrixRow,
+} from '@/lib/storefront-specs/spec-matrix';
 import {
   normalizeProductCondition,
   type Product,
@@ -113,7 +117,7 @@ export function ProductComparisonTable({
 
     const addProduct = (rawProduct: SearchResultProduct) => {
         const heroImage = rawProduct.imageLarge || rawProduct.image || '';
-        const specData = buildOgabasseyProductSpecData({
+        const specData = buildProductSpecData({
             brand: rawProduct.brand,
             category: rawProduct.category,
             condition: rawProduct.condition,
@@ -135,6 +139,8 @@ export function ProductComparisonTable({
             category: rawProduct.category,
             condition: normalizeProductCondition(rawProduct.condition) || 'new',
             brand: rawProduct.brand,
+            product_key_specs: rawProduct.product_key_specs,
+            variant_attributes: rawProduct.variant_attributes,
             detailedSpecs: specData.detailedSpecs,
             specs: specData.specs,
         };
@@ -149,23 +155,28 @@ export function ProductComparisonTable({
         setComparisonProducts(prev => prev.filter((_, i) => i !== index));
     };
 
-    const mainProductSpecData = buildOgabasseyProductSpecData(mainProduct);
-    const specCategories = mainProductSpecData.detailedSpecs || [];
-    const summarySpecs = mainProductSpecData.specs || [];
+    const comparisonColumns = [mainProduct, ...comparisonProducts];
+    const comparisonMatrix = buildProductComparisonMatrix({
+        products: comparisonColumns,
+    });
+    const summarySpecsByColumn = comparisonColumns.map(
+        (product) => buildProductSpecData(product).specs
+    );
 
-    // Helper to find value in a product for a given category/label
-    const findSpecValue = (product: Product, category: string, label: string) => {
-        const cat = product.detailedSpecs?.find(c => c.category === category);
-        if (!cat) return '-';
-        const item = cat.items.find((i) => i.label === label);
-        return item ? item.value : '-';
+    const getMatrixCellValue = (
+        row: ProductComparisonMatrixRow,
+        columnIndex: number,
+        hasProduct: boolean
+    ) => {
+        if (!hasProduct) {
+            return '';
+        }
+
+        return row.values[columnIndex] || '—';
     };
 
-    const getSummarySpecs = (product?: Product) =>
-        product ? buildOgabasseyProductSpecData(product).specs : [];
-
-    const renderSummaryColumn = (product?: Product) => {
-        const items = product ? getSummarySpecs(product) : [];
+    const renderSummaryColumn = (columnIndex: number, hasProduct: boolean) => {
+        const items = hasProduct ? summarySpecsByColumn[columnIndex] || [] : [];
 
         if (items.length === 0) {
             return <div className="p-4" />;
@@ -327,47 +338,47 @@ export function ProductComparisonTable({
                             Key Specs
                         </div>
                         <div className="col-span-3 grid grid-cols-3 divide-x divide-gray-100">
-                            {renderSummaryColumn({ ...mainProduct, specs: summarySpecs, detailedSpecs: specCategories })}
-                            {renderSummaryColumn(comparisonProducts[0])}
-                            {renderSummaryColumn(comparisonProducts[1])}
+                            {renderSummaryColumn(0, true)}
+                            {renderSummaryColumn(1, Boolean(comparisonProducts[0]))}
+                            {renderSummaryColumn(2, Boolean(comparisonProducts[1]))}
                         </div>
                     </div>
 
                     {/* Detailed Specs */}
-                    {specCategories.map((category, catIdx) => (
-                        <div key={catIdx}>
+                    {comparisonMatrix.groups.map((category) => (
+                        <div key={category.category}>
                             {/* Category Header */}
                             <div className="px-4 py-2 bg-gray-100/50 text-xs font-bold text-gray-900 uppercase tracking-widest border-y border-gray-200/50">
                                 {category.category}
                             </div>
 
                             {/* Category Items */}
-                            {category.items.map((item, itemIdx) => (
-                                <div key={itemIdx} className="grid grid-cols-4 min-h-[48px] divide-x divide-gray-100 hover:bg-gray-50/50 transition-colors">
+                            {category.rows.map((item) => (
+                                <div key={`${category.category}-${item.label}`} className="grid grid-cols-4 min-h-[48px] divide-x divide-gray-100 hover:bg-gray-50/50 transition-colors">
                                     <div className="p-3 text-xs font-bold text-gray-500 flex items-center pl-6">
                                         {item.label}
                                     </div>
 
                                     {/* Main Product Value */}
                                     <div className="p-3 text-sm text-gray-900 leading-snug flex items-center">
-                                        {item.value}
+                                        {getMatrixCellValue(item, 0, true)}
                                     </div>
 
                                     {/* Comp 1 Value */}
                                     <div className="p-3 text-sm text-gray-600 leading-snug flex items-center">
-                                        {comparisonProducts[0] ? findSpecValue(comparisonProducts[0], category.category, item.label) : ''}
+                                        {getMatrixCellValue(item, 1, Boolean(comparisonProducts[0]))}
                                     </div>
 
                                     {/* Comp 2 Value */}
                                     <div className="p-3 text-sm text-gray-600 leading-snug flex items-center">
-                                        {comparisonProducts[1] ? findSpecValue(comparisonProducts[1], category.category, item.label) : ''}
+                                        {getMatrixCellValue(item, 2, Boolean(comparisonProducts[1]))}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ))}
 
-                    {specCategories.length === 0 && (
+                    {comparisonMatrix.groups.length === 0 && (
                         <div className="p-8 text-center text-gray-500">
                             No detailed specifications available for the main product.
                         </div>

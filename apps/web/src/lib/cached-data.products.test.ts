@@ -158,6 +158,11 @@ describe('cached-data product query projections', () => {
     expect(selectArg).not.toMatch(/\*\s*,/);
     expect(selectArg).toContain('imageHint:image_hint');
     expect(selectArg).toContain('fulfillmentFields:fulfillment_fields');
+    expect(selectArg).toContain('created_at');
+    expect(selectArg).toContain('updated_at');
+    expect(selectArg).toContain('product_key_specs (');
+    expect(selectArg).toContain('has_ois');
+    expect(selectArg).not.toContain('product_variants');
   });
 
   it('uses ByteString-safe product cache tags for non-ASCII product slugs', async () => {
