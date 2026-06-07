@@ -11,6 +11,8 @@ const mockLogger = {
   info: jest.fn(),
   warn: jest.fn(),
 };
+let mockPlatformOS: 'android' | 'ios' = 'ios';
+const mockCallOrder: string[] = [];
 
 jest.mock('@baci/shared/lib', () => ({
   getStorefrontNotificationNavigationTarget: jest.fn(),
@@ -26,13 +28,22 @@ jest.mock('expo-device', () => ({
 }));
 
 jest.mock('expo-notifications', () => ({
+  getExpoPushTokenAsync: jest.fn(async () => {
+    mockCallOrder.push('getExpoPushTokenAsync');
+    return { data: 'ExponentPushToken[fresh]' };
+  }),
+  getPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+  requestPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+  setNotificationChannelAsync: jest.fn(async () => {
+    mockCallOrder.push('setNotificationChannelAsync');
+  }),
   setNotificationHandler: jest.fn(),
   AndroidImportance: { DEFAULT: 'default', HIGH: 'high' },
   SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
 }));
 
 jest.mock('react-native', () => ({
-  Platform: { OS: 'ios' },
+  Platform: { get OS() { return mockPlatformOS; } },
 }));
 
 jest.mock('@/lib/logger', () => ({
@@ -43,7 +54,11 @@ jest.mock('@/lib/supabase', () => ({
   supabase: { from: mockFrom },
 }));
 
-const { handleNotificationResponse, savePushTokenToServer } =
+const {
+  handleNotificationResponse,
+  registerForPushNotifications,
+  savePushTokenToServer,
+} =
   require('./push-notifications') as typeof import('./push-notifications');
 const { getStorefrontNotificationNavigationTarget } = jest.requireMock(
   '@baci/shared/lib'
@@ -54,6 +69,8 @@ const { getStorefrontNotificationNavigationTarget } = jest.requireMock(
 describe('savePushTokenToServer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCallOrder.length = 0;
+    mockPlatformOS = 'ios';
     mockUpsert.mockResolvedValue({ error: null });
   });
 
@@ -94,6 +111,8 @@ describe('savePushTokenToServer', () => {
 describe('handleNotificationResponse', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCallOrder.length = 0;
+    mockPlatformOS = 'ios';
   });
 
   it('navigates token-ready notifications to utility history', () => {
@@ -146,5 +165,49 @@ describe('handleNotificationResponse', () => {
     );
 
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('requests an update check for mobile update notifications instead of navigating', () => {
+    const navigate = jest.fn();
+    const requestUpdateCheck = jest.fn();
+
+    handleNotificationResponse(
+      {
+        notification: {
+          request: {
+            content: {
+              data: { type: 'mobile_update_available' },
+            },
+          },
+        },
+      } as unknown as Parameters<typeof handleNotificationResponse>[0],
+      navigate,
+      requestUpdateCheck
+    );
+
+    expect(requestUpdateCheck).toHaveBeenCalledWith('push-notification');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(getStorefrontNotificationNavigationTarget).not.toHaveBeenCalled();
+  });
+});
+
+describe('registerForPushNotifications', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCallOrder.length = 0;
+    mockPlatformOS = 'ios';
+  });
+
+  it('creates Android notification channels before requesting an Expo push token', async () => {
+    mockPlatformOS = 'android';
+
+    await registerForPushNotifications();
+
+    expect(mockCallOrder).toEqual([
+      'setNotificationChannelAsync',
+      'setNotificationChannelAsync',
+      'setNotificationChannelAsync',
+      'getExpoPushTokenAsync',
+    ]);
   });
 });
