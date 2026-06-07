@@ -39,9 +39,10 @@ describe('GET /.well-known/oauth-authorization-server', () => {
       code_challenge_methods_supported: ['S256'],
       service_documentation: 'https://merchant.example/auth.md',
       agent_auth: {
-        register_uri: 'https://merchant.example/agent/auth',
-        claim_uri: 'https://merchant.example/agent/auth/claim',
-        revocation_uri: 'https://merchant.example/agent/auth/revoke',
+        register_uri: 'https://merchant.example/.well-known/agent-auth',
+        claim_uri: 'https://merchant.example/.well-known/agent-auth/claim',
+        revocation_uri:
+          'https://merchant.example/.well-known/agent-auth/revoke',
         identity_types_supported: ['identity_assertion'],
         identity_assertion: {
           assertion_types_supported: [
@@ -68,7 +69,7 @@ describe('GET /.well-known/oauth-authorization-server', () => {
     expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
     expect(body.service_documentation).toBe('https://ogabassey.com/auth.md');
     expect(body.agent_auth.register_uri).toBe(
-      'https://ogabassey.com/agent/auth'
+      'https://ogabassey.com/.well-known/agent-auth'
     );
   });
 });
