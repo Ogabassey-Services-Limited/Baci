@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
+import { getStorefrontLocale } from '@/lib/storefront-localization';
 import { buildProductSpecData } from '@/lib/storefront-specs/spec-data';
 import {
     buildProductComparisonMatrix,
@@ -15,8 +15,8 @@ import {
   normalizeProductCondition,
   type Product,
 } from '../types';
+import { ComparisonSlotCell } from './ComparisonSlotCell';
 
-/** Minimal shape returned by the storefront products search API */
 interface SearchResultProduct {
     id: string | number;
     name: string;
@@ -44,22 +44,20 @@ export function ProductComparisonTable({
     storeSlug,
 }: ProductComparisonTableProps) {
     const [comparisonProducts, setComparisonProducts] = useState<Product[]>([]);
-    const [isSearching, setIsSearching] = useState<number | null>(null); // Index of slot being searched
+    const [isSearching, setIsSearching] = useState<number | null>(null);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResultProduct[]>([]);
     const [loading, setLoading] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const merchantContext = useMerchantSafe();
     const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
+    const priceLocale = getStorefrontLocale(merchantContext?.merchant?.country);
+    const priceCurrency = 'NGN';
 
-    // Helper to build product URL with proper basePath
     const getProductHref = (product: Product) => {
         const categorySlug = product.categorySlug || mainProduct.categorySlug || 'products';
         return asRoute(`${basePath}/${categorySlug}/${product.slug}`);
     };
-
-    // Maximum 2 comparison slots + 1 main product = 3 columns
-    const MAX_SLOTS = 2;
 
     useEffect(() => {
         if (isSearching !== null) {
@@ -67,7 +65,6 @@ export function ProductComparisonTable({
         }
     }, [isSearching]);
 
-    // Search products API - filtered to SAME CATEGORY only (Koray SEO: no cross-category comparisons)
     useEffect(() => {
         const searchProducts = async () => {
             if (!query.trim() || query.length < 2) {
@@ -77,7 +74,6 @@ export function ProductComparisonTable({
 
             setLoading(true);
             try {
-                // Construct API URL - filter to same category for semantic relevance
                 const categorySlug = mainProduct.categorySlug || mainProduct.category;
                 const params = new URLSearchParams({
                     q: query,
@@ -89,7 +85,6 @@ export function ProductComparisonTable({
                     params.append('merchant_id', mainProduct.merchantId);
                 }
 
-                // Filter to same category only - prevents cross-category comparisons
                 if (categorySlug) {
                     params.append('category', categorySlug);
                 }
@@ -97,7 +92,6 @@ export function ProductComparisonTable({
                 const res = await fetch(`/api/storefront/products?${params.toString()}`);
                 const data = await res.json();
 
-                // Filter out main product and already added products
                 const filtered = (data.products || []).filter((p: SearchResultProduct) =>
                     String(p.id) !== String(mainProduct.id) &&
                     !comparisonProducts.some(cp => String(cp.id) === String(p.id))
@@ -130,7 +124,7 @@ export function ProductComparisonTable({
             id: rawProduct.id,
             name: rawProduct.name,
             slug: rawProduct.slug,
-            price: new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(rawProduct.price),
+            price: new Intl.NumberFormat(priceLocale, { style: 'currency', currency: priceCurrency }).format(rawProduct.price),
             rawPrice: rawProduct.price,
             image: heroImage,
             images: [heroImage],
@@ -197,9 +191,7 @@ export function ProductComparisonTable({
     return (
         <div className="animate-in fade-in duration-300 overflow-x-auto pb-4">
             <div className="min-w-[800px] border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-sm">
-                {/* Header Row (Product Images & Names) */}
                 <div className="grid grid-cols-4 border-b border-gray-200 bg-gray-50/50">
-                    {/* Main Product */}
                     <div className="col-start-2 p-4 flex flex-col items-center justify-end h-56 border-r border-gray-100 relative bg-white">
                         <div className="absolute top-3 right-3">
                             <span className="bg-red-600 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">
@@ -219,120 +211,39 @@ export function ProductComparisonTable({
                         <p className="text-red-600 font-bold text-sm">{mainProduct.price}</p>
                     </div>
 
-                    {/* Comparison Slots */}
                     {[0, 1].map((slotIdx) => {
                         const product = comparisonProducts[slotIdx];
                         const isSlotSearching = isSearching === slotIdx;
 
                         return (
-                            <div key={slotIdx} className="p-4 flex flex-col items-center justify-end h-56 border-r border-gray-100 last:border-0 relative bg-white">
-                                {product ? (
-                                    <>
-                                        <button type="button"
-                                            onClick={() => removeProduct(slotIdx)}
-                                            className="absolute top-3 right-3 text-gray-400 hover:text-red-600 transition-colors"
-                                            aria-label="Remove product"
-                                        >
-                                            <X size={16} />
-                                        </button>
-                                        <div className="relative size-24 mb-3">
-                                            <Image
-                                                src={product.images?.[0] || product.image}
-                                                alt={product.name}
-                                                fill
-                                                sizes="96px"
-                                                className="object-contain mix-blend-multiply"
-                                            />
-                                        </div>
-                                        <Link
-                                            href={getProductHref(product)}
-                                            className="font-bold text-sm text-center line-clamp-2 mb-1 hover:text-red-600"
-                                        >
-                                            {product.name}
-                                        </Link>
-                                        <p className="text-gray-900 font-bold text-sm">{product.price}</p>
-                                    </>
-                                ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center">
-                                        {isSlotSearching ? (
-                                            <div className="w-full h-full absolute inset-0 bg-white z-10 p-4 flex flex-col">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <span className="text-xs font-bold text-gray-500 uppercase">Add Product</span>
-                                                    <button type="button" onClick={() => setIsSearching(null)} aria-label="Cancel search"><X size={16} /></button>
-                                                </div>
-                                                <div className="relative">
-                                                    <Search size={14} className="absolute left-3 top-3 text-store-background-text/45" />
-                                                    <input
-                                                        ref={searchInputRef}
-                                                        type="text"
-                                                        aria-label="Search products"
-                                                        placeholder="Type to search..."
-                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-store-background-text/15 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-store-primary/20 focus:border-store-primary"
-                                                        value={query}
-                                                        onChange={(e) => setQuery(e.target.value)}
-                                                    />
-                                                </div>
-
-                                                {/* Results Dropdown */}
-                                                <div className="flex-1 overflow-y-auto mt-2 -mx-2">
-                                                    {loading && (
-                                                        <div className="flex justify-center p-4 text-gray-400"><Loader2 className="animate-spin" size={20} /></div>
-                                                    )}
-
-                                                    {!loading && results.length > 0 && (
-                                                        <div className="space-y-1">
-                                                            {results.map(res => (
-                                                                <button type="button"
-                                                                    key={res.id}
-                                                                    onClick={() => addProduct(res)}
-                                                                    className="w-full flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg text-left transition-colors"
-                                                                >
-                                                                    <div className="size-8 rounded bg-gray-100 shrink-0 flex items-center justify-center overflow-hidden relative">
-                                                                        <Image src={res.image || res.imageLarge || '/placeholder.png'} alt={res.name} fill sizes="32px" className="object-cover" />
-                                                                    </div>
-                                                                    <div className="min-w-0">
-                                                                        <div className="text-xs font-bold text-gray-900 truncate">{res.name}</div>
-                                                                        <div className="text-[10px] text-gray-500 text-red-600">
-                                                                            {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(res.price)}
-                                                                        </div>
-                                                                    </div>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-
-                                                    {!loading && query && results.length === 0 && (
-                                                        <div className="p-4 text-center text-xs text-gray-400">No products found</div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <button type="button"
-                                                onClick={() => {
-                                                    setIsSearching(slotIdx);
-                                                    setQuery('');
-                                                    setResults([]);
-                                                }}
-                                                className="w-full h-full border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-all gap-2"
-                                            >
-                                                <div className="size-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-white">
-                                                    <Plus size={20} />
-                                                </div>
-                                                <span className="text-xs font-bold uppercase tracking-wider text-center px-2">
-                                                    Compare Similar {mainProduct.category || 'Products'}
-                                                </span>
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            <ComparisonSlotCell
+                                key={slotIdx}
+                                slotIdx={slotIdx}
+                                product={product}
+                                isSearching={isSlotSearching}
+                                mainCategoryLabel={mainProduct.category}
+                                getProductHref={getProductHref}
+                                onRemoveProduct={removeProduct}
+                                onStartSearch={(nextSlotIdx) => {
+                                    setIsSearching(nextSlotIdx);
+                                    setQuery('');
+                                    setResults([]);
+                                }}
+                                onCancelSearch={() => setIsSearching(null)}
+                                query={query}
+                                setQuery={setQuery}
+                                results={results}
+                                loading={loading}
+                                onSelectProduct={addProduct}
+                                searchInputRef={searchInputRef}
+                                locale={priceLocale}
+                                currencyCode={priceCurrency}
+                            />
                         );
                     })}
                 </div>
 
-                {/* Specs Rows */}
                 <div className="divide-y divide-gray-100">
-                    {/* Key Specs Summary Row */}
                     <div className="grid grid-cols-4">
                         <div className="p-4 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center">
                             Key Specs
@@ -344,32 +255,26 @@ export function ProductComparisonTable({
                         </div>
                     </div>
 
-                    {/* Detailed Specs */}
                     {comparisonMatrix.groups.map((category) => (
                         <div key={category.category}>
-                            {/* Category Header */}
                             <div className="px-4 py-2 bg-gray-100/50 text-xs font-bold text-gray-900 uppercase tracking-widest border-y border-gray-200/50">
                                 {category.category}
                             </div>
 
-                            {/* Category Items */}
                             {category.rows.map((item) => (
                                 <div key={`${category.category}-${item.label}`} className="grid grid-cols-4 min-h-[48px] divide-x divide-gray-100 hover:bg-gray-50/50 transition-colors">
                                     <div className="p-3 text-xs font-bold text-gray-500 flex items-center pl-6">
                                         {item.label}
                                     </div>
 
-                                    {/* Main Product Value */}
                                     <div className="p-3 text-sm text-gray-900 leading-snug flex items-center">
                                         {getMatrixCellValue(item, 0, true)}
                                     </div>
 
-                                    {/* Comp 1 Value */}
                                     <div className="p-3 text-sm text-gray-600 leading-snug flex items-center">
                                         {getMatrixCellValue(item, 1, Boolean(comparisonProducts[0]))}
                                     </div>
 
-                                    {/* Comp 2 Value */}
                                     <div className="p-3 text-sm text-gray-600 leading-snug flex items-center">
                                         {getMatrixCellValue(item, 2, Boolean(comparisonProducts[1]))}
                                     </div>

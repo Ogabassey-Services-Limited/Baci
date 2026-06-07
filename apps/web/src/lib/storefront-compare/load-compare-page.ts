@@ -75,6 +75,7 @@ interface ProductComparePageModel {
   guideLinks: InformationalGuideLink[];
   merchant: CachedMerchant;
   isIndexable: boolean;
+  isLegacyFallback: boolean;
   leftProduct: Awaited<ReturnType<typeof getCachedProductWithDetails>>;
   rightProduct: Awaited<ReturnType<typeof getCachedProductWithDetails>>;
 }
@@ -94,11 +95,15 @@ interface BrandComparePageModel {
   guideLinks: InformationalGuideLink[];
   merchant: CachedMerchant;
   isIndexable: boolean;
+  isLegacyFallback: boolean;
   leftBrand: string;
   rightBrand: string;
   leftBrandProducts: ComparableCategoryProduct[];
   rightBrandProducts: ComparableCategoryProduct[];
 }
+
+const CURATED_COMPARE_POLICY_DOC =
+  'docs/superpowers/plans/2026-06-07-ogabassey-shared-comparison-spec-matrix.md';
 
 function isRawDbProduct(value: unknown): value is RawDbProduct {
   return Boolean(
@@ -217,6 +222,31 @@ function getSupportedClusterCategory(
     : null;
 }
 
+function logCompareRouteMiss(details: {
+  merchantSlug: string;
+  categorySlug: string;
+  comparisonSlug: string;
+  reason: string;
+  canonicalSlug?: string;
+}) {
+  console.warn('COMPARE_ROUTE_404', {
+    ...details,
+    policy: CURATED_COMPARE_POLICY_DOC,
+  });
+}
+
+function logNonCuratedCompareFallback(details: {
+  merchantSlug: string;
+  categorySlug: string;
+  comparisonSlug: string;
+  canonicalSlug: string;
+}) {
+  console.warn('COMPARE_NON_CURATED_FALLBACK', {
+    ...details,
+    policy: CURATED_COMPARE_POLICY_DOC,
+  });
+}
+
 export async function loadComparePage(args: {
   merchantSlug: string;
   categorySlug: string;
@@ -231,6 +261,10 @@ export async function loadComparePage(args: {
   const parsed = parseCompareSlug(args.comparisonSlug);
 
   if (!parsed) {
+    logCompareRouteMiss({
+      ...args,
+      reason: 'invalid_compare_slug',
+    });
     return null;
   }
 
@@ -241,6 +275,11 @@ export async function loadComparePage(args: {
   );
 
   if (!categoryData || categoryData.isCollection) {
+    logCompareRouteMiss({
+      ...args,
+      canonicalSlug: parsed.canonicalSlug,
+      reason: categoryData ? 'collection_category' : 'category_not_found',
+    });
     return null;
   }
 
@@ -288,10 +327,10 @@ export async function loadComparePage(args: {
     categoryName,
     products: normalizedProducts,
   });
-
-  if (!isCuratedCompareSlug(parsed.canonicalSlug, curatedCompareSlugs)) {
-    return null;
-  }
+  const isCuratedCanonicalSlug = isCuratedCompareSlug(
+    parsed.canonicalSlug,
+    curatedCompareSlugs
+  );
 
   const leftProduct = normalizedProducts.find(
     (product) => product.slug === parsed.leftKey
@@ -372,6 +411,15 @@ export async function loadComparePage(args: {
       countryContext
     );
 
+    if (!isCuratedCanonicalSlug) {
+      logNonCuratedCompareFallback({
+        merchantSlug: args.merchantSlug,
+        categorySlug: args.categorySlug,
+        comparisonSlug: args.comparisonSlug,
+        canonicalSlug: parsed.canonicalSlug,
+      });
+    }
+
     return {
       kind: 'product',
       canonicalSlug: parsed.canonicalSlug,
@@ -409,7 +457,8 @@ export async function loadComparePage(args: {
           })
         : [],
       merchant,
-      isIndexable: candidate.isIndexable,
+      isIndexable: candidate.isIndexable && isCuratedCanonicalSlug,
+      isLegacyFallback: !isCuratedCanonicalSlug,
       leftProduct: leftDetails,
       rightProduct: rightDetails,
     };
@@ -424,6 +473,15 @@ export async function loadComparePage(args: {
     !brandCandidate ||
     brandCandidate.canonicalSlug !== parsed.canonicalSlug
   ) {
+    logCompareRouteMiss({
+      merchantSlug: args.merchantSlug,
+      categorySlug: args.categorySlug,
+      comparisonSlug: args.comparisonSlug,
+      canonicalSlug: parsed.canonicalSlug,
+      reason: !brandCandidate
+        ? 'brand_candidate_not_found'
+        : 'brand_candidate_mismatch',
+    });
     return null;
   }
 
@@ -472,6 +530,15 @@ export async function loadComparePage(args: {
     { name: heading, url: canonicalUrl },
   ];
 
+  if (!isCuratedCanonicalSlug) {
+    logNonCuratedCompareFallback({
+      merchantSlug: args.merchantSlug,
+      categorySlug: args.categorySlug,
+      comparisonSlug: args.comparisonSlug,
+      canonicalSlug: parsed.canonicalSlug,
+    });
+  }
+
   return {
     kind: 'brand',
     canonicalSlug: parsed.canonicalSlug,
@@ -505,7 +572,8 @@ export async function loadComparePage(args: {
         })
       : [],
     merchant,
-    isIndexable: brandCandidate.isIndexable,
+    isIndexable: brandCandidate.isIndexable && isCuratedCanonicalSlug,
+    isLegacyFallback: !isCuratedCanonicalSlug,
     leftBrand: brandCandidate.leftBrand,
     rightBrand: brandCandidate.rightBrand,
     leftBrandProducts,

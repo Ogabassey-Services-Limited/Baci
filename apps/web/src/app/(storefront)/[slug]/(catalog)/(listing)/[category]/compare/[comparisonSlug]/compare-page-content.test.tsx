@@ -111,7 +111,7 @@ describe('ComparePageContent', () => {
   it('renders the verdict, key differences, and comparison table', async () => {
     const { ComparePageContent } = await import('./compare-page-content');
 
-    render(
+    const { container } = render(
       (await ComparePageContent({
         params: Promise.resolve({
           slug: 'ogabassey',
@@ -137,6 +137,50 @@ describe('ComparePageContent', () => {
     ).toHaveAttribute(
       'href',
       'https://ogabassey.com/blog/best-phones-in-nigeria'
+    );
+    expect(container.querySelectorAll('tbody')).toHaveLength(1);
+  });
+
+  it('renders each comparison row group in its own table body', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      comparisonMatrix: {
+        ...comparePageModel.comparisonMatrix,
+        groups: [
+          ...comparePageModel.comparisonMatrix.groups,
+          {
+            category: 'Battery',
+            rows: [
+              {
+                label: 'Capacity',
+                values: ['5000mAh', '5600mAh'],
+                isDifferent: true,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const { container } = render(
+      (await ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      })) as ReactElement
+    );
+
+    expect(container.querySelectorAll('tbody')).toHaveLength(2);
+    expect(screen.getByRole('rowheader', { name: 'Platform' })).toHaveAttribute(
+      'scope',
+      'rowgroup'
+    );
+    expect(screen.getByRole('rowheader', { name: 'Battery' })).toHaveAttribute(
+      'scope',
+      'rowgroup'
     );
   });
 

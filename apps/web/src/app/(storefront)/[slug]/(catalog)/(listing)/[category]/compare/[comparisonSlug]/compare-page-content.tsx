@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import { Fragment } from 'react';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   buildComparePageSchemas,
@@ -58,7 +57,7 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
     comparisonSlug: resolvedParams.comparisonSlug,
   });
 
-  if (!page?.isIndexable) {
+  if (!page || (!page.isIndexable && !page.isLegacyFallback)) {
     notFound();
   }
 
@@ -134,40 +133,38 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {comparisonRowGroups.map((group) => (
-                <Fragment key={group.category}>
-                  <tr className="border-t align-top">
+            {comparisonRowGroups.map((group) => (
+              <tbody key={group.category}>
+                <tr className="border-t align-top">
+                  <th
+                    scope="rowgroup"
+                    colSpan={3}
+                    className="bg-muted/20 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    {group.category}
+                  </th>
+                </tr>
+                {group.rows.map((row) => (
+                  <tr
+                    key={`${group.category}-${row.label}`}
+                    className="border-t align-top"
+                  >
                     <th
-                      scope="rowgroup"
-                      colSpan={3}
-                      className="bg-muted/20 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                      scope="row"
+                      className="px-4 py-3 text-sm font-medium text-foreground"
                     >
-                      {group.category}
+                      {row.label}
                     </th>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {row.leftValue}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {row.rightValue}
+                    </td>
                   </tr>
-                  {group.rows.map((row) => (
-                    <tr
-                      key={`${group.category}-${row.label}`}
-                      className="border-t align-top"
-                    >
-                      <th
-                        scope="row"
-                        className="px-4 py-3 text-sm font-medium text-foreground"
-                      >
-                        {row.label}
-                      </th>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {row.leftValue}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {row.rightValue}
-                      </td>
-                    </tr>
-                  ))}
-                </Fragment>
-              ))}
-            </tbody>
+                ))}
+              </tbody>
+            ))}
           </table>
         </section>
 

@@ -176,4 +176,31 @@ describe('compare page metadata', () => {
 
     expect(mockNotFound).toHaveBeenCalledTimes(1);
   });
+
+  it('emits noindex metadata for legacy compare fallback pages', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      isIndexable: false,
+      isLegacyFallback: true,
+    });
+    const { generateMetadata } = await import('./page');
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey',
+        category: 'smartphones',
+        comparisonSlug: 'legacy-product-vs-current-product',
+      }),
+    });
+
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    });
+  });
 });

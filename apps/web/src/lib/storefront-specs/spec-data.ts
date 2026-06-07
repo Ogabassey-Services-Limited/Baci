@@ -4,10 +4,8 @@ import {
   KEY_SPEC_CATEGORIES,
   SUMMARY_SPEC_PRIORITIES,
 } from './spec-taxonomy';
-import {
-  normalizeVariantAttributes,
-  type VariantAttributeSource,
-} from './variant-attributes';
+import type { VariantAttributeSource } from './variant-attributes';
+import { normalizeVariantAttributes } from './variant-attributes';
 
 export const MAX_SUMMARY_SPECS = 8;
 export interface ProductSpecItem {
@@ -181,6 +179,7 @@ function buildDetailedSpecsFromKeySpecs(
         return (
           value !== null &&
           value !== undefined &&
+          (typeof value !== 'string' || value.trim().length > 0) &&
           (!condition || condition(keySpecs))
         );
       })

@@ -242,6 +242,47 @@ describe('loadComparePage', () => {
     );
   });
 
+  it('preserves valid non-curated compare slugs as monitored noindex legacy fallbacks', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Suppress expected telemetry in this regression test.
+    });
+
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[5],
+      product_key_specs: { chipset: 'A13', ram_gb: 4, storage_gb: 64 },
+    });
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[1],
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Elite',
+        ram_gb: 16,
+        storage_gb: 512,
+      },
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-se-vs-samsung-galaxy-z-trifold',
+    });
+
+    expect(result?.kind).toBe('product');
+    expect(result?.isIndexable).toBe(false);
+    expect(result?.isLegacyFallback).toBe(true);
+    expect(result?.canonicalSlug).toBe('iphone-se-vs-samsung-galaxy-z-trifold');
+    expect(warnSpy).toHaveBeenCalledWith(
+      'COMPARE_NON_CURATED_FALLBACK',
+      expect.objectContaining({
+        categorySlug: 'smartphones',
+        comparisonSlug: 'iphone-se-vs-samsung-galaxy-z-trifold',
+        policy:
+          'docs/superpowers/plans/2026-06-07-ogabassey-shared-comparison-spec-matrix.md',
+      })
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('resolves compare pages from custom-domain storefront identifiers', async () => {
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
       ...merchant,

@@ -1,4 +1,5 @@
-import { buildProductSpecData, type ProductSpecSection } from './spec-data';
+import type { ProductSpecSection } from './spec-data';
+import { buildProductSpecData } from './spec-data';
 import type { ComparableProductKeySpecs } from './spec-taxonomy';
 import type { VariantAttributeSource } from './variant-attributes';
 
