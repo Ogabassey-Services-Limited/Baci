@@ -34,6 +34,26 @@ describe('GET /.well-known/oauth-protected-resource', () => {
       authorization_servers: ['https://project.supabase.co/auth/v1'],
       scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
       bearer_methods_supported: ['header'],
+      agent_auth: {
+        skill: 'https://workos.com/auth.md',
+        register_uri: 'https://merchant.example/.well-known/agent-auth',
+        claim_uri: 'https://merchant.example/.well-known/agent-auth/claim',
+        revocation_uri:
+          'https://merchant.example/.well-known/agent-auth/revoke',
+        identity_types_supported: ['identity_assertion'],
+        identity_assertion: {
+          assertion_types_supported: [
+            'urn:ietf:params:oauth:token-type:id-jag',
+          ],
+          credential_types_supported: ['api_key'],
+          credential_format: 'bearer_hmac',
+          registration_policy: 'manual_approval',
+        },
+        events_supported: [
+          'https://schemas.workos.com/events/agent/auth/identity/assertion/revoked',
+        ],
+        service_documentation: 'https://merchant.example/auth.md',
+      },
     });
   });
 
@@ -48,5 +68,8 @@ describe('GET /.well-known/oauth-protected-resource', () => {
     expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
     expect(body.resource).toBe('https://ogabassey.com/api');
     expect(body.resource_documentation).toBe('https://ogabassey.com/auth.md');
+    expect(body.agent_auth.register_uri).toBe(
+      'https://ogabassey.com/.well-known/agent-auth'
+    );
   });
 });
