@@ -276,6 +276,92 @@ describe('storefrontProductsRouteData', () => {
     ).toEqual(['Green']);
   });
 
+  it('maps product_key_specs and updated_at into full storefront product responses', () => {
+    const mapped = storefrontProductsRouteData.mapProduct({
+      id: 'product-specs',
+      name: 'Spec Phone',
+      description: 'Spec phone description',
+      price: 1000,
+      compare_at_price: null,
+      images: [],
+      category: 'Smartphones',
+      brand: 'SpecBrand',
+      slug: 'spec-phone',
+      status: 'active',
+      manage_stock: false,
+      updated_at: '2026-06-06T12:00:00.000Z',
+      product_key_specs: {
+        screen_size_inches: 6.8,
+        ram_gb: 12,
+        storage_gb: 256,
+      },
+    });
+
+    expect(mapped.updated_at).toBe('2026-06-06T12:00:00.000Z');
+    expect(mapped.product_key_specs).toEqual({
+      screen_size_inches: 6.8,
+      ram_gb: 12,
+      storage_gb: 256,
+    });
+  });
+
+  it('prefers normalized product_key_specs when the raw relation payload is valid', () => {
+    const mapped = storefrontProductsRouteData.mapProduct({
+      id: 'product-specs-array',
+      name: 'Spec Phone Array',
+      description: 'Spec phone description',
+      price: 1000,
+      images: [],
+      category: 'Smartphones',
+      slug: 'spec-phone-array',
+      manage_stock: false,
+      product_key_specs: [
+        {
+          screen_size_inches: 6.8,
+          ram_gb: 12,
+          nested_value_ignored: { raw: true },
+        },
+      ],
+    });
+
+    expect(mapped.product_key_specs).toEqual({
+      screen_size_inches: 6.8,
+      ram_gb: 12,
+    });
+  });
+
+  it('falls back to raw product_key_specs only when normalization returns null', () => {
+    const rawSpecs = { nested_value: { raw: true } };
+    const mapped = storefrontProductsRouteData.mapProduct({
+      id: 'product-specs-raw-fallback',
+      name: 'Spec Phone Raw Fallback',
+      description: 'Spec phone description',
+      price: 1000,
+      images: [],
+      category: 'Smartphones',
+      slug: 'spec-phone-raw-fallback',
+      manage_stock: false,
+      product_key_specs: rawSpecs,
+    });
+
+    expect(mapped.product_key_specs).toBe(rawSpecs);
+  });
+
+  it('omits product_key_specs when neither normalized nor raw specs exist', () => {
+    const mapped = storefrontProductsRouteData.mapProduct({
+      id: 'product-no-specs',
+      name: 'Spec Phone Without Specs',
+      description: 'Spec phone description',
+      price: 1000,
+      images: [],
+      category: 'Smartphones',
+      slug: 'spec-phone-no-specs',
+      manage_stock: false,
+    });
+
+    expect(mapped.product_key_specs).toBeUndefined();
+  });
+
   it('selects the singular color column for storefront queries', () => {
     expect(storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT).toMatch(
       /\bcolor\b/

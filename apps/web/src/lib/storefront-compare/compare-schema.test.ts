@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildComparePageSchemas,
   buildPriceBandPageSchemas,
+  buildProductCompareItemListSchema,
 } from './compare-schema';
 
 describe('buildComparePageSchemas', () => {
-  it('builds breadcrumb and faq schema objects for compare pages', () => {
+  it('builds breadcrumb schema without FAQPage rich-result markup for compare pages', () => {
     const schemas = buildComparePageSchemas({
       breadcrumbItems: [
         { name: 'Ogabassey', url: 'https://ogabassey.com' },
@@ -20,7 +21,80 @@ describe('buildComparePageSchemas', () => {
     });
 
     expect(schemas.breadcrumb['@type']).toBe('BreadcrumbList');
-    expect(schemas.faq?.['@type']).toBe('FAQPage');
+    expect(schemas.faq).toBeNull();
+  });
+});
+
+describe('buildProductCompareItemListSchema', () => {
+  it('builds Product ItemList schema with additional compared properties', () => {
+    const schema = buildProductCompareItemListSchema({
+      pageName: 'iPhone 17 Pro Max vs Samsung Galaxy Z TriFold',
+      pageUrl:
+        'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+      currency: 'NGN',
+      products: [
+        {
+          id: 'product-a',
+          slug: 'iphone-17-pro-max',
+          name: 'iPhone 17 Pro Max',
+          category_slug: 'smartphones',
+          price: 2_200_000,
+          description: '<p>Apple flagship.</p>',
+        },
+        {
+          id: 'product-b',
+          slug: 'samsung-galaxy-z-trifold',
+          name: 'Samsung Galaxy Z TriFold',
+          category_slug: 'smartphones',
+          price: 2_300_000,
+        },
+      ],
+      comparisonMatrix: {
+        columns: [
+          { productId: 'product-a', label: 'iPhone 17 Pro Max' },
+          { productId: 'product-b', label: 'Samsung Galaxy Z TriFold' },
+        ],
+        groups: [],
+        flatRows: [
+          {
+            label: 'Chipset',
+            values: ['A19 Pro', 'Snapdragon 8 Elite'],
+            isDifferent: true,
+          },
+        ],
+        differentiatingRowCount: 1,
+      },
+    });
+
+    expect(schema['@type']).toBe('ItemList');
+    expect(
+      (
+        schema.itemListElement as Array<{
+          item: {
+            additionalProperty: Array<{ name: string; value: string }>;
+            offers: { priceCurrency: string };
+          };
+        }>
+      )[0]?.item.additionalProperty[0]
+    ).toMatchObject({ name: 'Chipset', value: 'A19 Pro' });
+    expect(
+      (
+        schema.itemListElement as Array<{
+          item: { offers: { priceCurrency: string } };
+        }>
+      )[0]?.item.offers.priceCurrency
+    ).toBe('NGN');
+  });
+
+  it('throws a clear error when the compare pageUrl is not absolute', () => {
+    expect(() =>
+      buildProductCompareItemListSchema({
+        pageName: 'Bad compare page',
+        pageUrl: '/smartphones/compare/a-vs-b',
+        currency: 'NGN',
+        products: [],
+      })
+    ).toThrow('compare schema pageUrl must be an absolute URL');
   });
 });
 
@@ -65,5 +139,17 @@ describe('buildPriceBandPageSchemas', () => {
         }>
       )[0]?.item.description
     ).toBe('Best midrange pick');
+  });
+
+  it('throws a clear error when the price-band pageUrl is not absolute', () => {
+    expect(() =>
+      buildPriceBandPageSchemas({
+        breadcrumbItems: [],
+        pageName: 'Bad price band',
+        pageUrl: '/smartphones/best-under/under-500k',
+        currency: 'NGN',
+        products: [],
+      })
+    ).toThrow('compare schema pageUrl must be an absolute URL');
   });
 });

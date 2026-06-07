@@ -30,6 +30,7 @@ export interface MerchantData {
   google_product_sheet_url?: string;
   slug?: string;
   custom_domain?: string;
+  payout_currency?: string;
   paystack_subaccount_code?: string | null;
   bank_account_number?: string | null;
   bank_account_name?: string | null;

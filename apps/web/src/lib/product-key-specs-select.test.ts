@@ -32,6 +32,7 @@ describe('PRODUCT_KEY_SPECS_RELATION_SELECT', () => {
     for (const c of columns) {
       expect(c).toMatch(/^[a-z][a-z0-9_]*$/);
     }
+    expect(columns).toEqual(expect.arrayContaining(['created_at', 'has_ois']));
     expect(new Set(columns).size).toBe(columns.length);
   });
 });

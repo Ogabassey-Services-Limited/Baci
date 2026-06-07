@@ -6,6 +6,7 @@
  */
 export const PRODUCT_KEY_SPECS_RELATION_SELECT = `
   product_key_specs (
+    created_at,
     screen_size_inches,
     refresh_rate_hz,
     chipset,

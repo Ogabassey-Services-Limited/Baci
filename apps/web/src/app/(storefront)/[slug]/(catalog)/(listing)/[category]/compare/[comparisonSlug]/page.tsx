@@ -12,6 +12,21 @@ interface ComparePageRouteProps {
   }>;
 }
 
+const NON_INDEXABLE_COMPARE_ROBOTS: Metadata['robots'] = {
+  index: false,
+  follow: true,
+  googleBot: {
+    index: false,
+    follow: true,
+    'max-image-preview': 'large',
+    'max-snippet': -1,
+    'max-video-preview': -1,
+  },
+  'max-image-preview': 'large',
+  'max-snippet': -1,
+  'max-video-preview': -1,
+};
+
 export async function generateMetadata({
   params,
 }: ComparePageRouteProps): Promise<Metadata> {
@@ -22,7 +37,7 @@ export async function generateMetadata({
     comparisonSlug: resolvedParams.comparisonSlug,
   });
 
-  if (!page?.isIndexable) {
+  if (!page || (!page.isIndexable && !page.isLegacyFallback)) {
     notFound();
   }
 
@@ -32,7 +47,9 @@ export async function generateMetadata({
     alternates: {
       canonical: page.canonicalUrl,
     },
-    robots: getIndexableRobotsMetadata(),
+    robots: page.isIndexable
+      ? getIndexableRobotsMetadata()
+      : NON_INDEXABLE_COMPARE_ROBOTS,
   };
 }
 

@@ -1,38 +1,31 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, X, Loader2 } from 'lucide-react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
-import { buildOgabasseyProductSpecData } from '../product-spec-data';
+import { getStorefrontLocale } from '@/lib/storefront-localization';
+import { buildProductSpecData } from '@/lib/storefront-specs/spec-data';
 import {
-  normalizeProductCondition,
-  type Product,
-} from '../types';
-
-/** Minimal shape returned by the storefront products search API */
-interface SearchResultProduct {
-    id: string | number;
-    name: string;
-    slug?: string;
-    price: number;
-    image?: string;
-    imageLarge?: string;
-    description?: string;
-    rating?: number;
-    category?: string;
-    condition?: string;
-    brand?: string;
-    product_key_specs?: Product['product_key_specs'];
-    specifications?: { category: string; items: { label: string; value: string }[] }[];
-    variant_attributes?: Product['variant_attributes'];
-}
+    buildProductComparisonMatrix,
+    type ProductComparisonMatrixRow,
+} from '@/lib/storefront-specs/spec-matrix';
+import { normalizeProductCondition, type Product } from '../types';
+import { ComparisonSlotCell } from './ComparisonSlotCell';
+import { fetchComparisonProductSearchResults } from './comparison-product-search';
+import type { SearchResultProduct } from './comparison-search-types';
 
 interface ProductComparisonTableProps {
     mainProduct: Product;
     storeSlug?: string;
+}
+
+const FALLBACK_PRICE_CURRENCY = 'NGN';
+const SEARCH_ERROR_MESSAGE = 'Could not load products. Try again.';
+const SUPPORTED_CURRENCY_CODES = typeof Intl.supportedValuesOf === 'function' ? new Set(Intl.supportedValuesOf('currency')) : null;
+function getSafeCurrencyCode(currency?: string | null) {
+    const code = currency?.trim().toUpperCase();
+    return code && /^[A-Z]{3}$/.test(code) && (!SUPPORTED_CURRENCY_CODES || SUPPORTED_CURRENCY_CODES.has(code)) ? code : FALLBACK_PRICE_CURRENCY;
 }
 
 export function ProductComparisonTable({
@@ -40,22 +33,21 @@ export function ProductComparisonTable({
     storeSlug,
 }: ProductComparisonTableProps) {
     const [comparisonProducts, setComparisonProducts] = useState<Product[]>([]);
-    const [isSearching, setIsSearching] = useState<number | null>(null); // Index of slot being searched
+    const [isSearching, setIsSearching] = useState<number | null>(null);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResultProduct[]>([]);
     const [loading, setLoading] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const merchantContext = useMerchantSafe();
     const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
+    const priceLocale = getStorefrontLocale(merchantContext?.merchant?.country);
+    const priceCurrency = getSafeCurrencyCode(merchantContext?.merchant?.payout_currency);
 
-    // Helper to build product URL with proper basePath
     const getProductHref = (product: Product) => {
         const categorySlug = product.categorySlug || mainProduct.categorySlug || 'products';
         return asRoute(`${basePath}/${categorySlug}/${product.slug}`);
     };
-
-    // Maximum 2 comparison slots + 1 main product = 3 columns
-    const MAX_SLOTS = 2;
 
     useEffect(() => {
         if (isSearching !== null) {
@@ -63,57 +55,62 @@ export function ProductComparisonTable({
         }
     }, [isSearching]);
 
-    // Search products API - filtered to SAME CATEGORY only (Koray SEO: no cross-category comparisons)
     useEffect(() => {
-        const searchProducts = async () => {
-            if (!query.trim() || query.length < 2) {
-                setResults([]);
-                return;
-            }
+        const trimmedQuery = query.trim();
 
+        if (!trimmedQuery || trimmedQuery.length < 2) {
+            setResults([]);
+            setSearchError(null);
+            setLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        let isCurrentSearch = true;
+
+        const searchProducts = async () => {
             setLoading(true);
+            setSearchError(null);
             try {
-                // Construct API URL - filter to same category for semantic relevance
-                const categorySlug = mainProduct.categorySlug || mainProduct.category;
-                const params = new URLSearchParams({
-                    q: query,
-                    limit: '5',
-                    compact: 'false',
+                const filtered = await fetchComparisonProductSearchResults({
+                    query: trimmedQuery,
+                    mainProduct,
+                    comparisonProducts,
+                    signal: controller.signal,
                 });
 
-                if (mainProduct.merchantId) {
-                    params.append('merchant_id', mainProduct.merchantId);
+                if (!isCurrentSearch) {
+                    return;
                 }
-
-                // Filter to same category only - prevents cross-category comparisons
-                if (categorySlug) {
-                    params.append('category', categorySlug);
-                }
-
-                const res = await fetch(`/api/storefront/products?${params.toString()}`);
-                const data = await res.json();
-
-                // Filter out main product and already added products
-                const filtered = (data.products || []).filter((p: SearchResultProduct) =>
-                    String(p.id) !== String(mainProduct.id) &&
-                    !comparisonProducts.some(cp => String(cp.id) === String(p.id))
-                );
 
                 setResults(filtered);
+                setSearchError(null);
             } catch (err) {
+                if (!isCurrentSearch || (err instanceof Error && err.name === 'AbortError')) {
+                    return;
+                }
+
                 console.error('Search failed', err);
+                setResults([]);
+                setSearchError(SEARCH_ERROR_MESSAGE);
             } finally {
-                setLoading(false);
+                if (isCurrentSearch) {
+                    setLoading(false);
+                }
             }
         };
 
         const timeout = setTimeout(searchProducts, 300);
-        return () => clearTimeout(timeout);
-    }, [query, mainProduct.id, mainProduct.merchantId, comparisonProducts]);
+        return () => {
+            isCurrentSearch = false;
+            clearTimeout(timeout);
+            controller.abort();
+        };
+    }, [query, mainProduct.id, mainProduct.merchantId, mainProduct.category, mainProduct.categorySlug, comparisonProducts]);
 
     const addProduct = (rawProduct: SearchResultProduct) => {
         const heroImage = rawProduct.imageLarge || rawProduct.image || '';
-        const specData = buildOgabasseyProductSpecData({
+        const specData = buildProductSpecData({
             brand: rawProduct.brand,
             category: rawProduct.category,
             condition: rawProduct.condition,
@@ -126,7 +123,7 @@ export function ProductComparisonTable({
             id: rawProduct.id,
             name: rawProduct.name,
             slug: rawProduct.slug,
-            price: new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(rawProduct.price),
+            price: new Intl.NumberFormat(priceLocale, { style: 'currency', currency: priceCurrency }).format(rawProduct.price),
             rawPrice: rawProduct.price,
             image: heroImage,
             images: [heroImage],
@@ -135,6 +132,8 @@ export function ProductComparisonTable({
             category: rawProduct.category,
             condition: normalizeProductCondition(rawProduct.condition) || 'new',
             brand: rawProduct.brand,
+            product_key_specs: rawProduct.product_key_specs,
+            variant_attributes: rawProduct.variant_attributes,
             detailedSpecs: specData.detailedSpecs,
             specs: specData.specs,
         };
@@ -143,29 +142,35 @@ export function ProductComparisonTable({
         setIsSearching(null);
         setQuery('');
         setResults([]);
+        setSearchError(null);
     };
 
     const removeProduct = (index: number) => {
         setComparisonProducts(prev => prev.filter((_, i) => i !== index));
     };
 
-    const mainProductSpecData = buildOgabasseyProductSpecData(mainProduct);
-    const specCategories = mainProductSpecData.detailedSpecs || [];
-    const summarySpecs = mainProductSpecData.specs || [];
+    const comparisonColumns = [mainProduct, ...comparisonProducts];
+    const comparisonMatrix = buildProductComparisonMatrix({
+        products: comparisonColumns,
+    });
+    const summarySpecsByColumn = comparisonColumns.map(
+        (product) => buildProductSpecData(product).specs
+    );
 
-    // Helper to find value in a product for a given category/label
-    const findSpecValue = (product: Product, category: string, label: string) => {
-        const cat = product.detailedSpecs?.find(c => c.category === category);
-        if (!cat) return '-';
-        const item = cat.items.find((i) => i.label === label);
-        return item ? item.value : '-';
+    const getMatrixCellValue = (
+        row: ProductComparisonMatrixRow,
+        columnIndex: number,
+        hasProduct: boolean
+    ) => {
+        if (!hasProduct) {
+            return '';
+        }
+
+        return row.values[columnIndex] || '—';
     };
 
-    const getSummarySpecs = (product?: Product) =>
-        product ? buildOgabasseyProductSpecData(product).specs : [];
-
-    const renderSummaryColumn = (product?: Product) => {
-        const items = product ? getSummarySpecs(product) : [];
+    const renderSummaryColumn = (columnIndex: number, hasProduct: boolean) => {
+        const items = hasProduct ? summarySpecsByColumn[columnIndex] || [] : [];
 
         if (items.length === 0) {
             return <div className="p-4" />;
@@ -175,8 +180,8 @@ export function ProductComparisonTable({
             <div className="p-4 space-y-3">
                 {items.map((item) => (
                     <div key={`${item.label}-${item.value}`} className="space-y-1.5">
-                        <div className="text-xs text-gray-500">{item.label}</div>
-                        <div className="font-semibold text-sm">{item.value}</div>
+                        <div className="text-xs text-store-background-text/55">{item.label}</div>
+                        <div className="font-semibold text-sm text-store-background-text">{item.value}</div>
                     </div>
                 ))}
             </div>
@@ -185,13 +190,11 @@ export function ProductComparisonTable({
 
     return (
         <div className="animate-in fade-in duration-300 overflow-x-auto pb-4">
-            <div className="min-w-[800px] border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-sm">
-                {/* Header Row (Product Images & Names) */}
-                <div className="grid grid-cols-4 border-b border-gray-200 bg-gray-50/50">
-                    {/* Main Product */}
-                    <div className="col-start-2 p-4 flex flex-col items-center justify-end h-56 border-r border-gray-100 relative bg-white">
+            <div className="min-w-[800px] border border-store-background-text/10 rounded-2xl overflow-hidden bg-store-background shadow-sm">
+                <div className="grid grid-cols-4 border-b border-store-background-text/10 bg-store-background-text/5">
+                    <div className="col-start-2 p-4 flex flex-col items-center justify-end h-56 border-r border-store-background-text/10 relative bg-store-background">
                         <div className="absolute top-3 right-3">
-                            <span className="bg-red-600 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">
+                            <span className="bg-store-primary text-store-primary-text text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">
                                 Current
                             </span>
                         </div>
@@ -205,170 +208,88 @@ export function ProductComparisonTable({
                             />
                         </div>
                         <h3 className="font-bold text-sm text-center line-clamp-2 mb-1">{mainProduct.name}</h3>
-                        <p className="text-red-600 font-bold text-sm">{mainProduct.price}</p>
+                        <p className="text-store-primary font-bold text-sm">{mainProduct.price}</p>
                     </div>
 
-                    {/* Comparison Slots */}
                     {[0, 1].map((slotIdx) => {
                         const product = comparisonProducts[slotIdx];
                         const isSlotSearching = isSearching === slotIdx;
 
                         return (
-                            <div key={slotIdx} className="p-4 flex flex-col items-center justify-end h-56 border-r border-gray-100 last:border-0 relative bg-white">
-                                {product ? (
-                                    <>
-                                        <button type="button"
-                                            onClick={() => removeProduct(slotIdx)}
-                                            className="absolute top-3 right-3 text-gray-400 hover:text-red-600 transition-colors"
-                                            aria-label="Remove product"
-                                        >
-                                            <X size={16} />
-                                        </button>
-                                        <div className="relative size-24 mb-3">
-                                            <Image
-                                                src={product.images?.[0] || product.image}
-                                                alt={product.name}
-                                                fill
-                                                sizes="96px"
-                                                className="object-contain mix-blend-multiply"
-                                            />
-                                        </div>
-                                        <Link
-                                            href={getProductHref(product)}
-                                            className="font-bold text-sm text-center line-clamp-2 mb-1 hover:text-red-600"
-                                        >
-                                            {product.name}
-                                        </Link>
-                                        <p className="text-gray-900 font-bold text-sm">{product.price}</p>
-                                    </>
-                                ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center">
-                                        {isSlotSearching ? (
-                                            <div className="w-full h-full absolute inset-0 bg-white z-10 p-4 flex flex-col">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <span className="text-xs font-bold text-gray-500 uppercase">Add Product</span>
-                                                    <button type="button" onClick={() => setIsSearching(null)} aria-label="Cancel search"><X size={16} /></button>
-                                                </div>
-                                                <div className="relative">
-                                                    <Search size={14} className="absolute left-3 top-3 text-store-background-text/45" />
-                                                    <input
-                                                        ref={searchInputRef}
-                                                        type="text"
-                                                        aria-label="Search products"
-                                                        placeholder="Type to search..."
-                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-store-background-text/15 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-store-primary/20 focus:border-store-primary"
-                                                        value={query}
-                                                        onChange={(e) => setQuery(e.target.value)}
-                                                    />
-                                                </div>
-
-                                                {/* Results Dropdown */}
-                                                <div className="flex-1 overflow-y-auto mt-2 -mx-2">
-                                                    {loading && (
-                                                        <div className="flex justify-center p-4 text-gray-400"><Loader2 className="animate-spin" size={20} /></div>
-                                                    )}
-
-                                                    {!loading && results.length > 0 && (
-                                                        <div className="space-y-1">
-                                                            {results.map(res => (
-                                                                <button type="button"
-                                                                    key={res.id}
-                                                                    onClick={() => addProduct(res)}
-                                                                    className="w-full flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg text-left transition-colors"
-                                                                >
-                                                                    <div className="size-8 rounded bg-gray-100 shrink-0 flex items-center justify-center overflow-hidden relative">
-                                                                        <Image src={res.image || res.imageLarge || '/placeholder.png'} alt={res.name} fill sizes="32px" className="object-cover" />
-                                                                    </div>
-                                                                    <div className="min-w-0">
-                                                                        <div className="text-xs font-bold text-gray-900 truncate">{res.name}</div>
-                                                                        <div className="text-[10px] text-gray-500 text-red-600">
-                                                                            {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(res.price)}
-                                                                        </div>
-                                                                    </div>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-
-                                                    {!loading && query && results.length === 0 && (
-                                                        <div className="p-4 text-center text-xs text-gray-400">No products found</div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <button type="button"
-                                                onClick={() => {
-                                                    setIsSearching(slotIdx);
-                                                    setQuery('');
-                                                    setResults([]);
-                                                }}
-                                                className="w-full h-full border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-all gap-2"
-                                            >
-                                                <div className="size-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-white">
-                                                    <Plus size={20} />
-                                                </div>
-                                                <span className="text-xs font-bold uppercase tracking-wider text-center px-2">
-                                                    Compare Similar {mainProduct.category || 'Products'}
-                                                </span>
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            <ComparisonSlotCell
+                                key={slotIdx}
+                                slotIdx={slotIdx}
+                                product={product}
+                                isSearching={isSlotSearching}
+                                mainCategoryLabel={mainProduct.category}
+                                getProductHref={getProductHref}
+                                onRemoveProduct={removeProduct}
+                                onStartSearch={(nextSlotIdx) => {
+                                    setIsSearching(nextSlotIdx);
+                                    setQuery('');
+                                    setResults([]);
+                                    setSearchError(null);
+                                }}
+                                onCancelSearch={() => {
+                                    setIsSearching(null);
+                                    setSearchError(null);
+                                }}
+                                query={query}
+                                setQuery={setQuery}
+                                results={results}
+                                loading={loading}
+                                searchError={searchError}
+                                onSelectProduct={addProduct}
+                                searchInputRef={searchInputRef}
+                                locale={priceLocale}
+                                currencyCode={priceCurrency}
+                            />
                         );
                     })}
                 </div>
 
-                {/* Specs Rows */}
-                <div className="divide-y divide-gray-100">
-                    {/* Key Specs Summary Row */}
+                <div className="divide-y divide-store-background-text/10">
                     <div className="grid grid-cols-4">
-                        <div className="p-4 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center">
+                        <div className="p-4 bg-store-background-text/5 text-xs font-bold text-store-background-text/55 uppercase tracking-wider flex items-center">
                             Key Specs
                         </div>
-                        <div className="col-span-3 grid grid-cols-3 divide-x divide-gray-100">
-                            {renderSummaryColumn({ ...mainProduct, specs: summarySpecs, detailedSpecs: specCategories })}
-                            {renderSummaryColumn(comparisonProducts[0])}
-                            {renderSummaryColumn(comparisonProducts[1])}
+                        <div className="col-span-3 grid grid-cols-3 divide-x divide-store-background-text/10">
+                            {renderSummaryColumn(0, true)}
+                            {renderSummaryColumn(1, Boolean(comparisonProducts[0]))}
+                            {renderSummaryColumn(2, Boolean(comparisonProducts[1]))}
                         </div>
                     </div>
 
-                    {/* Detailed Specs */}
-                    {specCategories.map((category, catIdx) => (
-                        <div key={catIdx}>
-                            {/* Category Header */}
-                            <div className="px-4 py-2 bg-gray-100/50 text-xs font-bold text-gray-900 uppercase tracking-widest border-y border-gray-200/50">
+                    {comparisonMatrix.groups.map((category) => (
+                        <div key={category.category}>
+                            <div className="px-4 py-2 bg-store-background-text/5 text-xs font-bold text-store-background-text uppercase tracking-widest border-y border-store-background-text/10">
                                 {category.category}
                             </div>
 
-                            {/* Category Items */}
-                            {category.items.map((item, itemIdx) => (
-                                <div key={itemIdx} className="grid grid-cols-4 min-h-[48px] divide-x divide-gray-100 hover:bg-gray-50/50 transition-colors">
-                                    <div className="p-3 text-xs font-bold text-gray-500 flex items-center pl-6">
+                            {category.rows.map((item) => (
+                                <div key={`${category.category}-${item.label}`} className="grid grid-cols-4 min-h-[48px] divide-x divide-store-background-text/10 hover:bg-store-background-text/5 transition-colors">
+                                    <div className="p-3 text-xs font-bold text-store-background-text/55 flex items-center pl-6">
                                         {item.label}
                                     </div>
 
-                                    {/* Main Product Value */}
-                                    <div className="p-3 text-sm text-gray-900 leading-snug flex items-center">
-                                        {item.value}
+                                    <div className="p-3 text-sm text-store-background-text leading-snug flex items-center">
+                                        {getMatrixCellValue(item, 0, true)}
                                     </div>
 
-                                    {/* Comp 1 Value */}
-                                    <div className="p-3 text-sm text-gray-600 leading-snug flex items-center">
-                                        {comparisonProducts[0] ? findSpecValue(comparisonProducts[0], category.category, item.label) : ''}
+                                    <div className="p-3 text-sm text-store-background-text/70 leading-snug flex items-center">
+                                        {getMatrixCellValue(item, 1, Boolean(comparisonProducts[0]))}
                                     </div>
 
-                                    {/* Comp 2 Value */}
-                                    <div className="p-3 text-sm text-gray-600 leading-snug flex items-center">
-                                        {comparisonProducts[1] ? findSpecValue(comparisonProducts[1], category.category, item.label) : ''}
+                                    <div className="p-3 text-sm text-store-background-text/70 leading-snug flex items-center">
+                                        {getMatrixCellValue(item, 2, Boolean(comparisonProducts[1]))}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ))}
 
-                    {specCategories.length === 0 && (
-                        <div className="p-8 text-center text-gray-500">
+                    {comparisonMatrix.groups.length === 0 && (
+                        <div className="p-8 text-center text-store-background-text/55">
                             No detailed specifications available for the main product.
                         </div>
                     )}

@@ -1,6 +1,9 @@
 import { notFound } from 'next/navigation';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { buildComparePageSchemas } from '@/lib/storefront-compare/compare-schema';
+import {
+  buildComparePageSchemas,
+  buildProductCompareItemListSchema,
+} from '@/lib/storefront-compare/compare-schema';
 import { loadComparePage } from '@/lib/storefront-compare/load-compare-page';
 
 interface ComparePageContentProps {
@@ -29,6 +32,23 @@ function getComparisonColumnLabels(
   return ['Left', 'Right'];
 }
 
+function getComparisonRowGroups(
+  page: NonNullable<Awaited<ReturnType<typeof loadComparePage>>>
+) {
+  if (page.kind === 'product') {
+    return page.comparisonMatrix.groups.map((group) => ({
+      category: group.category,
+      rows: group.rows.map((row) => ({
+        label: row.label,
+        leftValue: row.values[0] || '—',
+        rightValue: row.values[1] || '—',
+      })),
+    }));
+  }
+
+  return [{ category: 'Overview', rows: page.comparisonRows }];
+}
+
 export async function ComparePageContent({ params }: ComparePageContentProps) {
   const resolvedParams = await params;
   const page = await loadComparePage({
@@ -37,7 +57,7 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
     comparisonSlug: resolvedParams.comparisonSlug,
   });
 
-  if (!page?.isIndexable) {
+  if (!page || (!page.isIndexable && !page.isLegacyFallback)) {
     notFound();
   }
 
@@ -45,7 +65,21 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
     breadcrumbItems: page.breadcrumbItems,
     faqItems: page.faqItems,
   });
+  const itemListSchema =
+    page.kind === 'product'
+      ? buildProductCompareItemListSchema({
+          pageName: page.heading,
+          pageUrl: page.canonicalUrl,
+          currency: page.merchant.payout_currency || 'NGN',
+          products: [page.leftProduct, page.rightProduct].filter(
+            (product): product is NonNullable<typeof product> =>
+              Boolean(product)
+          ),
+          comparisonMatrix: page.comparisonMatrix,
+        })
+      : null;
   const [leftColumnLabel, rightColumnLabel] = getComparisonColumnLabels(page);
+  const comparisonRowGroups = getComparisonRowGroups(page);
 
   return (
     <>
@@ -55,6 +89,11 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
       {schemas.faq && (
         <script type="application/ld+json">
           {safeJsonLdStringify(schemas.faq)}
+        </script>
+      )}
+      {itemListSchema && (
+        <script type="application/ld+json">
+          {safeJsonLdStringify(itemListSchema)}
         </script>
       )}
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -94,24 +133,38 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {page.comparisonRows.map((row) => (
-                <tr key={row.label} className="border-t align-top">
+            {comparisonRowGroups.map((group) => (
+              <tbody key={group.category}>
+                <tr className="border-t align-top">
                   <th
-                    scope="row"
-                    className="px-4 py-3 text-sm font-medium text-foreground"
+                    scope="rowgroup"
+                    colSpan={3}
+                    className="bg-muted/20 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                   >
-                    {row.label}
+                    {group.category}
                   </th>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {row.leftValue}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {row.rightValue}
-                  </td>
                 </tr>
-              ))}
-            </tbody>
+                {group.rows.map((row) => (
+                  <tr
+                    key={`${group.category}-${row.label}`}
+                    className="border-t align-top"
+                  >
+                    <th
+                      scope="row"
+                      className="px-4 py-3 text-sm font-medium text-foreground"
+                    >
+                      {row.label}
+                    </th>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {row.leftValue}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {row.rightValue}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
           </table>
         </section>
 
