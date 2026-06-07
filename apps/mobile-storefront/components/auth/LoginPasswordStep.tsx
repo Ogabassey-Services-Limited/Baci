@@ -152,6 +152,9 @@ export function LoginPasswordStep({
         ]}
         onPress={handlePasswordSignIn}
         disabled={isLoading}
+        accessibilityLabel={isLoading ? 'Signing in' : 'Sign In'}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isLoading, busy: isLoading }}
       >
         {isLoading ? (
           <ActivityIndicator color={colors.primaryForeground} />
