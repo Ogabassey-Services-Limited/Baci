@@ -15,11 +15,15 @@ import {
   merchant,
 } from './customer-wallet-payment-accounts.test-utils';
 
-vi.mock('@/lib/paystack', () => ({
-  createDedicatedAccountForWallet: vi.fn(),
-  createOrGetCustomer: vi.fn(),
-  getDedicatedAccounts: vi.fn(),
-}));
+vi.mock('@/lib/paystack', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/paystack')>();
+  return {
+    ...actual,
+    createDedicatedAccountForWallet: vi.fn(),
+    createOrGetCustomer: vi.fn(),
+    getDedicatedAccounts: vi.fn(),
+  };
+});
 
 describe('customer wallet payment account provider proof', () => {
   beforeEach(() => {
@@ -63,6 +67,85 @@ describe('customer wallet payment account provider proof', () => {
           id: 99,
           metadata: null,
           split_config: { subaccount: 'ACCT_merchant123' },
+          updated_at: '2026-05-21T09:00:00.000Z',
+        } as never,
+      ],
+    });
+
+    const accountQuery = createMaybeSingleQuery(null);
+    const orderAliasQuery = createSelectRowsQuery([]);
+    const { insert, query: insertQuery } = createInsertQuery({
+      ...existingAccountRow,
+      account_number: '3333333333',
+      bank_name: 'Titan Paystack',
+      bank_slug: 'titan-paystack',
+      provider_account_id: '99',
+      provider_customer_code: 'CUS_existing',
+    });
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(accountQuery)
+        .mockReturnValueOnce(orderAliasQuery)
+        .mockReturnValueOnce(insertQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      ensureCustomerWalletPaymentAccount({
+        consentedAt: new Date('2026-05-21T10:00:00.000Z'),
+        customer,
+        merchant,
+        supabase,
+      })
+    ).resolves.toEqual(
+      expect.objectContaining({
+        accountNumber: '3333333333',
+        providerSubaccountCode: 'ACCT_merchant123',
+      })
+    );
+
+    expect(createDedicatedAccountForWallet).not.toHaveBeenCalled();
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account_number: '3333333333',
+        provider_subaccount_code: 'ACCT_merchant123',
+      })
+    );
+  });
+
+  it('stores an existing Paystack DVA when split config is stringified', async () => {
+    vi.mocked(createOrGetCustomer).mockResolvedValue({
+      success: true,
+      data: {
+        customer_code: 'CUS_existing',
+        email: 'jane@example.com',
+        first_name: 'Jane',
+        id: 100,
+        last_name: 'Doe',
+        phone: '+2348012345678',
+      },
+    });
+    vi.mocked(getDedicatedAccounts).mockResolvedValue({
+      success: true,
+      data: [
+        {
+          account_name: 'Ogabassey/Jane Doe',
+          account_number: '3333333333',
+          active: true,
+          assigned: true,
+          bank: { id: 1, name: 'Titan Paystack', slug: 'titan-paystack' },
+          created_at: '2026-05-21T09:00:00.000Z',
+          currency: 'NGN',
+          customer: {
+            customer_code: 'CUS_existing',
+            email: 'jane@example.com',
+            first_name: 'Jane',
+            id: 100,
+            last_name: 'Doe',
+          },
+          id: 99,
+          metadata: null,
+          split_config: '{"subaccount":"ACCT_merchant123"}',
           updated_at: '2026-05-21T09:00:00.000Z',
         } as never,
       ],
