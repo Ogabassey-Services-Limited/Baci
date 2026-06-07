@@ -656,10 +656,19 @@ export interface DedicatedAccountResponse {
     first_name: string | null;
     last_name: string | null;
   };
-  split_config?: {
-    subaccount?: string | null;
-  } | null;
+  split_config?:
+    | {
+        subaccount?: string | null;
+      }
+    | string
+    | null;
 }
+
+const WalletDedicatedAccountSplitConfigObjectSchema = z
+  .object({
+    subaccount: z.string().min(1).nullable().optional(),
+  })
+  .passthrough();
 
 const WalletDedicatedAccountResponseSchema = z.object({
   id: z.union([z.number(), z.string()]).nullable().optional(),
@@ -677,13 +686,45 @@ const WalletDedicatedAccountResponseSchema = z.object({
     .passthrough()
     .optional(),
   split_config: z
-    .object({
-      subaccount: z.string().min(1).nullable().optional(),
-    })
-    .passthrough()
+    .union([WalletDedicatedAccountSplitConfigObjectSchema, z.string()])
     .nullable()
     .optional(),
 });
+
+function parseWalletDedicatedAccountSplitConfig(
+  value: DedicatedAccountResponse['split_config']
+) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  try {
+    const parsed = WalletDedicatedAccountSplitConfigObjectSchema.safeParse(
+      JSON.parse(trimmedValue)
+    );
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+export function extractPaystackSplitConfigSubaccount(
+  value: DedicatedAccountResponse['split_config']
+): string | null {
+  const subaccount =
+    parseWalletDedicatedAccountSplitConfig(value)?.subaccount?.trim() ?? '';
+
+  return subaccount || null;
+}
 
 /**
  * Customer response from Paystack
@@ -850,8 +891,22 @@ export async function createDedicatedAccountForWallet(
   }
 
   const walletAccount = parsed.data;
+  const providerSplitConfigSubaccount = extractPaystackSplitConfigSubaccount(
+    walletAccount.split_config
+  );
+  if (
+    providerSplitConfigSubaccount &&
+    providerSplitConfigSubaccount !== input.subaccount
+  ) {
+    return {
+      success: false,
+      error: 'Wallet DVA response returned a different Paystack subaccount',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
   const providerSubaccountCode =
-    walletAccount.split_config?.subaccount ?? input.subaccount;
+    providerSplitConfigSubaccount ?? input.subaccount;
 
   if (!providerSubaccountCode) {
     return {
