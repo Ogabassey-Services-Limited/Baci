@@ -18,11 +18,15 @@ import {
   merchant,
 } from './customer-wallet-payment-accounts.test-utils';
 
-vi.mock('@/lib/paystack', () => ({
-  createDedicatedAccountForWallet: vi.fn(),
-  createOrGetCustomer: vi.fn(),
-  getDedicatedAccounts: vi.fn(),
-}));
+vi.mock('@/lib/paystack', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/paystack')>();
+  return {
+    ...actual,
+    createDedicatedAccountForWallet: vi.fn(),
+    createOrGetCustomer: vi.fn(),
+    getDedicatedAccounts: vi.fn(),
+  };
+});
 
 function mockNewDedicatedAccount() {
   vi.mocked(createOrGetCustomer).mockResolvedValue({

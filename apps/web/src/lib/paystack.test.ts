@@ -191,6 +191,105 @@ describe('paystack helpers', () => {
     }
   });
 
+  it('accepts wallet DVA responses with stringified split config', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: true,
+          message: 'ok',
+          data: {
+            bank: {
+              name: 'Titan Paystack',
+              id: 9,
+              slug: 'titan-paystack',
+            },
+            account_name: 'Ogabassey/Jane Doe',
+            account_number: '1234567890',
+            assigned: true,
+            currency: 'NGN',
+            metadata: null,
+            active: true,
+            id: 97,
+            created_at: '2026-05-21T10:00:00.000Z',
+            updated_at: '2026-05-21T10:00:00.000Z',
+            customer: {
+              id: 17328,
+              email: 'jane@example.com',
+              customer_code: 'CUS_wallet123',
+              first_name: 'Jane',
+              last_name: 'Doe',
+            },
+            split_config: '{"subaccount":"ACCT_merchant123"}',
+          },
+        }),
+      })
+    );
+
+    const { createDedicatedAccountForWallet } = await import('@/lib/paystack');
+    const result = await createDedicatedAccountForWallet({
+      customerCode: 'CUS_wallet123',
+      subaccount: 'ACCT_merchant123',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.providerSubaccountCode).toBe('ACCT_merchant123');
+    }
+  });
+
+  it('rejects wallet DVA responses with a different split-config subaccount', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: true,
+          message: 'ok',
+          data: {
+            bank: {
+              name: 'Titan Paystack',
+              id: 9,
+              slug: 'titan-paystack',
+            },
+            account_name: 'Ogabassey/Jane Doe',
+            account_number: '1234567890',
+            assigned: true,
+            currency: 'NGN',
+            metadata: null,
+            active: true,
+            id: 97,
+            created_at: '2026-05-21T10:00:00.000Z',
+            updated_at: '2026-05-21T10:00:00.000Z',
+            customer: {
+              id: 17328,
+              email: 'jane@example.com',
+              customer_code: 'CUS_wallet123',
+              first_name: 'Jane',
+              last_name: 'Doe',
+            },
+            split_config: {
+              subaccount: 'ACCT_otherMerchant',
+            },
+          },
+        }),
+      })
+    );
+
+    const { createDedicatedAccountForWallet } = await import('@/lib/paystack');
+    const result = await createDedicatedAccountForWallet({
+      customerCode: 'CUS_wallet123',
+      subaccount: 'ACCT_merchant123',
+    });
+
+    expect(result).toEqual({
+      success: false,
+      code: 'VALIDATION_ERROR',
+      error: 'Wallet DVA response returned a different Paystack subaccount',
+    });
+  });
+
   it('rejects wallet DVA responses that do not include a 10-digit account number', async () => {
     vi.stubGlobal(
       'fetch',
