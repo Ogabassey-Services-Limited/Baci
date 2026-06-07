@@ -31,3 +31,25 @@ describe('GET /.well-known/agent-auth/[action]', () => {
     });
   });
 });
+
+describe('POST /.well-known/agent-auth/[action]', () => {
+  it('delegates claim action requests to the manual-review handler', async () => {
+    const { POST } = await import('./route');
+    const response = await POST(
+      new Request('https://ogabassey.com/.well-known/agent-auth/claim', {
+        body: JSON.stringify({ email: 'agent@example.com', otp: '123456' }),
+        headers: { host: 'merchant.example.com' },
+        method: 'POST',
+      }),
+      claimProps
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      action: 'claim',
+      documentation: 'https://merchant.example.com/auth.md',
+      status: 'manual_claim_required',
+    });
+  });
+});
