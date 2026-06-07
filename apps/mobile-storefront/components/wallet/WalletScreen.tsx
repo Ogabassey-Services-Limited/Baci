@@ -1,9 +1,8 @@
-import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useWalletFundingAccountAvailability } from '@/components/wallet/useWalletFundingAccountAvailability';
 import { useWalletBalanceContractWarning } from '@/components/wallet/use-wallet-balance-contract-warning';
 import { WalletScreenView } from '@/components/wallet/WalletScreenView';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
@@ -17,34 +16,20 @@ import {
   useWallet,
 } from '@/hooks/use-wallet';
 import { CONFIG } from '@/lib/config';
-import { createLogger } from '@/lib/logger';
 import { normalizeWalletFundAmountParam } from '@/lib/normalize-wallet-fund-amount-param';
 import { pickMerchantId } from '@/lib/pick-merchant-id';
 import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
-import { initializeWalletTopUp } from '@/lib/wallet-top-up';
-import { trackError, trackEvent } from '@/services/analytics';
-import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 import {
-  buildWalletTopUpGatewayParams,
   deriveWalletDisplayData,
-  getWalletCustomerName,
   getWalletLoadingMessage,
-  resolveCreateFundingAccountOutcome,
-  resolveWalletRedeemPointsOutcome,
   sanitizeWalletFundAmount,
-  validateWalletTopUpAmount,
 } from './wallet-screen.helpers';
-
-const log = createLogger('Wallet');
-const FUNDING_ACCOUNT_AVAILABILITY_CHECKING_MESSAGE =
-  'Checking account number availability...';
-const FUNDING_ACCOUNT_AVAILABILITY_ERROR_MESSAGE =
-  'Account number availability could not be checked. Pull to refresh and try again.';
-const FUNDING_ACCOUNT_DVA_DISABLED_MESSAGE =
-  'Bank transfer account creation is not available yet.';
-const FUNDING_ACCOUNT_PHONE_REQUIRED_MESSAGE =
-  'Add a phone number to your profile before creating a wallet account number.';
+import {
+  createWalletFundingAccount,
+  fundWallet,
+  redeemWalletPoints,
+} from './wallet-screen.handlers';
 
 interface WalletScreenProps {
   presentation?: 'stack' | 'tab';
@@ -92,26 +77,18 @@ export function WalletScreen({
     pickMerchantId(merchantId, CONFIG.MERCHANT_ID) ?? undefined;
   const activeMerchantSlug = CONFIG.MERCHANT_SLUG?.trim() || undefined;
   const hasMerchantContext = Boolean(activeMerchantId || activeMerchantSlug);
-  const walletDvaEnabled =
-    paymentSettings?.wallet_paystack_dva_enabled === true;
-  const isPaymentSettingsPending =
-    isPaymentSettingsLoading || (!paymentSettings && !isPaymentSettingsError);
-  const customerPhone = customer?.phone?.trim() ?? '';
-  let createFundingAccountUnavailableMessage: string | undefined;
-  if (isPaymentSettingsPending) {
-    createFundingAccountUnavailableMessage =
-      FUNDING_ACCOUNT_AVAILABILITY_CHECKING_MESSAGE;
-  } else if (isPaymentSettingsError) {
-    createFundingAccountUnavailableMessage =
-      FUNDING_ACCOUNT_AVAILABILITY_ERROR_MESSAGE;
-  } else if (!walletDvaEnabled) {
-    createFundingAccountUnavailableMessage =
-      FUNDING_ACCOUNT_DVA_DISABLED_MESSAGE;
-  } else if (!customerPhone) {
-    createFundingAccountUnavailableMessage =
-      FUNDING_ACCOUNT_PHONE_REQUIRED_MESSAGE;
-  }
-  const canCreateFundingAccount = !createFundingAccountUnavailableMessage;
+  const {
+    canCreateFundingAccount,
+    createFundingAccountUnavailableMessage,
+    customerPhone,
+    isPaymentSettingsPending,
+    walletDvaEnabled,
+  } = useWalletFundingAccountAvailability({
+    customerPhone: customer?.phone,
+    isPaymentSettingsError,
+    isPaymentSettingsLoading,
+    paymentSettings,
+  });
   useWalletBalanceContractWarning({
     merchantId: activeMerchantId,
     ownerId: customer?.id ?? user?.id ?? '',
@@ -132,152 +109,44 @@ export function WalletScreen({
   }, [routeAction, routeRequiredAmount]);
   const handleFundAmountChange = (value: string) =>
     setFundAmount(sanitizeWalletFundAmount(value));
-  const handleCreateFundingAccount = async () => {
-    if (isPaymentSettingsPending) {
-      Alert.alert(
-        'Account number unavailable',
-        FUNDING_ACCOUNT_AVAILABILITY_CHECKING_MESSAGE
-      );
-      return;
-    }
-
-    if (isPaymentSettingsError) {
-      Alert.alert(
-        'Account number unavailable',
-        FUNDING_ACCOUNT_AVAILABILITY_ERROR_MESSAGE
-      );
-      return;
-    }
-
-    if (!walletDvaEnabled) {
-      Alert.alert(
-        'Account number unavailable',
-        FUNDING_ACCOUNT_DVA_DISABLED_MESSAGE
-      );
-      return;
-    }
-
-    if (!customerPhone) {
-      Alert.alert(
-        'Phone number required',
-        FUNDING_ACCOUNT_PHONE_REQUIRED_MESSAGE
-      );
-      return;
-    }
-
-    const outcome = await resolveCreateFundingAccountOutcome(
-      createFundingAccountMutation.mutateAsync
-    );
-    if (outcome.status === 'error') {
-      trackError(
-        'wallet_funding_account_create_failed',
-        outcome.telemetryMessage,
-        {
-          customer_id: customer?.id,
-          merchant_id: activeMerchantId,
-          merchant_slug: activeMerchantSlug,
-        }
-      );
-      Alert.alert('Unable to create account number', outcome.alertMessage);
-      return;
-    }
-    if (outcome.accountSummary) {
-      Alert.alert('Account Ready', outcome.accountSummary);
-    }
-  };
+  const handleCreateFundingAccount = () =>
+    createWalletFundingAccount({
+      activeMerchantId,
+      activeMerchantSlug,
+      createFundingAccount: createFundingAccountMutation.mutateAsync,
+      customerId: customer?.id,
+      customerPhone,
+      isPaymentSettingsError,
+      isPaymentSettingsPending,
+      walletDvaEnabled,
+    });
   const resetFundPanel = () => {
     setShowFundPanel(false);
     setFundAmount('');
   };
-  const handleFundWallet = async () => {
-    const amount = Number(fundAmount);
-    const amountValidationError = validateWalletTopUpAmount(amount);
-    if (amountValidationError) {
-      Alert.alert('Invalid Amount', amountValidationError);
-      return;
-    }
-    setIsFundPending(true);
-    try {
-      const customerName = getWalletCustomerName(customer, user);
-      const result = await initializeWalletTopUp({
-        amount,
-        customerName,
-        customerPhone: customer?.phone,
-        merchantId: activeMerchantId,
-        merchantSlug: activeMerchantSlug,
-      });
-      trackEvent('wallet_top_up_started', {
-        amount,
-        customer_id: customer?.id,
-        gateway: result.gateway,
-        merchant_id: activeMerchantId,
-        merchant_slug: activeMerchantSlug,
-      });
-      resetFundPanel();
-      router.push({
-        pathname: '/payment-gateway',
-        params: buildWalletTopUpGatewayParams({
-          activeMerchantId,
-          activeMerchantSlug,
-          amount,
-          result,
-          walletReturnTo,
-        }),
-      });
-    } catch (error) {
-      log.error('Wallet top-up initialization error:', error);
-      trackError(
-        'wallet_top_up_failed',
-        error instanceof Error ? error.message : 'Unknown error',
-        { amount, customer_id: customer?.id }
-      );
-      Alert.alert(
-        'Top-up Failed',
-        error instanceof Error
-          ? error.message
-          : 'Failed to start wallet top-up. Please try again.'
-      );
-    } finally {
-      setIsFundPending(false);
-    }
+  const resetRedeemPanel = () => {
+    setShowRedeemPanel(false);
+    setRedeemPoints('');
   };
-  const handleRedeemPoints = async () => {
-    const outcome = await resolveWalletRedeemPointsOutcome({
-      minimumRedeemablePoints: VTU_MIN_REDEEMABLE_POINTS,
+  const handleFundWallet = () =>
+    fundWallet({
+      activeMerchantId,
+      activeMerchantSlug,
+      customer,
+      fundAmount,
+      resetFundPanel,
+      setIsFundPending,
+      user,
+      walletReturnTo,
+    });
+  const handleRedeemPoints = () =>
+    redeemWalletPoints({
+      clearRedeemPoints: () => setRedeemPoints(''),
+      closeRedeemPanel: () => setShowRedeemPanel(false),
+      customerId: customer?.id,
       rawPoints: redeemPoints,
       redeemPoints: redeemMutation.mutateAsync,
     });
-    if (outcome.status === 'invalid') {
-      Alert.alert(outcome.title, outcome.message);
-      return;
-    }
-    if (outcome.status === 'error') {
-      log.error('Redemption error:', outcome.alertMessage);
-      trackError('loyalty_redemption_failed', outcome.telemetryMessage, {
-        points_attempted: outcome.points,
-        customer_id: customer?.id,
-      });
-      Alert.alert('Error', outcome.alertMessage);
-      return;
-    }
-    trackEvent('loyalty_redeemed', {
-      points_redeemed: outcome.points,
-      wallet_credit: outcome.result.walletCredit,
-      remaining_points: outcome.result.remainingPoints,
-      conversion_rate: outcome.result.conversionRate,
-      customer_id: customer?.id,
-    });
-    await scheduleLocalNotification(
-      'Points Redeemed! 🎁',
-      outcome.successMessage,
-      { type: 'loyalty_redemption', points: outcome.points },
-      1
-    );
-    Alert.alert('Points Redeemed!', outcome.successMessage, [
-      { text: 'OK', onPress: () => setShowRedeemPanel(false) },
-    ]);
-    setRedeemPoints('');
-  };
   const scrollContentStyle = getScrollContentStyle({
     includeBottomInset: presentation === 'tab',
     paddingBottom:
@@ -343,10 +212,7 @@ export function WalletScreen({
         onQuickSave: handleOpenSavings,
         onRefresh: refetch,
         onResetFund: resetFundPanel,
-        onResetRedeem: () => {
-          setShowRedeemPanel(false);
-          setRedeemPoints('');
-        },
+        onResetRedeem: resetRedeemPanel,
         onStartSavings: handleOpenSavings,
         redeemPoints,
         savingsBalance,

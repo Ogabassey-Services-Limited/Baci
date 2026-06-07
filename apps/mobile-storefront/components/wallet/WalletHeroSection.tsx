@@ -1,17 +1,11 @@
-import { router } from 'expo-router';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { BRAND } from '@/constants/Colors';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { WALLET_COLORS } from './wallet.colors';
+import { WalletQuickUtilities } from './WalletQuickUtilities';
 import { styles } from './wallet.styles';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
@@ -242,71 +236,7 @@ export function WalletHeroSection({
         </Pressable>
       </View>
 
-      <View style={styles.utilityPillsDivider} />
-      <Text style={styles.utilityPillsLabel}>Quick Utilities</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.utilityPillsScroll}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Buy Airtime"
-          style={styles.utilityPill}
-          onPress={() => router.push('/utilities/airtime')}
-        >
-          <Ionicons name="call-outline" size={14} color={WALLET_COLORS.white} />
-          <Text style={styles.utilityPillText}>Airtime</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Buy Data"
-          style={styles.utilityPill}
-          onPress={() => router.push('/utilities/data')}
-        >
-          <Ionicons name="wifi" size={14} color={WALLET_COLORS.white} />
-          <Text style={styles.utilityPillText}>Data</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Pay Power Bill"
-          style={styles.utilityPill}
-          onPress={() => router.push('/utilities/power')}
-        >
-          <Ionicons
-            name="flash-outline"
-            size={14}
-            color={WALLET_COLORS.white}
-          />
-          <Text style={styles.utilityPillText}>Power</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Pay TV Bill"
-          style={styles.utilityPill}
-          onPress={() => router.push('/utilities/tv')}
-        >
-          <Ionicons name="tv-outline" size={14} color={WALLET_COLORS.white} />
-          <Text style={styles.utilityPillText}>Cable TV</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Pay Gaming Bill"
-          style={styles.utilityPill}
-          onPress={() => router.push('/utilities/gaming')}
-        >
-          <Ionicons
-            name="game-controller-outline"
-            size={14}
-            color={WALLET_COLORS.white}
-          />
-          <Text style={styles.utilityPillText}>Gaming</Text>
-        </Pressable>
-      </ScrollView>
+      <WalletQuickUtilities />
     </Animated.View>
   );
 }
