@@ -56,4 +56,40 @@ describe('VariantSelector', () => {
     expect(onSelectAttribute).toHaveBeenCalledWith('ram', '16GB');
     expect(onSelectColor).not.toHaveBeenCalled();
   });
+
+  it('renders RAM before storage for phone memory selections', () => {
+    const { getAllByText } = render(
+      <VariantSelector
+        attributes={{ storage: ['128GB', '256GB'], ram: ['6GB', '8GB'] }}
+        storage={['128GB', '256GB']}
+        variants={[
+          {
+            id: 'variant-6-128',
+            name: '6GB 128GB',
+            price: 212651.16,
+            attributes: { ram: '6GB', storage: '128GB' },
+          },
+          {
+            id: 'variant-8-256',
+            name: '8GB 256GB',
+            price: 230604.65,
+            attributes: { ram: '8GB', storage: '256GB' },
+          },
+        ]}
+        manageStock={false}
+        selectedAttributes={{ ram: '6GB' }}
+        selectedColor={null}
+        selectedStorage="128GB"
+        onSelectAttribute={jest.fn()}
+        onSelectColor={jest.fn()}
+        onSelectStorage={jest.fn()}
+      />
+    );
+
+    const memoryLabels = getAllByText(/^(RAM|Storage)$/).map(
+      (node) => node.props.children
+    );
+
+    expect(memoryLabels).toEqual(['RAM', 'Storage']);
+  });
 });

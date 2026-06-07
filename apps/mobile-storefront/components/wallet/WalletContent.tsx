@@ -1,18 +1,13 @@
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import type { StyleProp, ViewStyle } from 'react-native';
-import {
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { RefreshControl, ScrollView, Text, TextInput } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
-import { BRAND, SPACING } from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletHeroSection } from './WalletHeroSection';
 import { WalletPanelActionButtons } from './WalletPanelActionButtons';
+import { WalletRedeemPanel } from './WalletRedeemPanel';
 import {
   type WalletTransaction,
   WalletTransactionHistory,
@@ -23,8 +18,10 @@ import type { WalletDisplayFundingAccount } from './wallet.types';
 type WalletColors = (typeof Colors)['light'];
 
 export interface WalletContentProps {
+  canCreateFundingAccount: boolean;
   colors: WalletColors;
   contentContainerStyle: StyleProp<ViewStyle>;
+  createFundingAccountUnavailableMessage?: string;
   earningsBalance: number;
   fundAmount: string;
   fundingAccount: WalletDisplayFundingAccount | null;
@@ -57,8 +54,10 @@ export interface WalletContentProps {
 }
 
 export function WalletContent({
+  canCreateFundingAccount,
   colors,
   contentContainerStyle,
+  createFundingAccountUnavailableMessage,
   earningsBalance,
   fundAmount,
   fundingAccount,
@@ -105,6 +104,10 @@ export function WalletContent({
       }
     >
       <WalletHeroSection
+        canCreateFundingAccount={canCreateFundingAccount}
+        createFundingAccountUnavailableMessage={
+          createFundingAccountUnavailableMessage
+        }
         earningsBalance={earningsBalance}
         fundingAccount={fundingAccount}
         isCreatingFundingAccount={isCreatingFundingAccount}
@@ -175,124 +178,16 @@ export function WalletContent({
       ) : null}
 
       {showRedeemPanel ? (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          style={[
-            styles.redeemPanel,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.redeemPanelTitle, { color: colors.text }]}>
-            Redeem Loyalty Points
-          </Text>
-          <Text
-            style={[
-              styles.redeemPanelSubtitle,
-              { color: colors.textSecondary, marginBottom: SPACING.md },
-            ]}
-          >
-            Available: {loyaltyPoints.toLocaleString()} points
-          </Text>
-
-          {/* Points Conversion & Super Quiz Benefits Info Card */}
-          <View
-            style={[
-              styles.infoCard,
-              {
-                backgroundColor: colors.muted,
-                borderColor: colors.border,
-                marginBottom: SPACING.md,
-              },
-            ]}
-          >
-            <Text style={[styles.infoCardTitle, { color: colors.text }]}>
-              ✨ Loyalty Points Benefits
-            </Text>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoEmoji}>💵</Text>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                <Text style={{ fontWeight: 'bold', color: colors.text }}>
-                  Convert to Cash:
-                </Text>{' '}
-                100 points = ₦10. Redeem blocks of 100 points directly into your
-                wallet.
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoEmoji}>🏆</Text>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                <Text style={{ fontWeight: 'bold', color: colors.text }}>
-                  Super Quiz Entry:
-                </Text>{' '}
-                Use points as exam passes to join high-stake quiz events and win
-                huge prizes!
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoEmoji}>⚡</Text>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                <Text style={{ fontWeight: 'bold', color: colors.text }}>
-                  Leaderboard Tie-Breaker:
-                </Text>{' '}
-                If tied, players with higher loyalty points rank higher on the
-                leaderboard!
-              </Text>
-            </View>
-
-            <Text
-              style={[
-                styles.infoSubTitle,
-                { color: colors.text, marginTop: SPACING.xs },
-              ]}
-            >
-              Tier Rankings:
-            </Text>
-            <View style={styles.tierRow}>
-              <Text style={[styles.tierBadge, { backgroundColor: '#7C2D12' }]}>
-                BRONZE
-              </Text>
-              <Text style={[styles.tierBadge, { backgroundColor: '#4B5563' }]}>
-                SILVER
-              </Text>
-              <Text style={[styles.tierBadge, { backgroundColor: '#D97706' }]}>
-                GOLD
-              </Text>
-              <Text style={[styles.tierBadge, { backgroundColor: '#4F46E5' }]}>
-                PLATINUM
-              </Text>
-            </View>
-          </View>
-
-          <TextInput
-            accessibilityLabel="Points to redeem"
-            style={[
-              styles.redeemInput,
-              {
-                backgroundColor: colors.muted,
-                borderColor: colors.border,
-                color: colors.text,
-              },
-            ]}
-            value={redeemPoints}
-            onChangeText={onChangeRedeemPoints}
-            keyboardType="number-pad"
-            placeholder={`Enter points to redeem (min ${VTU_MIN_REDEEMABLE_POINTS})`}
-            placeholderTextColor={colors.placeholder}
-          />
-
-          <WalletPanelActionButtons
-            cancelAccessibilityLabel="Cancel redeem points"
-            confirmAccessibilityLabel="Confirm redeem points"
-            confirmText="Redeem"
-            colors={colors}
-            isPending={isRedeemPending}
-            onCancel={onResetRedeem}
-            onConfirm={onConfirmRedeem}
-          />
-        </Animated.View>
+        <WalletRedeemPanel
+          colors={colors}
+          isRedeemPending={isRedeemPending}
+          loyaltyPoints={loyaltyPoints}
+          minimumRedeemablePoints={VTU_MIN_REDEEMABLE_POINTS}
+          onChangeRedeemPoints={onChangeRedeemPoints}
+          onConfirmRedeem={onConfirmRedeem}
+          onResetRedeem={onResetRedeem}
+          redeemPoints={redeemPoints}
+        />
       ) : null}
       <WalletTransactionHistory colors={colors} transactions={transactions} />
     </ScrollView>

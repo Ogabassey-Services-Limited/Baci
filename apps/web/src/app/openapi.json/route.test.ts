@@ -23,8 +23,32 @@ describe('GET /openapi.json', () => {
       '/api/agentic/catalog/product': expect.any(Object),
       '/api/agentic/checkout-sessions': expect.any(Object),
       '/api/agentic/checkout-sessions/{id}': expect.any(Object),
+      '/api/agentic/checkout-sessions/{id}/complete': expect.any(Object),
       '/api/agentic/orders/{id}': expect.any(Object),
     });
+    expect(
+      body.paths['/api/agentic/checkout-sessions/{id}/complete'].post
+    ).toMatchObject({
+      operationId: 'completeCheckoutSession',
+      'x-payment-info': {
+        offers: [
+          {
+            intent: 'charge',
+            method: 'paystack_bank_transfer',
+            amount: null,
+            currency: 'NGN',
+          },
+        ],
+      },
+      responses: {
+        '200': expect.any(Object),
+        '402': { description: 'Payment Required' },
+      },
+    });
+    expect(
+      body.components.schemas.CheckoutCompleteRequest.properties.payment_data
+        .properties.provider.enum
+    ).toEqual(['paystack', 'paystack_bank_transfer']);
     expect(body.components.securitySchemes.agenticBearerHmac).toMatchObject({
       type: 'http',
       scheme: 'bearer',

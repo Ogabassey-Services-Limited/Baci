@@ -1,11 +1,7 @@
+import { buildAgentAuthMetadata } from './agent-auth-metadata';
+import { normalizeBaseUrl } from './normalize-base-url';
+
 const OAUTH_SCOPES = ['openid', 'email', 'profile', 'offline_access'] as const;
-
-function normalizeBaseUrl(baseUrl: string): string {
-  const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, '');
-  const parsedUrl = new URL(normalizedBaseUrl);
-
-  return parsedUrl.toString().replace(/\/+$/, '');
-}
 
 function buildSupabaseIssuer(supabaseUrl: string): string {
   return new URL('/auth/v1', normalizeBaseUrl(supabaseUrl)).toString();
@@ -28,5 +24,6 @@ export function buildOAuthProtectedResourceMetadata({
     authorization_servers: [authorizationServer],
     scopes_supported: [...OAUTH_SCOPES],
     bearer_methods_supported: ['header'],
+    agent_auth: buildAgentAuthMetadata(normalizedBaseUrl),
   };
 }

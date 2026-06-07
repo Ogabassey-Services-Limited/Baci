@@ -19,6 +19,20 @@ describe('buildOAuthAuthorizationServerMetadata', () => {
       grant_types_supported: ['authorization_code', 'refresh_token'],
       code_challenge_methods_supported: ['S256'],
       service_documentation: 'https://ogabassey.com/auth.md',
+      agent_auth: {
+        register_uri: 'https://ogabassey.com/agent/auth',
+        claim_uri: 'https://ogabassey.com/agent/auth/claim',
+        revocation_uri: 'https://ogabassey.com/agent/auth/revoke',
+        identity_types_supported: ['identity_assertion'],
+        identity_assertion: {
+          assertion_types_supported: [
+            'urn:ietf:params:oauth:token-type:id-jag',
+          ],
+          credential_types_supported: ['api_key'],
+          credential_format: 'bearer_hmac',
+          registration_policy: 'manual_approval',
+        },
+      },
     });
   });
 
@@ -33,6 +47,9 @@ describe('buildOAuthAuthorizationServerMetadata', () => {
       authorization_endpoint:
         'https://project.supabase.co/auth/v1/oauth/authorize',
       service_documentation: 'https://ogabassey.com/auth.md',
+      agent_auth: {
+        register_uri: 'https://ogabassey.com/agent/auth',
+      },
     });
   });
 

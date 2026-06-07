@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { AGENT_READINESS_CACHE_CONTROL } from '@/config/agent-readiness';
+import { checkoutCompletePaymentInfo } from '@/lib/agentic/mpp-checkout-payment-info';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 
 function buildOpenApiDocument(baseUrl: string) {
@@ -123,6 +124,47 @@ function buildOpenApiDocument(baseUrl: string) {
           },
         },
       },
+      '/api/agentic/checkout-sessions/{id}/complete': {
+        post: {
+          operationId: 'completeCheckoutSession',
+          summary:
+            'Complete a signed checkout session and receive payment instructions',
+          security: [{ agenticBearerHmac: [] }],
+          parameters: [{ $ref: '#/components/parameters/SessionId' }],
+          'x-payment-info': checkoutCompletePaymentInfo,
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/CheckoutCompleteRequest',
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description:
+                'Order and machine-readable Paystack bank transfer instructions',
+              content: {
+                'application/json': {
+                  schema: { type: 'object', additionalProperties: true },
+                },
+              },
+            },
+            '402': {
+              description: 'Payment Required',
+            },
+            '409': {
+              description:
+                'Recoverable checkout conflict that requires user resolution or retry',
+            },
+            '428': {
+              description: 'Missing or invalid user confirmation',
+            },
+          },
+        },
+      },
       '/api/agentic/orders/{id}': {
         get: {
           operationId: 'getOrder',
@@ -203,6 +245,41 @@ function buildOpenApiDocument(baseUrl: string) {
             },
           },
           required: ['items'],
+        },
+        CheckoutCompleteRequest: {
+          type: 'object',
+          properties: {
+            buyer: {
+              type: 'object',
+              properties: {
+                email: { type: 'string', format: 'email' },
+                first_name: { type: 'string' },
+                last_name: { type: 'string' },
+                phone_number: { type: 'string' },
+              },
+              required: ['email', 'first_name', 'last_name', 'phone_number'],
+            },
+            payment_data: {
+              type: 'object',
+              properties: {
+                provider: {
+                  type: 'string',
+                  enum: ['paystack', 'paystack_bank_transfer'],
+                },
+                token: { type: 'string' },
+                billing_address: {
+                  type: 'object',
+                  additionalProperties: true,
+                },
+              },
+              required: ['provider', 'token'],
+            },
+            completion_authorization: {
+              type: ['object', 'null'],
+              additionalProperties: true,
+            },
+          },
+          required: ['buyer', 'payment_data'],
         },
       },
     },
