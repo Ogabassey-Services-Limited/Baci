@@ -2,7 +2,7 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useWalletFundingAccountAvailability } from '@/components/wallet/useWalletFundingAccountAvailability';
+import { deriveWalletFundingAccountAvailability } from '@/components/wallet/deriveWalletFundingAccountAvailability';
 import { useWalletBalanceContractWarning } from '@/components/wallet/use-wallet-balance-contract-warning';
 import { WalletScreenView } from '@/components/wallet/WalletScreenView';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
@@ -83,7 +83,7 @@ export function WalletScreen({
     customerPhone,
     isPaymentSettingsPending,
     walletDvaEnabled,
-  } = useWalletFundingAccountAvailability({
+  } = deriveWalletFundingAccountAvailability({
     customerPhone: customer?.phone,
     isPaymentSettingsError,
     isPaymentSettingsPending: isPaymentSettingsQueryPending,

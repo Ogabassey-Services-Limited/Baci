@@ -1,7 +1,7 @@
 import type { PaymentSettings } from '@/hooks/useMerchantPaymentSettings';
 import { WALLET_FUNDING_ACCOUNT_MESSAGES } from './wallet-funding-account.constants';
 
-interface UseWalletFundingAccountAvailabilityParams {
+interface DeriveWalletFundingAccountAvailabilityParams {
   customerPhone?: string | null;
   isPaymentSettingsError: boolean;
   isPaymentSettingsPending: boolean;
@@ -16,12 +16,12 @@ export interface WalletFundingAccountAvailability {
   walletDvaEnabled: boolean;
 }
 
-export function useWalletFundingAccountAvailability({
+export function deriveWalletFundingAccountAvailability({
   customerPhone,
   isPaymentSettingsError,
   isPaymentSettingsPending,
   paymentSettings,
-}: UseWalletFundingAccountAvailabilityParams): WalletFundingAccountAvailability {
+}: DeriveWalletFundingAccountAvailabilityParams): WalletFundingAccountAvailability {
   const walletDvaEnabled =
     paymentSettings?.wallet_paystack_dva_enabled === true;
   const normalizedCustomerPhone = customerPhone?.trim() ?? '';
