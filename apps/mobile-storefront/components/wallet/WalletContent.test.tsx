@@ -34,6 +34,7 @@ const mockSetClipboardString = jest.mocked(setClipboardString);
 
 describe('WalletContent', () => {
   const props = {
+    canCreateFundingAccount: true,
     colors: Colors.light,
     contentContainerStyle: { paddingBottom: 32, paddingTop: 20 },
     earningsBalance: 125000,
@@ -166,6 +167,21 @@ describe('WalletContent', () => {
 
     expect(
       screen.getByRole('button', { name: 'Create account number' })
+    ).toBeOnTheScreen();
+  });
+
+  it('passes through account creation unavailable messaging', () => {
+    render(
+      <WalletContent
+        {...props}
+        canCreateFundingAccount={false}
+        createFundingAccountUnavailableMessage="Add a phone number to create your account number."
+        fundingAccount={null}
+      />
+    );
+
+    expect(
+      screen.getByText('Add a phone number to create your account number.')
     ).toBeOnTheScreen();
   });
 

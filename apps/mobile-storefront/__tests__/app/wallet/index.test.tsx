@@ -18,7 +18,9 @@ type MockStorefrontScreenShellProps = {
 };
 
 type MockWalletContentProps = {
+  canCreateFundingAccount?: boolean;
   contentContainerStyle?: unknown;
+  createFundingAccountUnavailableMessage?: string;
   earningsBalance?: number;
   fundAmount: string;
   fundingAccount?: {
@@ -83,6 +85,7 @@ const mockUseRequireAuth = jest.fn();
 const mockUseWallet = jest.fn();
 const mockUseRedeemPoints = jest.fn();
 const mockUseCreateWalletFundingAccount = jest.fn();
+const mockUseMerchantPaymentSettings = jest.fn();
 const mockUseStorefrontInsets = jest.fn();
 let mockMerchantId = 'configured-merchant';
 let mockMerchantSlug = 'ogabassey';
@@ -95,7 +98,15 @@ const mockInitializeWalletTopUp =
       success: true;
     }>
   >();
-const mockCreateFundingAccountMutateAsync = jest.fn();
+const mockCreateFundingAccountMutateAsync =
+  jest.fn<
+    () => Promise<{
+      account?: {
+        accountNumber?: string | null;
+        bankName?: string | null;
+      } | null;
+    }>
+  >();
 type MockAuthState = {
   customer: {
     email?: string;
@@ -148,6 +159,10 @@ jest.mock('@/hooks/use-wallet', () => ({
   useCreateWalletFundingAccount: () => mockUseCreateWalletFundingAccount(),
   useRedeemPoints: () => mockUseRedeemPoints(),
   useWallet: (...args: unknown[]) => mockUseWallet(...args),
+}));
+
+jest.mock('@/hooks/useMerchantPaymentSettings', () => ({
+  useMerchantPaymentSettings: () => mockUseMerchantPaymentSettings(),
 }));
 
 jest.mock('@/lib/config', () => ({
@@ -219,9 +234,18 @@ describe('WalletScreen', () => {
         <Text>{`transactions:${props.transactions?.length ?? 0}`}</Text>
         <Text>{`refreshing:${String(props.isRefetching)}`}</Text>
         <Text>{`show-quick-save:${String(props.showQuickSave ?? false)}`}</Text>
+        <Text>{`can-create-funding-account:${String(
+          props.canCreateFundingAccount ?? false
+        )}`}</Text>
+        <Text>{`create-funding-account-message:${
+          props.createFundingAccountUnavailableMessage ?? ''
+        }`}</Text>
         <Text>{`content-style:${JSON.stringify(props.contentContainerStyle)}`}</Text>
         <Text accessibilityRole="button" onPress={props.onOpenFundPanel}>
           Open Fund Panel
+        </Text>
+        <Text accessibilityRole="button" onPress={props.onCreateFundingAccount}>
+          Create Funding Account
         </Text>
         <Text accessibilityRole="button" onPress={props.onStartSavings}>
           Open Start Savings
@@ -330,6 +354,9 @@ describe('WalletScreen', () => {
       isPending: false,
       mutateAsync: mockCreateFundingAccountMutateAsync,
     });
+    mockUseMerchantPaymentSettings.mockReturnValue({
+      data: { wallet_paystack_dva_enabled: true },
+    });
     mockUseAuthStore.mockReturnValue({
       customer: {
         email: 'customer@example.com',
@@ -370,6 +397,197 @@ describe('WalletScreen', () => {
     render(<WalletScreen />);
 
     expect(mockUseWallet).toHaveBeenCalledWith({ cachePolicy: 'display' });
+  });
+
+  it('passes wallet DVA availability through to wallet content', () => {
+    render(<WalletScreen />);
+
+    expect(
+      screen.getByText('can-create-funding-account:true')
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText('create-funding-account-message:')
+    ).toBeOnTheScreen();
+  });
+
+  it('keeps account creation unavailable while merchant payment settings load', () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockUseMerchantPaymentSettings.mockReturnValue({
+      data: undefined,
+      isError: false,
+      isLoading: true,
+    });
+
+    render(<WalletScreen />);
+
+    expect(
+      screen.getByText('can-create-funding-account:false')
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'create-funding-account-message:Checking account number availability...'
+      )
+    ).toBeOnTheScreen();
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Create Funding Account' })
+    );
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Account number unavailable',
+      'Checking account number availability...'
+    );
+    expect(mockCreateFundingAccountMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('blocks account number creation when merchant wallet DVA is disabled', () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockUseMerchantPaymentSettings.mockReturnValue({
+      data: { wallet_paystack_dva_enabled: false },
+    });
+
+    render(<WalletScreen />);
+
+    expect(
+      screen.getByText('can-create-funding-account:false')
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'create-funding-account-message:Bank transfer account creation is not available yet.'
+      )
+    ).toBeOnTheScreen();
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Create Funding Account' })
+    );
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Account number unavailable',
+      'Bank transfer account creation is not available yet.'
+    );
+    expect(mockCreateFundingAccountMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('blocks account number creation when the customer has no phone number', () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockUseAuthStore.mockReturnValue({
+      customer: {
+        email: 'customer@example.com',
+        first_name: 'Ada',
+        id: 'customer-1',
+        last_name: 'Lovelace',
+      },
+      merchantId: 'merchant-1',
+      user: { email: 'customer@example.com', id: 'user-1' },
+    });
+
+    render(<WalletScreen />);
+
+    expect(
+      screen.getByText('can-create-funding-account:false')
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'create-funding-account-message:Add a phone number to your profile before creating a wallet account number.'
+      )
+    ).toBeOnTheScreen();
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Create Funding Account' })
+    );
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Phone number required',
+      'Add a phone number to your profile before creating a wallet account number.'
+    );
+    expect(mockCreateFundingAccountMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('creates a wallet account number when DVA and customer phone are available', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockCreateFundingAccountMutateAsync.mockResolvedValueOnce({
+      account: {
+        accountNumber: '1234567890',
+        bankName: 'Titan Paystack',
+      },
+    });
+
+    render(<WalletScreen />);
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Create Funding Account' })
+    );
+
+    await waitFor(() => {
+      expect(mockCreateFundingAccountMutateAsync).toHaveBeenCalledTimes(1);
+    });
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Account Ready',
+      'Titan Paystack - 1234567890'
+    );
+  });
+
+  it('does not announce account details when the provider returns no account summary', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockCreateFundingAccountMutateAsync.mockResolvedValueOnce({
+      account: null,
+    });
+
+    render(<WalletScreen />);
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Create Funding Account' })
+    );
+
+    await waitFor(() => {
+      expect(mockCreateFundingAccountMutateAsync).toHaveBeenCalledTimes(1);
+    });
+    expect(alertSpy).not.toHaveBeenCalledWith(
+      'Account Ready',
+      expect.any(String)
+    );
+  });
+
+  it('reports funding account creation failures without swallowing the backend message', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockCreateFundingAccountMutateAsync.mockRejectedValueOnce(
+      new Error('Account creation failed')
+    );
+
+    render(<WalletScreen />);
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Create Funding Account' })
+    );
+
+    await waitFor(() => {
+      expect(mockCreateFundingAccountMutateAsync).toHaveBeenCalledTimes(1);
+    });
+    expect(mockTrackError).toHaveBeenCalledWith(
+      'wallet_funding_account_create_failed',
+      'Account creation failed',
+      expect.objectContaining({
+        customer_id: 'customer-1',
+        merchant_id: 'merchant-1',
+        merchant_slug: 'ogabassey',
+      })
+    );
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Unable to create account number',
+      'Account creation failed'
+    );
   });
 
   it('logs when wallet balance API fields fall back locally', () => {

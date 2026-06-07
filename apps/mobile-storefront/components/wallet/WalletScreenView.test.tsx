@@ -41,6 +41,7 @@ jest.mock('./WalletContent', () => ({
 
 describe('WalletScreenView', () => {
   const walletContentProps: Omit<WalletContentProps, 'colors'> = {
+    canCreateFundingAccount: true,
     contentContainerStyle: { paddingBottom: 32 },
     earningsBalance: 90000,
     fundAmount: '',

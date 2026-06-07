@@ -16,6 +16,8 @@ import { styles } from './wallet.styles';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
 type WalletHeroSectionProps = {
+  canCreateFundingAccount: boolean;
+  createFundingAccountUnavailableMessage?: string;
   earningsBalance: number;
   fundingAccount: WalletDisplayFundingAccount | null;
   isCreatingFundingAccount: boolean;
@@ -47,6 +49,8 @@ function getTierColor(tier: string) {
 }
 
 export function WalletHeroSection({
+  canCreateFundingAccount,
+  createFundingAccountUnavailableMessage,
   earningsBalance,
   fundingAccount,
   isCreatingFundingAccount,
@@ -59,6 +63,8 @@ export function WalletHeroSection({
   totalBalance,
 }: WalletHeroSectionProps) {
   const { copyToClipboard, feedback: copyFeedback } = useCopyToClipboard();
+  const isCreateAccountDisabled =
+    isCreatingFundingAccount || !canCreateFundingAccount;
 
   const handleCopyFundingAccount = async () => {
     if (!fundingAccount) {
@@ -143,27 +149,38 @@ export function WalletHeroSection({
           ) : null}
         </>
       ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Create account number"
-          accessibilityHint="Creates your wallet bank transfer account"
-          style={[
-            styles.createAccountButton,
-            isCreatingFundingAccount
-              ? styles.createAccountButtonDisabled
-              : null,
-          ]}
-          onPress={onCreateFundingAccount}
-          disabled={isCreatingFundingAccount}
-        >
-          {isCreatingFundingAccount ? (
-            <ActivityIndicator size="small" color={BRAND.primary} />
-          ) : (
-            <Text style={styles.createAccountButtonText}>
-              Create account number
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Create account number"
+            accessibilityHint="Creates your wallet bank transfer account"
+            accessibilityState={{ disabled: isCreateAccountDisabled }}
+            style={[
+              styles.createAccountButton,
+              isCreateAccountDisabled
+                ? styles.createAccountButtonDisabled
+                : null,
+            ]}
+            onPress={onCreateFundingAccount}
+            disabled={isCreateAccountDisabled}
+          >
+            {isCreatingFundingAccount ? (
+              <ActivityIndicator size="small" color={BRAND.primary} />
+            ) : (
+              <Text style={styles.createAccountButtonText}>
+                Create account number
+              </Text>
+            )}
+          </Pressable>
+          {createFundingAccountUnavailableMessage ? (
+            <Text
+              accessibilityRole="text"
+              style={styles.createAccountUnavailableText}
+            >
+              {createFundingAccountUnavailableMessage}
             </Text>
-          )}
-        </Pressable>
+          ) : null}
+        </>
       )}
 
       <View style={styles.balanceSummaryRow}>

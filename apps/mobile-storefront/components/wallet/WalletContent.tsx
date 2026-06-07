@@ -23,8 +23,10 @@ import type { WalletDisplayFundingAccount } from './wallet.types';
 type WalletColors = (typeof Colors)['light'];
 
 export interface WalletContentProps {
+  canCreateFundingAccount: boolean;
   colors: WalletColors;
   contentContainerStyle: StyleProp<ViewStyle>;
+  createFundingAccountUnavailableMessage?: string;
   earningsBalance: number;
   fundAmount: string;
   fundingAccount: WalletDisplayFundingAccount | null;
@@ -57,8 +59,10 @@ export interface WalletContentProps {
 }
 
 export function WalletContent({
+  canCreateFundingAccount,
   colors,
   contentContainerStyle,
+  createFundingAccountUnavailableMessage,
   earningsBalance,
   fundAmount,
   fundingAccount,
@@ -105,6 +109,10 @@ export function WalletContent({
       }
     >
       <WalletHeroSection
+        canCreateFundingAccount={canCreateFundingAccount}
+        createFundingAccountUnavailableMessage={
+          createFundingAccountUnavailableMessage
+        }
         earningsBalance={earningsBalance}
         fundingAccount={fundingAccount}
         isCreatingFundingAccount={isCreatingFundingAccount}

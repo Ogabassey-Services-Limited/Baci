@@ -102,6 +102,14 @@ export const walletHeroStyles = {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: TYPOGRAPHY.weight.semibold,
   },
+  createAccountUnavailableText: {
+    color: WALLET_COLORS.mutedText,
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: TYPOGRAPHY.weight.medium,
+    lineHeight: 16,
+    marginTop: SPACING.xs,
+    textAlign: 'center',
+  },
   balanceSummaryRow: {
     marginTop: SPACING.lg,
     flexDirection: 'row',

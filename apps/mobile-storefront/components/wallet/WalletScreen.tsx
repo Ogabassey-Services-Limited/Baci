@@ -10,6 +10,7 @@ import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab
 import Colors, { SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
+import { useMerchantPaymentSettings } from '@/hooks/useMerchantPaymentSettings';
 import {
   useCreateWalletFundingAccount,
   useRedeemPoints,
@@ -36,6 +37,15 @@ import {
 } from './wallet-screen.helpers';
 
 const log = createLogger('Wallet');
+const FUNDING_ACCOUNT_AVAILABILITY_CHECKING_MESSAGE =
+  'Checking account number availability...';
+const FUNDING_ACCOUNT_AVAILABILITY_ERROR_MESSAGE =
+  'Account number availability could not be checked. Pull to refresh and try again.';
+const FUNDING_ACCOUNT_DVA_DISABLED_MESSAGE =
+  'Bank transfer account creation is not available yet.';
+const FUNDING_ACCOUNT_PHONE_REQUIRED_MESSAGE =
+  'Add a phone number to your profile before creating a wallet account number.';
+
 interface WalletScreenProps {
   presentation?: 'stack' | 'tab';
 }
@@ -64,6 +74,11 @@ export function WalletScreen({
   const { data, isError, isLoading, refetch, isRefetching } = useWallet({
     cachePolicy: 'display',
   });
+  const {
+    data: paymentSettings,
+    isError: isPaymentSettingsError,
+    isLoading: isPaymentSettingsLoading,
+  } = useMerchantPaymentSettings();
   const redeemMutation = useRedeemPoints();
   const createFundingAccountMutation = useCreateWalletFundingAccount();
   const [redeemPoints, setRedeemPoints] = useState('');
@@ -77,6 +92,26 @@ export function WalletScreen({
     pickMerchantId(merchantId, CONFIG.MERCHANT_ID) ?? undefined;
   const activeMerchantSlug = CONFIG.MERCHANT_SLUG?.trim() || undefined;
   const hasMerchantContext = Boolean(activeMerchantId || activeMerchantSlug);
+  const walletDvaEnabled =
+    paymentSettings?.wallet_paystack_dva_enabled === true;
+  const isPaymentSettingsPending =
+    isPaymentSettingsLoading || (!paymentSettings && !isPaymentSettingsError);
+  const customerPhone = customer?.phone?.trim() ?? '';
+  let createFundingAccountUnavailableMessage: string | undefined;
+  if (isPaymentSettingsPending) {
+    createFundingAccountUnavailableMessage =
+      FUNDING_ACCOUNT_AVAILABILITY_CHECKING_MESSAGE;
+  } else if (isPaymentSettingsError) {
+    createFundingAccountUnavailableMessage =
+      FUNDING_ACCOUNT_AVAILABILITY_ERROR_MESSAGE;
+  } else if (!walletDvaEnabled) {
+    createFundingAccountUnavailableMessage =
+      FUNDING_ACCOUNT_DVA_DISABLED_MESSAGE;
+  } else if (!customerPhone) {
+    createFundingAccountUnavailableMessage =
+      FUNDING_ACCOUNT_PHONE_REQUIRED_MESSAGE;
+  }
+  const canCreateFundingAccount = !createFundingAccountUnavailableMessage;
   useWalletBalanceContractWarning({
     merchantId: activeMerchantId,
     ownerId: customer?.id ?? user?.id ?? '',
@@ -98,6 +133,38 @@ export function WalletScreen({
   const handleFundAmountChange = (value: string) =>
     setFundAmount(sanitizeWalletFundAmount(value));
   const handleCreateFundingAccount = async () => {
+    if (isPaymentSettingsPending) {
+      Alert.alert(
+        'Account number unavailable',
+        FUNDING_ACCOUNT_AVAILABILITY_CHECKING_MESSAGE
+      );
+      return;
+    }
+
+    if (isPaymentSettingsError) {
+      Alert.alert(
+        'Account number unavailable',
+        FUNDING_ACCOUNT_AVAILABILITY_ERROR_MESSAGE
+      );
+      return;
+    }
+
+    if (!walletDvaEnabled) {
+      Alert.alert(
+        'Account number unavailable',
+        FUNDING_ACCOUNT_DVA_DISABLED_MESSAGE
+      );
+      return;
+    }
+
+    if (!customerPhone) {
+      Alert.alert(
+        'Phone number required',
+        FUNDING_ACCOUNT_PHONE_REQUIRED_MESSAGE
+      );
+      return;
+    }
+
     const outcome = await resolveCreateFundingAccountOutcome(
       createFundingAccountMutation.mutateAsync
     );
@@ -254,7 +321,9 @@ export function WalletScreen({
       colors={colors}
       presentation={presentation}
       walletContentProps={{
+        canCreateFundingAccount,
         contentContainerStyle: scrollContentStyle,
+        createFundingAccountUnavailableMessage,
         earningsBalance,
         fundAmount,
         fundingAccount,
