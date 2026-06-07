@@ -1,4 +1,5 @@
-import { Pressable, Modal, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Pressable, Modal, StyleSheet, Text, View } from 'react-native';
+import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING, palette } from '@/constants/Colors';
 import type { MobileUpdatePrompt } from './mobile-update-check';
 
