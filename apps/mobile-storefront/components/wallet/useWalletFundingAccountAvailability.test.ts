@@ -12,7 +12,7 @@ describe('useWalletFundingAccountAvailability', () => {
     const availability = useWalletFundingAccountAvailability({
       customerPhone: ' 08012345678 ',
       isPaymentSettingsError: false,
-      isPaymentSettingsLoading: false,
+      isPaymentSettingsPending: false,
       paymentSettings: enabledPaymentSettings,
     });
 
@@ -29,7 +29,7 @@ describe('useWalletFundingAccountAvailability', () => {
     const availability = useWalletFundingAccountAvailability({
       customerPhone: '08012345678',
       isPaymentSettingsError: false,
-      isPaymentSettingsLoading: true,
+      isPaymentSettingsPending: true,
       paymentSettings: undefined,
     });
 
@@ -44,7 +44,7 @@ describe('useWalletFundingAccountAvailability', () => {
       useWalletFundingAccountAvailability({
         customerPhone: '08012345678',
         isPaymentSettingsError: false,
-        isPaymentSettingsLoading: false,
+        isPaymentSettingsPending: false,
         paymentSettings: {
           ...enabledPaymentSettings,
           wallet_paystack_dva_enabled: false,
@@ -56,9 +56,27 @@ describe('useWalletFundingAccountAvailability', () => {
       useWalletFundingAccountAvailability({
         customerPhone: ' ',
         isPaymentSettingsError: false,
-        isPaymentSettingsLoading: false,
+        isPaymentSettingsPending: false,
         paymentSettings: enabledPaymentSettings,
       }).createFundingAccountUnavailableMessage
     ).toBe(WALLET_FUNDING_ACCOUNT_MESSAGES.PHONE_REQUIRED);
+  });
+
+  it('treats null payment settings as resolved with DVA disabled', () => {
+    const availability = useWalletFundingAccountAvailability({
+      customerPhone: '08012345678',
+      isPaymentSettingsError: false,
+      isPaymentSettingsPending: false,
+      paymentSettings: null,
+    });
+
+    expect(availability).toMatchObject({
+      canCreateFundingAccount: false,
+      isPaymentSettingsPending: false,
+      walletDvaEnabled: false,
+    });
+    expect(availability.createFundingAccountUnavailableMessage).toBe(
+      WALLET_FUNDING_ACCOUNT_MESSAGES.DVA_DISABLED
+    );
   });
 });

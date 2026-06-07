@@ -356,6 +356,9 @@ describe('WalletScreen', () => {
     });
     mockUseMerchantPaymentSettings.mockReturnValue({
       data: { wallet_paystack_dva_enabled: true },
+      isError: false,
+      isLoading: false,
+      isPending: false,
     });
     mockUseAuthStore.mockReturnValue({
       customer: {
@@ -418,6 +421,7 @@ describe('WalletScreen', () => {
       data: undefined,
       isError: false,
       isLoading: true,
+      isPending: true,
     });
 
     render(<WalletScreen />);
@@ -448,6 +452,9 @@ describe('WalletScreen', () => {
       .mockImplementation(() => undefined);
     mockUseMerchantPaymentSettings.mockReturnValue({
       data: { wallet_paystack_dva_enabled: false },
+      isError: false,
+      isLoading: false,
+      isPending: false,
     });
 
     render(<WalletScreen />);

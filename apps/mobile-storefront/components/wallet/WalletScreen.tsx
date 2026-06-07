@@ -62,7 +62,7 @@ export function WalletScreen({
   const {
     data: paymentSettings,
     isError: isPaymentSettingsError,
-    isLoading: isPaymentSettingsLoading,
+    isPending: isPaymentSettingsQueryPending,
   } = useMerchantPaymentSettings();
   const redeemMutation = useRedeemPoints();
   const createFundingAccountMutation = useCreateWalletFundingAccount();
@@ -86,7 +86,7 @@ export function WalletScreen({
   } = useWalletFundingAccountAvailability({
     customerPhone: customer?.phone,
     isPaymentSettingsError,
-    isPaymentSettingsLoading,
+    isPaymentSettingsPending: isPaymentSettingsQueryPending,
     paymentSettings,
   });
   useWalletBalanceContractWarning({

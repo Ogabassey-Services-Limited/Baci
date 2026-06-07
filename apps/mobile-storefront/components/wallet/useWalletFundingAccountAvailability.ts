@@ -4,7 +4,7 @@ import { WALLET_FUNDING_ACCOUNT_MESSAGES } from './wallet-funding-account.consta
 interface UseWalletFundingAccountAvailabilityParams {
   customerPhone?: string | null;
   isPaymentSettingsError: boolean;
-  isPaymentSettingsLoading: boolean;
+  isPaymentSettingsPending: boolean;
   paymentSettings?: PaymentSettings | null;
 }
 
@@ -19,13 +19,11 @@ export interface WalletFundingAccountAvailability {
 export function useWalletFundingAccountAvailability({
   customerPhone,
   isPaymentSettingsError,
-  isPaymentSettingsLoading,
+  isPaymentSettingsPending,
   paymentSettings,
 }: UseWalletFundingAccountAvailabilityParams): WalletFundingAccountAvailability {
   const walletDvaEnabled =
     paymentSettings?.wallet_paystack_dva_enabled === true;
-  const isPaymentSettingsPending =
-    isPaymentSettingsLoading || (!paymentSettings && !isPaymentSettingsError);
   const normalizedCustomerPhone = customerPhone?.trim() ?? '';
   let createFundingAccountUnavailableMessage: string | undefined;
 
