@@ -192,7 +192,7 @@ describe('merchantFeatureSettingsSchema', () => {
       if (result.success) {
         expect(result.data.klump_enabled).toBe(false);
         expect(result.data.klump_min_amount).toBe(10_000);
-        expect(result.data.klump_max_amount).toBe(500_000);
+        expect(result.data.klump_max_amount).toBe(1_000_000);
       }
     });
 

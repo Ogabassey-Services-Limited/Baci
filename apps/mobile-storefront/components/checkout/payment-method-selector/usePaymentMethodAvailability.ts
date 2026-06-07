@@ -30,6 +30,16 @@ interface UsePaymentMethodAvailabilityResult {
   supportsPartialPayment: boolean;
 }
 
+function shouldHidePaymentMethod(
+  method: PaymentMethod,
+  disabledReason: string | undefined
+): boolean {
+  return (
+    method.id === 'klump' &&
+    Boolean(disabledReason?.startsWith('Maximum order:'))
+  );
+}
+
 export function usePaymentMethodAvailability(
   input: UsePaymentMethodAvailabilityInput
 ): UsePaymentMethodAvailabilityResult {
@@ -50,22 +60,22 @@ export function usePaymentMethodAvailability(
     orderTotal >= BNPL_MIN_AMOUNT &&
     orderTotal <= BNPL_MAX_AMOUNT;
 
-  const hasBNPLMethods =
-    !enabledMethods ||
-    enabledMethods.some(
-      (method) =>
-        method === 'credpal' || method === 'credit_direct' || method === 'klump'
-    );
-  const hasPayLaterMethods =
-    !enabledMethods ||
-    enabledMethods.some(
-      (method) => method === 'invoice' || method === 'payforme'
-    );
+  // Max-exceeded Klump is hidden to keep checkout clean, while min-not-met
+  // Klump remains disabled so customers know adding items can unlock it.
+  const candidateMethods = PAYMENT_METHODS.filter(
+    (method) => !enabledMethods || enabledMethods.includes(method.id)
+  ).filter(
+    (method) =>
+      !shouldHidePaymentMethod(method, methodDisabledReasons[method.id])
+  );
 
-  const filteredMethods = PAYMENT_METHODS.filter(
-    (method) => method.tab === selectedTab
-  )
-    .filter((method) => !enabledMethods || enabledMethods.includes(method.id))
+  const hasBNPLMethods =
+    candidateMethods.some((method) => method.tab === 'installments');
+  const hasPayLaterMethods =
+    candidateMethods.some((method) => method.tab === 'pay_later');
+
+  const filteredMethods = candidateMethods
+    .filter((method) => method.tab === selectedTab)
     .map((method) => {
       const walletDisablesKlump =
         method.id === 'klump' &&

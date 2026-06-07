@@ -696,6 +696,41 @@ describe('POST /api/payments/initialize', () => {
       ).toBe(false);
     });
 
+    it('allows Klump orders up to the default merchant amount range', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 1_000_000,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: true,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 1_000_000, gateway: 'klump' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('klump');
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(true);
+    });
+
     it('returns a Klump BNPL launcher URL with reference and tracking token', async () => {
       rpcResult = {
         data: [

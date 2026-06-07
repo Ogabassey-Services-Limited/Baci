@@ -47,7 +47,7 @@ function resetMerchantFeatureSchemaMocks() {
         ...data,
         klump_enabled: false,
         klump_min_amount: 10_000,
-        klump_max_amount: 500_000,
+        klump_max_amount: 1_000_000,
       },
     })
   );
@@ -256,7 +256,7 @@ describe('GET /api/merchant/features', () => {
       agentic_checkout_enabled: true,
       klump_enabled: false,
       klump_min_amount: 10000,
-      klump_max_amount: 500000,
+      klump_max_amount: 1000000,
       vtu_customer_cashback_enabled: false,
       vtu_customer_cashback_rate: 50,
       created_at: null,
@@ -631,7 +631,7 @@ describe('PUT /api/merchant/features', () => {
     expect(upsertPayload).toMatchObject({
       klump_enabled: false,
       klump_min_amount: 10000,
-      klump_max_amount: 500000,
+      klump_max_amount: 1000000,
     });
     expect(selectColumns).toContain('shipping_providers');
     expect(selectColumns).toContain('custom_settings');

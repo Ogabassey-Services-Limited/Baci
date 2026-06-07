@@ -58,7 +58,7 @@ export function getKlumpDisabledReason(
     return `Minimum order: ${formatKlumpAmount(minAmount)}`;
   }
 
-  const maxAmount = settings.klump_max_amount ?? 500_000;
+  const maxAmount = settings.klump_max_amount ?? 1_000_000;
   if (orderTotal > maxAmount) {
     return `Maximum order: ${formatKlumpAmount(maxAmount)}`;
   }

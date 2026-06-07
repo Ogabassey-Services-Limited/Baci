@@ -48,6 +48,32 @@ describe('klump checkout helpers', () => {
     );
   });
 
+  it('uses a one million naira default maximum when merchant limits are missing', () => {
+    expect(
+      getKlumpDisabledReason(
+        {
+          klump_enabled: true,
+          klump_min_amount: undefined,
+          klump_max_amount: undefined,
+        },
+        1_000_000
+      )
+    ).toBeUndefined();
+  });
+
+  it('disables Klump above the one million naira default maximum', () => {
+    expect(
+      getKlumpDisabledReason(
+        {
+          klump_enabled: true,
+          klump_min_amount: undefined,
+          klump_max_amount: undefined,
+        },
+        1_000_001
+      )
+    ).toBe('Maximum order: ₦1,000,000');
+  });
+
   it('builds the initialize payload from the full order total', () => {
     expect(
       buildKlumpInitializePayload({
