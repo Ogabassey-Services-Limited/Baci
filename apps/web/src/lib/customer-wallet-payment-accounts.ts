@@ -13,6 +13,7 @@ import {
   createDedicatedAccountForWallet,
   createOrGetCustomer,
   type DedicatedAccountResponse,
+  extractPaystackSplitConfigSubaccount,
   getDedicatedAccounts,
   type WalletDedicatedAccount,
 } from '@/lib/paystack';
@@ -77,7 +78,9 @@ function normalizePaystackWalletDedicatedAccount({
   expectedSubaccount: string;
   fallbackCustomerCode: string;
 }): WalletDedicatedAccount | null {
-  const provenSubaccount = account.split_config?.subaccount?.trim();
+  const provenSubaccount = extractPaystackSplitConfigSubaccount(
+    account.split_config
+  );
   if (provenSubaccount !== expectedSubaccount) {
     return null;
   }
