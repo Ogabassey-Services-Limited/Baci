@@ -49,6 +49,8 @@ export function LoginEmailStep({
   onGoogleSignIn,
   onToggleAuthMethod,
 }: LoginEmailStepProps) {
+  const isAnyLoading = isLoading || isGoogleLoading || isAppleLoading;
+
   return (
     <>
       <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
@@ -83,7 +85,7 @@ export function LoginEmailStep({
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            editable={!isLoading}
+            editable={!isAnyLoading}
             textContentType={TextContentTypes.emailAddress}
             autoComplete="email"
             returnKeyType="go"
@@ -102,14 +104,15 @@ export function LoginEmailStep({
         style={[
           styles.primaryButton,
           { backgroundColor: colors.primary },
-          isLoading && styles.buttonDisabled,
+          isAnyLoading && styles.buttonDisabled,
         ]}
         onPress={onContinue}
-        disabled={isLoading}
+        disabled={isAnyLoading}
         accessibilityLabel={
           authMethod === 'otp' ? 'Continue with Code' : 'Continue with Password'
         }
         accessibilityRole="button"
+        accessibilityState={{ disabled: isAnyLoading, busy: isLoading }}
       >
         {isLoading ? (
           <ActivityIndicator
@@ -155,12 +158,16 @@ export function LoginEmailStep({
           style={[
             styles.socialButton,
             { borderColor: colors.border, flex: 1 },
-            (isLoading || isGoogleLoading) && styles.buttonDisabled,
+            isAnyLoading && styles.buttonDisabled,
           ]}
           onPress={onGoogleSignIn}
-          disabled={isLoading || isGoogleLoading}
+          disabled={isAnyLoading}
           accessibilityLabel="Continue with Google"
           accessibilityRole="button"
+          accessibilityState={{
+            disabled: isAnyLoading,
+            busy: isGoogleLoading,
+          }}
         >
           {isGoogleLoading ? (
             <ActivityIndicator
@@ -182,12 +189,16 @@ export function LoginEmailStep({
           style={[
             styles.socialButton,
             { borderColor: colors.border, flex: 1 },
-            (isLoading || isAppleLoading) && styles.buttonDisabled,
+            isAnyLoading && styles.buttonDisabled,
           ]}
           onPress={onAppleSignIn}
-          disabled={isLoading || isAppleLoading}
+          disabled={isAnyLoading}
           accessibilityLabel="Continue with Apple"
           accessibilityRole="button"
+          accessibilityState={{
+            disabled: isAnyLoading,
+            busy: isAppleLoading,
+          }}
         >
           {isAppleLoading ? (
             <ActivityIndicator

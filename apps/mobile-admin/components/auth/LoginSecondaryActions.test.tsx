@@ -18,18 +18,28 @@ vi.mock('react-native', async () => {
     Platform: { OS: 'web' },
     Pressable: ({
       accessibilityLabel,
+      accessibilityRole,
+      accessibilityState,
       children,
       disabled,
       onPress,
     }: {
       accessibilityLabel?: string;
+      accessibilityRole?: string;
+      accessibilityState?: { busy?: boolean; disabled?: boolean };
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
-        { 'aria-label': accessibilityLabel, disabled, onClick: onPress },
+        {
+          'aria-busy': accessibilityState?.busy ? 'true' : undefined,
+          'aria-label': accessibilityLabel,
+          disabled: disabled || accessibilityState?.disabled,
+          onClick: onPress,
+          role: accessibilityRole,
+        },
         children
       ),
     StyleSheet: {
@@ -210,14 +220,17 @@ describe('LoginSecondaryActions', () => {
       />
     );
 
-    expect(
-      (screen.getByLabelText('Signing in with Google') as HTMLButtonElement)
-        .disabled
-    ).toBe(true);
-    expect(
-      (screen.getByLabelText('Signing in with Apple') as HTMLButtonElement)
-        .disabled
-    ).toBe(true);
+    const googleButton = screen.getByRole('button', {
+      name: 'Signing in with Google',
+    }) as HTMLButtonElement;
+    const appleButton = screen.getByRole('button', {
+      name: 'Signing in with Apple',
+    }) as HTMLButtonElement;
+
+    expect(googleButton.disabled).toBe(true);
+    expect(googleButton.getAttribute('aria-busy')).toBe('true');
+    expect(appleButton.disabled).toBe(true);
+    expect(appleButton.getAttribute('aria-busy')).toBe('true');
     expect(
       (
         screen.getByLabelText(
