@@ -5,6 +5,7 @@ import type {
   PermissionStatus,
 } from 'expo-notifications';
 import { Platform } from 'react-native';
+import { requestMobileUpdateCheck } from '@/components/updates/mobile-update-events';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -84,16 +85,16 @@ export async function registerForPushNotifications(): Promise<string | null> {
       log.warn('EAS project ID not configured in app.json');
     }
 
+    if (Platform.OS === 'android') {
+      await setupAndroidChannels();
+    }
+
     const tokenResponse = await Notifications.getExpoPushTokenAsync({
       projectId: projectId || undefined,
     });
 
     const token = tokenResponse.data;
     log.debug('Expo Push Token:', token);
-
-    if (Platform.OS === 'android') {
-      await setupAndroidChannels();
-    }
 
     return token;
   } catch (error) {
@@ -192,11 +193,21 @@ export async function removePushTokenFromServer(
 
 export function handleNotificationResponse(
   response: NotificationResponse,
-  navigate: (screen: string, params?: Record<string, string>) => void
+  navigate: (screen: string, params?: Record<string, string>) => void,
+  requestUpdateCheck: (reason: 'push-notification') => void =
+    requestMobileUpdateCheck
 ): void {
-  const target = getStorefrontNotificationNavigationTarget(
-    response.notification.request.content.data as Record<string, unknown>
-  );
+  const data = response.notification.request.content.data as Record<
+    string,
+    unknown
+  >;
+
+  if (data.type === 'mobile_update_available') {
+    requestUpdateCheck('push-notification');
+    return;
+  }
+
+  const target = getStorefrontNotificationNavigationTarget(data);
 
   if (!target) return;
 

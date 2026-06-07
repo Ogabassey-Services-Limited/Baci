@@ -1,0 +1,48 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { describe, expect, it, jest } from '@jest/globals';
+import { MobileUpdateModal } from './MobileUpdateModal';
+
+describe('MobileUpdateModal', () => {
+  it('renders optional OTA update actions', () => {
+    const onAccept = jest.fn();
+    const onDismiss = jest.fn();
+
+    render(
+      <MobileUpdateModal
+        visible
+        prompt={{
+          kind: 'ota-available',
+          message: 'A faster version is ready.',
+        }}
+        onAccept={onAccept}
+        onDismiss={onDismiss}
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Later' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Update now' }));
+
+    expect(screen.getByText('A faster version is ready.')).toBeTruthy();
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(onAccept).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the dismiss action for required native updates', () => {
+    render(
+      <MobileUpdateModal
+        visible
+        prompt={{
+          kind: 'native-required',
+          message: 'Install the latest app to continue.',
+          storeUrl: 'https://apps.apple.com/app/id6472735367',
+        }}
+        onAccept={jest.fn()}
+        onDismiss={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Install the latest app to continue.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open store' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Later' })).toBeNull();
+  });
+});
