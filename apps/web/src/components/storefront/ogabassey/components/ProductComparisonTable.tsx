@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
@@ -11,10 +10,7 @@ import {
     buildProductComparisonMatrix,
     type ProductComparisonMatrixRow,
 } from '@/lib/storefront-specs/spec-matrix';
-import {
-  normalizeProductCondition,
-  type Product,
-} from '../types';
+import { normalizeProductCondition, type Product } from '../types';
 import { ComparisonSlotCell } from './ComparisonSlotCell';
 
 interface SearchResultProduct {
@@ -39,6 +35,13 @@ interface ProductComparisonTableProps {
     storeSlug?: string;
 }
 
+const FALLBACK_PRICE_CURRENCY = 'NGN';
+const SUPPORTED_CURRENCY_CODES = typeof Intl.supportedValuesOf === 'function' ? new Set(Intl.supportedValuesOf('currency')) : null;
+function getSafeCurrencyCode(currency?: string | null) {
+    const code = currency?.trim().toUpperCase();
+    return code && /^[A-Z]{3}$/.test(code) && (!SUPPORTED_CURRENCY_CODES || SUPPORTED_CURRENCY_CODES.has(code)) ? code : FALLBACK_PRICE_CURRENCY;
+}
+
 export function ProductComparisonTable({
     mainProduct,
     storeSlug,
@@ -52,7 +55,7 @@ export function ProductComparisonTable({
     const merchantContext = useMerchantSafe();
     const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
     const priceLocale = getStorefrontLocale(merchantContext?.merchant?.country);
-    const priceCurrency = 'NGN';
+    const priceCurrency = getSafeCurrencyCode(merchantContext?.merchant?.payout_currency);
 
     const getProductHref = (product: Product) => {
         const categorySlug = product.categorySlug || mainProduct.categorySlug || 'products';
@@ -180,8 +183,8 @@ export function ProductComparisonTable({
             <div className="p-4 space-y-3">
                 {items.map((item) => (
                     <div key={`${item.label}-${item.value}`} className="space-y-1.5">
-                        <div className="text-xs text-gray-500">{item.label}</div>
-                        <div className="font-semibold text-sm">{item.value}</div>
+                        <div className="text-xs text-store-background-text/55">{item.label}</div>
+                        <div className="font-semibold text-sm text-store-background-text">{item.value}</div>
                     </div>
                 ))}
             </div>
@@ -190,11 +193,11 @@ export function ProductComparisonTable({
 
     return (
         <div className="animate-in fade-in duration-300 overflow-x-auto pb-4">
-            <div className="min-w-[800px] border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-sm">
-                <div className="grid grid-cols-4 border-b border-gray-200 bg-gray-50/50">
-                    <div className="col-start-2 p-4 flex flex-col items-center justify-end h-56 border-r border-gray-100 relative bg-white">
+            <div className="min-w-[800px] border border-store-background-text/10 rounded-2xl overflow-hidden bg-store-background shadow-sm">
+                <div className="grid grid-cols-4 border-b border-store-background-text/10 bg-store-background-text/5">
+                    <div className="col-start-2 p-4 flex flex-col items-center justify-end h-56 border-r border-store-background-text/10 relative bg-store-background">
                         <div className="absolute top-3 right-3">
-                            <span className="bg-red-600 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">
+                            <span className="bg-store-primary text-store-primary-text text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">
                                 Current
                             </span>
                         </div>
@@ -208,7 +211,7 @@ export function ProductComparisonTable({
                             />
                         </div>
                         <h3 className="font-bold text-sm text-center line-clamp-2 mb-1">{mainProduct.name}</h3>
-                        <p className="text-red-600 font-bold text-sm">{mainProduct.price}</p>
+                        <p className="text-store-primary font-bold text-sm">{mainProduct.price}</p>
                     </div>
 
                     {[0, 1].map((slotIdx) => {
@@ -243,12 +246,12 @@ export function ProductComparisonTable({
                     })}
                 </div>
 
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-store-background-text/10">
                     <div className="grid grid-cols-4">
-                        <div className="p-4 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center">
+                        <div className="p-4 bg-store-background-text/5 text-xs font-bold text-store-background-text/55 uppercase tracking-wider flex items-center">
                             Key Specs
                         </div>
-                        <div className="col-span-3 grid grid-cols-3 divide-x divide-gray-100">
+                        <div className="col-span-3 grid grid-cols-3 divide-x divide-store-background-text/10">
                             {renderSummaryColumn(0, true)}
                             {renderSummaryColumn(1, Boolean(comparisonProducts[0]))}
                             {renderSummaryColumn(2, Boolean(comparisonProducts[1]))}
@@ -257,25 +260,25 @@ export function ProductComparisonTable({
 
                     {comparisonMatrix.groups.map((category) => (
                         <div key={category.category}>
-                            <div className="px-4 py-2 bg-gray-100/50 text-xs font-bold text-gray-900 uppercase tracking-widest border-y border-gray-200/50">
+                            <div className="px-4 py-2 bg-store-background-text/5 text-xs font-bold text-store-background-text uppercase tracking-widest border-y border-store-background-text/10">
                                 {category.category}
                             </div>
 
                             {category.rows.map((item) => (
-                                <div key={`${category.category}-${item.label}`} className="grid grid-cols-4 min-h-[48px] divide-x divide-gray-100 hover:bg-gray-50/50 transition-colors">
-                                    <div className="p-3 text-xs font-bold text-gray-500 flex items-center pl-6">
+                                <div key={`${category.category}-${item.label}`} className="grid grid-cols-4 min-h-[48px] divide-x divide-store-background-text/10 hover:bg-store-background-text/5 transition-colors">
+                                    <div className="p-3 text-xs font-bold text-store-background-text/55 flex items-center pl-6">
                                         {item.label}
                                     </div>
 
-                                    <div className="p-3 text-sm text-gray-900 leading-snug flex items-center">
+                                    <div className="p-3 text-sm text-store-background-text leading-snug flex items-center">
                                         {getMatrixCellValue(item, 0, true)}
                                     </div>
 
-                                    <div className="p-3 text-sm text-gray-600 leading-snug flex items-center">
+                                    <div className="p-3 text-sm text-store-background-text/70 leading-snug flex items-center">
                                         {getMatrixCellValue(item, 1, Boolean(comparisonProducts[0]))}
                                     </div>
 
-                                    <div className="p-3 text-sm text-gray-600 leading-snug flex items-center">
+                                    <div className="p-3 text-sm text-store-background-text/70 leading-snug flex items-center">
                                         {getMatrixCellValue(item, 2, Boolean(comparisonProducts[1]))}
                                     </div>
                                 </div>
@@ -284,7 +287,7 @@ export function ProductComparisonTable({
                     ))}
 
                     {comparisonMatrix.groups.length === 0 && (
-                        <div className="p-8 text-center text-gray-500">
+                        <div className="p-8 text-center text-store-background-text/55">
                             No detailed specifications available for the main product.
                         </div>
                     )}
