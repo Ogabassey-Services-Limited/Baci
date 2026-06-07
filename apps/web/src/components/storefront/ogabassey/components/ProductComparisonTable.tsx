@@ -12,6 +12,7 @@ import {
 } from '@/lib/storefront-specs/spec-matrix';
 import { normalizeProductCondition, type Product } from '../types';
 import { ComparisonSlotCell } from './ComparisonSlotCell';
+import { fetchComparisonProductSearchResults } from './comparison-product-search';
 import type { SearchResultProduct } from './comparison-search-types';
 
 interface ProductComparisonTableProps {
@@ -55,53 +56,57 @@ export function ProductComparisonTable({
     }, [isSearching]);
 
     useEffect(() => {
-        const searchProducts = async () => {
-            if (!query.trim() || query.length < 2) {
-                setResults([]);
-                setSearchError(null);
-                return;
-            }
+        const trimmedQuery = query.trim();
 
+        if (!trimmedQuery || trimmedQuery.length < 2) {
+            setResults([]);
+            setSearchError(null);
+            setLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        let isCurrentSearch = true;
+
+        const searchProducts = async () => {
             setLoading(true);
             setSearchError(null);
             try {
-                const categorySlug = mainProduct.categorySlug || mainProduct.category;
-                const params = new URLSearchParams({
-                    q: query,
-                    limit: '5',
-                    compact: 'false',
+                const filtered = await fetchComparisonProductSearchResults({
+                    query: trimmedQuery,
+                    mainProduct,
+                    comparisonProducts,
+                    signal: controller.signal,
                 });
 
-                if (mainProduct.merchantId) {
-                    params.append('merchant_id', mainProduct.merchantId);
+                if (!isCurrentSearch) {
+                    return;
                 }
-
-                if (categorySlug) {
-                    params.append('category', categorySlug);
-                }
-
-                const res = await fetch(`/api/storefront/products?${params.toString()}`);
-                const data = await res.json();
-
-                const filtered = (data.products || []).filter((p: SearchResultProduct) =>
-                    String(p.id) !== String(mainProduct.id) &&
-                    !comparisonProducts.some(cp => String(cp.id) === String(p.id))
-                );
 
                 setResults(filtered);
                 setSearchError(null);
             } catch (err) {
+                if (!isCurrentSearch || (err instanceof Error && err.name === 'AbortError')) {
+                    return;
+                }
+
                 console.error('Search failed', err);
                 setResults([]);
                 setSearchError(SEARCH_ERROR_MESSAGE);
             } finally {
-                setLoading(false);
+                if (isCurrentSearch) {
+                    setLoading(false);
+                }
             }
         };
 
         const timeout = setTimeout(searchProducts, 300);
-        return () => clearTimeout(timeout);
-    }, [query, mainProduct.id, mainProduct.merchantId, comparisonProducts]);
+        return () => {
+            isCurrentSearch = false;
+            clearTimeout(timeout);
+            controller.abort();
+        };
+    }, [query, mainProduct.id, mainProduct.merchantId, mainProduct.category, mainProduct.categorySlug, comparisonProducts]);
 
     const addProduct = (rawProduct: SearchResultProduct) => {
         const heroImage = rawProduct.imageLarge || rawProduct.image || '';

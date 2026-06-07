@@ -142,6 +142,8 @@ describe('ProductComparisonTable', () => {
       },
     });
     const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
       json: async () => ({
         products: [
           {
@@ -173,6 +175,10 @@ describe('ProductComparisonTable', () => {
     });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/storefront/products?'),
+      expect.objectContaining({ signal: expect.any(Object) })
+    );
     expect(await screen.findByText('$1,500.00')).toBeInTheDocument();
 
     const resultButton = screen.getByText('iPad Pro').closest('button');
@@ -224,6 +230,35 @@ describe('ProductComparisonTable', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('shows a user-visible error when search returns a non-OK response', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 503,
+      json: async () => ({ products: [] }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <ProductComparisonTable
+        mainProduct={createMainProduct()}
+        storeSlug="ogabassey"
+      />
+    );
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /compare similar smartphones/i })[0]
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: /search products/i }), {
+      target: { value: 'pixel' },
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /could not load products/i
+    );
+  });
+
   it('falls back to NGN when payout_currency is not set', async () => {
     mockUseMerchantSafe.mockReturnValue({
       basePath: '/ogabassey',
@@ -232,6 +267,8 @@ describe('ProductComparisonTable', () => {
       },
     });
     const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
       json: async () => ({
         products: [
           {
@@ -276,6 +313,8 @@ describe('ProductComparisonTable', () => {
       },
     });
     const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
       json: async () => ({
         products: [
           {
