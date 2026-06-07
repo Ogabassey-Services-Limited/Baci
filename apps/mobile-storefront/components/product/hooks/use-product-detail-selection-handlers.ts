@@ -134,11 +134,27 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
     },
     onSelectColor: (color: string, imgs?: string[]) => {
       routeData.setHasCustomizedSelection(true);
-      routeData.setSelectedColor(color);
-      routeData.setSelectedVariant(null);
-      routeData.setSelectedAttributes((current) =>
-        stripInternalSelectionAxes(current)
-      );
+      const linkedSelection = resolveLinkedVariantSelection({
+        axis: 'color',
+        attributes: routeData.effectiveSelectedAttributes,
+        color,
+        condition: routeData.effectiveSelectedCondition,
+        storage: routeData.effectiveSelectedStorage,
+        usesVariantConditions: routeData.usesVariantConditions,
+        value: color,
+        variants: routeData.product?.variants,
+      });
+
+      if (linkedSelection) {
+        applyLinkedVariantSelection(routeData, linkedSelection);
+      } else {
+        routeData.setSelectedColor(color);
+        routeData.setSelectedVariant(null);
+        routeData.setSelectedAttributes((current) =>
+          stripInternalSelectionAxes(current)
+        );
+      }
+
       routeData.setSelectedImageIndex(
         getFirstImageIndexForColor({
           color,

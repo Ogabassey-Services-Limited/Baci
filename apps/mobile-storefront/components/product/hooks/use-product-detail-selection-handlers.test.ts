@@ -20,7 +20,7 @@ const redmi15Variants = [
   },
 ];
 
-function createRouteData() {
+function createRouteData(overrides: Record<string, unknown> = {}) {
   return {
     effectiveSelectedAttributes: { ram: '6GB' },
     effectiveSelectedColor: null,
@@ -48,6 +48,7 @@ function createRouteData() {
     setSelectedVariant: jest.fn(),
     usesImageDrivenColorSelection: false,
     usesVariantConditions: true,
+    ...overrides,
   };
 }
 
@@ -114,6 +115,58 @@ describe('useProductDetailSelectionHandlers', () => {
 
     expect(routeData.setSelectedStorage).toHaveBeenCalledWith('512GB');
     expect(routeData.setSelectedAttributes).not.toHaveBeenCalled();
+    expect(routeData.setSelectedVariant).toHaveBeenCalledWith(null);
+  });
+
+  it('selects the reachable memory configuration when a color only exists on another variant', () => {
+    const routeData = createRouteData({
+      effectiveSelectedAttributes: { ram: '6GB' },
+      effectiveSelectedColor: 'Black',
+      effectiveSelectedStorage: '128GB',
+      product: {
+        id: 'phone-with-colors',
+        name: 'Phone With Colors',
+        slug: 'phone-with-colors',
+        price: 212651.16,
+        image: 'https://cdn.example.com/phone.jpg',
+        has_variants: true,
+        manage_stock: false,
+        variants: [
+          {
+            id: 'black-6-128',
+            name: '6GB 128GB Black',
+            condition: 'new',
+            price: 1,
+            attributes: {
+              color: 'Black',
+              ram: '6GB',
+              storage: '128GB',
+            },
+          },
+          {
+            id: 'blue-8-256',
+            name: '8GB 256GB Blue',
+            condition: 'new',
+            price: 1,
+            attributes: {
+              color: 'Blue',
+              ram: '8GB',
+              storage: '256GB',
+            },
+          },
+        ],
+      },
+    });
+    const handlers = useProductDetailSelectionHandlers(routeData as never);
+
+    handlers.onSelectColor('Blue');
+
+    expect(routeData.setSelectedColor).toHaveBeenCalledWith('Blue');
+    expect(routeData.setSelectedStorage).toHaveBeenCalledWith('256GB');
+    expect(routeData.setSelectedAttributes).toHaveBeenCalledTimes(1);
+    expect(resolveAttributeUpdate(getAttributeUpdater(routeData))).toEqual({
+      ram: '8GB',
+    });
     expect(routeData.setSelectedVariant).toHaveBeenCalledWith(null);
   });
 });

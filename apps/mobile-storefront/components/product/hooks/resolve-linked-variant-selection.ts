@@ -19,8 +19,33 @@ interface LinkedVariantSelection {
   storage: string | null;
 }
 
+interface NormalizedSelectionInput
+  extends Omit<
+    ResolveLinkedVariantSelectionInput,
+    'attributes' | 'axis' | 'color' | 'storage' | 'value'
+  > {
+  attributes: Record<string, string>;
+  axis: string;
+  color: string | null;
+  storage: string | null;
+  value: string;
+}
+
+interface NormalizedVariantCandidate {
+  attributes: Record<string, string>;
+  color: string | null;
+  condition: ProductCondition | null;
+  storage: string | null;
+  visibleAttributes: Record<string, string>;
+}
+
 function canonicalizeVariantAxis(axis: string) {
   return axis.trim().toLowerCase().replace(/[\s-]+/g, '_');
+}
+
+function normalizeSelectionValue(value: string | null | undefined) {
+  const normalizedValue = value?.trim();
+  return normalizedValue ? normalizedValue : null;
 }
 
 function normalizeAttributeMap(
@@ -39,74 +64,81 @@ function normalizeAttributeMap(
   return normalized;
 }
 
-function getVisibleVariantAttributes(variant: ProductVariant) {
-  return stripInternalSelectionAxes(normalizeAttributeMap(variant.attributes));
-}
-
-function getVariantStorage(variant: ProductVariant) {
-  return normalizeAttributeMap(variant.attributes).storage ?? null;
-}
-
-function getVariantColor(variant: ProductVariant) {
-  const attributes = normalizeAttributeMap(variant.attributes);
+function getVariantColor(attributes: Record<string, string>) {
   return attributes.color ?? attributes.colour ?? null;
 }
 
-function matchesCondition(
-  input: ResolveLinkedVariantSelectionInput,
+function normalizeInput(
+  input: ResolveLinkedVariantSelectionInput
+): NormalizedSelectionInput {
+  return {
+    ...input,
+    attributes: normalizeAttributeMap(input.attributes),
+    axis: canonicalizeVariantAxis(input.axis),
+    color: normalizeSelectionValue(input.color),
+    storage: normalizeSelectionValue(input.storage),
+    value: input.value.trim(),
+  };
+}
+
+function normalizeVariantCandidate(
   variant: ProductVariant
-) {
+): NormalizedVariantCandidate {
+  const attributes = normalizeAttributeMap(variant.attributes);
+
+  return {
+    attributes,
+    color: getVariantColor(attributes),
+    condition: normalizeRouteCondition(variant.condition),
+    storage: attributes.storage ?? null,
+    visibleAttributes: stripInternalSelectionAxes(attributes),
+  };
+}
+
+function matchesCondition(input: NormalizedSelectionInput, variant: NormalizedVariantCandidate) {
   if (!input.usesVariantConditions || !input.condition) {
     return true;
   }
 
-  return normalizeRouteCondition(variant.condition) === input.condition;
+  return variant.condition === input.condition;
 }
 
-function matchesColor(
-  input: ResolveLinkedVariantSelectionInput,
-  variant: ProductVariant
-) {
+function matchesColor(input: NormalizedSelectionInput, variant: NormalizedVariantCandidate) {
   if (!input.color) {
     return true;
   }
 
-  return getVariantColor(variant) === input.color;
+  return variant.color === input.color;
 }
 
-function matchesStorage(variant: ProductVariant, storage: string | null) {
-  return !storage || getVariantStorage(variant) === storage;
+function matchesStorage(variant: NormalizedVariantCandidate, storage: string | null) {
+  return !storage || variant.storage === storage;
 }
 
 function matchesAttributes(
-  variant: ProductVariant,
+  variant: NormalizedVariantCandidate,
   attributes: Record<string, string>
 ) {
-  const variantAttributes = normalizeAttributeMap(variant.attributes);
-
   return Object.entries(attributes).every(
-    ([axis, value]) => variantAttributes[axis] === value
+    ([axis, value]) => variant.attributes[axis] === value
   );
 }
 
-function matchesChangedAxis(
-  variant: ProductVariant,
-  axis: string,
-  value: string
-) {
-  const normalizedAxis = canonicalizeVariantAxis(axis);
-
-  if (normalizedAxis === 'storage') {
-    return getVariantStorage(variant) === value;
+function matchesChangedAxis(variant: NormalizedVariantCandidate, input: NormalizedSelectionInput) {
+  if (input.axis === 'storage') {
+    return variant.storage === input.value;
+  }
+  if (input.axis === 'color' || input.axis === 'colour') {
+    return variant.color === input.value;
   }
 
-  return normalizeAttributeMap(variant.attributes)[normalizedAxis] === value;
+  return variant.attributes[input.axis] === input.value;
 }
 
 // Match the current selection first, then progressively relax only the axes
 // that made linked variant groups feel untappable in the UI.
-function findLinkedVariant(input: ResolveLinkedVariantSelectionInput) {
-  const variants = input.variants ?? [];
+function findLinkedVariant(input: NormalizedSelectionInput) {
+  const variants = (input.variants ?? []).map(normalizeVariantCandidate);
   if (variants.length === 0) {
     return null;
   }
@@ -127,7 +159,7 @@ function findLinkedVariant(input: ResolveLinkedVariantSelectionInput) {
     (variant) =>
       matchesCondition(input, variant) &&
       matchesColor(input, variant) &&
-      matchesChangedAxis(variant, input.axis, input.value)
+      matchesChangedAxis(variant, input)
   );
 
   if (fallbackMatchWithColor) {
@@ -138,11 +170,9 @@ function findLinkedVariant(input: ResolveLinkedVariantSelectionInput) {
     variants.find(
       (variant) =>
         matchesCondition(input, variant) &&
-        matchesChangedAxis(variant, input.axis, input.value)
+        matchesChangedAxis(variant, input)
     ) ??
-    variants.find((variant) =>
-      matchesChangedAxis(variant, input.axis, input.value)
-    ) ??
+    variants.find((variant) => matchesChangedAxis(variant, input)) ??
     null
   );
 }
@@ -150,14 +180,14 @@ function findLinkedVariant(input: ResolveLinkedVariantSelectionInput) {
 export function resolveLinkedVariantSelection(
   input: ResolveLinkedVariantSelectionInput
 ): LinkedVariantSelection | null {
-  const variant = findLinkedVariant(input);
+  const variant = findLinkedVariant(normalizeInput(input));
   if (!variant) {
     return null;
   }
 
   return {
-    attributes: getVisibleVariantAttributes(variant),
-    color: getVariantColor(variant),
-    storage: getVariantStorage(variant),
+    attributes: variant.visibleAttributes,
+    color: variant.color,
+    storage: variant.storage,
   };
 }

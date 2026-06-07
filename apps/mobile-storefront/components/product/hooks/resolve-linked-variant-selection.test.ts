@@ -210,4 +210,33 @@ describe('resolveLinkedVariantSelection', () => {
       storage: '256GB',
     });
   });
+
+  it('normalizes caller-provided axes and values before matching variants', () => {
+    expect(
+      resolveSelection({
+        axis: ' RAM ',
+        attributes: { ' RAM ': ' 8GB ' },
+        color: ' Blue ',
+        storage: ' 128GB ',
+        value: ' 8GB ',
+        variants: [
+          {
+            id: 'blue-8-256',
+            name: '8GB 256GB Blue',
+            condition: 'new',
+            price: 1,
+            attributes: {
+              color: 'Blue',
+              ram: '8GB',
+              storage: '256GB',
+            },
+          },
+        ],
+      })
+    ).toEqual({
+      attributes: { ram: '8GB' },
+      color: 'Blue',
+      storage: '256GB',
+    });
+  });
 });
