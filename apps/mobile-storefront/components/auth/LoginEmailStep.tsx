@@ -110,6 +110,7 @@ export function LoginEmailStep({
           authMethod === 'otp' ? 'Continue with Code' : 'Continue with Password'
         }
         accessibilityRole="button"
+        accessibilityState={{ disabled: isLoading, busy: isLoading }}
       >
         {isLoading ? (
           <ActivityIndicator
@@ -161,6 +162,7 @@ export function LoginEmailStep({
           disabled={isLoading || isGoogleLoading}
           accessibilityLabel="Continue with Google"
           accessibilityRole="button"
+          accessibilityState={{ disabled: isLoading || isGoogleLoading, busy: isGoogleLoading }}
         >
           {isGoogleLoading ? (
             <ActivityIndicator
@@ -188,6 +190,7 @@ export function LoginEmailStep({
           disabled={isLoading || isAppleLoading}
           accessibilityLabel="Continue with Apple"
           accessibilityRole="button"
+          accessibilityState={{ disabled: isLoading || isAppleLoading, busy: isAppleLoading }}
         >
           {isAppleLoading ? (
             <ActivityIndicator

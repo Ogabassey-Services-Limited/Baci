@@ -71,7 +71,7 @@ export function LoginSecondaryActions({
           accessibilityLabel={
             isGoogleLoading ? 'Signing in with Google' : 'Sign in with Google'
           }
-          accessibilityState={{ disabled: isAnyLoading }}
+          accessibilityState={{ disabled: isAnyLoading, busy: isGoogleLoading }}
         >
           {isGoogleLoading ? (
             <ActivityIndicator size="small" color={colors.text} />
@@ -100,7 +100,7 @@ export function LoginSecondaryActions({
             accessibilityLabel={
               isAppleLoading ? 'Signing in with Apple' : 'Sign in with Apple'
             }
-            accessibilityState={{ disabled: isAnyLoading }}
+            accessibilityState={{ disabled: isAnyLoading, busy: isAppleLoading }}
           >
             {isAppleLoading ? (
               <ActivityIndicator size="small" color={colors.card} />

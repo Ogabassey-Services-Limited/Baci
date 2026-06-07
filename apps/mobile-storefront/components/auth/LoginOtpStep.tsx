@@ -138,6 +138,8 @@ export function LoginOtpStep({
         ]}
         onPress={() => void submitOtp(otp)}
         disabled={isLoading}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isLoading, busy: isLoading }}
       >
         {isLoading ? (
           <ActivityIndicator color={colors.primaryForeground} />
