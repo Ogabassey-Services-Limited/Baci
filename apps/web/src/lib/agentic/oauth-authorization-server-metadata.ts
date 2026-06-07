@@ -1,13 +1,9 @@
+import { buildAgentAuthMetadata } from './agent-auth-metadata';
+import { normalizeBaseUrl } from './normalize-base-url';
+
 const OAUTH_SCOPES = ['openid', 'email', 'profile', 'offline_access'] as const;
 const OAUTH_RESPONSE_TYPES = ['code'] as const;
 const OAUTH_GRANT_TYPES = ['authorization_code', 'refresh_token'] as const;
-
-function normalizeBaseUrl(baseUrl: string): string {
-  const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, '');
-  const parsedUrl = new URL(normalizedBaseUrl);
-
-  return parsedUrl.toString().replace(/\/+$/, '');
-}
 
 function buildSupabaseIssuer(supabaseUrl: string): string {
   return new URL('/auth/v1', normalizeBaseUrl(supabaseUrl)).toString();
@@ -54,5 +50,6 @@ export function buildOAuthAuthorizationServerMetadata({
     ],
     code_challenge_methods_supported: ['S256'],
     service_documentation: `${normalizedBaseUrl}/auth.md`,
+    agent_auth: buildAgentAuthMetadata(normalizedBaseUrl),
   };
 }
