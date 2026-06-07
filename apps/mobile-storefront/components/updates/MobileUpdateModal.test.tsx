@@ -28,6 +28,25 @@ describe('MobileUpdateModal', () => {
     expect(onAccept).toHaveBeenCalledTimes(1);
   });
 
+  it('renders recommended native update actions', () => {
+    render(
+      <MobileUpdateModal
+        visible
+        prompt={{
+          kind: 'native-recommended',
+          message: 'A newer app version is available.',
+          storeUrl: 'https://apps.apple.com/app/id6472735367',
+        }}
+        onAccept={jest.fn()}
+        onDismiss={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('A newer app version is available.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open store' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Later' })).toBeTruthy();
+  });
+
   it('hides the dismiss action for required native updates', () => {
     render(
       <MobileUpdateModal
