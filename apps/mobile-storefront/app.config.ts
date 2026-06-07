@@ -105,6 +105,19 @@ const facebookClientToken =
   process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim();
 const merchantDomain =
   process.env.EXPO_PUBLIC_MERCHANT_DOMAIN?.trim() || 'ogabassey.com';
+const updateChannelCandidates = new Set([
+  'development',
+  'preview',
+  'production',
+]);
+const rawUpdateChannel =
+  process.env.EXPO_UPDATE_CHANNEL?.trim() ||
+  process.env.EXPO_PUBLIC_ENV?.trim() ||
+  process.env.EAS_BUILD_PROFILE?.trim() ||
+  'production';
+const updateChannel = updateChannelCandidates.has(rawUpdateChannel)
+  ? rawUpdateChannel
+  : 'production';
 
 const isRequiredEnv =
   process.env.CI === 'true' ||
@@ -325,6 +338,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     url: 'https://u.expo.dev/c6c1897b-cac8-49b0-85f9-3d277aecc379',
     checkAutomatically: 'ON_ERROR_RECOVERY',
     fallbackToCacheTimeout: 0,
+    requestHeaders: {
+      'expo-channel-name': updateChannel,
+    },
   },
   runtimeVersion,
 });
