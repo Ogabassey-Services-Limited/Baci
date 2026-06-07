@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { RefObject } from 'react';
 import { Plus, X } from 'lucide-react';
+import { asRoute } from '@/lib/routes';
 import type { Product } from '../types';
 import { ComparisonSlotSearchOverlay } from './ComparisonSlotSearchOverlay';
 
@@ -74,7 +75,7 @@ export function ComparisonSlotCell({
             />
           </div>
           <Link
-            href={getProductHref(product)}
+            href={asRoute(getProductHref(product))}
             className="mb-1 line-clamp-2 text-center text-sm font-bold hover:text-store-primary"
           >
             {product.name}
