@@ -3,6 +3,7 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
 const mockRevalidateBlogPosts = vi.fn();
+const mockDispatchZohoBlogCampaign = vi.fn();
 const merchantId = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 const managedFeaturedImageUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${merchantId}/blog/cover.png`;
 const managedLandscapeVariantUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${merchantId}/blog/upload-1/landscape_16x9.webp`;
@@ -36,6 +37,11 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
 }));
 
+vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
+  dispatchZohoBlogCampaign: (...args: unknown[]) =>
+    mockDispatchZohoBlogCampaign(...args),
+}));
+
 vi.mock('@/env', () => ({
   getCronSecret: () => 'test-secret',
 }));
@@ -51,6 +57,11 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
     vi.clearAllMocks();
     Object.assign(mockSupabase, createServiceClientMock());
     vi.stubEnv('CRON_SECRET', 'test-secret');
+    mockDispatchZohoBlogCampaign.mockResolvedValue({
+      postId: 'post-1',
+      reason: 'Zoho Campaigns disabled',
+      status: 'skipped',
+    });
   });
 
   afterEach(() => {
@@ -90,6 +101,21 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
   });
 
   it('publishes scheduled posts and revalidates all merchant blog identifiers', async () => {
+    mockDispatchZohoBlogCampaign.mockImplementation(
+      async ({ post }: { post: { id: string } }) =>
+        post.id === 'post-2'
+          ? {
+              campaignKey: 'campaign-2',
+              error: 'Zoho send blocked',
+              postId: post.id,
+              status: 'failed',
+            }
+          : {
+              postId: post.id,
+              reason: 'Zoho Campaigns disabled',
+              status: 'skipped',
+            }
+    );
     mockSupabase.lte.mockResolvedValue({
       data: [
         {
@@ -154,6 +180,28 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       postSlugs: ['apple-studio-display-review', 'macbook-air-m4-review'],
     });
     expect(mockRevalidateBlogPosts).toHaveBeenCalledTimes(1);
+    expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(2);
+    expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledWith({
+      context: {
+        identifiers: ['test-store', 'ogabassey.com'],
+        canonicalMerchantSlug: 'test-store',
+      },
+      post: expect.objectContaining({ id: 'post-1' }),
+      supabase: mockSupabase,
+    });
+    expect(json.zohoCampaigns).toEqual([
+      {
+        postId: 'post-1',
+        reason: 'Zoho Campaigns disabled',
+        status: 'skipped',
+      },
+      {
+        campaignKey: 'campaign-2',
+        error: 'Zoho send blocked',
+        postId: 'post-2',
+        status: 'failed',
+      },
+    ]);
   });
 
   it('returns 500 and records failed merchants when merchant cache identifier lookup fails', async () => {
@@ -228,6 +276,13 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       listingPages: [1],
       postSlugs: ['macbook-air-m4-review'],
     });
+    expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(2);
+    expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledWith({
+      context: { canonicalMerchantSlug: null, identifiers: [] },
+      post: expect.objectContaining({ id: 'post-1' }),
+      supabase: mockSupabase,
+    });
+    expect(json.zohoCampaigns).toHaveLength(2);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Cron Error: Revalidation failed for merchant %s:',
       'merchant-1',
