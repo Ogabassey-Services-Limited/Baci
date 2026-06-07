@@ -16,6 +16,7 @@ import { RouteResumeController } from '@/components/navigation/RouteResumeContro
 import { renderRootStackScreens } from '@/components/navigation/RootStackScreens';
 import AppKeyboardProvider from '@/components/ui/AppKeyboardProvider';
 import { useColorScheme } from '@/components/useColorScheme';
+import { MobileUpdateController } from '@/components/updates/MobileUpdateController';
 import Colors, { BRAND } from '@/constants/Colors';
 import { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET } from '@/constants/layout';
 import { useAuthGuard } from '@/hooks/use-auth-guard';
@@ -101,6 +102,7 @@ export function RootLayoutNav({
                     <RouteResumeController
                       shouldResume={shouldResumeNavigation}
                     />
+                    <MobileUpdateController />
                     {/*
                      * No custom `header` function in screenOptions — that would
                      * make react-native-screens NativeStack reserve a header zone
