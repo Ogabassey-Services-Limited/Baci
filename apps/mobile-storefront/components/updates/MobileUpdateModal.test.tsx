@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { describe, expect, it, jest } from '@jest/globals';
+import { Modal } from 'react-native';
 import { MobileUpdateModal } from './MobileUpdateModal';
 
 describe('MobileUpdateModal', () => {
@@ -44,5 +45,48 @@ describe('MobileUpdateModal', () => {
     expect(screen.getByText('Install the latest app to continue.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Open store' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Later' })).toBeNull();
+  });
+
+  it('keeps the Android request-close handler installed for required updates', () => {
+    const onDismiss = jest.fn();
+    const optionalRender = render(
+      <MobileUpdateModal
+        visible
+        prompt={{
+          kind: 'ota-available',
+          message: 'A faster version is ready.',
+        }}
+        onAccept={jest.fn()}
+        onDismiss={onDismiss}
+      />
+    );
+
+    optionalRender.UNSAFE_getByType(Modal).props.onRequestClose();
+
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+
+    optionalRender.unmount();
+
+    const requiredRender = render(
+      <MobileUpdateModal
+        visible
+        prompt={{
+          kind: 'native-required',
+          message: 'Install the latest app to continue.',
+          storeUrl: 'https://apps.apple.com/app/id6472735367',
+        }}
+        onAccept={jest.fn()}
+        onDismiss={onDismiss}
+      />
+    );
+
+    const requiredOnRequestClose =
+      requiredRender.UNSAFE_getByType(Modal).props.onRequestClose;
+
+    expect(requiredOnRequestClose).toEqual(expect.any(Function));
+
+    requiredOnRequestClose();
+
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });

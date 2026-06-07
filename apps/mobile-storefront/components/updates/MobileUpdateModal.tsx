@@ -25,6 +25,8 @@ function getAcceptLabel(prompt: MobileUpdatePrompt) {
   return prompt.kind === 'ota-available' ? 'Update now' : 'Open store';
 }
 
+const ignoreRequiredModalCloseRequest = () => {};
+
 export function MobileUpdateModal({
   onAccept,
   onDismiss,
@@ -44,7 +46,7 @@ export function MobileUpdateModal({
       transparent
       visible={visible}
       statusBarTranslucent
-      onRequestClose={isRequired ? undefined : onDismiss}
+      onRequestClose={isRequired ? ignoreRequiredModalCloseRequest : onDismiss}
     >
       <View style={styles.overlay}>
         <View
