@@ -31,7 +31,7 @@ describe('GET /.well-known/oauth-protected-resource', () => {
       resource: 'https://merchant.example/api',
       resource_name: 'Ogabassey Agentic Commerce API',
       resource_documentation: 'https://merchant.example/auth.md',
-      authorization_servers: ['https://project.supabase.co/auth/v1'],
+      authorization_servers: ['https://merchant.example/agent-auth/v1'],
       scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
       bearer_methods_supported: ['header'],
       agent_auth: {
@@ -68,6 +68,9 @@ describe('GET /.well-known/oauth-protected-resource', () => {
     expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
     expect(body.resource).toBe('https://ogabassey.com/api');
     expect(body.resource_documentation).toBe('https://ogabassey.com/auth.md');
+    expect(body.authorization_servers).toEqual([
+      'https://ogabassey.com/agent-auth/v1',
+    ]);
     expect(body.agent_auth.register_uri).toBe(
       'https://ogabassey.com/.well-known/agent-auth'
     );
