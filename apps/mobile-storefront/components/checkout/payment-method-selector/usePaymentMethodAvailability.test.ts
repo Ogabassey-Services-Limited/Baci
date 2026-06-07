@@ -93,9 +93,27 @@ describe('usePaymentMethodAvailability', () => {
     expect(result.hasBNPLMethods).toBe(true);
   });
 
+  it('does not hide Klump from disabled reason wording alone', () => {
+    const result = usePaymentMethodAvailability({
+      enabledMethods: ['klump'],
+      methodDisabledReasons: { klump: 'Maximum order: copy changed' },
+      orderTotal: 1_000_001,
+      selectedMethod: 'klump',
+      selectedTab: 'installments',
+    });
+
+    const klump = result.filteredMethods.find(
+      (method) => method.id === 'klump'
+    );
+    expect(klump).toBeDefined();
+    expect(klump?.disabledReason).toBe('Maximum order: copy changed');
+    expect(result.hasBNPLMethods).toBe(true);
+  });
+
   it('removes Klump from installment methods above the maximum order amount', () => {
     const result = usePaymentMethodAvailability({
       enabledMethods: ['klump'],
+      hiddenMethods: ['klump'],
       methodDisabledReasons: { klump: 'Maximum order: ₦1,000,000' },
       orderTotal: 1_000_001,
       selectedMethod: 'klump',

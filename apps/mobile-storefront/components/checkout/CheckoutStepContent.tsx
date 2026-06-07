@@ -119,6 +119,7 @@ export function CheckoutStepContent({
         checkoutSavingsGoal={paymentController.savings.checkoutSavingsGoal}
         colors={colors}
         formContentPaddingBottom={formContentPaddingBottom}
+        hiddenPaymentMethods={paymentController.hiddenPaymentMethods}
         isDark={isDark}
         isLoadingCheckoutSavings={
           paymentController.savings.isLoadingCheckoutSavings

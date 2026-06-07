@@ -13,6 +13,7 @@ import {
 
 interface UsePaymentMethodAvailabilityInput {
   enabledMethods?: PaymentMethodType[];
+  hiddenMethods?: PaymentMethodType[];
   methodDisabledReasons: Partial<Record<PaymentMethodType, string>>;
   orderTotal: number;
   selectedMethod: PaymentMethodType;
@@ -30,21 +31,12 @@ interface UsePaymentMethodAvailabilityResult {
   supportsPartialPayment: boolean;
 }
 
-function shouldHidePaymentMethod(
-  method: PaymentMethod,
-  disabledReason: string | undefined
-): boolean {
-  return (
-    method.id === 'klump' &&
-    Boolean(disabledReason?.startsWith('Maximum order:'))
-  );
-}
-
 export function usePaymentMethodAvailability(
   input: UsePaymentMethodAvailabilityInput
 ): UsePaymentMethodAvailabilityResult {
   const {
     enabledMethods,
+    hiddenMethods = [],
     methodDisabledReasons,
     orderTotal,
     selectedMethod,
@@ -60,14 +52,9 @@ export function usePaymentMethodAvailability(
     orderTotal >= BNPL_MIN_AMOUNT &&
     orderTotal <= BNPL_MAX_AMOUNT;
 
-  // Max-exceeded Klump is hidden to keep checkout clean, while min-not-met
-  // Klump remains disabled so customers know adding items can unlock it.
   const candidateMethods = PAYMENT_METHODS.filter(
     (method) => !enabledMethods || enabledMethods.includes(method.id)
-  ).filter(
-    (method) =>
-      !shouldHidePaymentMethod(method, methodDisabledReasons[method.id])
-  );
+  ).filter((method) => !hiddenMethods.includes(method.id));
 
   const hasBNPLMethods =
     candidateMethods.some((method) => method.tab === 'installments');

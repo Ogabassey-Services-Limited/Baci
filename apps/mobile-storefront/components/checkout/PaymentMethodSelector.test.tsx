@@ -130,6 +130,7 @@ describe('PaymentMethodSelector', () => {
         onSelectTab={() => {}}
         orderTotal={1_000_001}
         enabledMethods={['klump' as PaymentMethodType]}
+        hiddenMethods={['klump' as PaymentMethodType]}
         methodDisabledReasons={{ klump: 'Maximum order: ₦1,000,000' }}
       />
     );
