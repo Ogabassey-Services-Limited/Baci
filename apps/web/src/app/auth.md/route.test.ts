@@ -27,8 +27,17 @@ describe('GET /auth.md', () => {
     expect(body).toContain(
       'https://merchant.example.com/.well-known/oauth-authorization-server'
     );
+    expect(body).toContain('## agent_auth');
+    expect(body).toContain(
+      'register_uri: https://merchant.example.com/.well-known/agent-auth'
+    );
+    expect(body).toContain(
+      'claim_uri: https://merchant.example.com/.well-known/agent-auth/claim'
+    );
+    expect(body).toContain('credential_types_supported: api_key');
     expect(body).toContain('bearer_hmac');
     expect(body).toContain('Authorization: Bearer <credential>');
+    expect(body).toContain('approved\nintegrations after review');
     expect(body).toContain('409 responses as recoverable checkout');
   });
 });

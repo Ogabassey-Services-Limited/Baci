@@ -44,6 +44,7 @@ jest.mock('@/hooks/use-haptics', () => ({
 const mockSetClipboardString = jest.mocked(setClipboardString);
 
 const baseProps = {
+  canCreateFundingAccount: true,
   earningsBalance: 125000,
   fundingAccount: {
     accountName: 'Ogabassey/Jane Doe',
@@ -122,13 +123,49 @@ describe('WalletHeroSection', () => {
   });
 
   it('shows create account action when no funding account exists', () => {
-    render(<WalletHeroSection {...baseProps} fundingAccount={null} />);
+    const onCreateFundingAccount = jest.fn();
+
+    render(
+      <WalletHeroSection
+        {...baseProps}
+        fundingAccount={null}
+        onCreateFundingAccount={onCreateFundingAccount}
+      />
+    );
 
     fireEvent.press(
       screen.getByRole('button', { name: 'Create account number' })
     );
 
-    expect(baseProps.onCreateFundingAccount).toHaveBeenCalledTimes(1);
+    expect(onCreateFundingAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables account creation with an inline unavailable reason', () => {
+    const onCreateFundingAccount = jest.fn();
+
+    render(
+      <WalletHeroSection
+        {...baseProps}
+        canCreateFundingAccount={false}
+        createFundingAccountUnavailableMessage="Bank transfer account creation is not available yet."
+        fundingAccount={null}
+        onCreateFundingAccount={onCreateFundingAccount}
+      />
+    );
+
+    const createAccountButton = screen.getByRole('button', {
+      name: 'Create account number',
+    });
+
+    fireEvent.press(createAccountButton);
+
+    expect(createAccountButton.props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+    expect(
+      screen.getByText('Bank transfer account creation is not available yet.')
+    ).toBeOnTheScreen();
+    expect(onCreateFundingAccount).not.toHaveBeenCalled();
   });
 
   it('opens loyalty redemption from the hero without a duplicate rewards card', () => {
