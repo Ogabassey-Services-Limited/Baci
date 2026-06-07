@@ -3,9 +3,20 @@ import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axe
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import type { ProductCondition } from '@/types/product';
 import { getFirstImageIndexForColor } from './get-first-image-index-for-color';
+import { resolveLinkedVariantSelection } from './resolve-linked-variant-selection';
 import type { useProductDetailRouteData } from './use-product-detail-route-data';
 
 type RouteData = ReturnType<typeof useProductDetailRouteData>;
+
+function applyLinkedVariantSelection(
+  routeData: RouteData,
+  selection: NonNullable<ReturnType<typeof resolveLinkedVariantSelection>>
+) {
+  routeData.setSelectedStorage(selection.storage);
+  routeData.setSelectedColor(selection.color);
+  routeData.setSelectedAttributes(selection.attributes);
+  routeData.setSelectedVariant(null);
+}
 
 export function useProductDetailSelectionHandlers(routeData: RouteData) {
   const handleSelectImageIndex = (index: number) => {
@@ -95,6 +106,26 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
     handleSelectImageIndex,
     onSelectAttribute: (axis: string, value: string) => {
       routeData.setHasCustomizedSelection(true);
+      const nextAttributes = {
+        ...routeData.effectiveSelectedAttributes,
+        [axis]: value,
+      };
+      const linkedSelection = resolveLinkedVariantSelection({
+        axis,
+        attributes: nextAttributes,
+        color: routeData.effectiveSelectedColor,
+        condition: routeData.effectiveSelectedCondition,
+        storage: routeData.effectiveSelectedStorage,
+        usesVariantConditions: routeData.usesVariantConditions,
+        value,
+        variants: routeData.product?.variants,
+      });
+
+      if (linkedSelection) {
+        applyLinkedVariantSelection(routeData, linkedSelection);
+        return;
+      }
+
       routeData.setSelectedAttributes((current) => ({
         ...current,
         [axis]: value,
@@ -119,6 +150,22 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
     onSelectCondition: handleSelectCondition,
     onSelectStorage: (storage: string) => {
       routeData.setHasCustomizedSelection(true);
+      const linkedSelection = resolveLinkedVariantSelection({
+        axis: 'storage',
+        attributes: routeData.effectiveSelectedAttributes,
+        color: routeData.effectiveSelectedColor,
+        condition: routeData.effectiveSelectedCondition,
+        storage,
+        usesVariantConditions: routeData.usesVariantConditions,
+        value: storage,
+        variants: routeData.product?.variants,
+      });
+
+      if (linkedSelection) {
+        applyLinkedVariantSelection(routeData, linkedSelection);
+        return;
+      }
+
       routeData.setSelectedStorage(storage);
       routeData.setSelectedVariant(null);
     },

@@ -143,66 +143,6 @@ export function VariantSelector({
         </View>
       )}
 
-      {/* Storage Selection */}
-      {normalizedStorage.length > 0 && (
-        <View style={styles.section}>
-          <Text style={[styles.label, { color: themeColors.text }]}>
-            Storage
-          </Text>
-          <View style={styles.storageGrid}>
-            {normalizedStorage.map((option) => {
-              const isSelected = selectedStorage === option.value;
-              const isOutOfStock =
-                usesManagedStock &&
-                option.stock !== undefined &&
-                option.stock === 0;
-              const isLowStock =
-                usesManagedStock &&
-                option.stock !== undefined &&
-                option.stock > 0 &&
-                option.stock <= 5;
-
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => !isOutOfStock && onSelectStorage(option.value)}
-                  disabled={isOutOfStock}
-                  style={[
-                    styles.storageChip,
-                    {
-                      backgroundColor: isSelected
-                        ? withAlpha(BRAND.primary, 0.08)
-                        : themeColors.card,
-                      borderColor: isSelected
-                        ? BRAND.primary
-                        : themeColors.border,
-                      opacity: isOutOfStock ? 0.5 : 1,
-                    },
-                  ]}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${option.value}${isOutOfStock ? ', out of stock' : isLowStock ? `, ${option.stock} left` : ''}`}
-                  accessibilityState={{
-                    checked: isSelected,
-                    disabled: isOutOfStock,
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.storageValue,
-                      {
-                        color: isSelected ? BRAND.primary : themeColors.text,
-                      },
-                    ]}
-                  >
-                    {option.value}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      )}
-
       {normalizedGenericAttributes.map(({ axis, values }) => {
         const selectedValue = selectedAttributes[axis] ?? null;
         const axisLabel = formatVariantAxisLabel(axis) ?? axis;
@@ -264,6 +204,66 @@ export function VariantSelector({
           </View>
         );
       })}
+
+      {/* Storage Selection */}
+      {normalizedStorage.length > 0 && (
+        <View style={styles.section}>
+          <Text style={[styles.label, { color: themeColors.text }]}>
+            Storage
+          </Text>
+          <View style={styles.storageGrid}>
+            {normalizedStorage.map((option) => {
+              const isSelected = selectedStorage === option.value;
+              const isOutOfStock =
+                usesManagedStock &&
+                option.stock !== undefined &&
+                option.stock === 0;
+              const isLowStock =
+                usesManagedStock &&
+                option.stock !== undefined &&
+                option.stock > 0 &&
+                option.stock <= 5;
+
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => !isOutOfStock && onSelectStorage(option.value)}
+                  disabled={isOutOfStock}
+                  style={[
+                    styles.storageChip,
+                    {
+                      backgroundColor: isSelected
+                        ? withAlpha(BRAND.primary, 0.08)
+                        : themeColors.card,
+                      borderColor: isSelected
+                        ? BRAND.primary
+                        : themeColors.border,
+                      opacity: isOutOfStock ? 0.5 : 1,
+                    },
+                  ]}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${option.value}${isOutOfStock ? ', out of stock' : isLowStock ? `, ${option.stock} left` : ''}`}
+                  accessibilityState={{
+                    checked: isSelected,
+                    disabled: isOutOfStock,
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.storageValue,
+                      {
+                        color: isSelected ? BRAND.primary : themeColors.text,
+                      },
+                    ]}
+                  >
+                    {option.value}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
