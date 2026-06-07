@@ -181,6 +181,10 @@
       "justification": "Reviewed web box-shadow selection for the active utility icon while preserving native shadow styling."
     },
     {
+      "path": "components/updates/MobileUpdateController.tsx",
+      "justification": "Reviewed native update-check platform gating so OTA/native-store prompts only target supported iOS and Android runtimes."
+    },
+    {
       "path": "components/utilities/UtilityTypeTabs.tsx",
       "justification": "Reviewed iOS haptic feedback branch for utility type tab selection."
     },

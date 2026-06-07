@@ -8,12 +8,14 @@ const originalEnv = process.env;
 
 function loadAppConfigWithEnv(env: {
   EXPO_PUBLIC_MERCHANT_DOMAIN?: string;
+  EXPO_UPDATE_CHANNEL?: string;
   STOREFRONT_FACEBOOK_APP_ID?: string;
   STOREFRONT_FACEBOOK_CLIENT_TOKEN?: string;
 }) {
   jest.resetModules();
   process.env = { ...originalEnv };
   delete process.env.EXPO_PUBLIC_MERCHANT_DOMAIN;
+  delete process.env.EXPO_UPDATE_CHANNEL;
   delete process.env.STOREFRONT_FACEBOOK_APP_ID;
   delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
 
@@ -78,6 +80,23 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
     ]);
     expect(config.extra?.facebookAppId).toBe('123456789');
     expect(config.extra?.facebookClientToken).toBe('client-token');
+  });
+
+  it('embeds the EAS update channel request header from EXPO_UPDATE_CHANNEL', () => {
+    const appConfig = loadAppConfigWithEnv({
+      EXPO_UPDATE_CHANNEL: 'preview',
+      STOREFRONT_FACEBOOK_APP_ID: '123456789',
+      STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+    });
+    const config = renderConfig(appConfig);
+
+    expect(config.updates).toMatchObject({
+      requestHeaders: {
+        'expo-channel-name': 'preview',
+      },
+      url: 'https://u.expo.dev/c6c1897b-cac8-49b0-85f9-3d277aecc379',
+    });
+    expect(config.runtimeVersion).toBeTruthy();
   });
 
   it('defaults the storefront merchant domain for production BNPL returns', () => {
