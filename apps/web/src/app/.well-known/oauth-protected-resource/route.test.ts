@@ -32,7 +32,7 @@ describe('GET /.well-known/oauth-protected-resource', () => {
       resource_name: 'Ogabassey Agentic Commerce API',
       resource_documentation: 'https://merchant.example/auth.md',
       authorization_servers: ['https://merchant.example/agent-auth/v1'],
-      scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
+      scopes_supported: ['agent:catalog:read', 'agent:checkout:write'],
       bearer_methods_supported: ['header'],
       agent_auth: {
         skill: 'https://workos.com/auth.md',
