@@ -68,6 +68,7 @@ function mapProduct(product: RawStorefrontProductRow) {
 
   return {
     id: normalized.id,
+    updated_at: product.updated_at,
     name: normalized.name,
     description: buildStorefrontProductListingDescription({
       brand: normalized.brand,
@@ -97,6 +98,8 @@ function mapProduct(product: RawStorefrontProductRow) {
     manage_stock: manageStock,
     low_stock_threshold: product.low_stock_threshold,
     specifications: product.specifications,
+    product_key_specs:
+      normalized.product_key_specs ?? product.product_key_specs,
     has_condition_offers:
       typeof product.has_condition_offers === 'boolean'
         ? product.has_condition_offers

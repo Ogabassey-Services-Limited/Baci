@@ -1,53 +1,12 @@
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
-import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
 import { buildStorefrontProductListingDescription } from '@/lib/storefront-product-listing-description';
-import { STOREFRONT_PRODUCTS_COMPACT_SELECT } from '@/lib/storefront-products-select';
 
-export const STOREFRONT_PRODUCTS_FULL_SELECT = `
-  id,
-  merchant_id,
-  name,
-  slug,
-  description,
-  images,
-  category,
-  category_id,
-  brand,
-  price,
-  compare_at_price,
-  condition,
-  stock,
-  stock_quantity,
-  status,
-  manage_stock,
-  low_stock_threshold,
-  image_hint,
-  specifications,
-  ${PRODUCT_KEY_SPECS_RELATION_SELECT},
-  has_variants,
-  sku,
-  has_condition_offers,
-  offers,
-  color,
-  color_images,
-  variant_attributes,
-  available_conditions,
-  variant_model,
-  categories:category_id(id, name, slug),
-  product_categories (
-    categories (
-      id,
-      name,
-      slug
-    )
-  )
-`;
-
-export { STOREFRONT_PRODUCTS_COMPACT_SELECT };
+export { STOREFRONT_PRODUCTS_FULL_SELECT } from '@/lib/storefront-products-full-select';
+export { STOREFRONT_PRODUCTS_COMPACT_SELECT } from '@/lib/storefront-products-select';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -79,6 +38,7 @@ export function mapStorefrontProduct(p: RawDbProduct) {
 
   return {
     id: normalized.id,
+    updated_at: p.updated_at,
     name: normalized.name,
     description: buildStorefrontProductListingDescription({
       brand: normalized.brand,

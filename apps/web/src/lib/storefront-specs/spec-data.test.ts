@@ -1,0 +1,166 @@
+import { describe, expect, it } from 'vitest';
+import { buildProductSpecData } from './spec-data';
+
+describe('buildProductSpecData', () => {
+  it('builds detailed grouped specs from product_key_specs', () => {
+    const result = buildProductSpecData({
+      brand: 'Samsung',
+      category: 'Smartphones',
+      condition: 'new',
+      product_key_specs: {
+        display_type: 'Dynamic AMOLED 2X',
+        screen_size_inches: 6.8,
+        refresh_rate_hz: 120,
+        chipset: 'Snapdragon 8 Elite',
+        ram_gb: 12,
+        storage_gb: 256,
+        main_camera_mp: 200,
+        battery_mah: 5000,
+        charging_watt: 45,
+        has_5g: true,
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: 'Display' }),
+        expect.objectContaining({ category: 'Platform' }),
+        expect.objectContaining({ category: 'Memory' }),
+        expect.objectContaining({ category: 'Battery' }),
+      ])
+    );
+    expect(result.specs).toEqual(
+      expect.arrayContaining([
+        { label: 'Display', value: '6.8 inches' },
+        { label: 'Processor', value: 'Snapdragon 8 Elite' },
+        { label: 'RAM', value: '12GB' },
+        { label: 'Storage', value: '256GB' },
+        { label: 'Camera', value: '200MP' },
+        { label: 'Battery', value: '5000mAh' },
+      ])
+    );
+  });
+
+  it('falls back to variant attributes without component imports', () => {
+    const result = buildProductSpecData({
+      brand: 'Apple',
+      category: 'Smartphones',
+      variant_attributes: [
+        { param: 'Storage', options: ['256GB'] },
+        { param: 'RAM', options: ['8GB'] },
+      ],
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'General',
+        items: expect.arrayContaining([
+          { label: 'Brand', value: 'Apple' },
+          { label: 'Storage', value: '256GB' },
+          { label: 'RAM', value: '8GB' },
+        ]),
+      },
+    ]);
+  });
+
+  it('safely ignores malformed HTML description tables without throwing', () => {
+    const result = buildProductSpecData({
+      brand: 'Tecno',
+      category: 'Smartphones',
+      description:
+        '<h2>Key Specs</h2><table><tr><td>Display<td>6.8 inches</tr>',
+      product_key_specs: {
+        chipset: 'Helio G99',
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'Platform',
+          items: [{ label: 'Chipset', value: 'Helio G99' }],
+        }),
+      ])
+    );
+  });
+
+  it('omits null, undefined, and empty-string product key specs without throwing', () => {
+    const result = buildProductSpecData({
+      product_key_specs: {
+        display_type: '   ',
+        chipset: 'Snapdragon 8 Elite',
+        gpu: '',
+        ram_gb: null,
+        storage_gb: undefined,
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Platform',
+        items: [{ label: 'Chipset', value: 'Snapdragon 8 Elite' }],
+      },
+    ]);
+    expect(
+      result.detailedSpecs.flatMap((section) => section.items)
+    ).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ value: '' }),
+        expect.objectContaining({ value: '   ' }),
+        expect.objectContaining({ value: 'undefined' }),
+        expect.objectContaining({ value: 'null' }),
+      ])
+    );
+  });
+
+  it('keeps zero-valued numeric specs and formats them consistently', () => {
+    const result = buildProductSpecData({
+      product_key_specs: {
+        ram_gb: 0,
+        storage_gb: 0,
+        battery_mah: 0,
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        {
+          category: 'Memory',
+          items: [
+            { label: 'Internal Storage', value: '0GB' },
+            { label: 'RAM', value: '0GB' },
+          ],
+        },
+        {
+          category: 'Battery',
+          items: [{ label: 'Capacity', value: '0mAh' }],
+        },
+      ])
+    );
+    expect(result.specs).toEqual(
+      expect.arrayContaining([
+        { label: 'RAM', value: '0GB' },
+        { label: 'Storage', value: '0GB' },
+        { label: 'Battery', value: '0mAh' },
+      ])
+    );
+  });
+
+  it('handles empty variant attributes with a safe General fallback', () => {
+    const result = buildProductSpecData({
+      category: 'Smartphones',
+      variant_attributes: [],
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'General',
+        items: [
+          { label: 'Brand', value: 'Generic' },
+          { label: 'Condition', value: 'New' },
+          { label: 'Category', value: 'Smartphones' },
+        ],
+      },
+    ]);
+  });
+});

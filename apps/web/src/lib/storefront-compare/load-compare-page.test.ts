@@ -36,6 +36,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Apple',
       price: 2_200_000,
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
     },
     {
       id: 'product-b',
@@ -45,6 +46,11 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Samsung',
       price: 2_300_000,
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Elite',
+        ram_gb: 16,
+        storage_gb: 512,
+      },
     },
     {
       id: 'product-c',
@@ -54,6 +60,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Samsung',
       price: 480_000,
+      product_key_specs: { chipset: 'Exynos', ram_gb: 8, storage_gb: 128 },
     },
     {
       id: 'product-d',
@@ -63,6 +70,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Apple',
       price: 495_000,
+      product_key_specs: { chipset: 'A18', ram_gb: 8, storage_gb: 128 },
     },
     {
       id: 'product-e',
@@ -72,6 +80,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Apple',
       price: 650_000,
+      product_key_specs: { chipset: 'A17', ram_gb: 8, storage_gb: 128 },
     },
     {
       id: 'product-f',
@@ -81,6 +90,7 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Apple',
       price: 550_000,
+      product_key_specs: { chipset: 'A13', ram_gb: 4, storage_gb: 64 },
     },
     {
       id: 'product-g',
@@ -90,6 +100,11 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Samsung',
       price: 700_000,
+      product_key_specs: {
+        chipset: 'Exynos 2400e',
+        ram_gb: 8,
+        storage_gb: 256,
+      },
     },
     {
       id: 'product-h',
@@ -99,6 +114,11 @@ const categoryPageData = {
       category_slug: 'smartphones',
       brand: 'Samsung',
       price: 360_000,
+      product_key_specs: {
+        chipset: 'Snapdragon 6 Gen 3',
+        ram_gb: 8,
+        storage_gb: 128,
+      },
     },
   ],
 };
@@ -220,6 +240,47 @@ describe('loadComparePage', () => {
     expect(result?.canonicalUrl).toBe(
       'http://localhost:3000/ogabassey/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold'
     );
+  });
+
+  it('preserves valid non-curated compare slugs as monitored noindex legacy fallbacks', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Suppress expected telemetry in this regression test.
+    });
+
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[5],
+      product_key_specs: { chipset: 'A13', ram_gb: 4, storage_gb: 64 },
+    });
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[1],
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Elite',
+        ram_gb: 16,
+        storage_gb: 512,
+      },
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-se-vs-samsung-galaxy-z-trifold',
+    });
+
+    expect(result?.kind).toBe('product');
+    expect(result?.isIndexable).toBe(false);
+    expect(result?.isLegacyFallback).toBe(true);
+    expect(result?.canonicalSlug).toBe('iphone-se-vs-samsung-galaxy-z-trifold');
+    expect(warnSpy).toHaveBeenCalledWith(
+      'COMPARE_NON_CURATED_FALLBACK',
+      expect.objectContaining({
+        categorySlug: 'smartphones',
+        comparisonSlug: 'iphone-se-vs-samsung-galaxy-z-trifold',
+        policy:
+          'docs/superpowers/plans/2026-06-07-ogabassey-shared-comparison-spec-matrix.md',
+      })
+    );
+
+    warnSpy.mockRestore();
   });
 
   it('resolves compare pages from custom-domain storefront identifiers', async () => {

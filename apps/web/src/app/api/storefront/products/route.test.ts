@@ -348,6 +348,9 @@ describe('GET /api/storefront/products', () => {
     expect(payload.products).toHaveLength(1);
     expect(selectArg).toContain('specifications');
     expect(selectArg).toContain('variant_attributes');
+    expect(selectArg).toContain('product_key_specs (');
+    expect(selectArg).toContain('created_at');
+    expect(selectArg).toContain('updated_at');
     expect(selectArg).toMatch(/\boffers\b/);
   });
 
