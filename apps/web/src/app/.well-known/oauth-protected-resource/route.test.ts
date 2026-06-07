@@ -36,9 +36,10 @@ describe('GET /.well-known/oauth-protected-resource', () => {
       bearer_methods_supported: ['header'],
       agent_auth: {
         skill: 'https://workos.com/auth.md',
-        register_uri: 'https://merchant.example/agent/auth',
-        claim_uri: 'https://merchant.example/agent/auth/claim',
-        revocation_uri: 'https://merchant.example/agent/auth/revoke',
+        register_uri: 'https://merchant.example/.well-known/agent-auth',
+        claim_uri: 'https://merchant.example/.well-known/agent-auth/claim',
+        revocation_uri:
+          'https://merchant.example/.well-known/agent-auth/revoke',
         identity_types_supported: ['identity_assertion'],
         identity_assertion: {
           assertion_types_supported: [
@@ -68,7 +69,7 @@ describe('GET /.well-known/oauth-protected-resource', () => {
     expect(body.resource).toBe('https://ogabassey.com/api');
     expect(body.resource_documentation).toBe('https://ogabassey.com/auth.md');
     expect(body.agent_auth.register_uri).toBe(
-      'https://ogabassey.com/agent/auth'
+      'https://ogabassey.com/.well-known/agent-auth'
     );
   });
 });

@@ -12,8 +12,8 @@ function buildRegistrationResponse(baseUrl: string) {
     credential_type: 'api_key',
     credential_format: 'bearer_hmac',
     documentation: `${baseUrl}/auth.md`,
-    claim_uri: `${baseUrl}/agent/auth/claim`,
-    revocation_uri: `${baseUrl}/agent/auth/revoke`,
+    claim_uri: `${baseUrl}/.well-known/agent-auth/claim`,
+    revocation_uri: `${baseUrl}/.well-known/agent-auth/revoke`,
     message:
       'Approved integrations are provisioned after review; this endpoint does not issue credentials automatically.',
   };

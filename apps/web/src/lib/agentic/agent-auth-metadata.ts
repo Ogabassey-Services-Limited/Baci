@@ -10,9 +10,9 @@ export function buildAgentAuthMetadata(baseUrl: string) {
 
   return {
     skill: AUTH_MD_SKILL_URL,
-    register_uri: `${normalizedBaseUrl}/agent/auth`,
-    claim_uri: `${normalizedBaseUrl}/agent/auth/claim`,
-    revocation_uri: `${normalizedBaseUrl}/agent/auth/revoke`,
+    register_uri: `${normalizedBaseUrl}/.well-known/agent-auth`,
+    claim_uri: `${normalizedBaseUrl}/.well-known/agent-auth/claim`,
+    revocation_uri: `${normalizedBaseUrl}/.well-known/agent-auth/revoke`,
     identity_types_supported: ['identity_assertion'],
     identity_assertion: {
       assertion_types_supported: [IDENTITY_ASSERTION_TOKEN_TYPE],

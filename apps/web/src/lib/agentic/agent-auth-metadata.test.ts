@@ -5,9 +5,9 @@ describe('buildAgentAuthMetadata', () => {
   it('builds Auth.md agent registration metadata for the current host', () => {
     expect(buildAgentAuthMetadata('https://merchant.example/')).toEqual({
       skill: 'https://workos.com/auth.md',
-      register_uri: 'https://merchant.example/agent/auth',
-      claim_uri: 'https://merchant.example/agent/auth/claim',
-      revocation_uri: 'https://merchant.example/agent/auth/revoke',
+      register_uri: 'https://merchant.example/.well-known/agent-auth',
+      claim_uri: 'https://merchant.example/.well-known/agent-auth/claim',
+      revocation_uri: 'https://merchant.example/.well-known/agent-auth/revoke',
       identity_types_supported: ['identity_assertion'],
       identity_assertion: {
         assertion_types_supported: ['urn:ietf:params:oauth:token-type:id-jag'],
@@ -25,7 +25,9 @@ describe('buildAgentAuthMetadata', () => {
   it('normalizes whitespace and trailing slashes', () => {
     const metadata = buildAgentAuthMetadata(' https://merchant.example/// ');
 
-    expect(metadata.register_uri).toBe('https://merchant.example/agent/auth');
+    expect(metadata.register_uri).toBe(
+      'https://merchant.example/.well-known/agent-auth'
+    );
     expect(metadata.service_documentation).toBe(
       'https://merchant.example/auth.md'
     );
