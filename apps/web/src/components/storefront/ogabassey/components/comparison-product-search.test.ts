@@ -6,8 +6,8 @@ describe('fetchComparisonProductSearchResults', () => {
         vi.unstubAllGlobals();
     });
 
-    it('requests compact product search data scoped to merchant and category', async () => {
-        const fetchMock = vi.fn(async () => ({
+    it('requests product search data scoped to merchant and category with full product details', async () => {
+        const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) => ({
             ok: true,
             status: 200,
             json: async () => ({ products: [] }),
@@ -28,10 +28,21 @@ describe('fetchComparisonProductSearchResults', () => {
             signal,
         });
 
-        expect(fetchMock).toHaveBeenCalledWith(
-            '/api/storefront/products?q=iphone&limit=5&compact=false&merchant_id=merchant-1&category=smartphones',
-            { signal }
-        );
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+
+        const firstCall = fetchMock.mock.calls[0];
+        expect(firstCall).toBeDefined();
+
+        const [requestUrl, requestInit] = firstCall;
+        const url = new URL(String(requestUrl), 'http://localhost');
+
+        expect(url.pathname).toBe('/api/storefront/products');
+        expect(url.searchParams.get('q')).toBe('iphone');
+        expect(url.searchParams.get('limit')).toBe('5');
+        expect(url.searchParams.get('compact')).toBe('false');
+        expect(url.searchParams.get('merchant_id')).toBe('merchant-1');
+        expect(url.searchParams.get('category')).toBe('smartphones');
+        expect(requestInit).toEqual({ signal });
     });
 
     it('filters the current product and already selected comparison products', async () => {
