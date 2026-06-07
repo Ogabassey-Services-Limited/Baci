@@ -1,5 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, withAlpha } from '@/constants/Colors';
 
 interface VerificationCardProps {
   verified: boolean;
@@ -14,31 +16,71 @@ export function VerificationCard({
   message,
   isLoading,
 }: VerificationCardProps) {
+  const { colors, isDark } = useTheme();
+
   if (isLoading) {
     return (
-      <View style={[styles.card, styles.loadingCard]}>
-        <ActivityIndicator size="small" color="#6B7280" />
-        <Text style={styles.loadingText}>Verifying customer…</Text>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: isDark
+              ? withAlpha(colors.white, 0.05)
+              : colors.muted,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <ActivityIndicator size="small" color={colors.textSecondary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          Verifying customer…
+        </Text>
       </View>
     );
   }
 
   if (verified) {
     return (
-      <View style={[styles.card, styles.successCard]}>
-        <Ionicons name="checkmark-circle" size={20} color="#059669" />
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: isDark
+              ? withAlpha(colors.success, 0.1)
+              : withAlpha(colors.success, 0.05),
+            borderColor: withAlpha(colors.success, 0.2),
+          },
+        ]}
+      >
+        <Ionicons name="checkmark-circle" size={20} color={colors.success} />
         <View>
-          <Text style={styles.successName}>{customerName}</Text>
-          <Text style={styles.successLabel}>Customer verified</Text>
+          <Text style={[styles.successName, { color: colors.success }]}>
+            {customerName}
+          </Text>
+          <Text style={[styles.successLabel, { color: colors.success }]}>
+            Customer verified
+          </Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.card, styles.errorCard]}>
-      <Ionicons name="close-circle" size={20} color="#DC2626" />
-      <Text style={styles.errorText}>{message || 'Verification failed'}</Text>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: isDark
+            ? withAlpha(colors.error, 0.1)
+            : withAlpha(colors.error, 0.05),
+          borderColor: withAlpha(colors.error, 0.2),
+        },
+      ]}
+    >
+      <Ionicons name="close-circle" size={20} color={colors.error} />
+      <Text style={[styles.errorText, { color: colors.error }]}>
+        {message || 'Verification failed'}
+      </Text>
     </View>
   );
 }
@@ -49,37 +91,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     padding: 14,
-    borderRadius: 12,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
-  },
-  loadingCard: {
-    backgroundColor: '#F9FAFB',
-    borderColor: '#E5E7EB',
   },
   loadingText: {
     fontSize: 14,
-    color: '#6B7280',
-  },
-  successCard: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
   },
   successName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#065F46',
   },
   successLabel: {
     fontSize: 12,
-    color: '#059669',
-  },
-  errorCard: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
   },
   errorText: {
     fontSize: 14,
-    color: '#DC2626',
     flex: 1,
   },
 });

@@ -105,13 +105,17 @@ describe('LoginEmailStep', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: 'Continue with Code' })
+      screen.getByRole('button', {
+        name: 'Continue with Code',
+        disabled: true,
+        busy: true,
+      })
     ).toBeDisabled();
     expect(screen.getByLabelText('Signing in')).toBeOnTheScreen();
     expect(screen.queryByText('Continue with Code')).toBeNull();
   });
 
-  it('disables only the social provider currently signing in', () => {
+  it('disables all auth actions while one social provider is signing in', () => {
     const { rerender } = render(
       <LoginEmailStep
         authMethod="otp"
@@ -130,11 +134,26 @@ describe('LoginEmailStep', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: 'Continue with Google' })
+      screen.getByRole('button', {
+        name: 'Continue with Code',
+        disabled: true,
+        busy: false,
+      })
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: 'Continue with Apple' })
-    ).not.toBeDisabled();
+      screen.getByRole('button', {
+        name: 'Continue with Google',
+        disabled: true,
+        busy: true,
+      })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'Continue with Apple',
+        disabled: true,
+        busy: false,
+      })
+    ).toBeDisabled();
     expect(screen.getByLabelText('Signing in with Google')).toBeOnTheScreen();
 
     rerender(
@@ -155,10 +174,25 @@ describe('LoginEmailStep', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: 'Continue with Google' })
-    ).not.toBeDisabled();
+      screen.getByRole('button', {
+        name: 'Continue with Code',
+        disabled: true,
+        busy: false,
+      })
+    ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: 'Continue with Apple' })
+      screen.getByRole('button', {
+        name: 'Continue with Google',
+        disabled: true,
+        busy: false,
+      })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'Continue with Apple',
+        disabled: true,
+        busy: true,
+      })
     ).toBeDisabled();
     expect(screen.getByLabelText('Signing in with Apple')).toBeOnTheScreen();
   });
