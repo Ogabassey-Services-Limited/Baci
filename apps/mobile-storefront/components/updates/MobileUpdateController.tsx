@@ -1,7 +1,7 @@
 import * as Application from 'expo-application';
 import { usePathname } from 'expo-router';
 import * as Updates from 'expo-updates';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { AppState, Linking, Platform } from 'react-native';
 import { EXPO_PUBLIC_API_URL } from '@/env';
 import { createLogger } from '@/lib/logger';
@@ -33,9 +33,8 @@ export function MobileUpdateController() {
   const [prompt, setPrompt] = useState<MobileUpdatePrompt | null>(null);
   const inFlightRef = useRef(false);
   const hasDeferredCheckRef = useRef(false);
-  const runCheckRef = useRef<() => Promise<void>>(async () => undefined);
 
-  runCheckRef.current = async () => {
+  const runCheck = useEffectEvent(async () => {
     if (inFlightRef.current || prompt) return;
     inFlightRef.current = true;
 
@@ -66,15 +65,15 @@ export function MobileUpdateController() {
     } finally {
       inFlightRef.current = false;
     }
-  };
+  });
 
   useEffect(() => {
-    void runCheckRef.current();
+    void runCheck();
   }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeToMobileUpdateChecks(() => {
-      void runCheckRef.current();
+      void runCheck();
     });
     return unsubscribe;
   }, []);
@@ -94,7 +93,7 @@ export function MobileUpdateController() {
       !shouldDeferMobileUpdatePrompt(pathname)
     ) {
       hasDeferredCheckRef.current = false;
-      void runCheckRef.current();
+      void runCheck();
     }
   }, [pathname]);
 

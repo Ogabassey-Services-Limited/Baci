@@ -1,16 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-
-const releasePolicyQuerySchema = z.object({
-  app: z.literal('storefront'),
-  buildNumber: z.string().trim().min(1),
-  channel: z.string().trim().min(1),
-  nativeVersion: z.string().trim().min(1),
-  platform: z.enum(['android', 'ios']),
-  runtimeVersion: z.string().trim().min(1),
-});
-
-type Platform = z.infer<typeof releasePolicyQuerySchema>['platform'];
+import {
+  type MobileReleasePolicyPlatform,
+  mobileReleasePolicyQuerySchema,
+} from '@/schemas/mobile-release-policy';
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'no-store',
@@ -23,7 +15,7 @@ function readEnabledFlag() {
 }
 
 function readPlatformEnv(
-  platform: Platform,
+  platform: MobileReleasePolicyPlatform,
   key: 'LATEST_VERSION' | 'MIN_VERSION' | 'STORE_URL'
 ) {
   return (
@@ -82,7 +74,7 @@ function disabledResponse() {
 }
 
 export function GET(request: NextRequest) {
-  const parsedQuery = releasePolicyQuerySchema.safeParse({
+  const parsedQuery = mobileReleasePolicyQuerySchema.safeParse({
     app: request.nextUrl.searchParams.get('app') ?? undefined,
     buildNumber: request.nextUrl.searchParams.get('buildNumber') ?? undefined,
     channel: request.nextUrl.searchParams.get('channel') ?? undefined,
