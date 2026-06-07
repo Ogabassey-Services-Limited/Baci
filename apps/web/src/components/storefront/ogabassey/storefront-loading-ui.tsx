@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import type { CSSProperties } from 'react';
 import {
   ProductDetailSkeleton,
   ProductGridSkeleton,
@@ -19,6 +20,42 @@ interface ShellChromeLoadingProps {
 const transparentPixelSrc =
   'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
+const shellChromeLoadingStyle = {
+  background: 'var(--store-background, #ffffff)',
+  boxSizing: 'border-box',
+  color: 'var(--store-background-text, #111827)',
+  padding: '0.75rem 1rem',
+  position: 'relative',
+  width: '100%',
+  zIndex: 1,
+} satisfies CSSProperties;
+
+const shellChromeMobileHeroStyle = {
+  aspectRatio: '16 / 9',
+  display: 'block',
+  maxWidth: '100%',
+  overflow: 'hidden',
+  width: '100%',
+} satisfies CSSProperties;
+
+const shellChromeMobileHeroImageStyle = {
+  aspectRatio: '16 / 9',
+  display: 'block',
+  height: 'auto',
+  maxWidth: '100%',
+  objectFit: 'contain',
+  width: '100%',
+} satisfies CSSProperties;
+
+const shellChromeLoadingBarStyle = {
+  background:
+    'linear-gradient(90deg, color-mix(in srgb, var(--store-primary, #2a2c6e) 10%, transparent) 0%, color-mix(in srgb, var(--store-primary, #2a2c6e) 18%, transparent) 50%, color-mix(in srgb, var(--store-primary, #2a2c6e) 10%, transparent) 100%)',
+  backgroundSize: '200% 100%',
+  borderRadius: '9999px',
+  height: '2.5rem',
+  width: '100%',
+} satisfies CSSProperties;
+
 function LoadingStatus({
   label,
   children,
@@ -38,9 +75,15 @@ export function ShellChromeLoading({
 }: ShellChromeLoadingProps = {}) {
   return (
     <LoadingStatus label="Loading storefront chrome">
-      <div className="storefront-shell-loading">
+      <div
+        className="storefront-shell-loading"
+        style={shellChromeLoadingStyle}
+      >
         {mobileHeroImage ? (
-          <picture className="storefront-shell-loading__mobile-hero md:hidden">
+          <picture
+            className="storefront-shell-loading__mobile-hero md:hidden"
+            style={shellChromeMobileHeroStyle}
+          >
             <source
               media="(max-width: 767px)"
               srcSet={mobileHeroImage.avifSrc}
@@ -59,11 +102,15 @@ export function ShellChromeLoading({
               height={540}
               loading="eager"
               src={transparentPixelSrc}
+              style={shellChromeMobileHeroImageStyle}
               width={960}
             />
           </picture>
         ) : null}
-        <div className="storefront-shell-loading__bar" />
+        <div
+          className="storefront-shell-loading__bar"
+          style={shellChromeLoadingBarStyle}
+        />
       </div>
     </LoadingStatus>
   );

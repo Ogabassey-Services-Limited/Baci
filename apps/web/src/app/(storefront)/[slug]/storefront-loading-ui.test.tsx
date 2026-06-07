@@ -56,6 +56,60 @@ describe('storefront-loading-ui', () => {
     expect(sources[1]).toHaveAttribute('type', 'image/jpeg');
   });
 
+  it('does not rely on external CSS for critical shell fallback geometry', () => {
+    const { container } = render(
+      <ShellChromeLoading
+        mobileHeroImage={{
+          alt: 'OgaBassey storefront hero',
+          avifSrc: '/hero-mobile.avif',
+          fallbackSrc: '/hero-mobile.jpg',
+        }}
+      />
+    );
+
+    const shell = container.querySelector('.storefront-shell-loading');
+    const picture = container.querySelector(
+      '.storefront-shell-loading__mobile-hero'
+    );
+    const image = screen.getByRole('img', {
+      name: 'OgaBassey storefront hero',
+    });
+    const bar = container.querySelector('.storefront-shell-loading__bar');
+
+    expect(shell).toHaveAttribute(
+      'style',
+      expect.stringContaining('box-sizing: border-box')
+    );
+    expect(shell).toHaveAttribute(
+      'style',
+      expect.stringContaining('padding: 0.75rem 1rem')
+    );
+    expect(shell).toHaveAttribute(
+      'style',
+      expect.stringContaining('background: var(--store-background, #ffffff)')
+    );
+    expect(picture).toHaveAttribute(
+      'style',
+      expect.stringContaining('aspect-ratio: 16 / 9')
+    );
+    expect(picture).toHaveAttribute(
+      'style',
+      expect.stringContaining('overflow: hidden')
+    );
+    expect(image).toHaveAttribute(
+      'style',
+      expect.stringContaining('height: auto')
+    );
+    expect(image).toHaveAttribute(
+      'style',
+      expect.stringContaining('object-fit: contain')
+    );
+    expect(bar).toHaveAttribute(
+      'style',
+      expect.stringContaining('height: 2.5rem')
+    );
+  });
+
   it('renders the shared route loading primitives', () => {
     render(
       <>
