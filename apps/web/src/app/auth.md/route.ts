@@ -25,6 +25,23 @@ Browser and account APIs use the OAuth/OIDC authorization server advertised in
 the protected-resource metadata. Signed checkout and order routes use the
 bearer_hmac contract described in agent-commerce.json.
 
+## agent_auth
+
+The OAuth Authorization Server Metadata includes an \`agent_auth\` block for
+agent registration discovery:
+
+- register_uri: ${baseUrl}/agent/auth
+- claim_uri: ${baseUrl}/agent/auth/claim
+- revocation_uri: ${baseUrl}/agent/auth/revoke
+- identity_types_supported: identity_assertion
+- assertion_types_supported: urn:ietf:params:oauth:token-type:id-jag
+- credential_types_supported: api_key
+- credential_format: bearer_hmac
+
+Ogabassey currently issues agent checkout credentials only to approved
+integrations after review. Unknown agents should not expect automatic OAuth
+client registration or public credential issuance.
+
 ## Step 3 - Use Agentic Checkout Credentials
 
 Approved agentic checkout clients present \`Authorization: Bearer <credential>\`
