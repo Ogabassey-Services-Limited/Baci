@@ -12,23 +12,7 @@ import {
 } from '@/lib/storefront-specs/spec-matrix';
 import { normalizeProductCondition, type Product } from '../types';
 import { ComparisonSlotCell } from './ComparisonSlotCell';
-
-interface SearchResultProduct {
-    id: string | number;
-    name: string;
-    slug?: string;
-    price: number;
-    image?: string;
-    imageLarge?: string;
-    description?: string;
-    rating?: number;
-    category?: string;
-    condition?: string;
-    brand?: string;
-    product_key_specs?: Product['product_key_specs'];
-    specifications?: { category: string; items: { label: string; value: string }[] }[];
-    variant_attributes?: Product['variant_attributes'];
-}
+import type { SearchResultProduct } from './comparison-search-types';
 
 interface ProductComparisonTableProps {
     mainProduct: Product;
@@ -36,6 +20,7 @@ interface ProductComparisonTableProps {
 }
 
 const FALLBACK_PRICE_CURRENCY = 'NGN';
+const SEARCH_ERROR_MESSAGE = 'Could not load products. Try again.';
 const SUPPORTED_CURRENCY_CODES = typeof Intl.supportedValuesOf === 'function' ? new Set(Intl.supportedValuesOf('currency')) : null;
 function getSafeCurrencyCode(currency?: string | null) {
     const code = currency?.trim().toUpperCase();
@@ -51,6 +36,7 @@ export function ProductComparisonTable({
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResultProduct[]>([]);
     const [loading, setLoading] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const merchantContext = useMerchantSafe();
     const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
@@ -72,10 +58,12 @@ export function ProductComparisonTable({
         const searchProducts = async () => {
             if (!query.trim() || query.length < 2) {
                 setResults([]);
+                setSearchError(null);
                 return;
             }
 
             setLoading(true);
+            setSearchError(null);
             try {
                 const categorySlug = mainProduct.categorySlug || mainProduct.category;
                 const params = new URLSearchParams({
@@ -101,8 +89,11 @@ export function ProductComparisonTable({
                 );
 
                 setResults(filtered);
+                setSearchError(null);
             } catch (err) {
                 console.error('Search failed', err);
+                setResults([]);
+                setSearchError(SEARCH_ERROR_MESSAGE);
             } finally {
                 setLoading(false);
             }
@@ -146,6 +137,7 @@ export function ProductComparisonTable({
         setIsSearching(null);
         setQuery('');
         setResults([]);
+        setSearchError(null);
     };
 
     const removeProduct = (index: number) => {
@@ -231,12 +223,17 @@ export function ProductComparisonTable({
                                     setIsSearching(nextSlotIdx);
                                     setQuery('');
                                     setResults([]);
+                                    setSearchError(null);
                                 }}
-                                onCancelSearch={() => setIsSearching(null)}
+                                onCancelSearch={() => {
+                                    setIsSearching(null);
+                                    setSearchError(null);
+                                }}
                                 query={query}
                                 setQuery={setQuery}
                                 results={results}
                                 loading={loading}
+                                searchError={searchError}
                                 onSelectProduct={addProduct}
                                 searchInputRef={searchInputRef}
                                 locale={priceLocale}

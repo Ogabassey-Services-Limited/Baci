@@ -120,6 +120,28 @@ describe('ComparisonSlotSearchOverlay', () => {
     expect(screen.getByText(/no products found/i)).toBeInTheDocument();
   });
 
+  it('renders search errors instead of the empty-results message', () => {
+    render(
+      <ComparisonSlotSearchOverlay
+        slotIdx={0}
+        isSearching={true}
+        onCancel={vi.fn()}
+        query="xyz"
+        setQuery={vi.fn()}
+        results={[]}
+        loading={false}
+        searchError="Could not load products. Try again."
+        onSelectProduct={vi.fn()}
+        searchInputRef={createRef<HTMLInputElement>()}
+      />
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /could not load products/i
+    );
+    expect(screen.queryByText(/no products found/i)).not.toBeInTheDocument();
+  });
+
   it('does not render when the slot is not searching', () => {
     const { container } = render(
       <ComparisonSlotSearchOverlay

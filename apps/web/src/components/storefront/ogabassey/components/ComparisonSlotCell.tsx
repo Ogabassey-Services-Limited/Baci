@@ -7,14 +7,7 @@ import { Plus, X } from 'lucide-react';
 import { asRoute } from '@/lib/routes';
 import type { Product } from '../types';
 import { ComparisonSlotSearchOverlay } from './ComparisonSlotSearchOverlay';
-
-interface SearchResultProduct {
-  id: string | number;
-  name: string;
-  price: number;
-  image?: string;
-  imageLarge?: string;
-}
+import type { SearchResultProduct } from './comparison-search-types';
 
 interface ComparisonSlotCellProps {
   slotIdx: number;
@@ -29,6 +22,7 @@ interface ComparisonSlotCellProps {
   setQuery: (query: string) => void;
   results: SearchResultProduct[];
   loading: boolean;
+  searchError?: string | null;
   onSelectProduct: (product: SearchResultProduct) => void;
   searchInputRef: RefObject<HTMLInputElement | null>;
   locale?: string;
@@ -48,6 +42,7 @@ export function ComparisonSlotCell({
   setQuery,
   results,
   loading,
+  searchError,
   onSelectProduct,
   searchInputRef,
   locale,
@@ -95,6 +90,7 @@ export function ComparisonSlotCell({
               setQuery={setQuery}
               results={results}
               loading={loading}
+              searchError={searchError}
               onSelectProduct={onSelectProduct}
               searchInputRef={searchInputRef}
               locale={locale}

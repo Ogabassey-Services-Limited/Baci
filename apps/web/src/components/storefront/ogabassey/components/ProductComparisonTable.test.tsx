@@ -1,4 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
@@ -173,6 +180,48 @@ describe('ProductComparisonTable', () => {
     fireEvent.click(resultButton as HTMLButtonElement);
 
     expect(screen.getByText('$1,500.00')).toBeInTheDocument();
+  });
+
+  it('shows loading feedback and a user-visible error when search fails', async () => {
+    let rejectSearch!: (reason?: unknown) => void;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((_resolve, reject) => {
+          rejectSearch = reject;
+        })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <ProductComparisonTable
+        mainProduct={createMainProduct()}
+        storeSlug="ogabassey"
+      />
+    );
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /compare similar smartphones/i })[0]
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: /search products/i }), {
+      target: { value: 'iphone' },
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(
+      screen.getByRole('status', { name: /loading products/i })
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      rejectSearch(new Error('Network down'));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /could not load products/i
+    );
+    expect(
+      screen.queryByRole('status', { name: /loading products/i })
+    ).not.toBeInTheDocument();
   });
 
   it('falls back to NGN when payout_currency is not set', async () => {

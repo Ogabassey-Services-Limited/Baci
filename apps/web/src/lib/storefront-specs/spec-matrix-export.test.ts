@@ -126,4 +126,32 @@ describe('buildComparisonMatrixExport', () => {
       inventory_policy: 'managed',
     });
   });
+
+  it.each([
+    null,
+    undefined,
+  ])('treats %s manage_stock as unmanaged inventory', (manageStock) => {
+    const exported = buildComparisonMatrixExport({
+      merchantId: 'merchant-1',
+      storeUrl: 'https://ogabassey.com',
+      generatedAt: '2026-06-07T00:00:00.000Z',
+      approvedCompareSlugs: [],
+      products: [
+        {
+          id: `phone-${String(manageStock)}`,
+          slug: `phone-${String(manageStock)}`,
+          name: 'Nullable Stock Policy Phone',
+          category_slug: 'smartphones',
+          price: 100_000,
+          manage_stock: manageStock,
+          stock_quantity: 0,
+        },
+      ],
+    });
+
+    expect(exported.products[0]).toMatchObject({
+      availability: 'InStock',
+      inventory_policy: 'unmanaged',
+    });
+  });
 });

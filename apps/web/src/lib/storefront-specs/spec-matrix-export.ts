@@ -41,7 +41,7 @@ function normalizeStoreUrl(storeUrl: string) {
 }
 
 function getAvailability(product: ComparisonMatrixExportProductInput) {
-  if (product.manage_stock === false) {
+  if (product.manage_stock !== true) {
     return {
       availability: 'InStock' as ExportAvailability,
       inventory_policy: 'unmanaged' as ExportInventoryPolicy,

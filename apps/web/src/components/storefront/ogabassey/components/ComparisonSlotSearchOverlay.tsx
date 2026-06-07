@@ -3,14 +3,7 @@
 import Image from 'next/image';
 import type { RefObject } from 'react';
 import { Loader2, Search, X } from 'lucide-react';
-
-interface SearchOverlayProduct {
-  id: string | number;
-  name: string;
-  price: number;
-  image?: string;
-  imageLarge?: string;
-}
+import type { SearchResultProduct } from './comparison-search-types';
 
 interface ComparisonSlotSearchOverlayProps {
   slotIdx: number;
@@ -18,9 +11,10 @@ interface ComparisonSlotSearchOverlayProps {
   onCancel: () => void;
   query: string;
   setQuery: (query: string) => void;
-  results: SearchOverlayProduct[];
+  results: SearchResultProduct[];
   loading: boolean;
-  onSelectProduct: (product: SearchOverlayProduct) => void;
+  searchError?: string | null;
+  onSelectProduct: (product: SearchResultProduct) => void;
   searchInputRef: RefObject<HTMLInputElement | null>;
   locale?: string;
   currencyCode?: string;
@@ -34,6 +28,7 @@ export function ComparisonSlotSearchOverlay({
   setQuery,
   results,
   loading,
+  searchError,
   onSelectProduct,
   searchInputRef,
   locale = 'en-NG',
@@ -90,7 +85,16 @@ export function ComparisonSlotSearchOverlay({
           </div>
         )}
 
-        {!loading && results.length > 0 && (
+        {!loading && searchError && (
+          <div
+            className="p-4 text-center text-xs text-store-primary"
+            role="alert"
+          >
+            {searchError}
+          </div>
+        )}
+
+        {!loading && !searchError && results.length > 0 && (
           <div className="space-y-1">
             {results.map((result) => (
               <button
@@ -121,7 +125,7 @@ export function ComparisonSlotSearchOverlay({
           </div>
         )}
 
-        {!loading && query && results.length === 0 && (
+        {!loading && !searchError && query && results.length === 0 && (
           <div className="p-4 text-center text-xs text-store-background-text/45">
             No products found
           </div>

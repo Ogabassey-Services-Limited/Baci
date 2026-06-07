@@ -87,8 +87,9 @@ describe('buildProductSpecData', () => {
   it('omits null, undefined, and empty-string product key specs without throwing', () => {
     const result = buildProductSpecData({
       product_key_specs: {
-        display_type: '',
+        display_type: '   ',
         chipset: 'Snapdragon 8 Elite',
+        gpu: '',
         ram_gb: null,
         storage_gb: undefined,
       },
@@ -105,6 +106,7 @@ describe('buildProductSpecData', () => {
     ).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ value: '' }),
+        expect.objectContaining({ value: '   ' }),
         expect.objectContaining({ value: 'undefined' }),
         expect.objectContaining({ value: 'null' }),
       ])
