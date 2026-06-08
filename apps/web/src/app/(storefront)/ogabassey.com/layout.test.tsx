@@ -58,7 +58,15 @@ describe('OgabasseyDomainLayout', () => {
     expect(mockStorefrontLayout).toHaveBeenCalledOnce();
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
-    expect(props?.loadingFallback).toBeUndefined();
+    expect(props?.loadingFallback).toBeDefined();
+    const fallbackRender = render(<div>{props?.loadingFallback}</div>);
+    expect(
+      fallbackRender.getByRole('status', {
+        name: /loading storefront chrome/i,
+      })
+    ).toBeInTheDocument();
+    expect(fallbackRender.container.querySelector('picture')).toBeTruthy();
+    fallbackRender.unmount();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
   });
 

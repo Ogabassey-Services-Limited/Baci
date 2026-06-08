@@ -4,6 +4,8 @@ import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
+import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import { OGABASSEY_SHELL_MOBILE_HERO_IMAGE } from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_URL } from '@/config/ogabassey';
 
 const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
@@ -32,7 +34,14 @@ export default function OgabasseyDomainLayout({
   children: ReactNode;
 }) {
   return (
-    <StorefrontLayout params={OGABASSEY_DOMAIN_PARAMS}>
+    <StorefrontLayout
+      loadingFallback={
+        <ShellChromeLoading
+          mobileHeroImage={OGABASSEY_SHELL_MOBILE_HERO_IMAGE}
+        />
+      }
+      params={OGABASSEY_DOMAIN_PARAMS}
+    >
       {children}
     </StorefrontLayout>
   );
