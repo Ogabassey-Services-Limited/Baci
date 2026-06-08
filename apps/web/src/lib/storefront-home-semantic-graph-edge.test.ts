@@ -80,6 +80,34 @@ describe('buildStorefrontHomeSemanticGraph edge cases', () => {
     );
   });
 
+  it('keeps product significant links when the product slug is empty but a canonical URL exists', () => {
+    const schema = buildStorefrontHomeSemanticGraph({
+      baseUrl: 'https://ogabassey.com',
+      categories: [],
+      collectionSchema,
+      description: 'Shop gadgets in Nigeria.',
+      identityGraph,
+      merchantName: 'OgaBassey',
+      products: [
+        makeProduct({
+          canonical_url: 'https://ogabassey.com/smartphones/iphone-canonical',
+          slug: '',
+        }),
+      ],
+    });
+
+    const graph = schema['@graph'] as Record<string, unknown>[];
+    const homepage = graph.find(
+      (node) => node['@id'] === 'https://ogabassey.com/#homepage'
+    );
+
+    expect(homepage?.significantLink).toEqual(
+      expect.arrayContaining([
+        'https://ogabassey.com/smartphones/iphone-canonical',
+      ])
+    );
+  });
+
   it('deduplicates category slugs before emitting category hub links', () => {
     const schema = buildStorefrontHomeSemanticGraph({
       baseUrl: 'https://ogabassey.com',

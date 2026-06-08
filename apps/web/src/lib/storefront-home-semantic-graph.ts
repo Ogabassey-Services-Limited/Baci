@@ -199,7 +199,6 @@ function buildNavigationNode(
 
 function buildProductSignificantLinks(input: StorefrontHomeSemanticGraphInput) {
   return input.products
-    .filter((product) => product.slug?.trim())
     .slice(0, DEFAULT_PRODUCT_LINK_LIMIT)
     .map((product) => storeUrl(input.baseUrl, getProductUrl(product)));
 }

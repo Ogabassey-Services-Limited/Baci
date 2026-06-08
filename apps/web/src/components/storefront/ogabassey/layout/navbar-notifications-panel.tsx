@@ -26,12 +26,14 @@ export function NavbarNotificationsPanel({
 
   return (
     <div
-      className="absolute top-full right-0 mt-4 w-80 bg-white rounded-xl shadow-xl border border-gray-100 py-0 animate-in fade-in slide-in-from-top-2 z-50 overflow-hidden"
+      className="absolute top-full right-0 z-50 mt-4 w-80 animate-in overflow-hidden rounded-xl border border-store-border bg-store-background py-0 shadow-xl fade-in slide-in-from-top-2"
       role="region"
       aria-label="Notifications"
     >
-      <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-        <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
+      <div className="flex items-center justify-between border-store-border border-b bg-store-background-text/5 px-4 py-3">
+        <h3 className="font-bold text-sm text-store-background-text">
+          Notifications
+        </h3>
       </div>
       <div className="max-h-[300px] overflow-y-auto">
         <EmptyState
@@ -41,12 +43,12 @@ export function NavbarNotificationsPanel({
           compact
         />
       </div>
-      <div className="p-2 border-t border-gray-100 bg-gray-50 text-center">
+      <div className="border-store-border border-t bg-store-background-text/5 p-2 text-center">
         <Link
           href={`${basePath}/account` as `/${string}`}
           prefetch={false}
           onClick={onClose}
-          className="text-xs font-bold text-gray-600 hover:text-gray-900 block py-1"
+          className="block py-1 font-bold text-store-background-text/70 text-xs hover:text-store-background-text"
         >
           View All
         </Link>

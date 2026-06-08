@@ -192,6 +192,28 @@ describe('OgabasseyHomeDynamicContent', () => {
     expect(analytics).toHaveTextContent('"facebook_pixel_id":null');
   });
 
+  it('keeps discovery links for products whose slugs are generated from names', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createProduct({
+        id: 'product-slugless',
+        name: 'Galaxy Fold 8',
+        slug: '',
+      }),
+    ]);
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    render(result as ReactElement);
+
+    expect(screen.getByRole('link', { name: 'Galaxy Fold 8' })).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/galaxy-fold-8'
+    );
+  });
+
   it('emits raw parsable JSON-LD scripts', async () => {
     vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
       createProduct(),

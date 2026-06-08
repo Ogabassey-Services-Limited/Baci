@@ -17,8 +17,8 @@ export function StorefrontDeferredFooterChrome({
 }: StorefrontDeferredFooterChromeProps) {
   return (
     <>
-      {/* Intrinsic size mirrors the max-width storefront grid and reserves one 120px banner row while content-visibility skips the offscreen footer work. */}
-      <div className="flex justify-center bg-gray-50 border-t border-gray-100/50 py-4 min-h-[120px] content-auto [contain-intrinsic-size:1400px_120px]">
+      {/* Intrinsic size mirrors the max-width storefront grid and reserves the 970x250 desktop footer banner while content-visibility skips the offscreen footer work. */}
+      <div className="flex min-h-[100px] justify-center border-store-border border-t bg-store-background py-4 content-auto md:min-h-[250px] [contain-intrinsic-size:1400px_250px]">
         <AdUnit placementKey="FOOTER_BANNER" />
       </div>
 

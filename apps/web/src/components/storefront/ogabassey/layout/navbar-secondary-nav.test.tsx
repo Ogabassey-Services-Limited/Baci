@@ -65,7 +65,9 @@ describe('NavbarSecondaryNav', () => {
 
     await user.click(trigger);
 
-    const panel = screen.getByRole('region', { name: /category navigation/i });
+    const panel = await screen.findByRole('region', {
+      name: /category navigation/i,
+    });
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(trigger).toHaveAttribute('aria-controls', panel.id);
   });
@@ -84,7 +86,7 @@ describe('NavbarSecondaryNav', () => {
       screen.getByRole('button', { name: /shop by category/i })
     );
 
-    expect(screen.getByRole('link', { name: 'Phones' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Phones' })).toHaveAttribute(
       'href',
       '/ogabassey/smartphones'
     );
@@ -107,7 +109,7 @@ describe('NavbarSecondaryNav', () => {
       screen.getByRole('button', { name: /shop by category/i })
     );
 
-    expect(screen.getByText('Loading categories…')).toBeInTheDocument();
+    expect(await screen.findByText('Loading categories…')).toBeInTheDocument();
   });
 
   it('closes the category dropdown when the user clicks outside', async () => {
@@ -123,7 +125,7 @@ describe('NavbarSecondaryNav', () => {
     await user.click(
       screen.getByRole('button', { name: /shop by category/i })
     );
-    expect(screen.getByRole('link', { name: 'Phones' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Phones' })).toBeInTheDocument();
 
     await user.click(document.body);
 

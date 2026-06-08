@@ -12,10 +12,10 @@ function NotificationsPanelLoading() {
   return (
     <div
       aria-label="Loading notifications"
-      className="absolute top-full right-0 mt-4 w-80 rounded-xl border border-gray-100 bg-white p-4 shadow-xl"
+      className="absolute top-full right-0 mt-4 w-80 rounded-xl border border-store-border bg-store-background p-4 shadow-xl"
       role="status"
     >
-      <div className="h-4 w-28 animate-pulse rounded-full bg-gray-200" />
+      <div className="h-4 w-28 animate-pulse rounded-full bg-store-background-text/15" />
     </div>
   );
 }

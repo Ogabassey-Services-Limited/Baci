@@ -140,7 +140,6 @@ export async function OgabasseyHomeDynamicContent({
     ).values()
   ).slice(0, 20);
   const productDiscoveryLinks = merchantProducts
-    .filter((product) => product.slug?.trim())
     .map((product) => {
       const canonicalCategorySlug = product.category_slug
         ? canonicalizeCategorySlug(product.category_slug)
