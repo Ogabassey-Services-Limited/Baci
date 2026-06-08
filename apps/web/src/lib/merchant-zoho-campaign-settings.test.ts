@@ -87,6 +87,7 @@ describe('merchant Zoho Campaigns settings', () => {
         },
       })
     ).toEqual({
+      accountsServerUrl: 'https://accounts.zoho.eu',
       apiRootUrl: 'https://campaigns.zoho.eu/api/v1.1',
       autoSend: true,
       enabled: true,
@@ -138,7 +139,10 @@ describe('merchant Zoho Campaigns settings', () => {
       },
     });
 
-    expect(parsed?.apiRootUrl).toBe('https://campaigns.zoho.in/api/v1.1');
+    expect(parsed).toMatchObject({
+      accountsServerUrl: 'https://accounts.zoho.in',
+      apiRootUrl: 'https://campaigns.zoho.in/api/v1.1',
+    });
 
     const result = await resolveMerchantZohoCampaignConfig({
       config,
@@ -157,7 +161,10 @@ describe('merchant Zoho Campaigns settings', () => {
     });
 
     expect(result).toMatchObject({
-      config: { apiRootUrl: 'https://campaigns.zoho.com.au/api/v1.1' },
+      config: {
+        accountsServerUrl: 'https://accounts.zoho.com.au',
+        apiRootUrl: 'https://campaigns.zoho.com.au/api/v1.1',
+      },
       status: 'configured',
     });
   });
@@ -180,7 +187,10 @@ describe('merchant Zoho Campaigns settings', () => {
     });
 
     expect(result).toMatchObject({
-      config: { apiRootUrl: config.apiRootUrl },
+      config: {
+        accountsServerUrl: config.accountsServerUrl,
+        apiRootUrl: config.apiRootUrl,
+      },
       status: 'configured',
     });
   });

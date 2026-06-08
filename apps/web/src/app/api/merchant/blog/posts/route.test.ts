@@ -836,6 +836,61 @@ describe('POST /api/merchant/blog/posts', () => {
       );
     });
 
+    it('lets Zoho dispatch recompute storefront context when revalidation lookup fails', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
+        new Error('context lookup failed')
+      );
+      mockSupabase.maybeSingle.mockResolvedValue({
+        data: null,
+        error: null,
+      });
+      mockSupabase.select.mockImplementation((fields: string) => {
+        if (fields === 'business_name, slug') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { business_name: 'Test Store', slug: 'test-store' },
+            error: null,
+          });
+        } else if (
+          fields === 'blog_enabled' ||
+          fields === 'blog_enabled, blog_discover_image_validation_enabled'
+        ) {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: {
+              blog_enabled: true,
+              blog_discover_image_validation_enabled: false,
+            },
+            error: null,
+          });
+        } else {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: {
+              id: '1',
+              slug: 'new-blog-post',
+              status: 'published',
+            },
+            error: null,
+          });
+        }
+        return mockSupabase;
+      });
+
+      await POST(
+        makeRequest('/api/merchant/blog/posts', {
+          body: { ...validPostData, status: 'published' },
+        })
+      );
+
+      expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(1);
+      expect(mockDispatchZohoBlogCampaign.mock.calls[0][0]).toEqual({
+        post: expect.objectContaining({ id: '1', status: 'published' }),
+        supabase: mockServiceSupabase.client,
+      });
+      consoleErrorSpy.mockRestore();
+    });
+
     it('dispatches a Zoho campaign for published posts', async () => {
       mockSupabase.maybeSingle.mockResolvedValue({
         data: null,

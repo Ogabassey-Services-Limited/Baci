@@ -787,6 +787,40 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       expect(typeof updateCall.reading_time_minutes).toBe('number');
     });
 
+    it('lets Zoho dispatch recompute storefront context when publish revalidation fails', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
+        new Error('context lookup failed')
+      );
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: existingPost,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { ...existingPost, status: 'published' },
+          error: null,
+        });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          status: 'published',
+          title: 'Updated Title',
+        }),
+        makeParams(POST_ID)
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(1);
+      expect(mockDispatchZohoBlogCampaign.mock.calls[0][0]).toEqual({
+        post: expect.objectContaining({ id: POST_ID, status: 'published' }),
+        supabase: mockServiceSupabase.client,
+      });
+      consoleErrorSpy.mockRestore();
+    });
+
     it('sets published_at when changing status from draft to published', async () => {
       mockSupabase.single
         .mockResolvedValueOnce({

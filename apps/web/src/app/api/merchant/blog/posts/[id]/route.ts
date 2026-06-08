@@ -391,14 +391,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     if (publishingNow) {
-      const dispatchContext = blogRevalidation ?? {
-        canonicalMerchantSlug: null,
-        identifiers: [],
-      };
       after(async () => {
         try {
           const result = await dispatchZohoBlogCampaign({
-            context: dispatchContext,
+            ...(blogRevalidation ? { context: blogRevalidation } : {}),
             post: updatedPost,
             supabase: createServiceClient(),
           });

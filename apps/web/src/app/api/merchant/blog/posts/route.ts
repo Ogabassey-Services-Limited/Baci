@@ -417,14 +417,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (newPost?.status === 'published') {
-      const dispatchContext = blogRevalidation ?? {
-        canonicalMerchantSlug: null,
-        identifiers: [],
-      };
       after(async () => {
         try {
           const result = await dispatchZohoBlogCampaign({
-            context: dispatchContext,
+            ...(blogRevalidation ? { context: blogRevalidation } : {}),
             post: newPost,
             supabase: createServiceClient(),
           });
