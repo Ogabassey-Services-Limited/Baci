@@ -30,18 +30,26 @@ vi.mock('./storefront-wrapper', () => ({
 vi.mock('@/components/analytics/analytics-provider', () => ({
   AnalyticsProvider: () => null,
 }));
+const mockOgabasseyHomePage = vi.hoisted(() =>
+  vi.fn(
+    ({
+      basePath,
+      products,
+      storeSlug,
+    }: {
+      basePath?: string;
+      products?: unknown[];
+      storeSlug?: string;
+    }) => (
+      <div data-testid="ogabassey-direct-home">
+        {storeSlug}:{basePath}:{products?.length ?? 0}
+      </div>
+    )
+  )
+);
 vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
-  OgabasseyHomePage: ({
-    products,
-    storeSlug,
-  }: {
-    products?: unknown[];
-    storeSlug?: string;
-  }) => (
-    <div data-testid="ogabassey-direct-home">
-      {storeSlug}:{products?.length ?? 0}
-    </div>
-  ),
+  OgabasseyHomePage: (props: Parameters<typeof mockOgabasseyHomePage>[0]) =>
+    mockOgabasseyHomePage(props),
 }));
 vi.mock('@/components/storefront/ogabassey/home-product-feed', () => ({
   createOgabasseyHomeProductFeed: vi.fn((products: unknown[]) =>
@@ -222,7 +230,34 @@ describe('StorefrontContent', () => {
       ])
     );
     expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
-      'test-store:1'
+      'test-store:/test-store:1'
+    );
+    expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
+      expect.objectContaining({ basePath: '/test-store' })
+    );
+  });
+
+  it('passes an empty base path to the OgaBassey template on custom domains', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'shop.test']])
+    );
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createMockHomeProduct({ id: 'domain-product', name: 'Domain Product' }),
+    ]);
+
+    const result = await StorefrontContent({ merchant: mockMerchant });
+    render(result as React.ReactElement);
+
+    expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
+      'test-store::1'
+    );
+    expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
+      expect.objectContaining({ basePath: '' })
     );
   });
 

@@ -3,16 +3,8 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
 
-const mockUseMerchantSafe = vi.fn<() => { basePath?: string } | null>(
-  () => null
-);
-
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
-}));
-
-vi.mock('@/hooks/merchant/use-merchant', () => ({
-  useMerchantSafe: () => mockUseMerchantSafe(),
 }));
 
 vi.mock('next/link', () => ({
@@ -124,7 +116,6 @@ describe('HomeProductGrid', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockDeferredAdUnit.mockClear();
-    mockUseMerchantSafe.mockReturnValue(null);
   });
 
   afterEach(async () => {
@@ -165,11 +156,10 @@ describe('HomeProductGrid', () => {
     ).toHaveAttribute('data-prefetch', 'false');
   });
 
-  it('uses merchant basePath so custom domains avoid slug-prefixed links', () => {
-    mockUseMerchantSafe.mockReturnValue({ basePath: '' });
-
+  it('uses an explicit server-resolved basePath so custom domains avoid slug-prefixed links', () => {
     render(
       <HomeProductGrid
+        basePath=""
         storeSlug="ogabassey"
         products={[createTestProduct(1)]}
       />
@@ -185,10 +175,9 @@ describe('HomeProductGrid', () => {
     // produced `/ogabassey//products` because the string was concatenated
     // directly. The component trims trailing slashes before building the
     // href.
-    mockUseMerchantSafe.mockReturnValue({ basePath: '/ogabassey/' });
-
     render(
       <HomeProductGrid
+        basePath="/ogabassey/"
         storeSlug="ogabassey"
         products={[createTestProduct(1)]}
       />

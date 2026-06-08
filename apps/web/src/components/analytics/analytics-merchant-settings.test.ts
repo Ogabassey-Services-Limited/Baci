@@ -1,0 +1,65 @@
+import { describe, expect, it } from 'vitest';
+import { buildMerchantAnalyticsSettings } from './analytics-merchant-settings';
+
+describe('buildMerchantAnalyticsSettings', () => {
+  it('returns null for nullish merchant sources', () => {
+    expect(buildMerchantAnalyticsSettings(null)).toBeNull();
+    expect(buildMerchantAnalyticsSettings(undefined)).toBeNull();
+  });
+
+  it('returns null for primitive merchant sources', () => {
+    expect(buildMerchantAnalyticsSettings('merchant')).toBeNull();
+    expect(buildMerchantAnalyticsSettings(123)).toBeNull();
+    expect(buildMerchantAnalyticsSettings(false)).toBeNull();
+  });
+
+  it('returns null for array merchant sources', () => {
+    expect(buildMerchantAnalyticsSettings([])).toBeNull();
+  });
+
+  it('prefers normalized feature settings over legacy analytics fields', () => {
+    expect(
+      buildMerchantAnalyticsSettings({
+        feature_settings: {
+          google_analytics_id: ' G-FEATURE ',
+        },
+        google_analytics_id: 'G-LEGACY',
+      })
+    ).toEqual(
+      expect.objectContaining({
+        google_analytics_id: 'G-FEATURE',
+      })
+    );
+  });
+
+  it('falls back to normalized legacy analytics fields when feature settings are blank', () => {
+    expect(
+      buildMerchantAnalyticsSettings({
+        feature_settings: {
+          google_analytics_id: '   ',
+        },
+        google_analytics_id: ' G-LEGACY ',
+      })
+    ).toEqual(
+      expect.objectContaining({
+        google_analytics_id: 'G-LEGACY',
+      })
+    );
+  });
+
+  it('normalizes numeric IDs and drops unsupported values', () => {
+    expect(
+      buildMerchantAnalyticsSettings({
+        facebook_pixel_id: 12345,
+        tiktok_pixel_id: false,
+        twitter_pixel_id: {},
+      })
+    ).toEqual(
+      expect.objectContaining({
+        facebook_pixel_id: '12345',
+        tiktok_pixel_id: null,
+        twitter_pixel_id: null,
+      })
+    );
+  });
+});

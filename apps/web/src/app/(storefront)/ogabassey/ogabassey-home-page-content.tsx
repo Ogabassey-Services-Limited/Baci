@@ -43,7 +43,7 @@ export async function OgabasseyHomePageContent({
 
   return (
     <>
-      {renderHero && <Hero />}
+      {renderHero && <Hero basePath={pathPrefix} />}
       <Suspense fallback={null}>
         <OgabasseyHomeDynamicContent
           merchant={merchant}

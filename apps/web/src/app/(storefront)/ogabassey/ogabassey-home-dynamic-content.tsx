@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { mapHomeProductsToTemplateProducts } from '@/app/(storefront)/ogabassey/ogabassey-home-product-adapter';
-import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
+import { buildMerchantAnalyticsSettings } from '@/components/analytics/analytics-merchant-settings';
+import { AnalyticsPixelProvider } from '@/components/analytics/analytics-pixel-provider';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
 import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
 import { OgabasseyHomePage } from '@/components/storefront/ogabassey/pages/home';
@@ -168,8 +169,11 @@ export async function OgabasseyHomeDynamicContent({
           {safeJsonLdStringify(homeCollectionSchema)}
         </script>
       ) : null}
-      <AnalyticsProvider />
+      <AnalyticsPixelProvider
+        merchant={buildMerchantAnalyticsSettings(merchant)}
+      />
       <OgabasseyHomePage
+        basePath={pathPrefix}
         categories={categories || []}
         products={createOgabasseyHomeProductFeed(merchantProducts)}
         renderHero={false}
