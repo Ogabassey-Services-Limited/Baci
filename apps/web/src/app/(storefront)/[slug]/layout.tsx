@@ -230,6 +230,27 @@ function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
   return <StorefrontThemeProvider>{children}</StorefrontThemeProvider>;
 }
 
+function StorefrontPprStaticShell({
+  children,
+  loadingFallback,
+}: {
+  children: React.ReactNode;
+  loadingFallback: React.ReactNode;
+}) {
+  return (
+    <div className="storefront-ppr-static-shell">
+      <Suspense fallback={null}>
+        <div className="storefront-ppr-static-shell__content">{children}</div>
+      </Suspense>
+      {loadingFallback ? (
+        <div className="storefront-ppr-static-shell__fallback">
+          {loadingFallback}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
@@ -285,16 +306,23 @@ export default function StorefrontLayout(props: {
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  // Keep a non-null shell around the request-bound tenant lookup. A null
-  // fallback hides child route fallbacks and can make Cache Components report
-  // that dynamic storefront routes did not produce a static shell.
-  const { loadingFallback = <ShellChromeLoading />, ...contentProps } = props;
+  // Keep the request-bound tenant lookup out of the prerendered root HTML.
+  // Next 16.2/PPR can resume Googlebot's blocking metadata boundary into the
+  // dynamic Suspense slot when that slot owns a visible fallback. Preserve the
+  // human PPR shell as a static sibling instead: browsers get immediate chrome
+  // and LCP imagery, while the resume slot itself stays null for bot/blocking
+  // metadata requests.
+  const { loadingFallback, ...contentProps } = props;
+  // Undefined uses the shared ShellChromeLoading; explicit null opts out for
+  // routes that intentionally need no static visual shell.
+  const staticLoadingFallback =
+    loadingFallback === undefined ? <ShellChromeLoading /> : loadingFallback;
 
   return (
     <StorefrontThemeFrame>
-      <Suspense fallback={loadingFallback}>
+      <StorefrontPprStaticShell loadingFallback={staticLoadingFallback}>
         <StorefrontLayoutContent {...contentProps} />
-      </Suspense>
+      </StorefrontPprStaticShell>
     </StorefrontThemeFrame>
   );
 }

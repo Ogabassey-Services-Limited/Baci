@@ -37,7 +37,7 @@ export function ShipmentFlowHeader({
       <Pressable
         accessibilityLabel="Close shipment flow"
         accessibilityRole="button"
-        accessibilityState={{ disabled: isSubmitting }}
+        accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
         disabled={isSubmitting}
         hitSlop={12}
         onPress={onClose}
