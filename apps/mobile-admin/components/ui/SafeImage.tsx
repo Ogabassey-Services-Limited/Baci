@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { SvgUri, SvgXml } from 'react-native-svg';
+import { useTheme } from '@/hooks/useTheme';
 
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
 
@@ -43,9 +44,10 @@ function SafeImage({
   showFallbackIcon = true,
   fallbackStyle,
   fallbackIconSize = 32,
-  fallbackIconColor = '#9CA3AF',
+  fallbackIconColor,
   ...rest
 }: SafeImageProps) {
+  const { colors } = useTheme();
   const [hasError, setHasError] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
   const [xml, setXml] = useState<string | null>(null);
@@ -150,6 +152,7 @@ function SafeImage({
       <View
         style={[
           styles.fallbackContainer,
+          { backgroundColor: colors.card },
           style as StyleProp<ViewStyle>,
           fallbackStyle,
         ]}
@@ -157,7 +160,7 @@ function SafeImage({
         <Ionicons
           name="image-outline"
           size={fallbackIconSize}
-          color={fallbackIconColor}
+          color={fallbackIconColor || colors.textSecondary}
         />
       </View>
     );
@@ -167,8 +170,8 @@ function SafeImage({
   if (isSvg && !hasError) {
     if (isLoadingXml) {
       return (
-        <View style={[style, styles.loadingContainer]}>
-          <ActivityIndicator size="small" color="#9CA3AF" />
+        <View style={[styles.loadingContainer, { backgroundColor: colors.background }, style]}>
+          <ActivityIndicator size="small" color={colors.textSecondary} />
         </View>
       );
     }
@@ -268,14 +271,12 @@ export function useSafeImageProps(blurhash?: string) {
 
 const styles = StyleSheet.create({
   fallbackContainer: {
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
   },
   svgWrapper: {
     justifyContent: 'center',
