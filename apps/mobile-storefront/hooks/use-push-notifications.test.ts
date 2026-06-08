@@ -356,13 +356,39 @@ describe('usePushNotifications', () => {
       expect(mockNotificationResponseCallback).not.toBeNull();
     });
 
-    await act(async () => {
+    act(() => {
       mockNotificationResponseCallback?.({});
     });
 
     expect(mockRouterPush).toHaveBeenCalledWith(
       '/utilities/history?type=power'
     );
+  });
+
+  it('routes savings reminder notification taps to the wallet savings action', async () => {
+    handleNotificationResponse.mockImplementation(
+      (
+        _response: unknown,
+        navigate: (screen: string, params?: Record<string, string>) => void
+      ) => {
+        navigate('wallet', { action: 'savings' });
+      }
+    );
+
+    renderHook(() => usePushNotifications());
+
+    await waitFor(() => {
+      expect(mockNotificationResponseCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mockNotificationResponseCallback?.({});
+    });
+
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/wallet',
+      params: { action: 'savings' },
+    });
   });
 
   // --- unregister() tests ---

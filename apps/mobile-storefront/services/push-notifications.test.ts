@@ -34,6 +34,10 @@ jest.mock('expo-notifications', () => ({
   }),
   getPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
   requestPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+  scheduleNotificationAsync: jest.fn(async (request: unknown) => {
+    mockCallOrder.push('scheduleNotificationAsync');
+    return `notification:${JSON.stringify(request)}`;
+  }),
   setNotificationChannelAsync: jest.fn(async () => {
     mockCallOrder.push('setNotificationChannelAsync');
   }),
@@ -43,7 +47,11 @@ jest.mock('expo-notifications', () => ({
 }));
 
 jest.mock('react-native', () => ({
-  Platform: { get OS() { return mockPlatformOS; } },
+  Platform: {
+    get OS() {
+      return mockPlatformOS;
+    },
+  },
 }));
 
 jest.mock('@/lib/logger', () => ({
@@ -58,8 +66,7 @@ const {
   handleNotificationResponse,
   registerForPushNotifications,
   savePushTokenToServer,
-} =
-  require('./push-notifications') as typeof import('./push-notifications');
+} = require('./push-notifications') as typeof import('./push-notifications');
 const { getStorefrontNotificationNavigationTarget } = jest.requireMock(
   '@baci/shared/lib'
 ) as {

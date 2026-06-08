@@ -8,8 +8,15 @@ import {
   initializeSavingsAuthorization,
 } from '@/lib/customer-savings';
 import { WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
-import { formatDateInput } from './start-savings.helpers';
-import type { SavingsFrequency } from './start-savings.helpers';
+import {
+  cancelSavingsReminderNotification,
+  scheduleSavingsReminderNotification,
+} from '@/services/savings-reminder-notifications';
+import {
+  formatDateInput,
+  getSavingsReminderScheduledAt,
+  type SavingsFrequency,
+} from './start-savings.helpers';
 import type {
   SavingsProductChoice,
   SavingsSourceMode,
@@ -36,6 +43,7 @@ type UseStartSavingsSubmitInput = {
   initialContributionIdempotencyKey: string | null;
   maturityDate: string;
   normalizedVariantId?: string;
+  preferredDebitTime: string;
   refetch: () => Promise<unknown>;
   requiredTopUpAmount: number;
   selectedPaymentMethodId: string | null;
@@ -143,6 +151,26 @@ export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
       if (!result.success) {
         throw new Error('Unable to create savings plan.');
       }
+      if (input.sourceMode === 'manual') {
+        try {
+          if (input.targetValue > requestInitialContribution) {
+            await scheduleSavingsReminderNotification({
+              contributionAmount: input.contributionValue,
+              frequency: input.frequency,
+              goalId: result.goalId,
+              goalTitle: validation.selectedProduct.name,
+              scheduledAt: getSavingsReminderScheduledAt({
+                preferredDebitTime: input.preferredDebitTime,
+                startDate: validation.formattedStartDate,
+              }),
+            });
+          } else {
+            await cancelSavingsReminderNotification(result.goalId);
+          }
+        } catch {
+          // Reminder scheduling is best effort and must not block goal creation.
+        }
+      }
       input.setShowFundingModal(false);
       input.setShowPreviewModal(false);
       input.setShowTransferModal(false);
@@ -230,7 +258,11 @@ export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
   };
 
   return {
-    goToWallet: () => router.replace('/wallet'),
+    goToWallet: () =>
+      router.replace({
+        pathname: '/wallet',
+        params: { action: 'savings' },
+      }),
     handleAuthorizeSavingsCard,
     handleCopyFundingAccount,
     isAuthorizingCard,

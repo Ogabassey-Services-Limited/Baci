@@ -4,6 +4,7 @@ import {
   formatDateInput,
   getEffectiveInitialContribution,
   getRequiredTopUp,
+  getSavingsReminderScheduledAt,
   normalizeAmountInput,
   parseAmount,
 } from './start-savings.helpers';
@@ -32,6 +33,24 @@ describe('start savings helpers', () => {
   it('returns blank for invalid date input', () => {
     expect(formatDateInput('not-a-date')).toBe('');
     expect(formatDateInput('2026-99-99')).toBe('');
+  });
+
+  it('combines savings reminder start date and preferred debit time', () => {
+    expect(
+      getSavingsReminderScheduledAt({
+        preferredDebitTime: '07:45',
+        startDate: '2026-05-22',
+      })
+    ).toEqual(new Date('2026-05-22T07:45:00'));
+  });
+
+  it('falls back to start-of-day for invalid savings reminder times', () => {
+    expect(
+      getSavingsReminderScheduledAt({
+        preferredDebitTime: 'bad-time',
+        startDate: '2026-05-22',
+      })
+    ).toEqual(new Date('2026-05-22T00:00:00'));
   });
 
   it('calculates maturity date from contribution cycles', () => {

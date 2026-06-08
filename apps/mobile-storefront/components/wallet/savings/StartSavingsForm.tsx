@@ -8,7 +8,7 @@ import type {
   SavingsSourceMode,
   StartSavingsColors,
 } from './start-savings.types';
-import type { StartSavingsController } from './use-start-savings-controller';
+import type { StartSavingsController } from './start-savings-controller.types';
 
 type StartSavingsFormProps = {
   colors: StartSavingsColors;

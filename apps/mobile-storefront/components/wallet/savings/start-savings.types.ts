@@ -8,8 +8,11 @@ export type SavingsSearchParams = {
 
 export type SavingsProductChoice = Pick<
   Product,
-  'id' | 'name' | 'price' | 'slug'
->;
+  'id' | 'image' | 'name' | 'price' | 'slug'
+> & {
+  conditionLabel?: string | null;
+  variantLabel?: string | null;
+};
 export type SavingsSourceMode = 'manual' | 'auto_debit';
 export type StartSavingsColors = {
   background: string;

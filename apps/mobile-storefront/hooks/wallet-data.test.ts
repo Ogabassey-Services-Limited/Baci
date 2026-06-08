@@ -35,24 +35,36 @@ function setupSupabaseTables(
       id: 'wallet-1',
     }),
     customer_savings_goals: createResult([]),
+    products: createResult(null),
     ...overrides,
   };
   const tableCalls: string[] = [];
+  const selectCalls: Record<string, string[]> = {};
 
   mockFrom.mockImplementation((table: string) => {
     tableCalls.push(table);
+    selectCalls[table] = [];
     const query = {
       eq: jest.fn(() => query),
-      in: jest.fn(async () => tableResults[table]),
+      in: jest.fn(() => query),
       limit: jest.fn(async () => tableResults[table]),
       maybeSingle: jest.fn(async () => tableResults[table]),
-      order: jest.fn(() => query),
-      select: jest.fn(() => query),
+      order: jest.fn(() =>
+        table === 'customer_savings_goals'
+          ? Promise.resolve(tableResults[table])
+          : query
+      ),
+      select: jest.fn((columns?: string) => {
+        if (typeof columns === 'string') {
+          selectCalls[table].push(columns);
+        }
+        return query;
+      }),
     };
     return query;
   });
 
-  return { tableCalls };
+  return { selectCalls, tableCalls };
 }
 
 describe('fetchWalletData', () => {
@@ -65,6 +77,7 @@ describe('fetchWalletData', () => {
 
     expect(result).toEqual({
       wallet: {
+        active_savings_goal: null,
         balance: 0,
         earnings_balance: 0,
         funding_account: null,
@@ -91,7 +104,7 @@ describe('fetchWalletData', () => {
   });
 
   it('combines wallet, funding account, savings balance, and valid transactions', async () => {
-    setupSupabaseTables({
+    const { selectCalls, tableCalls } = setupSupabaseTables({
       customer_wallet_payment_accounts: createResult({
         account_name: 'Ogabassey/Jane Doe',
         account_number: '1234567890',
@@ -99,8 +112,52 @@ describe('fetchWalletData', () => {
         provider: 'paystack',
       }),
       customer_savings_goals: createResult([
-        { current_amount: '20000' },
-        { current_amount: 15000.5 },
+        {
+          contribution_amount: '10000',
+          contribution_frequency: 'weekly',
+          current_amount: '20000',
+          id: 'goal-1',
+          maturity_date: '2026-09-30',
+          product_id: 'product-1',
+          product_snapshot: {},
+          products: {
+            condition: 'uk_used',
+            id: 'product-1',
+            images: ['https://cdn.example.com/iphone.jpg'],
+            name: 'iPhone 15 Pro',
+            variants: [
+              {
+                attributes: {
+                  color: 'Black',
+                  storage: '256GB',
+                },
+                condition: 'uk_used',
+                id: 'variant-1',
+                price: '120000',
+                sku: 'IPH15P-256',
+              },
+            ],
+          },
+          source_mode: 'manual',
+          status: 'active',
+          target_amount: '120000',
+          title: 'iPhone 15 Pro',
+          variant_id: 'variant-1',
+        },
+        {
+          contribution_amount: '5000',
+          contribution_frequency: 'weekly',
+          current_amount: 15000.5,
+          id: 'goal-2',
+          maturity_date: '2026-10-30',
+          product_id: 'product-2',
+          product_snapshot: {},
+          source_mode: 'manual',
+          status: 'paused',
+          target_amount: '90000',
+          title: 'Savings goal',
+          variant_id: null,
+        },
         { current_amount: 'bad-number' },
       ]),
       customer_wallet_transactions: createResult([
@@ -123,6 +180,20 @@ describe('fetchWalletData', () => {
     const result = await fetchWalletData('customer-1', 'merchant-1', 'user-1');
 
     expect(result.wallet).toEqual({
+      active_savings_goal: {
+        contribution_amount: 10000,
+        contribution_frequency: 'weekly',
+        current_amount: 20000,
+        id: 'goal-1',
+        maturity_date: '2026-09-30',
+        product_condition: 'Used',
+        product_image: 'https://cdn.example.com/iphone.jpg',
+        product_variant_label: 'Storage: 256GB',
+        source_mode: 'manual',
+        status: 'active',
+        target_amount: 120000,
+        title: 'iPhone 15 Pro',
+      },
       balance: 5000,
       earnings_balance: 5000,
       funding_account: {
@@ -136,6 +207,10 @@ describe('fetchWalletData', () => {
       savings_balance: 35000.5,
       total_balance: 40000.5,
     });
+    expect(tableCalls).not.toContain('products');
+    expect(selectCalls.customer_savings_goals[0]).toContain(
+      'variants:product_variants!product_variants_product_id_fkey'
+    );
     expect(result.transactions).toEqual([
       {
         amount: 2500,
@@ -145,6 +220,41 @@ describe('fetchWalletData', () => {
         type: 'credit',
       },
     ]);
+  });
+
+  it('skips product metadata lookup for general savings goals without product ids', async () => {
+    const { tableCalls } = setupSupabaseTables({
+      customer_savings_goals: createResult([
+        {
+          contribution_amount: '10000',
+          contribution_frequency: 'weekly',
+          current_amount: '20000',
+          id: 'goal-1',
+          maturity_date: '2026-09-30',
+          product_id: null,
+          product_snapshot: {
+            image_url: 'https://cdn.example.com/general.jpg',
+            variant_label: 'Manual goal',
+          },
+          source_mode: 'manual',
+          status: 'active',
+          target_amount: '120000',
+          title: 'General savings',
+          variant_id: null,
+        },
+      ]),
+    });
+
+    const result = await fetchWalletData('customer-1', 'merchant-1', 'user-1');
+
+    expect(tableCalls).not.toContain('products');
+    expect(result.wallet.active_savings_goal).toEqual(
+      expect.objectContaining({
+        product_image: 'https://cdn.example.com/general.jpg',
+        product_variant_label: 'Manual goal',
+        title: 'General savings',
+      })
+    );
   });
 
   it('logs and returns an empty wallet when multiple customer owners match', async () => {

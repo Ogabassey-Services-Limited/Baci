@@ -14,6 +14,7 @@ describe('WalletActionsRow', () => {
     render(
       <WalletActionsRow
         colors={Colors.light}
+        hasActiveSavingsGoal={false}
         onManageCards={onManageCards}
         onQuickSave={onQuickSave}
         onStartSavings={onStartSavings}
@@ -21,9 +22,9 @@ describe('WalletActionsRow', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Start savings' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Manage cards' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Quick save' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Start Savings' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Manage Cards' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Quick Save' }));
 
     expect(onStartSavings).toHaveBeenCalledTimes(1);
     expect(onManageCards).toHaveBeenCalledTimes(1);
@@ -36,6 +37,7 @@ describe('WalletActionsRow', () => {
     render(
       <WalletActionsRow
         colors={Colors.light}
+        hasActiveSavingsGoal={false}
         onManageCards={noop}
         onQuickSave={noop}
         onStartSavings={noop}
@@ -43,7 +45,7 @@ describe('WalletActionsRow', () => {
       />
     );
 
-    expect(screen.queryByRole('button', { name: 'Quick save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Quick Save' })).toBeNull();
   });
 
   it('keeps manage cards visible on a white button in dark mode', () => {
@@ -52,6 +54,7 @@ describe('WalletActionsRow', () => {
     render(
       <WalletActionsRow
         colors={Colors.dark}
+        hasActiveSavingsGoal={false}
         onManageCards={noop}
         onQuickSave={noop}
         onStartSavings={noop}
@@ -62,5 +65,26 @@ describe('WalletActionsRow', () => {
     expect(
       StyleSheet.flatten(screen.getByText('Manage Cards').props.style)
     ).toEqual(expect.objectContaining({ color: WALLET_COLORS.darkText }));
+  });
+
+  it('uses the savings top-up label when a savings goal is active', () => {
+    const onStartSavings = jest.fn();
+
+    render(
+      <WalletActionsRow
+        colors={Colors.light}
+        hasActiveSavingsGoal
+        onManageCards={jest.fn()}
+        onQuickSave={jest.fn()}
+        onStartSavings={onStartSavings}
+        showQuickSave
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Add to Savings' }));
+
+    expect(screen.queryByText('Start Savings')).toBeNull();
+    expect(screen.getByText('Add to Savings')).toBeOnTheScreen();
+    expect(onStartSavings).toHaveBeenCalledTimes(1);
   });
 });

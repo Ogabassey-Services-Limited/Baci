@@ -255,6 +255,10 @@
     {
       "path": "services/push-notifications.ts",
       "justification": "Reviewed web guard and Android notification channel setup."
+    },
+    {
+      "path": "services/savings-reminder-notifications.ts",
+      "justification": "Reviewed web guard and Android notification channel setup for savings reminders."
     }
   ],
   "knownForbiddenPatterns": []
