@@ -21,6 +21,10 @@ const mockInitializeSavingsAuthorization =
 const mockSetClipboardString =
   jest.fn<(...args: unknown[]) => Promise<boolean>>();
 const mockRandomUUID = jest.fn();
+const mockScheduleSavingsReminderNotification =
+  jest.fn<(...args: unknown[]) => Promise<string | null>>();
+const mockCancelSavingsReminderNotification =
+  jest.fn<(...args: unknown[]) => Promise<boolean>>();
 
 jest.mock('expo-router', () => ({
   router: {
@@ -43,6 +47,13 @@ jest.mock('@/lib/clipboard', () => ({
   setClipboardString: (...args: unknown[]) => mockSetClipboardString(...args),
 }));
 
+jest.mock('@/services/savings-reminder-notifications', () => ({
+  cancelSavingsReminderNotification: (...args: unknown[]) =>
+    mockCancelSavingsReminderNotification(...args),
+  scheduleSavingsReminderNotification: (...args: unknown[]) =>
+    mockScheduleSavingsReminderNotification(...args),
+}));
+
 function createInput(overrides = {}) {
   return {
     activeMerchantId: 'merchant-1',
@@ -54,11 +65,13 @@ function createInput(overrides = {}) {
     initialContributionIdempotencyKey: null,
     maturityDate: '2026-06-30',
     normalizedVariantId: undefined,
+    preferredDebitTime: '06:20',
     refetch: jest.fn(async () => undefined),
     requiredTopUpAmount: 50000,
     selectedPaymentMethodId: null,
     selectedProduct: {
       id: 'product-1',
+      image: 'https://example.com/iphone.jpg',
       name: 'iPhone 13 Pro Max',
       price: 800000,
       slug: 'iphone-13-pro-max',
@@ -92,6 +105,8 @@ describe('useStartSavingsSubmit', () => {
       success: true,
     });
     mockSetClipboardString.mockResolvedValue(true);
+    mockCancelSavingsReminderNotification.mockResolvedValue(true);
+    mockScheduleSavingsReminderNotification.mockResolvedValue('reminder-1');
   });
 
   it('submits a manual savings goal and reuses one idempotency key', async () => {
@@ -112,7 +127,54 @@ describe('useStartSavingsSubmit', () => {
         sourceMode: 'manual',
       })
     );
+    expect(mockScheduleSavingsReminderNotification).toHaveBeenCalledWith({
+      contributionAmount: 20000,
+      frequency: 'daily',
+      goalId: 'goal-1',
+      goalTitle: 'iPhone 13 Pro Max',
+      scheduledAt: new Date('2026-05-22T06:20:00'),
+    });
+    expect(mockCancelSavingsReminderNotification).not.toHaveBeenCalled();
     expect(input.setShowSuccessModal).toHaveBeenCalledWith(true);
+  });
+
+  it('skips recurring reminders when the initial contribution completes the goal', async () => {
+    const input = createInput({
+      effectiveInitialContribution: 800000,
+      targetValue: 800000,
+    });
+    const { result } = renderHook(() => useStartSavingsSubmit(input));
+
+    await act(async () => {
+      await result.current.submitSavingsGoal();
+    });
+
+    expect(mockCreateSavingsGoal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialContributionAmount: 800000,
+        targetAmount: 800000,
+      })
+    );
+    expect(mockScheduleSavingsReminderNotification).not.toHaveBeenCalled();
+    expect(mockCancelSavingsReminderNotification).toHaveBeenCalledWith(
+      'goal-1'
+    );
+    expect(input.setShowSuccessModal).toHaveBeenCalledWith(true);
+  });
+
+  it('does not block manual goal creation when reminder scheduling fails', async () => {
+    mockScheduleSavingsReminderNotification.mockRejectedValue(
+      new Error('notifications denied')
+    );
+    const input = createInput();
+    const { result } = renderHook(() => useStartSavingsSubmit(input));
+
+    await act(async () => {
+      await result.current.submitSavingsGoal();
+    });
+
+    expect(input.setShowSuccessModal).toHaveBeenCalledWith(true);
+    expect(input.setFormError).not.toHaveBeenCalledWith('notifications denied');
   });
 
   it('ignores duplicate savings submissions while the first request is in flight', async () => {
@@ -189,9 +251,7 @@ describe('useStartSavingsSubmit', () => {
 
   it('keeps success visible when wallet data refresh fails after creation', async () => {
     const input = createInput({
-      refetch: jest.fn(async () => {
-        throw new Error('Refresh failed');
-      }),
+      refetch: jest.fn(() => Promise.reject(new Error('Refresh failed'))),
     });
     const { result } = renderHook(() => useStartSavingsSubmit(input));
 
@@ -221,6 +281,8 @@ describe('useStartSavingsSubmit', () => {
       'Select a saved card for auto debit.'
     );
     expect(mockCreateSavingsGoal).not.toHaveBeenCalled();
+    expect(mockScheduleSavingsReminderNotification).not.toHaveBeenCalled();
+    expect(mockCancelSavingsReminderNotification).not.toHaveBeenCalled();
   });
 
   it('fails visibly when the start date cannot be formatted', async () => {

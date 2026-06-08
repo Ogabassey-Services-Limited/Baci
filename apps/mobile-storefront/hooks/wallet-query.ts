@@ -1,4 +1,5 @@
 export interface WalletData {
+  active_savings_goal?: WalletActiveSavingsGoal | null;
   balance: number;
   earnings_balance?: number;
   funding_account?: WalletFundingAccount | null;
@@ -6,6 +7,21 @@ export interface WalletData {
   requires_funding_account_consent?: boolean;
   savings_balance?: number;
   total_balance?: number;
+}
+
+export interface WalletActiveSavingsGoal {
+  contribution_amount: number;
+  contribution_frequency: 'daily' | 'weekly' | 'monthly';
+  current_amount: number;
+  id: string;
+  maturity_date: string;
+  product_condition?: string | null;
+  product_image?: string | null;
+  product_variant_label?: string | null;
+  source_mode: 'manual' | 'auto_debit';
+  status: 'active' | 'paused' | 'completed';
+  target_amount: number;
+  title: string;
 }
 
 export type WalletFundingProvider = 'paystack' | (string & {});

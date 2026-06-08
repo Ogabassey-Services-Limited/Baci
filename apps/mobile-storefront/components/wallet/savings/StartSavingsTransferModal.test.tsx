@@ -9,7 +9,7 @@ import {
 import { Alert } from 'react-native';
 import Colors from '@/constants/Colors';
 import { StartSavingsTransferModal } from './StartSavingsTransferModal';
-import type { StartSavingsController } from './use-start-savings-controller';
+import type { StartSavingsController } from './start-savings-controller.types';
 
 function createController(
   overrides: Partial<StartSavingsController> = {}

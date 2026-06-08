@@ -66,6 +66,11 @@ export const startSavingsStyles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.xs,
     marginTop: 2,
   },
+  productMetaText: {
+    fontSize: TYPOGRAPHY.size.xs,
+    lineHeight: 16,
+    marginTop: 2,
+  },
   selectedProductCard: {
     borderRadius: RADIUS.xl,
     borderWidth: 1,

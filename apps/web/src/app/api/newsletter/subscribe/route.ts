@@ -2,6 +2,7 @@ import { after, type NextRequest, NextResponse } from 'next/server';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { sendEmail } from '@/lib/zeptomail';
+import { syncZohoNewsletterSubscriber } from '@/lib/zoho-newsletter-subscription';
 import { subscribeSchema, unsubscribeSchema } from '@/schemas/newsletter';
 
 function escapeHtml(value: string): string {
@@ -10,6 +11,28 @@ function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function scheduleZohoNewsletterSync({
+  email,
+  merchantId,
+  source,
+}: {
+  email: string;
+  merchantId?: string | null;
+  source: string;
+}) {
+  after(() => {
+    syncZohoNewsletterSubscriber({
+      email,
+      merchantId,
+      source,
+    }).then((result) => {
+      if (result.status === 'failed') {
+        console.error('Zoho newsletter subscriber sync failed:', result.error);
+      }
+    });
+  });
 }
 
 /**
@@ -87,6 +110,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (subscribeResult === 'resubscribed') {
+      scheduleZohoNewsletterSync({
+        email: normalizedEmail,
+        merchantId,
+        source,
+      });
       // Intentionally skip welcome email for resubscribed users — they already received one.
       // Consider adding a "welcome back" email if re-engagement metrics warrant it.
       return NextResponse.json({
@@ -151,6 +179,18 @@ export async function POST(request: NextRequest) {
         emailType: 'newsletter',
         fromName: merchantName,
       }).catch((err) => console.error('Newsletter welcome email error:', err));
+      syncZohoNewsletterSubscriber({
+        email: normalizedEmail,
+        merchantId,
+        source,
+      }).then((result) => {
+        if (result.status === 'failed') {
+          console.error(
+            'Zoho newsletter subscriber sync failed:',
+            result.error
+          );
+        }
+      });
     });
 
     return response;

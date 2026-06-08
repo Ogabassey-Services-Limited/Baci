@@ -8,7 +8,7 @@ import {
 import { Alert } from 'react-native';
 import Colors from '@/constants/Colors';
 import { StartSavingsModals } from './StartSavingsModals';
-import type { StartSavingsController } from './use-start-savings-controller';
+import type { StartSavingsController } from './start-savings-controller.types';
 
 const mockLogError = jest.fn();
 
