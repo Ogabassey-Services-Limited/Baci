@@ -35,6 +35,12 @@ export const bnplCheckoutScreenStyles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     zIndex: 100,
   },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
   loadingCard: {
     padding: SPACING.xl,
     borderRadius: RADIUS.lg,

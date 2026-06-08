@@ -26,6 +26,8 @@ type ErrorCheckoutStatusProps = {
   message: string | null;
   onBack: () => void;
   onRetry: () => void;
+  retryAccessibilityLabel?: string;
+  retryLabel?: string;
   variant: 'error';
 };
 
@@ -180,12 +182,16 @@ export function BNPLCheckoutStatusView(props: BNPLCheckoutStatusViewProps) {
         ) : null}
         <View style={styles.errorActions}>
           <Pressable
-            accessibilityLabel="Try payment again"
+            accessibilityLabel={
+              props.retryAccessibilityLabel ?? 'Try payment again'
+            }
             accessibilityRole="button"
             style={[styles.primaryButton, { backgroundColor: BRAND.primary }]}
             onPress={props.onRetry}
           >
-            <Text style={styles.primaryButtonText}>Try Again</Text>
+            <Text style={styles.primaryButtonText}>
+              {props.retryLabel ?? 'Try Again'}
+            </Text>
           </Pressable>
           <Pressable
             accessibilityLabel="Go back"
