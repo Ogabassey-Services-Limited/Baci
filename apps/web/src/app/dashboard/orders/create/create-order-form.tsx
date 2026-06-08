@@ -163,7 +163,6 @@ export function CreateOrderForm() {
 
   async function onSubmit(data: CreateOrderFormValues) {
     setIsSaving(true);
-    console.log('New Order Data:', data);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     setIsSaving(false);
     toast({
