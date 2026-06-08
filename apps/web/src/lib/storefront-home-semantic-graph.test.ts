@@ -198,7 +198,7 @@ describe('buildStorefrontHomeSemanticGraph', () => {
 
     const categoryHubs = graph.find(
       (node) => node['@id'] === 'http://localhost:3000/ogabassey/#category-hubs'
-    ) as { itemListElement?: Array<{ item?: Record<string, unknown> }> };
+    ) as { itemListElement?: { item?: Record<string, unknown> }[] };
 
     expect(categoryHubs.itemListElement?.[0]?.item).toMatchObject({
       '@id': 'http://localhost:3000/ogabassey/gaming#collection',

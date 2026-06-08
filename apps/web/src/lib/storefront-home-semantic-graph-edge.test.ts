@@ -97,7 +97,7 @@ describe('buildStorefrontHomeSemanticGraph edge cases', () => {
     const graph = schema['@graph'] as Record<string, unknown>[];
     const categoryHubs = graph.find(
       (node) => node['@id'] === 'https://ogabassey.com/#category-hubs'
-    ) as { itemListElement?: Array<{ item?: Record<string, unknown> }> };
+    ) as { itemListElement?: { item?: Record<string, unknown> }[] };
 
     expect(
       categoryHubs.itemListElement?.map((entry) => entry.item?.url)
