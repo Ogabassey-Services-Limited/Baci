@@ -12,7 +12,10 @@ import {
   getMerchantTaxRate,
   useMerchantPaymentSettings,
 } from '@/hooks/useMerchantPaymentSettings';
-import { getKlumpDisabledReason } from '@/lib/klump-checkout';
+import {
+  getKlumpDisabledReason,
+  shouldHideKlumpPaymentMethod,
+} from '@/lib/klump-checkout';
 import { isStoreCreditCompatiblePayment } from '@/lib/store-credit-compatible-payment';
 import { calculateCommerce } from '@/lib/supabase';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
@@ -204,6 +207,9 @@ export function useCheckoutPaymentController({
     availablePaymentMethods,
     displayTotal: stepDisplayTotal,
     handleSelectPaymentTab,
+    hiddenPaymentMethods: shouldHideKlumpPaymentMethod(paymentSettings, total)
+      ? (['klump'] satisfies PaymentMethodType[])
+      : [],
     klumpDisabledReason: getKlumpDisabledReason(
       paymentSettings,
       total,

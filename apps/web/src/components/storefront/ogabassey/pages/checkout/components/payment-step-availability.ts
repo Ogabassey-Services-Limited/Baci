@@ -2,7 +2,7 @@ import type { PaymentMethod } from '../types';
 import { isGatewayAmountDifferentFromOrderTotal } from '../utils';
 
 const DEFAULT_KLUMP_MIN_AMOUNT = 10_000;
-const DEFAULT_KLUMP_MAX_AMOUNT = 500_000;
+const DEFAULT_KLUMP_MAX_AMOUNT = 1_000_000;
 
 export interface FeatureSettings {
   paystack_enabled?: boolean;

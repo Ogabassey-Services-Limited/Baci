@@ -12,6 +12,7 @@ describe('merchant feature settings defaults', () => {
       merchant_id: 'merchant-1',
       paystack_enabled: true,
       korapay_enabled: true,
+      klump_max_amount: 1_000_000,
       preferred_local_gateway: 'paystack',
       preferred_international_gateway: 'korapay',
     });
@@ -19,6 +20,7 @@ describe('merchant feature settings defaults', () => {
       merchant_id: 'merchant-1',
       paystack_enabled: true,
       korapay_enabled: true,
+      klump_max_amount: 1_000_000,
       preferred_local_gateway: 'paystack',
       preferred_international_gateway: 'korapay',
     });
