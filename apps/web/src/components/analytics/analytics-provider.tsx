@@ -1,6 +1,7 @@
 'use client';
 
 import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
+import { buildMerchantAnalyticsSettings } from './analytics-merchant-settings';
 import {
   AnalyticsPixelProvider,
   type MerchantWithAnalytics,
@@ -31,8 +32,9 @@ export function AnalyticsProvider({ merchant }: AnalyticsProviderProps = {}) {
   const merchantContext = useMerchantSafe();
 
   // Get analytics IDs from merchant settings
-  const merchantData =
-    merchant || (merchantContext?.merchant as MerchantWithAnalytics | null);
+  const merchantData = buildMerchantAnalyticsSettings(
+    merchant || merchantContext?.merchant || null
+  );
 
   return <AnalyticsPixelProvider merchant={merchantData} />;
 }

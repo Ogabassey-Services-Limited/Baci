@@ -2,9 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   OGABASSEY_APPLE_TOUCH_ICON_URL,
+  OGABASSEY_DESCRIPTION,
   OGABASSEY_FAVICON_URL,
   OGABASSEY_MERCHANT_ID,
   OGABASSEY_SOCIAL_IMAGE_URL,
+  OGABASSEY_TITLE,
   OGABASSEY_TWITTER_HANDLE,
   OGABASSEY_URL,
 } from '@/config/ogabassey';
@@ -56,6 +58,23 @@ describe('OgabasseyStaticHomePage', () => {
       renderHero: false,
     });
     expect(mockOgabasseyStaticResourceHints).toHaveBeenCalledOnce();
+  });
+
+  it('emits static WebPage JSON-LD for the public homepage shell', () => {
+    const { container } = render(<OgabasseyStaticHomePage />);
+
+    const schemaScript = container.querySelector(
+      'script[type="application/ld+json"]'
+    );
+
+    expect(schemaScript).not.toBeNull();
+    expect(JSON.parse(schemaScript?.textContent || '{}')).toMatchObject({
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      description: OGABASSEY_DESCRIPTION,
+      name: OGABASSEY_TITLE,
+      url: OGABASSEY_URL,
+    });
   });
 
   it('declares canonical, hreflang, favicon, and social image metadata for the static route', () => {

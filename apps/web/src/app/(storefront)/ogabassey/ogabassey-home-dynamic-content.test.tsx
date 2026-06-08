@@ -55,10 +55,10 @@ vi.mock('@/components/analytics/analytics-pixel-provider', () => ({
   AnalyticsPixelProvider: ({
     merchant,
   }: {
-    merchant?: { google_analytics_id?: string | null } | null;
+    merchant?: Record<string, string | null | undefined> | null;
   }) => (
-    <div data-testid="analytics-pixel-provider">
-      {merchant?.google_analytics_id}
+    <div aria-label="Merchant analytics" role="status">
+      {JSON.stringify(merchant)}
     </div>
   ),
 }));
@@ -75,9 +75,9 @@ vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
     renderHero?: boolean;
     storeSlug?: string;
   }) => (
-    <div data-testid="ogabassey-home">
+    <section aria-label="OgaBassey home payload">
       {storeSlug}:{basePath}:{products?.length ?? 0}:{String(renderHero)}
-    </div>
+    </section>
   ),
 }));
 
@@ -151,12 +151,12 @@ describe('OgabasseyHomeDynamicContent', () => {
 
     render(result as ReactElement);
 
-    expect(screen.getByTestId('analytics-pixel-provider')).toHaveTextContent(
-      'G-OGABASSEY'
-    );
-    expect(screen.getByTestId('ogabassey-home')).toHaveTextContent(
-      'ogabassey:/ogabassey:1:false'
-    );
+    expect(
+      screen.getByRole('status', { name: 'Merchant analytics' })
+    ).toHaveTextContent('G-OGABASSEY');
+    expect(
+      screen.getByRole('region', { name: 'OgaBassey home payload' })
+    ).toHaveTextContent('ogabassey:/ogabassey:1:false');
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])
     );
@@ -164,6 +164,32 @@ describe('OgabasseyHomeDynamicContent', () => {
       'href',
       '/ogabassey/smartphones'
     );
+  });
+
+  it('falls back to normalized legacy analytics IDs when feature settings are blank', async () => {
+    const merchantWithLegacyAnalytics = {
+      ...mockMerchant,
+      feature_settings: {
+        ...mockMerchant.feature_settings,
+        google_analytics_id: '   ',
+      },
+      google_analytics_id: ' G-LEGACY ',
+      facebook_pixel_id: '   ',
+    };
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: merchantWithLegacyAnalytics,
+      pathPrefix: '/ogabassey',
+    });
+
+    render(result as ReactElement);
+
+    const analytics = screen.getByRole('status', {
+      name: 'Merchant analytics',
+    });
+
+    expect(analytics).toHaveTextContent('"google_analytics_id":"G-LEGACY"');
+    expect(analytics).toHaveTextContent('"facebook_pixel_id":null');
   });
 
   it('emits raw parsable JSON-LD scripts', async () => {

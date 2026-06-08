@@ -44,11 +44,11 @@ describe('AnalyticsPixelProvider', () => {
       />
     );
 
-    expect(screen.getByTestId('google-analytics')).toHaveTextContent('G-STORE');
-    expect(screen.getByTestId('facebook-pixel')).toHaveTextContent('fb-1');
-    expect(screen.getByTestId('tiktok-pixel')).toHaveTextContent('tt-1');
-    expect(screen.queryByTestId('snapchat-pixel')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('twitter-pixel')).not.toBeInTheDocument();
+    expect(screen.getByText('G-STORE')).toBeInTheDocument();
+    expect(screen.getByText('fb-1')).toBeInTheDocument();
+    expect(screen.getByText('tt-1')).toBeInTheDocument();
+    expect(screen.queryByText('snap-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('tw-1')).not.toBeInTheDocument();
   });
 
   it('renders all supported merchant pixel types when all IDs are configured', () => {
@@ -64,11 +64,11 @@ describe('AnalyticsPixelProvider', () => {
       />
     );
 
-    expect(screen.getByTestId('google-analytics')).toBeInTheDocument();
-    expect(screen.getByTestId('facebook-pixel')).toBeInTheDocument();
-    expect(screen.getByTestId('tiktok-pixel')).toBeInTheDocument();
-    expect(screen.getByTestId('snapchat-pixel')).toBeInTheDocument();
-    expect(screen.getByTestId('twitter-pixel')).toBeInTheDocument();
+    expect(screen.getByText('G-STORE')).toBeInTheDocument();
+    expect(screen.getByText('fb-1')).toBeInTheDocument();
+    expect(screen.getByText('tt-1')).toBeInTheDocument();
+    expect(screen.getByText('snap-1')).toBeInTheDocument();
+    expect(screen.getByText('tw-1')).toBeInTheDocument();
   });
 
   it('renders nothing when analytics IDs are empty or whitespace-only', () => {
