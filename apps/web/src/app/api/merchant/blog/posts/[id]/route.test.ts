@@ -4,12 +4,28 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 // ---- Mocks ----
 
+const mockServiceSupabase = vi.hoisted(() => ({
+  client: { source: 'service-role' },
+}));
+
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://test.supabase.co',
   getSupabaseAnonKey: () => 'test-anon-key',
   getSupabaseServiceRoleKey: () => 'test-service-role-key',
   getRootDomain: () => 'localhost',
 }));
+
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+
+  return {
+    ...actual,
+    after: (callback: () => void | Promise<void>) => {
+      void callback();
+    },
+  };
+});
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -33,6 +49,7 @@ vi.mock('@/lib/api-auth', () => ({
 // Mock cache revalidation
 const mockRevalidateBlogPosts = vi.fn();
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
+const mockDispatchZohoBlogCampaign = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
@@ -41,6 +58,15 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogRevalidationContext: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
+}));
+
+vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
+  dispatchZohoBlogCampaign: (...args: unknown[]) =>
+    mockDispatchZohoBlogCampaign(...args),
+}));
+
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: () => mockServiceSupabase.client,
 }));
 
 // Mock embeddings
@@ -165,6 +191,11 @@ function setupAuth(hasAuth = true, hasAccess = true) {
 describe('GET /api/merchant/blog/posts/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDispatchZohoBlogCampaign.mockResolvedValue({
+      postId: 'post-1',
+      reason: 'Zoho Campaigns disabled',
+      status: 'skipped',
+    });
 
     // Recreate chainable mock for each test
     const freshMock = createChainableMock();
@@ -352,6 +383,11 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
 
     setupAuth(true, true);
     mockHasPermission.mockReturnValue(true);
+    mockDispatchZohoBlogCampaign.mockResolvedValue({
+      postId: POST_ID,
+      reason: 'Zoho Campaigns disabled',
+      status: 'skipped',
+    });
     mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
       identifiers: ['test-store', 'ogabassey.com'],
       canonicalMerchantSlug: 'test-store',
@@ -751,6 +787,40 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       expect(typeof updateCall.reading_time_minutes).toBe('number');
     });
 
+    it('lets Zoho dispatch recompute storefront context when publish revalidation fails', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
+        new Error('context lookup failed')
+      );
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: existingPost,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { ...existingPost, status: 'published' },
+          error: null,
+        });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          status: 'published',
+          title: 'Updated Title',
+        }),
+        makeParams(POST_ID)
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(1);
+      expect(mockDispatchZohoBlogCampaign.mock.calls[0][0]).toEqual({
+        post: expect.objectContaining({ id: POST_ID, status: 'published' }),
+        supabase: mockServiceSupabase.client,
+      });
+      consoleErrorSpy.mockRestore();
+    });
+
     it('sets published_at when changing status from draft to published', async () => {
       mockSupabase.single
         .mockResolvedValueOnce({
@@ -780,6 +850,18 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       >;
       expect(updateCall).toHaveProperty('published_at');
       expect(typeof updateCall.published_at).toBe('string');
+      expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(1);
+      expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledWith({
+        context: {
+          identifiers: ['test-store', 'ogabassey.com'],
+          canonicalMerchantSlug: 'test-store',
+        },
+        post: expect.objectContaining({
+          id: POST_ID,
+          status: 'published',
+        }),
+        supabase: mockServiceSupabase.client,
+      });
     });
 
     it('preserves explicit published_at when publishing a draft', async () => {
@@ -1020,6 +1102,7 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
         unknown
       >;
       expect(updateCall.published_at).toBeUndefined();
+      expect(mockDispatchZohoBlogCampaign).not.toHaveBeenCalled();
     });
 
     it('triggers embedding regeneration when content changes', async () => {
@@ -1079,7 +1162,7 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       });
     });
 
-    it('returns 500 when blog cache identifier setup fails before update', async () => {
+    it('continues update when blog cache identifier setup fails after update', async () => {
       mockSupabase.single
         .mockResolvedValueOnce({
           data: existingPost,
@@ -1101,10 +1184,9 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
         ),
         makeParams(POST_ID)
       );
-      const json = await res.json();
+      await res.json();
 
-      expect(res.status).toBe(500);
-      expect(json.error).toBe('Internal server error');
+      expect(res.status).toBe(200);
       expect(mockRevalidateBlogPosts).not.toHaveBeenCalled();
     });
   });

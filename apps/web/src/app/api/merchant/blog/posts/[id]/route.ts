@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRoleKey } from '@/env';
 import {
   authenticateApiRequest,
@@ -14,7 +14,9 @@ import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
+import { createServiceClient } from '@/lib/supabase/service';
 import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
+import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -312,11 +314,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.published_at = new Date().toISOString();
     }
 
-    const blogRevalidation = await getMerchantBlogRevalidationContext(
-      supabase,
-      access.merchantId
-    );
-
     // Update post
     const { data: updatedPost, error: updateError } = await supabase
       .from('blog_posts')
@@ -367,15 +364,46 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    let blogRevalidation:
+      | Awaited<ReturnType<typeof getMerchantBlogRevalidationContext>>
+      | undefined;
+
     // Invalidate blog caches so storefront reflects changes immediately
-    revalidateBlogPosts({
-      identifiers: blogRevalidation.identifiers,
-      canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
-      listingCategories: [existingPost.category, updatedPost.category].filter(
-        (category): category is string => Boolean(category)
-      ),
-      postSlugs: [existingPost.slug, updatedPost.slug],
-    });
+    try {
+      blogRevalidation = await getMerchantBlogRevalidationContext(
+        supabase,
+        access.merchantId
+      );
+      revalidateBlogPosts({
+        identifiers: blogRevalidation.identifiers,
+        canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
+        listingCategories: [existingPost.category, updatedPost.category].filter(
+          (category): category is string => Boolean(category)
+        ),
+        postSlugs: [existingPost.slug, updatedPost.slug],
+      });
+    } catch (error) {
+      console.error('Failed post-publication blog revalidation:', {
+        merchantId: access.merchantId,
+        postSlug: updatedPost.slug,
+        error,
+      });
+    }
+
+    if (publishingNow) {
+      after(async () => {
+        try {
+          const result = await dispatchZohoBlogCampaign({
+            ...(blogRevalidation ? { context: blogRevalidation } : {}),
+            post: updatedPost,
+            supabase: createServiceClient(),
+          });
+          console.log('Zoho Campaigns blog dispatch result', result);
+        } catch (error) {
+          console.error('Zoho Campaigns blog dispatch failed', error);
+        }
+      });
+    }
 
     return NextResponse.json(
       discoverImageReadiness.ready
