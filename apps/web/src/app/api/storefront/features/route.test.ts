@@ -104,7 +104,7 @@ describe('GET /api/storefront/features', () => {
     expect(body.paystackEnabled).toBe(false);
     expect(body.klumpEnabled).toBe(false);
     expect(body.klumpMinAmount).toBe(10000);
-    expect(body.klumpMaxAmount).toBe(500000);
+    expect(body.klumpMaxAmount).toBe(1000000);
     expect(body.reviewsEnabled).toBe(true);
     expect(settingsSelectColumns).toContain('klump_enabled');
     expect(settingsSelectColumns).toContain('klump_min_amount');
@@ -146,7 +146,7 @@ describe('GET /api/storefront/features', () => {
     expect(body.paystackEnabled).toBe(false);
     expect(body.klumpEnabled).toBe(false);
     expect(body.klumpMinAmount).toBe(10000);
-    expect(body.klumpMaxAmount).toBe(500000);
+    expect(body.klumpMaxAmount).toBe(1000000);
     expect(body.reviewsEnabled).toBe(true);
     expect(body.wishlistEnabled).toBe(true);
   });

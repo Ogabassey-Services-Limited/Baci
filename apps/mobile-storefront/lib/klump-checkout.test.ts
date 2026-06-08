@@ -6,6 +6,7 @@ import {
   buildKlumpBnplRouteParams,
   buildKlumpInitializePayload,
   getKlumpDisabledReason,
+  shouldHideKlumpPaymentMethod,
 } from './klump-checkout';
 
 const settings = {
@@ -46,6 +47,97 @@ describe('klump checkout helpers', () => {
     expect(getKlumpDisabledReason(settings, 600000)).toBe(
       'Maximum order: ₦500,000'
     );
+  });
+
+  it('uses a one million naira default maximum when merchant limits are missing', () => {
+    expect(
+      getKlumpDisabledReason(
+        {
+          klump_enabled: true,
+          klump_min_amount: undefined,
+          klump_max_amount: undefined,
+        },
+        1_000_000
+      )
+    ).toBeUndefined();
+  });
+
+  it('disables Klump above the one million naira default maximum', () => {
+    expect(
+      getKlumpDisabledReason(
+        {
+          klump_enabled: true,
+          klump_min_amount: undefined,
+          klump_max_amount: undefined,
+        },
+        1_000_001
+      )
+    ).toBe('Maximum order: ₦1,000,000');
+  });
+
+  it('hides Klump only when the order exceeds the numeric maximum', () => {
+    expect(shouldHideKlumpPaymentMethod(undefined, 1_000_001)).toBe(false);
+    expect(shouldHideKlumpPaymentMethod(null, 1_000_001)).toBe(false);
+    expect(
+      shouldHideKlumpPaymentMethod(
+        {
+          klump_enabled: false,
+          klump_min_amount: undefined,
+          klump_max_amount: undefined,
+        },
+        1_000_001
+      )
+    ).toBe(false);
+    expect(
+      shouldHideKlumpPaymentMethod(
+        {
+          klump_enabled: true,
+          klump_min_amount: undefined,
+          klump_max_amount: undefined,
+        },
+        Number.NaN
+      )
+    ).toBe(false);
+    expect(
+      shouldHideKlumpPaymentMethod(
+        {
+          klump_enabled: true,
+          klump_min_amount: undefined,
+          klump_max_amount: undefined,
+        },
+        Number.POSITIVE_INFINITY
+      )
+    ).toBe(false);
+    expect(
+      shouldHideKlumpPaymentMethod(
+        {
+          klump_enabled: true,
+          klump_min_amount: undefined,
+          klump_max_amount: undefined,
+        },
+        1_000_001
+      )
+    ).toBe(true);
+    expect(
+      shouldHideKlumpPaymentMethod(
+        {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 750_000,
+        },
+        750_000
+      )
+    ).toBe(false);
+    expect(
+      shouldHideKlumpPaymentMethod(
+        {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 750_000,
+        },
+        750_001
+      )
+    ).toBe(true);
   });
 
   it('builds the initialize payload from the full order total', () => {

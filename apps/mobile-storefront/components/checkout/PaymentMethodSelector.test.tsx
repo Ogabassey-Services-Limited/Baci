@@ -105,6 +105,40 @@ describe('PaymentMethodSelector', () => {
     expect(screen.getByText('Klump')).toBeTruthy();
   });
 
+  it('shows Klump at exactly the maximum order amount', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'klump' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="installments"
+        onSelectTab={() => {}}
+        orderTotal={1_000_000}
+        enabledMethods={['klump' as PaymentMethodType]}
+      />
+    );
+
+    expect(screen.getByLabelText('Pay in Installments')).toBeTruthy();
+    expect(screen.getByText('Klump')).toBeTruthy();
+  });
+
+  it('does not show Klump above the maximum order amount', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'klump' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="installments"
+        onSelectTab={() => {}}
+        orderTotal={1_000_001}
+        enabledMethods={['klump' as PaymentMethodType]}
+        hiddenMethods={['klump' as PaymentMethodType]}
+        methodDisabledReasons={{ klump: 'Maximum order: ₦1,000,000' }}
+      />
+    );
+
+    expect(screen.queryByText('Klump')).toBeNull();
+    expect(screen.queryByLabelText('Pay in Installments')).toBeNull();
+  });
+
   it('uses caller-supplied Klump disabled reasons for wallet and merchant range boundaries', () => {
     const onSelectMethod = jest.fn();
     const klumpDisabledProps = {

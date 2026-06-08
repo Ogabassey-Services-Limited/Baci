@@ -46,6 +46,7 @@ export function PaymentMethodSelector({
   savingsSelection,
   onSavingsToggle,
   suppressedSelectedMethods = [],
+  hiddenMethods = [],
   methodBadgeOverrides = {},
   methodDescriptionOverrides = {},
   methodDisabledReasons = {},
@@ -76,6 +77,7 @@ export function PaymentMethodSelector({
     supportsPartialPayment,
   } = usePaymentMethodAvailability({
     enabledMethods,
+    hiddenMethods,
     methodDisabledReasons,
     orderTotal,
     selectedMethod,

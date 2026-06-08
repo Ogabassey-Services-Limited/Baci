@@ -18,6 +18,7 @@ DECLARE
   v_transaction_id uuid := '8f0ed783-0000-4000-8000-000000000305';
   v_mismatched_transaction_id uuid := '8f0ed783-0000-4000-8000-000000000306';
   v_settings record;
+  v_default_settings record;
   v_result record;
   v_klump_transaction_id text;
 BEGIN
@@ -132,6 +133,17 @@ BEGIN
     OR v_settings.klump_max_amount IS DISTINCT FROM 750000
   THEN
     RAISE EXCEPTION 'storefront payment settings did not expose Klump settings: %', row_to_json(v_settings);
+  END IF;
+
+  SELECT *
+  INTO v_default_settings
+  FROM public.get_storefront_payment_settings(v_other_merchant_id);
+
+  IF v_default_settings.klump_enabled IS DISTINCT FROM false
+    OR v_default_settings.klump_min_amount IS DISTINCT FROM 10000
+    OR v_default_settings.klump_max_amount IS DISTINCT FROM 1000000
+  THEN
+    RAISE EXCEPTION 'storefront payment settings did not expose default Klump settings: %', row_to_json(v_default_settings);
   END IF;
 
   BEGIN

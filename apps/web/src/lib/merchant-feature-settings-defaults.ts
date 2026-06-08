@@ -16,7 +16,7 @@ const DEFAULT_MERCHANT_FEATURE_SETTINGS = {
   credpal_enabled: false,
   klump_enabled: false,
   klump_min_amount: 10000,
-  klump_max_amount: 500000,
+  klump_max_amount: 1000000,
   preferred_local_gateway: 'paystack' as const,
   preferred_international_gateway: 'korapay' as const,
   shipping_providers: ['gigl', 'topship'],

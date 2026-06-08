@@ -55,6 +55,7 @@ export interface PaymentMethodSelectorProps {
   savingsSelection?: SavingsSelection;
   onSavingsToggle?: (selection: SavingsSelection) => void;
   suppressedSelectedMethods?: PaymentMethodType[];
+  hiddenMethods?: PaymentMethodType[];
   methodBadgeOverrides?: Partial<Record<PaymentMethodType, string>>;
   methodDescriptionOverrides?: Partial<Record<PaymentMethodType, string>>;
   methodDisabledReasons?: Partial<Record<PaymentMethodType, string>>;
