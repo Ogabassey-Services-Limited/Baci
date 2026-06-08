@@ -5,50 +5,88 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('next/dynamic', () => ({
   default: () => {
     return function DynamicSlot() {
-      return <div data-testid="dynamic-slot" />;
+      return <section aria-label="dynamic slot" />;
     };
   },
 }));
 
 const mockUsePathname = vi.fn(() => '/ogabassey');
+let deferredShellActive = false;
 vi.mock('next/navigation', () => ({
   usePathname: () => mockUsePathname(),
 }));
 
 vi.mock('./layout/navbar', () => ({
   OgabasseyNavbar: ({ storeSlug }: { storeSlug: string }) => (
-    <div data-testid="navbar">{storeSlug}</div>
+    <nav aria-label="OgaBassey storefront">{storeSlug}</nav>
   ),
 }));
 
 vi.mock('./components/AdUnit', () => ({
   AdUnit: ({ placementKey }: { placementKey: string }) => (
-    <div data-testid="ad-unit">{placementKey}</div>
+    <aside aria-label={placementKey}>{placementKey}</aside>
   ),
 }));
 
 vi.mock('./components/deferred-shell-feature', () => ({
-  DeferredShellFeature: ({ children }: { children: ReactNode }) => (
-    <div data-testid="deferred-shell">{children}</div>
+  DeferredShellFeature: ({
+    children,
+    fallback = null,
+    timeoutMs,
+  }: {
+    children: ReactNode;
+    fallback?: ReactNode;
+    timeoutMs?: number;
+  }) => (
+    <div
+      data-timeout-ms={String(timeoutMs ?? '')}
+      role="region"
+      aria-label="deferred shell"
+    >
+      {deferredShellActive ? children : fallback}
+    </div>
   ),
 }));
 
-vi.mock('./components/deferred-cart-sidebar', () => ({
-  DeferredCartSidebar: () => <div data-testid="deferred-cart-sidebar" />,
-}));
-
 vi.mock('./components/GoogleAdManager', () => ({
-  GoogleAdManager: () => <div data-testid="google-ad-manager" />,
+  GoogleAdManager: () => (
+    <aside aria-label="Google Ad Manager" />
+  ),
 }));
 
 vi.mock('./components/MobileFooter', () => ({
   MobileFooter: ({ storeSlug }: { storeSlug: string }) => (
-    <div data-testid="mobile-footer">{storeSlug}</div>
+    <footer>{storeSlug}</footer>
   ),
 }));
 
 vi.mock('./components/chat/DeferredChatWidget', () => ({
-  DeferredChatWidget: () => <div data-testid="deferred-chat-widget" />,
+  DeferredChatWidget: () => <aside aria-label="chat widget" />,
+}));
+
+vi.mock('./storefront-deferred-footer-chrome', () => ({
+  StorefrontDeferredFooterChrome: ({
+    basePath,
+  }: {
+    basePath: string;
+  }) => (
+    <section aria-label="deferred footer commerce">
+      <aside aria-label="FOOTER_BANNER">FOOTER_BANNER</aside>
+      <section aria-label="dynamic slot" />
+      <aside aria-label="cart sidebar" />
+      <aside aria-label="chat widget" />
+      <span>{basePath}</span>
+    </section>
+  ),
+}));
+
+vi.mock('./storefront-deferred-overlay-chrome', () => ({
+  StorefrontDeferredOverlayChrome: () => (
+    <section aria-label="deferred overlay chrome">
+      <section aria-label="dynamic slot" />
+      <section aria-label="dynamic slot" />
+    </section>
+  ),
 }));
 
 import { OgabasseyLayoutChrome } from './storefront-layout-chrome';
@@ -57,28 +95,71 @@ describe('OgabasseyLayoutChrome', () => {
   beforeEach(() => {
     mockUsePathname.mockReset();
     mockUsePathname.mockReturnValue('/ogabassey');
+    deferredShellActive = false;
   });
 
   it('renders only header chrome for the header section', () => {
     render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
 
-    expect(screen.getByTestId('google-ad-manager')).toBeInTheDocument();
-    expect(screen.getByTestId('navbar')).toHaveTextContent('/ogabassey');
-    expect(screen.queryByTestId('ad-unit')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('mobile-footer')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('deferred-chat-widget')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('complementary', { name: /google ad manager/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', { name: /ogabassey storefront/i })
+    ).toHaveTextContent('/ogabassey');
+    expect(
+      screen.queryByRole('complementary', { name: 'FOOTER_BANNER' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('complementary', { name: /chat widget/i })
+    ).not.toBeInTheDocument();
   });
 
-  it('renders footer commerce chrome without wrapping route content', () => {
+  it('renders mobile footer immediately and defers footer commerce chrome', () => {
     render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
 
-    expect(screen.getByTestId('ad-unit')).toHaveTextContent('FOOTER_BANNER');
-    expect(screen.getByTestId('mobile-footer')).toHaveTextContent('/ogabassey');
-    expect(screen.getByTestId('deferred-cart-sidebar')).toBeInTheDocument();
-    expect(screen.getByTestId('deferred-chat-widget')).toBeInTheDocument();
-    expect(screen.getAllByTestId('dynamic-slot')).toHaveLength(1);
-    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('/ogabassey');
+    expect(
+      screen.queryByRole('complementary', { name: 'FOOTER_BANNER' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('complementary', { name: /cart sidebar/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('complementary', { name: /chat widget/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: /dynamic slot/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: /ogabassey storefront/i })
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('main')).not.toBeInTheDocument();
+  });
+
+  it('mounts deferred footer commerce chrome after activation', async () => {
+    deferredShellActive = true;
+
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
+
+    expect(
+      await screen.findByRole('region', {
+        name: /deferred footer commerce/i,
+      })
+    ).toHaveTextContent('/ogabassey');
+    expect(
+      screen.getByRole('complementary', { name: 'FOOTER_BANNER' })
+    ).toHaveTextContent('FOOTER_BANNER');
+    expect(
+      screen.getByRole('complementary', { name: /cart sidebar/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('complementary', { name: /chat widget/i })
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('region', { name: /dynamic slot/i })).toHaveLength(
+      1
+    );
   });
 
   it('hides navigation-dependent chrome when hideNavigation is true', () => {
@@ -93,7 +174,9 @@ describe('OgabasseyLayoutChrome', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders overlay chrome independently from header and footer sections', () => {
+  it('renders overlay chrome independently from header and footer sections', async () => {
+    deferredShellActive = true;
+
     render(
       <OgabasseyLayoutChrome
         basePath="/ogabassey"
@@ -102,9 +185,35 @@ describe('OgabasseyLayoutChrome', () => {
       />
     );
 
-    expect(screen.getAllByTestId('dynamic-slot')).toHaveLength(2);
-    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('ad-unit')).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', { name: /deferred overlay chrome/i })
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('region', { name: /dynamic slot/i })).toHaveLength(
+      2
+    );
+    expect(
+      screen.queryByRole('navigation', { name: /ogabassey storefront/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('complementary', { name: 'FOOTER_BANNER' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('defers overlay chrome until activation', () => {
+    render(
+      <OgabasseyLayoutChrome
+        basePath="/ogabassey"
+        hideNavigation
+        section="overlay"
+      />
+    );
+
+    expect(
+      screen.queryByRole('region', { name: /deferred overlay chrome/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: /dynamic slot/i })
+    ).not.toBeInTheDocument();
   });
 
   // Reactive hide-on-pathname coverage — this is the P1 regression fix.
@@ -114,9 +223,13 @@ describe('OgabasseyLayoutChrome', () => {
     mockUsePathname.mockReturnValue('/ogabassey/checkout');
     render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
 
-    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: /ogabassey storefront/i })
+    ).not.toBeInTheDocument();
     // GoogleAdManager is outside the hide gate — it still renders.
-    expect(screen.getByTestId('google-ad-manager')).toBeInTheDocument();
+    expect(
+      screen.getByRole('complementary', { name: /google ad manager/i })
+    ).toBeInTheDocument();
   });
 
   it('auto-hides the footer chrome on nav-less routes', () => {
@@ -132,7 +245,9 @@ describe('OgabasseyLayoutChrome', () => {
     mockUsePathname.mockReturnValue('/ogabassey/products/some-item');
     render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
 
-    expect(screen.getByTestId('navbar')).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', { name: /ogabassey storefront/i })
+    ).toBeInTheDocument();
   });
 
   it('still honours an explicit hideNavigation override on any route', () => {
@@ -145,6 +260,8 @@ describe('OgabasseyLayoutChrome', () => {
       />
     );
 
-    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: /ogabassey storefront/i })
+    ).not.toBeInTheDocument();
   });
 });
