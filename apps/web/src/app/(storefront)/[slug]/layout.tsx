@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import type React from 'react';
 import { Suspense } from 'react';
-import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
@@ -285,10 +284,13 @@ export default function StorefrontLayout(props: {
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  // Keep a non-null shell around the request-bound tenant lookup. A null
-  // fallback hides child route fallbacks and can make Cache Components report
-  // that dynamic storefront routes did not produce a static shell.
-  const { loadingFallback = <ShellChromeLoading />, ...contentProps } = props;
+  // Keep the request-bound tenant lookup out of the prerendered root HTML.
+  // Next 16.2/PPR can resume Googlebot's blocking metadata boundary into this
+  // root slot; a visible fallback here has reproduced the production
+  // `Expected the resume to render <div> ... <__next_metadata_boundary__>`
+  // error. Child route and chrome boundaries still provide their own fallbacks
+  // after the merchant shell has resolved.
+  const { loadingFallback = null, ...contentProps } = props;
 
   return (
     <StorefrontThemeFrame>

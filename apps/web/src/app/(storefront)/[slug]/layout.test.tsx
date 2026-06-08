@@ -263,7 +263,7 @@ describe('storefront layout', () => {
     );
   });
 
-  it('keeps a visible root shell fallback while request-bound tenant data resolves', async () => {
+  it('renders nothing by default while tenant data is loading', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
       createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
     );
@@ -279,8 +279,8 @@ describe('storefront layout', () => {
     });
 
     expect(
-      screen.getByRole('status', { name: /loading storefront chrome/i })
-    ).toBeInTheDocument();
+      screen.queryByRole('status', { name: /loading storefront chrome/i })
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
 
     unmount();
