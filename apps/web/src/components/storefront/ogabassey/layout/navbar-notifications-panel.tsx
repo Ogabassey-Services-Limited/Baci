@@ -25,7 +25,11 @@ export function NavbarNotificationsPanel({
   }, [onClose]);
 
   return (
-    <div className="absolute top-full right-0 mt-4 w-80 bg-white rounded-xl shadow-xl border border-gray-100 py-0 animate-in fade-in slide-in-from-top-2 z-50 overflow-hidden">
+    <div
+      className="absolute top-full right-0 mt-4 w-80 bg-white rounded-xl shadow-xl border border-gray-100 py-0 animate-in fade-in slide-in-from-top-2 z-50 overflow-hidden"
+      role="region"
+      aria-label="Notifications"
+    >
       <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
         <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
       </div>
