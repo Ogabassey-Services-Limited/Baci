@@ -202,6 +202,21 @@ const serverSchema = z
     ZEPTOMAIL_TOKEN: z.string().optional(),
     ZEPTOMAIL_FROM_DOMAIN: z.string().optional(),
 
+    // Zoho Campaigns
+    ZOHO_CAMPAIGNS_ENABLED: optionalTrimmedStringSchema,
+    ZOHO_CAMPAIGNS_AUTO_SEND: optionalTrimmedStringSchema,
+    ZOHO_CAMPAIGNS_CLIENT_ID: optionalTrimmedStringSchema,
+    ZOHO_CAMPAIGNS_CLIENT_SECRET: optionalTrimmedStringSchema,
+    ZOHO_CAMPAIGNS_OAUTH_STATE: optionalTrimmedStringSchema,
+    ZOHO_CAMPAIGNS_CONTENT_SECRET: optionalTrimmedStringSchema,
+    ZOHO_CAMPAIGNS_ACCOUNTS_SERVER_URL: optionalTrimmedUrlSchema,
+    ZOHO_CAMPAIGNS_API_ROOT_URL: optionalTrimmedUrlSchema,
+    ZOHO_CAMPAIGNS_REDIRECT_URI: optionalTrimmedUrlSchema,
+    ZOHO_CAMPAIGNS_PUBLIC_BASE_URL: optionalTrimmedUrlSchema,
+    ZOHO_CAMPAIGNS_FROM_NAME: optionalTrimmedStringSchema,
+    ZOHO_CAMPAIGNS_TOPIC_ID: optionalTrimmedStringSchema,
+    ZOHO_CAMPAIGNS_REQUEST_TIMEOUT_MS: optionalTrimmedStringSchema,
+
     // AI
     GOOGLE_GENAI_API_KEY: z.string().optional(),
     GEMINI_API_KEY: z.string().optional(),
@@ -500,6 +515,23 @@ const getEnv = () => {
         WEB_BOT_AUTH_PRIVATE_KEY_PEM: process.env.WEB_BOT_AUTH_PRIVATE_KEY_PEM,
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
         ZEPTOMAIL_FROM_DOMAIN: process.env.ZEPTOMAIL_FROM_DOMAIN,
+        ZOHO_CAMPAIGNS_ENABLED: process.env.ZOHO_CAMPAIGNS_ENABLED,
+        ZOHO_CAMPAIGNS_AUTO_SEND: process.env.ZOHO_CAMPAIGNS_AUTO_SEND,
+        ZOHO_CAMPAIGNS_CLIENT_ID: process.env.ZOHO_CAMPAIGNS_CLIENT_ID,
+        ZOHO_CAMPAIGNS_CLIENT_SECRET: process.env.ZOHO_CAMPAIGNS_CLIENT_SECRET,
+        ZOHO_CAMPAIGNS_OAUTH_STATE: process.env.ZOHO_CAMPAIGNS_OAUTH_STATE,
+        ZOHO_CAMPAIGNS_CONTENT_SECRET:
+          process.env.ZOHO_CAMPAIGNS_CONTENT_SECRET,
+        ZOHO_CAMPAIGNS_ACCOUNTS_SERVER_URL:
+          process.env.ZOHO_CAMPAIGNS_ACCOUNTS_SERVER_URL,
+        ZOHO_CAMPAIGNS_API_ROOT_URL: process.env.ZOHO_CAMPAIGNS_API_ROOT_URL,
+        ZOHO_CAMPAIGNS_REDIRECT_URI: process.env.ZOHO_CAMPAIGNS_REDIRECT_URI,
+        ZOHO_CAMPAIGNS_PUBLIC_BASE_URL:
+          process.env.ZOHO_CAMPAIGNS_PUBLIC_BASE_URL,
+        ZOHO_CAMPAIGNS_FROM_NAME: process.env.ZOHO_CAMPAIGNS_FROM_NAME,
+        ZOHO_CAMPAIGNS_TOPIC_ID: process.env.ZOHO_CAMPAIGNS_TOPIC_ID,
+        ZOHO_CAMPAIGNS_REQUEST_TIMEOUT_MS:
+          process.env.ZOHO_CAMPAIGNS_REQUEST_TIMEOUT_MS,
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
         GEMINI_API_KEY: process.env.GEMINI_API_KEY,
         GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
@@ -879,6 +911,139 @@ export const getZeptoMailToken = () =>
   env?.ZEPTOMAIL_TOKEN?.trim() || undefined;
 export const getZeptoMailFromDomain = () =>
   env?.ZEPTOMAIL_FROM_DOMAIN?.trim() || 'usebaci.com';
+
+const normalizeRuntimeBoolean = (value: string | undefined): boolean => {
+  if (!value) return false;
+  return normalizeEnvBoolean(value) === true;
+};
+
+const normalizeRuntimePositiveInteger = (
+  value: string | undefined,
+  fallback: number
+): number => {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const getRuntimeUrl = (
+  rawValue: string | undefined,
+  fallbackValue: string | undefined,
+  fallbackDefault: string
+): string => getRuntimeEnvValue(rawValue, fallbackValue) ?? fallbackDefault;
+
+const getZohoCampaignsRedirectUri = () =>
+  getRuntimeEnvValue(
+    process.env.ZOHO_CAMPAIGNS_REDIRECT_URI,
+    env?.ZOHO_CAMPAIGNS_REDIRECT_URI
+  ) ?? `${getAppUrl().replace(/\/$/, '')}/api/integrations/zoho/callback`;
+
+export type ZohoCampaignsOAuthConfig = {
+  accountsServerUrl: string;
+  clientId?: string;
+  clientSecret?: string;
+  oauthState?: string;
+  redirectUri: string;
+};
+
+export type ZohoCampaignsRuntimeConfig = ZohoCampaignsOAuthConfig & {
+  apiRootUrl: string;
+  autoSend: boolean;
+  enabled: boolean;
+  fromEmail?: string;
+  fromName: string;
+  listKey?: string;
+  publicBaseUrl: string;
+  contentSecret?: string;
+  refreshToken?: string;
+  requestTimeoutMs: number;
+  topicId?: string;
+};
+
+export const getZohoCampaignsOAuthConfig = (): ZohoCampaignsOAuthConfig => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'Zoho Campaigns OAuth config cannot be accessed on the client'
+    );
+
+  return {
+    accountsServerUrl: getRuntimeUrl(
+      process.env.ZOHO_CAMPAIGNS_ACCOUNTS_SERVER_URL,
+      env?.ZOHO_CAMPAIGNS_ACCOUNTS_SERVER_URL,
+      'https://accounts.zoho.com'
+    ),
+    clientId: getRuntimeEnvValue(
+      process.env.ZOHO_CAMPAIGNS_CLIENT_ID,
+      env?.ZOHO_CAMPAIGNS_CLIENT_ID
+    ),
+    clientSecret: getRuntimeEnvValue(
+      process.env.ZOHO_CAMPAIGNS_CLIENT_SECRET,
+      env?.ZOHO_CAMPAIGNS_CLIENT_SECRET
+    ),
+    oauthState: getRuntimeEnvValue(
+      process.env.ZOHO_CAMPAIGNS_OAUTH_STATE,
+      env?.ZOHO_CAMPAIGNS_OAUTH_STATE
+    ),
+    redirectUri: getZohoCampaignsRedirectUri(),
+  };
+};
+
+export const getZohoCampaignsRuntimeConfig = (): ZohoCampaignsRuntimeConfig => {
+  if (isBrowserRuntime())
+    throw new Error('Zoho Campaigns config cannot be accessed on the client');
+
+  const oauthConfig = getZohoCampaignsOAuthConfig();
+
+  return {
+    ...oauthConfig,
+    apiRootUrl: getRuntimeUrl(
+      process.env.ZOHO_CAMPAIGNS_API_ROOT_URL,
+      env?.ZOHO_CAMPAIGNS_API_ROOT_URL,
+      'https://campaigns.zoho.com/api/v1.1'
+    ),
+    autoSend: normalizeRuntimeBoolean(
+      getRuntimeEnvValue(
+        process.env.ZOHO_CAMPAIGNS_AUTO_SEND,
+        env?.ZOHO_CAMPAIGNS_AUTO_SEND
+      )
+    ),
+    enabled: normalizeRuntimeBoolean(
+      getRuntimeEnvValue(
+        process.env.ZOHO_CAMPAIGNS_ENABLED,
+        env?.ZOHO_CAMPAIGNS_ENABLED
+      )
+    ),
+    fromEmail: undefined,
+    fromName:
+      getRuntimeEnvValue(
+        process.env.ZOHO_CAMPAIGNS_FROM_NAME,
+        env?.ZOHO_CAMPAIGNS_FROM_NAME
+      ) ?? 'Store Updates',
+    listKey: undefined,
+    publicBaseUrl: getRuntimeUrl(
+      process.env.ZOHO_CAMPAIGNS_PUBLIC_BASE_URL,
+      env?.ZOHO_CAMPAIGNS_PUBLIC_BASE_URL,
+      getAppUrl()
+    ),
+    contentSecret: getRuntimeEnvValue(
+      process.env.ZOHO_CAMPAIGNS_CONTENT_SECRET,
+      env?.ZOHO_CAMPAIGNS_CONTENT_SECRET
+    ),
+    refreshToken: undefined,
+    requestTimeoutMs: normalizeRuntimePositiveInteger(
+      getRuntimeEnvValue(
+        process.env.ZOHO_CAMPAIGNS_REQUEST_TIMEOUT_MS,
+        env?.ZOHO_CAMPAIGNS_REQUEST_TIMEOUT_MS
+      ),
+      15_000
+    ),
+    topicId: getRuntimeEnvValue(
+      process.env.ZOHO_CAMPAIGNS_TOPIC_ID,
+      env?.ZOHO_CAMPAIGNS_TOPIC_ID
+    ),
+  };
+};
+
 export const getGeminiApiKey = () =>
   env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
 export const getGooglePlacesApiKey = () =>

@@ -6,6 +6,7 @@ import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createServiceClient } from '@/lib/supabase/service';
+import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
 
 /**
  * POST /api/cron/publish-scheduled-posts
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     const { data: scheduledPosts, error: fetchError } = await supabase
       .from('blog_posts')
       .select(
-        'id, slug, merchant_id, category, featured_image_url, featured_image_width, featured_image_height, featured_image_variants'
+        'id, title, slug, excerpt, merchant_id, category, published_at, featured_image_url, featured_image_width, featured_image_height, featured_image_variants'
       )
       .eq('status', 'scheduled')
       .lte('published_at', now);
@@ -228,6 +229,10 @@ export async function POST(request: Request) {
 
     // 5. Revalidate blog caches grouped by merchant
     const failedMerchants: string[] = [];
+    const blogRevalidationByMerchant = new Map<
+      string,
+      Awaited<ReturnType<typeof getMerchantBlogRevalidationContext>>
+    >();
 
     for (const [merchantId, merchantPosts] of postsByMerchant) {
       try {
@@ -235,6 +240,7 @@ export async function POST(request: Request) {
           supabase,
           merchantId
         );
+        blogRevalidationByMerchant.set(merchantId, blogRevalidation);
         revalidateBlogPosts({
           identifiers: blogRevalidation.identifiers,
           canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
@@ -255,6 +261,30 @@ export async function POST(request: Request) {
       }
     }
 
+    const dispatchablePosts = eligiblePosts.filter((post) =>
+      blogRevalidationByMerchant.has(post.merchant_id)
+    );
+    const skippedCampaignResults = eligiblePosts
+      .filter((post) => !blogRevalidationByMerchant.has(post.merchant_id))
+      .map((post) => ({
+        postId: post.id,
+        reason:
+          'Skipped Zoho Campaigns dispatch because blog revalidation failed for this merchant',
+        status: 'skipped' as const,
+      }));
+    const campaignResults = [
+      ...(await Promise.all(
+        dispatchablePosts.map((post) =>
+          dispatchZohoBlogCampaign({
+            context: blogRevalidationByMerchant.get(post.merchant_id),
+            post,
+            supabase,
+          })
+        )
+      )),
+      ...skippedCampaignResults,
+    ];
+
     if (failedMerchants.length > 0) {
       return NextResponse.json(
         {
@@ -262,6 +292,7 @@ export async function POST(request: Request) {
           failedMerchants,
           processed: scheduledPosts.length,
           published: postIds,
+          zohoCampaigns: campaignResults,
         },
         { status: 500 }
       );
@@ -273,6 +304,7 @@ export async function POST(request: Request) {
       published: postIds,
       skipped,
       warnings,
+      zohoCampaigns: campaignResults,
     });
   } catch (error) {
     console.error('Cron Job Failed:', error);

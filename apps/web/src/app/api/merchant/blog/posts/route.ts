@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRoleKey } from '@/env';
 import {
   authenticateApiRequest,
@@ -21,7 +21,9 @@ import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
+import { createServiceClient } from '@/lib/supabase/service';
 import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
+import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
 
 export async function GET(request: NextRequest) {
   try {
@@ -390,9 +392,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let blogRevalidation:
+      | Awaited<ReturnType<typeof getMerchantBlogRevalidationContext>>
+      | undefined;
+
     // Invalidate blog caches so storefront shows the new post immediately
     try {
-      const blogRevalidation = await getMerchantBlogRevalidationContext(
+      blogRevalidation = await getMerchantBlogRevalidationContext(
         supabase,
         access.merchantId
       );
@@ -403,10 +409,25 @@ export async function POST(request: NextRequest) {
         postSlugs: [newPost?.slug || postData.slug],
       });
     } catch (error) {
-      console.error('Failed to revalidate blog caches after post creation:', {
+      console.error('Failed post-publication blog revalidation:', {
         merchantId: access.merchantId,
         postSlug: newPost?.slug || postData.slug,
         error,
+      });
+    }
+
+    if (newPost?.status === 'published') {
+      after(async () => {
+        try {
+          const result = await dispatchZohoBlogCampaign({
+            ...(blogRevalidation ? { context: blogRevalidation } : {}),
+            post: newPost,
+            supabase: createServiceClient(),
+          });
+          console.log('Zoho Campaigns blog dispatch result', result);
+        } catch (error) {
+          console.error('Zoho Campaigns blog dispatch failed', error);
+        }
       });
     }
 
