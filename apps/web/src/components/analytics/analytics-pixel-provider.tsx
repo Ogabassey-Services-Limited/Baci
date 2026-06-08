@@ -1,5 +1,6 @@
 'use client';
 
+import { normalizeAnalyticsId } from './analytics-id';
 import { FacebookPixel } from './facebook-pixel';
 import { GoogleAnalytics } from './google-analytics';
 import { SnapchatPixel } from './snapchat-pixel';
@@ -16,11 +17,6 @@ export interface MerchantWithAnalytics {
 
 interface AnalyticsPixelProviderProps {
   merchant?: MerchantWithAnalytics | null;
-}
-
-function normalizeAnalyticsId(value: string | null | undefined) {
-  const trimmed = value?.trim();
-  return trimmed || null;
 }
 
 export function AnalyticsPixelProvider({

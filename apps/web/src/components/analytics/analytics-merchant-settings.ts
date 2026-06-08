@@ -1,3 +1,4 @@
+import { normalizeAnalyticsId } from './analytics-id';
 import type { MerchantWithAnalytics } from './analytics-pixel-provider';
 
 const ANALYTICS_ID_KEYS = [
@@ -14,15 +15,6 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   }
 
   return value as Record<string, unknown>;
-}
-
-function normalizeAnalyticsId(value: unknown) {
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    return null;
-  }
-
-  const trimmed = String(value).trim();
-  return trimmed || null;
 }
 
 export function buildMerchantAnalyticsSettings(

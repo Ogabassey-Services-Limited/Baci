@@ -19,9 +19,6 @@ vi.mock('next/link', () => ({
     <a {...props}>{children}</a>
   ),
 }));
-vi.mock('@/lib/routes', () => ({
-  asRoute: vi.fn((path: string) => path),
-}));
 vi.mock('../config/ads', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../config/ads')>();
   return {

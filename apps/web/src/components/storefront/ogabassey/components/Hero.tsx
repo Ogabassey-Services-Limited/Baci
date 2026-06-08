@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { joinRouteBasePath } from '@/lib/routes';
 import { HeroMobileCarousel } from './hero-mobile-carousel';
 import { HeroUtilityPanel } from './hero-utility-panel';
 
@@ -28,22 +29,9 @@ interface HeroProps {
   basePath?: string;
 }
 
-function normalizeBasePath(basePath: string) {
-  const normalizedBasePath = basePath.trim().replace(/\/+$/, '');
-
-  if (!normalizedBasePath) {
-    return '';
-  }
-
-  return normalizedBasePath.startsWith('/')
-    ? normalizedBasePath
-    : `/${normalizedBasePath}`;
-}
-
 export const Hero: React.FC<HeroProps> = ({ basePath = '' }) => {
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [hasResolvedViewport, setHasResolvedViewport] = useState(false);
-  const normalizedBasePath = normalizeBasePath(basePath);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(min-width: 768px)');
@@ -67,18 +55,7 @@ export const Hero: React.FC<HeroProps> = ({ basePath = '' }) => {
     };
   }, []);
 
-  const getHref = (path: string) => {
-    if (path.startsWith('http')) {
-      return path;
-    }
-
-    if (!path || path === '/') {
-      return normalizedBasePath || '/';
-    }
-
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    return `${normalizedBasePath}${normalizedPath}`;
-  };
+  const getHref = (path: string) => joinRouteBasePath(basePath, path);
 
   return (
     <div className="w-full bg-white relative">

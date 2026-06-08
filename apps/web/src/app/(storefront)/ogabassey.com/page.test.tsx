@@ -20,11 +20,17 @@ vi.mock('@/app/(storefront)/storefront-full.css', () => {
 });
 
 vi.mock('@/app/(storefront)/ogabassey/page', () => ({
-  OgabasseyStaticHomePageContent: mockStaticHomePageContent,
   metadata: {
     title: 'OgaBassey - Official Online Store | Baci',
   },
 }));
+
+vi.mock(
+  '@/app/(storefront)/ogabassey/ogabassey-static-home-page-content',
+  () => ({
+    OgabasseyStaticHomePageContent: mockStaticHomePageContent,
+  })
+);
 
 import OgabasseyDomainPage, { metadata } from './page';
 

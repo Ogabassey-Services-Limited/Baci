@@ -17,6 +17,7 @@ import { DeferredAdUnit } from './deferred-ad-unit';
 import { HomeProductGridCard } from './HomeProductGridCard';
 import type { ProductGridItemProps } from './ProductGridItem';
 import type { Product } from '../types';
+import { joinRouteBasePath, normalizeRouteBasePath } from '@/lib/routes';
 
 const DeferredFloatingParticles = dynamic(
   () => import('./FloatingParticles').then((mod) => mod.FloatingParticles),
@@ -170,12 +171,8 @@ export function HomeProductGrid({
 
   const rawBasePath =
     explicitBasePath ?? (storeSlug ? `/${storeSlug}` : '');
-  const normalizedBasePath = rawBasePath.trim().replace(/\/+$/, '');
-  const basePath =
-    normalizedBasePath && !normalizedBasePath.startsWith('/')
-      ? `/${normalizedBasePath}`
-      : normalizedBasePath;
-  const allProductsHref = `${basePath}/products`;
+  const basePath = normalizeRouteBasePath(rawBasePath);
+  const allProductsHref = joinRouteBasePath(basePath, '/products');
   const allProducts = products && products.length > 0 ? products : mockProducts;
   const featuredProducts = prioritizeSmartphoneProducts(allProducts);
   const visibleProducts = featuredProducts.slice(0, displayCount);

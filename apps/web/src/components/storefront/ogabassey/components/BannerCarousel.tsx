@@ -12,7 +12,7 @@ import {
   NEW_ARRIVALS_PROMO_IMAGE,
 } from '@/components/storefront/ogabassey/components/hero-data';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
-import { asRoute } from '@/lib/routes';
+import { asRoute, joinRouteBasePath } from '@/lib/routes';
 
 interface BaseBannerSlide {
   id: number;
@@ -70,22 +70,7 @@ export interface BannerCarouselProps {
 }
 
 export function resolveBannerHref(basePath: string, path: string) {
-  if (path.startsWith('http')) {
-    return path;
-  }
-
-  const normalizedBasePath = basePath.trim().replace(/\/+$/, '');
-  const routeBasePath =
-    normalizedBasePath && !normalizedBasePath.startsWith('/')
-      ? `/${normalizedBasePath}`
-      : normalizedBasePath;
-
-  if (!path || path === '/') {
-    return routeBasePath || '/';
-  }
-
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${routeBasePath}${normalizedPath}`;
+  return joinRouteBasePath(basePath, path);
 }
 
 export const BannerCarousel: React.FC<BannerCarouselProps> = ({

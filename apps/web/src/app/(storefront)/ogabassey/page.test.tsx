@@ -38,6 +38,7 @@ vi.mock('./ogabassey-home-page-content', () => ({
     mockOgabasseyHomePageContent(props),
 }));
 
+import * as pageModule from './page';
 import OgabasseyStaticHomePage, { metadata } from './page';
 
 describe('OgabasseyStaticHomePage', () => {
@@ -58,6 +59,10 @@ describe('OgabasseyStaticHomePage', () => {
       renderHero: false,
     });
     expect(mockOgabasseyStaticResourceHints).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the shared home shell out of the Next app-router page exports', () => {
+    expect(pageModule).not.toHaveProperty('OgabasseyStaticHomePageContent');
   });
 
   it('emits static WebPage JSON-LD for the public homepage shell', () => {
