@@ -99,3 +99,55 @@ it('uses recency as a deterministic tie-breaker after semantic score', () => {
 
   expect(selected[0]?.id).toBe('newer');
 });
+
+it('pads partial semantic results with recent unmatched posts', () => {
+  const selected = selectSemanticRelatedBlogPosts(
+    source,
+    [
+      {
+        id: 'recent-unmatched',
+        title: 'OPPO screen repair symptoms',
+        category: 'Repairs',
+        tags: ['OPPO'],
+        keywords: ['screen repair'],
+        published_at: '2026-06-09T12:00:00Z',
+      },
+      {
+        id: 'semantic',
+        title: 'MacBook Air M3 buying advice',
+        category: 'Laptops',
+        tags: ['Apple', 'MacBook'],
+        keywords: ['apple laptop nigeria'],
+        published_at: '2026-06-07T12:00:00Z',
+      },
+      {
+        id: 'older-unmatched',
+        title: 'Samsung watch strap guide',
+        category: 'Wearables',
+        tags: ['Samsung'],
+        keywords: ['watch straps'],
+        published_at: '2026-06-01T12:00:00Z',
+      },
+    ],
+    3
+  );
+
+  expect(selected.map((post) => post.id)).toEqual([
+    'semantic',
+    'recent-unmatched',
+    'older-unmatched',
+  ]);
+});
+
+it('does not create semantic matches from sliced partial words', () => {
+  const longSource: SemanticBlogPostInput = {
+    id: 'source-long',
+    title: `${'filler '.repeat(31)}technology`,
+  };
+  const partialCandidate: SemanticBlogPostInput = {
+    id: 'partial',
+    title: 'tec',
+  };
+
+  expect(scoreSemanticRelatedBlogPost(longSource, partialCandidate)).toBe(0);
+});

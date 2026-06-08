@@ -68,20 +68,29 @@ function normalizeText(value: unknown): string {
 }
 
 function tokenize(value: unknown, limit = MAX_TOKEN_COUNT): string[] {
-  const normalized = normalizeText(value).slice(0, MAX_TEXT_LENGTH);
+  const normalized = normalizeText(value);
 
   if (!normalized) {
     return [];
   }
 
-  return [
-    ...new Set(
-      normalized
-        .split(/\s+/)
-        .map((token) => token.trim())
-        .filter((token) => token.length > 2 && !STOP_WORDS.has(token))
-    ),
-  ].slice(0, limit);
+  const tokens: string[] = [];
+  let consumedLength = 0;
+
+  for (const token of normalized.split(/\s+/)) {
+    const nextLength =
+      consumedLength + token.length + (tokens.length > 0 ? 1 : 0);
+    if (nextLength > MAX_TEXT_LENGTH) {
+      break;
+    }
+
+    consumedLength = nextLength;
+    if (token.length > 2 && !STOP_WORDS.has(token)) {
+      tokens.push(token);
+    }
+  }
+
+  return [...new Set(tokens)].slice(0, limit);
 }
 
 function normalizeStringArray(value: string[] | null | undefined): string[] {
@@ -188,11 +197,7 @@ export function selectSemanticRelatedBlogPosts<T extends SemanticBlogPostInput>(
     )
     .filter(({ score }) => score > 0);
 
-  if (scoredCandidates.length === 0) {
-    return eligibleCandidates.slice(0, limit);
-  }
-
-  return scoredCandidates
+  const selectedPosts = scoredCandidates
     .sort((left, right) => {
       if (right.score !== left.score) {
         return right.score - left.score;
@@ -208,4 +213,15 @@ export function selectSemanticRelatedBlogPosts<T extends SemanticBlogPostInput>(
     })
     .slice(0, limit)
     .map(({ post }) => post);
+
+  if (selectedPosts.length >= limit) {
+    return selectedPosts;
+  }
+
+  const selectedPostIds = new Set(selectedPosts.map((post) => post.id));
+  const paddingPosts = eligibleCandidates
+    .filter((post) => !selectedPostIds.has(post.id))
+    .slice(0, limit - selectedPosts.length);
+
+  return [...selectedPosts, ...paddingPosts];
 }
