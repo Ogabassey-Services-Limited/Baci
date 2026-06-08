@@ -89,3 +89,7 @@
 ## 2026-06-07 - Add `accessibilityState` to auth loading buttons
 **Learning:** React Native's `ActivityIndicator` visually indicates loading, but screen readers require `accessibilityState={{ disabled: true, busy: true }}` explicitly set on the parent interactive element (e.g., `Pressable`) to accurately announce the busy state and prevent double-activation during async operations.
 **Action:** When adding an `ActivityIndicator` to a button for loading states, ensure the parent button correctly implements `accessibilityState={{ disabled: isLoading, busy: isLoading }}`.
+
+## 2026-06-08 - Add busy state to mobile shipment flow buttons
+**Learning:** Submit buttons in React Native that become disabled during loading states (like in the ShipmentFlowFooter and ShipmentFlowHeader) must implement `accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}`. Otherwise, screen readers will only announce them as "disabled button" without conveying that a background process is active.
+**Action:** When updating or creating actionable buttons that show loading indicators or disable during submission, ensure `accessibilityState` explicitly includes `busy: isSubmitting` alongside the `disabled` state.
