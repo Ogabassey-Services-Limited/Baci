@@ -17,6 +17,7 @@ vi.mock('@supabase/supabase-js', () => ({
 import { cacheTag } from 'next/cache';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getCachedBlogPost } from '@/lib/cached-data';
+import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 
 function createQueryBuilder({
   queryResult = { data: [], error: null },
@@ -94,6 +95,7 @@ function buildBlogPostRow(overrides: Record<string, unknown> = {}) {
 }
 
 interface BlogPostFetchMocks {
+  categoryRelatedPostsResult?: { data: unknown; error: unknown };
   merchantRow: Record<string, unknown>;
   publishedPost: Record<string, unknown>;
   linkedProductsResult?: { data: unknown; error: unknown };
@@ -101,6 +103,7 @@ interface BlogPostFetchMocks {
 }
 
 function setupBlogPostFetch({
+  categoryRelatedPostsResult,
   linkedProductsResult,
   merchantRow,
   publishedPost,
@@ -124,6 +127,9 @@ function setupBlogPostFetch({
   const relatedPostsBuilder = createQueryBuilder({
     queryResult: relatedPostsResult,
   });
+  const categoryRelatedPostsBuilder = createQueryBuilder({
+    queryResult: categoryRelatedPostsResult,
+  });
   const linkedProductsBuilder = createQueryBuilder({
     queryResult: linkedProductsResult,
   });
@@ -145,7 +151,11 @@ function setupBlogPostFetch({
     throw new Error(`Unexpected service table: ${table}`);
   });
 
-  const blogBuilders = [postLookupBuilder, relatedPostsBuilder];
+  const blogBuilders = [
+    postLookupBuilder,
+    relatedPostsBuilder,
+    categoryRelatedPostsBuilder,
+  ];
   const publicFrom = vi.fn((table: string) => {
     if (table === 'blog_posts') {
       return {
@@ -189,6 +199,7 @@ function setupBlogPostFetch({
   );
 
   return {
+    categoryRelatedPostsBuilder,
     linkedProductsBuilder,
     postLookupBuilder,
     relatedPostsBuilder,
@@ -203,6 +214,11 @@ describe('getCachedBlogPost', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('fetches source blog tags and keywords for semantic related ranking', () => {
+    expect(STOREFRONT_BLOG_POST_SELECT).toContain('tags');
+    expect(STOREFRONT_BLOG_POST_SELECT).toContain('keywords');
   });
 
   it('preserves the merchant custom domain for domain-based blog post lookups', async () => {
@@ -263,7 +279,60 @@ describe('getCachedBlogPost', () => {
       'ilike',
       '%agent-integration-working%'
     );
-    expect(relatedPostsBuilder.limit).toHaveBeenCalledWith(12);
+    expect(relatedPostsBuilder.limit).toHaveBeenCalledWith(36);
+  });
+
+  it('adds a bounded same-category candidate pool for older semantic matches', async () => {
+    const { categoryRelatedPostsBuilder } = setupBlogPostFetch({
+      merchantRow: buildMerchantRow(),
+      publishedPost: buildBlogPostRow({
+        category: 'Laptops',
+        tags: ['Apple', 'MacBook'],
+        keywords: ['macbook buyer guide'],
+        title: 'MacBook buyer guide',
+      }),
+      relatedPostsResult: {
+        data: [
+          {
+            id: 'recent-phone',
+            slug: 'recent-phone-news',
+            title: 'Recent phone news',
+            category: 'Smartphones',
+            published_at: '2026-06-08T12:00:00Z',
+          },
+        ],
+        error: null,
+      },
+      categoryRelatedPostsResult: {
+        data: [
+          {
+            id: 'older-macbook',
+            slug: 'older-macbook-guide',
+            title: 'Older MacBook buying guide',
+            category: 'Laptops',
+            tags: ['Apple', 'MacBook'],
+            keywords: ['macbook buyer guide'],
+            published_at: '2026-01-08T12:00:00Z',
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await getCachedBlogPost(
+      'ogabassey.com',
+      'factory-unlocked-iphones-explained'
+    );
+
+    expect(categoryRelatedPostsBuilder.eq).toHaveBeenCalledWith(
+      'category',
+      'Laptops'
+    );
+    expect(categoryRelatedPostsBuilder.limit).toHaveBeenCalledWith(24);
+    expect(result?.relatedPosts.map((post) => post.id)).toEqual([
+      'older-macbook',
+      'recent-phone',
+    ]);
   });
 
   it('slugifies free-text blog categories before filtering related products', async () => {
