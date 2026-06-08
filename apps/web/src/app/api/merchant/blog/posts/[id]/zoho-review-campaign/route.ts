@@ -6,7 +6,6 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
-import { createServiceClient } from '@/lib/supabase/service';
 import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
 import { zohoReviewCampaignRouteParamsSchema } from '@/schemas/zoho-review-campaign-route-params';
 
@@ -49,7 +48,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
     if (!parsedParams.success) {
       return NextResponse.json(
-        { error: 'Invalid blog post id' },
+        { error: 'Invalid input', details: parsedParams.error.flatten() },
         { status: 400 }
       );
     }
@@ -104,7 +103,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       audience: 'review',
       context,
       post,
-      supabase: createServiceClient(),
+      supabase: auth.supabase,
     });
 
     return NextResponse.json(

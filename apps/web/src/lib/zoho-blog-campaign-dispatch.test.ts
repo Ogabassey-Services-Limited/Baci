@@ -1,70 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import type { ZohoCampaignsRuntimeConfig } from '@/env';
 import { dispatchZohoBlogCampaign } from './zoho-blog-campaign-dispatch';
-
-const baseConfig: ZohoCampaignsRuntimeConfig = {
-  accountsServerUrl: 'https://accounts.zoho.com',
-  apiRootUrl: 'https://campaigns.zoho.com/api/v1.1',
-  autoSend: true,
-  clientId: 'client-id',
-  clientSecret: 'client-secret',
-  enabled: true,
-  fromEmail: 'news@ogabassey.com',
-  fromName: 'OgaBassey',
-  contentSecret: 'content-secret',
-  listKey: 'list-key',
-  publicBaseUrl: 'https://ogabassey.com',
-  redirectUri: 'https://ogabassey.com/api/integrations/zoho/callback',
-  refreshToken: 'refresh-token',
-  requestTimeoutMs: 15_000,
-};
-
-const post = {
-  id: '4db63f48-3577-4ef3-9e09-e3ec6af7a5a2',
-  merchant_id: 'merchant-1',
-  slug: 'infinix-hot-70-launch',
-  title: 'Infinix Hot 70 released',
-};
-
-const context = {
-  canonicalMerchantSlug: 'ogabassey',
-  identifiers: ['ogabassey', 'ogabassey.com'],
-};
-
-const merchantZohoSettings = {
-  zohoCampaigns: {
-    enabled: true,
-    fromEmail: 'news@merchant.test',
-    listKey: 'merchant-list-key',
-    refreshToken: 'merchant-refresh-token',
-    reviewListKey: 'merchant-review-list-key',
-  },
-};
-
-function createDispatchSupabaseMock({
-  customSettings = merchantZohoSettings,
-  businessName = 'Oga Gadgets',
-}: {
-  customSettings?: unknown;
-  businessName?: string;
-} = {}) {
-  return {
-    from(table: string) {
-      const maybeSingle = () =>
-        table === 'merchant_feature_settings'
-          ? { data: { custom_settings: customSettings }, error: null }
-          : {
-              data: {
-                brand_colors: { primary: '#dc2626' },
-                business_name: businessName,
-              },
-              error: null,
-            };
-      return { select: () => ({ eq: () => ({ maybeSingle }) }) };
-    },
-  } as unknown as SupabaseClient;
-}
+import {
+  baseConfig,
+  context,
+  createDispatchSupabaseMock,
+  post,
+} from './zoho-blog-campaign-dispatch.test-utils';
 
 describe('Zoho blog campaign dispatch', () => {
   it('skips dispatch when Zoho Campaigns is disabled', async () => {
@@ -169,82 +110,6 @@ describe('Zoho blog campaign dispatch', () => {
     expect(fetchImpl.mock.calls[1]?.[1]?.headers).toMatchObject({
       Authorization: 'Zoho-oauthtoken access-token',
     });
-  });
-
-  it('sends a review campaign to the merchant review list', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ access_token: 'access-token' }), {
-          status: 200,
-        })
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ campaignKey: 'campaign-review', code: '200' }),
-          {
-            status: 200,
-          }
-        )
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            response: { campaign_status: 'inprogress', code: '200' },
-          }),
-          { status: 200 }
-        )
-      );
-
-    const result = await dispatchZohoBlogCampaign({
-      audience: 'review',
-      config: { ...baseConfig, autoSend: false },
-      context,
-      fetchImpl,
-      post,
-      supabase: createDispatchSupabaseMock(),
-    });
-
-    expect(result).toMatchObject({
-      campaignKey: 'campaign-review',
-      postId: post.id,
-      status: 'sent',
-    });
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
-
-    const createBody = fetchImpl.mock.calls[1]?.[1]?.body as URLSearchParams;
-    expect(createBody.get('list_details')).toBe(
-      '{"merchant-review-list-key":[]}'
-    );
-  });
-
-  it('skips review campaigns when the merchant review list is missing', async () => {
-    const fetchImpl = vi.fn();
-
-    const result = await dispatchZohoBlogCampaign({
-      audience: 'review',
-      config: baseConfig,
-      context,
-      fetchImpl,
-      post,
-      supabase: createDispatchSupabaseMock({
-        customSettings: {
-          zohoCampaigns: {
-            enabled: true,
-            fromEmail: 'news@merchant.test',
-            listKey: 'merchant-list-key',
-            refreshToken: 'merchant-refresh-token',
-          },
-        },
-      }),
-    });
-
-    expect(result).toEqual({
-      postId: post.id,
-      reason: 'Missing Zoho Campaigns merchant settings: reviewListKey',
-      status: 'skipped',
-    });
-    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('creates a draft campaign without sending when auto-send is disabled', async () => {

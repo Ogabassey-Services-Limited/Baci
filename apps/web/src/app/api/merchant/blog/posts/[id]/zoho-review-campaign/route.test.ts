@@ -1,10 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockServiceSupabase = vi.hoisted(() => ({
-  client: { source: 'service-role' },
-}));
-
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
@@ -34,10 +30,6 @@ const mockDispatchZohoBlogCampaign = vi.fn();
 vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
   dispatchZohoBlogCampaign: (...args: unknown[]) =>
     mockDispatchZohoBlogCampaign(...args),
-}));
-
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: () => mockServiceSupabase.client,
 }));
 
 const createChainableMock = () => {
@@ -158,7 +150,8 @@ describe('POST /api/merchant/blog/posts/[id]/zoho-review-campaign', () => {
     const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect(json.error).toBe('Invalid blog post id');
+    expect(json.error).toBe('Invalid input');
+    expect(json.details.fieldErrors.id).toContain('Invalid blog post id');
     expect(mockDispatchZohoBlogCampaign).not.toHaveBeenCalled();
   });
 
@@ -225,7 +218,7 @@ describe('POST /api/merchant/blog/posts/[id]/zoho-review-campaign', () => {
     expect(mockDispatchZohoBlogCampaign).not.toHaveBeenCalled();
   });
 
-  it('sends a review campaign with a service-role dispatch client', async () => {
+  it('sends a review campaign with the authenticated Supabase client', async () => {
     const res = await POST(makeRequest(), makeParams());
     const json = await res.json();
 
@@ -246,7 +239,7 @@ describe('POST /api/merchant/blog/posts/[id]/zoho-review-campaign', () => {
         identifiers: ['ogabassey', 'ogabassey.com'],
       },
       post: publishedPost,
-      supabase: mockServiceSupabase.client,
+      supabase: mockSupabase,
     });
   });
 
