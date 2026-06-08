@@ -1,5 +1,4 @@
 import robots from '@/app/robots';
-import { AGENT_CONTENT_SIGNAL_DIRECTIVE } from '@/config/agent-readiness';
 
 const ROBOTS_CACHE_CONTROL = 'public, max-age=300, s-maxage=300';
 
@@ -47,8 +46,6 @@ function appendRuleLines(lines: string[], rule: RobotsRule): void {
     lines.push(`User-Agent: ${userAgent}`);
   }
 
-  lines.push(AGENT_CONTENT_SIGNAL_DIRECTIVE);
-
   for (const allowPath of stringValues(rule.allow)) {
     lines.push(`Allow: ${allowPath}`);
   }
@@ -83,12 +80,7 @@ function serializeRobots(config: RobotsConfig): string {
 }
 
 function fallbackRobots(): string {
-  return [
-    'User-Agent: *',
-    AGENT_CONTENT_SIGNAL_DIRECTIVE,
-    'Disallow:',
-    '',
-  ].join('\n');
+  return ['User-Agent: *', 'Disallow:', ''].join('\n');
 }
 
 function robotsResponse(body: string): Response {
