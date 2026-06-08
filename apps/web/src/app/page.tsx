@@ -31,6 +31,7 @@ import { getLandingMetrics } from './actions';
 
 const HOMEPAGE_TITLE =
   'Baci - AI E-commerce Store Builder for African Merchants';
+const HOMEPAGE_OG_IMAGE_URL = `${PLATFORM_CONFIG.url}/opengraph-image`;
 
 export const metadata: Metadata = {
   title: HOMEPAGE_TITLE,
@@ -46,7 +47,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/opengraph-image',
+        url: HOMEPAGE_OG_IMAGE_URL,
         width: 1200,
         height: 630,
         alt: `Baci - ${PLATFORM_CONFIG.description}`,
@@ -57,7 +58,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: HOMEPAGE_TITLE,
     description: PLATFORM_CONFIG.description,
-    images: ['/opengraph-image'],
+    images: [HOMEPAGE_OG_IMAGE_URL],
   },
 };
 
