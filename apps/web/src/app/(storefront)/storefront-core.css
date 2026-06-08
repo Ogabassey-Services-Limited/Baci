@@ -1546,3 +1546,21 @@
     height: 3rem;
   }
 }
+
+/*
+ * PPR storefront root shell:
+ * - the dynamic tenant boundary keeps a null Suspense fallback to avoid the
+ *   Next 16.2 bot/blocking-metadata resume slot collision;
+ * - the visual shell is a static sibling so browsers still receive immediate
+ *   chrome/LCP placeholders;
+ * - once streamed content arrives before the fallback, old CSS sibling
+ *   selectors hide the static shell without client JavaScript.
+ */
+.storefront-ppr-static-shell,
+.storefront-ppr-static-shell__content {
+  display: contents;
+}
+
+.storefront-ppr-static-shell__content ~ .storefront-ppr-static-shell__fallback {
+  display: none;
+}

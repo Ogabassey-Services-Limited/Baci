@@ -263,15 +263,16 @@ describe('storefront layout', () => {
     );
   });
 
-  it('keeps a visible root shell fallback while request-bound tenant data resolves', async () => {
+  it('renders the static PPR shell by default while tenant data is loading', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
       createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
     );
 
     let unmount: () => void = () => undefined;
+    let container: HTMLElement | undefined;
 
     await act(() => {
-      ({ unmount } = render(
+      ({ container, unmount } = render(
         <StorefrontLayout params={Promise.resolve({ slug: 'ogabassey' })}>
           <main>Storefront content</main>
         </StorefrontLayout>
@@ -281,6 +282,12 @@ describe('storefront layout', () => {
     expect(
       screen.getByRole('status', { name: /loading storefront chrome/i })
     ).toBeInTheDocument();
+    expect(
+      container?.querySelector('.storefront-ppr-static-shell__fallback')
+    ).toBeTruthy();
+    expect(
+      container?.querySelector('.storefront-ppr-static-shell__content')
+    ).toBeFalsy();
     expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
 
     unmount();

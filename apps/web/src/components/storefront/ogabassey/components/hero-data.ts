@@ -43,6 +43,11 @@ export const HERO_DESKTOP_LCP_FALLBACK_SRC =
 export const HERO_MOBILE_LCP_SRC = OGABASSEY_HERO_MOBILE_LCP_SRC;
 export const HERO_MOBILE_LCP_FALLBACK_SRC =
   OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC;
+export const OGABASSEY_SHELL_MOBILE_HERO_IMAGE = {
+  alt: 'OgaBassey storefront hero',
+  avifSrc: HERO_MOBILE_LCP_SRC,
+  fallbackSrc: HERO_MOBILE_LCP_FALLBACK_SRC,
+} as const;
 
 export const NEW_ARRIVALS_PROMO_IMAGE = getImportedImageSrc(
   macbookProPromoAsset
