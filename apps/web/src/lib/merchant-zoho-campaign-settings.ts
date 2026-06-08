@@ -16,6 +16,7 @@ type ParsedMerchantZohoSettings = {
   fromName?: string;
   listKey?: string;
   refreshToken?: string;
+  reviewListKey?: string;
   topicId?: string;
 };
 
@@ -27,6 +28,7 @@ type ResolvedMerchantZohoCampaignConfig =
   | {
       brand: MerchantZohoEmailBrand;
       config: ZohoCampaignsRuntimeConfig;
+      reviewListKey?: string;
       status: 'configured';
     };
 
@@ -117,6 +119,7 @@ export function parseMerchantZohoCampaignSettings(
     fromName: getStringField(settings, 'fromName', 'from_name'),
     listKey: getStringField(settings, 'listKey', 'list_key'),
     refreshToken: getStringField(settings, 'refreshToken', 'refresh_token'),
+    reviewListKey: getStringField(settings, 'reviewListKey', 'review_list_key'),
     topicId: getStringField(settings, 'topicId', 'topic_id'),
   };
 }
@@ -221,6 +224,7 @@ export async function resolveMerchantZohoCampaignConfig({
 
   return {
     brand,
+    reviewListKey: settings.reviewListKey,
     config: {
       ...config,
       accountsServerUrl: settings.accountsServerUrl ?? config.accountsServerUrl,

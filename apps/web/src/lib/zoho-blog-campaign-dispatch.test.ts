@@ -1,69 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import type { ZohoCampaignsRuntimeConfig } from '@/env';
 import { dispatchZohoBlogCampaign } from './zoho-blog-campaign-dispatch';
-
-const baseConfig: ZohoCampaignsRuntimeConfig = {
-  accountsServerUrl: 'https://accounts.zoho.com',
-  apiRootUrl: 'https://campaigns.zoho.com/api/v1.1',
-  autoSend: true,
-  clientId: 'client-id',
-  clientSecret: 'client-secret',
-  enabled: true,
-  fromEmail: 'news@ogabassey.com',
-  fromName: 'OgaBassey',
-  contentSecret: 'content-secret',
-  listKey: 'list-key',
-  publicBaseUrl: 'https://ogabassey.com',
-  redirectUri: 'https://ogabassey.com/api/integrations/zoho/callback',
-  refreshToken: 'refresh-token',
-  requestTimeoutMs: 15_000,
-};
-
-const post = {
-  id: '4db63f48-3577-4ef3-9e09-e3ec6af7a5a2',
-  merchant_id: 'merchant-1',
-  slug: 'infinix-hot-70-launch',
-  title: 'Infinix Hot 70 released',
-};
-
-const context = {
-  canonicalMerchantSlug: 'ogabassey',
-  identifiers: ['ogabassey', 'ogabassey.com'],
-};
-
-const merchantZohoSettings = {
-  zohoCampaigns: {
-    enabled: true,
-    fromEmail: 'news@merchant.test',
-    listKey: 'merchant-list-key',
-    refreshToken: 'merchant-refresh-token',
-  },
-};
-
-function createDispatchSupabaseMock({
-  customSettings = merchantZohoSettings,
-  businessName = 'Oga Gadgets',
-}: {
-  customSettings?: unknown;
-  businessName?: string;
-} = {}) {
-  return {
-    from(table: string) {
-      const maybeSingle = () =>
-        table === 'merchant_feature_settings'
-          ? { data: { custom_settings: customSettings }, error: null }
-          : {
-              data: {
-                brand_colors: { primary: '#dc2626' },
-                business_name: businessName,
-              },
-              error: null,
-            };
-      return { select: () => ({ eq: () => ({ maybeSingle }) }) };
-    },
-  } as unknown as SupabaseClient;
-}
+import {
+  baseConfig,
+  context,
+  createDispatchSupabaseMock,
+  post,
+} from './zoho-blog-campaign-dispatch.test-utils';
 
 describe('Zoho blog campaign dispatch', () => {
   it('skips dispatch when Zoho Campaigns is disabled', async () => {

@@ -2,8 +2,8 @@
 
 import { Mail } from 'lucide-react';
 import { useState } from 'react';
-// import { cn } from '@/lib/utils';
 import { ThemedButton } from '@/components/themed';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 
 export interface NewsletterProps {
   title?: string;
@@ -12,6 +12,7 @@ export interface NewsletterProps {
   placeholder?: string;
   backgroundColor?: string;
   textColor?: string;
+  source?: 'widget' | 'footer' | 'checkout' | 'popup';
 }
 
 export function Newsletter({
@@ -21,14 +22,45 @@ export function Newsletter({
   placeholder = 'Enter your email address',
   backgroundColor = '#f9fafb',
   textColor = '#111827',
+  source = 'footer',
 }: NewsletterProps) {
   const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>(
+    'idle'
+  );
+  const [error, setError] = useState<string | null>(null);
+  const merchantContext = useMerchantSafe();
+  const merchant = merchantContext?.merchant;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Handle newsletter subscription logic here
-    setEmail('');
+    setStatus('submitting');
+    setError(null);
+
+    try {
+      const response = await fetch('/api/newsletter/subscribe', {
+        body: JSON.stringify({
+          email,
+          merchantId: merchant?.id,
+          source,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Newsletter subscription failed');
+      }
+
+      setEmail('');
+      setStatus('success');
+    } catch {
+      setError('Could not subscribe right now. Please try again.');
+      setStatus('idle');
+    }
   };
+
+  const isSubmitting = status === 'submitting';
 
   return (
     <section
@@ -57,12 +89,27 @@ export function Newsletter({
             onChange={(e) => setEmail(e.target.value)}
             placeholder={placeholder}
             required
+            disabled={isSubmitting}
             className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-primary focus:border-transparent"
           />
-          <ThemedButton type="submit" size="lg">
-            {buttonText}
+          <ThemedButton type="submit" size="lg" disabled={isSubmitting}>
+            {isSubmitting ? 'Subscribing…' : buttonText}
           </ThemedButton>
         </form>
+        {status === 'success' ? (
+          <p className="mt-4 text-sm" role="status">
+            You are subscribed. Check your email for updates.
+          </p>
+        ) : null}
+        {error ? (
+          <p
+            aria-label="Newsletter subscription failed"
+            className="mt-4 text-sm"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
       </div>
     </section>
   );
