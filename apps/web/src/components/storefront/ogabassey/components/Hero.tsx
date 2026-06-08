@@ -67,10 +67,18 @@ export const Hero: React.FC<HeroProps> = ({ basePath = '' }) => {
     };
   }, []);
 
-  const getHref = (path: string) =>
-    path.startsWith('http')
-      ? path
-      : `${normalizedBasePath}${path === '/' ? '' : path}`;
+  const getHref = (path: string) => {
+    if (path.startsWith('http')) {
+      return path;
+    }
+
+    if (!path || path === '/') {
+      return normalizedBasePath || '/';
+    }
+
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${normalizedBasePath}${normalizedPath}`;
+  };
 
   return (
     <div className="w-full bg-white relative">

@@ -81,7 +81,7 @@ export function resolveBannerHref(basePath: string, path: string) {
       : normalizedBasePath;
 
   if (!path || path === '/') {
-    return routeBasePath;
+    return routeBasePath || '/';
   }
 
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;

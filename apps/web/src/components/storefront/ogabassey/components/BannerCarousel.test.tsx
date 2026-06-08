@@ -59,7 +59,8 @@ describe('BannerCarousel', () => {
     expect(resolveBannerHref('/ogabassey/', '/products')).toBe(
       '/ogabassey/products'
     );
-    expect(resolveBannerHref('', '/')).toBe('');
+    expect(resolveBannerHref('', '/')).toBe('/');
+    expect(resolveBannerHref('/ogabassey', '/')).toBe('/ogabassey');
     expect(resolveBannerHref('/ogabassey', 'https://example.com')).toBe(
       'https://example.com'
     );
