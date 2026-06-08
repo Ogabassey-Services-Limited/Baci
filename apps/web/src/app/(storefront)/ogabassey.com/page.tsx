@@ -1,3 +1,10 @@
 import '@/app/(storefront)/storefront-full.css';
 
-export { default, metadata } from '@/app/(storefront)/ogabassey/page';
+import { OgabasseyStaticHomePageContent } from '@/app/(storefront)/ogabassey/ogabassey-static-home-page-content';
+import { metadata } from '@/app/(storefront)/ogabassey/page';
+
+export { metadata };
+
+export default function OgabasseyDomainHomePage() {
+  return <OgabasseyStaticHomePageContent heroBasePath="" />;
+}

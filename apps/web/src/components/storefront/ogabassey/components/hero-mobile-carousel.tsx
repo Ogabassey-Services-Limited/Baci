@@ -199,6 +199,7 @@ export function HeroMobileCarousel({
                 <DeferredAdUnit
                   placementKey="HEADER_LEADERBOARD"
                   className="my-0"
+                  enabled={index === currentSlide && isMobileAutoplayReady}
                   isActive={index === currentSlide}
                   refreshKey={adRefreshTrigger}
                   timeoutMs={1}
