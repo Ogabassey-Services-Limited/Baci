@@ -121,11 +121,13 @@ async function loadOgabasseyHomeTemplateModules() {
 }
 
 function renderOgabasseyHomeTemplate({
+  basePath,
   categories,
   merchantProducts,
   modules,
   storeSlug,
 }: {
+  basePath: string;
   categories: { name: string; slug: string }[];
   merchantProducts: Product[];
   modules: Awaited<ReturnType<typeof loadOgabasseyHomeTemplateModules>>;
@@ -135,6 +137,7 @@ function renderOgabasseyHomeTemplate({
 
   return (
     <OgabasseyHomePage
+      basePath={basePath}
       storeSlug={storeSlug}
       products={createOgabasseyHomeProductFeed(merchantProducts)}
       categories={categories}
@@ -364,6 +367,7 @@ export async function StorefrontContent({
               {homepageSchema}
               <AnalyticsProvider />
               {renderOgabasseyHomeTemplate({
+                basePath: pathPrefix,
                 storeSlug: merchant.slug,
                 merchantProducts,
                 categories: categories || [],
