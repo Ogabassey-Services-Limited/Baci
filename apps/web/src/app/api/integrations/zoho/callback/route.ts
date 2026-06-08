@@ -90,15 +90,24 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json({
-    apiDomain: tokens.api_domain,
-    expiresIn: tokens.expires_in,
-    hasRefreshToken: Boolean(tokens.refresh_token),
-    message: tokens.refresh_token
-      ? 'Store refreshToken in the intended merchant settings. Do not commit it.'
-      : 'Zoho did not return a refresh token. Re-authorize with access_type=offline and prompt=consent, or revoke the old grant first.',
-    refreshToken: tokens.refresh_token ?? null,
-    success: true,
-    tokenType: tokens.token_type,
-  });
+  return NextResponse.json(
+    {
+      apiDomain: tokens.api_domain,
+      expiresIn: tokens.expires_in,
+      hasRefreshToken: Boolean(tokens.refresh_token),
+      message: tokens.refresh_token
+        ? 'Store refreshToken and apiDomain in the intended merchant settings. Do not commit them.'
+        : 'Zoho did not return a refresh token. Re-authorize with access_type=offline and prompt=consent, or revoke the old grant first.',
+      refreshToken: tokens.refresh_token ?? null,
+      success: true,
+      tokenType: tokens.token_type,
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, max-age=0, must-revalidate',
+        Expires: new Date(0).toUTCString(),
+        Pragma: 'no-cache',
+      },
+    }
+  );
 }

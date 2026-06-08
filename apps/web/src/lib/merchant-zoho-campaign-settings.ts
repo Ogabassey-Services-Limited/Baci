@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ZohoCampaignsRuntimeConfig } from '@/env';
+import { trimTrailingSlash } from '@/lib/zoho-campaigns-http';
 
 export type MerchantZohoEmailBrand = {
   brandColor?: string;
@@ -7,6 +8,7 @@ export type MerchantZohoEmailBrand = {
 };
 
 type ParsedMerchantZohoSettings = {
+  apiRootUrl?: string;
   autoSend?: boolean;
   enabled: boolean;
   fromEmail?: string;
@@ -64,6 +66,62 @@ function getBooleanField(
   return undefined;
 }
 
+const ZOHO_CAMPAIGNS_API_VERSION_PATH = '/api/v1.1';
+
+const ZOHO_CAMPAIGNS_API_HOST_BY_DOMAIN = new Map([
+  ['campaigns.zoho.com', 'campaigns.zoho.com'],
+  ['campaigns.zoho.eu', 'campaigns.zoho.eu'],
+  ['campaigns.zoho.in', 'campaigns.zoho.in'],
+  ['campaigns.zoho.com.au', 'campaigns.zoho.com.au'],
+  ['campaigns.zoho.jp', 'campaigns.zoho.jp'],
+  ['campaigns.zoho.com.cn', 'campaigns.zoho.com.cn'],
+  ['www.zohoapis.com', 'campaigns.zoho.com'],
+  ['www.zohoapis.eu', 'campaigns.zoho.eu'],
+  ['www.zohoapis.in', 'campaigns.zoho.in'],
+  ['www.zohoapis.com.au', 'campaigns.zoho.com.au'],
+  ['www.zohoapis.jp', 'campaigns.zoho.jp'],
+  ['www.zohoapis.com.cn', 'campaigns.zoho.com.cn'],
+]);
+
+function normalizeZohoCampaignsApiRootUrl(value: unknown): string | undefined {
+  const rawValue = normalizeString(value);
+  if (!rawValue) return undefined;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(rawValue);
+  } catch {
+    return undefined;
+  }
+
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
+    return undefined;
+  }
+
+  const campaignsHost = ZOHO_CAMPAIGNS_API_HOST_BY_DOMAIN.get(
+    parsed.hostname.toLowerCase()
+  );
+  if (!campaignsHost) return undefined;
+
+  const pathname = trimTrailingSlash(parsed.pathname);
+  if (pathname && pathname !== ZOHO_CAMPAIGNS_API_VERSION_PATH) {
+    return undefined;
+  }
+
+  return `https://${campaignsHost}${ZOHO_CAMPAIGNS_API_VERSION_PATH}`;
+}
+
+function getZohoApiRootUrlField(
+  source: Record<string, unknown>
+): string | undefined {
+  return (
+    normalizeZohoCampaignsApiRootUrl(source.apiRootUrl) ??
+    normalizeZohoCampaignsApiRootUrl(source.api_root_url) ??
+    normalizeZohoCampaignsApiRootUrl(source.apiDomain) ??
+    normalizeZohoCampaignsApiRootUrl(source.api_domain)
+  );
+}
+
 function getZohoSettingsRecord(
   customSettings: unknown
 ): Record<string, unknown> | null {
@@ -85,6 +143,7 @@ export function parseMerchantZohoCampaignSettings(
   if (!settings) return null;
 
   return {
+    apiRootUrl: getZohoApiRootUrlField(settings),
     autoSend: getBooleanField(settings, 'autoSend', 'auto_send'),
     enabled: getBooleanField(settings, 'enabled') === true,
     fromEmail: getStringField(settings, 'fromEmail', 'from_email'),
@@ -197,6 +256,7 @@ export async function resolveMerchantZohoCampaignConfig({
     brand,
     config: {
       ...config,
+      apiRootUrl: settings.apiRootUrl ?? config.apiRootUrl,
       autoSend: settings.autoSend ?? config.autoSend,
       fromEmail: settings.fromEmail,
       fromName: settings.fromName ?? brand.brandName,

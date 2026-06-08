@@ -76,6 +76,7 @@ describe('merchant Zoho Campaigns settings', () => {
     expect(
       parseMerchantZohoCampaignSettings({
         zoho_campaigns: {
+          api_domain: 'https://campaigns.zoho.eu',
           auto_send: 'true',
           enabled: true,
           from_email: 'news@example.com',
@@ -86,6 +87,7 @@ describe('merchant Zoho Campaigns settings', () => {
         },
       })
     ).toEqual({
+      apiRootUrl: 'https://campaigns.zoho.eu/api/v1.1',
       autoSend: true,
       enabled: true,
       fromEmail: 'news@example.com',
@@ -122,6 +124,64 @@ describe('merchant Zoho Campaigns settings', () => {
       reason:
         'Missing Zoho Campaigns merchant settings: refreshToken, listKey, fromEmail',
       status: 'skipped',
+    });
+  });
+
+  it('normalizes merchant Zoho data center settings to the Campaigns API root', async () => {
+    const parsed = parseMerchantZohoCampaignSettings({
+      zohoCampaigns: {
+        apiDomain: 'https://www.zohoapis.in',
+        enabled: true,
+        fromEmail: 'support@merchant.test',
+        listKey: 'merchant-list',
+        refreshToken: 'merchant-refresh-token',
+      },
+    });
+
+    expect(parsed?.apiRootUrl).toBe('https://campaigns.zoho.in/api/v1.1');
+
+    const result = await resolveMerchantZohoCampaignConfig({
+      config,
+      merchantId: 'merchant-1',
+      supabase: createSupabaseMock({
+        customSettings: {
+          zohoCampaigns: {
+            apiRootUrl: 'https://campaigns.zoho.com.au/api/v1.1',
+            enabled: true,
+            fromEmail: 'support@merchant.test',
+            listKey: 'merchant-list',
+            refreshToken: 'merchant-refresh-token',
+          },
+        },
+      }),
+    });
+
+    expect(result).toMatchObject({
+      config: { apiRootUrl: 'https://campaigns.zoho.com.au/api/v1.1' },
+      status: 'configured',
+    });
+  });
+
+  it('ignores unsafe merchant Zoho API root settings', async () => {
+    const result = await resolveMerchantZohoCampaignConfig({
+      config,
+      merchantId: 'merchant-1',
+      supabase: createSupabaseMock({
+        customSettings: {
+          zohoCampaigns: {
+            apiDomain: 'https://example.com',
+            enabled: true,
+            fromEmail: 'support@merchant.test',
+            listKey: 'merchant-list',
+            refreshToken: 'merchant-refresh-token',
+          },
+        },
+      }),
+    });
+
+    expect(result).toMatchObject({
+      config: { apiRootUrl: config.apiRootUrl },
+      status: 'configured',
     });
   });
 

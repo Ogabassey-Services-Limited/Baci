@@ -26,6 +26,9 @@ describe('Zoho Campaigns OAuth helpers', () => {
     expect(url.searchParams.get('scope')).toContain(
       'ZohoCampaigns.campaign.CREATE'
     );
+    expect(url.searchParams.get('scope')).toContain(
+      'ZohoCampaigns.campaign.UPDATE'
+    );
   });
 
   it('throws when required OAuth config is missing', () => {

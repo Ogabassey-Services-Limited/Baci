@@ -261,18 +261,29 @@ export async function POST(request: Request) {
       }
     }
 
-    const campaignResults = await Promise.all(
-      eligiblePosts.map((post) => {
-        return dispatchZohoBlogCampaign({
-          context: blogRevalidationByMerchant.get(post.merchant_id) ?? {
-            canonicalMerchantSlug: null,
-            identifiers: [],
-          },
-          post,
-          supabase,
-        });
-      })
+    const dispatchablePosts = eligiblePosts.filter((post) =>
+      blogRevalidationByMerchant.has(post.merchant_id)
     );
+    const skippedCampaignResults = eligiblePosts
+      .filter((post) => !blogRevalidationByMerchant.has(post.merchant_id))
+      .map((post) => ({
+        postId: post.id,
+        reason:
+          'Skipped Zoho Campaigns dispatch because blog revalidation failed for this merchant',
+        status: 'skipped' as const,
+      }));
+    const campaignResults = [
+      ...(await Promise.all(
+        dispatchablePosts.map((post) =>
+          dispatchZohoBlogCampaign({
+            context: blogRevalidationByMerchant.get(post.merchant_id),
+            post,
+            supabase,
+          })
+        )
+      )),
+      ...skippedCampaignResults,
+    ];
 
     if (failedMerchants.length > 0) {
       return NextResponse.json(

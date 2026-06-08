@@ -251,6 +251,13 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
         identifiers: ['merchant-two'],
         canonicalMerchantSlug: 'merchant-two',
       });
+    mockDispatchZohoBlogCampaign.mockImplementation(
+      async ({ post }: { post: { id: string } }) => ({
+        postId: post.id,
+        reason: 'Zoho Campaigns disabled',
+        status: 'skipped',
+      })
+    );
 
     const response = await POST(
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
@@ -276,13 +283,28 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       listingPages: [1],
       postSlugs: ['macbook-air-m4-review'],
     });
-    expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(2);
+    expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(1);
     expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledWith({
-      context: { canonicalMerchantSlug: null, identifiers: [] },
-      post: expect.objectContaining({ id: 'post-1' }),
+      context: {
+        canonicalMerchantSlug: 'merchant-two',
+        identifiers: ['merchant-two'],
+      },
+      post: expect.objectContaining({ id: 'post-2' }),
       supabase: mockSupabase,
     });
-    expect(json.zohoCampaigns).toHaveLength(2);
+    expect(json.zohoCampaigns).toEqual([
+      {
+        postId: 'post-2',
+        reason: 'Zoho Campaigns disabled',
+        status: 'skipped',
+      },
+      {
+        postId: 'post-1',
+        reason:
+          'Skipped Zoho Campaigns dispatch because blog revalidation failed for this merchant',
+        status: 'skipped',
+      },
+    ]);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Cron Error: Revalidation failed for merchant %s:',
       'merchant-1',

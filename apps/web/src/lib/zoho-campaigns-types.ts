@@ -2,6 +2,7 @@ import type { ZohoCampaignsRuntimeConfig } from '@/env';
 
 export const ZOHO_CAMPAIGNS_BLOG_SCOPES = [
   'ZohoCampaigns.campaign.CREATE',
+  // Zoho documents sendcampaign under campaign.UPDATE; there is no separate send scope.
   'ZohoCampaigns.campaign.UPDATE',
   'ZohoCampaigns.contact.READ',
 ] as const;

@@ -166,7 +166,14 @@ describe('GET /api/integrations/zoho/callback', () => {
     });
   });
 
-  it('exchanges a valid Zoho code and returns the refresh token once', async () => {
+  it('returns a no-refresh-token setup message when Zoho omits refresh_token', async () => {
+    mockExchangeZohoAuthorizationCodeForTokens.mockResolvedValueOnce({
+      api_domain: 'https://api.zoho.com',
+      expires_in: 3600,
+      refresh_token: undefined,
+      token_type: 'Bearer',
+    });
+
     const response = await GET(
       new Request(
         'https://ogabassey.com/api/integrations/zoho/callback?code=grant-code&state=expected-state'
@@ -176,7 +183,29 @@ describe('GET /api/integrations/zoho/callback', () => {
 
     expect(response.status).toBe(200);
     expect(json).toMatchObject({
+      hasRefreshToken: false,
+      message:
+        'Zoho did not return a refresh token. Re-authorize with access_type=offline and prompt=consent, or revoke the old grant first.',
+      refreshToken: null,
+      success: true,
+    });
+  });
+
+  it('exchanges a valid Zoho code and returns the refresh token once', async () => {
+    const response = await GET(
+      new Request(
+        'https://ogabassey.com/api/integrations/zoho/callback?code=grant-code&state=expected-state'
+      )
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(response.headers.get('pragma')).toBe('no-cache');
+    expect(json).toMatchObject({
       hasRefreshToken: true,
+      message:
+        'Store refreshToken and apiDomain in the intended merchant settings. Do not commit them.',
       refreshToken: 'refresh-token',
       success: true,
     });
