@@ -129,11 +129,12 @@ export function DeliveryStep({
               <div className="space-y-4">
                 {/* Saved Addresses (for logged in users) */}
                 {user && addresses.length > 0 && (
-                  <div className="space-y-3">
+                  <fieldset className="m-0 min-w-0 space-y-3 border-0 p-0">
+                    <legend className="sr-only">Where should we deliver?</legend>
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                      <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
                         Where should we deliver?
-                      </label>
+                      </p>
                       <button type="button"
                         onClick={() => setIsNewAddressMode(!isNewAddressMode)}
                         className="text-xs font-bold text-store-primary hover:underline"
@@ -144,7 +145,7 @@ export function DeliveryStep({
                     {!isNewAddressMode && addresses.map((addr) => (
                       <label
                         key={addr.id}
-                        className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all ${selectedAddressId === addr.id
+                        className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedAddressId === addr.id
                           ? 'border-store-primary bg-store-primary/5'
                           : 'border-gray-200 hover:border-gray-300'
                           }`}
@@ -178,16 +179,17 @@ export function DeliveryStep({
                         </div>
                       </label>
                     ))}
-                  </div>
+                  </fieldset>
                 )}
 
                 {/* New Address Form */}
                 {(isNewAddressMode || !user || addresses.length === 0) && (
                   <div className="space-y-4" style={{ overflow: 'visible' }}>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <label htmlFor="checkout-street-address" className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
                       {user && addresses.length > 0 ? 'Enter New Address' : 'Delivery Address'}
                     </label>
                     <AddressAutocomplete
+                      id="checkout-street-address"
                       value={newAddressStreet}
                       useThemedInput={true}
                       onChange={(val) => {
@@ -244,11 +246,15 @@ export function DeliveryStep({
               {/* STEP 2: Delivery Method Cards - ONLY show AFTER address is detected */}
               {isHydrated && ((newAddressState && newAddressCity) || (!isNewAddressMode && selectedAddressId)) && (
                 <>
-                  <div className="mt-6 pt-4 border-t border-gray-100">
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+                  <fieldset className="m-0 min-w-0 border-0 p-0">
+                    <legend className="sr-only">
                       How would you like to receive your order?
-                    </label>
-                    <div className="flex gap-3 overflow-x-auto pb-1">
+                    </legend>
+                    <div className="mt-6 border-t border-gray-100 pt-4">
+                      <p className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+                        How would you like to receive your order?
+                      </p>
+                      <div className="flex gap-3 overflow-x-auto pb-1">
                       {(['door', 'pickup', 'airport'] as const).map((method) => {
                         // Filter out Pickup if not in Lagos (store is in Lagos)
                         if (method === 'pickup') {
@@ -277,22 +283,30 @@ export function DeliveryStep({
                         const subtitle = method === 'door' ? 'To your address' : method === 'pickup' ? 'Collect at store' : 'Via air cargo';
 
                         return (
-                          <button type="button"
+                          <label
                             key={method}
-                            onClick={() => setDeliveryMethod(method)}
-                            className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] ${deliveryMethod === method
+                            className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] cursor-pointer focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${deliveryMethod === method
                               ? 'border-store-primary bg-store-primary/5 text-store-primary'
                               : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
                               }`}
                           >
+                            <input
+                              type="radio"
+                              name="deliveryMethod"
+                              value={method}
+                              checked={deliveryMethod === method}
+                              onChange={() => setDeliveryMethod(method)}
+                              className="sr-only"
+                            />
                             <Icon className={`w-6 h-6 ${deliveryMethod === method ? 'text-store-primary' : 'text-gray-400'}`} />
                             <span className="text-xs sm:text-sm font-bold">{label}</span>
                             <span className="text-[10px] text-gray-400">{subtitle}</span>
-                          </button>
+                          </label>
                         );
                       })}
+                      </div>
                     </div>
-                  </div>
+                  </fieldset>
 
                   {/* STEP 3: Delivery Method Details */}
                   {/* Pickup Info */}
@@ -322,9 +336,10 @@ export function DeliveryStep({
                           Delivery to your nearest airport. Choose delivery to your location or pickup at the airport.
                         </p>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <fieldset className="m-0 grid min-w-0 grid-cols-1 gap-3 border-0 p-0 sm:grid-cols-2">
+                        <legend className="sr-only">Airport delivery preference</legend>
                         <label
-                          className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'delivery'
+                          className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'delivery'
                             ? 'border-store-primary bg-store-primary/5'
                             : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                             }`}
@@ -350,7 +365,7 @@ export function DeliveryStep({
                           <span className="font-bold text-gray-900">&#8358;25,000</span>
                         </label>
                         <label
-                          className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'pickup'
+                          className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'pickup'
                             ? 'border-store-primary bg-store-primary/5'
                             : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                             }`}
@@ -375,16 +390,20 @@ export function DeliveryStep({
                           </div>
                           <span className="font-bold text-gray-900">&#8358;20,000</span>
                         </label>
-                      </div>
+                      </fieldset>
                     </div>
                   )}
 
                   {/* Door Delivery - Quote Selector */}
                   {deliveryMethod === 'door' && (
-                    <div className="mt-6 border-t border-gray-100 pt-4">
-                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+                    <fieldset className="m-0 min-w-0 border-0 p-0">
+                      <legend className="sr-only">
                         Select Delivery Option
-                      </label>
+                      </legend>
+                      <div className="mt-6 border-t border-gray-100 pt-4">
+                        <p className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+                          Select Delivery Option
+                        </p>
 
                       {isLoadingQuotes ? (
                         <SmartQuoteLoader />
@@ -455,7 +474,8 @@ export function DeliveryStep({
                           </span>
                         </button>
                       )}
-                    </div>
+                      </div>
+                    </fieldset>
                   )}
                 </>
               )}
