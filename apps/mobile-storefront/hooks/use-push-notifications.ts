@@ -6,7 +6,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
 import { pickMerchantId } from '@/lib/pick-merchant-id';
-import { trackError } from '@/services/analytics';
 import {
   clearStoredPushToken,
   getStoredPushToken,
@@ -14,6 +13,7 @@ import {
   setPushOptOut,
   storeLocalPushToken,
 } from '@/lib/push-token-storage';
+import { trackError } from '@/services/analytics';
 import {
   clearBadge,
   handleNotificationResponse,
@@ -94,7 +94,14 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           );
           break;
         case 'wallet':
-          router.push('/wallet');
+          if (params?.action === 'savings') {
+            router.push({
+              pathname: '/wallet',
+              params: { action: 'savings' },
+            });
+          } else {
+            router.push('/wallet');
+          }
           break;
         case 'utility-history':
           router.push(

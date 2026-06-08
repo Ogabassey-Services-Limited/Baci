@@ -15,7 +15,9 @@ export const WALLET_COLORS = {
   loyaltyTierSilverBackground: palette.gray[700],
   loyaltyTierText: palette.white,
   mutedText: withAlpha(palette.white, 0.72),
+  progressTrack: palette.gray[100],
   quickSaveBackground: palette.gray[800],
   secondaryBorder: palette.gray[300],
+  savingsAccent: palette.emerald[600],
   white: palette.white,
 };

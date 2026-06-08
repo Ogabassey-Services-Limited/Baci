@@ -10,8 +10,12 @@ import { BRAND, palette } from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { SAVINGS_FREQUENCIES, themedInputStyle } from './start-savings.helpers';
 import { startSavingsStyles as styles } from './start-savings.styles';
-import type { StartSavingsColors } from './start-savings.types';
-import type { StartSavingsController } from './use-start-savings-controller';
+import type {
+  SavingsProductChoice,
+  StartSavingsColors,
+} from './start-savings.types';
+import { toProductChoice } from './start-savings-controller.utils';
+import type { StartSavingsController } from './start-savings-controller.types';
 
 type StartSavingsProductFieldsProps = {
   colors: StartSavingsColors;
@@ -73,6 +77,7 @@ function ProductSearchSection({
           >
             {formatNgnCurrency(controller.selectedProduct.price)}
           </Text>
+          <ProductMeta colors={colors} product={controller.selectedProduct} />
         </View>
       ) : null}
       {!controller.selectedProduct && controller.debouncedSearch.trim() ? (
@@ -120,12 +125,38 @@ function ProductSearchSection({
                   >
                     {formatNgnCurrency(product.price)}
                   </Text>
+                  <ProductMeta
+                    colors={colors}
+                    product={toProductChoice(product)}
+                  />
                 </Pressable>
               ))
           )}
         </View>
       ) : null}
     </View>
+  );
+}
+
+function ProductMeta({
+  colors,
+  product,
+}: {
+  colors: StartSavingsColors;
+  product: SavingsProductChoice;
+}) {
+  const meta = [product.conditionLabel, product.variantLabel].filter(
+    (value): value is string => Boolean(value)
+  );
+
+  if (meta.length === 0) {
+    return null;
+  }
+
+  return (
+    <Text style={[styles.productMetaText, { color: colors.textSecondary }]}>
+      {meta.join(' · ')}
+    </Text>
   );
 }
 

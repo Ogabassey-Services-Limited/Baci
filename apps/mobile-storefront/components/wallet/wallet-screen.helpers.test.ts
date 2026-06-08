@@ -133,6 +133,17 @@ describe('wallet-screen.helpers', () => {
   it('derives wallet display data', () => {
     expect(
       deriveWalletDisplayData({
+        active_savings_goal: {
+          contribution_amount: 10000,
+          contribution_frequency: 'weekly',
+          current_amount: 60,
+          id: 'goal-1',
+          maturity_date: '2026-09-30',
+          source_mode: 'manual',
+          status: 'active',
+          target_amount: 100,
+          title: 'Device goal',
+        },
         balance: 10,
         earnings_balance: 40,
         funding_account: {
@@ -145,6 +156,17 @@ describe('wallet-screen.helpers', () => {
         total_balance: null,
       })
     ).toEqual({
+      activeSavingsGoal: {
+        contribution_amount: 10000,
+        contribution_frequency: 'weekly',
+        current_amount: 60,
+        id: 'goal-1',
+        maturity_date: '2026-09-30',
+        source_mode: 'manual',
+        status: 'active',
+        target_amount: 100,
+        title: 'Device goal',
+      },
       earningsBalance: 40,
       fundingAccount: {
         accountName: 'Jane Doe',
@@ -257,14 +279,16 @@ describe('wallet-screen.helpers', () => {
       })
     ).toEqual({
       earningsBalance: 15,
+      activeSavingsGoal: null,
       fundingAccount: null,
       savingsBalance: 30,
-      showQuickSave: true,
+      showQuickSave: false,
       totalBalance: 45,
     });
 
     expect(deriveWalletDisplayData({})).toEqual({
       earningsBalance: 0,
+      activeSavingsGoal: null,
       fundingAccount: null,
       savingsBalance: 0,
       showQuickSave: false,

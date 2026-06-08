@@ -218,7 +218,7 @@ function setupWalletTableMocks({
   const accountMaybeSingle = jest
     .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
     .mockResolvedValue(fundingAccountResult);
-  const savingsIn = jest
+  const savingsOrder = jest
     .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
     .mockResolvedValue(savingsGoalsResult);
   const tableCalls: string[] = [];
@@ -295,7 +295,9 @@ function setupWalletTableMocks({
     if (table === 'customer_savings_goals') {
       const savingsEqChain = {
         eq: jest.fn(() => savingsEqChain),
-        in: savingsIn,
+        in: jest.fn(() => ({
+          order: savingsOrder,
+        })),
       };
 
       return {

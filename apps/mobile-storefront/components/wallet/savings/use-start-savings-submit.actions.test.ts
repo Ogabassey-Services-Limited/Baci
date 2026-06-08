@@ -42,6 +42,11 @@ jest.mock('@/lib/clipboard', () => ({
   setClipboardString: (...args: unknown[]) => mockSetClipboardString(...args),
 }));
 
+jest.mock('@/services/savings-reminder-notifications', () => ({
+  cancelSavingsReminderNotification: jest.fn(async () => true),
+  scheduleSavingsReminderNotification: jest.fn(async () => 'reminder-1'),
+}));
+
 function createInput(overrides = {}) {
   return {
     activeMerchantId: 'merchant-1',
@@ -53,11 +58,13 @@ function createInput(overrides = {}) {
     initialContributionIdempotencyKey: null,
     maturityDate: '2026-06-30',
     normalizedVariantId: undefined,
+    preferredDebitTime: '06:20',
     refetch: jest.fn(async () => undefined),
     requiredTopUpAmount: 50000,
     selectedPaymentMethodId: null,
     selectedProduct: {
       id: 'product-1',
+      image: 'https://example.com/iphone.jpg',
       name: 'iPhone 13 Pro Max',
       price: 800000,
       slug: 'iphone-13-pro-max',
@@ -199,14 +206,17 @@ describe('useStartSavingsSubmit actions', () => {
     );
   });
 
-  it('navigates back to wallet with replace', () => {
+  it('navigates back to wallet and opens savings progress', () => {
     const { result } = renderHook(() => useStartSavingsSubmit(createInput()));
 
     act(() => {
       result.current.goToWallet();
     });
 
-    expect(mockRouterReplace).toHaveBeenCalledWith('/wallet');
+    expect(mockRouterReplace).toHaveBeenCalledWith({
+      pathname: '/wallet',
+      params: { action: 'savings' },
+    });
   });
 
   it('copies the funding account and alerts the result', async () => {

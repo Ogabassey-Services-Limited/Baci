@@ -194,8 +194,9 @@ export async function removePushTokenFromServer(
 export function handleNotificationResponse(
   response: NotificationResponse,
   navigate: (screen: string, params?: Record<string, string>) => void,
-  requestUpdateCheck: (reason: 'push-notification') => void =
-    requestMobileUpdateCheck
+  requestUpdateCheck: (
+    reason: 'push-notification'
+  ) => void = requestMobileUpdateCheck
 ): void {
   const data = response.notification.request.content.data as Record<
     string,

@@ -3,6 +3,7 @@ import {
   WALLET_TOP_UP_MIN_AMOUNT,
 } from '@/lib/wallet-top-up-constants';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
 interface CustomerLike {
@@ -23,6 +24,7 @@ interface WalletFundingAccountLike {
 }
 
 interface WalletDataLike {
+  active_savings_goal?: WalletActiveSavingsGoal | null;
   balance?: number | null;
   earnings_balance?: number | null;
   funding_account?: WalletFundingAccountLike | null;
@@ -305,19 +307,15 @@ export function deriveWalletDisplayData(walletData: WalletDataLike) {
   );
   const fundingAccount: WalletDisplayFundingAccount | null =
     accountName && accountNumber && bankName && provider
-      ? {
-          accountName,
-          accountNumber,
-          bankName,
-          provider,
-        }
+      ? { accountName, accountNumber, bankName, provider }
       : null;
 
   return {
     earningsBalance,
+    activeSavingsGoal: walletData.active_savings_goal ?? null,
     fundingAccount,
     savingsBalance,
-    showQuickSave: savingsBalance > 0,
+    showQuickSave: Boolean(walletData.active_savings_goal),
     totalBalance,
   };
 }

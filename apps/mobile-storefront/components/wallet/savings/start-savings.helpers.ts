@@ -27,6 +27,32 @@ export function formatDateInput(value: string) {
   return parseLocalDate(dateCandidate) ? dateCandidate : '';
 }
 
+export function getSavingsReminderScheduledAt({
+  preferredDebitTime,
+  startDate,
+}: {
+  preferredDebitTime: string;
+  startDate: string;
+}) {
+  const [hourText, minuteText] = preferredDebitTime.split(':');
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return new Date(`${startDate}T00:00:00`);
+  }
+
+  return new Date(
+    `${startDate}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`
+  );
+}
+
 export function getTodayIsoDate() {
   return formatLocalDate(new Date());
 }

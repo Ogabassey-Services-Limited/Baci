@@ -18,6 +18,7 @@ type MockStorefrontScreenShellProps = {
 };
 
 type MockWalletContentProps = {
+  activeSavingsGoal?: unknown | null;
   canCreateFundingAccount?: boolean;
   contentContainerStyle?: unknown;
   createFundingAccountUnavailableMessage?: string;
@@ -29,15 +30,20 @@ type MockWalletContentProps = {
     bankName: string;
     provider: 'paystack';
   } | null;
+  isAddingSavingsContribution?: boolean;
   isCreatingFundingAccount?: boolean;
   isFundPending: boolean;
   isRefetching?: boolean;
   loyaltyPoints?: number;
+  onAddSavingsContribution?: () => void;
+  onChangeSavingsContributionAmount?: (value: string) => void;
   onChangeFundAmount: (value: string) => void;
   onCreateFundingAccount?: () => void;
   onChangeRedeemPoints: (value: string) => void;
+  onCloseSavingsProgress?: () => void;
   onConfirmFund: () => void;
   onConfirmRedeem: () => void;
+  onFundSavingsWallet?: () => void;
   onManageCards?: () => void;
   onOpenFundPanel: () => void;
   onOpenRedeemPanel: () => void;
@@ -47,7 +53,9 @@ type MockWalletContentProps = {
   onResetRedeem: () => void;
   onStartSavings?: () => void;
   redeemPoints: string;
+  savingsContributionAmount?: string;
   savingsBalance?: number;
+  showSavingsProgress?: boolean;
   showQuickSave?: boolean;
   showFundPanel: boolean;
   showRedeemPanel: boolean;
@@ -81,6 +89,18 @@ const mockTrackError = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockLogWarn = jest.fn();
 const mockScheduleLocalNotification = jest.fn();
+const mockAddSavingsContribution =
+  jest.fn<
+    (...args: unknown[]) => Promise<{
+      contributionId: string;
+      goalCurrentAmount: number;
+      goalStatus: 'active' | 'paused' | 'completed' | 'cancelled' | 'spent';
+      success: boolean;
+      walletBalance: number;
+      walletTransactionId: string | null;
+    }>
+  >();
+const mockRandomUUID = jest.fn();
 const mockUseRequireAuth = jest.fn();
 const mockUseWallet = jest.fn();
 const mockUseRedeemPoints = jest.fn();
@@ -131,6 +151,10 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockSearchParams,
 }));
 
+jest.mock('expo-crypto', () => ({
+  randomUUID: () => mockRandomUUID(),
+}));
+
 jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
   StorefrontScreenShell: ({
     children,
@@ -178,6 +202,10 @@ jest.mock('@/lib/config', () => ({
 
 jest.mock('@/lib/wallet-top-up', () => ({
   initializeWalletTopUp: (input: unknown) => mockInitializeWalletTopUp(input),
+}));
+
+jest.mock('@/lib/customer-savings', () => ({
+  addSavingsContribution: (input: unknown) => mockAddSavingsContribution(input),
 }));
 
 jest.mock('@/services/analytics', () => ({
@@ -231,6 +259,13 @@ describe('WalletScreen', () => {
         <Text>{`loyalty-points:${props.loyaltyPoints ?? 0}`}</Text>
         <Text>{`show-redeem-panel:${String(props.showRedeemPanel)}`}</Text>
         <Text>{`redeem-points:${props.redeemPoints}`}</Text>
+        <Text>{`savings-contribution-amount:${props.savingsContributionAmount ?? ''}`}</Text>
+        <Text>{`show-savings-progress:${String(
+          props.showSavingsProgress ?? false
+        )}`}</Text>
+        <Text>{`adding-savings:${String(
+          props.isAddingSavingsContribution ?? false
+        )}`}</Text>
         <Text>{`transactions:${props.transactions?.length ?? 0}`}</Text>
         <Text>{`refreshing:${String(props.isRefetching)}`}</Text>
         <Text>{`show-quick-save:${String(props.showQuickSave ?? false)}`}</Text>
@@ -297,6 +332,21 @@ describe('WalletScreen', () => {
           onPress={() => props.onChangeRedeemPoints('200')}
         >
           Set Valid Redeem Points
+        </Text>
+        <Text
+          accessibilityRole="button"
+          onPress={() => props.onChangeSavingsContributionAmount?.('500')}
+        >
+          Set Savings Contribution
+        </Text>
+        <Text
+          accessibilityRole="button"
+          onPress={props.onAddSavingsContribution}
+        >
+          Confirm Savings Contribution
+        </Text>
+        <Text accessibilityRole="button" onPress={props.onFundSavingsWallet}>
+          Fund Savings Wallet
         </Text>
         <Text accessibilityRole="button" onPress={props.onConfirmRedeem}>
           Confirm Redeem
@@ -377,6 +427,15 @@ describe('WalletScreen', () => {
       reference: 'WAL-123',
       success: true,
     });
+    mockAddSavingsContribution.mockResolvedValue({
+      contributionId: 'contribution-1',
+      goalCurrentAmount: 500,
+      goalStatus: 'active',
+      success: true,
+      walletBalance: 124500,
+      walletTransactionId: 'wallet-tx-1',
+    });
+    mockRandomUUID.mockReturnValue('savings-key-1');
   });
 
   it('uses the storefront shell, inset helper, and mapped wallet content props', () => {
@@ -834,6 +893,145 @@ describe('WalletScreen', () => {
 
     expect(mockRouterPush).toHaveBeenNthCalledWith(1, '/wallet/savings/start');
     expect(mockRouterPush).toHaveBeenNthCalledWith(2, '/wallet/manage-cards');
+  });
+
+  it('opens active savings progress and adds a manual contribution', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockUseWallet.mockReturnValue({
+      data: {
+        wallet: {
+          active_savings_goal: {
+            contribution_amount: 500,
+            contribution_frequency: 'weekly',
+            current_amount: 0,
+            id: 'goal-1',
+            maturity_date: '2026-09-30',
+            source_mode: 'manual',
+            status: 'active',
+            target_amount: 100000,
+            title: 'iPhone 15 Pro',
+          },
+          balance: 125000,
+          earnings_balance: 125000,
+          funding_account: null,
+          loyalty_points: 2000,
+          requires_funding_account_consent: true,
+          savings_balance: 0,
+          total_balance: 125000,
+        },
+        transactions: [],
+      },
+      isError: false,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    try {
+      render(<WalletScreen />);
+
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Open Start Savings' })
+      );
+
+      expect(mockRouterPush).not.toHaveBeenCalledWith('/wallet/savings/start');
+      expect(screen.getByText('show-savings-progress:true')).toBeOnTheScreen();
+
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Set Savings Contribution' })
+      );
+      await act(async () => {
+        fireEvent.press(
+          screen.getByRole('button', { name: 'Confirm Savings Contribution' })
+        );
+      });
+
+      expect(mockAddSavingsContribution).toHaveBeenCalledWith({
+        amount: 500,
+        goalId: 'goal-1',
+        idempotencyKey: 'savings-key-1',
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+      });
+      expect(mockRefetch).toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Savings updated',
+        'Added ₦500 to your savings goal.'
+      );
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  it('shows an error when active savings contribution fails', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockAddSavingsContribution.mockRejectedValue(
+      new Error('Contribution failed')
+    );
+    mockUseWallet.mockReturnValue({
+      data: {
+        wallet: {
+          active_savings_goal: {
+            contribution_amount: 500,
+            contribution_frequency: 'weekly',
+            current_amount: 0,
+            id: 'goal-1',
+            maturity_date: '2026-09-30',
+            source_mode: 'manual',
+            status: 'active',
+            target_amount: 100000,
+            title: 'iPhone 15 Pro',
+          },
+          balance: 125000,
+          earnings_balance: 125000,
+          funding_account: null,
+          loyalty_points: 2000,
+          requires_funding_account_consent: true,
+          savings_balance: 0,
+          total_balance: 125000,
+        },
+        transactions: [],
+      },
+      isError: false,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    try {
+      render(<WalletScreen />);
+
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Open Start Savings' })
+      );
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Set Savings Contribution' })
+      );
+      await act(async () => {
+        fireEvent.press(
+          screen.getByRole('button', { name: 'Confirm Savings Contribution' })
+        );
+      });
+
+      expect(mockAddSavingsContribution).toHaveBeenCalledWith({
+        amount: 500,
+        goalId: 'goal-1',
+        idempotencyKey: 'savings-key-1',
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+      });
+      expect(mockRefetch).not.toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Unable to add savings',
+        'Contribution failed'
+      );
+    } finally {
+      alertSpy.mockRestore();
+    }
   });
 
   it('routes wallet top-ups with slug fallback when merchant id is blank', async () => {
