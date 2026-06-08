@@ -145,7 +145,7 @@ export function DeliveryStep({
                     {!isNewAddressMode && addresses.map((addr) => (
                       <label
                         key={addr.id}
-                        className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all ${selectedAddressId === addr.id
+                        className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedAddressId === addr.id
                           ? 'border-store-primary bg-store-primary/5'
                           : 'border-gray-200 hover:border-gray-300'
                           }`}
@@ -339,7 +339,7 @@ export function DeliveryStep({
                       <fieldset className="m-0 grid min-w-0 grid-cols-1 gap-3 border-0 p-0 sm:grid-cols-2">
                         <legend className="sr-only">Airport delivery preference</legend>
                         <label
-                          className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'delivery'
+                          className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'delivery'
                             ? 'border-store-primary bg-store-primary/5'
                             : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                             }`}
@@ -365,7 +365,7 @@ export function DeliveryStep({
                           <span className="font-bold text-gray-900">&#8358;25,000</span>
                         </label>
                         <label
-                          className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'pickup'
+                          className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'pickup'
                             ? 'border-store-primary bg-store-primary/5'
                             : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                             }`}

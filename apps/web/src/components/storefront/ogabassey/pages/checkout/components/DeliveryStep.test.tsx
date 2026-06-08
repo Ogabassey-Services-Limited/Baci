@@ -144,6 +144,33 @@ describe('DeliveryStep', () => {
       ).toBeInTheDocument();
     });
 
+    it('keeps visible focus rings on custom saved-address radio cards', () => {
+      render(
+        <DeliveryStep
+          {...defaultProps}
+          user={{ id: 'customer-1' }}
+          isNewAddressMode={false}
+          addresses={[
+            {
+              id: 7,
+              label: 'Home',
+              address: '12 Test Street, Ikeja, Lagos',
+              phone: '+2348012345678',
+              isDefault: true,
+            },
+          ]}
+        />,
+      );
+
+      expect(
+        screen.getByRole('radio', { name: /home/i }).closest('label'),
+      ).toHaveClass(
+        'focus-within:ring-2',
+        'focus-within:ring-store-primary',
+        'focus-within:ring-offset-2',
+      );
+    });
+
     it('shows pickup option when state is Lagos', () => {
       render(
         <DeliveryStep
@@ -239,6 +266,27 @@ describe('DeliveryStep', () => {
       expect(
         screen.getByRole('radio', { name: /airport pickup/i }),
       ).toBeInTheDocument();
+    });
+
+    it('keeps visible focus rings on custom airport radio cards', () => {
+      render(
+        <DeliveryStep
+          {...defaultProps}
+          deliveryMethod="airport"
+          newAddressState="Abuja"
+          newAddressCity="Garki"
+        />,
+      );
+
+      for (const optionName of [/airport delivery/i, /airport pickup/i]) {
+        expect(
+          screen.getByRole('radio', { name: optionName }).closest('label'),
+        ).toHaveClass(
+          'focus-within:ring-2',
+          'focus-within:ring-store-primary',
+          'focus-within:ring-offset-2',
+        );
+      }
     });
 
     it('calls setAirportType when an airport option is selected', () => {
