@@ -4,10 +4,7 @@ import StorefrontLayout, {
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
-import {
-  HERO_MOBILE_LCP_FALLBACK_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
+import { OGABASSEY_SHELL_MOBILE_HERO_IMAGE } from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -17,12 +14,6 @@ import {
 } from '../[slug]/seo-helpers';
 
 const OGABASSEY_PARAMS = Promise.resolve({ slug: OGABASSEY_TEMPLATE_ID });
-
-const OGABASSEY_SHELL_MOBILE_HERO_IMAGE = {
-  alt: 'OgaBassey storefront hero',
-  avifSrc: HERO_MOBILE_LCP_SRC,
-  fallbackSrc: HERO_MOBILE_LCP_FALLBACK_SRC,
-} as const;
 
 export { generateViewport };
 
