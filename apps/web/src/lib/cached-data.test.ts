@@ -338,6 +338,7 @@ describe('getCachedFeatureSettings', () => {
     expect(projection).toContain('shipping_insurance_enabled');
     expect(projection).toContain('shipping_insurance_min_order_value');
     expect(projection).toContain('shipping_insurance_opt_in_default');
+    expect(projection).toContain('facebook_pixel_id');
     expect(projection).toContain('custom_settings');
     expect(projection).not.toContain('facebook_capi_token');
     expect(projection).not.toContain('tiktok_access_token');

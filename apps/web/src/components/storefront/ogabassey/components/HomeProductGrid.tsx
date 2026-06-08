@@ -6,7 +6,6 @@ import Link from 'next/link';
 import type React from 'react';
 import { Fragment, useEffect, useState } from 'react';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
-import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
 import { AD_CONFIG } from '../config/ads';
 import { products as mockProducts } from '../data/products';
 import { useDeferredActivation } from './deferred-shell-feature';
@@ -18,6 +17,7 @@ import { DeferredAdUnit } from './deferred-ad-unit';
 import { HomeProductGridCard } from './HomeProductGridCard';
 import type { ProductGridItemProps } from './ProductGridItem';
 import type { Product } from '../types';
+import { joinRouteBasePath, normalizeRouteBasePath } from '@/lib/routes';
 
 const DeferredFloatingParticles = dynamic(
   () => import('./FloatingParticles').then((mod) => mod.FloatingParticles),
@@ -37,6 +37,7 @@ interface ProductGridItemModule {
 }
 
 interface HomeProductGridProps {
+  basePath?: string;
   storeSlug?: string;
   products?: Product[];
   title?: string;
@@ -101,6 +102,7 @@ function renderProductGridAdFallback() {
 }
 
 export function HomeProductGrid({
+  basePath: explicitBasePath,
   storeSlug,
   products,
   title = 'Featured Products',
@@ -119,7 +121,6 @@ export function HomeProductGrid({
   const [InteractiveCard, setInteractiveCard] = useState<
     ProductGridItemModule['ProductGridItem'] | null
   >(null);
-  const merchantContext = useMerchantSafe();
   const interactionsActivated = useDeferredActivation({
     timeoutMs: 0,
     activateOnIdle: false,
@@ -169,13 +170,9 @@ export function HomeProductGrid({
   ]);
 
   const rawBasePath =
-    merchantContext?.basePath ?? (storeSlug ? `/${storeSlug}` : '');
-  const normalizedBasePath = rawBasePath.trim().replace(/\/+$/, '');
-  const basePath =
-    normalizedBasePath && !normalizedBasePath.startsWith('/')
-      ? `/${normalizedBasePath}`
-      : normalizedBasePath;
-  const allProductsHref = `${basePath}/products`;
+    explicitBasePath ?? (storeSlug ? `/${storeSlug}` : '');
+  const basePath = normalizeRouteBasePath(rawBasePath);
+  const allProductsHref = joinRouteBasePath(basePath, '/products');
   const allProducts = products && products.length > 0 ? products : mockProducts;
   const featuredProducts = prioritizeSmartphoneProducts(allProducts);
   const visibleProducts = featuredProducts.slice(0, displayCount);

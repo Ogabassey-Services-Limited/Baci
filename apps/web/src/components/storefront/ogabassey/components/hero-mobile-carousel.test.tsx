@@ -57,7 +57,7 @@ const mockDeferredAdUnit = vi.hoisted(() =>
 );
 
 vi.mock('./deferred-ad-unit', () => ({
-  DeferredAdUnit: (props: { placementKey: string }) =>
+  DeferredAdUnit: (props: { placementKey: string; enabled?: boolean }) =>
     mockDeferredAdUnit(props),
 }));
 
@@ -188,7 +188,7 @@ describe('HeroMobileCarousel', () => {
     ).toHaveClass('h-12', 'min-w-12');
   });
 
-  it('keeps the sponsored ad wrapper mounted across slide changes', () => {
+  it('keeps the sponsored ad wrapper mounted but disabled until the ad slide is active', async () => {
     render(
       <HeroMobileCarousel
         getHref={(path) => `/ogabassey${path}`}
@@ -204,8 +204,33 @@ describe('HeroMobileCarousel', () => {
     );
 
     expect(sponsoredAdCall?.[0]).toEqual(
-      expect.not.objectContaining({
-        enabled: expect.any(Boolean),
+      expect.objectContaining({
+        enabled: false,
+        timeoutMs: 1,
+      })
+    );
+
+    await act(async () => {
+      fireEvent.pointerDown(window);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /go to hero slide 3/i }));
+      await Promise.resolve();
+    });
+
+    const latestSponsoredAdCall = [...mockDeferredAdUnit.mock.calls]
+      .reverse()
+      .find(
+        ([props]) =>
+          (props as { placementKey?: string }).placementKey ===
+          'HEADER_LEADERBOARD'
+      );
+
+    expect(latestSponsoredAdCall?.[0]).toEqual(
+      expect.objectContaining({
+        enabled: true,
       })
     );
   });

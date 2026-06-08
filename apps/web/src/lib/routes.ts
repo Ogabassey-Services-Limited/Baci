@@ -197,6 +197,43 @@ export function asRoute(url: string): Route {
 }
 
 /**
+ * Normalize an optional storefront route base path.
+ *
+ * Empty and root inputs intentionally normalize to an empty base path so
+ * custom-domain storefront links can resolve from `/` without a slug prefix.
+ */
+export function normalizeRouteBasePath(basePath: string): string {
+  const normalizedBasePath = basePath.trim().replace(/\/+$/, '');
+
+  if (!normalizedBasePath) {
+    return '';
+  }
+
+  return normalizedBasePath.startsWith('/')
+    ? normalizedBasePath
+    : `/${normalizedBasePath}`;
+}
+
+/**
+ * Join a normalized storefront base path with an internal path while preserving
+ * absolute external URLs.
+ */
+export function joinRouteBasePath(basePath: string, path: string): string {
+  if (path.startsWith('http')) {
+    return path;
+  }
+
+  const routeBasePath = normalizeRouteBasePath(basePath);
+
+  if (!path || path === '/') {
+    return routeBasePath || '/';
+  }
+
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${routeBasePath}${normalizedPath}`;
+}
+
+/**
  * Additional route builders for less common routes
  */
 export const dynamicRoutes = {

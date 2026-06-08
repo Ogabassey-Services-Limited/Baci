@@ -285,6 +285,7 @@ export interface MerchantFeatureSettings {
   agentic_checkout_enabled?: boolean;
   blog_enabled?: boolean;
   blog_discover_image_validation_enabled?: boolean;
+  facebook_pixel_id?: string | null;
   shipping_insurance_enabled?: boolean;
   shipping_insurance_min_order_value?: number;
   shipping_insurance_opt_in_default?: boolean;
@@ -308,6 +309,7 @@ const MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT: string = `
   custom_settings,
   discount_codes_enabled,
   faq_page_enabled,
+  facebook_pixel_id,
   free_shipping_threshold,
   google_analytics_id,
   google_place_id,
