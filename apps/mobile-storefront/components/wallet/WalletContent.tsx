@@ -106,6 +106,9 @@ export function WalletContent({
   totalBalance,
   transactions,
 }: WalletContentProps) {
+  const canAddToSavings =
+    activeSavingsGoal !== null && activeSavingsGoal.status !== 'completed';
+
   return (
     <>
       <ScrollView
@@ -141,11 +144,11 @@ export function WalletContent({
 
         <WalletActionsRow
           colors={colors}
-          hasActiveSavingsGoal={showQuickSave}
+          hasActiveSavingsGoal={canAddToSavings}
           onManageCards={onManageCards}
           onQuickSave={onQuickSave}
           onStartSavings={onStartSavings}
-          showQuickSave={showQuickSave}
+          showQuickSave={showQuickSave && canAddToSavings}
         />
 
         {showFundPanel ? (
