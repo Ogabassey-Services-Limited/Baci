@@ -4,12 +4,28 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 // ---- Mocks ----
 
+const mockServiceSupabase = vi.hoisted(() => ({
+  client: { source: 'service-role' },
+}));
+
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://test.supabase.co',
   getSupabaseAnonKey: () => 'test-anon-key',
   getSupabaseServiceRoleKey: () => 'test-service-role-key',
   getRootDomain: () => 'localhost',
 }));
+
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+
+  return {
+    ...actual,
+    after: (callback: () => void | Promise<void>) => {
+      void callback();
+    },
+  };
+});
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -40,6 +56,7 @@ vi.mock('@/lib/csrf', () => ({
 // Mock cache revalidation
 const mockRevalidateBlogPosts = vi.fn();
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
+const mockDispatchZohoBlogCampaign = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
@@ -48,6 +65,15 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogRevalidationContext: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
+}));
+
+vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
+  dispatchZohoBlogCampaign: (...args: unknown[]) =>
+    mockDispatchZohoBlogCampaign(...args),
+}));
+
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: () => mockServiceSupabase.client,
 }));
 
 // Mock embeddings
@@ -159,6 +185,11 @@ function setupAuth(hasAuth = true, hasAccess = true) {
 describe('GET /api/merchant/blog/posts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDispatchZohoBlogCampaign.mockResolvedValue({
+      postId: 'post-1',
+      reason: 'Zoho Campaigns disabled',
+      status: 'skipped',
+    });
 
     // Recreate chainable mock for each test
     const freshMock = createChainableMock();
@@ -425,6 +456,11 @@ describe('POST /api/merchant/blog/posts', () => {
     setupAuth(true, true);
     mockHasPermission.mockReturnValue(true);
     mockCheckCsrfProtection.mockResolvedValue({ valid: true });
+    mockDispatchZohoBlogCampaign.mockResolvedValue({
+      postId: 'post-1',
+      reason: 'Zoho Campaigns disabled',
+      status: 'skipped',
+    });
     mockGetBlogEmbeddingText.mockReturnValue('embedding text');
     mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
       identifiers: ['test-store', 'ogabassey.com'],
@@ -773,6 +809,7 @@ describe('POST /api/merchant/blog/posts', () => {
       expect(res.status).toBe(201);
       expect(json.id).toBe('1'); // From mock default
       expect(mockSupabase.insert).toHaveBeenCalled();
+      expect(mockDispatchZohoBlogCampaign).not.toHaveBeenCalled();
     });
 
     it('sets published_at when status is published', async () => {
@@ -797,6 +834,113 @@ describe('POST /api/merchant/blog/posts', () => {
           published_at: expect.any(String),
         })
       );
+    });
+
+    it('lets Zoho dispatch recompute storefront context when revalidation lookup fails', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
+        new Error('context lookup failed')
+      );
+      mockSupabase.maybeSingle.mockResolvedValue({
+        data: null,
+        error: null,
+      });
+      mockSupabase.select.mockImplementation((fields: string) => {
+        if (fields === 'business_name, slug') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { business_name: 'Test Store', slug: 'test-store' },
+            error: null,
+          });
+        } else if (
+          fields === 'blog_enabled' ||
+          fields === 'blog_enabled, blog_discover_image_validation_enabled'
+        ) {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: {
+              blog_enabled: true,
+              blog_discover_image_validation_enabled: false,
+            },
+            error: null,
+          });
+        } else {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: {
+              id: '1',
+              slug: 'new-blog-post',
+              status: 'published',
+            },
+            error: null,
+          });
+        }
+        return mockSupabase;
+      });
+
+      await POST(
+        makeRequest('/api/merchant/blog/posts', {
+          body: { ...validPostData, status: 'published' },
+        })
+      );
+
+      expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(1);
+      expect(mockDispatchZohoBlogCampaign.mock.calls[0][0]).toEqual({
+        post: expect.objectContaining({ id: '1', status: 'published' }),
+        supabase: mockServiceSupabase.client,
+      });
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('dispatches a Zoho campaign for published posts', async () => {
+      mockSupabase.maybeSingle.mockResolvedValue({
+        data: null,
+        error: null,
+      });
+      mockSupabase.select.mockImplementation((fields: string) => {
+        if (fields === 'business_name, slug') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { business_name: 'Test Store', slug: 'test-store' },
+            error: null,
+          });
+        } else if (
+          fields === 'blog_enabled' ||
+          fields === 'blog_enabled, blog_discover_image_validation_enabled'
+        ) {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: {
+              blog_enabled: true,
+              blog_discover_image_validation_enabled: false,
+            },
+            error: null,
+          });
+        } else {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: {
+              id: '1',
+              slug: 'new-blog-post',
+              status: 'published',
+            },
+            error: null,
+          });
+        }
+        return mockSupabase;
+      });
+
+      await POST(
+        makeRequest('/api/merchant/blog/posts', {
+          body: { ...validPostData, status: 'published' },
+        })
+      );
+
+      expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledTimes(1);
+      expect(mockDispatchZohoBlogCampaign).toHaveBeenCalledWith({
+        context: {
+          identifiers: ['test-store', 'ogabassey.com'],
+          canonicalMerchantSlug: 'test-store',
+        },
+        post: expect.objectContaining({ id: '1', status: 'published' }),
+        supabase: mockServiceSupabase.client,
+      });
     });
 
     it('persists Discover image metadata for valid published posts', async () => {

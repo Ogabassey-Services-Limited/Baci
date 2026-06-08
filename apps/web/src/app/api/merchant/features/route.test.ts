@@ -319,6 +319,40 @@ describe('GET /api/merchant/features', () => {
     expect(json.id).toBe('settings-1');
   });
 
+  it('redacts Zoho Campaigns secrets from custom_settings responses', async () => {
+    const { GET } = await import('./route');
+    settingsData = {
+      id: 'settings-1',
+      merchant_id: MERCHANT_ID,
+      custom_settings: {
+        dashboardTheme: 'compact',
+        zohoCampaigns: {
+          apiDomain: 'https://campaigns.zoho.eu',
+          enabled: true,
+          refreshToken: 'secret-refresh-token',
+        },
+        zoho_campaigns: {
+          client_secret: 'secret-client',
+          refresh_token: 'secret-refresh-token-2',
+          topic_id: 'topic-1',
+        },
+      },
+    };
+
+    const res = await GET(makeRequest('GET'));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.custom_settings).toEqual({
+      dashboardTheme: 'compact',
+      zohoCampaigns: {
+        apiDomain: 'https://campaigns.zoho.eu',
+        enabled: true,
+      },
+      zoho_campaigns: { topic_id: 'topic-1' },
+    });
+  });
+
   it('keeps GET read-only when no settings exist', async () => {
     const { GET } = await import('./route');
     settingsData = null;
@@ -469,6 +503,55 @@ describe('PATCH /api/merchant/features', () => {
     expect(updatePayload).not.toHaveProperty('klump_max_amount');
   });
 
+  it('preserves stored Zoho Campaigns secrets while redacting PATCH responses', async () => {
+    const { PATCH } = await import('./route');
+    settingsData = {
+      merchant_id: MERCHANT_ID,
+      custom_settings: {
+        zohoCampaigns: {
+          enabled: true,
+          listKey: 'list-key',
+          refreshToken: 'stored-refresh-token',
+        },
+      },
+    };
+    updateData = {
+      id: 'settings-1',
+      merchant_id: MERCHANT_ID,
+      custom_settings: {
+        zohoCampaigns: {
+          enabled: false,
+          listKey: 'list-key',
+          refreshToken: 'stored-refresh-token',
+        },
+      },
+    };
+
+    const res = await PATCH(
+      makeRequest('PATCH', {
+        custom_settings: { zohoCampaigns: { enabled: false } },
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(updatePayload).toMatchObject({
+      custom_settings: {
+        zohoCampaigns: {
+          enabled: false,
+          listKey: 'list-key',
+          refreshToken: 'stored-refresh-token',
+        },
+      },
+    });
+    expect(json.custom_settings).toEqual({
+      zohoCampaigns: {
+        enabled: false,
+        listKey: 'list-key',
+      },
+    });
+  });
+
   it('seeds API defaults when the first PATCH creates a settings row', async () => {
     const { PATCH } = await import('./route');
     settingsData = null;
@@ -568,6 +651,8 @@ describe('PUT /api/merchant/features', () => {
     authResult = { user: { id: 'user-1' }, supabase: mockSupa };
     accessResult = { merchantId: MERCHANT_ID, role: 'owner' };
     hasSettingsEdit = true;
+    settingsData = { merchant_id: MERCHANT_ID, custom_settings: {} };
+    settingsError = null;
     upsertData = { id: 'settings-1', merchant_id: MERCHANT_ID };
     upsertError = null;
     upsertPayload = null;

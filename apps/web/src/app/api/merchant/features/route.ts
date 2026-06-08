@@ -10,6 +10,10 @@ import {
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
+import {
+  preserveZohoCampaignSecretCustomSettings,
+  redactMerchantFeatureSettingsResponse,
+} from '@/lib/merchant-feature-settings-redaction';
 import { merchantFeatureSettingsPatchSchema } from '@/schemas/merchant-features';
 
 /**
@@ -320,7 +324,11 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (!error && !settings) {
-      return jsonNoStore(buildReadOnlyDefaultSettings(access.merchantId));
+      return jsonNoStore(
+        redactMerchantFeatureSettingsResponse(
+          buildReadOnlyDefaultSettings(access.merchantId)
+        )
+      );
     }
 
     if (error) {
@@ -331,7 +339,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return jsonNoStore(settings);
+    return jsonNoStore(redactMerchantFeatureSettingsResponse(settings));
   } catch (error) {
     console.error('Feature settings GET error:', error);
     return jsonNoStore({ error: 'Internal server error' }, { status: 500 });
@@ -389,15 +397,10 @@ export async function PATCH(request: NextRequest) {
       sanitizedUpdates.rewards_page_enabled = sanitizedUpdates.loyalty_enabled;
     }
 
-    const settingsPayload = {
-      ...sanitizedUpdates,
-      updated_at: new Date().toISOString(),
-    };
-
     const { data: existingSettings, error: existingSettingsError } =
       await auth.supabase
         .from('merchant_feature_settings')
-        .select('merchant_id')
+        .select('custom_settings')
         .eq('merchant_id', access.merchantId)
         .maybeSingle();
 
@@ -411,6 +414,19 @@ export async function PATCH(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    if ('custom_settings' in sanitizedUpdates) {
+      sanitizedUpdates.custom_settings =
+        preserveZohoCampaignSecretCustomSettings(
+          sanitizedUpdates.custom_settings,
+          existingSettings?.custom_settings
+        );
+    }
+
+    const settingsPayload = {
+      ...sanitizedUpdates,
+      updated_at: new Date().toISOString(),
+    };
 
     const writeResult = existingSettings
       ? await auth.supabase
@@ -451,7 +467,7 @@ export async function PATCH(request: NextRequest) {
     revalidateFeatures(access.merchantId);
     revalidateMerchant(access.merchantId);
 
-    return jsonNoStore(settings);
+    return jsonNoStore(redactMerchantFeatureSettingsResponse(settings));
   } catch (error) {
     console.error('Feature settings PATCH error:', error);
     return jsonNoStore({ error: 'Internal server error' }, { status: 500 });
@@ -505,6 +521,27 @@ export async function PUT(request: NextRequest) {
     }
     const sanitizedSettings = parsedSettings.data;
 
+    const { data: existingSettings, error: existingSettingsError } =
+      await auth.supabase
+        .from('merchant_feature_settings')
+        .select('custom_settings')
+        .eq('merchant_id', access.merchantId)
+        .maybeSingle();
+
+    if (existingSettingsError) {
+      console.error(
+        'Error checking existing feature settings:',
+        existingSettingsError
+      );
+      return jsonNoStore({ error: 'Failed to save settings' }, { status: 500 });
+    }
+
+    sanitizedSettings.custom_settings =
+      preserveZohoCampaignSecretCustomSettings(
+        sanitizedSettings.custom_settings,
+        existingSettings?.custom_settings
+      );
+
     // Merge with defaults for any missing fields
     const completeSettings = {
       ...DEFAULT_SETTINGS,
@@ -533,7 +570,7 @@ export async function PUT(request: NextRequest) {
     revalidateFeatures(access.merchantId);
     revalidateMerchant(access.merchantId);
 
-    return jsonNoStore(settings);
+    return jsonNoStore(redactMerchantFeatureSettingsResponse(settings));
   } catch (error) {
     console.error('Feature settings PUT error:', error);
     return jsonNoStore({ error: 'Internal server error' }, { status: 500 });
