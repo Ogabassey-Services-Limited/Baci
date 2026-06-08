@@ -14,15 +14,13 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import type React from 'react';
-import RootLayout, {
-  resetRootLayoutBootstrapStateForTest,
-} from '@/app/_layout';
 
 const mockInitializeStorage = jest.fn<() => Promise<void>>();
 const mockInitializeAuth = jest.fn<() => Promise<void>>();
 const mockCleanup = jest.fn();
 const mockRegisterPushNotifications = jest.fn();
 const mockPrefetchStartupStorefrontData = jest.fn<() => Promise<void>>();
+const mockActivateDueSavingsReminderNotification = jest.fn();
 const mockRootLayoutNavMount = jest.fn();
 const mockRootLayoutNavUnmount = jest.fn();
 const mockAuthState = {
@@ -75,8 +73,7 @@ jest.mock('@/components/navigation/RootLayoutNav', () => ({
     persistenceEnabled: boolean;
     shouldResumeNavigation?: boolean;
   }) => {
-    const { useEffect } =
-      jest.requireActual<typeof import('react')>('react');
+    const { useEffect } = jest.requireActual<typeof import('react')>('react');
     const { Text } =
       jest.requireActual<typeof import('react-native')>('react-native');
     useEffect(() => {
@@ -137,6 +134,11 @@ jest.mock('@/services/orders', () => ({
   createOrder: jest.fn(),
 }));
 
+jest.mock('@/services/savings-reminder-notifications', () => ({
+  activateDueSavingsReminderNotification:
+    mockActivateDueSavingsReminderNotification,
+}));
+
 jest.mock('@/stores/auth-store', () => ({
   // useAuthStore is a Zustand-style mock: callable as a selector over
   // mockAuthState while also exposing getState() for direct store reads.
@@ -145,6 +147,9 @@ jest.mock('@/stores/auth-store', () => ({
     { getState: () => mockAuthState }
   ),
 }));
+
+const { default: RootLayout, resetRootLayoutBootstrapStateForTest } =
+  require('@/app/_layout') as typeof import('@/app/_layout');
 
 describe('RootLayout storage boot gate', () => {
   beforeEach(() => {

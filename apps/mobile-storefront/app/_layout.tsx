@@ -23,6 +23,7 @@ import { DEFAULT_SYNC_STORAGE_KEYS, initializeStorage } from '@/lib/storage';
 import { initAdTracking } from '@/services/ad-tracking';
 import { initAnalytics } from '@/services/analytics';
 import { type CreateOrderRequest, createOrder } from '@/services/orders';
+import { activateDueSavingsReminderNotification } from '@/services/savings-reminder-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 
 // Custom error boundary with network error handling
@@ -117,6 +118,12 @@ export default function RootLayout() {
       initPromiseRef.current = null;
     }
   }, [isInitialized]);
+
+  useEffect(() => {
+    if (isInitialized && isStorageReady) {
+      void activateDueSavingsReminderNotification();
+    }
+  }, [isInitialized, isStorageReady]);
 
   useEffect(() => {
     let isMounted = true;

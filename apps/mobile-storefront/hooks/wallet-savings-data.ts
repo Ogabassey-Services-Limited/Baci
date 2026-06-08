@@ -131,12 +131,14 @@ export function toActiveSavingsGoal({
     goal.variant_id && productData?.variants
       ? productData.variants.find((variant) => variant.id === goal.variant_id)
       : null;
+  const selectedVariantSingleImage =
+    selectedVariant?.primary_image?.trim() ||
+    selectedVariant?.image?.trim() ||
+    null;
   const variantImages = selectedVariant?.images?.length
     ? normalizeProductImages(selectedVariant.images)
-    : (selectedVariant?.primary_image ?? selectedVariant?.image)
-      ? normalizeProductImages([
-          selectedVariant.primary_image ?? selectedVariant.image ?? '',
-        ])
+    : selectedVariantSingleImage
+      ? normalizeProductImages([selectedVariantSingleImage])
       : undefined;
   const productImages =
     variantImages ??

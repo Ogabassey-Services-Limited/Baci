@@ -8,8 +8,18 @@ const SAVINGS_REMINDER_CHANNEL_ID = 'savings';
 const SAVINGS_REMINDER_NOTIFICATION_ID_KEY =
   'baci:savings-reminder-notification-id';
 const SAVINGS_REMINDER_GOAL_ID_KEY = 'baci:savings-reminder-goal-id';
+const SAVINGS_REMINDER_PENDING_REQUEST_KEY =
+  'baci:savings-reminder-pending-request';
 type SavingsReminderFrequency = 'daily' | 'weekly' | 'monthly';
 type NotificationsModule = typeof import('expo-notifications');
+
+interface SavingsReminderRequest {
+  contributionAmount: number;
+  frequency: SavingsReminderFrequency;
+  goalId: string;
+  goalTitle: string;
+  scheduledAt: Date;
+}
 
 let Notifications: NotificationsModule | null = null;
 
@@ -30,9 +40,7 @@ async function ensureSavingsReminderPermissions(
   notifications: NotificationsModule
 ) {
   const { status: existingStatus } = await notifications.getPermissionsAsync();
-  if (existingStatus === 'granted') {
-    return true;
-  }
+  if (existingStatus === 'granted') return true;
 
   const { status } = await notifications.requestPermissionsAsync();
   return status === 'granted';
@@ -41,9 +49,7 @@ async function ensureSavingsReminderPermissions(
 async function ensureSavingsReminderChannel(
   notifications: NotificationsModule
 ) {
-  if (Platform.OS !== 'android') {
-    return;
-  }
+  if (Platform.OS !== 'android') return;
 
   await notifications.setNotificationChannelAsync(SAVINGS_REMINDER_CHANNEL_ID, {
     name: 'Savings Reminders',
@@ -64,14 +70,6 @@ function buildSavingsReminderTrigger({
   const channelId = SAVINGS_REMINDER_CHANNEL_ID;
   const hour = scheduledAt.getHours();
   const minute = scheduledAt.getMinutes();
-
-  if (scheduledAt.getTime() > Date.now()) {
-    return {
-      channelId,
-      date: scheduledAt,
-      type: notifications.SchedulableTriggerInputTypes.DATE,
-    };
-  }
 
   if (frequency === 'daily') {
     return {
@@ -101,20 +99,89 @@ function buildSavingsReminderTrigger({
   };
 }
 
+function parseStoredSavingsReminderRequest(
+  value: string | null
+): SavingsReminderRequest | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as Partial<
+      Omit<SavingsReminderRequest, 'scheduledAt'> & { scheduledAt: string }
+    >;
+    const scheduledAt =
+      typeof parsed.scheduledAt === 'string'
+        ? new Date(parsed.scheduledAt)
+        : null;
+    if (
+      typeof parsed.contributionAmount !== 'number' ||
+      !Number.isFinite(parsed.contributionAmount) ||
+      (parsed.frequency !== 'daily' &&
+        parsed.frequency !== 'weekly' &&
+        parsed.frequency !== 'monthly') ||
+      typeof parsed.goalId !== 'string' ||
+      typeof parsed.goalTitle !== 'string' ||
+      !scheduledAt ||
+      Number.isNaN(scheduledAt.getTime())
+    ) {
+      return null;
+    }
+
+    return {
+      contributionAmount: parsed.contributionAmount,
+      frequency: parsed.frequency,
+      goalId: parsed.goalId,
+      goalTitle: parsed.goalTitle,
+      scheduledAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function storePendingSavingsReminderRequest(
+  request: SavingsReminderRequest
+) {
+  await AsyncStorage.setItem(
+    SAVINGS_REMINDER_PENDING_REQUEST_KEY,
+    JSON.stringify({
+      ...request,
+      scheduledAt: request.scheduledAt.toISOString(),
+    })
+  );
+}
+
+async function removePendingSavingsReminderRequest(goalId?: string) {
+  const storedRequest = parseStoredSavingsReminderRequest(
+    await AsyncStorage.getItem(SAVINGS_REMINDER_PENDING_REQUEST_KEY)
+  );
+  if (!storedRequest) {
+    await AsyncStorage.removeItem(SAVINGS_REMINDER_PENDING_REQUEST_KEY);
+    return false;
+  }
+  if (goalId && storedRequest.goalId !== goalId) {
+    return false;
+  }
+
+  await AsyncStorage.removeItem(SAVINGS_REMINDER_PENDING_REQUEST_KEY);
+  return true;
+}
+
 async function cancelStoredSavingsReminderNotification(
   notifications: NotificationsModule,
   goalId?: string
 ) {
+  const removedPendingRequest =
+    await removePendingSavingsReminderRequest(goalId);
   const [storedNotificationId, storedGoalId] = await Promise.all([
     AsyncStorage.getItem(SAVINGS_REMINDER_NOTIFICATION_ID_KEY),
     AsyncStorage.getItem(SAVINGS_REMINDER_GOAL_ID_KEY),
   ]);
 
   if (!storedNotificationId) {
-    return false;
+    return removedPendingRequest;
   }
   if (goalId && storedGoalId && storedGoalId !== goalId) {
-    return false;
+    return removedPendingRequest;
   }
 
   try {
@@ -130,11 +197,68 @@ async function cancelStoredSavingsReminderNotification(
   return true;
 }
 
+async function scheduleRecurringSavingsReminder({
+  notifications,
+  request,
+}: {
+  notifications: NotificationsModule;
+  request: SavingsReminderRequest;
+}) {
+  const notificationId = await notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Savings reminder',
+      body: `Add ${formatNgnCurrency(request.contributionAmount)} toward ${request.goalTitle}.`,
+      data: {
+        goalId: request.goalId,
+        screen: 'wallet',
+        type: 'customer_savings_reminder',
+      },
+    },
+    trigger: buildSavingsReminderTrigger({
+      frequency: request.frequency,
+      notifications,
+      scheduledAt: request.scheduledAt,
+    }),
+  });
+  await Promise.all([
+    AsyncStorage.setItem(SAVINGS_REMINDER_NOTIFICATION_ID_KEY, notificationId),
+    AsyncStorage.setItem(SAVINGS_REMINDER_GOAL_ID_KEY, request.goalId),
+  ]);
+  return notificationId;
+}
+
 export async function cancelSavingsReminderNotification(goalId?: string) {
   const notifications = loadNotificationsModule();
   if (!notifications) return false;
 
   return await cancelStoredSavingsReminderNotification(notifications, goalId);
+}
+
+export async function activateDueSavingsReminderNotification() {
+  const request = parseStoredSavingsReminderRequest(
+    await AsyncStorage.getItem(SAVINGS_REMINDER_PENDING_REQUEST_KEY)
+  );
+  if (!request) {
+    await AsyncStorage.removeItem(SAVINGS_REMINDER_PENDING_REQUEST_KEY);
+    return null;
+  }
+  if (request.scheduledAt.getTime() > Date.now()) {
+    return null;
+  }
+
+  const notifications = loadNotificationsModule();
+  if (!notifications) return null;
+
+  const hasPermission = await ensureSavingsReminderPermissions(notifications);
+  if (!hasPermission) return null;
+
+  await ensureSavingsReminderChannel(notifications);
+  const notificationId = await scheduleRecurringSavingsReminder({
+    notifications,
+    request,
+  });
+  await AsyncStorage.removeItem(SAVINGS_REMINDER_PENDING_REQUEST_KEY);
+  return notificationId;
 }
 
 export async function scheduleSavingsReminderNotification({
@@ -154,32 +278,23 @@ export async function scheduleSavingsReminderNotification({
   if (!notifications) return null;
 
   const hasPermission = await ensureSavingsReminderPermissions(notifications);
-  if (!hasPermission) {
-    return null;
-  }
+  if (!hasPermission) return null;
 
   await ensureSavingsReminderChannel(notifications);
   await cancelStoredSavingsReminderNotification(notifications);
 
-  const notificationId = await notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Savings reminder',
-      body: `Add ${formatNgnCurrency(contributionAmount)} toward ${goalTitle}.`,
-      data: {
-        goalId,
-        screen: 'wallet',
-        type: 'customer_savings_reminder',
-      },
-    },
-    trigger: buildSavingsReminderTrigger({
-      frequency,
-      notifications,
-      scheduledAt,
-    }),
-  });
-  await Promise.all([
-    AsyncStorage.setItem(SAVINGS_REMINDER_NOTIFICATION_ID_KEY, notificationId),
-    AsyncStorage.setItem(SAVINGS_REMINDER_GOAL_ID_KEY, goalId),
-  ]);
-  return notificationId;
+  const request = {
+    contributionAmount,
+    frequency,
+    goalId,
+    goalTitle,
+    scheduledAt,
+  };
+  if (scheduledAt.getTime() > Date.now()) {
+    await storePendingSavingsReminderRequest(request);
+    return null;
+  }
+
+  await removePendingSavingsReminderRequest();
+  return await scheduleRecurringSavingsReminder({ notifications, request });
 }

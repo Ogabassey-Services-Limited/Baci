@@ -180,6 +180,32 @@ describe('wallet savings data helpers', () => {
     );
   });
 
+  it('falls back to selected variant image when primary_image is empty', () => {
+    expect(
+      toActiveSavingsGoal({
+        goal: activeGoal,
+        product: {
+          condition: 'uk_used',
+          id: 'product-1',
+          images: ['https://cdn.example.com/product.jpg'],
+          name: 'iPhone 15 Pro',
+          variants: [
+            {
+              attributes: { storage: '256GB' },
+              id: 'variant-1',
+              image: 'https://cdn.example.com/variant-fallback.jpg',
+              primary_image: '',
+            },
+          ],
+        },
+      })
+    ).toEqual(
+      expect.objectContaining({
+        product_image: 'https://cdn.example.com/variant-fallback.jpg',
+      })
+    );
+  });
+
   it('hydrates general savings goals without a linked product id', () => {
     expect(
       getActiveSavingsGoal([

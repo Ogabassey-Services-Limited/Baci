@@ -8,7 +8,7 @@ jest.mock('react-native', () => ({
 jest.mock('expo-notifications', () => ({
   AndroidImportance: { DEFAULT: 'default' },
   SchedulableTriggerInputTypes: {
-    DATE: 'date',
+    DAILY: 'daily',
     MONTHLY: 'monthly',
     WEEKLY: 'weekly',
   },
@@ -25,7 +25,10 @@ jest.mock('@/lib/logger', () => ({
   }),
 }));
 
-const { scheduleSavingsReminderNotification } =
+const {
+  activateDueSavingsReminderNotification,
+  scheduleSavingsReminderNotification,
+} =
   require('./savings-reminder-notifications') as typeof import('./savings-reminder-notifications');
 const mockNotifications = require('expo-notifications') as jest.Mocked<
   typeof import('expo-notifications')
@@ -59,23 +62,104 @@ describe('scheduleSavingsReminderNotification triggers', () => {
     );
   });
 
-  it('uses a date trigger when the savings start time is in the future', async () => {
+  it('defers future-start reminders instead of scheduling a one-shot trigger', async () => {
     const scheduledAt = new Date(2099, 5, 8, 9, 30);
 
-    await scheduleSavingsReminderNotification({
-      contributionAmount: 500,
-      frequency: 'weekly',
-      goalId: 'goal-1',
-      goalTitle: 'iPhone 15 Pro',
-      scheduledAt,
-    });
+    await expect(
+      scheduleSavingsReminderNotification({
+        contributionAmount: 500,
+        frequency: 'weekly',
+        goalId: 'goal-1',
+        goalTitle: 'iPhone 15 Pro',
+        scheduledAt,
+      })
+    ).resolves.toBeNull();
+
+    expect(mockNotifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    await expect(
+      AsyncStorage.getItem('baci:savings-reminder-pending-request')
+    ).resolves.toContain('"goalId":"goal-1"');
+  });
+
+  it('activates due pending reminders with the original recurring cadence', async () => {
+    const scheduledAt = new Date(2020, 5, 8, 9, 30);
+
+    await AsyncStorage.setItem(
+      'baci:savings-reminder-pending-request',
+      JSON.stringify({
+        contributionAmount: 500,
+        frequency: 'weekly',
+        goalId: 'goal-1',
+        goalTitle: 'iPhone 15 Pro',
+        scheduledAt: scheduledAt.toISOString(),
+      })
+    );
+
+    await expect(activateDueSavingsReminderNotification()).resolves.toBe(
+      'notification-id'
+    );
 
     expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         trigger: {
           channelId: 'savings',
-          date: scheduledAt,
-          type: 'date',
+          hour: 9,
+          minute: 30,
+          type: 'weekly',
+          weekday: 2,
+        },
+      })
+    );
+    await expect(
+      AsyncStorage.getItem('baci:savings-reminder-pending-request')
+    ).resolves.toBeNull();
+  });
+
+  it('keeps pending reminders that are not due yet', async () => {
+    const scheduledAt = new Date(2099, 5, 8, 9, 30);
+
+    await AsyncStorage.setItem(
+      'baci:savings-reminder-pending-request',
+      JSON.stringify({
+        contributionAmount: 500,
+        frequency: 'daily',
+        goalId: 'goal-1',
+        goalTitle: 'iPhone 15 Pro',
+        scheduledAt: scheduledAt.toISOString(),
+      })
+    );
+
+    await expect(activateDueSavingsReminderNotification()).resolves.toBeNull();
+
+    expect(mockNotifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    await expect(
+      AsyncStorage.getItem('baci:savings-reminder-pending-request')
+    ).resolves.toContain('"frequency":"daily"');
+  });
+
+  it('uses the daily cadence when activating a due daily reminder', async () => {
+    const scheduledAt = new Date(2020, 5, 8, 9, 30);
+
+    await AsyncStorage.setItem(
+      'baci:savings-reminder-pending-request',
+      JSON.stringify({
+        contributionAmount: 500,
+        frequency: 'daily',
+        goalId: 'goal-1',
+        goalTitle: 'iPhone 15 Pro',
+        scheduledAt: scheduledAt.toISOString(),
+      })
+    );
+
+    await activateDueSavingsReminderNotification();
+
+    expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: {
+          channelId: 'savings',
+          hour: 9,
+          minute: 30,
+          type: 'daily',
         },
       })
     );
