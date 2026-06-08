@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
@@ -9,6 +10,14 @@ import {
 import { getProductUrl } from '@/lib/seo-utils';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { buildProductRedirectPath } from '../../products/[productSlug]/build-product-redirect-path';
+
+// Intentional page-level metadata for this redirect-only legacy route: keep it noindex so crawlers do not treat the transitional URL as canonical.
+export const metadata: Metadata = {
+  title: 'Product Redirect',
+  description:
+    'Redirects legacy product URLs to the canonical storefront product page.',
+  robots: { index: false, follow: true },
+};
 
 interface PageProps {
   params: Promise<{

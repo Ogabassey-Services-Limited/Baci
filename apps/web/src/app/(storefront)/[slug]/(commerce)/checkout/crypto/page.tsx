@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CryptoCheckoutPage } from '@/components/storefront/ogabassey/pages/crypto-checkout';
 import {
@@ -5,6 +6,12 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { isDomainIdentifier } from '@/lib/validation';
+
+export const metadata: Metadata = {
+  title: 'Crypto Checkout',
+  description: 'Complete your private crypto checkout securely.',
+  robots: { index: false, follow: false },
+};
 
 export default async function CryptoCheckoutRoute({
   params,
