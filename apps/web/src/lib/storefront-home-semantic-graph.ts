@@ -4,7 +4,6 @@ import { getProductUrl } from '@/lib/seo-utils';
 
 const DEFAULT_CATEGORY_LIMIT = 12;
 const DEFAULT_PRODUCT_LINK_LIMIT = 8;
-
 interface StorefrontHomeSemanticGraphInput {
   additionalTopics?: string[];
   baseUrl: string;
@@ -17,18 +16,15 @@ interface StorefrontHomeSemanticGraphInput {
   products: Product[];
   topicalFocus?: string;
 }
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
-
 function stripContext(
   schema: Record<string, unknown>
 ): Record<string, unknown> {
   const { '@context': _context, ...rest } = schema;
   return rest;
 }
-
 function normalizeBaseUrl(baseUrl: string): string {
   try {
     const parsedUrl = new URL(baseUrl);
@@ -38,15 +34,12 @@ function normalizeBaseUrl(baseUrl: string): string {
     return baseUrl.replace(/\/+$/g, '');
   }
 }
-
 function storeUrl(baseUrl: string, path = ''): string {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const normalizedPath = path.trim();
-
   if (!normalizedPath || normalizedPath === '/') {
     return normalizedBaseUrl;
   }
-
   if (/^https?:\/\//i.test(normalizedPath)) {
     try {
       const parsedUrl = new URL(normalizedPath);
