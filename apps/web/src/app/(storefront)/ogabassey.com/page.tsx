@@ -1,9 +1,10 @@
 import '@/app/(storefront)/storefront-full.css';
 
+import type { Metadata } from 'next';
 import { OgabasseyStaticHomePageContent } from '@/app/(storefront)/ogabassey/ogabassey-static-home-page-content';
-import { metadata } from '@/app/(storefront)/ogabassey/page';
+import { metadata as ogabasseyMetadata } from '@/app/(storefront)/ogabassey/page';
 
-export { metadata };
+export const metadata: Metadata = ogabasseyMetadata;
 
 export default function OgabasseyDomainHomePage() {
   return <OgabasseyStaticHomePageContent heroBasePath="" />;
