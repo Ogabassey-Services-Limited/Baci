@@ -2,7 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { StartSavingsForm } from './StartSavingsForm';
-import type { StartSavingsController } from './use-start-savings-controller';
+import type { StartSavingsController } from './start-savings-controller.types';
 
 function createController(
   overrides: Partial<StartSavingsController> = {}

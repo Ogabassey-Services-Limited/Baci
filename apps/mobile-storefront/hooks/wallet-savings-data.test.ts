@@ -1,0 +1,136 @@
+import { describe, expect, it } from '@jest/globals';
+import {
+  getActiveSavingsGoal,
+  type SavingsGoalData,
+  toActiveSavingsGoal,
+} from './wallet-savings-data';
+
+const activeGoal = {
+  contribution_amount: '10000',
+  contribution_frequency: 'weekly',
+  current_amount: '20000',
+  id: 'goal-1',
+  maturity_date: '2026-09-30',
+  product_id: 'product-1',
+  product_snapshot: {},
+  source_mode: 'manual',
+  status: 'active',
+  target_amount: '120000',
+  title: 'iPhone 15 Pro',
+  variant_id: 'variant-1',
+} satisfies SavingsGoalData;
+
+describe('wallet savings data helpers', () => {
+  it('prefers active goals over paused or completed goals', () => {
+    expect(
+      getActiveSavingsGoal([
+        { ...activeGoal, id: 'goal-paused', status: 'paused' },
+        activeGoal,
+      ])
+    ).toEqual(activeGoal);
+  });
+
+  it('hydrates active savings goal display metadata from product data', () => {
+    expect(
+      toActiveSavingsGoal({
+        goal: activeGoal,
+        product: {
+          condition: 'uk_used',
+          id: 'product-1',
+          images: ['https://cdn.example.com/product.jpg'],
+          name: 'iPhone 15 Pro',
+          variants: [
+            {
+              attributes: { color: 'Black', storage: '256GB' },
+              condition: 'new',
+              id: 'variant-1',
+              images: ['https://cdn.example.com/variant.jpg'],
+              price: '120000',
+            },
+          ],
+        },
+      })
+    ).toEqual({
+      contribution_amount: 10000,
+      contribution_frequency: 'weekly',
+      current_amount: 20000,
+      id: 'goal-1',
+      maturity_date: '2026-09-30',
+      product_condition: 'New',
+      product_image: 'https://cdn.example.com/variant.jpg',
+      product_variant_label: 'Storage: 256GB',
+      source_mode: 'manual',
+      status: 'active',
+      target_amount: 120000,
+      title: 'iPhone 15 Pro',
+    });
+  });
+
+  it('returns null when database amounts cannot be coerced', () => {
+    expect(
+      toActiveSavingsGoal({
+        goal: {
+          ...activeGoal,
+          contribution_amount: 'invalid',
+        },
+      })
+    ).toBeNull();
+    expect(
+      toActiveSavingsGoal({
+        goal: {
+          ...activeGoal,
+          target_amount: 'NaN',
+        },
+      })
+    ).toBeNull();
+  });
+
+  it('falls back to product-level image when the selected variant is missing', () => {
+    expect(
+      toActiveSavingsGoal({
+        goal: { ...activeGoal, variant_id: 'missing-variant' },
+        product: {
+          condition: 'uk_used',
+          id: 'product-1',
+          images: ['https://cdn.example.com/product.jpg'],
+          name: 'iPhone 15 Pro',
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              id: 'variant-1',
+              images: ['https://cdn.example.com/variant.jpg'],
+            },
+          ],
+        },
+      })
+    ).toEqual(
+      expect.objectContaining({
+        product_condition: 'Used',
+        product_image: 'https://cdn.example.com/product.jpg',
+        product_variant_label: null,
+      })
+    );
+  });
+
+  it('uses snapshot metadata when product data is unavailable', () => {
+    expect(
+      toActiveSavingsGoal({
+        goal: {
+          ...activeGoal,
+          product_snapshot: {
+            condition: 'New',
+            image_url: 'https://cdn.example.com/snapshot.jpg',
+            variant_label: 'Storage: 512GB',
+          },
+        },
+        product: null,
+      })
+    ).toEqual(
+      expect.objectContaining({
+        product_condition: 'New',
+        product_image: 'https://cdn.example.com/snapshot.jpg',
+        product_variant_label: 'Storage: 512GB',
+      })
+    );
+  });
+});

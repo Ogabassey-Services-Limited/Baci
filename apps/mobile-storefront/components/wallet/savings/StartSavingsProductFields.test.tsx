@@ -2,7 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { StartSavingsProductFields } from './StartSavingsProductFields';
-import type { StartSavingsController } from './use-start-savings-controller';
+import type { StartSavingsController } from './start-savings-controller.types';
 
 type MockDateTimePickerProps = {
   mode: 'date' | 'time';
@@ -49,10 +49,13 @@ function createController(
     preferredDebitTime: '06:20',
     products: [
       {
+        condition: 'Used',
         id: 'product-1',
+        image: 'https://cdn.example.com/iphone.jpg',
         name: 'iPhone 13 Pro Max',
         price: 800000,
         slug: 'iphone-13-pro-max',
+        variant_attributes: { storage: ['128GB', '256GB'] },
       },
     ],
     searchValue: 'iphone',
@@ -88,6 +91,7 @@ describe('StartSavingsProductFields', () => {
     );
 
     expect(controller.setSearchValue).toHaveBeenCalledWith('iphone 13');
+    expect(screen.getByText('Used · Storage: 128GB / 256GB')).toBeOnTheScreen();
     expect(controller.selectProduct).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'product-1' })
     );
@@ -96,10 +100,13 @@ describe('StartSavingsProductFields', () => {
   it('updates target amount, frequency, debit time, and start date', () => {
     const controller = createController({
       selectedProduct: {
+        conditionLabel: 'Used',
         id: 'product-1',
+        image: 'https://cdn.example.com/iphone.jpg',
         name: 'iPhone 13 Pro Max',
         price: 800000,
         slug: 'iphone-13-pro-max',
+        variantLabel: 'Storage: 256GB',
       },
     });
     render(
@@ -122,6 +129,7 @@ describe('StartSavingsProductFields', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Mock date picker' }));
 
     expect(screen.getByText('Selected product')).toBeOnTheScreen();
+    expect(screen.getByText('Used · Storage: 256GB')).toBeOnTheScreen();
     expect(controller.setTargetAmount).toHaveBeenCalledWith('800000');
     expect(controller.setFrequency).toHaveBeenCalledWith('weekly');
     expect(controller.setPreferredDebitTime).toHaveBeenCalledWith('07:00');

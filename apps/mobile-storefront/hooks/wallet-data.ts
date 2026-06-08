@@ -3,7 +3,15 @@ import { REDEEMABLE_SAVINGS_STATUSES } from '@/lib/checkout-savings';
 import { supabase } from '@/lib/supabase';
 import { CustomerRowSchema, TransactionRowSchema } from '@/lib/validation';
 import { trackEvent } from '@/services/analytics';
-import type { Transaction, WalletQueryData } from './wallet-query';
+import type {
+  Transaction,
+  WalletActiveSavingsGoal,
+  WalletQueryData,
+} from './wallet-query';
+import {
+  getActiveSavingsGoal,
+  toActiveSavingsGoal,
+} from './wallet-savings-data';
 
 const WalletFundingAccountSchema = z.object({
   account_name: z.string().min(1),
@@ -60,6 +68,7 @@ function getEmptyWalletData(loyaltyPoints: unknown = 0): WalletQueryData {
   const safeLoyaltyPoints = coerceDatabaseNumber(loyaltyPoints) ?? 0;
   return {
     wallet: {
+      active_savings_goal: null,
       balance: 0,
       earnings_balance: 0,
       funding_account: null,
@@ -138,6 +147,7 @@ export async function fetchWalletData(
 
     return {
       wallet: {
+        active_savings_goal: null,
         balance: 0,
         earnings_balance: 0,
         funding_account: null,
@@ -172,10 +182,13 @@ export async function fetchWalletData(
       .maybeSingle(),
     supabase
       .from('customer_savings_goals')
-      .select('current_amount')
+      .select(
+        'id, product_id, variant_id, title, product_snapshot, target_amount, current_amount, contribution_amount, contribution_frequency, source_mode, status, maturity_date'
+      )
       .eq('merchant_id', merchantId)
       .eq('customer_id', resolvedCustomerId)
-      .in('status', [...REDEEMABLE_SAVINGS_STATUSES]),
+      .in('status', [...REDEEMABLE_SAVINGS_STATUSES])
+      .order('created_at', { ascending: false }),
   ]);
 
   if (fundingAccountResult.error) {
@@ -185,10 +198,36 @@ export async function fetchWalletData(
     throw savingsGoalsResult.error;
   }
 
-  const safeSavingsBalance = (savingsGoalsResult.data ?? []).reduce(
+  const savingsGoalRows = Array.isArray(savingsGoalsResult.data)
+    ? savingsGoalsResult.data
+    : [];
+  const safeSavingsBalance = savingsGoalRows.reduce(
     (total, row) => total + (coerceDatabaseNumber(row.current_amount) ?? 0),
     0
   );
+  const activeSavingsGoalRow = getActiveSavingsGoal(savingsGoalRows);
+  let activeSavingsGoal: WalletActiveSavingsGoal | null = null;
+
+  if (activeSavingsGoalRow) {
+    const productResult = await supabase
+      .from('products')
+      .select('id, name, images, condition, variants')
+      .eq('merchant_id', merchantId)
+      .eq('id', activeSavingsGoalRow.product_id)
+      .maybeSingle();
+    if (productResult.error) {
+      console.warn('Unable to fetch active savings goal product metadata', {
+        error: productResult.error,
+        merchantId,
+        productId: activeSavingsGoalRow.product_id,
+      });
+    }
+
+    activeSavingsGoal = toActiveSavingsGoal({
+      goal: activeSavingsGoalRow,
+      product: productResult.error ? undefined : productResult.data,
+    });
+  }
 
   const fundingAccountValidation =
     WalletFundingAccountSchema.nullable().safeParse(fundingAccountResult.data);
@@ -235,6 +274,7 @@ export async function fetchWalletData(
 
   return {
     wallet: {
+      active_savings_goal: activeSavingsGoal,
       balance: safeBalance,
       earnings_balance: safeBalance,
       funding_account: fundingAccountData,

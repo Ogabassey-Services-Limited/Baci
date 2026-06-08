@@ -30,10 +30,28 @@ jest.mock('@/lib/clipboard', () => ({
   setClipboardString: jest.fn(),
 }));
 
+jest.mock('expo-image', () => ({
+  Image: () => null,
+}));
+
 const mockSetClipboardString = jest.mocked(setClipboardString);
 
 describe('WalletContent', () => {
   const props = {
+    activeSavingsGoal: {
+      contribution_amount: 10000,
+      contribution_frequency: 'weekly' as const,
+      current_amount: 50000,
+      id: 'goal-1',
+      maturity_date: '2026-09-30',
+      product_condition: 'Used',
+      product_image: 'https://cdn.example.com/device.jpg',
+      product_variant_label: 'Storage: 256GB',
+      source_mode: 'manual' as const,
+      status: 'active' as const,
+      target_amount: 100000,
+      title: 'iPhone 15 Pro',
+    },
     canCreateFundingAccount: true,
     colors: Colors.light,
     contentContainerStyle: { paddingBottom: 32, paddingTop: 20 },
@@ -45,6 +63,7 @@ describe('WalletContent', () => {
       bankName: 'Titan Paystack',
       provider: 'paystack' as const,
     },
+    isAddingSavingsContribution: false,
     isCreatingFundingAccount: false,
     isFundPending: false,
     isRedeemPending: false,
@@ -53,8 +72,12 @@ describe('WalletContent', () => {
     onChangeFundAmount: jest.fn(),
     onCreateFundingAccount: jest.fn(),
     onChangeRedeemPoints: jest.fn(),
+    onAddSavingsContribution: jest.fn(),
+    onChangeSavingsContributionAmount: jest.fn(),
+    onCloseSavingsProgress: jest.fn(),
     onConfirmFund: jest.fn(),
     onConfirmRedeem: jest.fn(),
+    onFundSavingsWallet: jest.fn(),
     onManageCards: jest.fn(),
     onOpenFundPanel: jest.fn(),
     onOpenRedeemPanel: jest.fn(),
@@ -64,10 +87,12 @@ describe('WalletContent', () => {
     onResetRedeem: jest.fn(),
     onStartSavings: jest.fn(),
     redeemPoints: '',
+    savingsContributionAmount: '',
     savingsBalance: 35000,
     showFundPanel: false,
     showQuickSave: true,
     showRedeemPanel: false,
+    showSavingsProgress: false,
     totalBalance: 160000,
     transactions: [
       {
@@ -99,10 +124,10 @@ describe('WalletContent', () => {
       screen.getByRole('button', { name: 'Redeem loyalty points' })
     ).toBeOnTheScreen();
     expect(
-      screen.getByRole('button', { name: 'Start savings' })
+      screen.getByRole('button', { name: 'Add to Savings' })
     ).toBeOnTheScreen();
     expect(
-      screen.getByRole('button', { name: 'Manage cards' })
+      screen.getByRole('button', { name: 'Manage Cards' })
     ).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Withdraw from wallet' })).toBe(
       null
@@ -188,9 +213,9 @@ describe('WalletContent', () => {
   it('wires start savings, manage cards, and quick save actions', () => {
     render(<WalletContent {...props} />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Start savings' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Manage cards' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Quick save' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Add to Savings' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Manage Cards' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Quick Save' }));
 
     expect(props.onStartSavings).toHaveBeenCalledTimes(1);
     expect(props.onManageCards).toHaveBeenCalledTimes(1);
@@ -208,9 +233,36 @@ describe('WalletContent', () => {
   });
 
   it('hides quick save when there is no active savings context', () => {
-    render(<WalletContent {...props} showQuickSave={false} />);
+    render(
+      <WalletContent
+        {...props}
+        activeSavingsGoal={null}
+        showQuickSave={false}
+      />
+    );
 
-    expect(screen.queryByRole('button', { name: 'Quick save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Quick Save' })).toBeNull();
+  });
+
+  it('renders savings progress modal and wires manual contribution actions', () => {
+    render(<WalletContent {...props} showSavingsProgress />);
+
+    expect(screen.getByText('Saving streak')).toBeOnTheScreen();
+    expect(screen.getByText('50%')).toBeOnTheScreen();
+    expect(screen.getByText('Used')).toBeOnTheScreen();
+    expect(screen.getByText('Storage: 256GB')).toBeOnTheScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Savings top-up amount'), '500');
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Confirm savings top-up' })
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Fund wallet for savings' })
+    );
+
+    expect(props.onChangeSavingsContributionAmount).toHaveBeenCalledWith('500');
+    expect(props.onAddSavingsContribution).toHaveBeenCalledTimes(1);
+    expect(props.onFundSavingsWallet).toHaveBeenCalledTimes(1);
   });
 
   it('does not update copy feedback after unmounting', async () => {

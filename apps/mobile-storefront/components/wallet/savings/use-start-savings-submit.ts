@@ -8,6 +8,7 @@ import {
   initializeSavingsAuthorization,
 } from '@/lib/customer-savings';
 import { WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
+import { scheduleSavingsReminderNotification } from '@/services/savings-reminder-notifications';
 import { formatDateInput } from './start-savings.helpers';
 import type { SavingsFrequency } from './start-savings.helpers';
 import type {
@@ -143,6 +144,18 @@ export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
       if (!result.success) {
         throw new Error('Unable to create savings plan.');
       }
+      if (input.sourceMode === 'manual') {
+        try {
+          await scheduleSavingsReminderNotification({
+            contributionAmount: input.contributionValue,
+            frequency: input.frequency,
+            goalId: result.goalId,
+            goalTitle: validation.selectedProduct.name,
+          });
+        } catch {
+          // Reminder scheduling is best effort and must not block goal creation.
+        }
+      }
       input.setShowFundingModal(false);
       input.setShowPreviewModal(false);
       input.setShowTransferModal(false);
@@ -230,7 +243,11 @@ export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
   };
 
   return {
-    goToWallet: () => router.replace('/wallet'),
+    goToWallet: () =>
+      router.replace({
+        pathname: '/wallet',
+        params: { action: 'savings' },
+      }),
     handleAuthorizeSavingsCard,
     handleCopyFundingAccount,
     isAuthorizingCard,

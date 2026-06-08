@@ -184,6 +184,23 @@ describe('getStorefrontNotificationNavigationTarget', () => {
     ).toEqual({ screen: 'wallet' });
   });
 
+  it('routes customer savings reminders to wallet', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'customer_savings_reminder',
+        goalId: 'goal-1',
+      })
+    ).toEqual({ screen: 'wallet' });
+  });
+
+  it('routes customer savings reminders without goal ids to wallet', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'customer_savings_reminder',
+      })
+    ).toEqual({ screen: 'wallet' });
+  });
+
   it('routes VTU token-ready payloads to utility history', () => {
     expect(
       getStorefrontNotificationNavigationTarget({

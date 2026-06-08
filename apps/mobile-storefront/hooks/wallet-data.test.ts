@@ -35,6 +35,7 @@ function setupSupabaseTables(
       id: 'wallet-1',
     }),
     customer_savings_goals: createResult([]),
+    products: createResult(null),
     ...overrides,
   };
   const tableCalls: string[] = [];
@@ -43,10 +44,14 @@ function setupSupabaseTables(
     tableCalls.push(table);
     const query = {
       eq: jest.fn(() => query),
-      in: jest.fn(async () => tableResults[table]),
+      in: jest.fn(() => query),
       limit: jest.fn(async () => tableResults[table]),
       maybeSingle: jest.fn(async () => tableResults[table]),
-      order: jest.fn(() => query),
+      order: jest.fn(() =>
+        table === 'customer_savings_goals'
+          ? Promise.resolve(tableResults[table])
+          : query
+      ),
       select: jest.fn(() => query),
     };
     return query;
@@ -65,6 +70,7 @@ describe('fetchWalletData', () => {
 
     expect(result).toEqual({
       wallet: {
+        active_savings_goal: null,
         balance: 0,
         earnings_balance: 0,
         funding_account: null,
@@ -99,10 +105,54 @@ describe('fetchWalletData', () => {
         provider: 'paystack',
       }),
       customer_savings_goals: createResult([
-        { current_amount: '20000' },
-        { current_amount: 15000.5 },
+        {
+          contribution_amount: '10000',
+          contribution_frequency: 'weekly',
+          current_amount: '20000',
+          id: 'goal-1',
+          maturity_date: '2026-09-30',
+          product_id: 'product-1',
+          product_snapshot: {},
+          source_mode: 'manual',
+          status: 'active',
+          target_amount: '120000',
+          title: 'iPhone 15 Pro',
+          variant_id: 'variant-1',
+        },
+        {
+          contribution_amount: '5000',
+          contribution_frequency: 'weekly',
+          current_amount: 15000.5,
+          id: 'goal-2',
+          maturity_date: '2026-10-30',
+          product_id: 'product-2',
+          product_snapshot: {},
+          source_mode: 'manual',
+          status: 'paused',
+          target_amount: '90000',
+          title: 'Savings goal',
+          variant_id: null,
+        },
         { current_amount: 'bad-number' },
       ]),
+      products: createResult({
+        condition: 'uk_used',
+        id: 'product-1',
+        images: ['https://cdn.example.com/iphone.jpg'],
+        name: 'iPhone 15 Pro',
+        variants: [
+          {
+            attributes: {
+              color: 'Black',
+              storage: '256GB',
+            },
+            condition: 'uk_used',
+            id: 'variant-1',
+            price: '120000',
+            sku: 'IPH15P-256',
+          },
+        ],
+      }),
       customer_wallet_transactions: createResult([
         {
           amount: '2500',
@@ -123,6 +173,20 @@ describe('fetchWalletData', () => {
     const result = await fetchWalletData('customer-1', 'merchant-1', 'user-1');
 
     expect(result.wallet).toEqual({
+      active_savings_goal: {
+        contribution_amount: 10000,
+        contribution_frequency: 'weekly',
+        current_amount: 20000,
+        id: 'goal-1',
+        maturity_date: '2026-09-30',
+        product_condition: 'Used',
+        product_image: 'https://cdn.example.com/iphone.jpg',
+        product_variant_label: 'Storage: 256GB',
+        source_mode: 'manual',
+        status: 'active',
+        target_amount: 120000,
+        title: 'iPhone 15 Pro',
+      },
       balance: 5000,
       earnings_balance: 5000,
       funding_account: {

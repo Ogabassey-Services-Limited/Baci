@@ -13,7 +13,7 @@ import {
   SavedPaymentMethodCard,
   SummaryRow,
 } from './start-savings-modal-parts';
-import type { StartSavingsController } from './use-start-savings-controller';
+import type { StartSavingsController } from './start-savings-controller.types';
 
 const log = createLogger('StartSavingsModals');
 

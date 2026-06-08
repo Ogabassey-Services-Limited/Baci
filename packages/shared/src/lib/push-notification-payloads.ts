@@ -139,6 +139,7 @@ export function getStorefrontNotificationNavigationTarget(
         : { screen: 'home' };
     }
     case 'vtu_cashback_monthly_summary':
+    case 'customer_savings_reminder':
       return { screen: 'wallet' };
     case 'vtu_token_ready': {
       const utilityType = readStorefrontUtilityType(

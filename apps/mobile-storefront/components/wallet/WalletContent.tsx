@@ -8,16 +8,19 @@ import { WalletActionsRow } from './WalletActionsRow';
 import { WalletHeroSection } from './WalletHeroSection';
 import { WalletPanelActionButtons } from './WalletPanelActionButtons';
 import { WalletRedeemPanel } from './WalletRedeemPanel';
+import { WalletSavingsProgressModal } from './WalletSavingsProgressModal';
 import {
   type WalletTransaction,
   WalletTransactionHistory,
 } from './WalletTransactionHistory';
 import { styles } from './wallet.styles';
+import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
 type WalletColors = (typeof Colors)['light'];
 
 export interface WalletContentProps {
+  activeSavingsGoal: WalletActiveSavingsGoal | null;
   canCreateFundingAccount: boolean;
   colors: WalletColors;
   contentContainerStyle: StyleProp<ViewStyle>;
@@ -25,6 +28,7 @@ export interface WalletContentProps {
   earningsBalance: number;
   fundAmount: string;
   fundingAccount: WalletDisplayFundingAccount | null;
+  isAddingSavingsContribution: boolean;
   isCreatingFundingAccount: boolean;
   isFundPending: boolean;
   isRedeemPending: boolean;
@@ -36,7 +40,11 @@ export interface WalletContentProps {
   onChangeRedeemPoints: (value: string) => void;
   onConfirmFund: () => void;
   onConfirmRedeem: () => void;
+  onAddSavingsContribution: () => void;
+  onChangeSavingsContributionAmount: (value: string) => void;
+  onCloseSavingsProgress: () => void;
   onManageCards: () => void;
+  onFundSavingsWallet: () => void;
   onOpenFundPanel: () => void;
   onOpenRedeemPanel: () => void;
   onQuickSave: () => void;
@@ -45,7 +53,9 @@ export interface WalletContentProps {
   onResetRedeem: () => void;
   onStartSavings: () => void;
   redeemPoints: string;
+  savingsContributionAmount: string;
   savingsBalance: number;
+  showSavingsProgress: boolean;
   showQuickSave: boolean;
   showFundPanel: boolean;
   showRedeemPanel: boolean;
@@ -54,6 +64,7 @@ export interface WalletContentProps {
 }
 
 export function WalletContent({
+  activeSavingsGoal,
   canCreateFundingAccount,
   colors,
   contentContainerStyle,
@@ -61,6 +72,7 @@ export function WalletContent({
   earningsBalance,
   fundAmount,
   fundingAccount,
+  isAddingSavingsContribution,
   isCreatingFundingAccount,
   isFundPending,
   isRedeemPending,
@@ -72,6 +84,10 @@ export function WalletContent({
   onChangeRedeemPoints,
   onConfirmFund,
   onConfirmRedeem,
+  onAddSavingsContribution,
+  onChangeSavingsContributionAmount,
+  onCloseSavingsProgress,
+  onFundSavingsWallet,
   onManageCards,
   onOpenFundPanel,
   onOpenRedeemPanel,
@@ -81,7 +97,9 @@ export function WalletContent({
   onResetRedeem,
   onStartSavings,
   redeemPoints,
+  savingsContributionAmount,
   savingsBalance,
+  showSavingsProgress,
   showQuickSave,
   showFundPanel,
   showRedeemPanel,
@@ -89,107 +107,122 @@ export function WalletContent({
   transactions,
 }: WalletContentProps) {
   return (
-    <ScrollView
-      testID="wallet-scroll"
-      contentContainerStyle={contentContainerStyle}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefetching}
-          onRefresh={onRefresh}
-          tintColor={BRAND.primary}
-        />
-      }
-    >
-      <WalletHeroSection
-        canCreateFundingAccount={canCreateFundingAccount}
-        createFundingAccountUnavailableMessage={
-          createFundingAccountUnavailableMessage
+    <>
+      <ScrollView
+        testID="wallet-scroll"
+        contentContainerStyle={contentContainerStyle}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={onRefresh}
+            tintColor={BRAND.primary}
+          />
         }
-        earningsBalance={earningsBalance}
-        fundingAccount={fundingAccount}
-        isCreatingFundingAccount={isCreatingFundingAccount}
-        loyaltyPoints={loyaltyPoints}
-        loyaltyTier={loyaltyTier}
-        onCreateFundingAccount={onCreateFundingAccount}
-        onOpenFundPanel={onOpenFundPanel}
-        onOpenRedeemPanel={onOpenRedeemPanel}
-        savingsBalance={savingsBalance}
-        totalBalance={totalBalance}
-      />
+      >
+        <WalletHeroSection
+          canCreateFundingAccount={canCreateFundingAccount}
+          createFundingAccountUnavailableMessage={
+            createFundingAccountUnavailableMessage
+          }
+          earningsBalance={earningsBalance}
+          fundingAccount={fundingAccount}
+          isCreatingFundingAccount={isCreatingFundingAccount}
+          loyaltyPoints={loyaltyPoints}
+          loyaltyTier={loyaltyTier}
+          onCreateFundingAccount={onCreateFundingAccount}
+          onOpenFundPanel={onOpenFundPanel}
+          onOpenRedeemPanel={onOpenRedeemPanel}
+          savingsBalance={savingsBalance}
+          totalBalance={totalBalance}
+        />
 
-      <WalletActionsRow
-        colors={colors}
-        onManageCards={onManageCards}
-        onQuickSave={onQuickSave}
-        onStartSavings={onStartSavings}
-        showQuickSave={showQuickSave}
-      />
+        <WalletActionsRow
+          colors={colors}
+          hasActiveSavingsGoal={Boolean(activeSavingsGoal)}
+          onManageCards={onManageCards}
+          onQuickSave={onQuickSave}
+          onStartSavings={onStartSavings}
+          showQuickSave={showQuickSave}
+        />
 
-      {showFundPanel ? (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          style={[
-            styles.redeemPanel,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.redeemPanelTitle, { color: colors.text }]}>
-            Add Funds
-          </Text>
-          <Text
+        {showFundPanel ? (
+          <Animated.View
+            entering={FadeIn.duration(200)}
             style={[
-              styles.redeemPanelSubtitle,
-              { color: colors.textSecondary },
+              styles.redeemPanel,
+              { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            Enter the amount you want to add to your wallet.
-          </Text>
+            <Text style={[styles.redeemPanelTitle, { color: colors.text }]}>
+              Add Funds
+            </Text>
+            <Text
+              style={[
+                styles.redeemPanelSubtitle,
+                { color: colors.textSecondary },
+              ]}
+            >
+              Enter the amount you want to add to your wallet.
+            </Text>
 
-          <TextInput
-            accessibilityLabel="Wallet top-up amount"
-            style={[
-              styles.redeemInput,
-              {
-                backgroundColor: colors.muted,
-                borderColor: colors.border,
-                color: colors.text,
-              },
-            ]}
-            value={fundAmount}
-            onChangeText={onChangeFundAmount}
-            keyboardType="number-pad"
-            placeholder="Enter amount (min ₦100)"
-            placeholderTextColor={colors.placeholder}
-          />
+            <TextInput
+              accessibilityLabel="Wallet top-up amount"
+              style={[
+                styles.redeemInput,
+                {
+                  backgroundColor: colors.muted,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              value={fundAmount}
+              onChangeText={onChangeFundAmount}
+              keyboardType="number-pad"
+              placeholder="Enter amount (min ₦100)"
+              placeholderTextColor={colors.placeholder}
+            />
 
-          <WalletPanelActionButtons
-            cancelAccessibilityLabel="Cancel wallet top-up"
-            confirmAccessibilityLabel="Confirm wallet top-up"
-            confirmText="Continue"
+            <WalletPanelActionButtons
+              cancelAccessibilityLabel="Cancel wallet top-up"
+              confirmAccessibilityLabel="Confirm wallet top-up"
+              confirmText="Continue"
+              colors={colors}
+              isPending={isFundPending}
+              onCancel={onResetFund}
+              onConfirm={onConfirmFund}
+            />
+          </Animated.View>
+        ) : null}
+
+        {showRedeemPanel ? (
+          <WalletRedeemPanel
             colors={colors}
-            isPending={isFundPending}
-            onCancel={onResetFund}
-            onConfirm={onConfirmFund}
+            isRedeemPending={isRedeemPending}
+            loyaltyPoints={loyaltyPoints}
+            minimumRedeemablePoints={VTU_MIN_REDEEMABLE_POINTS}
+            onChangeRedeemPoints={onChangeRedeemPoints}
+            onConfirmRedeem={onConfirmRedeem}
+            onResetRedeem={onResetRedeem}
+            redeemPoints={redeemPoints}
           />
-        </Animated.View>
-      ) : null}
-
-      {showRedeemPanel ? (
-        <WalletRedeemPanel
-          colors={colors}
-          isRedeemPending={isRedeemPending}
-          loyaltyPoints={loyaltyPoints}
-          minimumRedeemablePoints={VTU_MIN_REDEEMABLE_POINTS}
-          onChangeRedeemPoints={onChangeRedeemPoints}
-          onConfirmRedeem={onConfirmRedeem}
-          onResetRedeem={onResetRedeem}
-          redeemPoints={redeemPoints}
-        />
-      ) : null}
-      <WalletTransactionHistory colors={colors} transactions={transactions} />
-    </ScrollView>
+        ) : null}
+        <WalletTransactionHistory colors={colors} transactions={transactions} />
+      </ScrollView>
+      <WalletSavingsProgressModal
+        addAmount={savingsContributionAmount}
+        colors={colors}
+        goal={activeSavingsGoal}
+        isAdding={isAddingSavingsContribution}
+        onAddAmountChange={onChangeSavingsContributionAmount}
+        onAddSavings={onAddSavingsContribution}
+        onClose={onCloseSavingsProgress}
+        onFundWallet={onFundSavingsWallet}
+        visible={showSavingsProgress}
+        walletBalance={earningsBalance}
+      />
+    </>
   );
 }

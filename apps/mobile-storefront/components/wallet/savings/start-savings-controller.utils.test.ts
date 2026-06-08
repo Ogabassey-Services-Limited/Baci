@@ -1,30 +1,90 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import type { Product } from '@/types/product';
 import {
+  applyStartSavingsProductSelection,
   getErrorMessage,
   INSUFFICIENT_WALLET_ERROR_CODE,
   isInsufficientWalletError,
   readParam,
   toProductChoice,
+  toSelectedProductChoice,
   validateStartSavingsForm,
 } from './start-savings-controller.utils';
 
 const selectedProduct = {
   id: 'product-1',
+  image: 'https://example.com/iphone.jpg',
   name: 'iPhone 13 Pro Max',
   price: 800000,
   slug: 'iphone-13-pro-max',
 };
 const productFixture: Product = {
   ...selectedProduct,
+  condition: 'uk_used',
   image: 'https://example.com/iphone.jpg',
+  variant_attributes: { storage: ['128GB', '256GB'] },
+  variants: [
+    {
+      attributes: { color: 'Black', storage: '256GB' },
+      condition: 'new',
+      id: 'variant-1',
+      image: 'https://example.com/iphone-variant.jpg',
+      name: 'iPhone 13 Pro Max 256GB',
+      price: 850000,
+    },
+  ],
 };
 
 describe('start savings controller utils', () => {
   it('reads route params and maps products to savings choices', () => {
     expect(readParam(['product-1', 'product-2'])).toBe('product-1');
     expect(readParam('product-1')).toBe('product-1');
-    expect(toProductChoice(productFixture)).toEqual(selectedProduct);
+    expect(toProductChoice(productFixture)).toEqual({
+      ...selectedProduct,
+      conditionLabel: 'Used',
+      image: 'https://example.com/iphone.jpg',
+      variantLabel: 'Storage: 128GB / 256GB',
+    });
+    expect(
+      toSelectedProductChoice({
+        product: productFixture,
+        variantId: 'variant-1',
+      })
+    ).toEqual({
+      ...selectedProduct,
+      conditionLabel: 'New',
+      image: 'https://example.com/iphone-variant.jpg',
+      price: 850000,
+      variantLabel: 'Storage: 256GB',
+    });
+  });
+
+  it('applies selected product state without overwriting an existing target', () => {
+    const setFormError = jest.fn();
+    const setSearchValue = jest.fn();
+    const setSelectedProduct = jest.fn();
+    const setTargetAmount = jest.fn();
+
+    applyStartSavingsProductSelection({
+      product: productFixture,
+      setFormError,
+      setSearchValue,
+      setSelectedProduct,
+      setTargetAmount,
+      variantId: 'variant-1',
+    });
+
+    const updateTargetAmount = setTargetAmount.mock.calls[0]?.[0] as (
+      current: string
+    ) => string;
+
+    expect(setFormError).toHaveBeenCalledWith(null);
+    expect(setSearchValue).toHaveBeenCalledWith('iPhone 13 Pro Max');
+    expect(setSelectedProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ price: 850000, variantLabel: 'Storage: 256GB' })
+    );
+    expect(updateTargetAmount('')).toBe('850000');
+    expect(updateTargetAmount('900000')).toBe('900000');
   });
 
   it('normalizes error messages and insufficient wallet errors', () => {

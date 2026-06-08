@@ -27,12 +27,8 @@
       "lineCount": 345
     },
     {
-      "path": "components/wallet/savings/use-start-savings-controller.ts",
-      "lineCount": 301
-    },
-    {
       "path": "components/wallet/wallet-screen.helpers.ts",
-      "lineCount": 323
+      "lineCount": 321
     },
     {
       "path": "lib/sanitize-html.ts",

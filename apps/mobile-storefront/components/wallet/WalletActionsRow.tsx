@@ -8,6 +8,7 @@ type WalletColors = (typeof Colors)['light'];
 
 type WalletActionsRowProps = {
   colors: WalletColors;
+  hasActiveSavingsGoal: boolean;
   onManageCards: () => void;
   onQuickSave: () => void;
   onStartSavings: () => void;
@@ -16,26 +17,33 @@ type WalletActionsRowProps = {
 
 export function WalletActionsRow({
   colors,
+  hasActiveSavingsGoal,
   onManageCards,
   onQuickSave,
   onStartSavings,
   showQuickSave,
 }: WalletActionsRowProps) {
+  const primaryActionLabel = hasActiveSavingsGoal
+    ? 'Add to Savings'
+    : 'Start Savings';
+
   return (
     <>
       <View style={styles.primaryActionRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Start savings"
+          accessibilityLabel={primaryActionLabel}
           onPress={onStartSavings}
           style={styles.primaryActionButton}
         >
           <Ionicons name="sparkles-outline" size={16} color={colors.white} />
-          <Text style={styles.primaryActionButtonText}>Start Savings</Text>
+          <Text style={styles.primaryActionButtonText}>
+            {primaryActionLabel}
+          </Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Manage cards"
+          accessibilityLabel="Manage Cards"
           onPress={onManageCards}
           style={styles.secondaryActionButton}
         >
@@ -57,7 +65,7 @@ export function WalletActionsRow({
       {showQuickSave ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Quick save"
+          accessibilityLabel="Quick Save"
           style={styles.quickSaveButton}
           onPress={onQuickSave}
         >

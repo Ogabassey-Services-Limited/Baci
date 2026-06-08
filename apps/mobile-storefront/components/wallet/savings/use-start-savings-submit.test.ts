@@ -21,6 +21,8 @@ const mockInitializeSavingsAuthorization =
 const mockSetClipboardString =
   jest.fn<(...args: unknown[]) => Promise<boolean>>();
 const mockRandomUUID = jest.fn();
+const mockScheduleSavingsReminderNotification =
+  jest.fn<(...args: unknown[]) => Promise<string | null>>();
 
 jest.mock('expo-router', () => ({
   router: {
@@ -43,6 +45,11 @@ jest.mock('@/lib/clipboard', () => ({
   setClipboardString: (...args: unknown[]) => mockSetClipboardString(...args),
 }));
 
+jest.mock('@/services/savings-reminder-notifications', () => ({
+  scheduleSavingsReminderNotification: (...args: unknown[]) =>
+    mockScheduleSavingsReminderNotification(...args),
+}));
+
 function createInput(overrides = {}) {
   return {
     activeMerchantId: 'merchant-1',
@@ -59,6 +66,7 @@ function createInput(overrides = {}) {
     selectedPaymentMethodId: null,
     selectedProduct: {
       id: 'product-1',
+      image: 'https://example.com/iphone.jpg',
       name: 'iPhone 13 Pro Max',
       price: 800000,
       slug: 'iphone-13-pro-max',
@@ -92,6 +100,7 @@ describe('useStartSavingsSubmit', () => {
       success: true,
     });
     mockSetClipboardString.mockResolvedValue(true);
+    mockScheduleSavingsReminderNotification.mockResolvedValue('reminder-1');
   });
 
   it('submits a manual savings goal and reuses one idempotency key', async () => {
@@ -112,7 +121,28 @@ describe('useStartSavingsSubmit', () => {
         sourceMode: 'manual',
       })
     );
+    expect(mockScheduleSavingsReminderNotification).toHaveBeenCalledWith({
+      contributionAmount: 20000,
+      frequency: 'daily',
+      goalId: 'goal-1',
+      goalTitle: 'iPhone 13 Pro Max',
+    });
     expect(input.setShowSuccessModal).toHaveBeenCalledWith(true);
+  });
+
+  it('does not block manual goal creation when reminder scheduling fails', async () => {
+    mockScheduleSavingsReminderNotification.mockRejectedValue(
+      new Error('notifications denied')
+    );
+    const input = createInput();
+    const { result } = renderHook(() => useStartSavingsSubmit(input));
+
+    await act(async () => {
+      await result.current.submitSavingsGoal();
+    });
+
+    expect(input.setShowSuccessModal).toHaveBeenCalledWith(true);
+    expect(input.setFormError).not.toHaveBeenCalledWith('notifications denied');
   });
 
   it('ignores duplicate savings submissions while the first request is in flight', async () => {

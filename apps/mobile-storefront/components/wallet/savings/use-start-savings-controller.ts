@@ -25,14 +25,13 @@ import type {
   SavingsSourceMode,
 } from './start-savings.types';
 import {
+  applyStartSavingsProductSelection,
   readParam,
-  toProductChoice,
   validateStartSavingsForm,
 } from './start-savings-controller.utils';
 import { useStartSavingsPaymentMethods } from './use-start-savings-payment-methods';
 import { useStartSavingsSubmit } from './use-start-savings-submit';
 
-// Matches the Figma savings flow's preferred debit-time default.
 const DEFAULT_PREFERRED_DEBIT_TIME = '06:20';
 
 export function useStartSavingsController() {
@@ -92,18 +91,19 @@ export function useStartSavingsController() {
     activeMerchantSlug,
     sourceMode,
   });
-  // Contributions draw from earnings first; legacy balance is only a fallback while older wallet payloads roll forward.
   const safeWalletBalance =
     walletData?.wallet.earnings_balance ?? walletData?.wallet.balance ?? 0;
-  // Funding account stays null until DVA creation succeeds for this customer and merchant.
   const fundingAccount = walletData?.wallet.funding_account ?? null;
 
-  const selectProduct = (product: Product) => {
-    setFormError(null);
-    setSelectedProduct(toProductChoice(product));
-    setSearchValue(product.name);
-    setTargetAmount(String(Math.max(0, Math.round(product.price))));
-  };
+  const selectProduct = (product: Product) =>
+    applyStartSavingsProductSelection({
+      product,
+      setFormError,
+      setSearchValue,
+      setSelectedProduct,
+      setTargetAmount,
+      variantId: normalizedVariantId,
+    });
 
   useEffect(() => {
     if (!normalizedProductId || selectedProduct) {
@@ -115,14 +115,15 @@ export function useStartSavingsController() {
     if (!preselected) {
       return;
     }
-    setSelectedProduct(toProductChoice(preselected));
-    setSearchValue(preselected.name);
-    setTargetAmount((currentTargetAmount) =>
-      currentTargetAmount
-        ? currentTargetAmount
-        : String(Math.max(0, Math.round(preselected.price)))
-    );
-  }, [normalizedProductId, products, selectedProduct]);
+    applyStartSavingsProductSelection({
+      product: preselected,
+      setFormError,
+      setSearchValue,
+      setSelectedProduct,
+      setTargetAmount,
+      variantId: normalizedVariantId,
+    });
+  }, [normalizedProductId, normalizedVariantId, products, selectedProduct]);
 
   const contributionValue = parseAmount(contributionAmount);
   const targetValue = parseAmount(targetAmount);
@@ -277,8 +278,6 @@ export function useStartSavingsController() {
     setSelectedPaymentMethodId,
     setShowFundingModal,
     setShowPreviewModal,
-    setShowSuccessModal,
-    setShowTransferModal,
     setStartDate: (value: string) => setStartDate(formatDateInput(value)),
     setTargetAmount: (value: string) => {
       setFormError(null);
@@ -295,7 +294,3 @@ export function useStartSavingsController() {
     targetValue,
   };
 }
-
-export type StartSavingsController = ReturnType<
-  typeof useStartSavingsController
->;

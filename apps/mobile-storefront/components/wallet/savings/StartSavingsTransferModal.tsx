@@ -7,7 +7,7 @@ import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { startSavingsStyles as styles } from './start-savings.styles';
 import type { StartSavingsColors } from './start-savings.types';
 import { SummaryRow } from './start-savings-modal-parts';
-import type { StartSavingsController } from './use-start-savings-controller';
+import type { StartSavingsController } from './start-savings-controller.types';
 
 type TransferModalProps = {
   colors: StartSavingsColors;
