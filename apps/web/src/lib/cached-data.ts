@@ -26,6 +26,7 @@ import {
   RELATED_BLOG_PRODUCT_LINKS_SELECT,
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
+import { selectSemanticRelatedBlogPosts } from '@/lib/semantic-related-blog-posts';
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { canonicalizeStorefrontMediaUrl } from '@/lib/storefront-media-cdn-url';
@@ -37,7 +38,7 @@ import type { MerchantAboutPage } from '@/types/about-page';
 import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
 
 const RELATED_BLOG_POSTS_LIMIT = 3;
-const RELATED_BLOG_POSTS_FETCH_LIMIT = 12;
+const RELATED_BLOG_POSTS_FETCH_LIMIT = 36;
 
 /**
  * Create a Supabase client for cached queries.
@@ -2113,11 +2114,12 @@ export async function getCachedBlogPost(
     return null;
   }
 
-  // Fetch Related Posts
+  // Fetch Related Posts. Over-fetch a bounded public candidate set and rank
+  // server-side by semantic overlap instead of category-only filtering.
   let relatedQuery = supabase
     .from('blog_posts')
     .select(
-      'id, title, slug, excerpt, featured_image_url, category, published_at, reading_time_minutes'
+      'id, title, slug, excerpt, featured_image_url, category, tags, keywords, published_at, reading_time_minutes'
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
@@ -2126,13 +2128,10 @@ export async function getCachedBlogPost(
     .not('slug', 'is', null)
     .neq('title', '')
     .neq('slug', '')
-    .neq('id', post.id);
+    .neq('id', post.id)
+    .order('published_at', { ascending: false });
 
   relatedQuery = applyPublicBlogSqlFilters(relatedQuery);
-
-  if (post.category) {
-    relatedQuery = relatedQuery.eq('category', post.category);
-  }
 
   const { data: relatedPosts, error: relatedPostsError } =
     await relatedQuery.limit(RELATED_BLOG_POSTS_FETCH_LIMIT);
@@ -2196,8 +2195,9 @@ export async function getCachedBlogPost(
     post,
     relatedPosts: relatedPostsError
       ? []
-      : filterPublicBlogPosts(relatedPosts || []).slice(
-          0,
+      : selectSemanticRelatedBlogPosts(
+          post,
+          filterPublicBlogPosts(relatedPosts || []),
           RELATED_BLOG_POSTS_LIMIT
         ),
     relatedProducts: normalizedRelatedProducts,

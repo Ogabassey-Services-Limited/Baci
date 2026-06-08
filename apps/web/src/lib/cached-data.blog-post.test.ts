@@ -263,7 +263,7 @@ describe('getCachedBlogPost', () => {
       'ilike',
       '%agent-integration-working%'
     );
-    expect(relatedPostsBuilder.limit).toHaveBeenCalledWith(12);
+    expect(relatedPostsBuilder.limit).toHaveBeenCalledWith(36);
   });
 
   it('slugifies free-text blog categories before filtering related products', async () => {
