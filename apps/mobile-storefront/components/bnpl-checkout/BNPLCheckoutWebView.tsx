@@ -34,6 +34,7 @@ export interface BNPLWebViewLoadError {
 }
 
 interface BNPLCheckoutWebViewProps {
+  allowsMediaCapture: boolean;
   amount?: string;
   bnplUrl: string;
   colors: ColorsScheme;
@@ -54,6 +55,7 @@ interface BNPLCheckoutWebViewProps {
 }
 
 export function BNPLCheckoutWebView({
+  allowsMediaCapture,
   amount,
   bnplUrl,
   colors,
@@ -126,6 +128,10 @@ export function BNPLCheckoutWebView({
         textZoom={100}
         mixedContentMode="never"
         allowsInlineMediaPlayback={true}
+        mediaCapturePermissionGrantType={
+          allowsMediaCapture ? 'grantIfSameHostElsePrompt' : 'prompt'
+        }
+        mediaPlaybackRequiresUserAction={false}
         onError={(syntheticEvent) => {
           const { code, description, domain, url } = syntheticEvent.nativeEvent;
           onError({ code, description, domain, url });
