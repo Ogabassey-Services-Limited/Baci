@@ -4,7 +4,7 @@
 --   when no initial contribution allocation is created.
 --
 -- USAGE:
---   psql $DATABASE_URL -f supabase/migrations/tests/customer_device_savings_zero_initial_rpc.sql
+--   psql $DATABASE_URL -f supabase/tests/customer_device_savings_zero_initial_rpc.sql
 -- =============================================
 
 BEGIN;
@@ -18,12 +18,16 @@ DECLARE
   v_customer_id uuid := '8f0ed783-0000-4000-8000-000000000702';
   v_product_id uuid := '8f0ed783-0000-4000-8000-000000000703';
   v_wallet_id uuid := '8f0ed783-0000-4000-8000-000000000704';
+  v_saved_payment_method_id uuid := '8f0ed783-0000-4000-8000-000000000705';
   v_goal_id uuid;
+  v_auto_goal_id uuid;
   v_result record;
+  v_auto_result record;
   v_wallet_balance numeric;
   v_goal_current_amount numeric;
   v_goal_status text;
   v_contribution_count integer;
+  v_auto_event_count integer;
 BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
@@ -83,6 +87,7 @@ BEGIN
 
   IF v_result.success IS DISTINCT FROM true
     OR v_result.current_amount IS DISTINCT FROM 0::numeric
+    OR v_result.wallet_balance IS DISTINCT FROM 100000::numeric
     OR v_result.contribution_id IS NOT NULL
     OR v_result.goal_status IS DISTINCT FROM 'active'
   THEN
@@ -122,6 +127,94 @@ BEGIN
 
   IF v_contribution_count <> 0 THEN
     RAISE EXCEPTION 'zero initial contribution created % contribution rows',
+      v_contribution_count;
+  END IF;
+
+
+  INSERT INTO public.customer_saved_payment_methods (
+    id,
+    merchant_id,
+    customer_id,
+    provider,
+    provider_customer_email,
+    authorization_code,
+    authorization_signature,
+    authorization_data,
+    reusable,
+    is_default,
+    is_active
+  )
+  VALUES (
+    v_saved_payment_method_id,
+    v_merchant_id,
+    v_customer_id,
+    'paystack',
+    'savings-zero-initial-customer@example.com',
+    'AUTH_AUTO_INITIAL',
+    'sig-auto-initial',
+    '{}'::jsonb,
+    true,
+    true,
+    true
+  );
+
+  SELECT *
+  INTO v_auto_result
+  FROM public.create_customer_savings_goal(
+    v_customer_id,
+    v_merchant_id,
+    v_product_id,
+    NULL,
+    'Auto debit initial savings test',
+    '{"name":"Auto debit initial savings test","price":800000}'::jsonb,
+    800000,
+    50000,
+    20000,
+    'daily',
+    '06:20'::time,
+    current_date,
+    current_date + 30,
+    'auto_debit',
+    v_saved_payment_method_id,
+    now(),
+    now(),
+    now(),
+    NULL,
+    0,
+    '{"test":"auto-debit-initial-pending"}'::jsonb,
+    'savings-rpc:create-auto-initial'
+  );
+
+  IF v_auto_result.success IS DISTINCT FROM true
+    OR v_auto_result.current_amount IS DISTINCT FROM 0::numeric
+    OR v_auto_result.wallet_balance IS DISTINCT FROM 100000::numeric
+    OR v_auto_result.contribution_id IS NOT NULL
+    OR v_auto_result.goal_status IS DISTINCT FROM 'paused'
+  THEN
+    RAISE EXCEPTION 'auto-debit initial create returned unexpected result: %',
+      row_to_json(v_auto_result);
+  END IF;
+
+  v_auto_goal_id := v_auto_result.goal_id;
+
+  SELECT count(*)::integer
+  INTO v_auto_event_count
+  FROM public.customer_savings_events
+  WHERE goal_id = v_auto_goal_id
+    AND event_type = 'initial_auto_debit_pending';
+
+  IF v_auto_event_count <> 1 THEN
+    RAISE EXCEPTION 'auto-debit initial did not create exactly one pending event: %',
+      v_auto_event_count;
+  END IF;
+
+  SELECT count(*)::integer
+  INTO v_contribution_count
+  FROM public.customer_savings_contributions
+  WHERE goal_id = v_auto_goal_id;
+
+  IF v_contribution_count <> 0 THEN
+    RAISE EXCEPTION 'auto-debit pending initial created % contribution rows',
       v_contribution_count;
   END IF;
 END;
