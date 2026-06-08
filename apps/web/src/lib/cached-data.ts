@@ -39,6 +39,37 @@ import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/
 
 const RELATED_BLOG_POSTS_LIMIT = 3;
 const RELATED_BLOG_POSTS_FETCH_LIMIT = 36;
+const RELATED_BLOG_CATEGORY_FETCH_LIMIT = 24;
+const RELATED_BLOG_POST_SELECT =
+  'id, title, slug, excerpt, featured_image_url, category, tags, keywords, published_at, reading_time_minutes';
+
+interface RelatedBlogPostIdentity {
+  id?: string | null;
+  slug?: string | null;
+}
+
+function combineUniqueRelatedBlogPosts<T extends RelatedBlogPostIdentity>(
+  ...postGroups: Array<T[] | null | undefined>
+): T[] {
+  const seenKeys = new Set<string>();
+  const uniquePosts: T[] = [];
+
+  for (const postGroup of postGroups) {
+    for (const post of postGroup || []) {
+      const key = post.id || post.slug;
+      if (key && seenKeys.has(key)) {
+        continue;
+      }
+
+      if (key) {
+        seenKeys.add(key);
+      }
+      uniquePosts.push(post);
+    }
+  }
+
+  return uniquePosts;
+}
 
 /**
  * Create a Supabase client for cached queries.
@@ -2114,31 +2145,54 @@ export async function getCachedBlogPost(
     return null;
   }
 
-  // Fetch Related Posts. Over-fetch a bounded public candidate set and rank
+  // Fetch Related Posts. Over-fetch bounded public candidate sets and rank
   // server-side by semantic overlap instead of category-only filtering.
-  let relatedQuery = supabase
-    .from('blog_posts')
-    .select(
-      'id, title, slug, excerpt, featured_image_url, category, tags, keywords, published_at, reading_time_minutes'
-    )
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .not('published_at', 'is', null)
-    .not('title', 'is', null)
-    .not('slug', 'is', null)
-    .neq('title', '')
-    .neq('slug', '')
-    .neq('id', post.id)
-    .order('published_at', { ascending: false });
+  const buildRelatedPostsQuery = () => {
+    let relatedQuery = supabase
+      .from('blog_posts')
+      .select(RELATED_BLOG_POST_SELECT)
+      .eq('merchant_id', merchant.id)
+      .eq('status', 'published')
+      .not('published_at', 'is', null)
+      .not('title', 'is', null)
+      .not('slug', 'is', null)
+      .neq('title', '')
+      .neq('slug', '')
+      .neq('id', post.id)
+      .order('published_at', { ascending: false });
 
-  relatedQuery = applyPublicBlogSqlFilters(relatedQuery);
+    relatedQuery = applyPublicBlogSqlFilters(relatedQuery);
 
-  const { data: relatedPosts, error: relatedPostsError } =
-    await relatedQuery.limit(RELATED_BLOG_POSTS_FETCH_LIMIT);
+    return relatedQuery;
+  };
+
+  const { data: recentRelatedPosts, error: relatedPostsError } =
+    await buildRelatedPostsQuery().limit(RELATED_BLOG_POSTS_FETCH_LIMIT);
 
   if (relatedPostsError) {
     console.error('Error fetching related blog posts:', relatedPostsError);
   }
+
+  const sourceBlogCategory =
+    typeof post.category === 'string' ? post.category.trim() : '';
+  let categoryRelatedPosts: typeof recentRelatedPosts | null = null;
+
+  if (sourceBlogCategory) {
+    const { data, error } = await buildRelatedPostsQuery()
+      .eq('category', sourceBlogCategory)
+      .limit(RELATED_BLOG_CATEGORY_FETCH_LIMIT);
+
+    if (error) {
+      console.error('Error fetching category related blog posts:', error);
+    } else {
+      categoryRelatedPosts = data;
+    }
+  }
+
+  const relatedPostCandidates = combineUniqueRelatedBlogPosts(
+    relatedPostsError ? [] : recentRelatedPosts,
+    categoryRelatedPosts
+  );
 
   const { data: linkedProducts, error: linkedProductsError } = await supabase
     .from('blog_post_products')
@@ -2193,13 +2247,11 @@ export async function getCachedBlogPost(
       social_media: merchant.social_media,
     },
     post,
-    relatedPosts: relatedPostsError
-      ? []
-      : selectSemanticRelatedBlogPosts(
-          post,
-          filterPublicBlogPosts(relatedPosts || []),
-          RELATED_BLOG_POSTS_LIMIT
-        ),
+    relatedPosts: selectSemanticRelatedBlogPosts(
+      post,
+      filterPublicBlogPosts(relatedPostCandidates),
+      RELATED_BLOG_POSTS_LIMIT
+    ),
     relatedProducts: normalizedRelatedProducts,
   };
 }
