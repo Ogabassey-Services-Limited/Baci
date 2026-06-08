@@ -4,8 +4,9 @@ import { DeliveryStep } from './DeliveryStep';
 
 // Mock AddressAutocomplete
 vi.mock('@/components/address-autocomplete', () => ({
-  AddressAutocomplete: vi.fn(({ value, onChange, placeholder }) => (
+  AddressAutocomplete: vi.fn(({ id, value, onChange, placeholder }) => (
     <input
+      id={id}
       data-testid="address-autocomplete"
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -83,6 +84,13 @@ describe('DeliveryStep', () => {
     it('renders delivery address label for guest users', () => {
       render(<DeliveryStep {...defaultProps} />);
       expect(screen.getByText('Delivery Address')).toBeInTheDocument();
+    });
+
+    it('associates the delivery address label with the autocomplete input', () => {
+      render(<DeliveryStep {...defaultProps} />);
+      expect(screen.getByLabelText('Delivery Address')).toBe(
+        screen.getByTestId('address-autocomplete'),
+      );
     });
 
     it('infers city/state from manually typed address input', () => {

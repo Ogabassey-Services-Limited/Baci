@@ -5,8 +5,9 @@ import { ContactStep } from './ContactStep';
 
 // Mock PhoneInput component
 vi.mock('@/components/ui/phone-input', () => ({
-  PhoneInput: vi.fn(({ value, onChange, placeholder, defaultCountry }) => (
+  PhoneInput: vi.fn(({ id, value, onChange, placeholder, defaultCountry }) => (
     <input
+      id={id}
       data-testid="phone-input"
       type="tel"
       value={value}
@@ -67,6 +68,15 @@ describe('ContactStep', () => {
       expect(screen.getByPlaceholderText('Doe')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('john@example.com')).toBeInTheDocument();
       expect(screen.getByTestId('phone-input')).toBeInTheDocument();
+    });
+
+    it('associates contact labels with their controls', () => {
+      render(<ContactStep {...defaultProps} />);
+
+      expect(screen.getByLabelText('First Name *')).toBe(screen.getByPlaceholderText('John'));
+      expect(screen.getByLabelText('Last Name *')).toBe(screen.getByPlaceholderText('Doe'));
+      expect(screen.getByLabelText('Email Address *')).toBe(screen.getByPlaceholderText('john@example.com'));
+      expect(screen.getByLabelText('Phone Number *')).toBe(screen.getByTestId('phone-input'));
     });
 
     it('renders collapsed state when currentStep is not contact', () => {
