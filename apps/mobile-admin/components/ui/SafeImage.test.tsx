@@ -16,10 +16,25 @@ vi.mock('react-native-svg', () => ({
   SvgXml: () => <svg />,
 }));
 
+
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({
+    chartColors: {},
+    colors: {
+      background: '#f8fafc',
+      card: '#ffffff',
+      textSecondary: '#64748b',
+    },
+    isDark: false,
+    shadows: {},
+  }),
+}));
+
 vi.mock('react-native', async () => {
   const ReactModule = await import('react');
 
   return {
+    useColorScheme: () => 'light',
     StatusBar: () => null,
     ActivityIndicator: () => <span data-testid="activity-indicator" />,
     Image: ({ source }: { source: unknown }) => (
