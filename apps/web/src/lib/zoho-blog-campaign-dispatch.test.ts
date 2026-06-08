@@ -38,6 +38,7 @@ const merchantZohoSettings = {
     fromEmail: 'news@merchant.test',
     listKey: 'merchant-list-key',
     refreshToken: 'merchant-refresh-token',
+    reviewListKey: 'merchant-review-list-key',
   },
 };
 
@@ -168,6 +169,82 @@ describe('Zoho blog campaign dispatch', () => {
     expect(fetchImpl.mock.calls[1]?.[1]?.headers).toMatchObject({
       Authorization: 'Zoho-oauthtoken access-token',
     });
+  });
+
+  it('sends a review campaign to the merchant review list', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'access-token' }), {
+          status: 200,
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ campaignKey: 'campaign-review', code: '200' }),
+          {
+            status: 200,
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            response: { campaign_status: 'inprogress', code: '200' },
+          }),
+          { status: 200 }
+        )
+      );
+
+    const result = await dispatchZohoBlogCampaign({
+      audience: 'review',
+      config: { ...baseConfig, autoSend: false },
+      context,
+      fetchImpl,
+      post,
+      supabase: createDispatchSupabaseMock(),
+    });
+
+    expect(result).toMatchObject({
+      campaignKey: 'campaign-review',
+      postId: post.id,
+      status: 'sent',
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+
+    const createBody = fetchImpl.mock.calls[1]?.[1]?.body as URLSearchParams;
+    expect(createBody.get('list_details')).toBe(
+      '{"merchant-review-list-key":[]}'
+    );
+  });
+
+  it('skips review campaigns when the merchant review list is missing', async () => {
+    const fetchImpl = vi.fn();
+
+    const result = await dispatchZohoBlogCampaign({
+      audience: 'review',
+      config: baseConfig,
+      context,
+      fetchImpl,
+      post,
+      supabase: createDispatchSupabaseMock({
+        customSettings: {
+          zohoCampaigns: {
+            enabled: true,
+            fromEmail: 'news@merchant.test',
+            listKey: 'merchant-list-key',
+            refreshToken: 'merchant-refresh-token',
+          },
+        },
+      }),
+    });
+
+    expect(result).toEqual({
+      postId: post.id,
+      reason: 'Missing Zoho Campaigns merchant settings: reviewListKey',
+      status: 'skipped',
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('creates a draft campaign without sending when auto-send is disabled', async () => {

@@ -27,6 +27,8 @@ const HOSTNAME_PATTERN =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 const DEFAULT_ZOHO_REQUEST_TIMEOUT_MS = 15_000;
 
+type ZohoBlogCampaignAudience = 'primary' | 'review';
+
 function withZohoRequestTimeout(
   fetchImpl: FetchImplementation,
   timeoutMs: number
@@ -149,12 +151,14 @@ export function isValidZohoBlogContentSignature({
 }
 
 export async function dispatchZohoBlogCampaign({
+  audience = 'primary',
   config = getZohoCampaignsRuntimeConfig(),
   context,
   fetchImpl = fetch,
   post,
   supabase,
 }: {
+  audience?: ZohoBlogCampaignAudience;
   config?: ZohoCampaignsRuntimeConfig;
   context?: MerchantBlogRevalidationContext;
   fetchImpl?: FetchImplementation;
@@ -192,7 +196,23 @@ export async function dispatchZohoBlogCampaign({
       };
     }
 
-    const effectiveConfig = merchantConfig.config;
+    const effectiveConfig =
+      audience === 'review'
+        ? {
+            ...merchantConfig.config,
+            autoSend: true,
+            listKey: merchantConfig.reviewListKey,
+          }
+        : merchantConfig.config;
+
+    if (audience === 'review' && !effectiveConfig.listKey) {
+      return {
+        postId: post.id,
+        reason: 'Missing Zoho Campaigns merchant settings: reviewListKey',
+        status: 'skipped',
+      };
+    }
+
     const missing = requireZohoRuntimeFields(effectiveConfig);
     if (missing.length > 0) {
       return {

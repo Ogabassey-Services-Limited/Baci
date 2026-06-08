@@ -83,6 +83,7 @@ describe('merchant Zoho Campaigns settings', () => {
           from_name: 'Example News',
           list_key: 'list-1',
           refresh_token: 'refresh-1',
+          review_list_key: 'review-list-1',
           topic_id: 'topic-1',
         },
       })
@@ -95,6 +96,7 @@ describe('merchant Zoho Campaigns settings', () => {
       fromName: 'Example News',
       listKey: 'list-1',
       refreshToken: 'refresh-1',
+      reviewListKey: 'review-list-1',
       topicId: 'topic-1',
     });
   });
@@ -136,12 +138,14 @@ describe('merchant Zoho Campaigns settings', () => {
         fromEmail: 'support@merchant.test',
         listKey: 'merchant-list',
         refreshToken: 'merchant-refresh-token',
+        reviewListKey: 'merchant-review-list',
       },
     });
 
     expect(parsed).toMatchObject({
       accountsServerUrl: 'https://accounts.zoho.in',
       apiRootUrl: 'https://campaigns.zoho.in/api/v1.1',
+      reviewListKey: 'merchant-review-list',
     });
 
     const result = await resolveMerchantZohoCampaignConfig({
@@ -155,6 +159,7 @@ describe('merchant Zoho Campaigns settings', () => {
             fromEmail: 'support@merchant.test',
             listKey: 'merchant-list',
             refreshToken: 'merchant-refresh-token',
+            reviewListKey: 'merchant-review-list',
           },
         },
       }),
@@ -181,6 +186,7 @@ describe('merchant Zoho Campaigns settings', () => {
             fromEmail: 'support@merchant.test',
             listKey: 'merchant-list',
             refreshToken: 'merchant-refresh-token',
+            reviewListKey: 'merchant-review-list',
           },
         },
       }),
@@ -208,6 +214,7 @@ describe('merchant Zoho Campaigns settings', () => {
             fromEmail: 'support@merchant.test',
             listKey: 'merchant-list',
             refreshToken: 'merchant-refresh-token',
+            reviewListKey: 'merchant-review-list',
           },
         },
       }),
@@ -222,6 +229,7 @@ describe('merchant Zoho Campaigns settings', () => {
         listKey: 'merchant-list',
         refreshToken: 'merchant-refresh-token',
       },
+      reviewListKey: 'merchant-review-list',
       status: 'configured',
     });
   });
