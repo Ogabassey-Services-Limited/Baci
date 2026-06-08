@@ -207,7 +207,8 @@ export async function POST(request: NextRequest) {
         label_url: result.labelUrl,
         provider_response: result.rawResponse,
       })
-      .select()
+      // PERFORMANCE: Use explicit column selection instead of .select() to prevent overfetching full shipment rows on insertion, as only the ID is needed below
+      .select('id')
       .single();
 
     if (shipmentError) {
