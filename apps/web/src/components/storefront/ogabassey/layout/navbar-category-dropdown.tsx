@@ -10,6 +10,7 @@ import {
   Watch,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 
 interface NavigationCategory {
@@ -61,6 +62,17 @@ export function NavbarCategoryDropdown({
   dropdownId,
   onClose,
 }: NavbarCategoryDropdownProps) {
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
   return (
     <div
       className="ogabassey-navbar-secondary__dropdown"

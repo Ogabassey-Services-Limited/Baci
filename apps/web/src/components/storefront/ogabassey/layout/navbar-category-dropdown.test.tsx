@@ -77,6 +77,24 @@ describe('NavbarCategoryDropdown', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('closes the menu when Escape is pressed', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <NavbarCategoryDropdown
+        basePath="/ogabassey"
+        categories={[{ name: 'Laptops', slug: 'laptops' }]}
+        dropdownId="category-menu"
+        onClose={onClose}
+      />
+    );
+
+    await user.keyboard('{Escape}');
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('shows a loading placeholder when no categories are available', () => {
     render(
       <NavbarCategoryDropdown

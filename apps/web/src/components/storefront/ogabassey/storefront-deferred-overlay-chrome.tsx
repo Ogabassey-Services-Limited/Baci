@@ -1,21 +1,13 @@
 'use client';
 
-import { lazy, Suspense } from 'react';
-
-const DeferredPopupSystem = lazy(async () => {
-  const module = await import('./components/PopupSystem');
-  return { default: module.PopupSystem };
-});
-const DeferredOfflineNotice = lazy(async () => {
-  const module = await import('./components/OfflineNotice');
-  return { default: module.OfflineNotice };
-});
+import { OfflineNotice } from './components/OfflineNotice';
+import { PopupSystem } from './components/PopupSystem';
 
 export function StorefrontDeferredOverlayChrome() {
   return (
-    <Suspense fallback={null}>
-      <DeferredPopupSystem />
-      <DeferredOfflineNotice />
-    </Suspense>
+    <>
+      <PopupSystem />
+      <OfflineNotice />
+    </>
   );
 }
