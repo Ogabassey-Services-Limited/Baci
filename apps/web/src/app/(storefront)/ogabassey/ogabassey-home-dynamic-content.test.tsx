@@ -21,7 +21,9 @@ const mockMerchant = {
   social_media: undefined,
   business_address: '',
   is_published: true,
-  feature_settings: undefined,
+  feature_settings: {
+    google_analytics_id: 'G-OGABASSEY',
+  },
   template_id: 'ogabassey',
   vat_registration_status: undefined,
   vat_rate: undefined,
@@ -49,23 +51,33 @@ vi.mock('@/lib/cached-categories', () => ({
   ),
 }));
 
-vi.mock('@/components/analytics/analytics-provider', () => ({
-  AnalyticsProvider: () => <div data-testid="analytics-provider" />,
+vi.mock('@/components/analytics/analytics-pixel-provider', () => ({
+  AnalyticsPixelProvider: ({
+    merchant,
+  }: {
+    merchant?: Record<string, string | null | undefined> | null;
+  }) => (
+    <div aria-label="Merchant analytics" role="status">
+      {JSON.stringify(merchant)}
+    </div>
+  ),
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
   OgabasseyHomePage: ({
+    basePath,
     products,
     renderHero,
     storeSlug,
   }: {
+    basePath?: string;
     products?: unknown[];
     renderHero?: boolean;
     storeSlug?: string;
   }) => (
-    <div data-testid="ogabassey-home">
-      {storeSlug}:{products?.length ?? 0}:{String(renderHero)}
-    </div>
+    <section aria-label="OgaBassey home payload">
+      {storeSlug}:{basePath}:{products?.length ?? 0}:{String(renderHero)}
+    </section>
   ),
 }));
 
@@ -139,10 +151,12 @@ describe('OgabasseyHomeDynamicContent', () => {
 
     render(result as ReactElement);
 
-    expect(screen.getByTestId('analytics-provider')).toBeInTheDocument();
-    expect(screen.getByTestId('ogabassey-home')).toHaveTextContent(
-      'ogabassey:1:false'
-    );
+    expect(
+      screen.getByRole('status', { name: 'Merchant analytics' })
+    ).toHaveTextContent('G-OGABASSEY');
+    expect(
+      screen.getByRole('region', { name: 'OgaBassey home payload' })
+    ).toHaveTextContent('ogabassey:/ogabassey:1:false');
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])
     );
@@ -150,6 +164,32 @@ describe('OgabasseyHomeDynamicContent', () => {
       'href',
       '/ogabassey/smartphones'
     );
+  });
+
+  it('falls back to normalized legacy analytics IDs when feature settings are blank', async () => {
+    const merchantWithLegacyAnalytics = {
+      ...mockMerchant,
+      feature_settings: {
+        ...mockMerchant.feature_settings,
+        google_analytics_id: '   ',
+      },
+      google_analytics_id: ' G-LEGACY ',
+      facebook_pixel_id: '   ',
+    };
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: merchantWithLegacyAnalytics,
+      pathPrefix: '/ogabassey',
+    });
+
+    render(result as ReactElement);
+
+    const analytics = screen.getByRole('status', {
+      name: 'Merchant analytics',
+    });
+
+    expect(analytics).toHaveTextContent('"google_analytics_id":"G-LEGACY"');
+    expect(analytics).toHaveTextContent('"facebook_pixel_id":null');
   });
 
   it('emits raw parsable JSON-LD scripts', async () => {

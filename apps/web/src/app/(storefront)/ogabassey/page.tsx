@@ -1,8 +1,5 @@
 import type { Metadata } from 'next';
 import '@/app/(storefront)/storefront-full.css';
-import { Suspense } from 'react';
-import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
-import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import {
   OGABASSEY_APPLE_TOUCH_ICON_URL,
   OGABASSEY_DESCRIPTION,
@@ -12,7 +9,7 @@ import {
   OGABASSEY_TWITTER_HANDLE,
   OGABASSEY_URL,
 } from '@/config/ogabassey';
-import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
+import { OgabasseyStaticHomePageContent } from './ogabassey-static-home-page-content';
 
 export const metadata: Metadata = {
   metadataBase: new URL(OGABASSEY_URL),
@@ -66,14 +63,5 @@ export const metadata: Metadata = {
 };
 
 export default function OgabasseyStaticHomePage() {
-  return (
-    <>
-      <OgabasseyStaticResourceHints />
-      {/* The storefront layout blocks unpublished merchants before rendering children; keep Hero in this page shell so mobile LCP is not delayed by dynamic home data. */}
-      <Hero />
-      <Suspense fallback={null}>
-        <OgabasseyHomePageContent renderHero={false} />
-      </Suspense>
-    </>
-  );
+  return <OgabasseyStaticHomePageContent heroBasePath="/ogabassey" />;
 }

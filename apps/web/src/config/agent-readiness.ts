@@ -5,9 +5,6 @@ export { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './agent-discovery-link-he
 export const AGENT_READINESS_CACHE_CONTROL =
   'public, max-age=3600, s-maxage=3600';
 
-export const AGENT_CONTENT_SIGNAL_DIRECTIVE =
-  'Content-Signal: ai-train=no, search=yes, ai-input=yes';
-
 export const BACI_AGENT_SKILL_DESCRIPTION =
   'Use Ogabassey storefront agent-commerce, catalog, and MCP discovery safely.';
 

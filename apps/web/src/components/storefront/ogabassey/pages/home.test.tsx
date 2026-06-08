@@ -26,12 +26,17 @@ const mockDeferredBannerCarousel = vi.hoisted(() =>
     <div data-testid="banner-carousel">{String(props.className ?? '')}</div>
   ))
 );
+const mockHero = vi.hoisted(() =>
+  vi.fn((props: { basePath?: string }) => (
+    <div data-testid="hero">{props.basePath}</div>
+  ))
+);
 
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
 }));
 vi.mock('../components/Hero', () => ({
-  Hero: () => <div data-testid="hero">Hero</div>,
+  Hero: (props: { basePath?: string }) => mockHero(props),
 }));
 vi.mock('../components/HomeProductGrid', () => ({
   HomeProductGrid: (props: Record<string, unknown>) =>
@@ -73,6 +78,41 @@ describe('OgabasseyHomePage', () => {
     expect(screen.queryByTestId('hero')).not.toBeInTheDocument();
     expect(screen.getByTestId('ad-unit')).toBeInTheDocument();
     expect(screen.getByTestId('product-grid')).toBeInTheDocument();
+  });
+
+  it('derives a slug route base path for path-routed hero and banner links', () => {
+    render(
+      <OgabasseyHomePage
+        storeSlug="test-store"
+        products={[]}
+        categories={[]}
+      />
+    );
+
+    expect(mockHero).toHaveBeenCalledWith(
+      expect.objectContaining({ basePath: '/test-store' })
+    );
+    expect(mockDeferredBannerCarousel).toHaveBeenCalledWith(
+      expect.objectContaining({ basePath: '/test-store' })
+    );
+  });
+
+  it('preserves an explicit empty base path for custom-domain hero links', () => {
+    render(
+      <OgabasseyHomePage
+        basePath=""
+        storeSlug="test-store"
+        products={[]}
+        categories={[]}
+      />
+    );
+
+    expect(mockHero).toHaveBeenCalledWith(
+      expect.objectContaining({ basePath: '' })
+    );
+    expect(mockDeferredBannerCarousel).toHaveBeenCalledWith(
+      expect.objectContaining({ basePath: '' })
+    );
   });
 
   it('passes products to the home product grid', () => {

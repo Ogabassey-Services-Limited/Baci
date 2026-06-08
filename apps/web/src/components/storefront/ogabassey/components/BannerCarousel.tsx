@@ -12,8 +12,7 @@ import {
   NEW_ARRIVALS_PROMO_IMAGE,
 } from '@/components/storefront/ogabassey/components/hero-data';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
-import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
-import { asRoute } from '@/lib/routes';
+import { asRoute, joinRouteBasePath } from '@/lib/routes';
 
 interface BaseBannerSlide {
   id: number;
@@ -63,23 +62,25 @@ const BANNER_SLIDES: BannerSlide[] = [
 ];
 
 export interface BannerCarouselProps {
+  basePath?: string;
   className?: string;
   categoryImage?: string | null;
   title?: string;
   description?: string;
 }
 
+export function resolveBannerHref(basePath: string, path: string) {
+  return joinRouteBasePath(basePath, path);
+}
+
 export const BannerCarousel: React.FC<BannerCarouselProps> = ({
+  basePath = '',
   className = 'h-40 md:h-52',
   categoryImage,
   title,
   description,
 }) => {
-  const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath;
-
-  const getHref = (path: string) =>
-    path.startsWith('http') ? path : `${basePath || ''}${path === '/' ? '' : path}`;
+  const getHref = (path: string) => resolveBannerHref(basePath, path);
 
   const [currentSlide, setCurrentSlide] = useState(0);
 
