@@ -16,7 +16,7 @@ export type StorefrontNotificationNavigationTarget =
   | { screen: 'product'; params: { slug: string } }
   | { screen: 'category'; params: { slug: string } }
   | { screen: 'utility-history'; params: { type: StorefrontUtilityType } }
-  | { screen: 'wallet' }
+  | { screen: 'wallet'; params?: { action: 'savings' } }
   | { screen: 'home' };
 
 type StorefrontUtilityType = 'airtime' | 'data' | 'gaming' | 'power' | 'tv';
@@ -139,8 +139,9 @@ export function getStorefrontNotificationNavigationTarget(
         : { screen: 'home' };
     }
     case 'vtu_cashback_monthly_summary':
-    case 'customer_savings_reminder':
       return { screen: 'wallet' };
+    case 'customer_savings_reminder':
+      return { screen: 'wallet', params: { action: 'savings' } };
     case 'vtu_token_ready': {
       const utilityType = readStorefrontUtilityType(
         payload,

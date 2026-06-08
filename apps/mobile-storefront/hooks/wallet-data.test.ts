@@ -211,6 +211,41 @@ describe('fetchWalletData', () => {
     ]);
   });
 
+  it('skips product metadata lookup for general savings goals without product ids', async () => {
+    const { tableCalls } = setupSupabaseTables({
+      customer_savings_goals: createResult([
+        {
+          contribution_amount: '10000',
+          contribution_frequency: 'weekly',
+          current_amount: '20000',
+          id: 'goal-1',
+          maturity_date: '2026-09-30',
+          product_id: null,
+          product_snapshot: {
+            image_url: 'https://cdn.example.com/general.jpg',
+            variant_label: 'Manual goal',
+          },
+          source_mode: 'manual',
+          status: 'active',
+          target_amount: '120000',
+          title: 'General savings',
+          variant_id: null,
+        },
+      ]),
+    });
+
+    const result = await fetchWalletData('customer-1', 'merchant-1', 'user-1');
+
+    expect(tableCalls).not.toContain('products');
+    expect(result.wallet.active_savings_goal).toEqual(
+      expect.objectContaining({
+        product_image: 'https://cdn.example.com/general.jpg',
+        product_variant_label: 'Manual goal',
+        title: 'General savings',
+      })
+    );
+  });
+
   it('logs and returns an empty wallet when multiple customer owners match', async () => {
     const warnSpy = jest
       .spyOn(console, 'warn')

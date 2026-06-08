@@ -23,6 +23,8 @@ const mockSetClipboardString =
 const mockRandomUUID = jest.fn();
 const mockScheduleSavingsReminderNotification =
   jest.fn<(...args: unknown[]) => Promise<string | null>>();
+const mockCancelSavingsReminderNotification =
+  jest.fn<(...args: unknown[]) => Promise<boolean>>();
 
 jest.mock('expo-router', () => ({
   router: {
@@ -46,6 +48,8 @@ jest.mock('@/lib/clipboard', () => ({
 }));
 
 jest.mock('@/services/savings-reminder-notifications', () => ({
+  cancelSavingsReminderNotification: (...args: unknown[]) =>
+    mockCancelSavingsReminderNotification(...args),
   scheduleSavingsReminderNotification: (...args: unknown[]) =>
     mockScheduleSavingsReminderNotification(...args),
 }));
@@ -100,6 +104,7 @@ describe('useStartSavingsSubmit', () => {
       success: true,
     });
     mockSetClipboardString.mockResolvedValue(true);
+    mockCancelSavingsReminderNotification.mockResolvedValue(true);
     mockScheduleSavingsReminderNotification.mockResolvedValue('reminder-1');
   });
 
@@ -127,6 +132,29 @@ describe('useStartSavingsSubmit', () => {
       goalId: 'goal-1',
       goalTitle: 'iPhone 13 Pro Max',
     });
+    expect(mockCancelSavingsReminderNotification).not.toHaveBeenCalled();
+    expect(input.setShowSuccessModal).toHaveBeenCalledWith(true);
+  });
+
+  it('skips recurring reminders when the initial contribution completes the goal', async () => {
+    const input = createInput({
+      effectiveInitialContribution: 800000,
+      targetValue: 800000,
+    });
+    const { result } = renderHook(() => useStartSavingsSubmit(input));
+
+    await act(async () => {
+      await result.current.submitSavingsGoal();
+    });
+
+    expect(mockCreateSavingsGoal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialContributionAmount: 800000,
+        targetAmount: 800000,
+      })
+    );
+    expect(mockScheduleSavingsReminderNotification).not.toHaveBeenCalled();
+    expect(mockCancelSavingsReminderNotification).toHaveBeenCalledWith();
     expect(input.setShowSuccessModal).toHaveBeenCalledWith(true);
   });
 
@@ -219,9 +247,7 @@ describe('useStartSavingsSubmit', () => {
 
   it('keeps success visible when wallet data refresh fails after creation', async () => {
     const input = createInput({
-      refetch: jest.fn(async () => {
-        throw new Error('Refresh failed');
-      }),
+      refetch: jest.fn(() => Promise.reject(new Error('Refresh failed'))),
     });
     const { result } = renderHook(() => useStartSavingsSubmit(input));
 

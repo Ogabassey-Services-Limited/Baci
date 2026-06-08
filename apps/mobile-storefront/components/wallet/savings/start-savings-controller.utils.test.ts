@@ -59,7 +59,7 @@ describe('start savings controller utils', () => {
     });
   });
 
-  it('applies selected product state without overwriting an existing target', () => {
+  it('applies selected product state while preserving manual target overrides', () => {
     const setFormError = jest.fn();
     const setSearchValue = jest.fn();
     const setSelectedProduct = jest.fn();
@@ -84,6 +84,31 @@ describe('start savings controller utils', () => {
       expect.objectContaining({ price: 850000, variantLabel: 'Storage: 256GB' })
     );
     expect(updateTargetAmount('')).toBe('850000');
+    expect(updateTargetAmount('900000')).toBe('900000');
+  });
+
+  it('refreshes an auto-filled target when switching selected products', () => {
+    const setTargetAmount = jest.fn();
+
+    applyStartSavingsProductSelection({
+      previousSelectedProduct: {
+        ...selectedProduct,
+        conditionLabel: 'Used',
+        price: 800000,
+        variantLabel: 'Storage: 128GB',
+      },
+      product: productFixture,
+      setSearchValue: jest.fn(),
+      setSelectedProduct: jest.fn(),
+      setTargetAmount,
+      variantId: 'variant-1',
+    });
+
+    const updateTargetAmount = setTargetAmount.mock.calls[0]?.[0] as (
+      current: string
+    ) => string;
+
+    expect(updateTargetAmount('800000')).toBe('850000');
     expect(updateTargetAmount('900000')).toBe('900000');
   });
 

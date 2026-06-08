@@ -8,9 +8,12 @@ import {
   initializeSavingsAuthorization,
 } from '@/lib/customer-savings';
 import { WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
-import { scheduleSavingsReminderNotification } from '@/services/savings-reminder-notifications';
-import { formatDateInput } from './start-savings.helpers';
+import {
+  cancelSavingsReminderNotification,
+  scheduleSavingsReminderNotification,
+} from '@/services/savings-reminder-notifications';
 import type { SavingsFrequency } from './start-savings.helpers';
+import { formatDateInput } from './start-savings.helpers';
 import type {
   SavingsProductChoice,
   SavingsSourceMode,
@@ -146,12 +149,16 @@ export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
       }
       if (input.sourceMode === 'manual') {
         try {
-          await scheduleSavingsReminderNotification({
-            contributionAmount: input.contributionValue,
-            frequency: input.frequency,
-            goalId: result.goalId,
-            goalTitle: validation.selectedProduct.name,
-          });
+          if (input.targetValue > requestInitialContribution) {
+            await scheduleSavingsReminderNotification({
+              contributionAmount: input.contributionValue,
+              frequency: input.frequency,
+              goalId: result.goalId,
+              goalTitle: validation.selectedProduct.name,
+            });
+          } else {
+            await cancelSavingsReminderNotification();
+          }
         } catch {
           // Reminder scheduling is best effort and must not block goal creation.
         }

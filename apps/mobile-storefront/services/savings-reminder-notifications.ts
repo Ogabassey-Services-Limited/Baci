@@ -1,19 +1,24 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('SavingsReminderNotifications');
 const SAVINGS_REMINDER_CHANNEL_ID = 'savings';
+const SAVINGS_REMINDER_NOTIFICATION_ID_KEY =
+  'baci:savings-reminder-notification-id';
+const SAVINGS_REMINDER_GOAL_ID_KEY = 'baci:savings-reminder-goal-id';
 type SavingsReminderFrequency = 'daily' | 'weekly' | 'monthly';
+type NotificationsModule = typeof import('expo-notifications');
 
-let Notifications: typeof import('expo-notifications') | null = null;
+let Notifications: NotificationsModule | null = null;
 
-async function loadNotificationsModule() {
+function loadNotificationsModule() {
   if (Platform.OS === 'web') return null;
   if (Notifications) return Notifications;
 
   try {
-    Notifications = await import('expo-notifications');
+    Notifications = require('expo-notifications') as NotificationsModule;
     return Notifications;
   } catch (error) {
     log.debug('Notifications module unavailable for savings reminders', error);
@@ -22,7 +27,7 @@ async function loadNotificationsModule() {
 }
 
 async function ensureSavingsReminderPermissions(
-  notifications: typeof import('expo-notifications')
+  notifications: NotificationsModule
 ) {
   const { status: existingStatus } = await notifications.getPermissionsAsync();
   if (existingStatus === 'granted') {
@@ -34,7 +39,7 @@ async function ensureSavingsReminderPermissions(
 }
 
 async function ensureSavingsReminderChannel(
-  notifications: typeof import('expo-notifications')
+  notifications: NotificationsModule
 ) {
   if (Platform.OS !== 'android') {
     return;
@@ -53,7 +58,7 @@ function buildSavingsReminderTrigger({
   scheduledAt,
 }: {
   frequency: SavingsReminderFrequency;
-  notifications: typeof import('expo-notifications');
+  notifications: NotificationsModule;
   scheduledAt: Date;
 }) {
   const channelId = SAVINGS_REMINDER_CHANNEL_ID;
@@ -88,6 +93,42 @@ function buildSavingsReminderTrigger({
   };
 }
 
+async function cancelStoredSavingsReminderNotification(
+  notifications: NotificationsModule,
+  goalId?: string
+) {
+  const [storedNotificationId, storedGoalId] = await Promise.all([
+    AsyncStorage.getItem(SAVINGS_REMINDER_NOTIFICATION_ID_KEY),
+    AsyncStorage.getItem(SAVINGS_REMINDER_GOAL_ID_KEY),
+  ]);
+
+  if (!storedNotificationId) {
+    return false;
+  }
+  if (goalId && storedGoalId && storedGoalId !== goalId) {
+    return false;
+  }
+
+  try {
+    await notifications.cancelScheduledNotificationAsync(storedNotificationId);
+  } catch (error) {
+    log.debug('Unable to cancel stored savings reminder notification', error);
+  }
+
+  await Promise.all([
+    AsyncStorage.removeItem(SAVINGS_REMINDER_NOTIFICATION_ID_KEY),
+    AsyncStorage.removeItem(SAVINGS_REMINDER_GOAL_ID_KEY),
+  ]);
+  return true;
+}
+
+export async function cancelSavingsReminderNotification(goalId?: string) {
+  const notifications = loadNotificationsModule();
+  if (!notifications) return false;
+
+  return await cancelStoredSavingsReminderNotification(notifications, goalId);
+}
+
 export async function scheduleSavingsReminderNotification({
   contributionAmount,
   frequency,
@@ -101,7 +142,7 @@ export async function scheduleSavingsReminderNotification({
   goalTitle: string;
   scheduledAt?: Date;
 }): Promise<string | null> {
-  const notifications = await loadNotificationsModule();
+  const notifications = loadNotificationsModule();
   if (!notifications) return null;
 
   const hasPermission = await ensureSavingsReminderPermissions(notifications);
@@ -110,8 +151,9 @@ export async function scheduleSavingsReminderNotification({
   }
 
   await ensureSavingsReminderChannel(notifications);
+  await cancelStoredSavingsReminderNotification(notifications);
 
-  return await notifications.scheduleNotificationAsync({
+  const notificationId = await notifications.scheduleNotificationAsync({
     content: {
       title: 'Savings reminder',
       body: `Add ${formatNgnCurrency(contributionAmount)} toward ${goalTitle}.`,
@@ -127,4 +169,9 @@ export async function scheduleSavingsReminderNotification({
       scheduledAt,
     }),
   });
+  await Promise.all([
+    AsyncStorage.setItem(SAVINGS_REMINDER_NOTIFICATION_ID_KEY, notificationId),
+    AsyncStorage.setItem(SAVINGS_REMINDER_GOAL_ID_KEY, goalId),
+  ]);
+  return notificationId;
 }

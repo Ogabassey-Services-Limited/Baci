@@ -13,7 +13,9 @@ interface AddSavingsContributionParams {
     merchantSlug?: string;
   }) => Promise<unknown>;
   clearSavingsContributionAmount: () => void;
+  clearIdempotencyKey?: () => void;
   createIdempotencyKey: () => string;
+  cancelSavingsReminder?: (goalId: string) => Promise<unknown>;
   goal: WalletActiveSavingsGoal | null;
   rawAmount: string;
   refetchWallet: () => Promise<unknown>;
@@ -25,7 +27,9 @@ export async function addSavingsContributionToGoal({
   activeMerchantSlug,
   addSavingsContribution,
   clearSavingsContributionAmount,
+  clearIdempotencyKey,
   createIdempotencyKey,
+  cancelSavingsReminder,
   goal,
   rawAmount,
   refetchWallet,
@@ -60,6 +64,14 @@ export async function addSavingsContributionToGoal({
       merchantId: activeMerchantId,
       merchantSlug: activeMerchantSlug,
     });
+    clearIdempotencyKey?.();
+    if (amount >= remainingAmount) {
+      try {
+        await cancelSavingsReminder?.(goal.id);
+      } catch {
+        // Reminder cleanup is best effort after a confirmed contribution.
+      }
+    }
     clearSavingsContributionAmount();
     await refetchWallet();
     Alert.alert(

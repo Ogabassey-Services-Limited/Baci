@@ -55,6 +55,7 @@ export function toProductChoice(product: Product): SavingsProductChoice {
 
 export function applyStartSavingsProductSelection({
   product,
+  previousSelectedProduct,
   setFormError,
   setSearchValue,
   setSelectedProduct,
@@ -62,6 +63,7 @@ export function applyStartSavingsProductSelection({
   variantId,
 }: {
   product: Product;
+  previousSelectedProduct?: SavingsProductChoice | null;
   setFormError?: (error: string | null) => void;
   setSearchValue: (value: string) => void;
   setSelectedProduct: (choice: SavingsProductChoice | null) => void;
@@ -69,12 +71,23 @@ export function applyStartSavingsProductSelection({
   variantId?: string | null;
 }) {
   const choice = toSelectedProductChoice({ product, variantId });
+  const nextAutoTargetAmount = String(Math.round(choice.price));
+  const previousAutoTargetAmount = previousSelectedProduct
+    ? String(Math.round(previousSelectedProduct.price))
+    : '';
   setFormError?.(null);
   setSelectedProduct(choice);
   setSearchValue(product.name);
-  setTargetAmount((currentTargetAmount) =>
-    currentTargetAmount ? currentTargetAmount : String(Math.round(choice.price))
-  );
+  setTargetAmount((currentTargetAmount) => {
+    const normalizedCurrentTargetAmount = currentTargetAmount.trim();
+    if (
+      !normalizedCurrentTargetAmount ||
+      normalizedCurrentTargetAmount === previousAutoTargetAmount
+    ) {
+      return nextAutoTargetAmount;
+    }
+    return currentTargetAmount;
+  });
 }
 
 export function toSelectedProductChoice({

@@ -30,6 +30,12 @@ describe('wallet savings data helpers', () => {
     ).toEqual(activeGoal);
   });
 
+  it('does not treat completed goals as the active add-to-savings target', () => {
+    expect(
+      getActiveSavingsGoal([{ ...activeGoal, status: 'completed' }])
+    ).toBeNull();
+  });
+
   it('hydrates active savings goal display metadata from product data', () => {
     expect(
       toActiveSavingsGoal({
@@ -108,6 +114,73 @@ describe('wallet savings data helpers', () => {
         product_condition: 'Used',
         product_image: 'https://cdn.example.com/product.jpg',
         product_variant_label: null,
+      })
+    );
+  });
+
+  it('prefers a selected variant single image when hydrating goal metadata', () => {
+    expect(
+      toActiveSavingsGoal({
+        goal: activeGoal,
+        product: {
+          condition: 'uk_used',
+          id: 'product-1',
+          images: ['https://cdn.example.com/product.jpg'],
+          name: 'iPhone 15 Pro',
+          variants: [
+            {
+              attributes: { storage: '256GB' },
+              id: 'variant-1',
+              image: 'https://cdn.example.com/variant-single.jpg',
+            },
+          ],
+        },
+      })
+    ).toEqual(
+      expect.objectContaining({
+        product_image: 'https://cdn.example.com/variant-single.jpg',
+      })
+    );
+  });
+
+  it('hydrates general savings goals without a linked product id', () => {
+    expect(
+      getActiveSavingsGoal([
+        {
+          ...activeGoal,
+          product_id: null,
+          product_snapshot: {
+            image: 'https://cdn.example.com/general.jpg',
+            variantLabel: 'Emergency fund',
+          },
+          title: 'General savings',
+          variant_id: null,
+        },
+      ])
+    ).toEqual(
+      expect.objectContaining({
+        product_id: null,
+        title: 'General savings',
+      })
+    );
+    expect(
+      toActiveSavingsGoal({
+        goal: {
+          ...activeGoal,
+          product_id: null,
+          product_snapshot: {
+            image: 'https://cdn.example.com/general.jpg',
+            variantLabel: 'Emergency fund',
+          },
+          title: 'General savings',
+          variant_id: null,
+        },
+      })
+    ).toEqual(
+      expect.objectContaining({
+        product_image: 'https://cdn.example.com/general.jpg',
+        product_variant_label: 'Emergency fund',
+        title: 'General savings',
       })
     );
   });

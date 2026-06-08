@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useColorScheme } from '@/components/useColorScheme';
 import { deriveWalletFundingAccountAvailability } from '@/components/wallet/deriveWalletFundingAccountAvailability';
@@ -10,28 +10,29 @@ import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab
 import Colors, { SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
-import { useMerchantPaymentSettings } from '@/hooks/useMerchantPaymentSettings';
 import {
   useCreateWalletFundingAccount,
   useRedeemPoints,
   useWallet,
 } from '@/hooks/use-wallet';
+import { useMerchantPaymentSettings } from '@/hooks/useMerchantPaymentSettings';
 import { CONFIG } from '@/lib/config';
 import { addSavingsContribution } from '@/lib/customer-savings';
 import { normalizeWalletFundAmountParam } from '@/lib/normalize-wallet-fund-amount-param';
 import { pickMerchantId } from '@/lib/pick-merchant-id';
 import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
+import { cancelSavingsReminderNotification } from '@/services/savings-reminder-notifications';
 import { useAuthStore } from '@/stores/auth-store';
-import {
-  deriveWalletDisplayData,
-  getWalletLoadingMessage,
-  sanitizeWalletFundAmount,
-} from './wallet-screen.helpers';
 import {
   createWalletFundingAccount,
   fundWallet,
   redeemWalletPoints,
 } from './wallet-screen.handlers';
+import {
+  deriveWalletDisplayData,
+  getWalletLoadingMessage,
+  sanitizeWalletFundAmount,
+} from './wallet-screen.helpers';
 import { addSavingsContributionToGoal } from './wallet-screen-savings.handlers';
 
 interface WalletScreenProps {
@@ -84,6 +85,7 @@ export function WalletScreen({
   const [isAddingSavingsContribution, setIsAddingSavingsContribution] =
     useState(false);
   const [fundReturnTo, setFundReturnTo] = useState(walletReturnTo);
+  const savingsContributionIdempotencyKeyRef = useRef<string | null>(null);
   const activeMerchantId =
     pickMerchantId(merchantId, CONFIG.MERCHANT_ID) ?? undefined;
   const activeMerchantSlug = CONFIG.MERCHANT_SLUG?.trim() || undefined;
@@ -218,13 +220,23 @@ export function WalletScreen({
       setFundAmount(savingsContributionAmount);
     }
   };
+  const getSavingsContributionIdempotencyKey = () => {
+    if (!savingsContributionIdempotencyKeyRef.current) {
+      savingsContributionIdempotencyKeyRef.current = Crypto.randomUUID();
+    }
+    return savingsContributionIdempotencyKeyRef.current;
+  };
   const handleAddSavingsContribution = () =>
     addSavingsContributionToGoal({
       activeMerchantId,
       activeMerchantSlug,
       addSavingsContribution,
       clearSavingsContributionAmount: () => setSavingsContributionAmount(''),
-      createIdempotencyKey: Crypto.randomUUID,
+      clearIdempotencyKey: () => {
+        savingsContributionIdempotencyKeyRef.current = null;
+      },
+      createIdempotencyKey: getSavingsContributionIdempotencyKey,
+      cancelSavingsReminder: cancelSavingsReminderNotification,
       goal: activeSavingsGoal,
       rawAmount: savingsContributionAmount,
       refetchWallet: refetch,

@@ -43,6 +43,7 @@ jest.mock('@/lib/clipboard', () => ({
 }));
 
 jest.mock('@/services/savings-reminder-notifications', () => ({
+  cancelSavingsReminderNotification: jest.fn(async () => true),
   scheduleSavingsReminderNotification: jest.fn(async () => 'reminder-1'),
 }));
 

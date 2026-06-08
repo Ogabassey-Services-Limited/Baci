@@ -15,7 +15,7 @@ const SavingsGoalDataSchema = z.object({
   current_amount: z.union([z.number(), z.string()]),
   id: z.string(),
   maturity_date: z.string(),
-  product_id: z.string(),
+  product_id: z.string().nullable().optional(),
   product_snapshot: z.record(z.string(), z.unknown()).nullable().optional(),
   source_mode: z.enum(['manual', 'auto_debit']),
   status: z.enum(['active', 'paused', 'completed']),
@@ -100,7 +100,6 @@ export function getActiveSavingsGoal(rows: unknown[]): SavingsGoalData | null {
   return (
     goals.find((goal) => goal.status === 'active') ??
     goals.find((goal) => goal.status === 'paused') ??
-    goals.find((goal) => goal.status === 'completed') ??
     null
   );
 }
@@ -130,11 +129,16 @@ export function toActiveSavingsGoal({
     goal.variant_id && productData?.variants
       ? productData.variants.find((variant) => variant.id === goal.variant_id)
       : null;
-  const productImages = selectedVariant?.images?.length
+  const variantImages = selectedVariant?.images?.length
     ? normalizeProductImages(selectedVariant.images)
-    : productData?.images
-      ? normalizeProductImages(productData.images)
+    : selectedVariant?.image
+      ? normalizeProductImages([selectedVariant.image])
       : undefined;
+  const productImages =
+    variantImages ??
+    (productData?.images
+      ? normalizeProductImages(productData.images)
+      : undefined);
   const snapshotImage = getSnapshotText(snapshot, [
     'image',
     'imageUrl',

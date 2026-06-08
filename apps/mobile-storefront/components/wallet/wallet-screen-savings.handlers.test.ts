@@ -27,6 +27,8 @@ describe('wallet-screen-savings.handlers', () => {
   it('adds a valid savings contribution and refreshes the wallet', async () => {
     const addSavingsContribution = jest.fn(async () => ({}));
     const clearSavingsContributionAmount = jest.fn();
+    const clearIdempotencyKey = jest.fn();
+    const cancelSavingsReminder = jest.fn(async () => true);
     const refetchWallet = jest.fn(async () => ({}));
     const setIsAddingSavingsContribution = jest.fn();
 
@@ -35,6 +37,8 @@ describe('wallet-screen-savings.handlers', () => {
       activeMerchantSlug: 'ogabassey',
       addSavingsContribution,
       clearSavingsContributionAmount,
+      clearIdempotencyKey,
+      cancelSavingsReminder,
       createIdempotencyKey: () => 'savings-key-1',
       goal,
       rawAmount: '500',
@@ -51,12 +55,32 @@ describe('wallet-screen-savings.handlers', () => {
       merchantSlug: 'ogabassey',
     });
     expect(clearSavingsContributionAmount).toHaveBeenCalledTimes(1);
+    expect(clearIdempotencyKey).toHaveBeenCalledTimes(1);
+    expect(cancelSavingsReminder).not.toHaveBeenCalled();
     expect(refetchWallet).toHaveBeenCalledTimes(1);
     expect(Alert.alert).toHaveBeenCalledWith(
       'Savings updated',
       'Added ₦500 to your savings goal.'
     );
     expect(setIsAddingSavingsContribution).toHaveBeenLastCalledWith(false);
+  });
+
+  it('cancels the stored reminder when a contribution completes the goal', async () => {
+    const addSavingsContribution = jest.fn(async () => ({}));
+    const cancelSavingsReminder = jest.fn(async () => true);
+
+    await addSavingsContributionToGoal({
+      addSavingsContribution,
+      cancelSavingsReminder,
+      clearSavingsContributionAmount: jest.fn(),
+      createIdempotencyKey: () => 'savings-key-1',
+      goal: { ...goal, current_amount: 4500 },
+      rawAmount: '500',
+      refetchWallet: jest.fn(async () => undefined),
+      setIsAddingSavingsContribution: jest.fn(),
+    });
+
+    expect(cancelSavingsReminder).toHaveBeenCalledWith('goal-1');
   });
 
   it('rejects savings contributions above the remaining goal amount', async () => {
@@ -126,16 +150,18 @@ describe('wallet-screen-savings.handlers', () => {
   });
 
   it('shows API errors and clears pending state', async () => {
-    const addSavingsContribution = jest.fn(async () => {
-      throw new Error('Contribution failed');
-    });
+    const addSavingsContribution = jest.fn(() =>
+      Promise.reject(new Error('Contribution failed'))
+    );
     const clearSavingsContributionAmount = jest.fn();
+    const clearIdempotencyKey = jest.fn();
     const refetchWallet = jest.fn(async () => undefined);
     const setIsAddingSavingsContribution = jest.fn();
 
     await addSavingsContributionToGoal({
       addSavingsContribution,
       clearSavingsContributionAmount,
+      clearIdempotencyKey,
       createIdempotencyKey: () => 'savings-key-1',
       goal,
       rawAmount: '500',
@@ -145,6 +171,7 @@ describe('wallet-screen-savings.handlers', () => {
 
     expect(setIsAddingSavingsContribution).toHaveBeenNthCalledWith(1, true);
     expect(clearSavingsContributionAmount).not.toHaveBeenCalled();
+    expect(clearIdempotencyKey).not.toHaveBeenCalled();
     expect(refetchWallet).not.toHaveBeenCalled();
     expect(Alert.alert).toHaveBeenCalledWith(
       'Unable to add savings',

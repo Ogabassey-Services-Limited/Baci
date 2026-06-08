@@ -97,6 +97,7 @@ export function useStartSavingsController() {
 
   const selectProduct = (product: Product) =>
     applyStartSavingsProductSelection({
+      previousSelectedProduct: selectedProduct,
       product,
       setFormError,
       setSearchValue,

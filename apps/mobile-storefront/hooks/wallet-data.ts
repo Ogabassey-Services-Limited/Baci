@@ -209,24 +209,30 @@ export async function fetchWalletData(
   let activeSavingsGoal: WalletActiveSavingsGoal | null = null;
 
   if (activeSavingsGoalRow) {
-    const productResult = await supabase
-      .from('products')
-      .select('id, name, images, condition, variants')
-      .eq('merchant_id', merchantId)
-      .eq('id', activeSavingsGoalRow.product_id)
-      .maybeSingle();
-    if (productResult.error) {
-      console.warn('Unable to fetch active savings goal product metadata', {
-        error: productResult.error,
-        merchantId,
-        productId: activeSavingsGoalRow.product_id,
+    if (activeSavingsGoalRow.product_id) {
+      const productResult = await supabase
+        .from('products')
+        .select('id, name, images, condition, variants')
+        .eq('merchant_id', merchantId)
+        .eq('id', activeSavingsGoalRow.product_id)
+        .maybeSingle();
+      if (productResult.error) {
+        console.warn('Unable to fetch active savings goal product metadata', {
+          error: productResult.error,
+          merchantId,
+          productId: activeSavingsGoalRow.product_id,
+        });
+      }
+
+      activeSavingsGoal = toActiveSavingsGoal({
+        goal: activeSavingsGoalRow,
+        product: productResult.error ? undefined : productResult.data,
+      });
+    } else {
+      activeSavingsGoal = toActiveSavingsGoal({
+        goal: activeSavingsGoalRow,
       });
     }
-
-    activeSavingsGoal = toActiveSavingsGoal({
-      goal: activeSavingsGoalRow,
-      product: productResult.error ? undefined : productResult.data,
-    });
   }
 
   const fundingAccountValidation =
