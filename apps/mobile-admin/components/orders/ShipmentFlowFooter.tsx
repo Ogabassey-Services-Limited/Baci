@@ -51,7 +51,7 @@ export function ShipmentFlowFooter({
         <Pressable
           accessibilityLabel="Back"
           accessibilityRole="button"
-          accessibilityState={{ disabled: isSubmitting }}
+          accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
           disabled={isSubmitting}
           onPress={onBack}
           style={({ pressed }) => [
@@ -70,7 +70,7 @@ export function ShipmentFlowFooter({
       <Pressable
         accessibilityLabel={primaryActionLabel}
         accessibilityRole="button"
-        accessibilityState={{ disabled: isSubmitting }}
+        accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
         disabled={isSubmitting}
         onPress={onPrimaryAction}
         style={({ pressed }) => [
