@@ -58,9 +58,9 @@ export function DvaModal({
           {/* Bank Details */}
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
                 Account Number
-              </label>
+              </p>
               <div className="relative group">
                 <div className="w-full bg-gray-50 border border-gray-200 rounded-xl py-4 px-4 font-mono text-xl font-bold text-gray-900 tracking-wider">
                   {data.account_number}

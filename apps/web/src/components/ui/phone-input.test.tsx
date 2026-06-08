@@ -16,9 +16,13 @@ type MockCountrySelectProps = {
   options: MockCountryOption[];
 };
 
+type MockInputComponentProps = React.InputHTMLAttributes<HTMLInputElement>;
+
 type MockPhoneNumberInputProps = {
   className?: string;
   countrySelectComponent?: React.ComponentType<MockCountrySelectProps>;
+  inputComponent?: React.ComponentType<MockInputComponentProps>;
+  id?: string;
   value?: string;
 };
 
@@ -28,7 +32,13 @@ vi.mock('react-phone-number-input', () => {
     MockPhoneNumberInputProps
   >(
     (
-      { className, countrySelectComponent: CountrySelectComponent, value },
+      {
+        className,
+        countrySelectComponent: CountrySelectComponent,
+        inputComponent: InputComponent,
+        id,
+        value,
+      },
       ref
     ) => {
       const options: MockCountryOption[] =
@@ -43,6 +53,9 @@ vi.mock('react-phone-number-input', () => {
 
       return (
         <div ref={ref} className={className}>
+          {InputComponent ? (
+            <InputComponent id={id} aria-label="Phone number" />
+          ) : null}
           {CountrySelectComponent ? (
             <CountrySelectComponent
               value={selectedCountryValue}
@@ -102,6 +115,20 @@ describe('PhoneInput', () => {
     expect(
       screen.getByRole('button', { name: 'Select country' })
     ).toBeInTheDocument();
+  });
+
+  it('forwards id to the rendered phone number input', () => {
+    render(
+      <label htmlFor="checkout-phone">
+        Phone Number
+        <PhoneInput id="checkout-phone" onChange={() => undefined} />
+      </label>
+    );
+
+    expect(screen.getByLabelText('Phone number')).toHaveAttribute(
+      'id',
+      'checkout-phone'
+    );
   });
 
   it('renders "Change country: [label]" when a country is selected', () => {

@@ -99,10 +99,11 @@ export function ContactStep({
           <div className="p-6 pt-0 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                <label htmlFor="checkout-first-name" className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
                   First Name *
                 </label>
                 <input
+                  id="checkout-first-name"
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
@@ -121,10 +122,11 @@ export function ContactStep({
                 )}
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                <label htmlFor="checkout-last-name" className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
                   Last Name *
                 </label>
                 <input
+                  id="checkout-last-name"
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
@@ -143,10 +145,11 @@ export function ContactStep({
                 )}
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                <label htmlFor="checkout-email" className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
                   Email Address *
                 </label>
                 <input
+                  id="checkout-email"
                   type="email"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
@@ -179,7 +182,7 @@ export function ContactStep({
               </div>
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+              <label htmlFor="checkout-phone" className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
                 Phone Number *
               </label>
               <div
@@ -191,6 +194,7 @@ export function ContactStep({
                 }
               >
                 <PhoneInput
+                  id="checkout-phone"
                   value={customerPhone}
                   onChange={(value) => setCustomerPhone(value || '')}
                   placeholder="+234 800 000 0000"
@@ -219,9 +223,10 @@ export function ContactStep({
                 <div
                   className={`bg-gray-50 rounded-xl p-4 border transition-all duration-300 ${createAccount ? 'border-store-primary/30 bg-store-primary/5' : 'border-gray-100 hover:border-store-primary/20'}`}
                 >
-                  <label className="flex items-start gap-3 cursor-pointer group mb-2">
+                  <label htmlFor="checkout-create-account" className="flex items-start gap-3 cursor-pointer group mb-2">
                     <div className="relative flex items-center pt-0.5">
                       <input
+                        id="checkout-create-account"
                         type="checkbox"
                         checked={createAccount}
                         onChange={(e) => {
@@ -247,11 +252,12 @@ export function ContactStep({
                   <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out ${showPasswordInput ? 'max-h-24 opacity-100 mt-3 pl-8' : 'max-h-0 opacity-0'}`}
                   >
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                    <label htmlFor="checkout-account-password" className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
                       Create a Password
                     </label>
                     <div className="relative">
                       <input
+                        id="checkout-account-password"
                         type={isPasswordVisible ? 'text' : 'password'}
                         value={accountPassword}
                         onChange={(e) =>
