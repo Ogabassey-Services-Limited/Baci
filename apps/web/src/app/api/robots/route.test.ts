@@ -36,7 +36,7 @@ describe('GET /api/robots', () => {
     mockBlogEnabled = true;
   });
 
-  it('serializes robots.txt with Content-Signal directives', async () => {
+  it('serializes standards-compliant robots.txt without non-standard directives', async () => {
     const { GET } = await import('./route');
     const response = await GET();
     const body = await response.text();
@@ -46,12 +46,10 @@ describe('GET /api/robots', () => {
     expect(response.headers.get('cache-control')).toBe(
       'public, max-age=300, s-maxage=300'
     );
-    expect(body).toContain(
-      'Content-Signal: ai-train=no, search=yes, ai-input=yes'
-    );
     expect(body).toContain('User-Agent: *');
     expect(body).toContain('Disallow: /api/');
     expect(body).toContain('Sitemap: https://ogabassey.com/sitemap/static.xml');
+    expect(body).not.toContain('Content-Signal:');
   });
 
   it('returns a safe fallback when the robots provider fails', async () => {
@@ -73,9 +71,7 @@ describe('GET /api/robots', () => {
         'public, max-age=300, s-maxage=300'
       );
       expect(body).toContain('User-Agent: *');
-      expect(body).toContain(
-        'Content-Signal: ai-train=no, search=yes, ai-input=yes'
-      );
+      expect(body).not.toContain('Content-Signal:');
     } finally {
       consoleError.mockRestore();
     }

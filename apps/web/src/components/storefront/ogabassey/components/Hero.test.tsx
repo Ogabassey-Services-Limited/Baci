@@ -17,8 +17,10 @@ function mockMatchMedia(matches: boolean) {
   });
 }
 
+const mockUseMerchantSafe = vi.hoisted(() => vi.fn(() => null));
+
 vi.mock('@/hooks/merchant/use-merchant', () => ({
-  useMerchantSafe: () => ({ basePath: '/ogabassey' }),
+  useMerchantSafe: () => mockUseMerchantSafe(),
 }));
 
 vi.mock('next/link', () => ({
@@ -76,6 +78,15 @@ vi.mock('next/dynamic', () => ({
   },
 }));
 
+vi.mock('./hero-mobile-carousel', () => ({
+  HeroMobileCarousel: ({ getHref }: { getHref: (path: string) => string }) => (
+    <>
+      <a href={getHref('/products')}>Shop Now</a>
+      <a href={getHref('/')}>Storefront root</a>
+    </>
+  ),
+}));
+
 vi.mock('./hero-utility-panel', () => ({
   HeroUtilityPanel: () => <div data-testid="utility-panel">Utility panel</div>,
 }));
@@ -103,6 +114,21 @@ describe('Hero', () => {
     render(<Hero />);
 
     expect(screen.getByTestId('utility-panel')).toBeInTheDocument();
+  });
+
+  it('uses an explicit server-resolved base path for product calls to action', () => {
+    render(<Hero basePath="/ogabassey" />);
+
+    expect(
+      screen.getAllByRole('link', { name: /shop now/i })[0]
+    ).toHaveAttribute('href', '/ogabassey/products');
+    expect(mockUseMerchantSafe).not.toHaveBeenCalled();
+  });
+
+  it('uses an absolute root href when custom-domain base path is empty', () => {
+    render(<Hero basePath="" />);
+
+    expect(screen.getByText('Storefront root')).toHaveAttribute('href', '/');
   });
 
   it('loads the desktop hero chunk only after desktop viewport detection', () => {
