@@ -157,7 +157,7 @@ export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
               goalTitle: validation.selectedProduct.name,
             });
           } else {
-            await cancelSavingsReminderNotification();
+            await cancelSavingsReminderNotification(result.goalId);
           }
         } catch {
           // Reminder scheduling is best effort and must not block goal creation.

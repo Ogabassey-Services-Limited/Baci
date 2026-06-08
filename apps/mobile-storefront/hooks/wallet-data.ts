@@ -64,6 +64,26 @@ function normalizeWalletTransaction(row: unknown): Transaction | null {
   };
 }
 
+function getJoinedSavingsGoalProduct({
+  goalId,
+  rows,
+}: {
+  goalId: string;
+  rows: unknown[];
+}) {
+  const sourceRow = rows.find(
+    (row) =>
+      row &&
+      typeof row === 'object' &&
+      (row as { id?: unknown }).id === goalId
+  );
+  if (!sourceRow || typeof sourceRow !== 'object') {
+    return undefined;
+  }
+
+  return (sourceRow as { products?: unknown }).products;
+}
+
 function getEmptyWalletData(loyaltyPoints: unknown = 0): WalletQueryData {
   const safeLoyaltyPoints = coerceDatabaseNumber(loyaltyPoints) ?? 0;
   return {
@@ -183,7 +203,7 @@ export async function fetchWalletData(
     supabase
       .from('customer_savings_goals')
       .select(
-        'id, product_id, variant_id, title, product_snapshot, target_amount, current_amount, contribution_amount, contribution_frequency, source_mode, status, maturity_date'
+        'id, product_id, variant_id, title, product_snapshot, target_amount, current_amount, contribution_amount, contribution_frequency, source_mode, status, maturity_date, products(id, name, images, condition, variants)'
       )
       .eq('merchant_id', merchantId)
       .eq('customer_id', resolvedCustomerId)
@@ -209,30 +229,15 @@ export async function fetchWalletData(
   let activeSavingsGoal: WalletActiveSavingsGoal | null = null;
 
   if (activeSavingsGoalRow) {
-    if (activeSavingsGoalRow.product_id) {
-      const productResult = await supabase
-        .from('products')
-        .select('id, name, images, condition, variants')
-        .eq('merchant_id', merchantId)
-        .eq('id', activeSavingsGoalRow.product_id)
-        .maybeSingle();
-      if (productResult.error) {
-        console.warn('Unable to fetch active savings goal product metadata', {
-          error: productResult.error,
-          merchantId,
-          productId: activeSavingsGoalRow.product_id,
-        });
-      }
-
-      activeSavingsGoal = toActiveSavingsGoal({
-        goal: activeSavingsGoalRow,
-        product: productResult.error ? undefined : productResult.data,
-      });
-    } else {
-      activeSavingsGoal = toActiveSavingsGoal({
-        goal: activeSavingsGoalRow,
-      });
-    }
+    activeSavingsGoal = toActiveSavingsGoal({
+      goal: activeSavingsGoalRow,
+      product: activeSavingsGoalRow.product_id
+        ? getJoinedSavingsGoalProduct({
+            goalId: activeSavingsGoalRow.id,
+            rows: savingsGoalRows,
+          })
+        : undefined,
+    });
   }
 
   const fundingAccountValidation =

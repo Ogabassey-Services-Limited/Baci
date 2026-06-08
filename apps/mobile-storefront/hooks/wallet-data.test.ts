@@ -97,7 +97,7 @@ describe('fetchWalletData', () => {
   });
 
   it('combines wallet, funding account, savings balance, and valid transactions', async () => {
-    setupSupabaseTables({
+    const { tableCalls } = setupSupabaseTables({
       customer_wallet_payment_accounts: createResult({
         account_name: 'Ogabassey/Jane Doe',
         account_number: '1234567890',
@@ -113,6 +113,24 @@ describe('fetchWalletData', () => {
           maturity_date: '2026-09-30',
           product_id: 'product-1',
           product_snapshot: {},
+          products: {
+            condition: 'uk_used',
+            id: 'product-1',
+            images: ['https://cdn.example.com/iphone.jpg'],
+            name: 'iPhone 15 Pro',
+            variants: [
+              {
+                attributes: {
+                  color: 'Black',
+                  storage: '256GB',
+                },
+                condition: 'uk_used',
+                id: 'variant-1',
+                price: '120000',
+                sku: 'IPH15P-256',
+              },
+            ],
+          },
           source_mode: 'manual',
           status: 'active',
           target_amount: '120000',
@@ -135,24 +153,6 @@ describe('fetchWalletData', () => {
         },
         { current_amount: 'bad-number' },
       ]),
-      products: createResult({
-        condition: 'uk_used',
-        id: 'product-1',
-        images: ['https://cdn.example.com/iphone.jpg'],
-        name: 'iPhone 15 Pro',
-        variants: [
-          {
-            attributes: {
-              color: 'Black',
-              storage: '256GB',
-            },
-            condition: 'uk_used',
-            id: 'variant-1',
-            price: '120000',
-            sku: 'IPH15P-256',
-          },
-        ],
-      }),
       customer_wallet_transactions: createResult([
         {
           amount: '2500',
@@ -200,6 +200,7 @@ describe('fetchWalletData', () => {
       savings_balance: 35000.5,
       total_balance: 40000.5,
     });
+    expect(tableCalls).not.toContain('products');
     expect(result.transactions).toEqual([
       {
         amount: 2500,

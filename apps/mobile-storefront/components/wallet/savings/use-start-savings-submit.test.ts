@@ -154,7 +154,9 @@ describe('useStartSavingsSubmit', () => {
       })
     );
     expect(mockScheduleSavingsReminderNotification).not.toHaveBeenCalled();
-    expect(mockCancelSavingsReminderNotification).toHaveBeenCalledWith();
+    expect(mockCancelSavingsReminderNotification).toHaveBeenCalledWith(
+      'goal-1'
+    );
     expect(input.setShowSuccessModal).toHaveBeenCalledWith(true);
   });
 
