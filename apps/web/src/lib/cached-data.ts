@@ -2166,40 +2166,47 @@ export async function getCachedBlogPost(
     return relatedQuery;
   };
 
-  const { data: recentRelatedPosts, error: relatedPostsError } =
-    await buildRelatedPostsQuery().limit(RELATED_BLOG_POSTS_FETCH_LIMIT);
+  const recentRelatedPostsPromise = buildRelatedPostsQuery().limit(
+    RELATED_BLOG_POSTS_FETCH_LIMIT
+  );
+  const sourceBlogCategory =
+    typeof post.category === 'string' ? post.category.trim() : '';
+  const categoryRelatedPostsPromise = sourceBlogCategory
+    ? buildRelatedPostsQuery()
+        .eq('category', sourceBlogCategory)
+        .limit(RELATED_BLOG_CATEGORY_FETCH_LIMIT)
+    : Promise.resolve({ data: null, error: null });
+
+  const [
+    { data: recentRelatedPosts, error: relatedPostsError },
+    { data: categoryRelatedPosts, error: categoryRelatedPostsError },
+    { data: linkedProducts, error: linkedProductsError },
+  ] = await Promise.all([
+    recentRelatedPostsPromise,
+    categoryRelatedPostsPromise,
+    supabase
+      .from('blog_post_products')
+      .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
+      .eq('merchant_id', merchant.id)
+      .eq('blog_post_id', post.id)
+      .order('created_at', { ascending: true }),
+  ]);
 
   if (relatedPostsError) {
     console.error('Error fetching related blog posts:', relatedPostsError);
   }
 
-  const sourceBlogCategory =
-    typeof post.category === 'string' ? post.category.trim() : '';
-  let categoryRelatedPosts: typeof recentRelatedPosts | null = null;
-
-  if (sourceBlogCategory) {
-    const { data, error } = await buildRelatedPostsQuery()
-      .eq('category', sourceBlogCategory)
-      .limit(RELATED_BLOG_CATEGORY_FETCH_LIMIT);
-
-    if (error) {
-      console.error('Error fetching category related blog posts:', error);
-    } else {
-      categoryRelatedPosts = data;
-    }
+  if (categoryRelatedPostsError) {
+    console.error(
+      'Error fetching category related blog posts:',
+      categoryRelatedPostsError
+    );
   }
 
   const relatedPostCandidates = combineUniqueRelatedBlogPosts(
     relatedPostsError ? [] : recentRelatedPosts,
-    categoryRelatedPosts
+    categoryRelatedPostsError ? [] : categoryRelatedPosts
   );
-
-  const { data: linkedProducts, error: linkedProductsError } = await supabase
-    .from('blog_post_products')
-    .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
-    .eq('merchant_id', merchant.id)
-    .eq('blog_post_id', post.id)
-    .order('created_at', { ascending: true });
 
   if (linkedProductsError) {
     console.error('Error fetching linked blog products:', linkedProductsError);
