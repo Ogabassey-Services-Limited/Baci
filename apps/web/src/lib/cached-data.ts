@@ -26,6 +26,7 @@ import {
   RELATED_BLOG_PRODUCT_LINKS_SELECT,
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
+import { selectSemanticRelatedBlogPosts } from '@/lib/semantic-related-blog-posts';
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { canonicalizeStorefrontMediaUrl } from '@/lib/storefront-media-cdn-url';
@@ -37,7 +38,38 @@ import type { MerchantAboutPage } from '@/types/about-page';
 import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
 
 const RELATED_BLOG_POSTS_LIMIT = 3;
-const RELATED_BLOG_POSTS_FETCH_LIMIT = 12;
+const RELATED_BLOG_POSTS_FETCH_LIMIT = 36;
+const RELATED_BLOG_CATEGORY_FETCH_LIMIT = 24;
+const RELATED_BLOG_POST_SELECT =
+  'id, title, slug, excerpt, featured_image_url, category, tags, keywords, published_at, reading_time_minutes';
+
+interface RelatedBlogPostIdentity {
+  id?: string | null;
+  slug?: string | null;
+}
+
+function combineUniqueRelatedBlogPosts<T extends RelatedBlogPostIdentity>(
+  ...postGroups: Array<T[] | null | undefined>
+): T[] {
+  const seenKeys = new Set<string>();
+  const uniquePosts: T[] = [];
+
+  for (const postGroup of postGroups) {
+    for (const post of postGroup || []) {
+      const key = post.id || post.slug;
+      if (key && seenKeys.has(key)) {
+        continue;
+      }
+
+      if (key) {
+        seenKeys.add(key);
+      }
+      uniquePosts.push(post);
+    }
+  }
+
+  return uniquePosts;
+}
 
 /**
  * Create a Supabase client for cached queries.
@@ -2113,40 +2145,68 @@ export async function getCachedBlogPost(
     return null;
   }
 
-  // Fetch Related Posts
-  let relatedQuery = supabase
-    .from('blog_posts')
-    .select(
-      'id, title, slug, excerpt, featured_image_url, category, published_at, reading_time_minutes'
-    )
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .not('published_at', 'is', null)
-    .not('title', 'is', null)
-    .not('slug', 'is', null)
-    .neq('title', '')
-    .neq('slug', '')
-    .neq('id', post.id);
+  // Fetch Related Posts. Over-fetch bounded public candidate sets and rank
+  // server-side by semantic overlap instead of category-only filtering.
+  const buildRelatedPostsQuery = () => {
+    let relatedQuery = supabase
+      .from('blog_posts')
+      .select(RELATED_BLOG_POST_SELECT)
+      .eq('merchant_id', merchant.id)
+      .eq('status', 'published')
+      .not('published_at', 'is', null)
+      .not('title', 'is', null)
+      .not('slug', 'is', null)
+      .neq('title', '')
+      .neq('slug', '')
+      .neq('id', post.id)
+      .order('published_at', { ascending: false });
 
-  relatedQuery = applyPublicBlogSqlFilters(relatedQuery);
+    relatedQuery = applyPublicBlogSqlFilters(relatedQuery);
 
-  if (post.category) {
-    relatedQuery = relatedQuery.eq('category', post.category);
-  }
+    return relatedQuery;
+  };
 
-  const { data: relatedPosts, error: relatedPostsError } =
-    await relatedQuery.limit(RELATED_BLOG_POSTS_FETCH_LIMIT);
+  const recentRelatedPostsPromise = buildRelatedPostsQuery().limit(
+    RELATED_BLOG_POSTS_FETCH_LIMIT
+  );
+  const sourceBlogCategory =
+    typeof post.category === 'string' ? post.category.trim() : '';
+  const categoryRelatedPostsPromise = sourceBlogCategory
+    ? buildRelatedPostsQuery()
+        .eq('category', sourceBlogCategory)
+        .limit(RELATED_BLOG_CATEGORY_FETCH_LIMIT)
+    : Promise.resolve({ data: null, error: null });
+
+  const [
+    { data: recentRelatedPosts, error: relatedPostsError },
+    { data: categoryRelatedPosts, error: categoryRelatedPostsError },
+    { data: linkedProducts, error: linkedProductsError },
+  ] = await Promise.all([
+    recentRelatedPostsPromise,
+    categoryRelatedPostsPromise,
+    supabase
+      .from('blog_post_products')
+      .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
+      .eq('merchant_id', merchant.id)
+      .eq('blog_post_id', post.id)
+      .order('created_at', { ascending: true }),
+  ]);
 
   if (relatedPostsError) {
     console.error('Error fetching related blog posts:', relatedPostsError);
   }
 
-  const { data: linkedProducts, error: linkedProductsError } = await supabase
-    .from('blog_post_products')
-    .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
-    .eq('merchant_id', merchant.id)
-    .eq('blog_post_id', post.id)
-    .order('created_at', { ascending: true });
+  if (categoryRelatedPostsError) {
+    console.error(
+      'Error fetching category related blog posts:',
+      categoryRelatedPostsError
+    );
+  }
+
+  const relatedPostCandidates = combineUniqueRelatedBlogPosts(
+    relatedPostsError ? [] : recentRelatedPosts,
+    categoryRelatedPostsError ? [] : categoryRelatedPosts
+  );
 
   if (linkedProductsError) {
     console.error('Error fetching linked blog products:', linkedProductsError);
@@ -2194,12 +2254,11 @@ export async function getCachedBlogPost(
       social_media: merchant.social_media,
     },
     post,
-    relatedPosts: relatedPostsError
-      ? []
-      : filterPublicBlogPosts(relatedPosts || []).slice(
-          0,
-          RELATED_BLOG_POSTS_LIMIT
-        ),
+    relatedPosts: selectSemanticRelatedBlogPosts(
+      post,
+      filterPublicBlogPosts(relatedPostCandidates),
+      RELATED_BLOG_POSTS_LIMIT
+    ),
     relatedProducts: normalizedRelatedProducts,
   };
 }
