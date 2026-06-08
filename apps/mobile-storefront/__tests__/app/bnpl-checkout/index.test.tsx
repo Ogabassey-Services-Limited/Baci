@@ -1,11 +1,23 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
+import { Camera, PermissionStatus } from 'expo-camera';
 import { router } from 'expo-router';
 import type React from 'react';
+import { Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import BNPLCheckoutScreen from '@/app/bnpl-checkout';
 
 const mockClearCart = jest.fn();
+const mockOpenSettings = jest
+  .spyOn(Linking, 'openSettings')
+  .mockResolvedValue(undefined);
+let mockRenderEvents: string[] = [];
 let mockSearchParams: Record<string, string | string[]> = {
   amount: '250000',
   customerEmail: 'customer@example.com',
@@ -27,6 +39,17 @@ jest.mock('expo-router', () => ({
     replace: jest.fn(),
   },
   useLocalSearchParams: () => mockSearchParams,
+}));
+
+jest.mock('expo-camera', () => ({
+  Camera: {
+    requestCameraPermissionsAsync: jest.fn(),
+  },
+  PermissionStatus: {
+    DENIED: 'denied',
+    GRANTED: 'granted',
+    UNDETERMINED: 'undetermined',
+  },
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -51,6 +74,7 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('react-native-webview', () => ({
   WebView: ({
     javaScriptCanOpenWindowsAutomatically,
+    mediaCapturePermissionGrantType,
     onError,
     onLoadStart,
     onMessage,
@@ -62,6 +86,7 @@ jest.mock('react-native-webview', () => ({
     thirdPartyCookiesEnabled,
   }: {
     javaScriptCanOpenWindowsAutomatically?: boolean;
+    mediaCapturePermissionGrantType?: string;
     onError?: (event: {
       nativeEvent: { description?: string; url?: string };
     }) => void;
@@ -77,6 +102,7 @@ jest.mock('react-native-webview', () => ({
     source: { headers?: Record<string, string>; uri: string };
     thirdPartyCookiesEnabled?: boolean;
   }) => {
+    mockRenderEvents.push('webview');
     const { Pressable, Text, View } =
       jest.requireActual<typeof import('react-native')>('react-native');
     const openWindow = (targetUrl: string) =>
@@ -92,6 +118,9 @@ jest.mock('react-native-webview', () => ({
         <Text>{`multi-window:${String(setSupportMultipleWindows)}`}</Text>
         <Text>{`open-window-handler:${String(Boolean(onOpenWindow))}`}</Text>
         <Text>{`third-party-cookies:${String(thirdPartyCookiesEnabled)}`}</Text>
+        <Text>{`media-capture:${String(
+          mediaCapturePermissionGrantType
+        )}`}</Text>
         <Pressable
           accessibilityLabel="mock-bnpl-open-credit-direct-popup"
           onPress={() =>
@@ -197,10 +226,38 @@ jest.mock('@/stores/cart-store', () => ({
     selector({ clearCart: mockClearCart }),
 }));
 
+const mockRequestCameraPermissionsAsync = jest.mocked(
+  Camera.requestCameraPermissionsAsync
+);
+
+function buildCameraPermissionResponse(
+  granted: boolean,
+  canAskAgain = true
+) {
+  return {
+    canAskAgain,
+    expires: 'never',
+    granted,
+    status: granted ? PermissionStatus.GRANTED : PermissionStatus.DENIED,
+  } satisfies Awaited<ReturnType<typeof Camera.requestCameraPermissionsAsync>>;
+}
+
+async function renderReadyBNPLCheckoutScreen() {
+  const rendered = render(<BNPLCheckoutScreen />);
+
+  await screen.findByText(/^webview:/);
+  return rendered;
+}
+
 describe('BNPLCheckoutScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();
+    mockRenderEvents = [];
+    mockRequestCameraPermissionsAsync.mockImplementation(async () => {
+      mockRenderEvents.push('camera-permission');
+      return buildCameraPermissionResponse(true);
+    });
     mockSearchParams = {
       amount: '250000',
       customerEmail: 'customer@example.com',
@@ -214,8 +271,8 @@ describe('BNPLCheckoutScreen', () => {
     };
   });
 
-  it('passes public order lookup credentials to the BNPL launcher URL', () => {
-    render(<BNPLCheckoutScreen />);
+  it('passes public order lookup credentials to the BNPL launcher URL', async () => {
+    await renderReadyBNPLCheckoutScreen();
 
     const webView = screen.getByText(/^webview:/);
 
@@ -231,7 +288,20 @@ describe('BNPLCheckoutScreen', () => {
     expect(webView.props.children).toContain('token=track-token-123');
   });
 
-  it('accepts Klump as a BNPL gateway and loads the explicit authorization URL', () => {
+  it('prepares camera permission before loading the Credit Direct provider WebView', async () => {
+    await renderReadyBNPLCheckoutScreen();
+
+    expect(mockRequestCameraPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(mockRenderEvents.slice(0, 2)).toEqual([
+      'camera-permission',
+      'webview',
+    ]);
+    expect(
+      screen.getByText('media-capture:grantIfSameHostElsePrompt')
+    ).toBeTruthy();
+  });
+
+  it('skips camera permission checks for non-Credit Direct gateways', async () => {
     mockSearchParams = {
       amount: '120000',
       authorizationUrl:
@@ -246,7 +316,80 @@ describe('BNPLCheckoutScreen', () => {
       trackingToken: 'track-token-123',
     };
 
+    await renderReadyBNPLCheckoutScreen();
+
+    expect(mockRequestCameraPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockRenderEvents).not.toContain('camera-permission');
+    expect(mockRenderEvents.every((event) => event === 'webview')).toBe(true);
+    expect(screen.getByText('media-capture:prompt')).toBeTruthy();
+  });
+
+  it('shows a retryable app error when Credit Direct camera permission is denied', async () => {
+    mockRequestCameraPermissionsAsync
+      .mockImplementationOnce(async () => {
+        mockRenderEvents.push('camera-permission');
+        return buildCameraPermissionResponse(false);
+      })
+      .mockImplementationOnce(async () => {
+        mockRenderEvents.push('camera-permission');
+        return buildCameraPermissionResponse(true);
+      });
+
     render(<BNPLCheckoutScreen />);
+
+    expect(
+      await screen.findByText(
+        'Camera access is required to complete Credit Direct identity verification. Enable camera permission and try again.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText(/^webview:/)).toBeNull();
+
+    fireEvent.press(screen.getByText('Try Again'));
+
+    await waitFor(() =>
+      expect(mockRequestCameraPermissionsAsync).toHaveBeenCalledTimes(2)
+    );
+    expect(screen.getByText(/^webview:/)).toBeTruthy();
+  });
+
+  it('opens device settings when Credit Direct camera permission cannot be requested again', async () => {
+    mockRequestCameraPermissionsAsync.mockImplementationOnce(async () => {
+      mockRenderEvents.push('camera-permission');
+      return buildCameraPermissionResponse(false, false);
+    });
+
+    render(<BNPLCheckoutScreen />);
+
+    expect(
+      await screen.findByText(
+        'Camera access is required to complete Credit Direct identity verification. Enable camera permission in device settings and return to checkout.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByText('Open Settings')).toBeTruthy();
+    expect(screen.queryByText(/^webview:/)).toBeNull();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Open app settings' }));
+
+    expect(mockOpenSettings).toHaveBeenCalledTimes(1);
+    expect(mockRequestCameraPermissionsAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts Klump as a BNPL gateway and loads the explicit authorization URL', async () => {
+    mockSearchParams = {
+      amount: '120000',
+      authorizationUrl:
+        'https://usebaci.com/ogabassey/checkout/bnpl?gateway=klump&orderId=order-123&reference=BAC-ABCD12345678&trackingToken=track-token-123',
+      customerEmail: 'customer@example.com',
+      customerName: 'Ada Customer',
+      gateway: 'klump',
+      merchantSlug: 'ogabassey',
+      merchantDomain: 'ogabassey.com',
+      orderId: 'order-123',
+      reference: 'BAC-ABCD12345678',
+      trackingToken: 'track-token-123',
+    };
+
+    await renderReadyBNPLCheckoutScreen();
 
     const webViewUrl = new URL(
       screen.getByText(/^webview:/).props.children.replace('webview:', '')
@@ -262,7 +405,7 @@ describe('BNPLCheckoutScreen', () => {
     expect(webViewUrl.searchParams.get('merchant_slug')).toBe('ogabassey');
   });
 
-  it('loads BNPL launcher URLs as HTML documents instead of Next data payloads', () => {
+  it('loads BNPL launcher URLs as HTML documents instead of Next data payloads', async () => {
     mockSearchParams = {
       amount: '120000',
       authorizationUrl:
@@ -277,7 +420,7 @@ describe('BNPLCheckoutScreen', () => {
       trackingToken: 'track-token-123',
     };
 
-    render(<BNPLCheckoutScreen />);
+    await renderReadyBNPLCheckoutScreen();
 
     const webViewUrl = new URL(
       screen.getByText(/^webview:/).props.children.replace('webview:', '')
@@ -288,7 +431,7 @@ describe('BNPLCheckoutScreen', () => {
     );
   });
 
-  it('uses the first value when Android delivers duplicated Klump params', () => {
+  it('uses the first value when Android delivers duplicated Klump params', async () => {
     mockSearchParams = {
       amount: '120000',
       authorizationUrl: [
@@ -305,7 +448,7 @@ describe('BNPLCheckoutScreen', () => {
       trackingToken: 'track-token-123',
     };
 
-    render(<BNPLCheckoutScreen />);
+    await renderReadyBNPLCheckoutScreen();
 
     const webViewUrl = new URL(
       screen.getByText(/^webview:/).props.children.replace('webview:', '')
@@ -320,7 +463,7 @@ describe('BNPLCheckoutScreen', () => {
     );
   });
 
-  it('repairs Android-split Klump authorization URLs before loading the WebView', () => {
+  it('repairs Android-split Klump authorization URLs before loading the WebView', async () => {
     mockSearchParams = {
       amount: '120000',
       authorizationUrl:
@@ -336,7 +479,7 @@ describe('BNPLCheckoutScreen', () => {
       trackingToken: 'track-token-123',
     };
 
-    render(<BNPLCheckoutScreen />);
+    await renderReadyBNPLCheckoutScreen();
 
     const webViewUrl = new URL(
       screen.getByText(/^webview:/).props.children.replace('webview:', '')
@@ -353,7 +496,7 @@ describe('BNPLCheckoutScreen', () => {
     expect(webViewUrl.searchParams.get('customerPhone')).toBe('+2348012345678');
   });
 
-  it('falls back to the trusted origin for untrusted Klump authorization URLs', () => {
+  it('falls back to the trusted origin for untrusted Klump authorization URLs', async () => {
     mockSearchParams = {
       amount: '120000',
       authorizationUrl:
@@ -368,7 +511,7 @@ describe('BNPLCheckoutScreen', () => {
       trackingToken: 'track-token-123',
     };
 
-    render(<BNPLCheckoutScreen />);
+    await renderReadyBNPLCheckoutScreen();
 
     const webViewUrl = new URL(
       screen.getByText(/^webview:/).props.children.replace('webview:', '')
@@ -385,8 +528,8 @@ describe('BNPLCheckoutScreen', () => {
     expect(webViewUrl.searchParams.has('steal')).toBe(false);
   });
 
-  it('allows Credit Direct popup windows to render in the Android WebView', () => {
-    render(<BNPLCheckoutScreen />);
+  it('allows Credit Direct popup windows to render in the Android WebView', async () => {
+    await renderReadyBNPLCheckoutScreen();
 
     expect(screen.getByText('popup-windows:true')).toBeTruthy();
     expect(screen.getByText('multi-window:undefined')).toBeTruthy();
@@ -394,8 +537,8 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByText('third-party-cookies:true')).toBeTruthy();
   });
 
-  it('loads allowed Credit Direct popup windows in the same WebView', () => {
-    render(<BNPLCheckoutScreen />);
+  it('loads allowed Credit Direct popup windows in the same WebView', async () => {
+    await renderReadyBNPLCheckoutScreen();
 
     fireEvent.press(
       screen.getByLabelText('mock-bnpl-open-credit-direct-popup')
@@ -406,11 +549,11 @@ describe('BNPLCheckoutScreen', () => {
     );
   });
 
-  it('surfaces untrusted auxiliary popup windows as retryable checkout errors', () => {
+  it('surfaces untrusted auxiliary popup windows as retryable checkout errors', async () => {
     const consoleWarnSpy = jest
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
-    render(<BNPLCheckoutScreen />);
+    await renderReadyBNPLCheckoutScreen();
 
     fireEvent.press(screen.getByLabelText('mock-bnpl-open-untrusted-popup'));
 
@@ -421,8 +564,8 @@ describe('BNPLCheckoutScreen', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('blocks untrusted top-frame navigations from replacing checkout', () => {
-    render(<BNPLCheckoutScreen />);
+  it('blocks untrusted top-frame navigations from replacing checkout', async () => {
+    await renderReadyBNPLCheckoutScreen();
 
     fireEvent.press(
       screen.getByLabelText('mock-bnpl-start-untrusted-top-frame')
@@ -434,8 +577,8 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
-  it('allows configured merchant custom-domain document redirects', () => {
-    render(<BNPLCheckoutScreen />);
+  it('allows configured merchant custom-domain document redirects', async () => {
+    await renderReadyBNPLCheckoutScreen();
     const initialWebViewUrl = screen.getByText(/^webview:/).props.children;
 
     fireEvent.press(
@@ -450,8 +593,8 @@ describe('BNPLCheckoutScreen', () => {
     ).toBeNull();
   });
 
-  it('ignores blank provider popup targets without showing the untrusted checkout error', () => {
-    render(<BNPLCheckoutScreen />);
+  it('ignores blank provider popup targets without showing the untrusted checkout error', async () => {
+    await renderReadyBNPLCheckoutScreen();
 
     const initialWebViewUrl = screen.getByText(/^webview:/).props.children;
     fireEvent.press(screen.getByLabelText('mock-bnpl-open-blank-popup'));
@@ -466,9 +609,9 @@ describe('BNPLCheckoutScreen', () => {
     ).toBeNull();
   });
 
-  it('shows a retryable error when the BNPL checkout page stalls while loading', () => {
+  it('shows a retryable error when the BNPL checkout page stalls while loading', async () => {
     jest.useFakeTimers();
-    render(<BNPLCheckoutScreen />);
+    await renderReadyBNPLCheckoutScreen();
 
     fireEvent.press(screen.getByLabelText('mock-bnpl-load-start'));
 
@@ -484,9 +627,9 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
-  it('routes native BNPL success navigation to the native order success screen', () => {
+  it('routes native BNPL success navigation to the native order success screen', async () => {
     jest.useFakeTimers();
-    render(<BNPLCheckoutScreen />);
+    await renderReadyBNPLCheckoutScreen();
 
     fireEvent.press(
       screen.getByLabelText('mock-bnpl-native-success-navigation')
@@ -509,9 +652,9 @@ describe('BNPLCheckoutScreen', () => {
     });
   });
 
-  it('ignores raw BNPL success messages because they do not prove navigation source', () => {
+  it('ignores raw BNPL success messages because they do not prove navigation source', async () => {
     jest.useFakeTimers();
-    render(<BNPLCheckoutScreen />);
+    await renderReadyBNPLCheckoutScreen();
 
     fireEvent.press(screen.getByLabelText('mock-bnpl-success-message'));
 
@@ -524,8 +667,8 @@ describe('BNPLCheckoutScreen', () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it('preserves WebView errors through immediate follow-up load events', () => {
-    render(<BNPLCheckoutScreen />);
+  it('preserves WebView errors through immediate follow-up load events', async () => {
+    await renderReadyBNPLCheckoutScreen();
 
     fireEvent.press(screen.getByLabelText('mock-bnpl-error-then-load-start'));
 
@@ -533,8 +676,8 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
-  it('allows top-frame redirects to configured merchant custom domains', () => {
-    const { UNSAFE_getByType } = render(<BNPLCheckoutScreen />);
+  it('allows top-frame redirects to configured merchant custom domains', async () => {
+    const { UNSAFE_getByType } = await renderReadyBNPLCheckoutScreen();
     const webView = UNSAFE_getByType(WebView);
 
     const redirectUrl =
@@ -556,13 +699,13 @@ describe('BNPLCheckoutScreen', () => {
     ).toBeNull();
   });
 
-  it('blocks top-frame redirects to route-param spoofed merchant custom domains', () => {
+  it('blocks top-frame redirects to route-param spoofed merchant custom domains', async () => {
     mockSearchParams = {
       ...mockSearchParams,
       merchantDomain: 'evil.example',
     };
 
-    const { UNSAFE_getByType } = render(<BNPLCheckoutScreen />);
+    const { UNSAFE_getByType } = await renderReadyBNPLCheckoutScreen();
     const webView = UNSAFE_getByType(WebView);
 
     const redirectUrl =

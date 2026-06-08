@@ -17,6 +17,10 @@ const BNPL_PROVIDER_POPUP_ORIGINS = new Set([
   'https://api.useklump.com',
   'https://js.useklump.com',
   'https://asset.useklump.com',
+  // Credit Direct credit-profile partner origin; HTTPS verified during live provider checkout investigation.
+  'https://app.mycreditprofile.me',
+  // Stanbic IBTC identity-enrollment partner origin; provider-observed port 8444 and TCP connectivity verified.
+  'https://ienroll.stanbicibtc.com:8444',
 ]);
 const BNPL_PROVIDER_POPUP_HOSTNAMES = ['paystack.com', 'paystack.co'] as const;
 const MERCHANT_DOMAIN_SLUG_PATTERN =

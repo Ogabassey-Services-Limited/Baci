@@ -61,6 +61,28 @@ describe('BNPLCheckoutStatusView', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
+  it('supports a custom retry action label for device settings', () => {
+    const onRetry = jest.fn();
+
+    render(
+      <BNPLCheckoutStatusView
+        colors={colors}
+        gatewayName="Credit Direct"
+        message="Enable camera access in device settings."
+        onBack={jest.fn()}
+        onRetry={onRetry}
+        retryAccessibilityLabel="Open app settings"
+        retryLabel="Open Settings"
+        variant="error"
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Open app settings' }));
+
+    expect(screen.getByText('Open Settings')).toBeTruthy();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   it('announces the successful provider handoff while redirecting', () => {
     render(
       <BNPLCheckoutStatusView

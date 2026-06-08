@@ -18,6 +18,7 @@ function createProps(
   overrides: Partial<BNPLCheckoutWebViewProps> = {}
 ): BNPLCheckoutWebViewProps {
   return {
+    allowsMediaCapture: true,
     amount: '1000',
     bnplUrl:
       'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct',
@@ -73,6 +74,30 @@ describe('BNPLCheckoutWebView', () => {
         injectedJavaScriptForMainFrameOnly: false,
         scalesPageToFit: Platform.OS === 'android',
         textZoom: 100,
+      })
+    );
+  });
+
+  it('uses a same-host scoped media capture grant when explicitly allowed', () => {
+    render(<BNPLCheckoutWebView {...createProps()} />);
+
+    expect(mockWebView).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mediaCapturePermissionGrantType: 'grantIfSameHostElsePrompt',
+        mediaPlaybackRequiresUserAction: false,
+      })
+    );
+  });
+
+  it('keeps embedded provider media capture behind the native prompt by default', () => {
+    render(
+      <BNPLCheckoutWebView {...createProps({ allowsMediaCapture: false })} />
+    );
+
+    expect(mockWebView).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mediaCapturePermissionGrantType: 'prompt',
+        mediaPlaybackRequiresUserAction: false,
       })
     );
   });
