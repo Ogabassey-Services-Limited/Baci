@@ -65,7 +65,7 @@ describe('wallet-screen-savings.handlers', () => {
     expect(setIsAddingSavingsContribution).toHaveBeenLastCalledWith(false);
   });
 
-  it('keeps the idempotency key when wallet refresh fails after a contribution', async () => {
+  it('clears the idempotency key when wallet refresh fails after a contribution', async () => {
     const addSavingsContribution = jest.fn(async () => ({}));
     const clearSavingsContributionAmount = jest.fn();
     const clearIdempotencyKey = jest.fn();
@@ -86,7 +86,7 @@ describe('wallet-screen-savings.handlers', () => {
 
     expect(addSavingsContribution).toHaveBeenCalledTimes(1);
     expect(clearSavingsContributionAmount).toHaveBeenCalledTimes(1);
-    expect(clearIdempotencyKey).not.toHaveBeenCalled();
+    expect(clearIdempotencyKey).toHaveBeenCalledTimes(1);
     expect(Alert.alert).toHaveBeenCalledWith(
       'Savings updated',
       'Added ₦500 to your savings goal, but wallet refresh failed. Pull to refresh your latest balance.'

@@ -84,6 +84,7 @@ export async function addSavingsContributionToGoal({
       }
     }
     clearSavingsContributionAmount();
+    clearIdempotencyKey?.();
     try {
       await refetchWallet();
     } catch {
@@ -93,7 +94,6 @@ export async function addSavingsContributionToGoal({
       );
       return;
     }
-    clearIdempotencyKey?.();
     Alert.alert(
       'Savings updated',
       `Added ${formatNgnCurrency(amount)} to your savings goal.`
