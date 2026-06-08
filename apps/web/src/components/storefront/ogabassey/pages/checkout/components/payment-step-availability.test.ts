@@ -42,10 +42,25 @@ describe('payment-step availability helpers', () => {
           klump_max_amount: '   ',
         },
         currency: 'ngn',
-        orderAmount: 50_000,
-        payableAmount: 50_000,
+        orderAmount: 1_000_000,
+        payableAmount: 1_000_000,
       }),
     ).toBe(true);
+  });
+
+  it('hides Klump above the default one million naira limit', () => {
+    expect(
+      isKlumpEligible({
+        featureSettings: {
+          klump_enabled: true,
+          klump_min_amount: '',
+          klump_max_amount: null,
+        },
+        currency: 'NGN',
+        orderAmount: 1_000_001,
+        payableAmount: 1_000_001,
+      }),
+    ).toBe(false);
   });
 
   it('checks selected payment method and installment availability', () => {

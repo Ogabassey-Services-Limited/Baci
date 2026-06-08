@@ -98,7 +98,7 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   creditDirectMinAmount: 10000,
   creditDirectMaxAmount: 500000,
   klumpMinAmount: 10000,
-  klumpMaxAmount: 500000,
+  klumpMaxAmount: 1000000,
   preferredLocalGateway: 'paystack',
   preferredInternationalGateway: 'korapay',
   shippingProviders: ['gigl', 'topship'],
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
       creditDirectMinAmount: settings.credit_direct_min_amount ?? 10000,
       creditDirectMaxAmount: settings.credit_direct_max_amount ?? 500000,
       klumpMinAmount: settings.klump_min_amount ?? 10000,
-      klumpMaxAmount: settings.klump_max_amount ?? 500000,
+      klumpMaxAmount: settings.klump_max_amount ?? 1000000,
       preferredLocalGateway: normalizePreferredGateway(
         settings.preferred_local_gateway || 'paystack',
         paystackEnabled

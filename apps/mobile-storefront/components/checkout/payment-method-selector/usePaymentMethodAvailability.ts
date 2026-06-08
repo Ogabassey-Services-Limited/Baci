@@ -13,6 +13,7 @@ import {
 
 interface UsePaymentMethodAvailabilityInput {
   enabledMethods?: PaymentMethodType[];
+  hiddenMethods?: PaymentMethodType[];
   methodDisabledReasons: Partial<Record<PaymentMethodType, string>>;
   orderTotal: number;
   selectedMethod: PaymentMethodType;
@@ -35,6 +36,7 @@ export function usePaymentMethodAvailability(
 ): UsePaymentMethodAvailabilityResult {
   const {
     enabledMethods,
+    hiddenMethods = [],
     methodDisabledReasons,
     orderTotal,
     selectedMethod,
@@ -50,22 +52,17 @@ export function usePaymentMethodAvailability(
     orderTotal >= BNPL_MIN_AMOUNT &&
     orderTotal <= BNPL_MAX_AMOUNT;
 
-  const hasBNPLMethods =
-    !enabledMethods ||
-    enabledMethods.some(
-      (method) =>
-        method === 'credpal' || method === 'credit_direct' || method === 'klump'
-    );
-  const hasPayLaterMethods =
-    !enabledMethods ||
-    enabledMethods.some(
-      (method) => method === 'invoice' || method === 'payforme'
-    );
+  const candidateMethods = PAYMENT_METHODS.filter(
+    (method) => !enabledMethods || enabledMethods.includes(method.id)
+  ).filter((method) => !hiddenMethods.includes(method.id));
 
-  const filteredMethods = PAYMENT_METHODS.filter(
-    (method) => method.tab === selectedTab
-  )
-    .filter((method) => !enabledMethods || enabledMethods.includes(method.id))
+  const hasBNPLMethods =
+    candidateMethods.some((method) => method.tab === 'installments');
+  const hasPayLaterMethods =
+    candidateMethods.some((method) => method.tab === 'pay_later');
+
+  const filteredMethods = candidateMethods
+    .filter((method) => method.tab === selectedTab)
     .map((method) => {
       const walletDisablesKlump =
         method.id === 'klump' &&

@@ -16,6 +16,7 @@ interface CheckoutPaymentStepViewProps {
   checkoutSavingsGoal: { id: string; title?: string } | null | undefined;
   colors: ColorsScheme;
   formContentPaddingBottom: number;
+  hiddenPaymentMethods: PaymentMethodSelectorProps['hiddenMethods'];
   isDark: boolean;
   isLoadingCheckoutSavings: boolean;
   klumpDisabledReason: string | undefined;
@@ -40,6 +41,7 @@ export function CheckoutPaymentStepView({
   checkoutSavingsGoal,
   colors,
   formContentPaddingBottom,
+  hiddenPaymentMethods,
   isDark,
   isLoadingCheckoutSavings,
   klumpDisabledReason,
@@ -92,6 +94,7 @@ export function CheckoutPaymentStepView({
         onSelectTab={onSelectPaymentTab}
         orderTotal={total}
         enabledMethods={availablePaymentMethods}
+        hiddenMethods={hiddenPaymentMethods}
         walletMode="orders"
         walletBalance={walletBalance}
         walletOrderTotal={total}

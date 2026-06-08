@@ -9,6 +9,8 @@ export interface KlumpPaymentSettings {
   klump_min_amount?: number | null;
 }
 
+const KLUMP_DEFAULT_MAX_AMOUNT = 1_000_000;
+
 interface BuildKlumpInitializePayloadInput {
   customerEmail: string;
   customerName: string;
@@ -58,12 +60,29 @@ export function getKlumpDisabledReason(
     return `Minimum order: ${formatKlumpAmount(minAmount)}`;
   }
 
-  const maxAmount = settings.klump_max_amount ?? 500_000;
+  const maxAmount = settings.klump_max_amount ?? KLUMP_DEFAULT_MAX_AMOUNT;
   if (orderTotal > maxAmount) {
     return `Maximum order: ${formatKlumpAmount(maxAmount)}`;
   }
 
   return undefined;
+}
+
+/**
+ * Returns true only when Klump is enabled and the order total exceeds the
+ * merchant-configured maximum, falling back to the default max amount when
+ * KlumpPaymentSettings does not provide one.
+ */
+export function shouldHideKlumpPaymentMethod(
+  settings: KlumpPaymentSettings | undefined | null,
+  orderTotal: number
+): boolean {
+  if (!settings?.klump_enabled || !Number.isFinite(orderTotal)) {
+    return false;
+  }
+
+  const maxAmount = settings.klump_max_amount ?? KLUMP_DEFAULT_MAX_AMOUNT;
+  return orderTotal > maxAmount;
 }
 
 export function buildKlumpInitializePayload({
