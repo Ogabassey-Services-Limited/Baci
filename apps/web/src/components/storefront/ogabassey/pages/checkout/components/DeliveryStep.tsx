@@ -131,9 +131,9 @@ export function DeliveryStep({
                 {user && addresses.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                      <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
                         Where should we deliver?
-                      </label>
+                      </p>
                       <button type="button"
                         onClick={() => setIsNewAddressMode(!isNewAddressMode)}
                         className="text-xs font-bold text-store-primary hover:underline"
@@ -184,10 +184,11 @@ export function DeliveryStep({
                 {/* New Address Form */}
                 {(isNewAddressMode || !user || addresses.length === 0) && (
                   <div className="space-y-4" style={{ overflow: 'visible' }}>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <label htmlFor="checkout-street-address" className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
                       {user && addresses.length > 0 ? 'Enter New Address' : 'Delivery Address'}
                     </label>
                     <AddressAutocomplete
+                      id="checkout-street-address"
                       value={newAddressStreet}
                       useThemedInput={true}
                       onChange={(val) => {
@@ -245,9 +246,9 @@ export function DeliveryStep({
               {isHydrated && ((newAddressState && newAddressCity) || (!isNewAddressMode && selectedAddressId)) && (
                 <>
                   <div className="mt-6 pt-4 border-t border-gray-100">
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+                    <p className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
                       How would you like to receive your order?
-                    </label>
+                    </p>
                     <div className="flex gap-3 overflow-x-auto pb-1">
                       {(['door', 'pickup', 'airport'] as const).map((method) => {
                         // Filter out Pickup if not in Lagos (store is in Lagos)
@@ -382,9 +383,9 @@ export function DeliveryStep({
                   {/* Door Delivery - Quote Selector */}
                   {deliveryMethod === 'door' && (
                     <div className="mt-6 border-t border-gray-100 pt-4">
-                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+                      <p className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
                         Select Delivery Option
-                      </label>
+                      </p>
 
                       {isLoadingQuotes ? (
                         <SmartQuoteLoader />
