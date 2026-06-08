@@ -47,13 +47,53 @@ describe('storefront-loading-ui', () => {
     expect(image).toHaveAttribute('decoding', 'sync');
     expect(image).toHaveAttribute('width', '960');
     expect(image).toHaveAttribute('height', '540');
-    expect(image).toHaveClass('h-full', 'w-full', 'object-contain');
+    expect(image).toHaveClass('storefront-shell-loading__mobile-hero-image', {
+      exact: true,
+    });
 
     const sources = container.querySelectorAll('source');
     expect(sources[0]).toHaveAttribute('srcset', '/hero-mobile.avif');
     expect(sources[0]).toHaveAttribute('type', 'image/avif');
     expect(sources[1]).toHaveAttribute('srcset', '/hero-mobile.jpg');
     expect(sources[1]).toHaveAttribute('type', 'image/jpeg');
+  });
+
+  it('does not rely on external CSS for critical shell fallback geometry', () => {
+    const { container } = render(
+      <ShellChromeLoading
+        mobileHeroImage={{
+          alt: 'OgaBassey storefront hero',
+          avifSrc: '/hero-mobile.avif',
+          fallbackSrc: '/hero-mobile.jpg',
+        }}
+      />
+    );
+
+    const shell = container.querySelector('.storefront-shell-loading');
+    const picture = container.querySelector(
+      '.storefront-shell-loading__mobile-hero'
+    );
+    const image = screen.getByRole('img', {
+      name: 'OgaBassey storefront hero',
+    });
+    const bar = container.querySelector('.storefront-shell-loading__bar');
+
+    expect(shell).toHaveStyle({
+      background: 'var(--store-background, #ffffff)',
+      boxSizing: 'border-box',
+      padding: '0.75rem 1rem',
+    });
+    expect(picture).toHaveStyle({
+      aspectRatio: '16 / 9',
+      overflow: 'hidden',
+    });
+    expect(image).toHaveStyle({
+      height: 'auto',
+      objectFit: 'contain',
+    });
+    expect(bar).toHaveStyle({
+      height: '2.5rem',
+    });
   });
 
   it('renders the shared route loading primitives', () => {
