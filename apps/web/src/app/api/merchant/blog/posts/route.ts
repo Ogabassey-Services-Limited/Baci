@@ -21,6 +21,7 @@ import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
+import { createServiceClient } from '@/lib/supabase/service';
 import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
 
@@ -425,7 +426,7 @@ export async function POST(request: NextRequest) {
           const result = await dispatchZohoBlogCampaign({
             context: dispatchContext,
             post: newPost,
-            supabase,
+            supabase: createServiceClient(),
           });
           console.log('Zoho Campaigns blog dispatch result', result);
         } catch (error) {

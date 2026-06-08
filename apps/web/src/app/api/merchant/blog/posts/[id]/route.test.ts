@@ -4,6 +4,10 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 // ---- Mocks ----
 
+const mockServiceSupabase = vi.hoisted(() => ({
+  client: { source: 'service-role' },
+}));
+
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://test.supabase.co',
   getSupabaseAnonKey: () => 'test-anon-key',
@@ -59,6 +63,10 @@ vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
 vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
   dispatchZohoBlogCampaign: (...args: unknown[]) =>
     mockDispatchZohoBlogCampaign(...args),
+}));
+
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: () => mockServiceSupabase.client,
 }));
 
 // Mock embeddings
@@ -818,7 +826,7 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
           id: POST_ID,
           status: 'published',
         }),
-        supabase: mockSupabase,
+        supabase: mockServiceSupabase.client,
       });
     });
 
