@@ -17,8 +17,10 @@ function mockMatchMedia(matches: boolean) {
   });
 }
 
+const mockUseMerchantSafe = vi.hoisted(() => vi.fn(() => null));
+
 vi.mock('@/hooks/merchant/use-merchant', () => ({
-  useMerchantSafe: () => ({ basePath: '/ogabassey' }),
+  useMerchantSafe: () => mockUseMerchantSafe(),
 }));
 
 vi.mock('next/link', () => ({
@@ -103,6 +105,16 @@ describe('Hero', () => {
     render(<Hero />);
 
     expect(screen.getByTestId('utility-panel')).toBeInTheDocument();
+  });
+
+  it('uses an explicit server-resolved base path for product calls to action', () => {
+    render(<Hero basePath="/ogabassey" />);
+
+    expect(screen.getAllByRole('link', { name: /shop now/i })[0]).toHaveAttribute(
+      'href',
+      '/ogabassey/products'
+    );
+    expect(mockUseMerchantSafe).not.toHaveBeenCalled();
   });
 
   it('loads the desktop hero chunk only after desktop viewport detection', () => {

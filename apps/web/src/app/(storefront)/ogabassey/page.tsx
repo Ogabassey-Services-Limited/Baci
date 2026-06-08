@@ -65,15 +65,23 @@ export const metadata: Metadata = {
   },
 };
 
-export default function OgabasseyStaticHomePage() {
+export function OgabasseyStaticHomePageContent({
+  heroBasePath,
+}: {
+  heroBasePath: string;
+}) {
   return (
     <>
       <OgabasseyStaticResourceHints />
       {/* The storefront layout blocks unpublished merchants before rendering children; keep Hero in this page shell so mobile LCP is not delayed by dynamic home data. */}
-      <Hero />
+      <Hero basePath={heroBasePath} />
       <Suspense fallback={null}>
         <OgabasseyHomePageContent renderHero={false} />
       </Suspense>
     </>
   );
+}
+
+export default function OgabasseyStaticHomePage() {
+  return <OgabasseyStaticHomePageContent heroBasePath="/ogabassey" />;
 }

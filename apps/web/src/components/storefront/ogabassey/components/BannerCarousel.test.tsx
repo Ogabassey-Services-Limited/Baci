@@ -19,9 +19,6 @@ vi.mock('next/link', () => ({
     <a {...props}>{children}</a>
   ),
 }));
-vi.mock('@/hooks/merchant/use-merchant', () => ({
-  useMerchantSafe: vi.fn(() => ({ merchant: { id: 'm-1', slug: 'test' } })),
-}));
 vi.mock('@/lib/routes', () => ({
   asRoute: vi.fn((path: string) => path),
 }));
@@ -42,7 +39,7 @@ vi.mock('./AdUnit', () => ({
   AdUnit: (props: Record<string, unknown>) => mockAdUnit(props),
 }));
 
-import { BannerCarousel } from './BannerCarousel';
+import { BannerCarousel, resolveBannerHref } from './BannerCarousel';
 import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
 
 describe('BannerCarousel', () => {
@@ -53,6 +50,19 @@ describe('BannerCarousel', () => {
   it('renders without crashing', () => {
     const { container } = render(<BannerCarousel />);
     expect(container).toBeDefined();
+  });
+
+  it('normalizes relative banner links against the route base path', () => {
+    expect(resolveBannerHref('/ogabassey', 'products')).toBe(
+      '/ogabassey/products'
+    );
+    expect(resolveBannerHref('/ogabassey/', '/products')).toBe(
+      '/ogabassey/products'
+    );
+    expect(resolveBannerHref('', '/')).toBe('');
+    expect(resolveBannerHref('/ogabassey', 'https://example.com')).toBe(
+      'https://example.com'
+    );
   });
 
   it('does not request removed CDN banner assets or preload below-fold banners', () => {

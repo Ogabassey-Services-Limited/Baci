@@ -6,7 +6,6 @@ import Link from 'next/link';
 import type React from 'react';
 import { Fragment, useEffect, useState } from 'react';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
-import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
 import { AD_CONFIG } from '../config/ads';
 import { products as mockProducts } from '../data/products';
 import { useDeferredActivation } from './deferred-shell-feature';
@@ -37,6 +36,7 @@ interface ProductGridItemModule {
 }
 
 interface HomeProductGridProps {
+  basePath?: string;
   storeSlug?: string;
   products?: Product[];
   title?: string;
@@ -101,6 +101,7 @@ function renderProductGridAdFallback() {
 }
 
 export function HomeProductGrid({
+  basePath: explicitBasePath,
   storeSlug,
   products,
   title = 'Featured Products',
@@ -119,7 +120,6 @@ export function HomeProductGrid({
   const [InteractiveCard, setInteractiveCard] = useState<
     ProductGridItemModule['ProductGridItem'] | null
   >(null);
-  const merchantContext = useMerchantSafe();
   const interactionsActivated = useDeferredActivation({
     timeoutMs: 0,
     activateOnIdle: false,
@@ -169,7 +169,7 @@ export function HomeProductGrid({
   ]);
 
   const rawBasePath =
-    merchantContext?.basePath ?? (storeSlug ? `/${storeSlug}` : '');
+    explicitBasePath ?? (storeSlug ? `/${storeSlug}` : '');
   const normalizedBasePath = rawBasePath.trim().replace(/\/+$/, '');
   const basePath =
     normalizedBasePath && !normalizedBasePath.startsWith('/')

@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { mapHomeProductsToTemplateProducts } from '@/app/(storefront)/ogabassey/ogabassey-home-product-adapter';
-import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
+import {
+  AnalyticsPixelProvider,
+  type MerchantWithAnalytics,
+} from '@/components/analytics/analytics-pixel-provider';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
 import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
 import { OgabasseyHomePage } from '@/components/storefront/ogabassey/pages/home';
@@ -96,6 +99,36 @@ function buildOrganizationGraphSchema(merchant: OgabasseyMerchant) {
   };
 }
 
+function getMerchantAnalyticsSettings(
+  merchant: OgabasseyMerchant
+): MerchantWithAnalytics {
+  const featureSettings =
+    merchant.feature_settings &&
+    typeof merchant.feature_settings === 'object' &&
+    !Array.isArray(merchant.feature_settings)
+      ? (merchant.feature_settings as Record<string, unknown>)
+      : null;
+  const legacyMerchantSettings = merchant as unknown as Record<string, unknown>;
+  const getPublicAnalyticsId = (key: keyof MerchantWithAnalytics) => {
+    const value = featureSettings?.[key] ?? legacyMerchantSettings[key];
+
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed || null;
+  };
+
+  return {
+    google_analytics_id: getPublicAnalyticsId('google_analytics_id'),
+    facebook_pixel_id: getPublicAnalyticsId('facebook_pixel_id'),
+    tiktok_pixel_id: getPublicAnalyticsId('tiktok_pixel_id'),
+    snapchat_pixel_id: getPublicAnalyticsId('snapchat_pixel_id'),
+    twitter_pixel_id: getPublicAnalyticsId('twitter_pixel_id'),
+  };
+}
+
 export async function OgabasseyHomeDynamicContent({
   merchant,
   pathPrefix,
@@ -168,8 +201,11 @@ export async function OgabasseyHomeDynamicContent({
           {safeJsonLdStringify(homeCollectionSchema)}
         </script>
       ) : null}
-      <AnalyticsProvider />
+      <AnalyticsPixelProvider
+        merchant={getMerchantAnalyticsSettings(merchant)}
+      />
       <OgabasseyHomePage
+        basePath={pathPrefix}
         categories={categories || []}
         products={createOgabasseyHomeProductFeed(merchantProducts)}
         renderHero={false}

@@ -21,7 +21,9 @@ const mockMerchant = {
   social_media: undefined,
   business_address: '',
   is_published: true,
-  feature_settings: undefined,
+  feature_settings: {
+    google_analytics_id: 'G-OGABASSEY',
+  },
   template_id: 'ogabassey',
   vat_registration_status: undefined,
   vat_rate: undefined,
@@ -49,22 +51,32 @@ vi.mock('@/lib/cached-categories', () => ({
   ),
 }));
 
-vi.mock('@/components/analytics/analytics-provider', () => ({
-  AnalyticsProvider: () => <div data-testid="analytics-provider" />,
+vi.mock('@/components/analytics/analytics-pixel-provider', () => ({
+  AnalyticsPixelProvider: ({
+    merchant,
+  }: {
+    merchant?: { google_analytics_id?: string | null } | null;
+  }) => (
+    <div data-testid="analytics-pixel-provider">
+      {merchant?.google_analytics_id}
+    </div>
+  ),
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
   OgabasseyHomePage: ({
+    basePath,
     products,
     renderHero,
     storeSlug,
   }: {
+    basePath?: string;
     products?: unknown[];
     renderHero?: boolean;
     storeSlug?: string;
   }) => (
     <div data-testid="ogabassey-home">
-      {storeSlug}:{products?.length ?? 0}:{String(renderHero)}
+      {storeSlug}:{basePath}:{products?.length ?? 0}:{String(renderHero)}
     </div>
   ),
 }));
@@ -139,9 +151,11 @@ describe('OgabasseyHomeDynamicContent', () => {
 
     render(result as ReactElement);
 
-    expect(screen.getByTestId('analytics-provider')).toBeInTheDocument();
+    expect(screen.getByTestId('analytics-pixel-provider')).toHaveTextContent(
+      'G-OGABASSEY'
+    );
     expect(screen.getByTestId('ogabassey-home')).toHaveTextContent(
-      'ogabassey:1:false'
+      'ogabassey:/ogabassey:1:false'
     );
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])

@@ -14,6 +14,7 @@ import {
 
 // Define the expected props
 interface HomePageProps {
+  basePath?: string;
   storeSlug?: string;
   products?: Product[];
   categories?: { name: string; slug: string }[];
@@ -21,13 +22,14 @@ interface HomePageProps {
 }
 
 export const OgabasseyHomePage: React.FC<HomePageProps> = ({
+  basePath,
   storeSlug,
   products,
   renderHero = true,
 }) => {
   return (
     <>
-      {renderHero && <Hero />}
+      {renderHero && <Hero basePath={basePath} />}
 
       {/* Ad Placement: Homepage Strip */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4">
@@ -47,6 +49,7 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
       {/* Horizontal Carousel Banner - Desktop Only */}
       <div className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6 content-auto [contain-intrinsic-size:1400px_220px]">
         <DeferredBannerCarousel
+          basePath={basePath}
           className="h-40 md:h-52"
           fallback={
             <div
@@ -61,6 +64,7 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
       {/* Suspense boundary keeps the featured-products section non-blocking */}
       <Suspense>
         <HomeProductGrid
+          basePath={basePath}
           storeSlug={storeSlug}
           products={products}
           initialDisplayCount={8}

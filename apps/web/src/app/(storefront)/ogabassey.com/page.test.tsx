@@ -1,9 +1,16 @@
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-const { mockDomainPage, mockFullStorefrontCssImport } = vi.hoisted(() => ({
-  mockDomainPage: vi.fn(() => null),
-  mockFullStorefrontCssImport: vi.fn(),
-}));
+const { mockStaticHomePageContent, mockFullStorefrontCssImport } = vi.hoisted(
+  () => ({
+    mockStaticHomePageContent: vi.fn(
+      ({ heroBasePath }: { heroBasePath: string }) => (
+        <div data-testid="domain-page">{heroBasePath || 'root'}</div>
+      )
+    ),
+    mockFullStorefrontCssImport: vi.fn(),
+  })
+);
 
 vi.mock('@/app/(storefront)/storefront-full.css', () => {
   mockFullStorefrontCssImport();
@@ -11,7 +18,7 @@ vi.mock('@/app/(storefront)/storefront-full.css', () => {
 });
 
 vi.mock('@/app/(storefront)/ogabassey/page', () => ({
-  default: mockDomainPage,
+  OgabasseyStaticHomePageContent: mockStaticHomePageContent,
   metadata: {
     title: 'OgaBassey - Official Online Store | Baci',
   },
@@ -24,8 +31,14 @@ describe('OgabasseyDomainPage', () => {
     expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
   });
 
-  it('re-exports the static OgaBassey homepage implementation', () => {
-    expect(OgabasseyDomainPage).toBe(mockDomainPage);
+  it('renders the static OgaBassey homepage with the custom-domain base path', () => {
+    render(<OgabasseyDomainPage />);
+
+    expect(screen.getByTestId('domain-page')).toHaveTextContent('root');
+    expect(mockStaticHomePageContent).toHaveBeenCalledWith(
+      { heroBasePath: '' },
+      undefined
+    );
     expect(metadata).toEqual({
       title: 'OgaBassey - Official Online Store | Baci',
     });

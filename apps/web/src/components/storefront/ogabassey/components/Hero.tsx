@@ -3,7 +3,6 @@
 import dynamic from 'next/dynamic';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
 import { HeroMobileCarousel } from './hero-mobile-carousel';
 import { HeroUtilityPanel } from './hero-utility-panel';
 
@@ -25,11 +24,26 @@ const DeferredHeroDesktopGrid = dynamic(
   { ssr: false, loading: () => desktopHeroFallback }
 );
 
-export const Hero: React.FC = () => {
+interface HeroProps {
+  basePath?: string;
+}
+
+function normalizeBasePath(basePath: string) {
+  const normalizedBasePath = basePath.trim().replace(/\/+$/, '');
+
+  if (!normalizedBasePath) {
+    return '';
+  }
+
+  return normalizedBasePath.startsWith('/')
+    ? normalizedBasePath
+    : `/${normalizedBasePath}`;
+}
+
+export const Hero: React.FC<HeroProps> = ({ basePath = '' }) => {
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [hasResolvedViewport, setHasResolvedViewport] = useState(false);
-  const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath;
+  const normalizedBasePath = normalizeBasePath(basePath);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(min-width: 768px)');
@@ -54,7 +68,9 @@ export const Hero: React.FC = () => {
   }, []);
 
   const getHref = (path: string) =>
-    path.startsWith('http') ? path : `${basePath || ''}${path === '/' ? '' : path}`;
+    path.startsWith('http')
+      ? path
+      : `${normalizedBasePath}${path === '/' ? '' : path}`;
 
   return (
     <div className="w-full bg-white relative">
