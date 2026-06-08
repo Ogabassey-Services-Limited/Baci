@@ -36,7 +36,7 @@ describe('NavbarSecondaryNav', () => {
       screen.getByRole('button', { name: /shop by category/i })
     );
 
-    expect(screen.getByRole('link', { name: 'Phones' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Phones' })).toHaveAttribute(
       'href',
       '/ogabassey/smartphones'
     );
