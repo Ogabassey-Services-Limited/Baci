@@ -65,6 +65,14 @@ function buildSavingsReminderTrigger({
   const hour = scheduledAt.getHours();
   const minute = scheduledAt.getMinutes();
 
+  if (scheduledAt.getTime() > Date.now()) {
+    return {
+      channelId,
+      date: scheduledAt,
+      type: notifications.SchedulableTriggerInputTypes.DATE,
+    };
+  }
+
   if (frequency === 'daily') {
     return {
       channelId,

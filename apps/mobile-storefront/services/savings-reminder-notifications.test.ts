@@ -16,6 +16,7 @@ jest.mock('expo-notifications', () => ({
   AndroidImportance: { DEFAULT: 'default' },
   SchedulableTriggerInputTypes: {
     DAILY: 'daily',
+    DATE: 'date',
     MONTHLY: 'monthly',
     WEEKLY: 'weekly',
   },
@@ -83,7 +84,7 @@ describe('scheduleSavingsReminderNotification', () => {
       contributionAmount: 500,
       frequency: 'weekly',
       goalId: 'goal-1',
-      scheduledAt: new Date(2026, 5, 8, 9, 30),
+      scheduledAt: new Date(2020, 5, 8, 9, 30),
       goalTitle: 'iPhone 15 Pro',
     });
 
@@ -128,7 +129,7 @@ describe('scheduleSavingsReminderNotification', () => {
       frequency: 'daily',
       goalId: 'goal-1',
       goalTitle: 'iPhone 15 Pro',
-      scheduledAt: new Date(2026, 5, 8, 9, 30),
+      scheduledAt: new Date(2020, 5, 8, 9, 30),
     });
 
     expect(
@@ -152,7 +153,7 @@ describe('scheduleSavingsReminderNotification', () => {
       frequency: 'monthly',
       goalId: 'goal-1',
       goalTitle: 'iPhone 15 Pro',
-      scheduledAt: new Date(2026, 5, 8, 9, 30),
+      scheduledAt: new Date(2020, 5, 8, 9, 30),
     });
 
     expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith(
@@ -163,6 +164,28 @@ describe('scheduleSavingsReminderNotification', () => {
           hour: 9,
           minute: 30,
           type: 'monthly',
+        },
+      })
+    );
+  });
+
+  it('uses a date trigger when the savings start time is in the future', async () => {
+    const scheduledAt = new Date(2099, 5, 8, 9, 30);
+
+    await scheduleSavingsReminderNotification({
+      contributionAmount: 500,
+      frequency: 'weekly',
+      goalId: 'goal-1',
+      goalTitle: 'iPhone 15 Pro',
+      scheduledAt,
+    });
+
+    expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: {
+          channelId: 'savings',
+          date: scheduledAt,
+          type: 'date',
         },
       })
     );

@@ -31,6 +31,7 @@ const SavingsProductVariantSchema = z.object({
   image: z.string().nullable().optional(),
   images: z.array(z.string()).nullable().optional(),
   name: z.string().nullable().optional(),
+  primary_image: z.string().nullable().optional(),
   sku: z.string().nullable().optional(),
 });
 
@@ -100,6 +101,7 @@ export function getActiveSavingsGoal(rows: unknown[]): SavingsGoalData | null {
   return (
     goals.find((goal) => goal.status === 'active') ??
     goals.find((goal) => goal.status === 'paused') ??
+    goals.find((goal) => goal.status === 'completed') ??
     null
   );
 }
@@ -131,8 +133,10 @@ export function toActiveSavingsGoal({
       : null;
   const variantImages = selectedVariant?.images?.length
     ? normalizeProductImages(selectedVariant.images)
-    : selectedVariant?.image
-      ? normalizeProductImages([selectedVariant.image])
+    : (selectedVariant?.primary_image ?? selectedVariant?.image)
+      ? normalizeProductImages([
+          selectedVariant.primary_image ?? selectedVariant.image ?? '',
+        ])
       : undefined;
   const productImages =
     variantImages ??

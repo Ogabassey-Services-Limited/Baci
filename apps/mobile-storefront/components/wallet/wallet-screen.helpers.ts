@@ -1,9 +1,9 @@
+import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import {
   WALLET_TOP_UP_MAX_AMOUNT,
   WALLET_TOP_UP_MIN_AMOUNT,
 } from '@/lib/wallet-top-up-constants';
-import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
 interface CustomerLike {
@@ -11,11 +11,9 @@ interface CustomerLike {
   first_name?: string | null;
   last_name?: string | null;
 }
-
 interface UserLike {
   email?: string | null;
 }
-
 interface WalletFundingAccountLike {
   account_name?: string | null;
   account_number?: string | null;
@@ -315,7 +313,9 @@ export function deriveWalletDisplayData(walletData: WalletDataLike) {
     activeSavingsGoal: walletData.active_savings_goal ?? null,
     fundingAccount,
     savingsBalance,
-    showQuickSave: Boolean(walletData.active_savings_goal),
+    showQuickSave:
+      walletData.active_savings_goal?.status !== 'completed' &&
+      Boolean(walletData.active_savings_goal),
     totalBalance,
   };
 }

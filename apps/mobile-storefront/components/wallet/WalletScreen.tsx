@@ -205,7 +205,7 @@ export function WalletScreen({
     totalBalance,
   } = deriveWalletDisplayData(walletData);
   const handleOpenSavings = () => {
-    if (activeSavingsGoal) {
+    if (activeSavingsGoal && activeSavingsGoal.status !== 'completed') {
       setShowSavingsProgressModal(true);
       return;
     }

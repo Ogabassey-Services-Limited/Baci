@@ -30,10 +30,22 @@ describe('wallet savings data helpers', () => {
     ).toEqual(activeGoal);
   });
 
-  it('does not treat completed goals as the active add-to-savings target', () => {
+  it('falls back to completed goals for completed-state display', () => {
+    const completedGoal = {
+      ...activeGoal,
+      status: 'completed',
+    } satisfies SavingsGoalData;
+
+    expect(getActiveSavingsGoal([completedGoal])).toEqual(completedGoal);
+  });
+
+  it('prefers paused goals over completed goals', () => {
     expect(
-      getActiveSavingsGoal([{ ...activeGoal, status: 'completed' }])
-    ).toBeNull();
+      getActiveSavingsGoal([
+        { ...activeGoal, id: 'goal-completed', status: 'completed' },
+        { ...activeGoal, id: 'goal-paused', status: 'paused' },
+      ])
+    ).toEqual({ ...activeGoal, id: 'goal-paused', status: 'paused' });
   });
 
   it('hydrates active savings goal display metadata from product data', () => {
@@ -139,6 +151,31 @@ describe('wallet savings data helpers', () => {
     ).toEqual(
       expect.objectContaining({
         product_image: 'https://cdn.example.com/variant-single.jpg',
+      })
+    );
+  });
+
+  it('prefers a selected variant primary image from product embeds', () => {
+    expect(
+      toActiveSavingsGoal({
+        goal: activeGoal,
+        product: {
+          condition: 'uk_used',
+          id: 'product-1',
+          images: ['https://cdn.example.com/product.jpg'],
+          name: 'iPhone 15 Pro',
+          variants: [
+            {
+              attributes: { storage: '256GB' },
+              id: 'variant-1',
+              primary_image: 'https://cdn.example.com/variant-primary.jpg',
+            },
+          ],
+        },
+      })
+    ).toEqual(
+      expect.objectContaining({
+        product_image: 'https://cdn.example.com/variant-primary.jpg',
       })
     );
   });

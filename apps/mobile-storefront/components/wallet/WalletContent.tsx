@@ -4,6 +4,7 @@ import { RefreshControl, ScrollView, Text, TextInput } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
+import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletHeroSection } from './WalletHeroSection';
 import { WalletPanelActionButtons } from './WalletPanelActionButtons';
@@ -14,7 +15,6 @@ import {
   WalletTransactionHistory,
 } from './WalletTransactionHistory';
 import { styles } from './wallet.styles';
-import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
 type WalletColors = (typeof Colors)['light'];
@@ -141,7 +141,7 @@ export function WalletContent({
 
         <WalletActionsRow
           colors={colors}
-          hasActiveSavingsGoal={Boolean(activeSavingsGoal)}
+          hasActiveSavingsGoal={showQuickSave}
           onManageCards={onManageCards}
           onQuickSave={onQuickSave}
           onStartSavings={onStartSavings}

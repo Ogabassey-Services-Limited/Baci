@@ -39,9 +39,11 @@ function setupSupabaseTables(
     ...overrides,
   };
   const tableCalls: string[] = [];
+  const selectCalls: Record<string, string[]> = {};
 
   mockFrom.mockImplementation((table: string) => {
     tableCalls.push(table);
+    selectCalls[table] = [];
     const query = {
       eq: jest.fn(() => query),
       in: jest.fn(() => query),
@@ -52,12 +54,17 @@ function setupSupabaseTables(
           ? Promise.resolve(tableResults[table])
           : query
       ),
-      select: jest.fn(() => query),
+      select: jest.fn((columns?: string) => {
+        if (typeof columns === 'string') {
+          selectCalls[table].push(columns);
+        }
+        return query;
+      }),
     };
     return query;
   });
 
-  return { tableCalls };
+  return { selectCalls, tableCalls };
 }
 
 describe('fetchWalletData', () => {
@@ -97,7 +104,7 @@ describe('fetchWalletData', () => {
   });
 
   it('combines wallet, funding account, savings balance, and valid transactions', async () => {
-    const { tableCalls } = setupSupabaseTables({
+    const { selectCalls, tableCalls } = setupSupabaseTables({
       customer_wallet_payment_accounts: createResult({
         account_name: 'Ogabassey/Jane Doe',
         account_number: '1234567890',
@@ -201,6 +208,9 @@ describe('fetchWalletData', () => {
       total_balance: 40000.5,
     });
     expect(tableCalls).not.toContain('products');
+    expect(selectCalls.customer_savings_goals[0]).toContain(
+      'variants:product_variants!product_variants_product_id_fkey'
+    );
     expect(result.transactions).toEqual([
       {
         amount: 2500,

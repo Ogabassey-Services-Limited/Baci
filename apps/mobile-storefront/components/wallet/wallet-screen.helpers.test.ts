@@ -180,6 +180,30 @@ describe('wallet-screen.helpers', () => {
     });
   });
 
+  it('keeps completed savings goals displayable without enabling quick save', () => {
+    expect(
+      deriveWalletDisplayData({
+        active_savings_goal: {
+          contribution_amount: 10000,
+          contribution_frequency: 'weekly',
+          current_amount: 100,
+          id: 'goal-1',
+          maturity_date: '2026-09-30',
+          source_mode: 'manual',
+          status: 'completed',
+          target_amount: 100,
+          title: 'Device goal',
+        },
+        balance: 10,
+      })
+    ).toEqual(
+      expect.objectContaining({
+        activeSavingsGoal: expect.objectContaining({ status: 'completed' }),
+        showQuickSave: false,
+      })
+    );
+  });
+
   it('resolves funding-account creation outcomes', async () => {
     await expect(
       resolveCreateFundingAccountOutcome(async () => ({
@@ -203,7 +227,7 @@ describe('wallet-screen.helpers', () => {
     ).resolves.toEqual({ status: 'success' });
 
     await expect(
-      resolveCreateFundingAccountOutcome(async () => {
+      resolveCreateFundingAccountOutcome(() => {
         throw new Error('Request failed');
       })
     ).resolves.toEqual({
@@ -251,7 +275,7 @@ describe('wallet-screen.helpers', () => {
       resolveWalletRedeemPointsOutcome({
         minimumRedeemablePoints: VTU_MIN_REDEEMABLE_POINTS,
         rawPoints: '200',
-        redeemPoints: async () => {
+        redeemPoints: () => {
           throw new Error('Redeem failed');
         },
       })

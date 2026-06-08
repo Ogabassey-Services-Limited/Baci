@@ -73,7 +73,6 @@ export async function addSavingsContributionToGoal({
       merchantId: activeMerchantId,
       merchantSlug: activeMerchantSlug,
     });
-    clearIdempotencyKey?.();
     if (
       amount >= remainingAmount ||
       isCompletedSavingsContributionResult(contributionResult)
@@ -85,7 +84,16 @@ export async function addSavingsContributionToGoal({
       }
     }
     clearSavingsContributionAmount();
-    await refetchWallet();
+    try {
+      await refetchWallet();
+    } catch {
+      Alert.alert(
+        'Savings updated',
+        `Added ${formatNgnCurrency(amount)} to your savings goal, but wallet refresh failed. Pull to refresh your latest balance.`
+      );
+      return;
+    }
+    clearIdempotencyKey?.();
     Alert.alert(
       'Savings updated',
       `Added ${formatNgnCurrency(amount)} to your savings goal.`

@@ -73,9 +73,7 @@ function getJoinedSavingsGoalProduct({
 }) {
   const sourceRow = rows.find(
     (row) =>
-      row &&
-      typeof row === 'object' &&
-      (row as { id?: unknown }).id === goalId
+      row && typeof row === 'object' && (row as { id?: unknown }).id === goalId
   );
   if (!sourceRow || typeof sourceRow !== 'object') {
     return undefined;
@@ -203,7 +201,7 @@ export async function fetchWalletData(
     supabase
       .from('customer_savings_goals')
       .select(
-        'id, product_id, variant_id, title, product_snapshot, target_amount, current_amount, contribution_amount, contribution_frequency, source_mode, status, maturity_date, products(id, name, images, condition, variants)'
+        'id, product_id, variant_id, title, product_snapshot, target_amount, current_amount, contribution_amount, contribution_frequency, source_mode, status, maturity_date, products(id, name, images, condition, variants:product_variants!product_variants_product_id_fkey(id, condition, sku, primary_image, images, attributes))'
       )
       .eq('merchant_id', merchantId)
       .eq('customer_id', resolvedCustomerId)
