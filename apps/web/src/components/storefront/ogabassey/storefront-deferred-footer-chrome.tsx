@@ -1,15 +1,10 @@
 'use client';
 
-import { lazy, Suspense } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { AdUnit } from './components/AdUnit';
 import { DeferredCartSidebar } from './components/deferred-cart-sidebar';
 import { DeferredChatWidget } from './components/chat/DeferredChatWidget';
-
-const DeferredFooter = lazy(async () => {
-  const module = await import('./components/Footer');
-  return { default: module.Footer };
-});
+import { Footer } from './components/Footer';
 
 interface StorefrontDeferredFooterChromeProps {
   merchant?: MerchantData;
@@ -28,9 +23,7 @@ export function StorefrontDeferredFooterChrome({
       </div>
 
       <div className="content-auto [contain-intrinsic-size:1400px_480px]">
-        <Suspense fallback={null}>
-          <DeferredFooter merchant={merchant} storeSlug={basePath} />
-        </Suspense>
+        <Footer merchant={merchant} storeSlug={basePath} />
       </div>
 
       <DeferredCartSidebar />
