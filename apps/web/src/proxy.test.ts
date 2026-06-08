@@ -743,7 +743,7 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
-  it('puts Next PPR DOM bots in the metadata-blocking cache bucket', async () => {
+  it('keeps the main Googlebot crawler in the streaming metadata bucket', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
     );
@@ -751,9 +751,36 @@ describe('Middleware Proxy', () => {
     req.headers.set('user-agent', 'Googlebot/2.1');
 
     const res = await proxy(req);
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
 
     expect(
       res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('streaming');
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe('streaming');
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
+  it('keeps Google HTML-limited crawlers in the metadata-blocking cache bucket', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Google-InspectionTool/1.0');
+
+    const res = await proxy(req);
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
+
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('metadata-blocking');
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
     ).toBe('metadata-blocking');
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });

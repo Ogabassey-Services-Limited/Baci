@@ -36,7 +36,8 @@ describe('next.config OgaBassey resource headers', () => {
       STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.source
     );
     expect(nextConfig.htmlLimitedBots?.flags).toContain('i');
-    expect(getStorefrontMetadataCacheBucket('Googlebot/2.1')).toBe(
+    expect(getStorefrontMetadataCacheBucket('Googlebot/2.1')).toBe('streaming');
+    expect(getStorefrontMetadataCacheBucket('Google-InspectionTool/1.0')).toBe(
       'metadata-blocking'
     );
     expect(getStorefrontMetadataCacheBucket('Twitterbot/1.0')).toBe(

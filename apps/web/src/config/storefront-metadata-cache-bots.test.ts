@@ -6,7 +6,6 @@ import {
 
 describe('storefront metadata cache bot classifier', () => {
   it.each([
-    ['Googlebot/2.1'],
     ['AdsBot-Google (+http://www.google.com/adsbot.html)'],
     ['Google-InspectionTool/1.0'],
     ['Twitterbot/1.0'],
@@ -20,6 +19,7 @@ describe('storefront metadata cache bot classifier', () => {
   });
 
   it.each([
+    ['Googlebot/2.1'],
     ['Instagram 350.0.0.29.93 Android'],
     ['Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'],
   ])('keeps browser-like user agents in the streaming bucket for %s', (userAgent) => {
