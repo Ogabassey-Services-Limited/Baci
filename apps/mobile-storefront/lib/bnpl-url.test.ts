@@ -127,6 +127,18 @@ describe('bnpl-url', () => {
     ).toBe(true);
     expect(
       isAllowedBnplPopupUrl(
+        'https://app.mycreditprofile.me/get-started?q=session-123',
+        'https://usebaci.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://ienroll.stanbicibtc.com:8444/OnlineAccountOnboarding',
+        'https://usebaci.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
         'https://ogabassey.usebaci.com/order-success',
         'https://usebaci.com'
       )

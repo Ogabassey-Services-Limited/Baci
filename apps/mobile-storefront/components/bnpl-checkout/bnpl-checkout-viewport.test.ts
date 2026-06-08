@@ -14,6 +14,34 @@ describe('BNPL_VIEWPORT_JAVASCRIPT', () => {
     );
   });
 
+  it('prevents iOS WebKit input focus zoom without disabling pinch zoom', () => {
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain('isIOSWebKit');
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
+      "target.style.fontSize = '16px'"
+    );
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
+      "target.style.webkitTextSizeAdjust = '100%'"
+    );
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
+      "document.addEventListener('touchstart'"
+    );
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
+      "document.addEventListener('focusin'"
+    );
+  });
+
+  it('keeps the iOS input zoom fix scoped to form controls and dynamic content', () => {
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
+      'input:not([type="button"])'
+    );
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain('textarea');
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain('[contenteditable="true"]');
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain('new MutationObserver');
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
+      "message: 'iOS input zoom adjustment failed'"
+    );
+  });
+
   it('does not inject global provider layout overrides', () => {
     expect(BNPL_VIEWPORT_JAVASCRIPT).not.toContain('iframe {');
     expect(BNPL_VIEWPORT_JAVASCRIPT).not.toContain('img, video, canvas');
@@ -31,10 +59,11 @@ describe('BNPL_VIEWPORT_JAVASCRIPT', () => {
 
   it('uses one-time load lifecycle hooks for repeated viewport fixes', () => {
     expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
-      "document.addEventListener('DOMContentLoaded', applyViewportFix, { once: true })"
+      "document.addEventListener('DOMContentLoaded'"
     );
     expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
-      "window.addEventListener('load', applyViewportFix, { once: true })"
+      "window.addEventListener('load'"
     );
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain('{ once: true }');
   });
 });

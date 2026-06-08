@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { BNPLCheckoutScreen } from '@/components/bnpl-checkout/BNPLCheckoutScreen';
 
@@ -14,6 +14,12 @@ let mockStackOptions:
   | undefined;
 let mockWebViewProps: Record<string, unknown> | undefined;
 const mockControllerOverride = jest.fn();
+const mockUseCameraPermission = jest.fn();
+let mockCameraPermissionState: {
+  canAskAgain: boolean;
+  retry: () => void;
+  status: 'checking' | 'denied' | 'granted';
+};
 
 jest.mock('expo-router', () => ({
   Stack: {
@@ -42,6 +48,13 @@ jest.mock('./BNPLCheckoutWebView', () => ({
 
 jest.mock('./use-bnpl-checkout-controller', () => ({
   useBNPLCheckoutController: (input: unknown) => mockControllerOverride(input),
+}));
+
+jest.mock('./use-camera-permission', () => ({
+  useCameraPermission: (enabled: boolean) => {
+    mockUseCameraPermission(enabled);
+    return mockCameraPermissionState;
+  },
 }));
 
 jest.mock('@/components/useColorScheme', () => ({
@@ -99,6 +112,11 @@ describe('BNPLCheckoutScreen', () => {
     mockRouteParams = {};
     mockStackOptions = undefined;
     mockWebViewProps = undefined;
+    mockCameraPermissionState = {
+      canAskAgain: true,
+      retry: jest.fn(),
+      status: 'granted',
+    };
   });
 
   it('renders invalid checkout state for missing required params', () => {
@@ -156,5 +174,110 @@ describe('BNPLCheckoutScreen', () => {
     );
     expect(mockWebViewProps?.onError).toBe(handleWebViewError);
     expect(mockWebViewProps?.onHttpError).toBe(handleWebViewHttpError);
+  });
+
+  it('passes media capture allowance only after Credit Direct camera permission is granted', () => {
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      orderId: 'order-123',
+    };
+    mockControllerOverride.mockReturnValueOnce(
+      createCheckoutControllerMock({
+        validatedParams: {
+          data: { gateway: 'credit_direct' },
+          isValid: true,
+        },
+      })
+    );
+
+    render(<BNPLCheckoutScreen />);
+
+    expect(mockUseCameraPermission).toHaveBeenCalledWith(true);
+    expect(mockWebViewProps?.allowsMediaCapture).toBe(true);
+  });
+
+  it('keeps media capture disabled for non-Credit Direct gateways', () => {
+    mockRouteParams = {
+      gateway: 'klump',
+      orderId: 'order-123',
+    };
+    mockControllerOverride.mockReturnValueOnce(
+      createCheckoutControllerMock({
+        validatedParams: {
+          data: { gateway: 'klump' },
+          isValid: true,
+        },
+      })
+    );
+
+    render(<BNPLCheckoutScreen />);
+
+    expect(mockUseCameraPermission).toHaveBeenCalledWith(false);
+    expect(mockWebViewProps?.allowsMediaCapture).toBe(false);
+  });
+
+
+  it('shows terminal checkout errors before camera permission states', () => {
+    const handleRetry = jest.fn();
+    mockCameraPermissionState = {
+      canAskAgain: false,
+      retry: jest.fn(),
+      status: 'denied',
+    };
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      orderId: 'order-123',
+    };
+    mockControllerOverride.mockReturnValueOnce(
+      createCheckoutControllerMock({
+        errorMessage: 'Checkout session expired',
+        handleRetry,
+        status: 'error',
+        validatedParams: {
+          data: { gateway: 'credit_direct' },
+          isValid: true,
+        },
+      })
+    );
+
+    render(<BNPLCheckoutScreen />);
+
+    expect(screen.getByText('Checkout session expired')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Try payment again' }));
+
+    expect(handleRetry).toHaveBeenCalledTimes(1);
+    expect(mockWebViewProps).toBeUndefined();
+  });
+
+  it('uses checkout close handling from the camera permission error state', () => {
+    const handleClose = jest.fn();
+    const retryCameraPermission = jest.fn();
+    mockCameraPermissionState = {
+      canAskAgain: true,
+      retry: retryCameraPermission,
+      status: 'denied',
+    };
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      orderId: 'order-123',
+    };
+    mockControllerOverride.mockReturnValueOnce(
+      createCheckoutControllerMock({
+        handleClose,
+        validatedParams: {
+          data: { gateway: 'credit_direct' },
+          isValid: true,
+        },
+      })
+    );
+
+    render(<BNPLCheckoutScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Try payment again' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
+
+    expect(retryCameraPermission).toHaveBeenCalledTimes(1);
+    expect(handleClose).toHaveBeenCalledTimes(1);
+    expect(mockRouterBack).not.toHaveBeenCalled();
   });
 });

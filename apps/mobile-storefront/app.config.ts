@@ -278,7 +278,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-camera',
       {
         cameraPermission:
-          'Allow the app to access your camera to scan QR codes.',
+          'Allow the app to access your camera for QR scans and checkout identity verification.',
       },
     ],
     [
