@@ -528,6 +528,56 @@ describe('PaymentStep', () => {
       expect(screen.getByText('Klump')).toBeInTheDocument();
     });
 
+    it('hides Klump above the fallback one million naira maximum', () => {
+      const merchant = {
+        feature_settings: {
+          klump_enabled: true,
+          klump_min_amount: '',
+          klump_max_amount: '',
+        } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          orderAmount={1_000_001}
+          remainingAmount={1_000_001}
+        />
+      );
+
+      expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/no installment options are currently available/i),
+      ).toBeInTheDocument();
+    });
+
+    it('shows Klump at the fallback one million naira maximum boundary', () => {
+      const merchant = {
+        feature_settings: {
+          klump_enabled: true,
+          klump_min_amount: '',
+          klump_max_amount: '',
+        } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          orderAmount={1_000_000}
+          remainingAmount={1_000_000}
+        />
+      );
+
+      expect(screen.getByText('Klump')).toBeInTheDocument();
+      expect(
+        screen.queryByText(/no installment options are currently available/i),
+      ).not.toBeInTheDocument();
+    });
+
     it('checks Klump bounds against the gateway payable amount', () => {
       const merchant = {
         feature_settings: {

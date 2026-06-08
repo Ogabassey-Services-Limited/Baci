@@ -84,7 +84,7 @@ export const merchantFeatureSettingsSchema = z.object({
   klump_min_amount:
     merchantFeatureSettingsFields.klump_min_amount.default(10_000),
   klump_max_amount:
-    merchantFeatureSettingsFields.klump_max_amount.default(500_000),
+    merchantFeatureSettingsFields.klump_max_amount.default(1_000_000),
 });
 
 export const merchantFeatureSettingsPatchSchema = z
