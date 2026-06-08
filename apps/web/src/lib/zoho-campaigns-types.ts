@@ -5,6 +5,7 @@ export const ZOHO_CAMPAIGNS_BLOG_SCOPES = [
   // Zoho documents sendcampaign under campaign.UPDATE; there is no separate send scope.
   'ZohoCampaigns.campaign.UPDATE',
   'ZohoCampaigns.contact.READ',
+  'ZohoCampaigns.contact.UPDATE',
 ] as const;
 
 export type FetchImplementation = typeof fetch;

@@ -19,11 +19,18 @@ import {
 export function requireZohoRuntimeFields(
   config: ZohoCampaignsRuntimeConfig
 ): string[] {
-  const missing = requireZohoOAuthFields(config);
-  if (!config.refreshToken) missing.push('ZOHO_CAMPAIGNS_REFRESH_TOKEN');
+  const missing = requireZohoTokenRefreshFields(config);
   if (!config.fromEmail) missing.push('ZOHO_CAMPAIGNS_FROM_EMAIL');
   if (!config.listKey) missing.push('ZOHO_CAMPAIGNS_LIST_KEY');
   if (!config.contentSecret) missing.push('ZOHO_CAMPAIGNS_CONTENT_SECRET');
+  return missing;
+}
+
+export function requireZohoTokenRefreshFields(
+  config: ZohoCampaignsRuntimeConfig
+): string[] {
+  const missing = requireZohoOAuthFields(config);
+  if (!config.refreshToken) missing.push('ZOHO_CAMPAIGNS_REFRESH_TOKEN');
   return missing;
 }
 
@@ -31,10 +38,10 @@ export async function refreshZohoCampaignsAccessToken(
   config: ZohoCampaignsRuntimeConfig,
   fetchImpl: FetchImplementation = fetch
 ): Promise<string> {
-  const missing = requireZohoRuntimeFields(config);
+  const missing = requireZohoTokenRefreshFields(config);
   if (missing.length > 0) {
     throw new ZohoCampaignsError(
-      `Missing Zoho Campaigns runtime config: ${missing.join(', ')}`
+      `Missing Zoho Campaigns token refresh config: ${missing.join(', ')}`
     );
   }
 
@@ -64,6 +71,36 @@ export async function refreshZohoCampaignsAccessToken(
   }
 
   return zohoTokenResponseSchema.parse(payload).access_token;
+}
+
+export async function subscribeZohoContactToList({
+  accessToken,
+  apiRootUrl,
+  contactInfo,
+  fetchImpl,
+  listKey,
+}: {
+  accessToken: string;
+  apiRootUrl: string;
+  contactInfo: Record<string, string>;
+  fetchImpl: FetchImplementation;
+  listKey: string;
+}) {
+  const normalizedListKey = listKey.trim();
+  if (!normalizedListKey) {
+    throw new ZohoCampaignsError('Missing Zoho Campaigns list key');
+  }
+
+  await postZohoForm(
+    `${trimTrailingSlash(apiRootUrl)}/listsubscribe`,
+    toFormBody({
+      contactinfo: JSON.stringify(contactInfo),
+      listkey: normalizedListKey,
+      resfmt: 'JSON',
+    }),
+    accessToken,
+    fetchImpl
+  );
 }
 
 export async function createZohoBlogCampaign({
