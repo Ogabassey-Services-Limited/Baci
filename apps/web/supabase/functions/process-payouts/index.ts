@@ -317,7 +317,8 @@ Deno.serve(async (req: Request) => {
               payout_mode: merchant.payout_mode,
               initiated_at: new Date().toISOString(), // Set when initiated, not when processed
             })
-            .select()
+            // PERFORMANCE: Explicitly select only the required ID to prevent overfetching full rows
+            .select('id')
             .single();
 
           if (payoutError) throw payoutError;
