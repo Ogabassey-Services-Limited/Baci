@@ -22,6 +22,15 @@ interface AddSavingsContributionParams {
   setIsAddingSavingsContribution: (isPending: boolean) => void;
 }
 
+function isCompletedSavingsContributionResult(result: unknown) {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    'goalStatus' in result &&
+    result.goalStatus === 'completed'
+  );
+}
+
 export async function addSavingsContributionToGoal({
   activeMerchantId,
   activeMerchantSlug,
@@ -57,7 +66,7 @@ export async function addSavingsContributionToGoal({
 
   setIsAddingSavingsContribution(true);
   try {
-    await addSavingsContribution({
+    const contributionResult = await addSavingsContribution({
       amount,
       goalId: goal.id,
       idempotencyKey: createIdempotencyKey(),
@@ -65,7 +74,10 @@ export async function addSavingsContributionToGoal({
       merchantSlug: activeMerchantSlug,
     });
     clearIdempotencyKey?.();
-    if (amount >= remainingAmount) {
+    if (
+      amount >= remainingAmount ||
+      isCompletedSavingsContributionResult(contributionResult)
+    ) {
       try {
         await cancelSavingsReminder?.(goal.id);
       } catch {

@@ -58,6 +58,7 @@ function createInput(overrides = {}) {
     initialContributionIdempotencyKey: null,
     maturityDate: '2026-06-30',
     normalizedVariantId: undefined,
+    preferredDebitTime: '06:20',
     refetch: jest.fn(async () => undefined),
     requiredTopUpAmount: 50000,
     selectedPaymentMethodId: null,

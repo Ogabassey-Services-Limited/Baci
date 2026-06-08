@@ -65,6 +65,7 @@ function createInput(overrides = {}) {
     initialContributionIdempotencyKey: null,
     maturityDate: '2026-06-30',
     normalizedVariantId: undefined,
+    preferredDebitTime: '06:20',
     refetch: jest.fn(async () => undefined),
     requiredTopUpAmount: 50000,
     selectedPaymentMethodId: null,
@@ -131,6 +132,7 @@ describe('useStartSavingsSubmit', () => {
       frequency: 'daily',
       goalId: 'goal-1',
       goalTitle: 'iPhone 13 Pro Max',
+      scheduledAt: new Date('2026-05-22T06:20:00'),
     });
     expect(mockCancelSavingsReminderNotification).not.toHaveBeenCalled();
     expect(input.setShowSuccessModal).toHaveBeenCalledWith(true);
@@ -279,6 +281,8 @@ describe('useStartSavingsSubmit', () => {
       'Select a saved card for auto debit.'
     );
     expect(mockCreateSavingsGoal).not.toHaveBeenCalled();
+    expect(mockScheduleSavingsReminderNotification).not.toHaveBeenCalled();
+    expect(mockCancelSavingsReminderNotification).not.toHaveBeenCalled();
   });
 
   it('fails visibly when the start date cannot be formatted', async () => {

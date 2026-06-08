@@ -164,6 +164,7 @@ export function useStartSavingsController() {
     initialContributionIdempotencyKey,
     maturityDate,
     normalizedVariantId,
+    preferredDebitTime,
     refetch,
     requiredTopUpAmount,
     selectedPaymentMethodId,

@@ -12,8 +12,11 @@ import {
   cancelSavingsReminderNotification,
   scheduleSavingsReminderNotification,
 } from '@/services/savings-reminder-notifications';
-import type { SavingsFrequency } from './start-savings.helpers';
-import { formatDateInput } from './start-savings.helpers';
+import {
+  formatDateInput,
+  getSavingsReminderScheduledAt,
+  type SavingsFrequency,
+} from './start-savings.helpers';
 import type {
   SavingsProductChoice,
   SavingsSourceMode,
@@ -40,6 +43,7 @@ type UseStartSavingsSubmitInput = {
   initialContributionIdempotencyKey: string | null;
   maturityDate: string;
   normalizedVariantId?: string;
+  preferredDebitTime: string;
   refetch: () => Promise<unknown>;
   requiredTopUpAmount: number;
   selectedPaymentMethodId: string | null;
@@ -155,6 +159,10 @@ export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
               frequency: input.frequency,
               goalId: result.goalId,
               goalTitle: validation.selectedProduct.name,
+              scheduledAt: getSavingsReminderScheduledAt({
+                preferredDebitTime: input.preferredDebitTime,
+                startDate: validation.formattedStartDate,
+              }),
             });
           } else {
             await cancelSavingsReminderNotification(result.goalId);

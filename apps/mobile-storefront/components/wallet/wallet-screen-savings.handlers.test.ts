@@ -66,7 +66,9 @@ describe('wallet-screen-savings.handlers', () => {
   });
 
   it('cancels the stored reminder when a contribution completes the goal', async () => {
-    const addSavingsContribution = jest.fn(async () => ({}));
+    const addSavingsContribution = jest.fn(async () => ({
+      goalStatus: 'completed',
+    }));
     const cancelSavingsReminder = jest.fn(async () => true);
 
     await addSavingsContributionToGoal({
@@ -74,7 +76,7 @@ describe('wallet-screen-savings.handlers', () => {
       cancelSavingsReminder,
       clearSavingsContributionAmount: jest.fn(),
       createIdempotencyKey: () => 'savings-key-1',
-      goal: { ...goal, current_amount: 4500 },
+      goal,
       rawAmount: '500',
       refetchWallet: jest.fn(async () => undefined),
       setIsAddingSavingsContribution: jest.fn(),
