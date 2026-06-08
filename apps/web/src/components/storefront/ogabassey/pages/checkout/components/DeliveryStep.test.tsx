@@ -7,7 +7,6 @@ vi.mock('@/components/address-autocomplete', () => ({
   AddressAutocomplete: vi.fn(({ id, value, onChange, placeholder }) => (
     <input
       id={id}
-      data-testid="address-autocomplete"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
@@ -17,9 +16,7 @@ vi.mock('@/components/address-autocomplete', () => ({
 
 // Mock SmartQuoteLoader
 vi.mock('../../../components/SmartQuoteLoader', () => ({
-  SmartQuoteLoader: vi.fn(() => (
-    <div data-testid="smart-quote-loader">Loading quotes...</div>
-  )),
+  SmartQuoteLoader: vi.fn(() => <output>Loading quotes...</output>),
 }));
 
 describe('DeliveryStep', () => {
@@ -78,7 +75,9 @@ describe('DeliveryStep', () => {
 
     it('renders address autocomplete when step is active', () => {
       render(<DeliveryStep {...defaultProps} />);
-      expect(screen.getByTestId('address-autocomplete')).toBeInTheDocument();
+      expect(
+        screen.getByRole('textbox', { name: /delivery address/i }),
+      ).toBeInTheDocument();
     });
 
     it('renders delivery address label for guest users', () => {
@@ -89,15 +88,18 @@ describe('DeliveryStep', () => {
     it('associates the delivery address label with the autocomplete input', () => {
       render(<DeliveryStep {...defaultProps} />);
       expect(screen.getByLabelText('Delivery Address')).toBe(
-        screen.getByTestId('address-autocomplete'),
+        screen.getByRole('textbox', { name: /delivery address/i }),
       );
     });
 
     it('infers city/state from manually typed address input', () => {
       render(<DeliveryStep {...defaultProps} />);
-      fireEvent.change(screen.getByTestId('address-autocomplete'), {
-        target: { value: 'Lekki Phase 1, Lagos' },
-      });
+      fireEvent.change(
+        screen.getByRole('textbox', { name: /delivery address/i }),
+        {
+          target: { value: 'Lekki Phase 1, Lagos' },
+        },
+      );
 
       expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('Lagos');
       expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith(
@@ -108,9 +110,12 @@ describe('DeliveryStep', () => {
     it('clears inferred location and quotes when manual input no longer matches', () => {
       render(<DeliveryStep {...defaultProps} />);
 
-      fireEvent.change(screen.getByTestId('address-autocomplete'), {
-        target: { value: 'Lekki, Nigeria' },
-      });
+      fireEvent.change(
+        screen.getByRole('textbox', { name: /delivery address/i }),
+        {
+          target: { value: 'Lekki, Nigeria' },
+        },
+      );
 
       expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('');
       expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('');
@@ -129,7 +134,14 @@ describe('DeliveryStep', () => {
           newAddressCity="Ikeja"
         />,
       );
-      expect(screen.getByText('Door Delivery')).toBeInTheDocument();
+      expect(
+        screen.getByRole('group', {
+          name: /how would you like to receive your order/i,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('radio', { name: /door delivery/i }),
+      ).toBeInTheDocument();
     });
 
     it('shows pickup option when state is Lagos', () => {
@@ -140,7 +152,7 @@ describe('DeliveryStep', () => {
           newAddressCity="Ikeja"
         />,
       );
-      expect(screen.getByText('Pickup')).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /pickup/i })).toBeInTheDocument();
     });
 
     it('hides pickup option when state is not Lagos', () => {
@@ -151,7 +163,9 @@ describe('DeliveryStep', () => {
           newAddressCity="Garki"
         />,
       );
-      expect(screen.queryByText('Pickup')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('radio', { name: /pickup/i }),
+      ).not.toBeInTheDocument();
     });
 
     it('shows airport option for eligible non-Lagos states', () => {
@@ -162,7 +176,7 @@ describe('DeliveryStep', () => {
           newAddressCity="Garki"
         />,
       );
-      expect(screen.getByText('Airport')).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /airport/i })).toBeInTheDocument();
     });
 
     it('hides airport option for Lagos', () => {
@@ -173,7 +187,9 @@ describe('DeliveryStep', () => {
           newAddressCity="Ikeja"
         />,
       );
-      expect(screen.queryByText('Airport')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('radio', { name: /airport/i }),
+      ).not.toBeInTheDocument();
     });
 
     it('calls setDeliveryMethod when a method card is clicked', () => {
@@ -184,7 +200,7 @@ describe('DeliveryStep', () => {
           newAddressCity="Ikeja"
         />,
       );
-      fireEvent.click(screen.getByText('Pickup'));
+      fireEvent.click(screen.getByRole('radio', { name: /pickup/i }));
       expect(defaultProps.setDeliveryMethod).toHaveBeenCalledWith('pickup');
     });
   });
@@ -214,8 +230,15 @@ describe('DeliveryStep', () => {
           newAddressCity="Garki"
         />,
       );
-      expect(screen.getByText('Airport Delivery')).toBeInTheDocument();
-      expect(screen.getByText('Airport Pickup')).toBeInTheDocument();
+      expect(
+        screen.getByRole('group', { name: /airport delivery preference/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('radio', { name: /airport delivery/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('radio', { name: /airport pickup/i }),
+      ).toBeInTheDocument();
     });
 
     it('calls setAirportType when an airport option is selected', () => {
@@ -227,7 +250,7 @@ describe('DeliveryStep', () => {
           newAddressCity="Garki"
         />,
       );
-      fireEvent.click(screen.getByText('Airport Pickup'));
+      fireEvent.click(screen.getByRole('radio', { name: /airport pickup/i }));
       expect(defaultProps.setAirportType).toHaveBeenCalledWith('pickup');
     });
   });
@@ -255,6 +278,12 @@ describe('DeliveryStep', () => {
           ]}
         />,
       );
+      expect(
+        screen.getByRole('group', { name: /select delivery option/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('radio', { name: /standard delivery/i }),
+      ).toBeInTheDocument();
       expect(screen.getByText('Standard Delivery')).toBeInTheDocument();
       // Price is split across elements (₦ + 3,500), use a function matcher
       expect(
@@ -273,7 +302,7 @@ describe('DeliveryStep', () => {
           newAddressCity="Ikeja"
         />,
       );
-      expect(screen.getByTestId('smart-quote-loader')).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Loading quotes...');
     });
 
     it('shows refresh button when no quotes and not loading', () => {
@@ -366,8 +395,11 @@ describe('DeliveryStep', () => {
 
     it('renders saved addresses for logged-in users', () => {
       render(<DeliveryStep {...addressProps} />);
-      expect(screen.getByText('Home')).toBeInTheDocument();
-      expect(screen.getByText('Office')).toBeInTheDocument();
+      expect(
+        screen.getByRole('group', { name: /where should we deliver/i }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /home/i })).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /office/i })).toBeInTheDocument();
     });
 
     it('shows new address toggle button', () => {

@@ -8,7 +8,6 @@ vi.mock('@/components/ui/phone-input', () => ({
   PhoneInput: vi.fn(({ id, value, onChange, placeholder, defaultCountry }) => (
     <input
       id={id}
-      data-testid="phone-input"
       type="tel"
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -67,7 +66,9 @@ describe('ContactStep', () => {
       expect(screen.getByPlaceholderText('John')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('Doe')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('john@example.com')).toBeInTheDocument();
-      expect(screen.getByTestId('phone-input')).toBeInTheDocument();
+      expect(
+        screen.getByRole('textbox', { name: /phone number/i }),
+      ).toBeInTheDocument();
     });
 
     it('associates contact labels with their controls', () => {
@@ -76,7 +77,9 @@ describe('ContactStep', () => {
       expect(screen.getByLabelText('First Name *')).toBe(screen.getByPlaceholderText('John'));
       expect(screen.getByLabelText('Last Name *')).toBe(screen.getByPlaceholderText('Doe'));
       expect(screen.getByLabelText('Email Address *')).toBe(screen.getByPlaceholderText('john@example.com'));
-      expect(screen.getByLabelText('Phone Number *')).toBe(screen.getByTestId('phone-input'));
+      expect(screen.getByLabelText('Phone Number *')).toBe(
+        screen.getByRole('textbox', { name: /phone number/i }),
+      );
     });
 
     it('renders collapsed state when currentStep is not contact', () => {
@@ -191,7 +194,7 @@ describe('ContactStep', () => {
       render(<ContactStep {...defaultProps} />);
 
       // Act
-      const input = screen.getByTestId('phone-input');
+      const input = screen.getByRole('textbox', { name: /phone number/i });
       fireEvent.change(input, { target: { value: '+2348012345678' } });
 
       // Assert
