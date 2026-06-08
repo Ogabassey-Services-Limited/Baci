@@ -96,7 +96,7 @@ export function ShellChromeLoading({
             />
             <img
               alt={mobileHeroImage.alt}
-              className="storefront-shell-loading__mobile-hero-image h-full w-full object-contain"
+              className="storefront-shell-loading__mobile-hero-image"
               decoding="sync"
               fetchPriority="high"
               height={540}

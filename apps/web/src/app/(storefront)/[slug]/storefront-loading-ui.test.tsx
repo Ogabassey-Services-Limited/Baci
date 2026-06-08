@@ -47,7 +47,9 @@ describe('storefront-loading-ui', () => {
     expect(image).toHaveAttribute('decoding', 'sync');
     expect(image).toHaveAttribute('width', '960');
     expect(image).toHaveAttribute('height', '540');
-    expect(image).toHaveClass('h-full', 'w-full', 'object-contain');
+    expect(image).toHaveClass('storefront-shell-loading__mobile-hero-image', {
+      exact: true,
+    });
 
     const sources = container.querySelectorAll('source');
     expect(sources[0]).toHaveAttribute('srcset', '/hero-mobile.avif');
@@ -76,38 +78,22 @@ describe('storefront-loading-ui', () => {
     });
     const bar = container.querySelector('.storefront-shell-loading__bar');
 
-    expect(shell).toHaveAttribute(
-      'style',
-      expect.stringContaining('box-sizing: border-box')
-    );
-    expect(shell).toHaveAttribute(
-      'style',
-      expect.stringContaining('padding: 0.75rem 1rem')
-    );
-    expect(shell).toHaveAttribute(
-      'style',
-      expect.stringContaining('background: var(--store-background, #ffffff)')
-    );
-    expect(picture).toHaveAttribute(
-      'style',
-      expect.stringContaining('aspect-ratio: 16 / 9')
-    );
-    expect(picture).toHaveAttribute(
-      'style',
-      expect.stringContaining('overflow: hidden')
-    );
-    expect(image).toHaveAttribute(
-      'style',
-      expect.stringContaining('height: auto')
-    );
-    expect(image).toHaveAttribute(
-      'style',
-      expect.stringContaining('object-fit: contain')
-    );
-    expect(bar).toHaveAttribute(
-      'style',
-      expect.stringContaining('height: 2.5rem')
-    );
+    expect(shell).toHaveStyle({
+      background: 'var(--store-background, #ffffff)',
+      boxSizing: 'border-box',
+      padding: '0.75rem 1rem',
+    });
+    expect(picture).toHaveStyle({
+      aspectRatio: '16 / 9',
+      overflow: 'hidden',
+    });
+    expect(image).toHaveStyle({
+      height: 'auto',
+      objectFit: 'contain',
+    });
+    expect(bar).toHaveStyle({
+      height: '2.5rem',
+    });
   });
 
   it('renders the shared route loading primitives', () => {
