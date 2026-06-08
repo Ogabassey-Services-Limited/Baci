@@ -1,9 +1,24 @@
 'use client';
 
 import { Bell } from 'lucide-react';
-import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
-import { EmptyState } from '../components/empty-state';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+
+const NavbarNotificationsPanel = lazy(async () => {
+  const module = await import('./navbar-notifications-panel');
+  return { default: module.NavbarNotificationsPanel };
+});
+
+function NotificationsPanelLoading() {
+  return (
+    <div
+      aria-label="Loading notifications"
+      className="absolute top-full right-0 mt-4 w-80 rounded-xl border border-gray-100 bg-white p-4 shadow-xl"
+      role="status"
+    >
+      <div className="h-4 w-28 animate-pulse rounded-full bg-gray-200" />
+    </div>
+  );
+}
 
 interface NavbarNotificationsProps {
   basePath: string;
@@ -44,31 +59,14 @@ export function NavbarNotifications({
         <Bell size={22} />
       </button>
 
-      {showNotifications && (
-        <div className="absolute top-full right-0 mt-4 w-80 bg-white rounded-xl shadow-xl border border-gray-100 py-0 animate-in fade-in slide-in-from-top-2 z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-            <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
-          </div>
-          <div className="max-h-[300px] overflow-y-auto">
-            <EmptyState
-              variant="notifications"
-              title="No Notifications"
-              description="You have no unread notifications at this time."
-              compact
-            />
-          </div>
-          <div className="p-2 border-t border-gray-100 bg-gray-50 text-center">
-            <Link
-              href={`${basePath}/account` as `/${string}`}
-              prefetch={false}
-              onClick={() => setShowNotifications(false)}
-              className="text-[10px] font-bold text-gray-600 hover:text-gray-900 block py-1"
-            >
-              View All
-            </Link>
-          </div>
-        </div>
-      )}
+      {showNotifications ? (
+        <Suspense fallback={<NotificationsPanelLoading />}>
+          <NavbarNotificationsPanel
+            basePath={basePath}
+            onClose={() => setShowNotifications(false)}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }
