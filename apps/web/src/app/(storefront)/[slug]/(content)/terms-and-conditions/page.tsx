@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { permanentRedirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { buildStorefrontRedirect } from '@/lib/build-storefront-redirect';
 
 interface PageProps {
@@ -17,7 +16,6 @@ export default async function LegacyTermsAndConditionsPage({
   params,
   searchParams,
 }: PageProps) {
-  await connection();
   const { slug } = await params;
   permanentRedirect(
     buildStorefrontRedirect(await headers(), slug, '/terms', await searchParams)
