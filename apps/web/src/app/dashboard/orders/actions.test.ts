@@ -34,9 +34,15 @@ vi.mock('@/lib/sanitize-core', () => ({
 }));
 
 const mockEnsurePermission = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
 
 vi.mock('@/lib/merchant-server', () => ({
   ensurePermission: (...args: unknown[]) => mockEnsurePermission(...args),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
 }));
 
 // Supabase mock setup
@@ -155,6 +161,15 @@ function setupMocks(overrides?: {
     data: { user: { id: 'admin-user' } },
     error: null,
   });
+  mockGetMerchantForApiRequest.mockResolvedValue({
+    merchantId: MERCHANT_ID,
+    staffAccess: {
+      isOwner: true,
+      isStaff: false,
+      role: null,
+      permissions: { full_access: { all: true } },
+    },
+  });
 
   mockFrom.mockImplementation((table: string) => {
     if (table === 'orders') {
@@ -208,6 +223,10 @@ function setupMocks(overrides?: {
 describe('resendOrderConfirmation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'admin-user' } },
+      error: null,
+    });
     mockEnsurePermission.mockResolvedValue({
       merchant: { id: MERCHANT_ID },
       staffAccess: {
@@ -342,11 +361,36 @@ describe('resendOrderConfirmation', () => {
     expect(result.success).toBe(false);
     expect(result.message).toBe('Failed to send email. Please try again.');
   });
+
+  it('returns unauthorized before permission checks when caller is unauthenticated', async () => {
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    const result = await resendOrderConfirmation(ORDER_ID);
+
+    expect(result).toEqual({ success: false, message: 'Unauthorized' });
+    expect(mockEnsurePermission).not.toHaveBeenCalled();
+  });
 });
 
 describe('getOrder', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'admin-user' } },
+      error: null,
+    });
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: null,
+        permissions: { full_access: { all: true } },
+      },
+    });
   });
 
   function mockGetOrderQueries(options?: {
@@ -442,6 +486,33 @@ describe('getOrder', () => {
       transactionsOrder,
     };
   }
+
+  it('returns null before merchant authorization when caller is unauthenticated', async () => {
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
+
+    expect(order).toBeNull();
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('returns null when caller has no access to the requested merchant', async () => {
+    mockGetMerchantForApiRequest.mockResolvedValueOnce(null);
+
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
+
+    expect(order).toBeNull();
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      'admin-user',
+      { requestedMerchantId: MERCHANT_ID }
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
 
   it('fetches an order by exact order number candidates', async () => {
     const { orderNumberLookups, productsIn, productsSelect } =

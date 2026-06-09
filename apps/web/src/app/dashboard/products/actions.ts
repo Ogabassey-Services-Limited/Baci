@@ -8,7 +8,9 @@ import {
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
+import { ensurePermission } from '@/lib/merchant-server';
 import type { Product } from '@/lib/products';
+import { createClient } from '@/lib/supabase/server';
 
 // Zod schema for the AI response
 const ChangeDetailsSchema = z.object({
@@ -101,6 +103,28 @@ export async function processPriceList(
   vendor: string,
   fileType: string
 ): Promise<AIResponse> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return {
+      changes: [],
+      summary: 'Unauthorized',
+    };
+  }
+
+  try {
+    await ensurePermission('products', 'create');
+  } catch {
+    return {
+      changes: [],
+      summary: 'Unauthorized',
+    };
+  }
+
   performance.mark('processPriceList-start');
   const safeVendor = sanitizePromptInput(vendor, 100).value;
   const safeFileType = sanitizePromptInput(fileType, 50).value;
@@ -189,11 +213,32 @@ Instructions:
  * Parses CSV programmatically without AI, matches against existing products by name.
  * Much faster and handles unlimited rows.
  */
-// biome-ignore lint/suspicious/useAwait: Server Actions must be async functions
 export async function parseCSVDirectly(
   currentProducts: Product[],
   csvData: string
 ): Promise<AIResponse> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return {
+      changes: [],
+      summary: 'Unauthorized',
+    };
+  }
+
+  try {
+    await ensurePermission('products', 'create');
+  } catch {
+    return {
+      changes: [],
+      summary: 'Unauthorized',
+    };
+  }
+
   const lines = csvData.split('\n').filter((line) => line.trim());
   if (lines.length < 2) {
     return {
@@ -439,6 +484,22 @@ function parsePrice(priceStr: string): number {
 }
 
 export async function fetchGoogleSheet(url: string): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error('Unauthorized');
+  }
+
+  try {
+    await ensurePermission('products', 'create');
+  } catch {
+    throw new Error('Unauthorized');
+  }
+
   performance.mark('fetchGoogleSheet-start');
   try {
     // Validate URL format first

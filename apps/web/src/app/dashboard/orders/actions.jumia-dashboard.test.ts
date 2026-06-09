@@ -3,6 +3,8 @@ import { logger } from '@/lib/logger';
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
+  getMerchantForApiRequest: vi.fn(),
+  getUser: vi.fn(),
   loadOrderItemImageMap: vi.fn(() => Promise.resolve(new Map())),
 }));
 
@@ -23,13 +25,23 @@ vi.mock('@/lib/merchant-server', () => ({
   ensurePermission: vi.fn(),
 }));
 
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mocks.getMerchantForApiRequest(...args),
+}));
+
 vi.mock('@/lib/sanitize-core', () => ({
   sanitizeLikePattern: (value: string) => value,
   sanitizeSearchQuery: (value: string) => value,
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({ from: mocks.from })),
+  createClient: vi.fn(() => ({
+    auth: {
+      getUser: mocks.getUser,
+    },
+    from: mocks.from,
+  })),
 }));
 
 vi.mock('@/lib/zeptomail', () => ({
@@ -81,6 +93,79 @@ describe('Jumia dashboard order data', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'admin-user' } },
+      error: null,
+    });
+    mocks.getMerchantForApiRequest.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: null,
+        permissions: { full_access: { all: true } },
+      },
+    });
+  });
+
+  it('returns an empty order list when caller is unauthenticated', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    await expect(getOrders(MERCHANT_ID)).resolves.toEqual([]);
+
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('returns an empty order list when caller has no merchant access', async () => {
+    mocks.getMerchantForApiRequest.mockResolvedValueOnce(null);
+
+    await expect(getOrders(MERCHANT_ID)).resolves.toEqual([]);
+
+    expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      'admin-user',
+      { requestedMerchantId: MERCHANT_ID }
+    );
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('returns zeroed dashboard stats when caller is unauthenticated', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    await expect(getOrderStats(MERCHANT_ID)).resolves.toEqual({
+      totalOrders: 0,
+      completedOrders: 0,
+      unpaidOrders: 0,
+      urgentOrders: 0,
+    });
+
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('returns zeroed dashboard stats when caller has no merchant access', async () => {
+    mocks.getMerchantForApiRequest.mockResolvedValueOnce(null);
+
+    await expect(getOrderStats(MERCHANT_ID)).resolves.toEqual({
+      totalOrders: 0,
+      completedOrders: 0,
+      unpaidOrders: 0,
+      urgentOrders: 0,
+    });
+
+    expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      'admin-user',
+      { requestedMerchantId: MERCHANT_ID }
+    );
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it('includes canonical Jumia rows and only falls back to unlinked legacy Jumia rows for All filters', async () => {
