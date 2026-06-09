@@ -1,4 +1,4 @@
-import '@/app/(storefront)/storefront-full.css';
+import '@/app/(storefront)/storefront-home.css';
 
 import type { Metadata } from 'next';
 import { OgabasseyStaticHomePageContent } from '@/app/(storefront)/ogabassey/ogabassey-static-home-page-content';

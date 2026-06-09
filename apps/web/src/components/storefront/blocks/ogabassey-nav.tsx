@@ -38,7 +38,7 @@ export function OgabasseyNav({
     <div className="w-full border-b border-gray-100 bg-white sticky top-16 z-40 shadow-sm hidden md:block">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-12">
-          <nav className="flex-1 overflow-x-auto no-scrollbar">
+          <nav className="flex-1 overflow-x-auto hide-scrollbar">
             <ul className="flex items-center gap-6 whitespace-nowrap">
               {links.map((link) => {
                 const isActive =
