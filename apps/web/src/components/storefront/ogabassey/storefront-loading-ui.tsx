@@ -75,6 +75,8 @@ export function ShellChromeLoading({
   mobileHeroImage,
 }: ShellChromeLoadingProps = {}) {
   if (mobileHeroImage) {
+    // ReactDOM.preload forwards `media`; keep this viewport-scoped so the
+    // mobile shell LCP image does not compete with desktop hero resources.
     ReactDOM.preload(mobileHeroImage.avifSrc, {
       as: 'image',
       fetchPriority: 'high',
