@@ -10,6 +10,8 @@ describe('normalizeGooglePlaceId', () => {
   it('rejects empty or malformed place IDs', () => {
     expect(normalizeGooglePlaceId('../../etc/passwd')).toBeNull();
     expect(normalizeGooglePlaceId('')).toBeNull();
+    expect(normalizeGooglePlaceId('   ')).toBeNull();
+    expect(normalizeGooglePlaceId('places/')).toBeNull();
     expect(normalizeGooglePlaceId(null)).toBeNull();
     expect(normalizeGooglePlaceId(undefined)).toBeNull();
   });

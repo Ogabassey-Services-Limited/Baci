@@ -20,4 +20,24 @@ describe('buildMerchantTrustProfile client bundle boundary', () => {
 
     expect(result.merchantReviewAuthority?.placeId).toBe('ChIJ1234');
   });
+
+  it('does not require zod when Google review authority has a malformed Place ID', async () => {
+    vi.resetModules();
+    vi.doMock('zod', () => {
+      throw new Error('zod should stay out of the footer trust profile bundle');
+    });
+
+    const { buildMerchantTrustProfile } = await import(
+      './build-merchant-trust-profile'
+    );
+
+    const result = buildMerchantTrustProfile({
+      feature_settings: {
+        google_reviews_enabled: true,
+        google_place_id: 'places/',
+      },
+    });
+
+    expect(result.merchantReviewAuthority).toBeUndefined();
+  });
 });
