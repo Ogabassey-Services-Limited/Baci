@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createBrowserClient = vi.fn(() => ({ auth: {} }));
 
@@ -16,6 +16,10 @@ describe('browser Supabase client', () => {
     createBrowserClient.mockClear();
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.example.com');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('creates the client from static public env without importing the zod env module', async () => {
