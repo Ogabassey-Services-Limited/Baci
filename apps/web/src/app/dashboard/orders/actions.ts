@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import z from 'zod';
 import type { StaffAccess } from '@/hooks/merchant';
 import {
   generateOrderConfirmationEmail,
@@ -20,11 +21,46 @@ import {
   type AgenticOrderSourceFilter,
 } from './agentic-order-source';
 import { loadOrderItemImageMap } from './order-item-images';
-import type { PaymentStatus, ShippingStatus } from './order-statuses';
+import {
+  PAYMENT_STATUSES,
+  type PaymentStatus,
+  SHIPPING_STATUSES,
+  type ShippingStatus,
+} from './order-statuses';
 
 export type { PaymentStatus, ShippingStatus } from './order-statuses';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+const PAYMENT_STATUS_FILTER_VALUES = ['All', ...PAYMENT_STATUSES] as const;
+const SHIPPING_STATUS_FILTER_VALUES = ['All', ...SHIPPING_STATUSES] as const;
+
+const DashboardOrderMerchantIdSchema = z.string().trim().min(1).max(128);
+const DashboardOrderIdentifierSchema = z.string().trim().min(1).max(128);
+const DashboardOrderFiltersSchema = z.object({
+  paymentStatus: z.enum(PAYMENT_STATUS_FILTER_VALUES).optional(),
+  shippingStatus: z.enum(SHIPPING_STATUS_FILTER_VALUES).optional(),
+  search: z.string().trim().max(200).optional(),
+  source: z.enum([AGENTIC_ORDER_SOURCE_FILTER]).optional(),
+});
+
+const GetOrdersInputSchema = z.object({
+  merchantId: DashboardOrderMerchantIdSchema,
+  filters: DashboardOrderFiltersSchema.optional().default({}),
+});
+
+const GetOrderStatsInputSchema = z.object({
+  merchantId: DashboardOrderMerchantIdSchema,
+});
+
+const GetOrderInputSchema = z.object({
+  merchantId: DashboardOrderMerchantIdSchema,
+  orderIdentifier: DashboardOrderIdentifierSchema,
+});
+
+const ResendOrderConfirmationInputSchema = z.object({
+  orderId: z.uuid(),
+});
 
 export interface Transaction {
   id: string;
@@ -233,10 +269,17 @@ export async function getOrders(
     return [];
   }
 
+  const input = GetOrdersInputSchema.safeParse({ merchantId, filters });
+  if (!input.success) {
+    return [];
+  }
+  const validatedMerchantId = input.data.merchantId;
+  const validatedFilters = input.data.filters;
+
   const authorizedMerchantId = await getAuthorizedOrderMerchantId(
     supabase,
     user.id,
-    merchantId,
+    validatedMerchantId,
     'view'
   );
 
@@ -244,12 +287,13 @@ export async function getOrders(
     return [];
   }
 
-  const paymentStatusFilter = filters.paymentStatus;
-  const shippingStatusFilter = filters.shippingStatus;
+  const paymentStatusFilter = validatedFilters.paymentStatus;
+  const shippingStatusFilter = validatedFilters.shippingStatus;
   const hasPaymentFilter = isActiveFilter(paymentStatusFilter);
   const hasShippingFilter = isActiveFilter(shippingStatusFilter);
-  const hasAgenticSourceFilter = filters.source === AGENTIC_ORDER_SOURCE_FILTER;
-  const searchTerm = filters.search?.trim();
+  const hasAgenticSourceFilter =
+    validatedFilters.source === AGENTIC_ORDER_SOURCE_FILTER;
+  const searchTerm = validatedFilters.search?.trim();
   const sanitizedSearch = searchTerm
     ? sanitizeLikePattern(sanitizeSearchQuery(searchTerm))
     : null;
@@ -290,7 +334,7 @@ export async function getOrders(
       message: 'Error fetching dashboard orders',
       error,
       merchantId: authorizedMerchantId,
-      filters,
+      filters: validatedFilters,
       route: 'dashboard/orders/getOrders',
     });
     throw new Error('Failed to fetch dashboard orders');
@@ -437,10 +481,15 @@ export async function getOrderStats(merchantId: string): Promise<OrderStats> {
     return getZeroOrderStats();
   }
 
+  const input = GetOrderStatsInputSchema.safeParse({ merchantId });
+  if (!input.success) {
+    return getZeroOrderStats();
+  }
+
   const authorizedMerchantId = await getAuthorizedOrderMerchantId(
     supabase,
     user.id,
-    merchantId,
+    input.data.merchantId,
     'view'
   );
 
@@ -509,10 +558,17 @@ export async function getOrder(
     return null;
   }
 
+  const input = GetOrderInputSchema.safeParse({ merchantId, orderIdentifier });
+  if (!input.success) {
+    return null;
+  }
+  const validatedMerchantId = input.data.merchantId;
+  const validatedOrderIdentifier = input.data.orderIdentifier;
+
   const authorizedMerchantId = await getAuthorizedOrderMerchantId(
     supabase,
     user.id,
-    merchantId,
+    validatedMerchantId,
     'view'
   );
 
@@ -523,7 +579,7 @@ export async function getOrder(
   // Check if identifier is UUID
   const isUuid =
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
-      orderIdentifier
+      validatedOrderIdentifier
     );
 
   let order: DashboardOrderRecord | null = null;
@@ -534,13 +590,15 @@ export async function getOrder(
       .from('orders')
       .select(ORDER_WITH_ITEMS_QUERY)
       .eq('merchant_id', authorizedMerchantId)
-      .eq('id', orderIdentifier)
+      .eq('id', validatedOrderIdentifier)
       .maybeSingle();
 
     order = data as DashboardOrderRecord | null;
     orderError = error;
   } else {
-    const normalizedIdentifier = orderIdentifier.replace(/^#/, '').trim();
+    const normalizedIdentifier = validatedOrderIdentifier
+      .replace(/^#/, '')
+      .trim();
     const candidateOrderNumbers = [
       normalizedIdentifier,
       `#${normalizedIdentifier}`,
@@ -572,8 +630,8 @@ export async function getOrder(
         message: 'Error fetching order',
         error: orderError,
         merchantId: authorizedMerchantId,
-        requestedMerchantId: merchantId,
-        orderIdentifier,
+        requestedMerchantId: validatedMerchantId,
+        orderIdentifier: validatedOrderIdentifier,
         route: 'dashboard/orders/getOrder',
       });
     }
@@ -656,6 +714,12 @@ export async function resendOrderConfirmation(
       return { success: false, message: 'Unauthorized' };
     }
 
+    const input = ResendOrderConfirmationInputSchema.safeParse({ orderId });
+    if (!input.success) {
+      return { success: false, message: 'Invalid order ID' };
+    }
+    const validatedOrderId = input.data.orderId;
+
     const { merchant: authorizedMerchant } = await ensurePermission(
       'orders',
       'edit'
@@ -681,7 +745,7 @@ export async function resendOrderConfirmation(
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .select(ORDER_CONFIRMATION_SELECT)
-      .eq('id', orderId)
+      .eq('id', validatedOrderId)
       .eq('merchant_id', merchant.id)
       .single();
     const order = orderData as unknown as OrderConfirmationRecord | null;
@@ -689,7 +753,7 @@ export async function resendOrderConfirmation(
     if (orderError || !order) {
       logger.error({
         message: 'Resend Notification: Order not found',
-        orderId,
+        orderId: validatedOrderId,
         merchantId: merchant.id,
         error: orderError,
       });

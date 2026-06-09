@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   ensurePermission: vi.fn(),
   generateObject: vi.fn(),
   getUser: vi.fn(),
+  isMerchantPermissionRedirectError: vi.fn(),
   withRetry: vi.fn(),
 }));
 
@@ -21,6 +22,8 @@ vi.mock('@/ai/provider', () => ({
 
 vi.mock('@/lib/merchant-server', () => ({
   ensurePermission: (...args: unknown[]) => mocks.ensurePermission(...args),
+  isMerchantPermissionRedirectError: (error: unknown) =>
+    mocks.isMerchantPermissionRedirectError(error),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -56,6 +59,7 @@ describe('product import actions', () => {
       merchant: { id: 'merchant-1' },
       staffAccess: { isOwner: true },
     });
+    mocks.isMerchantPermissionRedirectError.mockReturnValue(false);
     mocks.withRetry.mockImplementation((operation: () => Promise<unknown>) =>
       operation()
     );
@@ -83,8 +87,27 @@ describe('product import actions', () => {
     expect(mocks.generateObject).not.toHaveBeenCalled();
   });
 
+  it('does not process price lists with AI when auth lookup returns an error', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('Auth lookup failed'),
+    });
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Vendor',
+      'text/csv'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+    expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
   it('does not process price lists with AI when product create permission is denied', async () => {
     mocks.ensurePermission.mockRejectedValueOnce(new Error('Forbidden'));
+    mocks.isMerchantPermissionRedirectError.mockReturnValueOnce(true);
 
     const result = await processPriceList(
       existingProducts,
@@ -95,6 +118,24 @@ describe('product import actions', () => {
 
     expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
     expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
+  it('surfaces unexpected product permission failures during price list processing', async () => {
+    mocks.ensurePermission.mockRejectedValueOnce(
+      new Error('Permission store down')
+    );
+    mocks.isMerchantPermissionRedirectError.mockReturnValueOnce(false);
+
+    await expect(
+      processPriceList(
+        existingProducts,
+        'Name,Price\nNew Phone,2000',
+        'Vendor',
+        'text/csv'
+      )
+    ).rejects.toThrow('Permission store down');
+
     expect(mocks.generateObject).not.toHaveBeenCalled();
   });
 
@@ -152,8 +193,24 @@ describe('product import actions', () => {
     expect(mocks.ensurePermission).not.toHaveBeenCalled();
   });
 
+  it('does not parse CSV when auth lookup returns an error', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('Auth lookup failed'),
+    });
+
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price\nNew Phone,2000'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+  });
+
   it('does not parse CSV when product create permission is denied', async () => {
     mocks.ensurePermission.mockRejectedValueOnce(new Error('Denied'));
+    mocks.isMerchantPermissionRedirectError.mockReturnValueOnce(true);
 
     const result = await parseCSVDirectly(
       existingProducts,
@@ -212,8 +269,25 @@ describe('product import actions', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it('does not fetch Google Sheets when auth lookup returns an error', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('Auth lookup failed'),
+    });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      fetchGoogleSheet('https://docs.google.com/spreadsheets/d/sheet-id/edit')
+    ).rejects.toThrow('Unauthorized');
+
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('does not fetch Google Sheets when product create permission is denied', async () => {
     mocks.ensurePermission.mockRejectedValueOnce(new Error('Forbidden'));
+    mocks.isMerchantPermissionRedirectError.mockReturnValueOnce(true);
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
 

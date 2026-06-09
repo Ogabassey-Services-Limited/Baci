@@ -373,6 +373,14 @@ describe('resendOrderConfirmation', () => {
     expect(result).toEqual({ success: false, message: 'Unauthorized' });
     expect(mockEnsurePermission).not.toHaveBeenCalled();
   });
+
+  it('returns validation failure before permission checks for invalid order IDs', async () => {
+    const result = await resendOrderConfirmation('not-a-uuid');
+
+    expect(result).toEqual({ success: false, message: 'Invalid order ID' });
+    expect(mockEnsurePermission).not.toHaveBeenCalled();
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
 });
 
 describe('getOrder', () => {
@@ -511,6 +519,14 @@ describe('getOrder', () => {
       'admin-user',
       { requestedMerchantId: MERCHANT_ID }
     );
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('returns null before merchant authorization when order input fails validation', async () => {
+    const order = await getOrder(MERCHANT_ID, '');
+
+    expect(order).toBeNull();
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
     expect(mockFrom).not.toHaveBeenCalled();
   });
 

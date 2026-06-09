@@ -8,9 +8,67 @@ import {
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
-import { ensurePermission } from '@/lib/merchant-server';
+import {
+  ensurePermission,
+  isMerchantPermissionRedirectError,
+} from '@/lib/merchant-server';
 import type { Product } from '@/lib/products';
 import { createClient } from '@/lib/supabase/server';
+
+const MAX_PRICE_LIST_INPUT_CHARS = 5_000_000;
+const MAX_PRODUCTS_PER_IMPORT = 10_000;
+const MAX_GOOGLE_SHEET_URL_CHARS = 4096;
+
+const ProductImportProductSchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    name: z.string().min(1).max(500),
+    price: z.number().finite().nonnegative(),
+    sku: z.string().max(256).nullable().optional(),
+    stock: z.number().finite().optional(),
+  })
+  .passthrough();
+
+type ValidatedImportProduct = z.infer<typeof ProductImportProductSchema>;
+
+const ProductImportProductsSchema = z
+  .array(ProductImportProductSchema)
+  .max(MAX_PRODUCTS_PER_IMPORT);
+
+const ProcessPriceListInputSchema = z.object({
+  currentProducts: ProductImportProductsSchema,
+  priceListData: z.string().max(MAX_PRICE_LIST_INPUT_CHARS),
+  vendor: z.string().max(100),
+  fileType: z.string().min(1).max(100),
+});
+
+const ParseCsvDirectlyInputSchema = z.object({
+  currentProducts: ProductImportProductsSchema,
+  csvData: z.string().max(MAX_PRICE_LIST_INPUT_CHARS),
+});
+
+const FetchGoogleSheetInputSchema = z.object({
+  url: z.url().max(MAX_GOOGLE_SHEET_URL_CHARS),
+});
+
+function getInvalidProductImportResponse(): AIResponse {
+  return {
+    changes: [],
+    summary: 'Invalid input',
+  };
+}
+
+async function ensureProductCreatePermission(): Promise<boolean> {
+  try {
+    await ensurePermission('products', 'create');
+    return true;
+  } catch (error) {
+    if (isMerchantPermissionRedirectError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
 
 // Zod schema for the AI response
 const ChangeDetailsSchema = z.object({
@@ -116,9 +174,17 @@ export async function processPriceList(
     };
   }
 
-  try {
-    await ensurePermission('products', 'create');
-  } catch {
+  const input = ProcessPriceListInputSchema.safeParse({
+    currentProducts,
+    priceListData,
+    vendor,
+    fileType,
+  });
+  if (!input.success) {
+    return getInvalidProductImportResponse();
+  }
+
+  if (!(await ensureProductCreatePermission())) {
     return {
       changes: [],
       summary: 'Unauthorized',
@@ -126,19 +192,22 @@ export async function processPriceList(
   }
 
   performance.mark('processPriceList-start');
-  const safeVendor = sanitizePromptInput(vendor, 100).value;
-  const safeFileType = sanitizePromptInput(fileType, 50).value;
+  const validatedCurrentProducts: ValidatedImportProduct[] =
+    input.data.currentProducts;
+  const validatedPriceListData = input.data.priceListData;
+  const safeVendor = sanitizePromptInput(input.data.vendor, 100).value;
+  const safeFileType = sanitizePromptInput(input.data.fileType, 50).value;
 
   const prompt = `
 You are an AI assistant for an e-commerce platform. Your task is to analyze a new price list and compare it to the current product catalog.
 Return a structured JSON object that details all suggested changes.
 
 Current Product Catalog (JSON):
-${JSON.stringify(currentProducts)}
+${JSON.stringify(validatedCurrentProducts)}
 
 New Price List from Vendor "${safeVendor}" (Format: ${safeFileType}):
 ---
-${priceListData}
+${validatedPriceListData}
 ---
 
 Instructions:
@@ -162,7 +231,7 @@ Instructions:
 7.  Provide a concise 'summary' of changes.
 `;
 
-  const isImage = fileType.startsWith('image/');
+  const isImage = input.data.fileType.startsWith('image/');
 
   try {
     const { object } = await withRetry(async () => {
@@ -176,7 +245,7 @@ Instructions:
               role: 'user',
               content: [
                 { type: 'text', text: prompt },
-                { type: 'image', image: priceListData }, // priceListData is base64 string
+                { type: 'image', image: validatedPriceListData }, // priceListData is base64 string
               ],
             },
           ],
@@ -230,16 +299,24 @@ export async function parseCSVDirectly(
     };
   }
 
-  try {
-    await ensurePermission('products', 'create');
-  } catch {
+  const input = ParseCsvDirectlyInputSchema.safeParse({
+    currentProducts,
+    csvData,
+  });
+  if (!input.success) {
+    return getInvalidProductImportResponse();
+  }
+
+  if (!(await ensureProductCreatePermission())) {
     return {
       changes: [],
       summary: 'Unauthorized',
     };
   }
 
-  const lines = csvData.split('\n').filter((line) => line.trim());
+  const validatedCurrentProducts: ValidatedImportProduct[] =
+    input.data.currentProducts;
+  const lines = input.data.csvData.split('\n').filter((line) => line.trim());
   if (lines.length < 2) {
     return {
       changes: [],
@@ -325,9 +402,9 @@ export async function parseCSVDirectly(
   }
 
   // Build lookup map of existing products (by normalized name)
-  const existingByName = new Map<string, Product>();
-  const existingBySku = new Map<string, Product>();
-  for (const p of currentProducts) {
+  const existingByName = new Map<string, ValidatedImportProduct>();
+  const existingBySku = new Map<string, ValidatedImportProduct>();
+  for (const p of validatedCurrentProducts) {
     existingByName.set(normalizeName(p.name), p);
     if (p.sku) existingBySku.set(p.sku.toLowerCase().trim(), p);
   }
@@ -388,7 +465,7 @@ export async function parseCSVDirectly(
           details: {
             name: rawName,
             price: existingProduct.price,
-            sku: rawSku || existingProduct.sku,
+            sku: rawSku || existingProduct.sku || undefined,
             stock: stock ?? existingProduct.stock,
             category: rawCategory, // Include category in update if new one provided
             image: rawImage, // Include image in update
@@ -416,11 +493,11 @@ export async function parseCSVDirectly(
   // Check for removals (products in catalog but not in CSV)
   // Only suggest removals if CSV has substantial data (avoid false positives)
   const csvProductCount = processedNames.size;
-  const catalogCount = currentProducts.length;
+  const catalogCount = validatedCurrentProducts.length;
 
   // Only suggest removals if CSV has at least 50% of catalog size (likely a full update)
   if (csvProductCount >= catalogCount * 0.5) {
-    for (const product of currentProducts) {
+    for (const product of validatedCurrentProducts) {
       if (!processedNames.has(normalizeName(product.name))) {
         changes.push({
           type: 'remove',
@@ -428,7 +505,7 @@ export async function parseCSVDirectly(
           details: {
             name: product.name,
             price: product.price,
-            sku: product.sku,
+            sku: product.sku || undefined,
           },
           reason: 'Not found in updated price list',
         });
@@ -494,9 +571,14 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
     throw new Error('Unauthorized');
   }
 
-  try {
-    await ensurePermission('products', 'create');
-  } catch {
+  const input = FetchGoogleSheetInputSchema.safeParse({ url });
+  if (!input.success) {
+    throw new Error(
+      'Invalid URL format. Please provide a valid Google Sheets URL.'
+    );
+  }
+
+  if (!(await ensureProductCreatePermission())) {
     throw new Error('Unauthorized');
   }
 
@@ -505,7 +587,7 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
     // Validate URL format first
     let parsedUrl: URL;
     try {
-      parsedUrl = new URL(url);
+      parsedUrl = new URL(input.data.url);
     } catch {
       throw new Error(
         'Invalid URL format. Please provide a valid Google Sheets URL.'

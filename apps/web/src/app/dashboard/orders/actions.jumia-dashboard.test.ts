@@ -133,6 +133,17 @@ describe('Jumia dashboard order data', () => {
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
+  it('returns an empty order list when filters fail validation', async () => {
+    await expect(
+      getOrders(MERCHANT_ID, {
+        search: 'x'.repeat(201),
+      })
+    ).resolves.toEqual([]);
+
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
   it('returns zeroed dashboard stats when caller is unauthenticated', async () => {
     mocks.getUser.mockResolvedValueOnce({
       data: { user: null },
@@ -165,6 +176,18 @@ describe('Jumia dashboard order data', () => {
       'admin-user',
       { requestedMerchantId: MERCHANT_ID }
     );
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('returns zeroed dashboard stats when merchant ID fails validation', async () => {
+    await expect(getOrderStats('')).resolves.toEqual({
+      totalOrders: 0,
+      completedOrders: 0,
+      unpaidOrders: 0,
+      urgentOrders: 0,
+    });
+
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
