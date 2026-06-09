@@ -75,7 +75,9 @@ describe('checkout success client page', () => {
     expect(
       screen.queryByText(/Thank you for your purchase/i)
     ).not.toBeInTheDocument();
-    expect(screen.getByText('Continue Shopping')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Continue Shopping' })
+    ).toHaveAttribute('href', '/');
   });
 
   it('renders order details with derived totals and zero shipping preserved', () => {

@@ -1,10 +1,33 @@
 import { createBrowserClient } from '@supabase/ssr';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+
+function getBrowserSupabaseUrl() {
+  const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!value) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not defined');
+  }
+
+  return value;
+}
+
+function getBrowserSupabaseAnonKey() {
+  const value = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!value) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined');
+  }
+
+  return value;
+}
 
 export function createClient() {
-  // Use the default createBrowserClient which automatically handles
-  // cookies safely and correctly (including chunking for large tokens).
-  return createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
+  // Keep the browser client off the zod-backed server env module. Next.js
+  // statically inlines NEXT_PUBLIC_* reads in client chunks, which prevents
+  // storefront commerce drawers from downloading the full env validator.
+  return createBrowserClient(
+    getBrowserSupabaseUrl(),
+    getBrowserSupabaseAnonKey()
+  );
 }
 
 /**
