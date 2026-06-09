@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { googlePlaceIdSchema } from '@/lib/google-place-id';
 import { getCachedGooglePlacesReviews } from '@/lib/google-places-reviews';
+import { googlePlaceIdSchema } from '@/schemas/google-place-id';
 
 /**
  * Google Places API Reviews Route

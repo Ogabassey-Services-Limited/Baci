@@ -1,5 +1,5 @@
 import type { RegisteredAddress } from '@baci/shared';
-import { normalizeGooglePlaceId } from '@/lib/google-place-id';
+import { normalizeGooglePlaceId } from '@/lib/google-place-id-normalization';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileRouteLinks,

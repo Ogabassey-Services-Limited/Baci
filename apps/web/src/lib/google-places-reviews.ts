@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { getGooglePlacesApiKey } from '@/env';
-import { normalizeGooglePlaceId } from '@/lib/google-place-id';
+import { normalizeGooglePlaceId } from '@/lib/google-place-id-normalization';
 
 const NEW_PLACES_API_BASE = 'https://places.googleapis.com/v1';
 const GOOGLE_PLACES_REQUEST_TIMEOUT_MS = 5_000;
