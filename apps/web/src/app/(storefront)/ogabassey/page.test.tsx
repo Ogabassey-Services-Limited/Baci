@@ -23,6 +23,7 @@ const mockOgabasseyHomePageContent = vi.hoisted(() =>
     <main>OgaBassey storefront: {String(renderHero)}</main>
   ))
 );
+const mockHomeStyleLoader = vi.hoisted(() => vi.fn());
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
@@ -34,12 +35,19 @@ vi.mock('./ogabassey-home-page-content', () => ({
     mockOgabasseyHomePageContent(props),
 }));
 
+vi.mock('./ogabassey-home-style-loader', () => ({
+  OgabasseyHomeStyleLoader: () => {
+    mockHomeStyleLoader();
+    return <span>Deferred homepage styles</span>;
+  },
+}));
+
 import * as pageModule from './page';
 import OgabasseyStaticHomePage, { metadata } from './page';
 
 describe('OgabasseyStaticHomePage', () => {
-  it('loads the complete homepage stylesheet from the static homepage shell', () => {
-    expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
+  it('keeps the complete homepage stylesheet out of the static server shell', () => {
+    expect(mockHomeStorefrontCssImport).not.toHaveBeenCalled();
   });
   it('renders the OgaBassey-specific home route shell', () => {
     render(<OgabasseyStaticHomePage />);
@@ -47,6 +55,8 @@ describe('OgabasseyStaticHomePage', () => {
     expect(
       screen.getByRole('region', { name: 'OgaBassey hero' })
     ).toBeInTheDocument();
+    expect(screen.getByText('Deferred homepage styles')).toBeInTheDocument();
+    expect(mockHomeStyleLoader).toHaveBeenCalledOnce();
     expect(screen.getByRole('main')).toHaveTextContent(
       'OgaBassey storefront: false'
     );
