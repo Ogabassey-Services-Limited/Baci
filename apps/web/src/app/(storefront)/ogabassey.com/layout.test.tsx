@@ -20,8 +20,14 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
       }) => <section aria-label="storefront layout">{children}</section>
     ),
   }));
+const mockHomeStorefrontCssImport = vi.hoisted(() => vi.fn());
 
 vi.mock('server-only', () => ({}));
+
+vi.mock('@/app/(storefront)/storefront-home.css', () => {
+  mockHomeStorefrontCssImport();
+  return {};
+});
 
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
@@ -41,6 +47,10 @@ describe('OgabasseyDomainLayout', () => {
   beforeEach(() => {
     mockGenerateStorefrontLayoutMetadata.mockClear();
     mockStorefrontLayout.mockClear();
+  });
+
+  it('loads the reduced homepage stylesheet from the custom-domain layout shell', () => {
+    expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
   });
 
   it('renders the storefront layout with the domain identifier', async () => {

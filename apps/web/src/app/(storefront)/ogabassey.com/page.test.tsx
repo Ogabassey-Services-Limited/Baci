@@ -1,23 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-const { mockStaticHomePageContent, mockHomeStorefrontCssImport } = vi.hoisted(
-  () => ({
-    mockStaticHomePageContent: vi.fn(
-      ({ heroBasePath }: { heroBasePath: string }) => (
-        <section aria-label="OgaBassey domain page">
-          {heroBasePath || 'root'}
-        </section>
-      )
-    ),
-    mockHomeStorefrontCssImport: vi.fn(),
-  })
-);
-
-vi.mock('@/app/(storefront)/storefront-home.css', () => {
-  mockHomeStorefrontCssImport();
-  return {};
-});
+const { mockStaticHomePageContent } = vi.hoisted(() => ({
+  mockStaticHomePageContent: vi.fn(
+    ({ heroBasePath }: { heroBasePath: string }) => (
+      <section aria-label="OgaBassey domain page">
+        {heroBasePath || 'root'}
+      </section>
+    )
+  ),
+}));
 
 vi.mock('@/app/(storefront)/ogabassey/page', () => ({
   metadata: {
@@ -35,10 +27,6 @@ vi.mock(
 import OgabasseyDomainPage, { metadata } from './page';
 
 describe('OgabasseyDomainPage', () => {
-  it('loads the homepage storefront stylesheet at the custom-domain page leaf', () => {
-    expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
-  });
-
   it('renders the static OgaBassey homepage with the custom-domain base path', () => {
     render(<OgabasseyDomainPage />);
 

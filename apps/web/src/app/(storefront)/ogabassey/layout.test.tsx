@@ -32,6 +32,7 @@ const { mockStorefrontLayout } = vi.hoisted(() => ({
     }) => <section aria-label="generic storefront layout">{children}</section>
   ),
 }));
+const mockHomeStorefrontCssImport = vi.hoisted(() => vi.fn());
 
 const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
   mockGetRequestScopedMerchant: vi.fn<
@@ -58,6 +59,11 @@ const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
 
 vi.mock('server-only', () => ({}));
 
+vi.mock('@/app/(storefront)/storefront-home.css', () => {
+  mockHomeStorefrontCssImport();
+  return {};
+});
+
 vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: mockGetRequestScopedMerchant,
 }));
@@ -80,6 +86,10 @@ describe('OgabasseyLayout', () => {
   beforeEach(() => {
     mockStorefrontLayout.mockClear();
     mockGetRequestScopedMerchant.mockClear();
+  });
+
+  it('loads the reduced homepage stylesheet from the layout shell', () => {
+    expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
   });
 
   it('renders the storefront layout with the static OgaBassey identifier', async () => {
