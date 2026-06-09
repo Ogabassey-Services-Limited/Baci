@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
   BlogListingRouteLoading,
@@ -56,6 +57,37 @@ describe('storefront-loading-ui', () => {
     expect(sources[0]).toHaveAttribute('type', 'image/avif');
     expect(sources[1]).toHaveAttribute('srcset', '/hero-mobile.jpg');
     expect(sources[1]).toHaveAttribute('type', 'image/jpeg');
+  });
+
+  it('emits a viewport-scoped preload link for the mobile shell hero', () => {
+    const html = renderToString(
+      <ShellChromeLoading
+        mobileHeroImage={{
+          alt: 'OgaBassey storefront hero',
+          avifSrc: '/hero-mobile.avif',
+          fallbackSrc: '/hero-mobile.jpg',
+        }}
+      />
+    );
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const preload = template.content.querySelector(
+      'link[rel="preload"][href="/hero-mobile.avif"]'
+    );
+
+    expect(preload).toBeTruthy();
+    expect(preload?.getAttribute('as')).toBe('image');
+    expect(preload?.getAttribute('fetchpriority')).toBe('high');
+    expect(preload?.getAttribute('media')).toBe('(max-width: 767px)');
+    expect(preload?.getAttribute('type')).toBe('image/avif');
+  });
+
+  it('does not emit a preload link when the shell has no hero image', () => {
+    const html = renderToString(<ShellChromeLoading />);
+    const template = document.createElement('template');
+    template.innerHTML = html;
+
+    expect(template.content.querySelector('link[rel="preload"]')).toBeNull();
   });
 
   it('does not rely on external CSS for critical shell fallback geometry', () => {
