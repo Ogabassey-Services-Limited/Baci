@@ -62,6 +62,15 @@ export async function getCustomers(
 ): Promise<Customer[]> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return [];
+  }
+
   const authorizedMerchantId = await resolveCustomerMerchantId('view');
 
   if (!authorizedMerchantId || merchantId !== authorizedMerchantId) {
@@ -91,6 +100,15 @@ export async function getCustomers(
 export async function createCustomer(formData: CreateCustomerData) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error('Unauthorized');
+  }
+
   const authorizedMerchantId = await resolveCustomerMerchantId('create');
   if (!authorizedMerchantId) {
     throw new Error('Unauthorized');
@@ -137,6 +155,15 @@ export async function getCustomer(
 ): Promise<Customer | null> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return null;
+  }
+
   const authorizedMerchantId = await resolveCustomerMerchantId('view');
   if (!authorizedMerchantId) {
     return null;
@@ -180,6 +207,15 @@ export async function getCustomerOrders(
 ): Promise<CustomerOrder[]> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return [];
+  }
+
   const authorizedMerchantId = await resolveCustomerMerchantId('view');
   if (!authorizedMerchantId) {
     return [];

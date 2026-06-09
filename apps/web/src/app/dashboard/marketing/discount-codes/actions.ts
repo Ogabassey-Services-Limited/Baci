@@ -71,6 +71,14 @@ export type UpsertDiscountCodeInput = {
 export async function getDiscountCodes() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error('Unauthorized');
+  }
 
   const { merchant } = await ensurePermission('marketing', 'view');
 
@@ -107,6 +115,14 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
 
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error('Unauthorized');
+  }
 
   const requiredAction = validatedInput.id ? 'edit' : 'create';
   const { merchant } = await ensurePermission('marketing', requiredAction);
@@ -217,6 +233,14 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
 export async function deleteDiscountCode(id: string) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error('Unauthorized');
+  }
 
   const { merchant } = await ensurePermission('marketing', 'delete');
 

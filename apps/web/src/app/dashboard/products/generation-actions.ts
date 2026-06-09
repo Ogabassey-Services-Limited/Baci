@@ -3,6 +3,8 @@
 import { generateObject } from 'ai';
 import z from 'zod';
 import { geminiFlash, withRetry } from '@/ai/provider';
+import { ensurePermission } from '@/lib/merchant-server';
+import { createClient } from '@/lib/supabase/server';
 
 // Schema for the batch response
 const ProductEnrichmentSchema = z.object({
@@ -39,6 +41,22 @@ export async function enrichProductsBatch(
   productNames: string[]
 ): Promise<EnrichedProduct[]> {
   if (!productNames.length) return [];
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return [];
+  }
+
+  try {
+    await ensurePermission('products', 'create');
+  } catch {
+    return [];
+  }
 
   const prompt = `
 You are an expert e-commerce catalog manager.
