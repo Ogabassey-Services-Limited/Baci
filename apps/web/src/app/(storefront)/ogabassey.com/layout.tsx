@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import '@/app/(storefront)/storefront-home.css';
+import '@/app/(storefront)/storefront-home-critical.css';
 import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,

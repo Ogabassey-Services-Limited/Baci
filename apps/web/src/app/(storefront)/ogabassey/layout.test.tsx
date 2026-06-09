@@ -33,7 +33,8 @@ const { mockStorefrontLayout } = vi.hoisted(() => ({
     }) => <section aria-label="generic storefront layout">{children}</section>
   ),
 }));
-const mockHomeStorefrontCssImport = vi.hoisted(() => vi.fn());
+const mockCriticalHomeCssImport = vi.hoisted(() => vi.fn());
+const mockFullHomeCssImport = vi.hoisted(() => vi.fn());
 
 const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
   mockGetRequestScopedMerchant: vi.fn<
@@ -60,8 +61,13 @@ const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
 
 vi.mock('server-only', () => ({}));
 
+vi.mock('@/app/(storefront)/storefront-home-critical.css', () => {
+  mockCriticalHomeCssImport();
+  return {};
+});
+
 vi.mock('@/app/(storefront)/storefront-home.css', () => {
-  mockHomeStorefrontCssImport();
+  mockFullHomeCssImport();
   return {};
 });
 
@@ -90,13 +96,14 @@ import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/s
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 describe('OgabasseyLayout', () => {
+  it('loads only the critical homepage stylesheet from the layout shell', () => {
+    expect(mockCriticalHomeCssImport).toHaveBeenCalledOnce();
+    expect(mockFullHomeCssImport).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     mockStorefrontLayout.mockClear();
     mockGetRequestScopedMerchant.mockClear();
-  });
-
-  it('loads the reduced homepage stylesheet from the layout shell', () => {
-    expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
   });
 
   it('emits OgaBassey LCP resource hints from the layout shell', () => {
