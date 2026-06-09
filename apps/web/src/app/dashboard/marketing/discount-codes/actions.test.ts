@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockEnsurePermission = vi.fn();
 const mockCreateClient = vi.fn();
+const mockGetUser = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({
@@ -28,6 +29,10 @@ const { getDiscountCodes, upsertDiscountCode, deleteDiscountCode } =
 describe('discount code actions staff access', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
   });
 
   it('loads discount codes using merchant from permission context', async () => {
@@ -56,6 +61,7 @@ describe('discount code actions staff access', () => {
     const eqMock = vi.fn().mockReturnValue({ order: orderMock });
 
     mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
       from: vi.fn(() => ({
         select: vi.fn(() => ({ eq: eqMock })),
       })),
@@ -77,6 +83,7 @@ describe('discount code actions staff access', () => {
     const insertMock = vi.fn().mockResolvedValue({ error: null });
 
     mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
       from: vi.fn(() => ({
         insert: insertMock,
       })),
@@ -109,6 +116,7 @@ describe('discount code actions staff access', () => {
     const eqIdMock = vi.fn().mockReturnValue({ eq: eqMerchantMock });
 
     mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
       from: vi.fn(() => ({
         update: vi.fn(() => ({ eq: eqIdMock })),
       })),
@@ -140,6 +148,7 @@ describe('discount code actions staff access', () => {
     const eqIdMock = vi.fn().mockReturnValue({ eq: eqMerchantMock });
 
     mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
       from: vi.fn(() => ({
         delete: vi.fn(() => ({ eq: eqIdMock })),
       })),
@@ -157,5 +166,20 @@ describe('discount code actions staff access', () => {
       'merchant_id',
       'merchant-staff'
     );
+  });
+
+  it('rejects unauthenticated callers before resolving marketing permissions', async () => {
+    mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
+      from: vi.fn(),
+    });
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    await expect(getDiscountCodes()).rejects.toThrow('Unauthorized');
+
+    expect(mockEnsurePermission).not.toHaveBeenCalled();
   });
 });
