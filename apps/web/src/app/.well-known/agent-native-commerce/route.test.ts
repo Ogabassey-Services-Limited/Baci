@@ -7,8 +7,7 @@ const mockGetCachedGoogleMerchantFeedData = vi.fn();
 const mockGetCachedOpenAIFeedData = vi.fn();
 const mockGetCachedGooglePlacesReviews = vi.fn();
 const mockLoggerError = vi.fn();
-const TEST_NOW = new Date('2026-05-20T12:00:00.000Z');
-const PRODUCT_UPDATED_AT = '2026-05-10T00:00:00.000Z';
+const PRODUCT_UPDATED_AT = new Date().toISOString();
 
 type TestMerchant = {
   business_name: string;
@@ -161,7 +160,6 @@ describe('GET /.well-known/agent-native-commerce', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    vi.setSystemTime(TEST_NOW);
     stubAgenticEnv();
     mockGetMerchantByIdentifier.mockResolvedValue(merchant());
     stubFeedData();
@@ -169,7 +167,6 @@ describe('GET /.well-known/agent-native-commerce', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.useRealTimers();
     vi.unstubAllEnvs();
   });
 
