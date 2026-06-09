@@ -20,6 +20,7 @@ export interface WebMcpCatalogSearchInput {
 
 export const webMcpCatalogSearchInputJsonSchema = {
   type: 'object',
+  additionalProperties: false,
   properties: {
     query: { type: 'string' },
     category: { type: 'string' },
@@ -38,6 +39,7 @@ export const webMcpCatalogSearchInputJsonSchema = {
 
 export const webMcpProductLookupInputJsonSchema = {
   type: 'object',
+  additionalProperties: false,
   properties: {
     product_id: { type: 'string' },
   },
@@ -46,5 +48,6 @@ export const webMcpProductLookupInputJsonSchema = {
 
 export const webMcpStorePoliciesInputJsonSchema = {
   type: 'object',
+  additionalProperties: false,
   properties: {},
 } satisfies JsonObject;
