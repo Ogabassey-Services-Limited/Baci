@@ -1,3 +1,4 @@
+import '@/app/(storefront)/storefront-home.css';
 import { Suspense } from 'react';
 import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import {

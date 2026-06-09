@@ -21,12 +21,18 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
       }) => <section aria-label="storefront layout">{children}</section>
     ),
   }));
-const mockHomeStorefrontCssImport = vi.hoisted(() => vi.fn());
+const mockCriticalHomeCssImport = vi.hoisted(() => vi.fn());
+const mockFullHomeCssImport = vi.hoisted(() => vi.fn());
 
 vi.mock('server-only', () => ({}));
 
+vi.mock('@/app/(storefront)/storefront-home-critical.css', () => {
+  mockCriticalHomeCssImport();
+  return {};
+});
+
 vi.mock('@/app/(storefront)/storefront-home.css', () => {
-  mockHomeStorefrontCssImport();
+  mockFullHomeCssImport();
   return {};
 });
 
@@ -51,13 +57,14 @@ import {
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 describe('OgabasseyDomainLayout', () => {
+  it('loads only the critical homepage stylesheet from the custom-domain layout shell', () => {
+    expect(mockCriticalHomeCssImport).toHaveBeenCalledOnce();
+    expect(mockFullHomeCssImport).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     mockGenerateStorefrontLayoutMetadata.mockClear();
     mockStorefrontLayout.mockClear();
-  });
-
-  it('loads the reduced homepage stylesheet from the custom-domain layout shell', () => {
-    expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
   });
 
   it('emits OgaBassey LCP resource hints from the custom-domain layout shell', () => {

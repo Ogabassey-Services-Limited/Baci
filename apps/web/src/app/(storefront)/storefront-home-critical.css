@@ -1,0 +1,22 @@
+@import "tailwindcss" source(none);
+@import "./storefront-foundation.css";
+
+/* stylelint-disable-next-line scss/at-rule-no-unknown -- Tailwind v4 config directive. */
+@config "../../../tailwind.storefront-home.config.ts";
+
+/*
+  OgaBassey homepage critical CSS.
+
+  Keep this layout-owned entrypoint limited to the static PPR shell and the
+  above-fold Hero. The complete homepage utility surface belongs to
+  storefront-home.css, imported by the page shell, so below-fold product grids,
+  ads, overlays, and commerce widgets do not sit on the layout render-blocking
+  path.
+*/
+/* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
+@source "../../components/storefront/ogabassey/components/Hero.tsx";
+@source "../../components/storefront/ogabassey/components/hero-desktop-grid.tsx";
+@source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
+@source "../../components/storefront/ogabassey/components/hero-utility-panel.tsx";
+@source "../../components/storefront/ogabassey/components/mobile-lcp-hero-image.tsx";
+/* stylelint-enable scss/at-rule-no-unknown */

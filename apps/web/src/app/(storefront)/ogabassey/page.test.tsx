@@ -11,6 +11,13 @@ import {
   OGABASSEY_URL,
 } from '@/config/ogabassey';
 
+const mockHomeStorefrontCssImport = vi.hoisted(() => vi.fn());
+
+vi.mock('@/app/(storefront)/storefront-home.css', () => {
+  mockHomeStorefrontCssImport();
+  return {};
+});
+
 const mockOgabasseyHomePageContent = vi.hoisted(() =>
   vi.fn(({ renderHero }: { renderHero?: boolean }) => (
     <main>OgaBassey storefront: {String(renderHero)}</main>
@@ -31,6 +38,9 @@ import * as pageModule from './page';
 import OgabasseyStaticHomePage, { metadata } from './page';
 
 describe('OgabasseyStaticHomePage', () => {
+  it('loads the complete homepage stylesheet from the static homepage shell', () => {
+    expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
+  });
   it('renders the OgaBassey-specific home route shell', () => {
     render(<OgabasseyStaticHomePage />);
 
