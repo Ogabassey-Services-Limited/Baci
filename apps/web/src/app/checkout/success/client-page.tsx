@@ -132,11 +132,9 @@ export function SuccessPageContent() {
           )}
           <div className="mt-8 text-center">
             <div className="flex flex-col items-center gap-3">
-              <Link href="/">
-                <ThemedButton colorRole="primary">
-                  Continue Shopping
-                </ThemedButton>
-              </Link>
+              <ThemedButton colorRole="primary" asChild>
+                <Link href="/">Continue Shopping</Link>
+              </ThemedButton>
               <a
                 href={BACI_GOOGLE_REVIEW_URL}
                 target="_blank"
