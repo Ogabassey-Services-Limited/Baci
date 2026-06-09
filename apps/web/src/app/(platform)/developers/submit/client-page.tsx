@@ -3,7 +3,7 @@
 import { ArrowLeft, Code2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -55,18 +55,6 @@ export default function SubmitTemplatePage() {
     selectedFile,
     submissionType,
   } = formState;
-
-  useEffect(() => {
-    if (!isSuccess) return;
-
-    const timeoutId = window.setTimeout(() => {
-      router.push('/template-preview');
-    }, 3000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isSuccess, router]);
 
   const validateGitHubUrl = (url: string): boolean => {
     const error = getGitHubUrlError(url);
