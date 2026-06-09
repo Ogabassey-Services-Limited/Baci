@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
@@ -7,6 +8,12 @@ import {
 } from '@/lib/cached-data';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
+
+export const metadata: Metadata = {
+  title: 'Cart',
+  description: 'Review your private cart before checkout.',
+  robots: { index: false, follow: false },
+};
 
 export default async function CartPage({
   params,

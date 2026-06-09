@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CheckoutThemeProvider } from '@/components/checkout-theme-provider';
 import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
@@ -7,6 +8,12 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { isDomainIdentifier } from '@/lib/validation';
+
+export const metadata: Metadata = {
+  title: 'Checkout',
+  description: 'Complete your private storefront checkout securely.',
+  robots: { index: false, follow: false },
+};
 
 export default async function CheckoutPage({
   params,

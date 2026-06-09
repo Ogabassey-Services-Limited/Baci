@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { BnplLauncher } from '@/components/storefront/ogabassey/pages/bnpl-launcher';
@@ -6,6 +7,12 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { isDomainIdentifier } from '@/lib/validation';
+
+export const metadata: Metadata = {
+  title: 'BNPL Checkout',
+  description: 'Complete your private buy-now-pay-later checkout securely.',
+  robots: { index: false, follow: false },
+};
 
 function BnplCheckoutFallback() {
   return (

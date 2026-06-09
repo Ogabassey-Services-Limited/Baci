@@ -10,6 +10,7 @@ import {
   Store,
   Zap,
 } from 'lucide-react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import '@/app/globals.css';
 import AppBody from '@/components/app-body';
@@ -27,6 +28,38 @@ import {
   type OrganizationData,
 } from '@/lib/seo-utils';
 import { getLandingMetrics } from './actions';
+
+const HOMEPAGE_TITLE =
+  'Baci - AI E-commerce Store Builder for African Merchants';
+
+export const metadata: Metadata = {
+  title: HOMEPAGE_TITLE,
+  description: PLATFORM_CONFIG.description,
+  alternates: {
+    canonical: PLATFORM_CONFIG.url,
+  },
+  openGraph: {
+    title: HOMEPAGE_TITLE,
+    description: PLATFORM_CONFIG.description,
+    url: PLATFORM_CONFIG.url,
+    siteName: PLATFORM_CONFIG.name,
+    type: 'website',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: `Baci - ${PLATFORM_CONFIG.description}`,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: HOMEPAGE_TITLE,
+    description: PLATFORM_CONFIG.description,
+    images: ['/opengraph-image'],
+  },
+};
 
 /**
  * Platform-level structured data using @graph pattern.
