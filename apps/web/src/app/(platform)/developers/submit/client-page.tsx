@@ -20,31 +20,51 @@ import {
   SubmissionMethodToggle,
   type SubmissionType,
 } from './submission-method-toggle';
-import {
-  getGitHubUrlError,
-  type RepoState,
-  SubmitTemplateRepoInput,
-} from './submit-template-repo-input';
+import type { RepoState } from './submit-template-repo-input';
+import { SubmitTemplateRepoInput } from './submit-template-repo-input';
+import { getGitHubUrlError } from './submit-template-repo-input-validation';
 import { SubmitTemplateSuccessState } from './submit-template-success-state';
 import { ZipSubmissionInput } from './zip-submission-input';
 
 export default function SubmitTemplatePage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [submissionType, setSubmissionType] =
-    useState<SubmissionType>('github');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [repoState, setRepoState] = useState<RepoState>({
-    error: null,
-    url: '',
+  const [formState, setFormState] = useState<{
+    fileError: string | null;
+    isSubmitting: boolean;
+    isSuccess: boolean;
+    repoState: RepoState;
+    selectedFile: File | null;
+    submissionType: SubmissionType;
+  }>({
+    fileError: null,
+    isSubmitting: false,
+    isSuccess: false,
+    repoState: {
+      error: null,
+      url: '',
+    },
+    selectedFile: null,
+    submissionType: 'github',
   });
+  const {
+    fileError,
+    isSubmitting,
+    isSuccess,
+    repoState,
+    selectedFile,
+    submissionType,
+  } = formState;
 
   const validateGitHubUrl = (url: string): boolean => {
     const error = getGitHubUrlError(url);
-    setRepoState((current) => ({ ...current, error }));
+    setFormState((current) => ({
+      ...current,
+      repoState: {
+        ...current.repoState,
+        error,
+      },
+    }));
     return !error;
   };
 
@@ -66,7 +86,10 @@ export default function SubmitTemplatePage() {
     if (submissionType === 'zip') {
       if (!selectedFile) {
         const message = 'Please upload a project archive before submitting.';
-        setFileError(message);
+        setFormState((current) => ({
+          ...current,
+          fileError: message,
+        }));
         toast({
           title: 'Archive required',
           description: message,
@@ -77,13 +100,17 @@ export default function SubmitTemplatePage() {
       submissionPayload.set('file', selectedFile);
     }
 
-    setIsSubmitting(true);
+    setFormState((current) => ({ ...current, isSubmitting: true }));
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       void submissionPayload;
 
-      setIsSuccess(true);
+      setFormState((current) => ({
+        ...current,
+        isSubmitting: false,
+        isSuccess: true,
+      }));
       toast({
         title: 'Submission Received',
         description:
@@ -94,15 +121,17 @@ export default function SubmitTemplatePage() {
         router.push('/template-preview');
       }, 3000);
     } catch (error) {
-      setIsSuccess(false);
+      setFormState((current) => ({
+        ...current,
+        isSubmitting: false,
+        isSuccess: false,
+      }));
       toast({
         title: 'Submission failed',
         description:
           error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -185,8 +214,11 @@ export default function SubmitTemplatePage() {
                 <SubmissionMethodToggle
                   value={submissionType}
                   onChange={(value) => {
-                    setSubmissionType(value);
-                    setFileError(null);
+                    setFormState((current) => ({
+                      ...current,
+                      fileError: null,
+                      submissionType: value,
+                    }));
                   }}
                 />
               </div>
@@ -196,7 +228,12 @@ export default function SubmitTemplatePage() {
                 {submissionType === 'github' ? (
                   <SubmitTemplateRepoInput
                     state={repoState}
-                    onChange={setRepoState}
+                    onChange={(nextRepoState) => {
+                      setFormState((current) => ({
+                        ...current,
+                        repoState: nextRepoState,
+                      }));
+                    }}
                     onValidate={validateGitHubUrl}
                   />
                 ) : (
@@ -204,8 +241,11 @@ export default function SubmitTemplatePage() {
                     error={fileError}
                     file={selectedFile}
                     onFileChange={(file) => {
-                      setSelectedFile(file);
-                      setFileError(null);
+                      setFormState((current) => ({
+                        ...current,
+                        fileError: null,
+                        selectedFile: file,
+                      }));
                     }}
                   />
                 )}

@@ -57,6 +57,7 @@ import { trackEvent } from '@/lib/event-tracking';
 import { trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
 import { createClient } from '@/lib/supabase/client';
 import type { ShippingQuote } from '@/types/shipping-quote';
+import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snapshot';
 
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
   process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00'
@@ -1241,6 +1242,7 @@ function CheckoutPageContent() {
         total: order.total,
       };
       sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
+      notifyLastOrderSnapshotChanged();
 
       // Track platform-level purchase (for platform owner's analytics)
       trackPlatformPurchase(

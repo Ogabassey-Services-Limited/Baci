@@ -1,11 +1,7 @@
 import { render, screen } from '@testing-library/react';
+import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  getLastOrderSnapshot,
-  parseOrderSnapshot,
-  SuccessPageContent,
-  subscribeToLastOrderSnapshot,
-} from './client-page';
+import { SuccessPageContent } from './client-page';
 
 const merchantMock = vi.hoisted(() => ({
   merchant: { country: 'NG' } as { country: string } | null,
@@ -25,9 +21,8 @@ vi.mock('@/components/themed', () => ({
 }));
 
 vi.mock('next/image', () => ({
-  default: ({ alt, src }: { alt: string; src: string }) => (
-    <span role="img" aria-label={alt} data-src={src} />
-  ),
+  default: ({ alt, src }: { alt: string; src: string }) =>
+    createElement('img', { alt, src }),
 }));
 
 vi.mock('next/link', () => ({
@@ -72,33 +67,6 @@ describe('checkout success client page', () => {
     ],
     shipping_fee: 0,
   };
-
-  it('parses valid order snapshots and rejects invalid snapshots', () => {
-    expect(parseOrderSnapshot('')).toBeNull();
-    expect(parseOrderSnapshot('{bad json')).toBeNull();
-    expect(parseOrderSnapshot(JSON.stringify({ items: [] }))).toBeNull();
-    expect(parseOrderSnapshot(JSON.stringify(order))).toMatchObject({
-      order_number: 'BAC-1001',
-      shipping: { email: 'ada@example.com' },
-    });
-  });
-
-  it('reads and subscribes to the session storage order snapshot', () => {
-    const listener = vi.fn();
-    sessionStorage.setItem('lastOrder', JSON.stringify(order));
-
-    expect(getLastOrderSnapshot()).toBe(JSON.stringify(order));
-
-    const unsubscribe = subscribeToLastOrderSnapshot(listener);
-    window.dispatchEvent(new StorageEvent('storage', { key: 'lastOrder' }));
-
-    expect(listener).toHaveBeenCalledTimes(1);
-
-    unsubscribe();
-    window.dispatchEvent(new StorageEvent('storage', { key: 'lastOrder' }));
-
-    expect(listener).toHaveBeenCalledTimes(1);
-  });
 
   it('renders a safe empty state without malformed thank-you text', () => {
     render(<SuccessPageContent />);

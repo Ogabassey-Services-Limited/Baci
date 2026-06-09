@@ -11,132 +11,19 @@ import { MerchantProvider, useMerchant } from '@/hooks/use-merchant-client';
 import { getCountryByCode } from '@/lib/countries';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
+import {
+  getLastOrderSnapshot,
+  getServerLastOrderSnapshot,
+  parseOrderSnapshot,
+  subscribeToLastOrderSnapshot,
+} from './client-page-order-snapshot';
 
-interface OrderData {
-  order_id?: string;
-  order_number?: string;
-  shipping: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    address: string;
-    city: string;
-    state: string;
-  };
-  items: Array<{
-    id: string;
-    name: string;
-    price: number;
-    quantity: number;
-    image: string;
-  }>;
-  subtotal?: number;
-  shipping_fee?: number;
-  total?: number;
-}
-
-type OrderItem = OrderData['items'][number];
-type ShippingDetails = OrderData['shipping'];
-
-const EMPTY_ORDER_SNAPSHOT = '';
 const DEFAULT_SHIPPING_FEE = 10;
-const noop = () => undefined;
 const successAccentStyles = {
   backgroundColor:
     'color-mix(in srgb, var(--store-primary, #16a34a) 12%, transparent)',
   color: 'var(--store-primary, #16a34a)',
 };
-
-export function subscribeToLastOrderSnapshot(onStoreChange: () => void) {
-  if (typeof window === 'undefined') return noop;
-
-  window.addEventListener('storage', onStoreChange);
-
-  return () => {
-    window.removeEventListener('storage', onStoreChange);
-  };
-}
-
-export function getLastOrderSnapshot() {
-  if (typeof sessionStorage === 'undefined') return EMPTY_ORDER_SNAPSHOT;
-
-  try {
-    return sessionStorage.getItem('lastOrder') ?? EMPTY_ORDER_SNAPSHOT;
-  } catch {
-    return EMPTY_ORDER_SNAPSHOT;
-  }
-}
-
-export function getServerLastOrderSnapshot() {
-  return EMPTY_ORDER_SNAPSHOT;
-}
-
-export function parseOrderSnapshot(snapshot: string): OrderData | null {
-  if (!snapshot) return null;
-
-  try {
-    const parsed = JSON.parse(snapshot) as unknown;
-    if (!isOrderData(parsed)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function isOrderData(value: unknown): value is OrderData {
-  if (!isRecord(value)) return false;
-  if (!isShippingDetails(value.shipping)) return false;
-  if (!Array.isArray(value.items) || !value.items.every(isOrderItem)) {
-    return false;
-  }
-
-  return (
-    isOptionalString(value.order_id) &&
-    isOptionalString(value.order_number) &&
-    isOptionalNumber(value.subtotal) &&
-    isOptionalNumber(value.shipping_fee) &&
-    isOptionalNumber(value.total)
-  );
-}
-
-function isOrderItem(value: unknown): value is OrderItem {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.name === 'string' &&
-    isFiniteNumber(value.price) &&
-    isFiniteNumber(value.quantity) &&
-    typeof value.image === 'string'
-  );
-}
-
-function isShippingDetails(value: unknown): value is ShippingDetails {
-  return (
-    isRecord(value) &&
-    typeof value.firstName === 'string' &&
-    typeof value.lastName === 'string' &&
-    typeof value.email === 'string' &&
-    typeof value.address === 'string' &&
-    typeof value.city === 'string' &&
-    typeof value.state === 'string'
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-function isOptionalNumber(value: unknown) {
-  return value === undefined || isFiniteNumber(value);
-}
-
-function isOptionalString(value: unknown) {
-  return value === undefined || typeof value === 'string';
-}
 
 export function SuccessPageContent() {
   const orderSnapshot = useSyncExternalStore(

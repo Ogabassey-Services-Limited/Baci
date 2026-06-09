@@ -2,10 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  getGitHubUrlError,
-  SubmitTemplateRepoInput,
-} from './submit-template-repo-input';
+import { SubmitTemplateRepoInput } from './submit-template-repo-input';
+import { getGitHubUrlError } from './submit-template-repo-input-validation';
 
 describe('SubmitTemplateRepoInput', () => {
   function RepoInputHarness({
