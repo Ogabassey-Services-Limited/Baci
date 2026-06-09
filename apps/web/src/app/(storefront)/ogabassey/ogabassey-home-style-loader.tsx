@@ -14,6 +14,7 @@ export function OgabasseyHomeStyleLoader({
   loadStyles = loadDefaultHomeStyles,
 }: OgabasseyHomeStyleLoaderProps = {}) {
   const loadStylesRef = useRef(loadStyles);
+  loadStylesRef.current = loadStyles;
 
   useEffect(() => {
     loadStylesRef.current().catch((error: unknown) => {
