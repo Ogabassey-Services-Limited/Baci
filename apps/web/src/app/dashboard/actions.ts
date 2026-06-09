@@ -59,18 +59,10 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 async function getAuthorizedDashboardMerchantId(
   supabase: SupabaseServerClient,
+  userId: string,
   requestedMerchantId: string
 ): Promise<string | null> {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return null;
-  }
-
-  const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+  const merchantContext = await getMerchantForApiRequest(supabase, userId, {
     requestedMerchantId,
   });
 
@@ -87,8 +79,18 @@ export async function getDashboardMetrics(
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return getZeroDashboardMetrics();
+    }
+
     const authorizedMerchantId = await getAuthorizedDashboardMerchantId(
       supabase,
+      user.id,
       args.data.merchantId
     );
 
@@ -133,8 +135,18 @@ export async function getRecentSales(
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return [];
+    }
+
     const authorizedMerchantId = await getAuthorizedDashboardMerchantId(
       supabase,
+      user.id,
       args.data.merchantId
     );
 
@@ -178,8 +190,18 @@ export async function getMonthlyChartData(
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return [];
+    }
+
     const authorizedMerchantId = await getAuthorizedDashboardMerchantId(
       supabase,
+      user.id,
       args.data.merchantId
     );
 

@@ -1,14 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockGetUser = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
+const mockEq = vi.fn();
+const mockUpdate = vi.fn();
+
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
+    auth: {
+      getUser: mockGetUser,
+    },
     from: vi.fn(() => ({
-      update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockResolvedValue({ error: null }),
+      update: mockUpdate,
     })),
   })),
+}));
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
 }));
 vi.mock('@/lib/favicon-processor', () => ({
   processFavicon: vi.fn(),
@@ -21,6 +32,21 @@ import { uploadFavicon } from './actions';
 describe('uploadFavicon', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEq.mockResolvedValue({ error: null });
+    mockUpdate.mockReturnValue({ eq: mockEq });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: 'merchant-1',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
   });
 
   it('returns error when no file in FormData', async () => {
@@ -56,7 +82,44 @@ describe('uploadFavicon', () => {
     // Assert
     expect(result).toEqual({ success: true, result: faviconResult });
     expect(processFavicon).toHaveBeenCalledWith(expect.any(File), 'merchant-1');
+    expect(mockEq).toHaveBeenCalledWith('id', 'merchant-1');
     expect(revalidatePath).toHaveBeenCalledWith('/dashboard/settings');
+  });
+
+  it('returns unauthorized before processing when auth fails', async () => {
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new File(['img'], 'icon.png', { type: 'image/png' })
+    );
+
+    const result = await uploadFavicon(formData, 'merchant-1');
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+    expect(processFavicon).not.toHaveBeenCalled();
+  });
+
+  it('returns access denied before processing when merchant access fails', async () => {
+    mockGetMerchantForApiRequest.mockResolvedValueOnce(null);
+
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new File(['img'], 'icon.png', { type: 'image/png' })
+    );
+
+    const result = await uploadFavicon(formData, 'merchant-1');
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Merchant not found or access denied',
+    });
+    expect(processFavicon).not.toHaveBeenCalled();
   });
 
   it('returns error when processFavicon throws', async () => {

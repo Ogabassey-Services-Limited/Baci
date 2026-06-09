@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockEnsurePermission = vi.fn();
 const mockCreateClient = vi.fn();
+const mockGetUser = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({
@@ -27,11 +28,18 @@ const { createCustomer, getCustomer, getCustomers } = await import('./actions');
 describe('customer actions staff access', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
   });
 
   it('prevents cross-merchant reads when provided merchantId does not match access context', async () => {
     const fromMock = vi.fn();
-    mockCreateClient.mockReturnValue({ from: fromMock });
+    mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
+      from: fromMock,
+    });
 
     mockEnsurePermission.mockResolvedValue({
       merchant: { id: 'merchant-staff' },
@@ -54,6 +62,7 @@ describe('customer actions staff access', () => {
     const insertMock = vi.fn().mockReturnValue({ select: selectMock });
 
     mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
       from: vi.fn(() => ({
         insert: insertMock,
       })),
@@ -95,6 +104,7 @@ describe('customer actions staff access', () => {
     const eqIdMock = vi.fn().mockReturnValue({ eq: eqMerchantMock });
 
     mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
       from: vi.fn(() => ({
         select: vi.fn(() => ({ eq: eqIdMock })),
       })),
@@ -113,5 +123,23 @@ describe('customer actions staff access', () => {
       'merchant-staff'
     );
     expect(result?.id).toBe('customer-1');
+  });
+
+  it('does not resolve customer permissions for unauthenticated callers', async () => {
+    const fromMock = vi.fn();
+    mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
+      from: fromMock,
+    });
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    const result = await getCustomers('merchant-staff');
+
+    expect(result).toEqual([]);
+    expect(mockEnsurePermission).not.toHaveBeenCalled();
+    expect(fromMock).not.toHaveBeenCalled();
   });
 });

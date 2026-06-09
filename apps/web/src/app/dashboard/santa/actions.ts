@@ -1,7 +1,11 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import type { StaffAccess } from '@/hooks/merchant';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 export interface SantaStats {
   total_chats: number;
@@ -24,9 +28,63 @@ export interface SantaInteraction {
   session_id: string;
 }
 
+function getZeroSantaStats(): SantaStats {
+  return {
+    total_chats: 0,
+    unique_sessions: 0,
+    wishes_granted: 0,
+    wishes_denied: 0,
+    total_revenue: 0,
+    avg_discount: 0,
+  };
+}
+
+function canViewSantaAnalytics(staffAccess: StaffAccess) {
+  return (
+    staffAccess.isOwner ||
+    staffAccess.permissions?.full_access?.all === true ||
+    staffAccess.permissions?.marketing?.all === true ||
+    staffAccess.permissions?.marketing?.view === true
+  );
+}
+
+async function resolveSantaAnalyticsMerchantId(
+  supabase: SupabaseServerClient,
+  userId: string,
+  requestedMerchantId: string
+) {
+  const merchantContext = await getMerchantForApiRequest(supabase, userId, {
+    requestedMerchantId,
+  });
+
+  if (!merchantContext || !canViewSantaAnalytics(merchantContext.staffAccess)) {
+    return null;
+  }
+
+  return merchantContext.merchantId;
+}
+
 export async function getSantaStats(merchantId: string): Promise<SantaStats> {
   const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return getZeroSantaStats();
+  }
+
+  const authorizedMerchantId = await resolveSantaAnalyticsMerchantId(
+    supabase,
+    user.id,
+    merchantId
+  );
+
+  if (!authorizedMerchantId) {
+    return getZeroSantaStats();
+  }
 
   // We can query the view directly, but for now let's manually aggregate
   // to ensure we get a single total object, as the view is daily stats.
@@ -35,14 +93,7 @@ export async function getSantaStats(merchantId: string): Promise<SantaStats> {
   // Let's rely on raw table aggregation for real-time accuracy for the "Totals" cards.
 
   // Calculate stats in memory (since we might not have the view enabled/perfect yet)
-  const stats: SantaStats = {
-    total_chats: 0,
-    unique_sessions: 0, // We'd need to query distinct sessions separately or fetch all
-    wishes_granted: 0,
-    wishes_denied: 0,
-    total_revenue: 0,
-    avg_discount: 0,
-  };
+  const stats = getZeroSantaStats();
 
   // Better: use the view if it works.
   // Let's try the view first, fall back to simple counts.
@@ -52,7 +103,7 @@ export async function getSantaStats(merchantId: string): Promise<SantaStats> {
     .select(
       'total_chats, unique_sessions, wishes_granted, wishes_denied, total_revenue, avg_discount'
     )
-    .eq('merchant_id', merchantId);
+    .eq('merchant_id', authorizedMerchantId);
 
   if (!viewError && viewData) {
     // Aggregate the daily view data
@@ -77,14 +128,32 @@ export async function getRecentInteractions(
   limit = 20
 ): Promise<SantaInteraction[]> {
   const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return [];
+  }
+
+  const authorizedMerchantId = await resolveSantaAnalyticsMerchantId(
+    supabase,
+    user.id,
+    merchantId
+  );
+
+  if (!authorizedMerchantId) {
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('santa_interactions')
     .select(
       'id, created_at, interaction_type, user_message, santa_response, product_name, approved_price, discount_percentage, session_id'
     )
-    .eq('merchant_id', merchantId)
+    .eq('merchant_id', authorizedMerchantId)
     .order('created_at', { ascending: false })
     .limit(limit);
 

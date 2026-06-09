@@ -21,6 +21,15 @@ export async function setPrimaryDomain(
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
     const { merchant } = await ensurePermission('settings', 'edit');
 
     // Verify domain belongs to merchant and verify it is active

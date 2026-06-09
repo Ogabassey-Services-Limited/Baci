@@ -21,31 +21,23 @@ const VALID_PAYOUT_DAYS = [
  */
 async function verifyMerchantOwnership(
   supabase: ReturnType<typeof createClient>,
+  userId: string,
   merchantId: string
 ): Promise<
   { success: true; userId: string } | { success: false; error: string }
 > {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { success: false, error: 'Unauthorized' };
-  }
-
   const { data: merchant } = await supabase
     .from('merchants')
     .select('id')
     .eq('id', merchantId)
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .single();
 
   if (!merchant) {
     return { success: false, error: 'Merchant not found or access denied' };
   }
 
-  return { success: true, userId: user.id };
+  return { success: true, userId };
 }
 
 export type WalletData = {
@@ -88,9 +80,21 @@ export type Transaction = {
 export async function getWalletData(merchantId: string) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return null;
+  }
 
   // Verify ownership
-  const ownershipCheck = await verifyMerchantOwnership(supabase, merchantId);
+  const ownershipCheck = await verifyMerchantOwnership(
+    supabase,
+    user.id,
+    merchantId
+  );
   if (!ownershipCheck.success) {
     return null;
   }
@@ -195,12 +199,24 @@ export async function getWalletData(merchantId: string) {
 export async function getTransactions(merchantId: string, limit = 10) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return [];
+  }
 
   // Clamp limit to prevent excessive queries
   const safeLimit = Math.min(Math.max(1, limit), MAX_TRANSACTION_LIMIT);
 
   // Verify ownership
-  const ownershipCheck = await verifyMerchantOwnership(supabase, merchantId);
+  const ownershipCheck = await verifyMerchantOwnership(
+    supabase,
+    user.id,
+    merchantId
+  );
   if (!ownershipCheck.success) {
     return [];
   }
@@ -243,9 +259,21 @@ export async function updateWalletSettings(
 ) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: 'Unauthorized' };
+  }
 
   // Verify ownership
-  const ownershipCheck = await verifyMerchantOwnership(supabase, merchantId);
+  const ownershipCheck = await verifyMerchantOwnership(
+    supabase,
+    user.id,
+    merchantId
+  );
   if (!ownershipCheck.success) {
     return { success: false, error: ownershipCheck.error };
   }
