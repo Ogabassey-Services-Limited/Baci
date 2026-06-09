@@ -8,10 +8,10 @@
   OgaBassey homepage critical CSS.
 
   Keep this layout-owned entrypoint limited to the static PPR shell and the
-  above-fold Hero. The complete homepage utility surface belongs to
-  storefront-home.css, imported by the page shell, so below-fold product grids,
-  ads, overlays, and commerce widgets do not sit on the layout render-blocking
-  path.
+  above-fold Hero plus the first viewport-visible product grid structure. The
+  complete homepage utility surface belongs to storefront-home.css, imported by
+  the page shell, so deeper below-fold ads, overlays, and commerce widgets do
+  not sit on the layout render-blocking path.
 */
 /* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
 @source "../../components/storefront/ogabassey/components/Hero.tsx";
@@ -19,4 +19,26 @@
 @source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
 @source "../../components/storefront/ogabassey/components/hero-utility-panel.tsx";
 @source "../../components/storefront/ogabassey/components/mobile-lcp-hero-image.tsx";
+/*
+  PSI's mobile trace exposes the top of Featured Products in the initial CLS
+  window. Safelist only the structural product-grid utilities that determine
+  section/card geometry and text metrics; decorative and interactive chrome
+  remains deferred.
+  When editing HomeProductGridCard geometry, update these element-scoped groups
+  or promote the relevant source file into the critical graph intentionally.
+*/
+@source inline("max-w-[1400px] mx-auto px-3 md:px-6 py-6 md:py-8 relative");
+@source inline("flex items-center justify-between mb-6 md:mb-8");
+@source inline("grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6");
+@source inline("p-3 md:p-4 flex flex-col h-full relative [content-visibility:auto] [contain-intrinsic-size:auto_360px]");
+@source inline("absolute inset-0 z-0");
+@source inline("sr-only");
+@source inline("relative aspect-square mb-3 md:mb-4 flex items-center justify-center overflow-hidden z-10 pointer-events-none");
+@source inline("object-contain p-4");
+@source inline("flex flex-col flex-1 px-1 pt-1 pointer-events-none");
+@source inline("text-base mb-1 leading-tight line-clamp-2");
+@source inline("ml-2 inline-flex px-1.5 py-0.5 text-[10px] align-middle leading-none");
+@source inline("mt-auto flex items-end justify-between pt-3");
+@source inline("text-lg");
+@source inline("text-xs mb-0.5");
 /* stylelint-enable scss/at-rule-no-unknown */
