@@ -13,6 +13,7 @@ import {
   getStorefrontSeoDescription,
   getStorefrontSeoTitle,
 } from '../[slug]/seo-helpers';
+import { OgabasseyStaticResourceHints } from './ogabassey-static-resource-hints';
 
 const OGABASSEY_PARAMS = Promise.resolve({ slug: OGABASSEY_TEMPLATE_ID });
 
@@ -105,15 +106,18 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function OgabasseyLayout({ children }: { children: ReactNode }) {
   return (
-    <StorefrontLayout
-      loadingFallback={
-        <ShellChromeLoading
-          mobileHeroImage={OGABASSEY_SHELL_MOBILE_HERO_IMAGE}
-        />
-      }
-      params={OGABASSEY_PARAMS}
-    >
-      {children}
-    </StorefrontLayout>
+    <>
+      <OgabasseyStaticResourceHints />
+      <StorefrontLayout
+        loadingFallback={
+          <ShellChromeLoading
+            mobileHeroImage={OGABASSEY_SHELL_MOBILE_HERO_IMAGE}
+          />
+        }
+        params={OGABASSEY_PARAMS}
+      >
+        {children}
+      </StorefrontLayout>
+    </>
   );
 }

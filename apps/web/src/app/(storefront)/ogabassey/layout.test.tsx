@@ -33,6 +33,7 @@ const { mockStorefrontLayout } = vi.hoisted(() => ({
   ),
 }));
 const mockHomeStorefrontCssImport = vi.hoisted(() => vi.fn());
+const mockOgabasseyStaticResourceHints = vi.hoisted(() => vi.fn(() => null));
 
 const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
   mockGetRequestScopedMerchant: vi.fn<
@@ -64,6 +65,10 @@ vi.mock('@/app/(storefront)/storefront-home.css', () => {
   return {};
 });
 
+vi.mock('@/app/(storefront)/ogabassey/ogabassey-static-resource-hints', () => ({
+  OgabasseyStaticResourceHints: mockOgabasseyStaticResourceHints,
+}));
+
 vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: mockGetRequestScopedMerchant,
 }));
@@ -85,11 +90,22 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
     mockStorefrontLayout.mockClear();
+    mockOgabasseyStaticResourceHints.mockClear();
     mockGetRequestScopedMerchant.mockClear();
   });
 
   it('loads the reduced homepage stylesheet from the layout shell', () => {
     expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
+  });
+
+  it('loads OgaBassey LCP resource hints from the layout shell', () => {
+    render(
+      <OgabasseyLayout>
+        <p>Home content</p>
+      </OgabasseyLayout>
+    );
+
+    expect(mockOgabasseyStaticResourceHints).toHaveBeenCalledOnce();
   });
 
   it('renders the storefront layout with the static OgaBassey identifier', async () => {

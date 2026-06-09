@@ -21,6 +21,7 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
     ),
   }));
 const mockHomeStorefrontCssImport = vi.hoisted(() => vi.fn());
+const mockOgabasseyStaticResourceHints = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock('server-only', () => ({}));
 
@@ -28,6 +29,10 @@ vi.mock('@/app/(storefront)/storefront-home.css', () => {
   mockHomeStorefrontCssImport();
   return {};
 });
+
+vi.mock('@/app/(storefront)/ogabassey/ogabassey-static-resource-hints', () => ({
+  OgabasseyStaticResourceHints: mockOgabasseyStaticResourceHints,
+}));
 
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
@@ -47,10 +52,21 @@ describe('OgabasseyDomainLayout', () => {
   beforeEach(() => {
     mockGenerateStorefrontLayoutMetadata.mockClear();
     mockStorefrontLayout.mockClear();
+    mockOgabasseyStaticResourceHints.mockClear();
   });
 
   it('loads the reduced homepage stylesheet from the custom-domain layout shell', () => {
     expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
+  });
+
+  it('loads OgaBassey LCP resource hints from the custom-domain layout shell', () => {
+    render(
+      <OgabasseyDomainLayout>
+        <p>Home content</p>
+      </OgabasseyDomainLayout>
+    );
+
+    expect(mockOgabasseyStaticResourceHints).toHaveBeenCalledOnce();
   });
 
   it('renders the storefront layout with the domain identifier', async () => {

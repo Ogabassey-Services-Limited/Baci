@@ -8,7 +8,6 @@ import {
 } from '@/config/ogabassey';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
-import { OgabasseyStaticResourceHints } from './ogabassey-static-resource-hints';
 
 const ogabasseyStaticHomepageSchema = {
   '@context': 'https://schema.org',
@@ -34,7 +33,6 @@ export function OgabasseyStaticHomePageContent({
 }) {
   return (
     <>
-      <OgabasseyStaticResourceHints />
       <script type="application/ld+json">
         {safeJsonLdStringify(ogabasseyStaticHomepageSchema)}
       </script>
