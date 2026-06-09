@@ -41,6 +41,11 @@ type ShippingDetails = OrderData['shipping'];
 const EMPTY_ORDER_SNAPSHOT = '';
 const DEFAULT_SHIPPING_FEE = 10;
 const noop = () => undefined;
+const successAccentStyles = {
+  backgroundColor:
+    'color-mix(in srgb, var(--store-primary, #16a34a) 12%, transparent)',
+  color: 'var(--store-primary, #16a34a)',
+};
 
 export function subscribeToLastOrderSnapshot(onStoreChange: () => void) {
   if (typeof window === 'undefined') return noop;
@@ -163,8 +168,11 @@ export function SuccessPageContent() {
     <div className="container mx-auto max-w-2xl py-12 px-4">
       <Card>
         <CardHeader className="text-center">
-          <div className="mx-auto bg-green-100 rounded-full p-3 w-fit">
-            <CheckCircle className="size-12 text-green-600" />
+          <div
+            className="mx-auto rounded-full p-3 w-fit"
+            style={successAccentStyles}
+          >
+            <CheckCircle className="size-12" />
           </div>
           <CardTitle className="text-3xl mt-4">Order Confirmed!</CardTitle>
           {order?.order_number && (
