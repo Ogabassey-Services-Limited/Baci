@@ -48,7 +48,7 @@ export function UtilityTabs({ activeTab, onSelect }: UtilityTabsProps) {
   return (
     <div
       aria-label="Utility type"
-      className="flex border-b border-gray-100 overflow-x-auto no-scrollbar"
+      className="flex border-b border-gray-100 overflow-x-auto hide-scrollbar"
       role="tablist"
     >
       {TABS.map((tab, index) => (
