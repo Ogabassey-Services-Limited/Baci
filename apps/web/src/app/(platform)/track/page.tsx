@@ -1,10 +1,17 @@
 import type { Metadata } from 'next';
+import { PLATFORM_CONFIG } from '@/config/platform';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import TrackClientPage from './client-page';
+
+const trackUrl = `${PLATFORM_CONFIG.url}/track`;
 
 export const metadata: Metadata = {
   title: 'Track Your Order - Baci',
   description:
     'Track a Baci shipment by entering the tracking number sent after checkout.',
+  alternates: {
+    canonical: trackUrl,
+  },
   robots: {
     index: false,
     follow: false,
@@ -12,5 +19,24 @@ export const metadata: Metadata = {
 };
 
 export default function TrackPage() {
-  return <TrackClientPage />;
+  return (
+    <>
+      <script type="application/ld+json">
+        {safeJsonLdStringify({
+          '@context': 'https://schema.org',
+          '@type': 'WebPage',
+          name: 'Track Your Order - Baci',
+          description:
+            'Track a Baci shipment by entering the tracking number sent after checkout.',
+          url: trackUrl,
+          isPartOf: {
+            '@type': 'WebSite',
+            name: PLATFORM_CONFIG.name,
+            url: PLATFORM_CONFIG.url,
+          },
+        })}
+      </script>
+      <TrackClientPage />
+    </>
+  );
 }

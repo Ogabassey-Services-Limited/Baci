@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, ArrowLeft, Code2, Github, Upload } from 'lucide-react';
+import { ArrowLeft, Code2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -16,14 +16,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import {
+  SubmissionMethodToggle,
+  type SubmissionType,
+} from './submission-method-toggle';
+import {
+  getGitHubUrlError,
+  type RepoState,
+  SubmitTemplateRepoInput,
+} from './submit-template-repo-input';
 import { SubmitTemplateSuccessState } from './submit-template-success-state';
 import { ZipSubmissionInput } from './zip-submission-input';
-
-type SubmissionType = 'github' | 'zip';
-
-// GitHub URL validation pattern: https://github.com/username/repo (with optional .git suffix)
-const GITHUB_URL_PATTERN = /^https:\/\/github\.com\/[\w-]+\/[\w.-]+(?:\.git)?$/;
 
 export default function SubmitTemplatePage() {
   const router = useRouter();
@@ -34,36 +37,41 @@ export default function SubmitTemplatePage() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [repoState, setRepoState] = useState<{
-    error: string | null;
-    url: string;
-  }>({ error: null, url: '' });
+  const [repoState, setRepoState] = useState<RepoState>({
+    error: null,
+    url: '',
+  });
 
   const validateGitHubUrl = (url: string): boolean => {
-    if (!url) return true; // Don't show error for empty (required will handle it)
-    if (!GITHUB_URL_PATTERN.test(url)) {
-      setRepoState((current) => ({
-        ...current,
-        error:
-          'Please enter a valid GitHub URL (e.g., https://github.com/username/repo)',
-      }));
-      return false;
-    }
-    setRepoState((current) => ({ ...current, error: null }));
-    return true;
+    const error = getGitHubUrlError(url);
+    setRepoState((current) => ({ ...current, error }));
+    return !error;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (submissionType === 'github' && !validateGitHubUrl(repoState.url)) {
+      toast({
+        title: 'Invalid GitHub URL',
+        description:
+          getGitHubUrlError(repoState.url) ??
+          'Please enter a valid GitHub URL.',
+        variant: 'destructive',
+      });
       return;
     }
 
     const submissionPayload = new FormData(e.currentTarget);
     if (submissionType === 'zip') {
       if (!selectedFile) {
-        setFileError('Please upload a project archive before submitting.');
+        const message = 'Please upload a project archive before submitting.';
+        setFileError(message);
+        toast({
+          title: 'Archive required',
+          description: message,
+          variant: 'destructive',
+        });
         return;
       }
       submissionPayload.set('file', selectedFile);
@@ -71,22 +79,31 @@ export default function SubmitTemplatePage() {
 
     setIsSubmitting(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    void submissionPayload;
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      void submissionPayload;
 
-    setIsSubmitting(false);
-    setIsSuccess(true);
+      setIsSuccess(true);
+      toast({
+        title: 'Submission Received',
+        description:
+          "We've received your template. Our team will review it shortly.",
+      });
 
-    toast({
-      title: 'Submission Received',
-      description:
-        "We've received your template. Our team will review it shortly.",
-    });
-
-    // Redirect after delay
-    setTimeout(() => {
-      router.push('/template-preview');
-    }, 3000);
+      setTimeout(() => {
+        router.push('/template-preview');
+      }, 3000);
+    } catch (error) {
+      setIsSuccess(false);
+      toast({
+        title: 'Submission failed',
+        description:
+          error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSuccess) {
@@ -165,94 +182,23 @@ export default function SubmitTemplatePage() {
               {/* Submission Method */}
               <div className="space-y-4">
                 <Label>Submission Method</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSubmissionType('github');
-                      setFileError(null);
-                    }}
-                    className={cn(
-                      'flex items-center justify-center p-4 border rounded-xl transition-all duration-200',
-                      submissionType === 'github'
-                        ? 'border-blue-600 bg-blue-50/50 text-blue-700 ring-1 ring-blue-600'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    )}
-                  >
-                    <Github className="size-5 mr-3" />
-                    <span className="font-medium">GitHub Repository</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSubmissionType('zip');
-                      setFileError(null);
-                    }}
-                    className={cn(
-                      'flex items-center justify-center p-4 border rounded-xl transition-all duration-200',
-                      submissionType === 'zip'
-                        ? 'border-blue-600 bg-blue-50/50 text-blue-700 ring-1 ring-blue-600'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    )}
-                  >
-                    <Upload className="size-5 mr-3" />
-                    <span className="font-medium">Upload Zip Archive</span>
-                  </button>
-                </div>
+                <SubmissionMethodToggle
+                  value={submissionType}
+                  onChange={(value) => {
+                    setSubmissionType(value);
+                    setFileError(null);
+                  }}
+                />
               </div>
 
               {/* Dynamic Input based on selection */}
               <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
                 {submissionType === 'github' ? (
-                  <div className="space-y-3">
-                    <Label htmlFor="repo" className="text-gray-700">
-                      Repository URL
-                    </Label>
-                    <div className="relative">
-                      <Github className="absolute left-3 top-3 size-4 text-gray-400" />
-                      <Input
-                        id="repo"
-                        name="repo"
-                        type="url"
-                        value={repoState.url}
-                        onChange={(e) => {
-                          setRepoState({
-                            url: e.target.value,
-                            error: null,
-                          });
-                        }}
-                        onBlur={(e) => validateGitHubUrl(e.target.value)}
-                        placeholder="https://github.com/username/baci-template"
-                        className={cn(
-                          'pl-9 bg-white',
-                          repoState.error &&
-                            'border-red-500 focus-visible:ring-red-500'
-                        )}
-                        required
-                        aria-invalid={!!repoState.error}
-                        aria-describedby={
-                          repoState.error ? 'repo-error' : undefined
-                        }
-                      />
-                    </div>
-                    {repoState.error ? (
-                      <p
-                        id="repo-error"
-                        className="text-xs text-red-600 flex items-center"
-                        role="alert"
-                      >
-                        <AlertCircle className="size-3 mr-1" />
-                        {repoState.error}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-gray-500 flex items-center">
-                        <AlertCircle className="size-3 mr-1" />
-                        Make sure the repository is public or you've invited
-                        @baci-bot
-                      </p>
-                    )}
-                  </div>
+                  <SubmitTemplateRepoInput
+                    state={repoState}
+                    onChange={setRepoState}
+                    onValidate={validateGitHubUrl}
+                  />
                 ) : (
                   <ZipSubmissionInput
                     error={fileError}

@@ -15,11 +15,32 @@ describe('SubmitTemplatePage metadata wrapper', () => {
     });
   });
 
+  it('keeps public SEO metadata indexable with a canonical URL', () => {
+    expect(metadata).not.toHaveProperty('robots');
+    expect(metadata.alternates).toMatchObject({
+      canonical: expect.stringContaining('/developers/submit'),
+    });
+  });
+
   it('renders the client page boundary', () => {
     render(<SubmitTemplatePage />);
 
     expect(screen.getByRole('main')).toHaveTextContent(
       'Submit template client'
     );
+  });
+
+  it('emits parsable WebPage JSON-LD for the public submit page', () => {
+    render(<SubmitTemplatePage />);
+
+    const script = document.querySelector('script[type="application/ld+json"]');
+    const jsonLd = JSON.parse(script?.textContent ?? '{}');
+
+    expect(jsonLd).toMatchObject({
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: 'Submit a Storefront Template - Baci Developers',
+      url: expect.stringContaining('/developers/submit'),
+    });
   });
 });
