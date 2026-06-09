@@ -104,7 +104,7 @@ function isOrderItem(value: unknown): value is OrderItem {
     isRecord(value) &&
     isNonEmptyString(value.id) &&
     isNonEmptyString(value.name) &&
-    isPositiveNumber(value.price) &&
+    isNonNegativeNumber(value.price) &&
     isPositiveInteger(value.quantity) &&
     isNonEmptyString(value.image)
   );
@@ -132,6 +132,10 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isPositiveNumber(value: unknown): value is number {
   return isFiniteNumber(value) && value > 0;
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0;
 }
 
 function isPositiveInteger(value: unknown): value is number {

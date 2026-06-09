@@ -44,7 +44,7 @@ describe('checkout success order snapshot helpers', () => {
     });
   });
 
-  it('rejects non-positive item totals and blank shipping fields', () => {
+  it('allows free items and rejects negative totals or blank shipping fields', () => {
     expect(
       parseOrderSnapshot(
         JSON.stringify({
@@ -52,7 +52,9 @@ describe('checkout success order snapshot helpers', () => {
           items: [{ ...order.items[0], price: 0 }],
         })
       )
-    ).toBeNull();
+    ).toMatchObject({
+      items: [expect.objectContaining({ price: 0 })],
+    });
     expect(
       parseOrderSnapshot(
         JSON.stringify({
