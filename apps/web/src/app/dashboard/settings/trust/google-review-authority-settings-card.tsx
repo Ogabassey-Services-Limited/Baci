@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { apiPatch } from '@/lib/api-client';
-import { normalizeGooglePlaceId } from '@/lib/google-place-id';
+import { normalizeGooglePlaceId } from '@/lib/google-place-id-normalization';
 
 interface GoogleReviewAuthoritySettingsCardProps {
   initialGooglePlaceId: string | null;
