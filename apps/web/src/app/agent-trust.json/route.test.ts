@@ -7,7 +7,8 @@ const mockGetCachedGoogleMerchantFeedData = vi.fn();
 const mockGetCachedOpenAIFeedData = vi.fn();
 const mockGetCachedGooglePlacesReviews = vi.fn();
 const mockLoggerError = vi.fn();
-const PRODUCT_UPDATED_AT = new Date().toISOString();
+const TEST_NOW = new Date('2026-05-20T12:00:00.000Z');
+const PRODUCT_UPDATED_AT = '2026-05-10T00:00:00.000Z';
 
 vi.mock('server-only', () => ({}));
 
@@ -95,6 +96,8 @@ describe('GET /agent-trust.json', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    vi.useFakeTimers();
+    vi.setSystemTime(TEST_NOW);
     vi.stubEnv('NODE_ENV', 'test');
     vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'usebaci.com');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
@@ -151,6 +154,7 @@ describe('GET /agent-trust.json', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
   });
 
