@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function TrackPage() {
   const router = useRouter();
@@ -54,8 +55,12 @@ export default function TrackPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="relative">
+                <Label htmlFor="tracking-number" className="sr-only">
+                  Tracking Number
+                </Label>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
+                  id="tracking-number"
                   type="text"
                   placeholder="Enter tracking number"
                   value={trackingNumber}

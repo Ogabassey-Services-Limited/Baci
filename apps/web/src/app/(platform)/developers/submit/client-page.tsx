@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  AlertCircle,
-  ArrowLeft,
-  CheckCircle,
-  Code2,
-  Github,
-  Upload,
-} from 'lucide-react';
+import { AlertCircle, ArrowLeft, Code2, Github, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -24,6 +17,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { SubmitTemplateSuccessState } from './submit-template-success-state';
+import { ZipSubmissionInput } from './zip-submission-input';
 
 type SubmissionType = 'github' | 'zip';
 
@@ -35,6 +30,8 @@ export default function SubmitTemplatePage() {
   const { toast } = useToast();
   const [submissionType, setSubmissionType] =
     useState<SubmissionType>('github');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [repoState, setRepoState] = useState<{
@@ -56,18 +53,26 @@ export default function SubmitTemplatePage() {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Validate GitHub URL if that submission type is selected
     if (submissionType === 'github' && !validateGitHubUrl(repoState.url)) {
       return;
     }
 
+    const submissionPayload = new FormData(e.currentTarget);
+    if (submissionType === 'zip') {
+      if (!selectedFile) {
+        setFileError('Please upload a project archive before submitting.');
+        return;
+      }
+      submissionPayload.set('file', selectedFile);
+    }
+
     setIsSubmitting(true);
 
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 2000));
+    void submissionPayload;
 
     setIsSubmitting(false);
     setIsSuccess(true);
@@ -86,26 +91,9 @@ export default function SubmitTemplatePage() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center p-8 shadow-xl border-green-100">
-          <div className="mx-auto size-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
-            <CheckCircle className="size-8 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Submission Successful!
-          </h2>
-          <p className="text-gray-500 mb-8">
-            Thank you for contributing to the Baci ecosystem. Your template is
-            now in our review queue.
-          </p>
-          <Button
-            onClick={() => router.push('/template-preview')}
-            className="w-full"
-          >
-            Return to Gallery
-          </Button>
-        </Card>
-      </div>
+      <SubmitTemplateSuccessState
+        onReturn={() => router.push('/template-preview')}
+      />
     );
   }
 
@@ -138,7 +126,6 @@ export default function SubmitTemplatePage() {
           </CardHeader>
           <CardContent className="pt-8">
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Basic Info */}
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Template Name</Label>
@@ -181,7 +168,10 @@ export default function SubmitTemplatePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <button
                     type="button"
-                    onClick={() => setSubmissionType('github')}
+                    onClick={() => {
+                      setSubmissionType('github');
+                      setFileError(null);
+                    }}
                     className={cn(
                       'flex items-center justify-center p-4 border rounded-xl transition-all duration-200',
                       submissionType === 'github'
@@ -195,7 +185,10 @@ export default function SubmitTemplatePage() {
 
                   <button
                     type="button"
-                    onClick={() => setSubmissionType('zip')}
+                    onClick={() => {
+                      setSubmissionType('zip');
+                      setFileError(null);
+                    }}
                     className={cn(
                       'flex items-center justify-center p-4 border rounded-xl transition-all duration-200',
                       submissionType === 'zip'
@@ -261,21 +254,14 @@ export default function SubmitTemplatePage() {
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <Label htmlFor="file" className="text-gray-700">
-                      Project Archive
-                    </Label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-white hover:bg-gray-50/50 transition-colors cursor-pointer">
-                      <Upload className="size-8 text-gray-400 mx-auto mb-3" />
-                      <p className="text-sm font-medium text-gray-900">
-                        Click to upload or drag and drop
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        ZIP, TAR up to 50MB
-                      </p>
-                      <Input id="file" type="file" className="hidden" />
-                    </div>
-                  </div>
+                  <ZipSubmissionInput
+                    error={fileError}
+                    file={selectedFile}
+                    onFileChange={(file) => {
+                      setSelectedFile(file);
+                      setFileError(null);
+                    }}
+                  />
                 )}
               </div>
 

@@ -36,6 +36,7 @@ interface OrderData {
 }
 
 const EMPTY_ORDER_SNAPSHOT = '';
+const DEFAULT_SHIPPING_FEE = 10;
 
 function subscribeToLastOrderSnapshot(onStoreChange: () => void) {
   window.addEventListener('storage', onStoreChange);
@@ -83,11 +84,11 @@ function SuccessPageContent() {
   };
 
   const subtotal =
-    order?.subtotal ||
-    order?.items.reduce((acc, item) => acc + item.price * item.quantity, 0) ||
+    order?.subtotal ??
+    order?.items.reduce((acc, item) => acc + item.price * item.quantity, 0) ??
     0;
-  const shippingFee = order?.shipping_fee || 10.0;
-  const total = order?.total || subtotal + shippingFee;
+  const shippingFee = order?.shipping_fee ?? DEFAULT_SHIPPING_FEE;
+  const total = order?.total ?? subtotal + shippingFee;
 
   return (
     <div className="container mx-auto max-w-2xl py-12 px-4">
@@ -102,10 +103,12 @@ function SuccessPageContent() {
               Order {order.order_number}
             </p>
           )}
-          <p className="text-muted-foreground">
-            Thank you for your purchase, {order?.shipping.firstName}! A
-            confirmation has been sent to {order?.shipping.email}.
-          </p>
+          {order?.shipping ? (
+            <p className="text-muted-foreground">
+              Thank you for your purchase, {order.shipping.firstName}! A
+              confirmation has been sent to {order.shipping.email}.
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent>
           {order && (
