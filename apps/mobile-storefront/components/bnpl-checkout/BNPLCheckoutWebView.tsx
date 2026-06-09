@@ -128,8 +128,21 @@ export function BNPLCheckoutWebView({
         textZoom={100}
         mixedContentMode="never"
         allowsInlineMediaPlayback={true}
+        /*
+         * RATIONALE: Credit Direct / Mono checkout runs cross-origin identity verification (facial recognition) 
+         * on domains like 'connect.mono.co' or 'checkout.creditdirect.ng'.
+         *
+         * Since the initial loaded URL is on the Baci domain (e.g. 'usebaci.com'), 'grantIfSameHostElsePrompt' 
+         * falls back to 'prompt'. On Android WebView, the prompt is silently rejected/ignored because the native 
+         * client does not render standard browser permission prompt popups.
+         *
+         * SECURITY CONTROL: 'grant' is safe here because we enforce strict defense-in-depth:
+         * 1. The container app must already have obtained native Android system camera permissions.
+         * 2. The WebView itself is restricted via 'onShouldStartLoadWithRequest' and 'onOpenWindow',
+         *    which abort navigation/load for any domains outside the whitelist in 'isAllowedBnplPopupUrl'.
+         */
         mediaCapturePermissionGrantType={
-          allowsMediaCapture ? 'grantIfSameHostElsePrompt' : 'prompt'
+          allowsMediaCapture ? 'grant' : 'prompt'
         }
         mediaPlaybackRequiresUserAction={false}
         onError={(syntheticEvent) => {
