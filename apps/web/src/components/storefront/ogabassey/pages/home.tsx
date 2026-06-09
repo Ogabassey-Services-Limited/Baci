@@ -39,6 +39,7 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
       {/* Ad Placement: Homepage Strip */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4">
         <DeferredAdUnit
+          activateOnInteraction
           fallback={
             <div
               aria-hidden="true"
@@ -47,7 +48,7 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
           }
           placementKey="HOMEPAGE_STRIP"
           bootDelayMs={HOMEPAGE_STRIP_AD_BOOT_DELAY_MS}
-          timeoutMs={DEFERRED_SHELL_MOUNT_DELAY_MS}
+          timeoutMs={0}
         />
       </div>
 
