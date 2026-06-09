@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { getProductImageAlt } from '@baci/shared';
+import { getProductImageAlt } from '@baci/shared/lib';
 import type { Product } from '../types';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
 import { getProductUrl } from '@/lib/seo-utils';

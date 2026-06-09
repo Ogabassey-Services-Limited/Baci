@@ -14,6 +14,7 @@
     "./schemas": "./src/schemas/index.ts",
     "./schemas/merchant-settings": "./src/schemas/merchant-settings.ts",
     "./receipt": "./src/receipt/index.ts",
+    "./storefront": "./src/storefront/index.ts",
     "./gmc-feed": "./src/gmc-feed/index.ts"
   },
   "scripts": {

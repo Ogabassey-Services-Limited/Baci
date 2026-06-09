@@ -1,6 +1,6 @@
 'use client';
 
-import { orderRecordsByIds } from '@baci/shared';
+import { orderRecordsByIds } from '@baci/shared/lib';
 import Fuse from 'fuse.js';
 import { useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';

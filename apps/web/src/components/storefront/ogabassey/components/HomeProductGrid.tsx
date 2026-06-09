@@ -5,7 +5,7 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import type React from 'react';
 import { Fragment, useEffect, useState } from 'react';
-import { prioritizeSmartphoneProducts } from '@baci/shared';
+import { prioritizeSmartphoneProducts } from '@baci/shared/storefront';
 import { AD_CONFIG } from '../config/ads';
 import { products as mockProducts } from '../data/products';
 import { useDeferredActivation } from './deferred-shell-feature';

@@ -4,7 +4,7 @@ import {
   generateReceiptHtml,
   type ReceiptMerchant,
   type ReceiptOrder,
-} from '@baci/shared';
+} from '@baci/shared/receipt';
 import { Printer, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useId, useRef } from 'react';

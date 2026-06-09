@@ -1,6 +1,6 @@
 'use client';
 
-import { getProductImageAlt } from '@baci/shared';
+import { getProductImageAlt } from '@baci/shared/lib';
 import { Eye, Minus, Plus } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';

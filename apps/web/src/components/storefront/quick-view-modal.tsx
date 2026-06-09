@@ -1,6 +1,6 @@
 'use client';
 
-import { resolveDefaultVariantSelection } from '@baci/shared';
+import { resolveDefaultVariantSelection } from '@baci/shared/lib';
 import { Check, ExternalLink, Minus, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';

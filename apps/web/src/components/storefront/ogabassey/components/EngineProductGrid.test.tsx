@@ -3,16 +3,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/products';
 
-vi.mock('@baci/shared', async () => {
-  const actual = await vi.importActual<typeof import('@baci/shared')>(
-    '@baci/shared'
-  );
-
-  return {
-    ...actual,
-    prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
-  };
-});
+vi.mock('@baci/shared/storefront', () => ({
+  prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
+}));
 
 vi.mock('next/link', () => ({
   default: ({
@@ -129,7 +122,7 @@ vi.mock('./ProductGridItem', () => ({
   ),
 }));
 
-import { prioritizeSmartphoneProducts } from '@baci/shared';
+import { prioritizeSmartphoneProducts } from '@baci/shared/storefront';
 import { useSearchParams } from 'next/navigation';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { EngineProductGrid } from './EngineProductGrid';
