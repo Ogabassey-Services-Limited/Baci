@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { renderToString } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
@@ -38,10 +39,16 @@ vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   }),
 }));
 
+import { hasRenderedResourceHintLink } from '@/app/(storefront)/ogabassey/resource-hint-test-utils';
 import OgabasseyDomainLayout, {
   generateMetadata,
   generateViewport,
 } from '@/app/(storefront)/ogabassey.com/layout';
+import {
+  HERO_DESKTOP_LCP_SRC,
+  HERO_MOBILE_LCP_SRC,
+} from '@/components/storefront/ogabassey/components/hero-data';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 describe('OgabasseyDomainLayout', () => {
   beforeEach(() => {
@@ -51,6 +58,46 @@ describe('OgabasseyDomainLayout', () => {
 
   it('loads the reduced homepage stylesheet from the custom-domain layout shell', () => {
     expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
+  });
+
+  it('emits OgaBassey LCP resource hints from the custom-domain layout shell', () => {
+    const html = renderToString(
+      <OgabasseyDomainLayout>
+        <p>Home content</p>
+      </OgabasseyDomainLayout>
+    );
+    expect(
+      hasRenderedResourceHintLink(html, {
+        href: OGABASSEY_CDN_ORIGIN,
+        rel: 'dns-prefetch',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        href: OGABASSEY_CDN_ORIGIN,
+        rel: 'preconnect',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        as: 'image',
+        fetchpriority: 'high',
+        href: HERO_DESKTOP_LCP_SRC,
+        media: '(min-width: 768px)',
+        rel: 'preload',
+        type: 'image/avif',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        as: 'image',
+        fetchpriority: 'high',
+        href: HERO_MOBILE_LCP_SRC,
+        media: '(max-width: 767px)',
+        rel: 'preload',
+        type: 'image/avif',
+      })
+    ).toBe(true);
   });
 
   it('renders the storefront layout with the domain identifier', async () => {

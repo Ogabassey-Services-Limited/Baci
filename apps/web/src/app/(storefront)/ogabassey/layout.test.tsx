@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { renderToString } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type MockStorefrontMerchant = {
@@ -80,6 +81,12 @@ import OgabasseyLayout, {
   generateMetadata,
   generateViewport,
 } from '@/app/(storefront)/ogabassey/layout';
+import { hasRenderedResourceHintLink } from '@/app/(storefront)/ogabassey/resource-hint-test-utils';
+import {
+  HERO_DESKTOP_LCP_SRC,
+  HERO_MOBILE_LCP_SRC,
+} from '@/components/storefront/ogabassey/components/hero-data';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 describe('OgabasseyLayout', () => {
@@ -90,6 +97,46 @@ describe('OgabasseyLayout', () => {
 
   it('loads the reduced homepage stylesheet from the layout shell', () => {
     expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
+  });
+
+  it('emits OgaBassey LCP resource hints from the layout shell', () => {
+    const html = renderToString(
+      <OgabasseyLayout>
+        <p>Home content</p>
+      </OgabasseyLayout>
+    );
+    expect(
+      hasRenderedResourceHintLink(html, {
+        href: OGABASSEY_CDN_ORIGIN,
+        rel: 'dns-prefetch',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        href: OGABASSEY_CDN_ORIGIN,
+        rel: 'preconnect',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        as: 'image',
+        fetchpriority: 'high',
+        href: HERO_DESKTOP_LCP_SRC,
+        media: '(min-width: 768px)',
+        rel: 'preload',
+        type: 'image/avif',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        as: 'image',
+        fetchpriority: 'high',
+        href: HERO_MOBILE_LCP_SRC,
+        media: '(max-width: 767px)',
+        rel: 'preload',
+        type: 'image/avif',
+      })
+    ).toBe(true);
   });
 
   it('renders the storefront layout with the static OgaBassey identifier', async () => {

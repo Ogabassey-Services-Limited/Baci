@@ -16,15 +16,10 @@ const mockOgabasseyHomePageContent = vi.hoisted(() =>
     <main>OgaBassey storefront: {String(renderHero)}</main>
   ))
 );
-const mockOgabasseyStaticResourceHints = vi.hoisted(() => vi.fn(() => null));
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
   Hero: () => <section aria-label="OgaBassey hero">Hero shell</section>,
-}));
-
-vi.mock('./ogabassey-static-resource-hints', () => ({
-  OgabasseyStaticResourceHints: mockOgabasseyStaticResourceHints,
 }));
 
 vi.mock('./ogabassey-home-page-content', () => ({
@@ -48,7 +43,6 @@ describe('OgabasseyStaticHomePage', () => {
     expect(mockOgabasseyHomePageContent).toHaveBeenCalledWith({
       renderHero: false,
     });
-    expect(mockOgabasseyStaticResourceHints).toHaveBeenCalledOnce();
   });
 
   it('keeps the shared home shell out of the Next app-router page exports', () => {
