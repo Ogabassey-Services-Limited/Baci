@@ -23,7 +23,9 @@ import {
   type OrganizationData,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { OGABASSEY_ENTITY } from '@/lib/storefront/ogabassey-entity';
 import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
+import { buildStorefrontHomeSemanticGraph } from '@/lib/storefront-home-semantic-graph';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 
 type OgabasseyMerchant = NonNullable<
@@ -107,15 +109,16 @@ export async function OgabasseyHomeDynamicContent({
   ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
   const baseUrl = buildStoreUrl(merchant);
+  const homeDescription = generateMetaDescription(
+    merchant.site_description ||
+      merchant.site_tagline ||
+      `Featured products from ${merchant.business_name}.`
+  );
   const homeCollectionSchema =
     merchantProducts.length > 0
       ? generateCollectionPageSchema({
           name: `${merchant.business_name} featured products`,
-          description: generateMetaDescription(
-            merchant.site_description ||
-              merchant.site_tagline ||
-              `Featured products from ${merchant.business_name}.`
-          ),
+          description: homeDescription,
           url: baseUrl,
           products: merchantProducts.slice(
             0,
@@ -137,7 +140,6 @@ export async function OgabasseyHomeDynamicContent({
     ).values()
   ).slice(0, 20);
   const productDiscoveryLinks = merchantProducts
-    .filter((product) => product.slug?.trim())
     .map((product) => {
       const canonicalCategorySlug = product.category_slug
         ? canonicalizeCategorySlug(product.category_slug)
@@ -158,17 +160,24 @@ export async function OgabasseyHomeDynamicContent({
       };
     })
     .slice(0, 24);
+  const homeSemanticGraphSchema = buildStorefrontHomeSemanticGraph({
+    additionalTopics: ['Consumer electronics retail in Nigeria'],
+    baseUrl,
+    blogEnabled: Boolean(merchant.feature_settings?.blog_enabled),
+    categories: categoryDiscoveryLinks,
+    collectionSchema: homeCollectionSchema,
+    description: homeDescription,
+    identityGraph: buildOrganizationGraphSchema(merchant),
+    merchantName: merchant.business_name,
+    products: merchantProducts,
+    topicalFocus: OGABASSEY_ENTITY.topicalFocus,
+  });
 
   return (
     <>
       <script type="application/ld+json">
-        {safeJsonLdStringify(buildOrganizationGraphSchema(merchant))}
+        {safeJsonLdStringify(homeSemanticGraphSchema)}
       </script>
-      {homeCollectionSchema ? (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(homeCollectionSchema)}
-        </script>
-      ) : null}
       <AnalyticsPixelProvider
         merchant={buildMerchantAnalyticsSettings(merchant)}
       />

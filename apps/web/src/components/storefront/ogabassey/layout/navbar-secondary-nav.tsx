@@ -2,22 +2,19 @@
 
 import {
   ChevronDown,
-  Gamepad2,
-  Headphones,
-  Laptop,
   LayoutGrid,
   Newspaper,
-  Package,
-  Printer,
   ScanBarcode,
-  Shield,
-  Smartphone,
   Wallet,
   Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
-import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+
+const NavbarCategoryDropdown = lazy(async () => {
+  const module = await import('./navbar-category-dropdown');
+  return { default: module.NavbarCategoryDropdown };
+});
 
 interface NavigationCategory {
   name: string;
@@ -27,37 +24,6 @@ interface NavigationCategory {
 interface NavbarSecondaryNavProps {
   basePath: string;
   categories: NavigationCategory[];
-}
-
-function getCategoryIcon(categoryName: string) {
-  const name = categoryName.toLowerCase();
-  if (name.includes('phone') || name.includes('smartphone')) {
-    return Smartphone;
-  }
-  if (name.includes('laptop') || name.includes('computer')) {
-    return Laptop;
-  }
-  if (name.includes('gaming') || name.includes('game')) {
-    return Gamepad2;
-  }
-  if (
-    name.includes('accessory') ||
-    name.includes('audio') ||
-    name.includes('speaker') ||
-    name.includes('headphone')
-  ) {
-    return Headphones;
-  }
-  if (name.includes('printer')) {
-    return Printer;
-  }
-  if (name.includes('tablet')) {
-    return Laptop;
-  }
-  if (name.includes('watch') || name.includes('wearable')) {
-    return Shield;
-  }
-  return Package;
 }
 
 export function NavbarSecondaryNav({
@@ -115,50 +81,16 @@ export function NavbarSecondaryNav({
               />
             </button>
 
-            {showCategoryDropdown && (
-              <div
-                className="ogabassey-navbar-secondary__dropdown"
-                id={dropdownId}
-                role="region"
-                aria-label="Category navigation"
-              >
-                <div className="ogabassey-navbar-secondary__dropdown-caret" />
-                {categories.length > 0 ? (
-                  categories.map((category) => {
-                    const Icon = getCategoryIcon(category.name);
-                    const normalizedCategorySlug =
-                      normalizeStorefrontCategorySlug(category.slug);
-
-                    if (!normalizedCategorySlug) {
-                      return null;
-                    }
-
-                    return (
-                      <Link
-                        key={category.slug}
-                        href={`${basePath}/${encodeURIComponent(normalizedCategorySlug)}` as `/${string}`}
-                        prefetch={false}
-                        onClick={() => setShowCategoryDropdown(false)}
-                        className="ogabassey-navbar-secondary__dropdown-link"
-                      >
-                        <Icon
-                          size={18}
-                          className="ogabassey-navbar-secondary__dropdown-icon"
-                          aria-hidden="true"
-                        />
-                        <span className="ogabassey-navbar-secondary__dropdown-label">
-                          {category.name}
-                        </span>
-                      </Link>
-                    );
-                  })
-                ) : (
-                  <div className="ogabassey-navbar-secondary__dropdown-empty">
-                    Loading categories…
-                  </div>
-                )}
-              </div>
-            )}
+            {showCategoryDropdown ? (
+              <Suspense fallback={null}>
+                <NavbarCategoryDropdown
+                  basePath={basePath}
+                  categories={categories}
+                  dropdownId={dropdownId}
+                  onClose={() => setShowCategoryDropdown(false)}
+                />
+              </Suspense>
+            ) : null}
           </div>
 
           <div className="ogabassey-navbar-secondary__divider" />

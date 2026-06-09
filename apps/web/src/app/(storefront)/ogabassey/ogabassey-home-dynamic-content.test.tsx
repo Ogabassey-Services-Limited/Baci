@@ -192,6 +192,28 @@ describe('OgabasseyHomeDynamicContent', () => {
     expect(analytics).toHaveTextContent('"facebook_pixel_id":null');
   });
 
+  it('keeps discovery links for products whose slugs are generated from names', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createProduct({
+        id: 'product-slugless',
+        name: 'Galaxy Fold 8',
+        slug: '',
+      }),
+    ]);
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    render(result as ReactElement);
+
+    expect(screen.getByRole('link', { name: 'Galaxy Fold 8' })).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/galaxy-fold-8'
+    );
+  });
+
   it('emits raw parsable JSON-LD scripts', async () => {
     vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
       createProduct(),
@@ -207,10 +229,77 @@ describe('OgabasseyHomeDynamicContent', () => {
       'script[type="application/ld+json"]'
     );
 
-    expect(scripts).toHaveLength(2);
+    expect(scripts).toHaveLength(1);
     for (const script of scripts) {
       expect(script.innerHTML).not.toContain('&amp;');
       expect(() => JSON.parse(script.innerHTML || '')).not.toThrow();
     }
+
+    const schema = JSON.parse(scripts[0]?.innerHTML || '{}') as {
+      '@graph': Record<string, unknown>[];
+    };
+
+    expect(schema['@graph']).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          '@id': 'https://ogabassey.com/#online-store',
+          '@type': 'OnlineStore',
+        }),
+        expect.objectContaining({
+          '@id': 'https://ogabassey.com/#homepage',
+          '@type': 'CollectionPage',
+          mainEntity: expect.objectContaining({
+            '@id': 'https://ogabassey.com/#featured-products',
+            '@type': 'ItemList',
+          }),
+        }),
+        expect.objectContaining({
+          '@id': 'https://ogabassey.com/#category-hubs',
+          '@type': 'ItemList',
+        }),
+        expect.objectContaining({
+          '@id': 'https://ogabassey.com/#site-navigation',
+          '@type': 'SiteNavigationElement',
+        }),
+      ])
+    );
+  });
+
+  it('includes the blog hub in the semantic graph only when the visible blog link is enabled', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createProduct(),
+    ]);
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: {
+        ...mockMerchant,
+        feature_settings: {
+          ...mockMerchant.feature_settings,
+          blog_enabled: true,
+        },
+      },
+      pathPrefix: '',
+    });
+
+    const { container } = render(result as ReactElement);
+    const schemaScript = container.querySelector(
+      'script[type="application/ld+json"]'
+    );
+    const schema = JSON.parse(schemaScript?.innerHTML || '{}') as {
+      '@graph': Record<string, unknown>[];
+    };
+
+    expect(screen.getByRole('link', { name: 'Blog' })).toHaveAttribute(
+      'href',
+      '/blog'
+    );
+    expect(schema['@graph']).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          '@id': 'https://ogabassey.com/blog#blog',
+          '@type': 'Blog',
+        }),
+      ])
+    );
   });
 });

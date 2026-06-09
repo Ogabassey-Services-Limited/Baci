@@ -35,8 +35,8 @@ describe('NavbarNotifications', () => {
       screen.getByRole('button', { name: /toggle notifications/i })
     );
 
-    expect(screen.getByText('Notifications')).toBeInTheDocument();
-    expect(screen.getByText('No Notifications')).toBeInTheDocument();
+    expect(await screen.findByText('Notifications')).toBeInTheDocument();
+    expect(await screen.findByText('No Notifications')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View All' })).toHaveAttribute(
       'href',
       '/ogabassey/account'
@@ -51,9 +51,24 @@ describe('NavbarNotifications', () => {
     await user.click(
       screen.getByRole('button', { name: /toggle notifications/i })
     );
-    expect(screen.getByText('Notifications')).toBeInTheDocument();
+    expect(await screen.findByText('Notifications')).toBeInTheDocument();
 
     await user.click(document.body);
+
+    expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
+  });
+
+  it('closes the notification panel with Escape', async () => {
+    const user = userEvent.setup();
+
+    render(<NavbarNotifications basePath="/ogabassey" />);
+
+    await user.click(
+      screen.getByRole('button', { name: /toggle notifications/i })
+    );
+    expect(await screen.findByText('Notifications')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
 
     expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
   });
