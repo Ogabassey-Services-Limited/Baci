@@ -2,7 +2,7 @@
 @import "./storefront-foundation.css";
 
 /* stylelint-disable-next-line scss/at-rule-no-unknown -- Tailwind v4 config directive. */
-@config "../../../tailwind.storefront.config.ts";
+@config "../../../tailwind.storefront-home.config.ts";
 
 /*
   Homepage CSS entrypoint.
@@ -14,6 +14,11 @@
   homepage render-blocking path. Do not import storefront-globals.css here: it
   intentionally carries broad legacy/global utilities for non-home storefront
   routes and would reintroduce the render-blocking bundle this file avoids.
+
+  Use the route-scoped config above rather than tailwind.storefront.config.ts:
+  the shared storefront config intentionally has broad content globs for legacy
+  routes, while this entrypoint owns source discovery with `source(none)` and the
+  explicit `@source` list below.
 */
 /* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
 /* When adding or moving homepage-rendered components, update this @source list so the home route stays isolated without dropping required utilities. */
