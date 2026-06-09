@@ -1,5 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import type { CSSProperties } from 'react';
+import * as ReactDOM from 'react-dom';
 import {
   ProductDetailSkeleton,
   ProductGridSkeleton,
@@ -73,6 +74,15 @@ function LoadingStatus({
 export function ShellChromeLoading({
   mobileHeroImage,
 }: ShellChromeLoadingProps = {}) {
+  if (mobileHeroImage) {
+    ReactDOM.preload(mobileHeroImage.avifSrc, {
+      as: 'image',
+      fetchPriority: 'high',
+      media: '(max-width: 767px)',
+      type: 'image/avif',
+    });
+  }
+
   return (
     <LoadingStatus label="Loading storefront chrome">
       <div

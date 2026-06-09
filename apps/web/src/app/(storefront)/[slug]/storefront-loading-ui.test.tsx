@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import * as ReactDOM from 'react-dom';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   BlogListingRouteLoading,
   BlogPostRouteLoading,
@@ -14,6 +15,10 @@ import {
 } from './storefront-loading-ui';
 
 describe('storefront-loading-ui', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('renders the shell chrome loading fallback', () => {
     const { container } = render(<ShellChromeLoading />);
 
@@ -56,6 +61,35 @@ describe('storefront-loading-ui', () => {
     expect(sources[0]).toHaveAttribute('type', 'image/avif');
     expect(sources[1]).toHaveAttribute('srcset', '/hero-mobile.jpg');
     expect(sources[1]).toHaveAttribute('type', 'image/jpeg');
+  });
+
+  it('preloads the mobile shell hero from the static fallback boundary', () => {
+    const preloadSpy = vi.spyOn(ReactDOM, 'preload');
+
+    render(
+      <ShellChromeLoading
+        mobileHeroImage={{
+          alt: 'OgaBassey storefront hero',
+          avifSrc: '/hero-mobile.avif',
+          fallbackSrc: '/hero-mobile.jpg',
+        }}
+      />
+    );
+
+    expect(preloadSpy).toHaveBeenCalledWith('/hero-mobile.avif', {
+      as: 'image',
+      fetchPriority: 'high',
+      media: '(max-width: 767px)',
+      type: 'image/avif',
+    });
+  });
+
+  it('does not preload a mobile hero when the shell has no hero image', () => {
+    const preloadSpy = vi.spyOn(ReactDOM, 'preload');
+
+    render(<ShellChromeLoading />);
+
+    expect(preloadSpy).not.toHaveBeenCalled();
   });
 
   it('does not rely on external CSS for critical shell fallback geometry', () => {
