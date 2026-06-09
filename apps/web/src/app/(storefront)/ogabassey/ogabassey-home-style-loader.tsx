@@ -1,24 +1,19 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
-type OgabasseyHomeStyleLoaderProps = {
-  loadStyles?: () => Promise<unknown>;
-};
-
-function loadDefaultHomeStyles() {
+function loadOgabasseyHomeStyles() {
   return import('@/app/(storefront)/storefront-home.css');
 }
 
-export function OgabasseyHomeStyleLoader({
-  loadStyles = loadDefaultHomeStyles,
-}: OgabasseyHomeStyleLoaderProps = {}) {
-  const loadStylesRef = useRef(loadStyles);
-  loadStylesRef.current = loadStyles;
-
+export function OgabasseyHomeStyleLoader() {
   useEffect(() => {
-    loadStylesRef.current().catch((error: unknown) => {
-      console.error('Failed to load OgaBassey homepage stylesheet', error);
+    loadOgabasseyHomeStyles().catch((error: unknown) => {
+      console.error(
+        new Error('Failed to load OgaBassey homepage stylesheet', {
+          cause: error,
+        })
+      );
     });
   }, []);
 
