@@ -165,7 +165,7 @@ describe('OgabasseyHomePage', () => {
     );
   });
 
-  it('keeps the homepage strip ad out of the early main-thread window', () => {
+  it('keeps the homepage strip ad out of the no-interaction main-thread window', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
     expect(mockDeferredAdUnit).toHaveBeenCalledWith(
@@ -182,14 +182,18 @@ describe('OgabasseyHomePage', () => {
 
     expect(homepageStripCall).toBeDefined();
 
-    // Keep GAM boot outside the 0-9s PageSpeed long-task capture window seen
-    // in the 2026-05-05 desktop PSI run for ogabassey.com.
+    // Keep GAM boot out of no-interaction lab runs. The reserved fallback
+    // protects CLS, while pointer/keyboard intent still allows ads to hydrate
+    // for real shoppers after they engage with the page.
     expect(
       (homepageStripCall?.[0] as { bootDelayMs?: number }).bootDelayMs
     ).toBeGreaterThanOrEqual(9000);
 
     expect(homepageStripCall?.[0]).toEqual(
-      expect.objectContaining({ timeoutMs: 1 })
+      expect.objectContaining({
+        activateOnInteraction: true,
+        timeoutMs: 0,
+      })
     );
   });
 });
