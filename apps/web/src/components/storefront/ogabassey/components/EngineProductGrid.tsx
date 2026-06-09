@@ -11,10 +11,8 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import {
-  deriveProductImageData,
-  prioritizeSmartphoneProducts,
-} from '@baci/shared';
+import { deriveProductImageData } from '@baci/shared/lib';
+import { prioritizeSmartphoneProducts } from '@baci/shared/storefront';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { Product as StorefrontProduct } from '@/lib/products';

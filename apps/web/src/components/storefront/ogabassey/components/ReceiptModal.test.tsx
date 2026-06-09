@@ -1,12 +1,12 @@
-import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
+import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared/receipt';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ReceiptModal } from './ReceiptModal';
 
-vi.mock('@baci/shared', async () => {
-  const actual = await vi.importActual<typeof import('@baci/shared')>(
-    '@baci/shared'
+vi.mock('@baci/shared/receipt', async () => {
+  const actual = await vi.importActual<typeof import('@baci/shared/receipt')>(
+    '@baci/shared/receipt'
   );
 
   return {

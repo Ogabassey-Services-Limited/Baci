@@ -1,4 +1,4 @@
-import { deriveProductImageData } from '@baci/shared';
+import { deriveProductImageData } from '@baci/shared/lib';
 import type { Product as StorefrontProduct } from '@/lib/products';
 import { OGABASSEY_HOME_PRODUCT_FEED_LIMIT } from './config/products';
 import type { Product as OgabasseyProduct } from './types';

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
 
-vi.mock('@baci/shared', () => ({
+vi.mock('@baci/shared/storefront', () => ({
   prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
 }));
 

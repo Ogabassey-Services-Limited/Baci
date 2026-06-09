@@ -5,7 +5,7 @@ import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import React, { useState } from 'react';
-import { getProductImageAlt, trimString } from '@baci/shared';
+import { getProductImageAlt, trimString } from '@baci/shared/lib';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
