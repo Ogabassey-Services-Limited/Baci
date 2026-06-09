@@ -98,7 +98,7 @@ export function CheckoutAuthModal({
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full" disabled={isLoading} aria-busy={isLoading}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />

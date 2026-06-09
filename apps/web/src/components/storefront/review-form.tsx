@@ -193,7 +193,7 @@ export function ReviewForm({
             />
           </div>
 
-          <Button type="submit" disabled={isSubmitting} className="w-full">
+          <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className="w-full">
             {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
             Submit Review
           </Button>
