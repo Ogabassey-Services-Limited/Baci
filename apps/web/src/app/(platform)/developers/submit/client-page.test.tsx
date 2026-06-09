@@ -164,4 +164,38 @@ describe('SubmitTemplatePage client flow', () => {
 
     expect(mockPush).toHaveBeenCalledWith('/template-preview');
   });
+
+  it('cancels the delayed success redirect when unmounted', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<SubmitTemplatePage />);
+
+    await fillRequiredTemplateDetails(user);
+    await user.type(
+      screen.getByLabelText('Repository URL'),
+      'https://github.com/baci/template'
+    );
+
+    vi.useFakeTimers();
+    fireEvent.submit(
+      screen
+        .getByRole('button', { name: /submit template/i })
+        .closest('form') as HTMLFormElement
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    expect(
+      screen.getByRole('heading', { name: 'Submission Successful!' })
+    ).toBeInTheDocument();
+
+    unmount();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(mockPush).not.toHaveBeenCalledWith('/template-preview');
+  });
 });

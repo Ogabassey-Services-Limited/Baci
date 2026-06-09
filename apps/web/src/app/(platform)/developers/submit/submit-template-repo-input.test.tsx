@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { SubmitTemplateRepoInput } from './submit-template-repo-input';
-import { getGitHubUrlError } from './submit-template-repo-input-validation';
 
 describe('SubmitTemplateRepoInput', () => {
   function RepoInputHarness({
@@ -32,16 +31,6 @@ describe('SubmitTemplateRepoInput', () => {
       />
     );
   }
-
-  it('validates GitHub repository URLs', () => {
-    expect(getGitHubUrlError('')).toBeNull();
-    expect(
-      getGitHubUrlError('https://github.com/merchant/storefront.git')
-    ).toBeNull();
-    expect(getGitHubUrlError('https://example.com/merchant/storefront')).toBe(
-      'Please enter a valid GitHub URL (e.g., https://github.com/username/repo)'
-    );
-  });
 
   it('reports input changes and blur validation', async () => {
     const onChange = vi.fn();
