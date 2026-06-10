@@ -679,4 +679,125 @@ describe('sitemap-data', () => {
       )
     ).toBe(true);
   });
+
+  it('resolves slug from request host when headersList is empty and override is undefined', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'hhjjk',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const emptyHeaders = new Headers();
+    const req = new Request('https://hhjjk.usebaci.com/sitemap.xml');
+
+    const context = await resolveStorefrontSitemapContext(
+      emptyHeaders,
+      undefined,
+      req
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('hhjjk');
+    expect(context?.merchant.slug).toBe('hhjjk');
+  });
+
+  it('resolves by domain from request x-custom-domain header even with a garbage slug override', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const emptyHeaders = new Headers();
+    const req = new Request('https://ogabassey.com/sitemap.xml', {
+      headers: {
+        'x-custom-domain': 'ogabassey.com',
+      },
+    });
+
+    const context = await resolveStorefrontSitemapContext(
+      emptyHeaders,
+      'garbage-slug',
+      req
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
+  it('tries non-www host segment before www host segment for a custom domain host', async () => {
+    mockGetMerchantByIdentifier.mockImplementation((id) => {
+      if (id === 'ogabassey.com') {
+        return Promise.resolve({
+          id: 'merchant-1',
+          slug: 'ogabassey',
+          custom_domain: 'ogabassey.com',
+        });
+      }
+      return Promise.resolve(null);
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const emptyHeaders = new Headers();
+    const req = new Request('https://www.ogabassey.com/sitemap.xml');
+
+    const context = await resolveStorefrontSitemapContext(
+      emptyHeaders,
+      undefined,
+      req
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(
+      1,
+      'ogabassey.com'
+    );
+    expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
+  it('skips invalid candidates without throwing and logs error on all-miss', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+      return;
+    });
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const emptyHeaders = new Headers();
+    const req = new Request('https://invalid.usebaci.com/sitemap.xml');
+
+    const context = await resolveStorefrontSitemapContext(
+      emptyHeaders,
+      'cart', // reserved path, invalid candidate
+      req
+    );
+
+    expect(context).toBeNull();
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('returns root entries containing static entries for root id', async () => {
+    const { getNamedSitemapEntries } = await import('./sitemap-data');
+    const context = {
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {
+        from: () => ({
+          select: () => ({
+            eq: () => ({ data: [], error: null }),
+          }),
+        }),
+      },
+    };
+    const entries = await getNamedSitemapEntries(context as any, 'root');
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: 'https://ogabassey.com' }),
+        expect.objectContaining({ url: 'https://ogabassey.com/faq' }),
+      ])
+    );
+  });
+
+  it('creates sitemap unavailable response with 503, no-store, and retry-after', async () => {
+    const { createSitemapUnavailableResponse } = await import('./sitemap-data');
+    const response = createSitemapUnavailableResponse();
+    expect(response.status).toBe(503);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('retry-after')).toBe('300');
+  });
 });

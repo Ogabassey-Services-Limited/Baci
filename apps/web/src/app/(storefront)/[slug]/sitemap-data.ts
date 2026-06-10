@@ -9,7 +9,10 @@ import { escapeHtml } from '@/lib/sanitize-core';
 import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { buildCategorySupportLinks } from '@/lib/storefront-compare/build-commercial-support-links';
-import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
+import {
+  resolveMerchantContextIdentifier,
+  resolveRouteIdentifier,
+} from '@/lib/storefront-route-identifier';
 import { createAnonClient } from '@/lib/supabase/anon';
 
 export interface ProductWithCategory {
@@ -43,16 +46,86 @@ export interface StorefrontSitemapContext {
 
 export async function resolveStorefrontSitemapContext(
   headersList: Headers,
-  routeIdentifierOverride?: string | null
+  routeIdentifierOverride?: string | null,
+  request?: Request
 ): Promise<StorefrontSitemapContext | null> {
+  const rawIdentifiers: string[] = [];
+  const requestHeaders = request ? new Headers(request.headers) : null;
+
+  // 1. Request headers (proxy headers set by middleware)
+  if (requestHeaders) {
+    try {
+      const requestRouteIdentifier =
+        resolveMerchantContextIdentifier(requestHeaders);
+      if (requestRouteIdentifier) {
+        rawIdentifiers.push(requestRouteIdentifier);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Request host
+  if (request) {
+    try {
+      const url = new URL(request.url);
+      const host = url.hostname.toLowerCase();
+      const normalizedHost = host.replace(/^www\./, '');
+      const rootDomain = (
+        process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
+      ).toLowerCase();
+
+      if (
+        normalizedHost !== 'localhost' &&
+        normalizedHost !== '127.0.0.1' &&
+        normalizedHost !== rootDomain
+      ) {
+        if (normalizedHost.endsWith(`.${rootDomain}`)) {
+          const sub = normalizedHost.slice(0, -(rootDomain.length + 1));
+          if (sub) rawIdentifiers.push(sub);
+        } else {
+          rawIdentifiers.push(normalizedHost);
+          if (host.startsWith('www.')) {
+            rawIdentifiers.push(host);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 3. Next.js headers
   const headerRouteIdentifier = resolveRouteIdentifier(headersList);
+  if (headerRouteIdentifier) {
+    rawIdentifiers.push(headerRouteIdentifier);
+  }
+
+  // 4. Route params override
   const routeIdentifierOverrideValue =
     routeIdentifierOverride?.trim().toLowerCase() || '';
-  const routeIdentifiers = [
-    headerRouteIdentifier,
-    routeIdentifierOverrideValue,
-  ].filter((value, index, values): value is string =>
-    Boolean(value && values.indexOf(value) === index)
+  if (routeIdentifierOverrideValue) {
+    rawIdentifiers.push(routeIdentifierOverrideValue);
+  }
+
+  // Fallback: If any identifier looks like a custom domain (contains a dot),
+  // extract the first non-www segment as a potential merchant slug fallback
+  // to safeguard against cached/inactive custom domain mapping desyncs.
+  const fallbacks: string[] = [];
+  for (const id of rawIdentifiers) {
+    if (id.includes('.')) {
+      const parts = id.split('.');
+      const fallback = parts[0] === 'www' ? parts[1] : parts[0];
+      if (fallback) {
+        fallbacks.push(fallback);
+      }
+    }
+  }
+  rawIdentifiers.push(...fallbacks);
+
+  const routeIdentifiers = rawIdentifiers.filter(
+    (value, index, values): value is string =>
+      Boolean(value && values.indexOf(value) === index)
   );
 
   let merchant = null;
@@ -73,12 +146,19 @@ export async function resolveStorefrontSitemapContext(
   }
 
   if (!merchant) {
+    console.error('storefront sitemap: unresolved context', {
+      candidates: rawIdentifiers,
+      hosts: request ? [new URL(request.url).hostname] : [],
+      headers: request ? Object.fromEntries(request.headers.entries()) : null,
+    });
     return null;
   }
 
+  const storeUrlHeaders = requestHeaders ?? headersList;
+
   return {
     merchant,
-    storeUrl: buildRequestScopedStoreUrl(merchant, headersList),
+    storeUrl: buildRequestScopedStoreUrl(merchant, storeUrlHeaders),
     supabase: createAnonClient(),
   };
 }
@@ -372,6 +452,8 @@ export function getNamedSitemapEntries(
   id: string
 ): MetadataRoute.Sitemap | Promise<MetadataRoute.Sitemap> {
   switch (id) {
+    case 'root':
+      return getRootSitemapEntries(context);
     case 'static':
       return getStaticSitemapEntries(context.storeUrl);
     case 'products':
@@ -437,4 +519,18 @@ export function createSitemapResponse(
       'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
     },
   });
+}
+
+export function createSitemapUnavailableResponse(): Response {
+  return new Response(
+    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>',
+    {
+      status: 503,
+      headers: {
+        'content-type': 'application/xml; charset=utf-8',
+        'cache-control': 'no-store',
+        'retry-after': '300',
+      },
+    }
+  );
 }

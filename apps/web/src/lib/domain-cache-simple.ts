@@ -16,7 +16,10 @@
  *   This is a read-only lookup - it cannot modify data.
  */
 
-import { getEdgeConfigSlugKey } from '@/lib/edge-config-keys';
+import {
+  getEdgeConfigDomainKey,
+  getEdgeConfigSlugKey,
+} from '@/lib/edge-config-keys';
 import { createAdminClient } from './supabase/admin';
 
 interface CacheEntry {
@@ -100,6 +103,18 @@ interface ReverseCacheEntry {
 
 const reverseDomainCache = new Map<string, ReverseCacheEntry>();
 
+async function readSlugFromEdgeConfig(
+  domain: string
+): Promise<string | undefined> {
+  try {
+    const { get } = await import('@vercel/edge-config');
+    const value = await get<string>(getEdgeConfigDomainKey(domain));
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function getSlugForCustomDomain(
   domain: string
 ): Promise<string | null> {
@@ -108,6 +123,21 @@ export async function getSlugForCustomDomain(
     return cached.slug;
   }
 
+  // 1. Try Edge Config first
+  const edgeSlug = await readSlugFromEdgeConfig(domain);
+  if (edgeSlug) {
+    if (reverseDomainCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = reverseDomainCache.keys().next().value;
+      if (firstKey) reverseDomainCache.delete(firstKey);
+    }
+    reverseDomainCache.set(domain, {
+      slug: edgeSlug,
+      timestamp: Date.now(),
+    });
+    return edgeSlug;
+  }
+
+  // 2. Fall back to DB
   const slug = await fetchSlugForDomain(domain);
 
   if (reverseDomainCache.size >= MAX_CACHE_SIZE) {
