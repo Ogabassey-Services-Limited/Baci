@@ -1,14 +1,12 @@
 import { renderToString } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('server-only', () => ({}));
+import { describe, expect, it } from 'vitest';
 
 import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
+import {
+  OGABASSEY_HERO_DESKTOP_LCP_SRC,
+  OGABASSEY_HERO_MOBILE_LCP_SRC,
+} from '@/config/ogabassey-hero-assets';
 
 describe('OgabasseyStaticResourceHints', () => {
   it('emits an eager mobile hero image hint and keeps desktop viewport-scoped', () => {
@@ -32,12 +30,12 @@ describe('OgabasseyStaticResourceHints', () => {
     const desktopPreload = findLink(
       (link) =>
         link.getAttribute('rel') === 'preload' &&
-        link.getAttribute('href') === HERO_DESKTOP_LCP_SRC
+        link.getAttribute('href') === OGABASSEY_HERO_DESKTOP_LCP_SRC
     );
     const mobilePreload = findLink(
       (link) =>
         link.getAttribute('rel') === 'preload' &&
-        link.getAttribute('href') === HERO_MOBILE_LCP_SRC
+        link.getAttribute('href') === OGABASSEY_HERO_MOBILE_LCP_SRC
     );
 
     expect(dnsPrefetch).toBeDefined();

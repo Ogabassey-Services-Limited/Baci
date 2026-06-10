@@ -88,11 +88,11 @@ import OgabasseyLayout, {
   generateViewport,
 } from '@/app/(storefront)/ogabassey/layout';
 import { hasRenderedResourceHintLink } from '@/app/(storefront)/ogabassey/resource-hint-test-utils';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
+import {
+  OGABASSEY_HERO_DESKTOP_LCP_SRC,
+  OGABASSEY_HERO_MOBILE_LCP_SRC,
+} from '@/config/ogabassey-hero-assets';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 describe('OgabasseyLayout', () => {
@@ -128,7 +128,7 @@ describe('OgabasseyLayout', () => {
       hasRenderedResourceHintLink(html, {
         as: 'image',
         fetchpriority: 'high',
-        href: HERO_DESKTOP_LCP_SRC,
+        href: OGABASSEY_HERO_DESKTOP_LCP_SRC,
         media: '(min-width: 768px)',
         rel: 'preload',
         type: 'image/avif',
@@ -138,7 +138,7 @@ describe('OgabasseyLayout', () => {
       hasRenderedResourceHintLink(html, {
         as: 'image',
         fetchpriority: 'high',
-        href: HERO_MOBILE_LCP_SRC,
+        href: OGABASSEY_HERO_MOBILE_LCP_SRC,
         media: '(max-width: 767px)',
         rel: 'preload',
         type: 'image/avif',
