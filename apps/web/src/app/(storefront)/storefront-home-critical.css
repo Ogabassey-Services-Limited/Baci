@@ -19,26 +19,14 @@
 @source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
 @source "../../components/storefront/ogabassey/components/hero-utility-panel.tsx";
 @source "../../components/storefront/ogabassey/components/mobile-lcp-hero-image.tsx";
+@source "../../components/storefront/ogabassey/pages/home.tsx";
+@source "../../components/storefront/ogabassey/components/HomeProductGrid.tsx";
+@source "../../components/storefront/ogabassey/components/HomeProductGridCard.tsx";
+@source "../../components/storefront/ogabassey/components/ProductRatingRow.tsx";
 /*
-  PSI's mobile trace exposes the top of Featured Products in the initial CLS
-  window. Safelist only the structural product-grid utilities that determine
-  section/card geometry and text metrics; decorative and interactive chrome
-  remains deferred.
-  When editing HomeProductGridCard geometry, update these element-scoped groups
-  or promote the relevant source file into the critical graph intentionally.
+  PSI's mobile trace exposes the homepage strip and top of Featured Products in
+  the initial CLS window. Source the server-rendered page shell, grid shell, and
+  static card component so geometry and text metrics arrive before the deferred
+  homepage stylesheet. Interactive card chrome remains deferred.
 */
-@source inline("max-w-[1400px] mx-auto px-3 md:px-6 py-6 md:py-8 relative");
-@source inline("flex items-center justify-between mb-6 md:mb-8");
-@source inline("grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6");
-@source inline("p-3 md:p-4 flex flex-col h-full relative [content-visibility:auto] [contain-intrinsic-size:auto_360px]");
-@source inline("absolute inset-0 z-0");
-@source inline("sr-only");
-@source inline("relative aspect-square mb-3 md:mb-4 flex items-center justify-center overflow-hidden z-10 pointer-events-none");
-@source inline("object-contain p-4");
-@source inline("flex flex-col flex-1 px-1 pt-1 pointer-events-none");
-@source inline("text-base mb-1 leading-tight line-clamp-2");
-@source inline("ml-2 inline-flex px-1.5 py-0.5 text-[10px] align-middle leading-none");
-@source inline("mt-auto flex items-end justify-between pt-3");
-@source inline("text-lg");
-@source inline("text-xs mb-0.5");
 /* stylelint-enable scss/at-rule-no-unknown */

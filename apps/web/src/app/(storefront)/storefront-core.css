@@ -1553,8 +1553,9 @@
  *   Next 16.2 bot/blocking-metadata resume slot collision;
  * - the visual shell is a static sibling so browsers still receive immediate
  *   chrome/LCP placeholders;
- * - once streamed content arrives before the fallback, old CSS sibling
- *   selectors hide the static shell without client JavaScript.
+ * - legacy browsers keep the previous safe hide behavior;
+ * - modern browsers keep the static fallback out of layout flow and hide it
+ *   only after real storefront content exists, avoiding CLS during resume.
  */
 .storefront-ppr-static-shell,
 .storefront-ppr-static-shell__content {
@@ -1563,4 +1564,38 @@
 
 .storefront-ppr-static-shell__content ~ .storefront-ppr-static-shell__fallback {
   display: none;
+}
+
+@supports selector(:has(*)) {
+  .storefront-ppr-static-shell {
+    display: block;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  .storefront-ppr-static-shell__content {
+    display: contents;
+  }
+
+  .storefront-ppr-static-shell > .storefront-ppr-static-shell__fallback {
+    inset: 0 auto auto 0;
+    pointer-events: none;
+    position: absolute;
+    width: 100%;
+    z-index: 1;
+  }
+
+  .storefront-ppr-static-shell__content
+    ~ .storefront-ppr-static-shell__fallback {
+    display: block;
+  }
+
+  .storefront-ppr-static-shell__content:has(
+      .ogabassey-storefront-shell,
+      #main-content,
+      main
+    )
+    ~ .storefront-ppr-static-shell__fallback {
+    display: none;
+  }
 }
