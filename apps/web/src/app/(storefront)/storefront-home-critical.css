@@ -1,4 +1,6 @@
-@import "tailwindcss" source(none);
+@layer theme, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
 
 /* stylelint-disable-next-line scss/at-rule-no-unknown -- Tailwind v4 config directive. */
 @config "../../../tailwind.storefront-home.config.ts";

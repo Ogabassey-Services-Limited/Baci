@@ -64,6 +64,13 @@ describe('storefront CSS partitioning', () => {
     const homeCriticalCss = readStorefrontCss('storefront-home-critical.css');
     const homeCss = readStorefrontCss('storefront-home.css');
 
+    expect(homeCriticalCss).not.toMatch(/@import\s+["']tailwindcss["']/);
+    expect(homeCriticalCss).toMatch(
+      /@import\s+["']tailwindcss\/theme\.css["']\s+layer\(theme\)/
+    );
+    expect(homeCriticalCss).toMatch(
+      /@import\s+["']tailwindcss\/utilities\.css["']\s+layer\(utilities\)\s+source\(none\)/
+    );
     expect(homeCriticalCss).not.toMatch(/storefront-foundation\.css/);
     expect(homeCriticalCss).not.toMatch(
       /@source\s+["'][^"']*HomeProductGrid\.tsx/
