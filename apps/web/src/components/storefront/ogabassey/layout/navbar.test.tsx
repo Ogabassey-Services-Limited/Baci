@@ -1,13 +1,21 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   asRoute: vi.fn((path: string) => path),
-  merchantContext: {
+  defaultMerchantContext: {
     merchant: { id: 'merchant-1' },
     navigationCategories: [{ name: 'Phones', slug: 'phones' }],
   },
+  merchantContext: {
+    merchant: { id: 'merchant-1' },
+    navigationCategories: [{ name: 'Phones', slug: 'phones' }],
+  } as {
+    merchant?: { id?: string };
+    navigationCategories?: { name: string; slug: string }[];
+  } | null,
   pathname: '/ogabassey',
   push: vi.fn(),
   setIsCartOpen: vi.fn(),
@@ -28,12 +36,10 @@ vi.mock('next/link', () => ({
   }) => (
     <a
       href={href}
-      {...(prefetch !== undefined ? { 'data-prefetch': String(prefetch) } : {})}
+      data-prefetch={String(prefetch)}
       onClick={(event) => {
         onClick?.(event);
-        if (!event.defaultPrevented) {
-          mocks.push(href);
-        }
+        mocks.push(href);
         event.preventDefault();
       }}
       {...rest}
@@ -50,6 +56,68 @@ vi.mock('next/navigation', () => ({
     back: vi.fn(),
     replace: vi.fn(),
   })),
+}));
+
+vi.mock('next/dynamic', async () => {
+  const react = await vi.importActual<typeof import('react')>('react');
+
+  return {
+    default: (
+      loader: () => Promise<React.ComponentType<Record<string, unknown>>>
+    ) => {
+      return function DynamicComponentMock(props: Record<string, unknown>) {
+        const [Resolved, setResolved] =
+          react.useState<React.ComponentType<Record<string, unknown>> | null>(
+            null
+          );
+
+        react.useEffect(() => {
+          let isMounted = true;
+
+          loader()
+            .then((component) => {
+              if (isMounted) {
+                setResolved(() => component);
+              }
+            })
+            .catch((error: unknown) => {
+              if (isMounted) {
+                setResolved(() => function DynamicImportError() {
+                  throw error;
+                });
+              }
+            });
+
+          return () => {
+            isMounted = false;
+          };
+        }, [loader]);
+
+        return Resolved ? <Resolved {...props} /> : null;
+      };
+    },
+  };
+});
+
+vi.mock('./mobile-menu', () => ({
+  MobileMenu: (props: { isOpen: boolean; onClose: () => void }) => {
+    if (!props.isOpen) {
+      return null;
+    }
+
+    return (
+      <div
+        aria-label="Mobile menu"
+        aria-modal="true"
+        data-open={String(props.isOpen)}
+        role="dialog"
+      >
+        <button type="button" onClick={props.onClose}>
+          Close menu
+        </button>
+      </div>
+    );
+  },
 }));
 
 vi.mock('@/hooks/cart', () => ({
@@ -106,10 +174,6 @@ vi.mock('./logo', () => ({
   Logo: () => <span>Store logo</span>,
 }));
 
-vi.mock('./mobile-menu', () => ({
-  MobileMenu: () => null,
-}));
-
 vi.mock('../components/GadgetPattern', () => ({
   GadgetPattern: () => null,
 }));
@@ -123,17 +187,17 @@ import { OgabasseyNavbar } from './navbar';
 describe('OgabasseyNavbar', () => {
   beforeEach(() => {
     mocks.asRoute.mockClear();
+    mocks.merchantContext = mocks.defaultMerchantContext;
     mocks.pathname = '/ogabassey';
     mocks.push.mockClear();
     mocks.setIsCartOpen.mockClear();
   });
 
   it('keeps rendered links under the store slug when the slug includes a leading slash', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /shop by category/i })
-    );
+    await user.click(screen.getByRole('button', { name: /shop by category/i }));
 
     await screen.findByRole('link', { name: 'Phones' });
 
@@ -156,24 +220,63 @@ describe('OgabasseyNavbar', () => {
   });
 
   it('pushes store-prefixed product routes from search selection', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.focus(screen.getByRole('searchbox', { name: /search products/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /select product/i }));
+    await user.click(screen.getByRole('searchbox', { name: /search products/i }));
+    await user.click(await screen.findByRole('button', { name: /select product/i }));
 
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/products/iphone%2015');
   });
 
-  it('names the mobile menu button for assistive technology', () => {
+  it('names the mobile menu button for assistive technology', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
     const menuButton = screen.getByRole('button', { name: /open menu/i });
 
     expect(menuButton).toHaveAttribute('type', 'button');
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(menuButton);
+
+    expect(menuButton).toHaveAttribute('aria-expanded', 'true');
+    const mobileMenu = await screen.findByRole('dialog', {
+      name: /mobile menu/i,
+    });
+    expect(mobileMenu).toHaveAttribute('data-open', 'true');
+
+    await user.click(screen.getByRole('button', { name: /close menu/i }));
+
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('dialog', { name: /mobile menu/i })
+    ).not.toBeInTheDocument();
   });
 
-  it('pushes store-prefixed blog search routes on the blog page', () => {
+  it('reserves the mobile search row before merchant context is available', () => {
+    mocks.merchantContext = null;
+
+    const { container } = render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+
+    const searchWrap = container.querySelector<HTMLElement>(
+      '.ogabassey-navbar__search-wrap'
+    );
+    const placeholder = container.querySelector<HTMLElement>(
+      '.ogabassey-navbar-search--placeholder'
+    );
+
+    expect(searchWrap).toContainElement(placeholder);
+    expect(placeholder).toHaveAttribute('aria-hidden', 'true');
+    expect(
+      placeholder?.querySelector('.ogabassey-navbar-search__input')
+    ).toBeInTheDocument();
+  });
+
+  it('pushes store-prefixed blog search routes on the blog page', async () => {
+    const user = userEvent.setup();
     mocks.pathname = '/ogabassey/blog';
 
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
@@ -182,38 +285,44 @@ describe('OgabasseyNavbar', () => {
       name: /search blog posts/i,
     });
 
-    fireEvent.change(input, { target: { value: 'flash sale' } });
-    const form = input.closest('form');
-    if (!(form instanceof HTMLFormElement)) {
-      throw new Error('Expected the blog search input to be inside a form');
-    }
-    fireEvent.submit(form);
+    await user.clear(input);
+    await user.type(input, 'flash sale');
+    await user.keyboard('{Enter}');
 
     expect(mocks.push).toHaveBeenCalledWith(
       '/ogabassey/blog?search=flash%20sale'
     );
   });
 
-  it('uses store-prefixed routes for navigation links', () => {
+  it('uses store-prefixed routes for navigation links', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.click(screen.getByRole('link', { name: /imei checker/i }));
-    fireEvent.click(screen.getByRole('link', { name: /repairs/i }));
-    fireEvent.click(screen.getByRole('link', { name: /wallet/i }));
+    await user.click(screen.getByRole('link', { name: /imei checker/i }));
+    await user.click(screen.getByRole('link', { name: /repairs/i }));
+    await user.click(screen.getByRole('link', { name: /wallet/i }));
 
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/imei-check');
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/repairs');
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/wallet');
   });
 
+  it('gives the account link an explicit accessible name', () => {
+    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    expect(screen.getByRole('link', { name: /view account/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/account'
+    );
+  });
+
   it('emits root-relative first-render links for domain-routed storefronts', async () => {
+    const user = userEvent.setup();
     mocks.pathname = '/blog';
 
     render(<OgabasseyNavbar storeSlug="" />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /shop by category/i })
-    );
+    await user.click(screen.getByRole('button', { name: /shop by category/i }));
 
     await screen.findByRole('link', { name: 'Phones' });
 
@@ -243,11 +352,10 @@ describe('OgabasseyNavbar', () => {
   });
 
   it('disables prefetch on visible shell navigation links', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /shop by category/i })
-    );
+    await user.click(screen.getByRole('button', { name: /shop by category/i }));
 
     expect(screen.getByRole('link', { name: /store logo/i })).toHaveAttribute(
       'data-prefetch',
@@ -272,13 +380,14 @@ describe('OgabasseyNavbar', () => {
   });
 
   it('rejects invalid product URLs from search selection', async () => {
+    const user = userEvent.setup();
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
       render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-      fireEvent.focus(screen.getByRole('searchbox', { name: /search products/i }));
-      fireEvent.click(
+      await user.click(screen.getByRole('searchbox', { name: /search products/i }));
+      await user.click(
         await screen.findByRole('button', { name: /select invalid product/i })
       );
 
