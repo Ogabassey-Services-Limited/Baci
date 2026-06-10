@@ -21,6 +21,7 @@
 @source "../../components/storefront/ogabassey/components/mobile-lcp-hero-image.tsx";
 @source "../../components/storefront/ogabassey/components/HomeProductGrid.tsx";
 @source "../../components/storefront/ogabassey/components/HomeProductGridCard.tsx";
+@source "../../components/storefront/ogabassey/components/ProductRatingRow.tsx";
 /*
   PSI's mobile trace exposes the top of Featured Products in the initial CLS
   window. Source the server-rendered grid shell and static card component so

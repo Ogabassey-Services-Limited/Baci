@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Heart,
   ShoppingCart,
-  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
@@ -12,6 +11,7 @@ import type { Product } from '../types';
 import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
 import { requiresOgabasseyProductSelection } from '../product-selection';
+import { ProductRatingRow } from './ProductRatingRow';
 
 interface ProductGridImageChromeProps {
   activeColorIndex: number;
@@ -36,8 +36,6 @@ interface ProductGridContentChromeProps {
   teaserDescription: string;
   viewMode: 'grid' | 'list';
 }
-
-const STAR_POSITIONS = [1, 2, 3, 4, 5] as const;
 
 function getHexColor(color: string | { name: string; value: string }) {
   if (typeof color === 'string') {
@@ -212,24 +210,7 @@ export function ProductGridContentChrome({
 }: ProductGridContentChromeProps) {
   return (
     <>
-      <div className="flex items-center mb-1.5 flex-wrap gap-y-1">
-        <div className="flex items-center gap-1">
-          {STAR_POSITIONS.map((star) => (
-            <Star
-              key={`${product.id}-star-${star}`}
-              size={12}
-              className={`${
-                star <= Math.floor(product.rating ?? 0)
-                  ? 'fill-amber-400 text-amber-400'
-                  : 'text-gray-300'
-              }`}
-            />
-          ))}
-          <span className="text-[10px] text-gray-400 ml-1">
-            ({product.rating})
-          </span>
-        </div>
-      </div>
+      <ProductRatingRow rating={product.rating} />
 
       <p
         className={`text-gray-400 text-[11px] mb-2 line-clamp-1 ${

@@ -8,6 +8,7 @@ import { getProductUrl } from '@/lib/seo-utils';
 import { asRoute } from '@/lib/routes';
 import type { Product } from '../types';
 import { resolveProductImageSource } from './product-image-source';
+import { ProductRatingRow } from './ProductRatingRow';
 
 interface HomeProductGridCardProps {
   product: Product;
@@ -97,6 +98,8 @@ export function HomeProductGridCard({
             </span>
           )}
         </h3>
+
+        <ProductRatingRow rating={product.rating} />
 
         <div className="mt-auto flex items-end justify-between border-t border-dashed border-gray-100 pt-3">
           <span className="text-primary font-extrabold text-lg tracking-tight">
