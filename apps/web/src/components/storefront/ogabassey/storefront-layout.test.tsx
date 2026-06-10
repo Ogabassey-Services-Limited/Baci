@@ -2,10 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CatalogRouteLoading from '@/app/(storefront)/[slug]/(catalog)/loading';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
+import { HERO_DESKTOP_LCP_SRC } from '@/components/storefront/ogabassey/components/hero-data';
 
 const mocks = vi.hoisted(() => ({
   getOgabasseyBasePath: vi.fn(),
@@ -167,7 +164,7 @@ describe('OgabasseyStorefrontLayout', () => {
     );
   });
 
-  it('emits an eager mobile hero LCP preload when the home route asks for them', () => {
+  it('emits only the desktop external hero preload when requested', () => {
     render(
       <OgabasseyStorefrontLayout merchant={merchant} preloadHeroLcpImages>
         <div>Storefront body</div>
@@ -183,15 +180,7 @@ describe('OgabasseyStorefrontLayout', () => {
         type: 'image/avif',
       })
     );
-    expect(mocks.preload).toHaveBeenCalledWith(
-      HERO_MOBILE_LCP_SRC,
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        media: '(max-width: 767px)',
-        type: 'image/avif',
-      })
-    );
+    expect(mocks.preload).toHaveBeenCalledTimes(1);
   });
 
   it('passes domain routing mode through to the shared shell chrome', () => {

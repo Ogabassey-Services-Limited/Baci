@@ -1,8 +1,5 @@
 import { DeferredGoogleStoreWidget } from '@/components/analytics/deferred-google-store-widget';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
+import { HERO_DESKTOP_LCP_SRC } from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 import { StorefrontChromeRuntime } from '@/components/storefront/ogabassey/storefront-chrome-runtime';
 import { ShellChromeLoading } from '@/components/storefront/ogabassey/storefront-loading-ui';
@@ -41,12 +38,6 @@ export function OgabasseyStorefrontLayout({
       as: 'image',
       fetchPriority: 'high',
       media: '(min-width: 768px)',
-      type: 'image/avif',
-    });
-    ReactDOM.preload(HERO_MOBILE_LCP_SRC, {
-      as: 'image',
-      fetchPriority: 'high',
-      media: '(max-width: 767px)',
       type: 'image/avif',
     });
   }

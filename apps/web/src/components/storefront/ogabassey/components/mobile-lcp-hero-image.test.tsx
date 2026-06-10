@@ -4,6 +4,7 @@ import {
   HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
 } from './hero-data';
+import { OGABASSEY_HERO_MOBILE_LCP_INLINE_SRC } from '@/config/ogabassey-hero-inline-assets';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
 import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
 
@@ -95,6 +96,29 @@ describe('MobileLcpHeroImage', () => {
     ).toHaveAttribute(
       'srcset',
       expect.stringContaining(HERO_MOBILE_LCP_FALLBACK_SRC)
+    );
+  });
+
+  it('uses the inline AVIF source for the mobile LCP candidate when provided', () => {
+    const { container } = render(
+      <MobileLcpHeroImage
+        alt="iPhone 17 Pro Max"
+        imageFit="contain"
+        inlineSrc={OGABASSEY_HERO_MOBILE_LCP_INLINE_SRC}
+        shouldPrioritizeImage={true}
+        src={HERO_MOBILE_LCP_SRC}
+      />
+    );
+
+    expect(
+      container.querySelector('source[type="image/avif"]')
+    ).toHaveAttribute('srcset', OGABASSEY_HERO_MOBILE_LCP_INLINE_SRC);
+    expect(
+      container.querySelector('source[type="image/avif"]')
+    ).not.toHaveAttribute('sizes');
+    expect(screen.getByRole('img', { name: 'iPhone 17 Pro Max' })).toHaveAttribute(
+      'src',
+      TRANSPARENT_PIXEL_SRC
     );
   });
 

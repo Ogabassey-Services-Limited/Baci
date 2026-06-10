@@ -89,10 +89,7 @@ import OgabasseyLayout, {
 } from '@/app/(storefront)/ogabassey/layout';
 import { hasRenderedResourceHintLink } from '@/app/(storefront)/ogabassey/resource-hint-test-utils';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
-import {
-  OGABASSEY_HERO_DESKTOP_LCP_SRC,
-  OGABASSEY_HERO_MOBILE_LCP_SRC,
-} from '@/config/ogabassey-hero-assets';
+import { OGABASSEY_HERO_DESKTOP_LCP_SRC } from '@/config/ogabassey-hero-assets';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 describe('OgabasseyLayout', () => {
@@ -106,7 +103,7 @@ describe('OgabasseyLayout', () => {
     mockGetRequestScopedMerchant.mockClear();
   });
 
-  it('emits OgaBassey LCP resource hints from the layout shell', () => {
+  it('emits desktop LCP resource hints and leaves mobile LCP inline', () => {
     const html = renderToString(
       <OgabasseyLayout>
         <p>Home content</p>
@@ -137,13 +134,10 @@ describe('OgabasseyLayout', () => {
     expect(
       hasRenderedResourceHintLink(html, {
         as: 'image',
-        fetchpriority: 'high',
-        href: OGABASSEY_HERO_MOBILE_LCP_SRC,
         media: '(max-width: 767px)',
         rel: 'preload',
-        type: 'image/avif',
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('renders the storefront layout with the static OgaBassey identifier', async () => {
