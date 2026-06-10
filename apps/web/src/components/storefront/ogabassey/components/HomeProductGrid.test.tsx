@@ -140,6 +140,23 @@ describe('HomeProductGrid', () => {
     expect(screen.queryByText('Product 13')).not.toBeInTheDocument();
   });
 
+  it('renders the critical product-grid shell classes used by the homepage CSS partition', () => {
+    render(<HomeProductGrid storeSlug="test-store" products={[createTestProduct(1)]} />);
+
+    const heading = screen.getByRole('heading', { name: 'Featured Products' });
+    const section = heading.closest('section');
+    const grid = screen.getByRole('article').parentElement;
+
+    expect(section).toHaveClass('ogabassey-home-products');
+    expect(section).not.toHaveClass('max-w-[1400px]');
+    expect(heading).toHaveClass('ogabassey-home-products__title');
+    expect(screen.getByText('Best Sellers')).toHaveClass(
+      'ogabassey-home-products__eyebrow'
+    );
+    expect(grid).toHaveClass('ogabassey-home-products__grid');
+    expect(grid).not.toHaveClass('grid-cols-2');
+  });
+
   it('links the view-all CTA to the storefront products route', () => {
     render(
       <HomeProductGrid
