@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HERO_MOBILE_LCP_FALLBACK_SRC,
+  HERO_MOBILE_LCP_INLINE_SRC,
   HERO_MOBILE_LCP_SRC,
 } from './hero-data';
-import { OGABASSEY_HERO_MOBILE_LCP_INLINE_SRC } from '@/config/ogabassey-hero-inline-assets';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
 import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
 
@@ -104,7 +104,7 @@ describe('MobileLcpHeroImage', () => {
       <MobileLcpHeroImage
         alt="iPhone 17 Pro Max"
         imageFit="contain"
-        inlineSrc={OGABASSEY_HERO_MOBILE_LCP_INLINE_SRC}
+        inlineSrc={HERO_MOBILE_LCP_INLINE_SRC}
         shouldPrioritizeImage={true}
         src={HERO_MOBILE_LCP_SRC}
       />
@@ -112,7 +112,7 @@ describe('MobileLcpHeroImage', () => {
 
     expect(
       container.querySelector('source[type="image/avif"]')
-    ).toHaveAttribute('srcset', OGABASSEY_HERO_MOBILE_LCP_INLINE_SRC);
+    ).toHaveAttribute('srcset', HERO_MOBILE_LCP_INLINE_SRC);
     expect(
       container.querySelector('source[type="image/avif"]')
     ).not.toHaveAttribute('sizes');
