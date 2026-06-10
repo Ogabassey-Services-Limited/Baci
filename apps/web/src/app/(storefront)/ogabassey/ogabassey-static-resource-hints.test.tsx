@@ -3,13 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
-import {
-  OGABASSEY_HERO_DESKTOP_LCP_SRC,
-  OGABASSEY_HERO_MOBILE_LCP_SRC,
-} from '@/config/ogabassey-hero-assets';
+import { OGABASSEY_HERO_DESKTOP_LCP_SRC } from '@/config/ogabassey-hero-assets';
 
 describe('OgabasseyStaticResourceHints', () => {
-  it('emits an eager mobile hero image hint and keeps desktop viewport-scoped', () => {
+  it('emits desktop hero image hints and skips the inlined mobile LCP preload', () => {
     const html = renderToString(<OgabasseyStaticResourceHints />);
     const template = document.createElement('template');
     template.innerHTML = html;
@@ -35,7 +32,7 @@ describe('OgabasseyStaticResourceHints', () => {
     const mobilePreload = findLink(
       (link) =>
         link.getAttribute('rel') === 'preload' &&
-        link.getAttribute('href') === OGABASSEY_HERO_MOBILE_LCP_SRC
+        link.getAttribute('media') === '(max-width: 767px)'
     );
 
     expect(dnsPrefetch).toBeDefined();
@@ -45,13 +42,9 @@ describe('OgabasseyStaticResourceHints', () => {
     expect(desktopPreload?.getAttribute('type')).toBe('image/avif');
     expect(desktopPreload?.getAttribute('fetchpriority')).toBe('high');
     expect(desktopPreload?.getAttribute('media')).toBe('(min-width: 768px)');
-    expect(mobilePreload).toBeDefined();
-    expect(mobilePreload?.getAttribute('as')).toBe('image');
-    expect(mobilePreload?.getAttribute('type')).toBe('image/avif');
-    expect(mobilePreload?.getAttribute('fetchpriority')).toBe('high');
-    expect(mobilePreload?.getAttribute('media')).toBe('(max-width: 767px)');
+    expect(mobilePreload).toBeUndefined();
     expect(
       links.filter((link) => link.getAttribute('rel') === 'preload')
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
 });

@@ -11,6 +11,7 @@ import {
 interface MobileLcpHeroImageProps {
   alt: string;
   imageFit?: 'contain' | 'cover';
+  inlineSrc?: string;
   shouldPrioritizeImage: boolean;
   src: string;
 }
@@ -24,6 +25,7 @@ function getResponsiveSizes(srcSetValue: string, sizesValue?: string) {
 export function MobileLcpHeroImage({
   alt,
   imageFit,
+  inlineSrc,
   shouldPrioritizeImage,
   src,
 }: MobileLcpHeroImageProps) {
@@ -56,7 +58,7 @@ export function MobileLcpHeroImage({
     unoptimized: true,
     width: MOBILE_HERO_IMAGE_WIDTH,
   });
-  const avifSrcSet = srcSet ?? src;
+  const avifSrcSet = inlineSrc ?? srcSet ?? src;
   const avifSizes = getResponsiveSizes(
     avifSrcSet,
     sizes ?? MOBILE_HERO_IMAGE_SIZES

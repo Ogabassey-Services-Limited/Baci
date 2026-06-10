@@ -5,6 +5,7 @@ import {
   HERO_DESKTOP_LCP_FALLBACK_SRC,
   HERO_DESKTOP_LCP_SRC,
   HERO_MOBILE_LCP_FALLBACK_SRC,
+  HERO_MOBILE_LCP_INLINE_SRC,
   HERO_MOBILE_LCP_SRC,
   MOBILE_SLIDES,
   NEW_ARRIVALS_PROMO_IMAGE,
@@ -74,6 +75,8 @@ describe('hero-data exports', () => {
       HERO_DESKTOP_LCP_FALLBACK_SRC
     );
     expect(mobileLcpSlide?.src).toBe(HERO_MOBILE_LCP_SRC);
+    expect(mobileLcpSlide?.inlineSrc).toBe(HERO_MOBILE_LCP_INLINE_SRC);
+    expect(HERO_MOBILE_LCP_INLINE_SRC).toMatch(/^data:image\/avif;base64,/);
   });
 
   it('keeps the MacBook promo off the failing CDN transformer path', () => {
