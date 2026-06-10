@@ -59,4 +59,22 @@ describe('storefront CSS partitioning', () => {
       /@source\s+["'][^"']*hero-mobile-carousel\.tsx["']/
     );
   });
+
+  it('keeps deferred assistant launcher selectors out of the PPR shell critical stylesheet', () => {
+    const coreCss = readStorefrontCss('storefront-core.css');
+
+    expect(coreCss).toMatch(/\.storefront-shell-loading/);
+    expect(coreCss).toMatch(/\.storefront-ppr-static-shell/);
+    expect(coreCss).toMatch(/\.ogabassey-navbar/);
+    expect(coreCss).toMatch(/\.ogabassey-mobile-footer/);
+    expect(coreCss).not.toMatch(/\.ogabassey-chat-/);
+  });
+
+  it('loads deferred assistant launcher styles through the assistant chunk stylesheet', () => {
+    const chatCss = readStorefrontCss('storefront-chat.css');
+
+    expect(chatCss).toMatch(/\.ogabassey-chat-anchor/);
+    expect(chatCss).toMatch(/\.ogabassey-chat-button/);
+    expect(chatCss).toMatch(/\.ogabassey-chat-badge/);
+  });
 });
