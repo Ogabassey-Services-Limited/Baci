@@ -60,6 +60,36 @@ describe('storefront CSS partitioning', () => {
     );
   });
 
+  it('keeps homepage product-card utilities deferred while retaining critical grid geometry selectors', () => {
+    const homeCriticalCss = readStorefrontCss('storefront-home-critical.css');
+    const homeCss = readStorefrontCss('storefront-home.css');
+
+    expect(homeCriticalCss).not.toMatch(/storefront-foundation\.css/);
+    expect(homeCriticalCss).not.toMatch(
+      /@source\s+["'][^"']*HomeProductGrid\.tsx/
+    );
+    expect(homeCriticalCss).not.toMatch(
+      /@source\s+["'][^"']*HomeProductGridCard\.tsx/
+    );
+    expect(homeCriticalCss).not.toMatch(
+      /@source\s+["'][^"']*ProductRatingRow\.tsx/
+    );
+    expect(homeCriticalCss).toMatch(/\.ogabassey-home-products\b/);
+    expect(homeCriticalCss).toMatch(/\.ogabassey-home-products__grid\b/);
+    expect(homeCriticalCss).toMatch(/\.ogabassey-home-products__empty\b/);
+    expect(homeCriticalCss).toMatch(/\.ogabassey-home-product-card\b/);
+    expect(homeCriticalCss).toMatch(/\.ogabassey-home-product-card__media\b/);
+    expect(homeCriticalCss).toMatch(
+      /\.ogabassey-home-product-card__condition--open-box\b/
+    );
+    expect(homeCriticalCss).not.toMatch(/animation:\s*pulse/);
+    expect(homeCriticalCss).not.toMatch(/@keyframes\s+pulse/);
+
+    expect(homeCss).toMatch(/@source\s+["'][^"']*HomeProductGrid\.tsx/);
+    expect(homeCss).toMatch(/@source\s+["'][^"']*HomeProductGridCard\.tsx/);
+    expect(homeCss).toMatch(/@source\s+["'][^"']*ProductRatingRow\.tsx/);
+  });
+
   it('keeps deferred assistant launcher selectors out of the PPR shell critical stylesheet', () => {
     const coreCss = readStorefrontCss('storefront-core.css');
 
