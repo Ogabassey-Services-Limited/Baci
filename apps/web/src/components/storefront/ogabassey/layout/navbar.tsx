@@ -28,6 +28,17 @@ const DeferredMobileMenu = dynamic(
   { ssr: false }
 );
 
+function NavbarSearchPlaceholder() {
+  return (
+    <div
+      aria-hidden="true"
+      className="ogabassey-navbar-search ogabassey-navbar-search--placeholder"
+    >
+      <div className="ogabassey-navbar-search__input" />
+    </div>
+  );
+}
+
 export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   storeSlug,
 }) => {
@@ -88,15 +99,17 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
               </div>
 
               {/* Search Bar - Full Width Mobile, Center Desktop */}
-              {merchantId && (
-                <div className="ogabassey-navbar__search-wrap">
+              <div className="ogabassey-navbar__search-wrap">
+                {merchantId ? (
                   <NavbarSearch
                     basePath={basePath}
                     isBlogPage={Boolean(isBlogPage)}
                     merchantId={merchantId}
                   />
-                </div>
-              )}
+                ) : (
+                  <NavbarSearchPlaceholder />
+                )}
+              </div>
 
               {/* Desktop Right Icons */}
               <div className="ogabassey-navbar__desktop-actions">
