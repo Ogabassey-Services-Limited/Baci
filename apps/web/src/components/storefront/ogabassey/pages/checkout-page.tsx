@@ -1608,9 +1608,7 @@ export const CheckoutPage: React.FC = () => {
               }
             }
           });
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Account created and session initialized');
-          }
+          console.log('Account created and session initialized');
         } catch (authError) {
           // Log but don't block the order if signup fails (e.g. email exists)
           console.error('Silent signup background error:', authError);
@@ -1773,9 +1771,7 @@ export const CheckoutPage: React.FC = () => {
             quantity: item.quantity,
           })),
           onSuccess: async (transactionId) => {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('Credit Direct success:', transactionId);
-            }
+            console.log('Credit Direct success:', transactionId);
             clearPendingCheckoutOrder();
             await clearCheckoutIdempotencyKey(checkoutFingerprint);
             clearCheckoutSession();
@@ -1844,9 +1840,7 @@ export const CheckoutPage: React.FC = () => {
           customerName: `${firstName} ${lastName}`.trim(),
           customerPhone,
           onSuccess: async (data) => {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('CredPal success:', data);
-            }
+            console.log('CredPal success:', data);
             clearPendingCheckoutOrder();
             await clearCheckoutIdempotencyKey(checkoutFingerprint);
             clearCheckoutSession();

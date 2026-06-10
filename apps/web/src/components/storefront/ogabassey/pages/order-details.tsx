@@ -90,9 +90,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           filter: `id=eq.${orderId}`,
         },
         (payload) => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Realtime] Order updated:', payload);
-          }
+          console.log('[Realtime] Order updated:', payload);
 
           // Update the order state with new data from realtime
           const newData = payload.new as Partial<StorefrontOrder>;
@@ -113,9 +111,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
         }
       )
       .subscribe((status) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Realtime] Subscription status:', status);
-        }
+        console.log('[Realtime] Subscription status:', status);
       });
 
     channelRef.current = channel;
