@@ -6,6 +6,6 @@
 **Learning:** Biome is the exclusive linter in the Baci monorepo. `// eslint-disable` comments are dead code/deprecated anti-patterns that add noise and have no effect.
 **Action:** Removed useless `// eslint-disable` comments in @baci/mobile-storefront `search.tsx` and `FilterSheet.tsx` that were masking unused rules.
 
-## 2026-06-10 - Enforce explicit unknown type in catch blocks
-**Learning:** In the Baci monorepo, strict TypeScript typing requires errors in try-catch blocks to be explicitly typed as `unknown` rather than left untyped, as relying on untyped `catch (error)` is a framework anti-pattern that reduces type safety.
-**Action:** When finding `catch (error)` blocks without a type, update them to `catch (error: unknown)`.
+## 2026-06-10 - Removed unused console.log statements from storefront React components
+**Learning:** Leftover `console.log` statements are considered deprecated debug patterns in the Baci monorepo. They should be removed entirely from production code or safely guarded inside `process.env.NODE_ENV === 'development'` blocks.
+**Action:** Replaced hardcoded `console.log` debug statements in checkout and order-details components with `process.env.NODE_ENV === 'development'` wrappers to prevent noise in production.

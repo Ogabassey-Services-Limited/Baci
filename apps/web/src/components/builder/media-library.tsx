@@ -51,7 +51,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
       if (!response.ok) throw new Error('Failed to load media');
       const data = await response.json();
       setFiles(data.files || []);
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Error loading media:', error);
       toast({
         title: 'Error',
@@ -125,7 +125,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
       if (onSelect && data.file?.url) {
         setSelectedFile(data.file.url);
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Upload error:', error);
       toast({
         title: 'Upload failed',
@@ -158,7 +158,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
       if (selectedFile === fileId) {
         setSelectedFile(null);
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Delete error:', error);
       toast({
         title: 'Error',
