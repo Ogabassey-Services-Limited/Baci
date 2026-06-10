@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
 
@@ -18,7 +19,10 @@ const mockHomeProductGrid = vi.hoisted(() =>
 );
 const mockDeferredAdUnit = vi.hoisted(() =>
   vi.fn((props: Record<string, unknown>) => (
-    <div data-testid="ad-unit">{String(props.placementKey ?? 'Ad')}</div>
+    <div data-testid="ad-unit">
+      <span>{String(props.placementKey ?? 'Ad')}</span>
+      {props.fallback as ReactNode}
+    </div>
   ))
 );
 const mockDeferredBannerCarousel = vi.hoisted(() =>
@@ -166,7 +170,9 @@ describe('OgabasseyHomePage', () => {
   });
 
   it('keeps the homepage strip ad out of the no-interaction main-thread window', () => {
-    render(<OgabasseyHomePage products={[]} categories={[]} />);
+    const { container } = render(
+      <OgabasseyHomePage products={[]} categories={[]} />
+    );
 
     expect(mockDeferredAdUnit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -194,6 +200,17 @@ describe('OgabasseyHomePage', () => {
         activateOnInteraction: true,
         timeoutMs: 0,
       })
+    );
+
+    const reservedStripFallback = [
+      ...container.querySelectorAll('[aria-hidden="true"]'),
+    ].find((element) => element.classList.contains('min-h-[120px]'));
+
+    expect(reservedStripFallback).toBeInTheDocument();
+    expect(reservedStripFallback).toHaveClass(
+      'min-h-[120px]',
+      'content-auto',
+      '[contain-intrinsic-size:1400px_120px]'
     );
   });
 });
