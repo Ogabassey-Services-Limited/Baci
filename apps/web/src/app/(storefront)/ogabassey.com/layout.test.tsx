@@ -50,11 +50,11 @@ import OgabasseyDomainLayout, {
   generateMetadata,
   generateViewport,
 } from '@/app/(storefront)/ogabassey.com/layout';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
+import {
+  OGABASSEY_HERO_DESKTOP_LCP_SRC,
+  OGABASSEY_HERO_MOBILE_LCP_SRC,
+} from '@/config/ogabassey-hero-assets';
 
 describe('OgabasseyDomainLayout', () => {
   it('loads only the critical homepage stylesheet from the custom-domain layout shell', () => {
@@ -89,7 +89,7 @@ describe('OgabasseyDomainLayout', () => {
       hasRenderedResourceHintLink(html, {
         as: 'image',
         fetchpriority: 'high',
-        href: HERO_DESKTOP_LCP_SRC,
+        href: OGABASSEY_HERO_DESKTOP_LCP_SRC,
         media: '(min-width: 768px)',
         rel: 'preload',
         type: 'image/avif',
@@ -99,7 +99,7 @@ describe('OgabasseyDomainLayout', () => {
       hasRenderedResourceHintLink(html, {
         as: 'image',
         fetchpriority: 'high',
-        href: HERO_MOBILE_LCP_SRC,
+        href: OGABASSEY_HERO_MOBILE_LCP_SRC,
         media: '(max-width: 767px)',
         rel: 'preload',
         type: 'image/avif',
