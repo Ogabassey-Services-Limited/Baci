@@ -1,5 +1,9 @@
 @import "tailwindcss" source(none);
 @import "./storefront-core.css";
+@import "./storefront-pdp-critical.css";
+@import "./storefront-pdp-semantic.css";
+@import "./storefront-pdp-tabs.css";
+@import "./storefront-pdp-reviews.css";
 
 @config "../../../tailwind.storefront.scoped.config.ts";
 
