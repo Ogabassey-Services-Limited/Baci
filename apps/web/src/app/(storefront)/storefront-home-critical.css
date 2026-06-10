@@ -15,7 +15,6 @@
 */
 /* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
 @source "../../components/storefront/ogabassey/components/Hero.tsx";
-@source "../../components/storefront/ogabassey/components/hero-desktop-grid.tsx";
 @source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
 @source "../../components/storefront/ogabassey/components/hero-utility-panel.tsx";
 @source "../../components/storefront/ogabassey/components/mobile-lcp-hero-image.tsx";
@@ -28,5 +27,9 @@
   the initial CLS window. Source the server-rendered page shell, grid shell, and
   static card component so geometry and text metrics arrive before the deferred
   homepage stylesheet. Interactive card chrome remains deferred.
+
+  Keep hero-desktop-grid.tsx out of this critical entrypoint: that component is
+  explicitly client-deferred by Hero.tsx, while Hero.tsx already contributes the
+  desktop skeleton geometry needed before the deferred homepage stylesheet loads.
 */
 /* stylelint-enable scss/at-rule-no-unknown */

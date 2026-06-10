@@ -45,4 +45,18 @@ describe('storefront CSS partitioning', () => {
       /@import\s+['"]\.\/storefront-pdp-reviews\.css['"];?/
     );
   });
+
+  it('keeps deferred desktop hero styles out of the homepage critical CSS', () => {
+    const homeCriticalCss = readStorefrontCss('storefront-home-critical.css');
+
+    expect(homeCriticalCss).not.toMatch(
+      /@source\s+["'][^"']*hero-desktop-grid\.tsx/
+    );
+    expect(homeCriticalCss).toMatch(
+      /@source\s+["'][^"']*components\/Hero\.tsx["']/
+    );
+    expect(homeCriticalCss).toMatch(
+      /@source\s+["'][^"']*hero-mobile-carousel\.tsx["']/
+    );
+  });
 });
