@@ -252,6 +252,9 @@ export default function PlatformSettingsPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3"
                       onClick={() => toggleSecretVisibility('ga4_secret')}
+                      aria-label={
+                        showSecrets.ga4_secret ? 'Hide secret' : 'Show secret'
+                      }
                     >
                       {showSecrets.ga4_secret ? (
                         <EyeOff className="size-4" />
@@ -318,6 +321,9 @@ export default function PlatformSettingsPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3"
                       onClick={() => toggleSecretVisibility('fb_capi')}
+                      aria-label={
+                        showSecrets.fb_capi ? 'Hide secret' : 'Show secret'
+                      }
                     >
                       {showSecrets.fb_capi ? (
                         <EyeOff className="size-4" />
@@ -390,6 +396,9 @@ export default function PlatformSettingsPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3"
                       onClick={() => toggleSecretVisibility('tiktok_token')}
+                      aria-label={
+                        showSecrets.tiktok_token ? 'Hide secret' : 'Show secret'
+                      }
                     >
                       {showSecrets.tiktok_token ? (
                         <EyeOff className="size-4" />
@@ -462,6 +471,9 @@ export default function PlatformSettingsPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3"
                       onClick={() => toggleSecretVisibility('snap_capi')}
+                      aria-label={
+                        showSecrets.snap_capi ? 'Hide secret' : 'Show secret'
+                      }
                     >
                       {showSecrets.snap_capi ? (
                         <EyeOff className="size-4" />
