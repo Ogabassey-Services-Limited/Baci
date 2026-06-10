@@ -5,12 +5,12 @@ import { describe, expect, it } from 'vitest';
 
 const storefrontDir = dirname(fileURLToPath(import.meta.url));
 
-function readStorefrontCss(fileName: string): string {
+function readStorefrontFile(fileName: string): string {
   const filePath = join(storefrontDir, fileName);
 
   if (!existsSync(filePath)) {
     throw new Error(
-      `Missing storefront CSS fixture ${fileName} in ${storefrontDir}. Run from the @baci/web test environment.`
+      `Missing storefront fixture ${fileName} in ${storefrontDir}. Run from the @baci/web test environment.`
     );
   }
 
@@ -19,35 +19,75 @@ function readStorefrontCss(fileName: string): string {
 
 describe('storefront CSS partitioning', () => {
   it('throws a clear error when a CSS fixture is missing', () => {
-    expect(() => readStorefrontCss('nonexistent.css')).toThrow(
-      `Missing storefront CSS fixture nonexistent.css in ${storefrontDir}. Run from the @baci/web test environment.`
+    expect(() => readStorefrontFile('nonexistent.css')).toThrow(
+      `Missing storefront fixture nonexistent.css in ${storefrontDir}. Run from the @baci/web test environment.`
     );
   });
 
   it('keeps PDP-only selectors out of the shared storefront core stylesheet', () => {
-    const coreCss = readStorefrontCss('storefront-core.css');
+    const coreCss = readStorefrontFile('storefront-core.css');
 
     expect(coreCss).not.toMatch(/data-ogabassey-pdp/);
     expect(coreCss).not.toMatch(/\.ogabassey-pdp-/);
   });
 
-  it('loads PDP-specific styles only through the PDP entrypoint', () => {
-    const pdpCss = readStorefrontCss('storefront-pdp.css');
+  it('keeps the broad PDP entrypoint focused on default product-detail utilities', () => {
+    const pdpCss = readStorefrontFile('storefront-pdp.css');
 
+    expect(pdpCss).not.toMatch(/storefront-core\.css/);
+    expect(pdpCss).not.toMatch(/storefront-pdp-critical\.css/);
+    expect(pdpCss).not.toMatch(/storefront-pdp-semantic\.css/);
+    expect(pdpCss).not.toMatch(/storefront-pdp-tabs\.css/);
+    expect(pdpCss).not.toMatch(/storefront-pdp-reviews\.css/);
     expect(pdpCss).toMatch(
-      /@import\s+['"]\.\/storefront-pdp-critical\.css['"];?/
+      /@source\s+["'][^"']*products\/\[productSlug\]\/product-detail-client\.tsx/
     );
-    expect(pdpCss).toMatch(
+    expect(pdpCss).not.toMatch(
+      /@source\s+["'][^"']*ogabassey\/pdp\/critical-shell\.tsx/
+    );
+    expect(pdpCss).not.toMatch(
+      /@source\s+["'][^"']*product-details-page\/deferred-product-details-sections\.tsx/
+    );
+  });
+
+  it('loads OgaBassey below-fold PDP styles through the deferred PDP stylesheet', () => {
+    const deferredPdpCss = readStorefrontFile(
+      'storefront-ogabassey-pdp-deferred.css'
+    );
+
+    expect(deferredPdpCss).toMatch(
       /@import\s+['"]\.\/storefront-pdp-semantic\.css['"];?/
     );
-    expect(pdpCss).toMatch(/@import\s+['"]\.\/storefront-pdp-tabs\.css['"];?/);
-    expect(pdpCss).toMatch(
+    expect(deferredPdpCss).toMatch(
+      /@import\s+['"]\.\/storefront-pdp-tabs\.css['"];?/
+    );
+    expect(deferredPdpCss).toMatch(
       /@import\s+['"]\.\/storefront-pdp-reviews\.css['"];?/
     );
   });
 
+  it('validates OgaBassey category PDP route imports critical CSS in page, PDP CSS in renderer, and excludes PDP CSS from client', () => {
+    const categoryPdpPage = readStorefrontFile(
+      '[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx'
+    );
+    const defaultRenderer = readStorefrontFile(
+      '[slug]/(catalog)/(pdp)/[category]/[productSlug]/default-product-page-renderer.tsx'
+    );
+    const defaultDetailClient = readStorefrontFile(
+      '[slug]/(catalog)/(pdp)/[category]/[productSlug]/default-product-detail-client.tsx'
+    );
+
+    expect(categoryPdpPage).toMatch(
+      /import\s+['"]@\/app\/\(storefront\)\/storefront-pdp-critical\.css['"];?/
+    );
+    expect(defaultRenderer).toMatch(
+      /import\s+['"]@\/app\/\(storefront\)\/storefront-pdp\.css['"];?/
+    );
+    expect(defaultDetailClient).not.toMatch(/storefront-pdp\.css/);
+  });
+
   it('keeps deferred desktop hero styles out of the homepage critical CSS', () => {
-    const homeCriticalCss = readStorefrontCss('storefront-home-critical.css');
+    const homeCriticalCss = readStorefrontFile('storefront-home-critical.css');
 
     expect(homeCriticalCss).not.toMatch(
       /@source\s+["'][^"']*hero-desktop-grid\.tsx/
@@ -61,8 +101,8 @@ describe('storefront CSS partitioning', () => {
   });
 
   it('keeps homepage product-card utilities deferred while retaining critical grid geometry selectors', () => {
-    const homeCriticalCss = readStorefrontCss('storefront-home-critical.css');
-    const homeCss = readStorefrontCss('storefront-home.css');
+    const homeCriticalCss = readStorefrontFile('storefront-home-critical.css');
+    const homeCss = readStorefrontFile('storefront-home.css');
 
     expect(homeCriticalCss).not.toMatch(/storefront-foundation\.css/);
     expect(homeCriticalCss).not.toMatch(
@@ -91,7 +131,7 @@ describe('storefront CSS partitioning', () => {
   });
 
   it('keeps deferred assistant launcher selectors out of the PPR shell critical stylesheet', () => {
-    const coreCss = readStorefrontCss('storefront-core.css');
+    const coreCss = readStorefrontFile('storefront-core.css');
 
     expect(coreCss).toMatch(/\.storefront-shell-loading/);
     expect(coreCss).toMatch(/\.storefront-ppr-static-shell/);
@@ -101,7 +141,7 @@ describe('storefront CSS partitioning', () => {
   });
 
   it('loads deferred assistant launcher styles through the assistant chunk stylesheet', () => {
-    const chatCss = readStorefrontCss('storefront-chat.css');
+    const chatCss = readStorefrontFile('storefront-chat.css');
 
     expect(chatCss).toMatch(/\.ogabassey-chat-anchor/);
     expect(chatCss).toMatch(/\.ogabassey-chat-button/);
