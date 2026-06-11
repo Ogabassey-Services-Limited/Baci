@@ -346,7 +346,7 @@ export function createRouteProof({
         response: NextResponse.json(
           {
             code: 'quiz_route_proof_unavailable',
-            error: 'quiz_route_proof_unavailable',
+            error: 'Quiz is temporarily unavailable. Please try again later.',
           },
           { status: 500 }
         ),

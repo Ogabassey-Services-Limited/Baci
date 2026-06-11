@@ -42,7 +42,7 @@ function NavbarSearchPlaceholder() {
 export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   storeSlug,
 }) => {
-  const { totalItems, setIsCartOpen } = useCart();
+  const { totalItems, isHydrated, setIsCartOpen } = useCart();
   const merchantContext = useMerchantSafe();
   const merchantId = merchantContext?.merchant?.id;
   const pathname = usePathname();
@@ -59,6 +59,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
     })) ?? [];
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isVisible = useOgabasseyScrollVisibility();
+  const visibleCartItems = isHydrated ? totalItems : 0;
 
   return (
     <>
@@ -128,9 +129,9 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   <ShoppingCart size={22} aria-hidden="true" />
                   <span
                     className="ogabassey-navbar__cart-badge"
-                    data-visible={totalItems > 0 ? 'true' : undefined}
+                    data-visible={visibleCartItems > 0 ? 'true' : undefined}
                   >
-                    {totalItems}
+                    {visibleCartItems}
                   </span>
                 </Link>
                 <Link

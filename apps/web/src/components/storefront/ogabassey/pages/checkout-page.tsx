@@ -44,7 +44,13 @@ import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
-import { sanitizeCartItems, calculateCartTotal } from '@/lib/checkout/cart-entitlement-sanitizer';
+import {
+  calculateCartItemSubtotal,
+  calculateCartTotal,
+  getCartItemCheckoutUnitPrice,
+  isQuizVoucherCartItem,
+  sanitizeCartItems,
+} from '@/lib/checkout/cart-entitlement-sanitizer';
 import {
   isBankTransferCheckoutAvailable,
   isKorapayCheckoutAvailable,
@@ -123,14 +129,15 @@ export const CheckoutPage: React.FC = () => {
     )
     .join('|');
 
-  const checkoutCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
+  const checkoutCartTotal = calculateCartTotal(
+    checkoutCart,
+    hasPriceNegotiation
+  );
 
-  const itemSubtotal = checkoutCart.reduce((sum, item) => {
-    const rawPrice = item.negotiatedPrice ?? item.price;
-    const price = typeof rawPrice === 'number' && !Number.isNaN(rawPrice) ? rawPrice : 0;
-    const quantity = typeof item.quantity === 'number' && !Number.isNaN(item.quantity) ? item.quantity : 0;
-    return sum + price * quantity;
-  }, 0);
+  const itemSubtotal = calculateCartItemSubtotal(
+    checkoutCart,
+    hasPriceNegotiation
+  );
 
   const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
   const korapayCheckoutAvailable = isKorapayCheckoutAvailable(merchant);
@@ -3250,8 +3257,12 @@ export const CheckoutPage: React.FC = () => {
                   const itemName = item.kind === 'cart' ? item.name : item.product_name;
                   const itemImage =
                     (item.kind === 'cart' ? item.image : item.image_url) || '/placeholder.png';
+                  const isQuizGift =
+                    item.kind === 'cart' && isQuizVoucherCartItem(item);
                   const itemPrice =
-                    item.kind === 'cart' ? (item.negotiatedPrice || item.price) : item.price;
+                    item.kind === 'cart'
+                      ? getCartItemCheckoutUnitPrice(item)
+                      : item.price;
                   return (
                     <div key={itemKey} className="flex gap-3">
                       <div className="relative size-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0">
@@ -3269,7 +3280,11 @@ export const CheckoutPage: React.FC = () => {
                         </p>
                         <div className="flex justify-between items-center text-xs text-gray-500 mt-0.5">
                           <span>Qty: {item.quantity}</span>
-                          <span>₦{itemPrice.toLocaleString()}</span>
+                          <span>
+                            {isQuizGift
+                              ? 'Free gift'
+                              : `₦${itemPrice.toLocaleString()}`}
+                          </span>
                         </div>
                       </div>
                     </div>
