@@ -205,7 +205,7 @@ describe('MerchantBankForm', () => {
     expect(apiPostMock).not.toHaveBeenCalled();
   });
 
-  it('keeps a live region mounted and marks the form busy while verifying bank details', async () => {
+  it('keeps a live region mounted and marks the action busy while verifying bank details', async () => {
     const user = userEvent.setup();
 
     apiPostMock.mockImplementation((endpoint: string) => {
@@ -219,8 +219,10 @@ describe('MerchantBankForm', () => {
     render(<MerchantBankForm countryCode="NG" />);
 
     const accountInput = screen.getByLabelText('Account Number');
-    const form = accountInput.closest('form');
-    expect(form).toHaveAttribute('aria-busy', 'false');
+    const submitButton = screen.getByRole('button', {
+      name: /save bank details/i,
+    });
+    expect(submitButton).toHaveAttribute('aria-busy', 'false');
     expect(screen.getByRole('status')).toHaveTextContent('');
 
     const bankInput = screen.getByPlaceholderText(
@@ -241,7 +243,7 @@ describe('MerchantBankForm', () => {
         accountNumber: '1234567890',
         bankCode: '044',
       });
-      expect(form).toHaveAttribute('aria-busy', 'true');
+      expect(submitButton).toHaveAttribute('aria-busy', 'true');
       expect(screen.getByRole('status')).toHaveTextContent(
         'Verifying bank account details.'
       );

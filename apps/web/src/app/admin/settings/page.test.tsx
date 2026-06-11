@@ -3,10 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformSettingsResponse } from '@/app/api/admin/settings/route';
 import PlatformSettingsPage from './page';
 
-const toastMock = vi.fn();
+const mocks = vi.hoisted(() => ({
+  apiPut: vi.fn(),
+  toast: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: toastMock }),
+  useToast: () => ({ toast: mocks.toast }),
+}));
+
+vi.mock('@/lib/api-client', () => ({
+  apiPut: mocks.apiPut,
 }));
 
 const settingsResponse: PlatformSettingsResponse = {
@@ -42,7 +49,8 @@ const settingsResponse: PlatformSettingsResponse = {
 describe('PlatformSettingsPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    toastMock.mockClear();
+    mocks.toast.mockClear();
+    mocks.apiPut.mockReset();
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -88,6 +96,37 @@ describe('PlatformSettingsPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('announces initial loading and save progress', async () => {
+    let resolveSave!: (value: PlatformSettingsResponse) => void;
+    mocks.apiPut.mockReturnValue(
+      new Promise<PlatformSettingsResponse>((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+
+    render(<PlatformSettingsPage />);
+
+    expect(
+      screen.getByText('Loading platform settings...')
+    ).toBeInTheDocument();
+
+    const saveButton = await screen.findByRole('button', {
+      name: /save changes/i,
+    });
+    expect(saveButton).toHaveAttribute('aria-busy', 'false');
+
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(saveButton).toHaveAttribute('aria-busy', 'true');
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Saving platform settings.'
+      );
+    });
+
+    resolveSave(settingsResponse);
+  });
+
   it('shows the load failure state when settings cannot be fetched', async () => {
     vi.stubGlobal(
       'fetch',
@@ -106,7 +145,7 @@ describe('PlatformSettingsPage', () => {
     ).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(toastMock).toHaveBeenCalledWith({
+      expect(mocks.toast).toHaveBeenCalledWith({
         title: 'Error',
         description: 'Failed to load platform settings.',
         variant: 'destructive',

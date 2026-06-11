@@ -19,15 +19,15 @@ describe('CheckoutAuthModal', () => {
     mocks.signInWithPassword.mockReset();
   });
 
-  it('keeps a live region mounted and marks the form busy while signing in', async () => {
+  it('keeps a live region mounted and marks the action busy while signing in', async () => {
     mocks.signInWithPassword.mockReturnValue(new Promise(() => undefined));
 
     render(
       <CheckoutAuthModal isOpen onOpenChange={vi.fn()} onSuccess={vi.fn()} />
     );
 
-    const form = screen.getByLabelText('Email').closest('form');
-    expect(form).toHaveAttribute('aria-busy', 'false');
+    const submitButton = screen.getByRole('button', { name: 'Sign In' });
+    expect(submitButton).toHaveAttribute('aria-busy', 'false');
     expect(screen.getByRole('status')).toHaveTextContent('');
 
     fireEvent.change(screen.getByLabelText('Email'), {
@@ -39,7 +39,7 @@ describe('CheckoutAuthModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
     await waitFor(() => {
-      expect(form).toHaveAttribute('aria-busy', 'true');
+      expect(submitButton).toHaveAttribute('aria-busy', 'true');
       expect(screen.getByRole('status')).toHaveTextContent('Signing in.');
     });
   });

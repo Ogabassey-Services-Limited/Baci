@@ -68,11 +68,7 @@ export function CheckoutAuthModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={handleLogin}
-          className="space-y-4 py-4"
-          aria-busy={isLoading}
-        >
+        <form onSubmit={handleLogin} className="space-y-4 py-4">
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="size-4" />
@@ -102,7 +98,12 @@ export function CheckoutAuthModal({
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isLoading}
+            aria-busy={isLoading}
+          >
             {isLoading ? (
               <>
                 <Loader2

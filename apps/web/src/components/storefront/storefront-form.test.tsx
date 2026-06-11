@@ -7,7 +7,7 @@ describe('StorefrontForm', () => {
     vi.restoreAllMocks();
   });
 
-  it('keeps a live region mounted and marks the form busy while submitting', async () => {
+  it('keeps a live region mounted and marks the action busy while submitting', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockReturnValue(new Promise(() => undefined))
@@ -21,8 +21,8 @@ describe('StorefrontForm', () => {
       />
     );
 
-    const form = screen.getByRole('button', { name: 'Submit' }).closest('form');
-    expect(form).toHaveAttribute('aria-busy', 'false');
+    const submitButton = screen.getByRole('button', { name: 'Submit' });
+    expect(submitButton).toHaveAttribute('aria-busy', 'false');
     expect(screen.getByRole('status')).toHaveTextContent('');
 
     fireEvent.change(screen.getByLabelText('Name*'), {
@@ -31,7 +31,7 @@ describe('StorefrontForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
-      expect(form).toHaveAttribute('aria-busy', 'true');
+      expect(submitButton).toHaveAttribute('aria-busy', 'true');
       expect(screen.getByRole('status')).toHaveTextContent('Submitting form.');
     });
   });

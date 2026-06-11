@@ -159,6 +159,7 @@ export default function PlatformSettingsPage() {
           className="size-8 animate-spin text-primary"
           aria-hidden="true"
         />
+        <span className="sr-only">Loading platform settings...</span>
       </div>
     );
   }
@@ -181,14 +182,22 @@ export default function PlatformSettingsPage() {
             Configure your platform analytics, fees, and features.
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <Loader2 className="size-4 mr-2 animate-spin" aria-hidden="true" />
-          ) : (
-            <Save className="size-4 mr-2" aria-hidden="true" />
-          )}
-          Save Changes
-        </Button>
+        <div className="flex flex-col items-end gap-2">
+          <Button onClick={handleSave} disabled={saving} aria-busy={saving}>
+            {saving ? (
+              <Loader2
+                className="size-4 mr-2 animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <Save className="size-4 mr-2" aria-hidden="true" />
+            )}
+            Save Changes
+          </Button>
+          <p className="sr-only" role="status" aria-live="polite">
+            {saving ? 'Saving platform settings.' : ''}
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="analytics" className="space-y-6">

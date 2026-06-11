@@ -15,7 +15,7 @@ describe('ReviewForm', () => {
     window.localStorage.clear();
   });
 
-  it('keeps a live region mounted and marks the form busy while submitting', async () => {
+  it('keeps a live region mounted and marks the action busy while submitting', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockReturnValue(new Promise(() => undefined))
@@ -23,10 +23,10 @@ describe('ReviewForm', () => {
 
     render(<ReviewForm productId="product-1" productName="Test Product" />);
 
-    const form = screen
-      .getByRole('button', { name: 'Submit Review' })
-      .closest('form');
-    expect(form).toHaveAttribute('aria-busy', 'false');
+    const submitButton = screen.getByRole('button', {
+      name: 'Submit Review',
+    });
+    expect(submitButton).toHaveAttribute('aria-busy', 'false');
     expect(screen.getByRole('status')).toHaveTextContent('');
 
     fireEvent.click(screen.getByRole('button', { name: 'Rate 5 out of 5' }));
@@ -36,7 +36,7 @@ describe('ReviewForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit Review' }));
 
     await waitFor(() => {
-      expect(form).toHaveAttribute('aria-busy', 'true');
+      expect(submitButton).toHaveAttribute('aria-busy', 'true');
       expect(screen.getByRole('status')).toHaveTextContent(
         'Submitting review.'
       );
