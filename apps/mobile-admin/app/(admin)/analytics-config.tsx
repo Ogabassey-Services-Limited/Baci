@@ -4,7 +4,7 @@ import Ionicons, {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -60,6 +60,137 @@ const HELP_LINKS = {
   snapchat: 'https://businesshelp.snapchat.com/s/article/conversions-api',
 };
 
+type Theme = ReturnType<typeof useTheme>;
+
+const openHelpLink = (platform: keyof typeof HELP_LINKS) => {
+  Linking.openURL(HELP_LINKS[platform]);
+};
+
+// Input field for a single analytics credential. Defined at module scope so
+// React does not recreate it (losing TextInput state) on every parent render.
+const InputField = ({
+  label,
+  value,
+  field,
+  placeholder,
+  icon,
+  secureTextEntry = false,
+  colors,
+  onUpdateField,
+}: {
+  label: string;
+  value: string;
+  field: keyof AnalyticsState;
+  placeholder: string;
+  icon: IoniconsIconName;
+  secureTextEntry?: boolean;
+  colors: Theme['colors'];
+  onUpdateField: (field: keyof AnalyticsState, value: string) => void;
+}) => (
+  <View style={styles.inputGroup}>
+    <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+    <View
+      style={[
+        styles.inputContainer,
+        {
+          borderColor: colors.border,
+          backgroundColor: colors.background,
+        },
+      ]}
+    >
+      <Ionicons name={icon} size={20} color={colors.textMuted} />
+      <TextInput
+        style={[styles.input, { color: colors.text }]}
+        value={value}
+        onChangeText={(t) => onUpdateField(field, t)}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textMuted}
+        secureTextEntry={secureTextEntry}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+    </View>
+  </View>
+);
+
+// Collapsible platform configuration card. Defined at module scope so React
+// does not recreate it (resetting its subtree) on every parent render.
+const PlatformCard = ({
+  title,
+  icon,
+  iconColor,
+  isExpanded,
+  onToggle,
+  helpKey,
+  children,
+  isConfigured,
+  colors,
+  shadows,
+}: {
+  title: string;
+  icon: IoniconsIconName;
+  iconColor: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  helpKey: keyof typeof HELP_LINKS;
+  children: React.ReactNode;
+  isConfigured: boolean;
+  colors: Theme['colors'];
+  shadows: Theme['shadows'];
+}) => (
+  <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
+    <Pressable style={styles.cardHeader} onPress={onToggle}>
+      <View style={styles.cardTitleRow}>
+        <View style={[styles.iconBadge, { backgroundColor: `${iconColor}15` }]}>
+          <Ionicons name={icon} size={22} color={iconColor} />
+        </View>
+        <View style={styles.titleContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {title}
+          </Text>
+          <View style={styles.statusRow}>
+            <View
+              style={[
+                styles.statusDot,
+                {
+                  backgroundColor: isConfigured ? '#22c55e' : colors.textMuted,
+                },
+              ]}
+            />
+            <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+              {isConfigured ? 'Configured' : 'Not configured'}
+            </Text>
+          </View>
+        </View>
+      </View>
+      <Ionicons
+        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+        size={20}
+        color={colors.textMuted}
+      />
+    </Pressable>
+
+    {isExpanded && (
+      <View style={styles.cardContent}>
+        <Pressable
+          style={styles.helpLink}
+          onPress={() => openHelpLink(helpKey)}
+        >
+          <Ionicons
+            name="help-circle-outline"
+            size={16}
+            color={colors.primary}
+          />
+          <Text style={[styles.helpText, { color: colors.primary }]}>
+            How to get your {title} credentials
+          </Text>
+        </Pressable>
+        {children}
+      </View>
+    )}
+  </View>
+);
+
 export default function AnalyticsConfigScreen() {
   const { colors, shadows } = useTheme();
   const { user } = useAuth();
@@ -95,23 +226,24 @@ export default function AnalyticsConfigScreen() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Populate state
-  useEffect(() => {
-    if (merchant) {
-      setAnalytics({
-        google_analytics_id: merchant.google_analytics_id || '',
-        ga4_api_secret: merchant.ga4_api_secret || '',
-        facebook_pixel_id: merchant.facebook_pixel_id || '',
-        facebook_capi_token: merchant.facebook_capi_token || '',
-        tiktok_pixel_id: merchant.tiktok_pixel_id || '',
-        tiktok_access_token: merchant.tiktok_access_token || '',
-        snapchat_pixel_id: merchant.snapchat_pixel_id || '',
-        snapchat_capi_token: merchant.snapchat_capi_token || '',
-        offline_conversions_enabled:
-          merchant.offline_conversions_enabled !== false,
-      });
-    }
-  }, [merchant]);
+  // Seed the editable form state from freshly fetched merchant data during
+  // render (avoids the stale frame + cascading re-render of an effect sync).
+  const [prevMerchant, setPrevMerchant] = useState<typeof merchant>(undefined);
+  if (merchant && merchant !== prevMerchant) {
+    setPrevMerchant(merchant);
+    setAnalytics({
+      google_analytics_id: merchant.google_analytics_id || '',
+      ga4_api_secret: merchant.ga4_api_secret || '',
+      facebook_pixel_id: merchant.facebook_pixel_id || '',
+      facebook_capi_token: merchant.facebook_capi_token || '',
+      tiktok_pixel_id: merchant.tiktok_pixel_id || '',
+      tiktok_access_token: merchant.tiktok_access_token || '',
+      snapchat_pixel_id: merchant.snapchat_pixel_id || '',
+      snapchat_capi_token: merchant.snapchat_capi_token || '',
+      offline_conversions_enabled:
+        merchant.offline_conversions_enabled !== false,
+    });
+  }
 
   // Save Mutation
   const saveMutation = useMutation({
@@ -162,10 +294,6 @@ export default function AnalyticsConfigScreen() {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const openHelpLink = (platform: keyof typeof HELP_LINKS) => {
-    Linking.openURL(HELP_LINKS[platform]);
-  };
-
   if (isLoading) {
     return (
       <SafeAreaView
@@ -175,129 +303,6 @@ export default function AnalyticsConfigScreen() {
       </SafeAreaView>
     );
   }
-
-  // Helper component for input fields
-  const InputField = ({
-    label,
-    value,
-    field,
-    placeholder,
-    icon,
-    secureTextEntry = false,
-  }: {
-    label: string;
-    value: string;
-    field: keyof AnalyticsState;
-    placeholder: string;
-    icon: IoniconsIconName;
-    secureTextEntry?: boolean;
-  }) => (
-    <View style={styles.inputGroup}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>
-        {label}
-      </Text>
-      <View
-        style={[
-          styles.inputContainer,
-          {
-            borderColor: colors.border,
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
-        <Ionicons name={icon} size={20} color={colors.textMuted} />
-        <TextInput
-          style={[styles.input, { color: colors.text }]}
-          value={value}
-          onChangeText={(t) => updateField(field, t)}
-          placeholder={placeholder}
-          placeholderTextColor={colors.textMuted}
-          secureTextEntry={secureTextEntry}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-    </View>
-  );
-
-  // Platform card component
-  const PlatformCard = ({
-    title,
-    icon,
-    iconColor,
-    isExpanded,
-    onToggle,
-    helpKey,
-    children,
-    isConfigured,
-  }: {
-    title: string;
-    icon: IoniconsIconName;
-    iconColor: string;
-    isExpanded: boolean;
-    onToggle: () => void;
-    helpKey: keyof typeof HELP_LINKS;
-    children: React.ReactNode;
-    isConfigured: boolean;
-  }) => (
-    <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
-      <Pressable style={styles.cardHeader} onPress={onToggle}>
-        <View style={styles.cardTitleRow}>
-          <View
-            style={[styles.iconBadge, { backgroundColor: `${iconColor}15` }]}
-          >
-            <Ionicons name={icon} size={22} color={iconColor} />
-          </View>
-          <View style={styles.titleContainer}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              {title}
-            </Text>
-            <View style={styles.statusRow}>
-              <View
-                style={[
-                  styles.statusDot,
-                  {
-                    backgroundColor: isConfigured
-                      ? '#22c55e'
-                      : colors.textMuted,
-                  },
-                ]}
-              />
-              <Text
-                style={[styles.statusText, { color: colors.textSecondary }]}
-              >
-                {isConfigured ? 'Configured' : 'Not configured'}
-              </Text>
-            </View>
-          </View>
-        </View>
-        <Ionicons
-          name={isExpanded ? 'chevron-up' : 'chevron-down'}
-          size={20}
-          color={colors.textMuted}
-        />
-      </Pressable>
-
-      {isExpanded && (
-        <View style={styles.cardContent}>
-          <Pressable
-            style={styles.helpLink}
-            onPress={() => openHelpLink(helpKey)}
-          >
-            <Ionicons
-              name="help-circle-outline"
-              size={16}
-              color={colors.primary}
-            />
-            <Text style={[styles.helpText, { color: colors.primary }]}>
-              How to get your {title} credentials
-            </Text>
-          </Pressable>
-          {children}
-        </View>
-      )}
-    </View>
-  );
 
   // Check if platforms are configured
   const isFacebookConfigured = !!(
@@ -376,6 +381,8 @@ export default function AnalyticsConfigScreen() {
             onToggle={() => toggleSection('facebook')}
             helpKey="facebook"
             isConfigured={isFacebookConfigured}
+            colors={colors}
+            shadows={shadows}
           >
             <InputField
               label="Pixel ID"
@@ -383,6 +390,8 @@ export default function AnalyticsConfigScreen() {
               field="facebook_pixel_id"
               placeholder="1234567890123456"
               icon="code-outline"
+              colors={colors}
+              onUpdateField={updateField}
             />
             <InputField
               label="Conversions API Token"
@@ -391,6 +400,8 @@ export default function AnalyticsConfigScreen() {
               placeholder="EAAxxxxxxxx..."
               icon="key-outline"
               secureTextEntry
+              colors={colors}
+              onUpdateField={updateField}
             />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
               Get your token from Events Manager → Settings → Generate Access
@@ -407,6 +418,8 @@ export default function AnalyticsConfigScreen() {
             onToggle={() => toggleSection('tiktok')}
             helpKey="tiktok"
             isConfigured={isTikTokConfigured}
+            colors={colors}
+            shadows={shadows}
           >
             <InputField
               label="Pixel ID"
@@ -414,6 +427,8 @@ export default function AnalyticsConfigScreen() {
               field="tiktok_pixel_id"
               placeholder="CXXXXXXXXXXXXXXXXX"
               icon="code-outline"
+              colors={colors}
+              onUpdateField={updateField}
             />
             <InputField
               label="Events API Access Token"
@@ -422,6 +437,8 @@ export default function AnalyticsConfigScreen() {
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx"
               icon="key-outline"
               secureTextEntry
+              colors={colors}
+              onUpdateField={updateField}
             />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
               Get your token from TikTok Ads Manager → Assets → Events → Web
@@ -438,6 +455,8 @@ export default function AnalyticsConfigScreen() {
             onToggle={() => toggleSection('google')}
             helpKey="google"
             isConfigured={isGoogleConfigured}
+            colors={colors}
+            shadows={shadows}
           >
             <InputField
               label="Measurement ID"
@@ -445,6 +464,8 @@ export default function AnalyticsConfigScreen() {
               field="google_analytics_id"
               placeholder="G-XXXXXXXXXX"
               icon="analytics-outline"
+              colors={colors}
+              onUpdateField={updateField}
             />
             <InputField
               label="API Secret"
@@ -453,6 +474,8 @@ export default function AnalyticsConfigScreen() {
               placeholder="xXxXxXxXxXxX"
               icon="key-outline"
               secureTextEntry
+              colors={colors}
+              onUpdateField={updateField}
             />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
               Data sent here syncs to Google Ads if accounts are linked. Get API
@@ -469,6 +492,8 @@ export default function AnalyticsConfigScreen() {
             onToggle={() => toggleSection('snapchat')}
             helpKey="snapchat"
             isConfigured={isSnapchatConfigured}
+            colors={colors}
+            shadows={shadows}
           >
             <InputField
               label="Pixel ID"
@@ -476,6 +501,8 @@ export default function AnalyticsConfigScreen() {
               field="snapchat_pixel_id"
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx"
               icon="code-outline"
+              colors={colors}
+              onUpdateField={updateField}
             />
             <InputField
               label="Conversions API Token"
@@ -484,6 +511,8 @@ export default function AnalyticsConfigScreen() {
               placeholder="eyJxxxxxxxxx..."
               icon="key-outline"
               secureTextEntry
+              colors={colors}
+              onUpdateField={updateField}
             />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
               Get your token from Snapchat Ads Manager → Events Manager →

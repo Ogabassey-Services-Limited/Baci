@@ -18,10 +18,10 @@ import Ionicons, {
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
-import { ActivityIndicator,
+import { useState } from 'react';
+import {
+  ActivityIndicator,
   Alert,
-  Animated,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -30,17 +30,25 @@ import { ActivityIndicator,
   SectionList,
   type SectionListData,
   type SectionListRenderItemInfo,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import OrderReportModal from '@/components/ui/OrderReportModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
-import { useOrderCounts } from '@/hooks/useOrderCounts';
+import { type OrderCounts, useOrderCounts } from '@/hooks/useOrderCounts';
 import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
 import { getOrdersViewState } from '@/lib/orders-view-state';
@@ -221,6 +229,58 @@ function OrderItem({
   );
 }
 
+// Filter tab component — hoisted to module scope so React keeps its identity
+// stable across OrdersScreen renders (calls useTheme() internally like OrderItem)
+interface FilterTabProps {
+  status: ShippingStatus | 'all';
+  label: string;
+  statusFilter: ShippingStatus | undefined;
+  counts: OrderCounts | undefined;
+  onSelectStatus: (status: ShippingStatus | undefined) => void;
+}
+
+function FilterTab({
+  status,
+  label,
+  statusFilter,
+  counts,
+  onSelectStatus,
+}: FilterTabProps) {
+  const { colors } = useTheme();
+  const isActive =
+    (status === 'all' && !statusFilter) || statusFilter === status;
+  const count = counts
+    ? status === 'all'
+      ? counts.all
+      : (counts[status] ?? 0)
+    : 0;
+
+  return (
+    <Pressable
+      style={[
+        styles.filterTab,
+        {
+          backgroundColor: isActive ? colors.gold : colors.card,
+        },
+      ]}
+      onPress={() => onSelectStatus(status === 'all' ? undefined : status)}
+      accessibilityLabel={`${label} orders: ${count}${isActive ? ', currently selected' : ''}`}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
+      accessibilityHint={`Filter to show ${label.toLowerCase()} orders`}
+    >
+      <Text
+        style={[
+          styles.filterText,
+          { color: isActive ? '#000000' : colors.textSecondary },
+        ]}
+      >
+        {label} ({count})
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
   const queryClient = useQueryClient();
@@ -248,38 +308,41 @@ export default function OrdersScreen() {
   // Status update mutation
   const updateStatus = useUpdateOrderStatus();
 
-  // Collapsible search bar animation
-  const headerVisibilityAnim = useRef(new Animated.Value(1)).current;
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-  const lastScrollY = useRef(0);
-  const isSearchVisible = useRef(true);
+  // Collapsible search bar animation — Reanimated shared values so scrolling
+  // never calls setState (no screen re-renders per scroll event)
+  const headerVisibility = useSharedValue(1);
+  const isSearchVisible = useSharedValue(true);
+  const lastScrollY = useSharedValue(0);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
-    const diff = currentScrollY - lastScrollY.current;
+    const diff = currentScrollY - lastScrollY.get();
 
     if (Math.abs(diff) > 10) {
-      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
-        isSearchVisible.current = false;
-        setIsHeaderCollapsed(true);
-        Animated.timing(headerVisibilityAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-      } else if (diff < 0 && !isSearchVisible.current) {
-        isSearchVisible.current = true;
-        setIsHeaderCollapsed(false);
-        Animated.timing(headerVisibilityAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
+      if (diff > 0 && isSearchVisible.get() && currentScrollY > 50) {
+        isSearchVisible.set(false);
+        headerVisibility.set(withTiming(0, { duration: 200 }));
+      } else if (diff < 0 && !isSearchVisible.get()) {
+        isSearchVisible.set(true);
+        headerVisibility.set(withTiming(1, { duration: 200 }));
       }
     }
 
-    lastScrollY.current = currentScrollY;
+    lastScrollY.set(currentScrollY);
   };
+
+  const searchHeaderStyle = useAnimatedStyle(() => {
+    const collapsed = !isSearchVisible.get();
+    return {
+      opacity: headerVisibility.get(),
+      transform: [
+        { translateY: interpolate(headerVisibility.get(), [0, 1], [-24, 0]) },
+      ],
+      height: collapsed ? 0 : 'auto',
+      marginBottom: collapsed ? 0 : SPACING.md,
+      overflow: collapsed ? 'hidden' : 'visible',
+    };
+  });
 
   // Fetch orders with filter
   const {
@@ -697,51 +760,6 @@ export default function OrdersScreen() {
     </View>
   );
 
-  const FilterTab = ({
-    status,
-    label,
-  }: {
-    status: ShippingStatus | 'all';
-    label: string;
-  }) => {
-    const isActive =
-      (status === 'all' && !statusFilter) || statusFilter === status;
-    const count = counts
-      ? status === 'all'
-        ? counts.all
-        : (counts[status] ?? 0)
-      : 0;
-
-    return (
-      <Pressable
-        style={[
-          styles.filterTab,
-          {
-            backgroundColor: isActive ? colors.gold : colors.card,
-          },
-        ]}
-        onPress={() =>
-          setStatusFilter(
-            status === 'all' ? undefined : (status as ShippingStatus)
-          )
-        }
-        accessibilityLabel={`${label} orders: ${count}${isActive ? ', currently selected' : ''}`}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: isActive }}
-        accessibilityHint={`Filter to show ${label.toLowerCase()} orders`}
-      >
-        <Text
-          style={[
-            styles.filterText,
-            { color: isActive ? '#000000' : colors.textSecondary },
-          ]}
-        >
-          {label} ({count})
-        </Text>
-      </Pressable>
-    );
-  };
-
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -856,23 +874,7 @@ export default function OrdersScreen() {
       ) : null}
 
       {/* Collapsible Search + Filter Header */}
-      <Animated.View
-        style={[
-          styles.searchContainer,
-          isHeaderCollapsed && styles.searchContainerCollapsed,
-          {
-            opacity: headerVisibilityAnim,
-            transform: [
-              {
-                translateY: headerVisibilityAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-24, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
+      <Animated.View style={[styles.searchContainer, searchHeaderStyle]}>
         <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
           <Ionicons name="search" size={20} color={colors.textMuted} />
           <TextInput
@@ -912,13 +914,55 @@ export default function OrdersScreen() {
           contentContainerStyle={styles.filterContent}
           style={styles.filterContainer}
         >
-          <FilterTab status="all" label="All" />
-          <FilterTab status="pending" label="Pending" />
-          <FilterTab status="processing" label="Processing" />
-          <FilterTab status="shipped" label="Shipped" />
-          <FilterTab status="delivered" label="Delivered" />
-          <FilterTab status="cancelled" label="Cancelled" />
-          <FilterTab status="returned" label="Returned" />
+          <FilterTab
+            status="all"
+            label="All"
+            statusFilter={statusFilter}
+            counts={counts}
+            onSelectStatus={setStatusFilter}
+          />
+          <FilterTab
+            status="pending"
+            label="Pending"
+            statusFilter={statusFilter}
+            counts={counts}
+            onSelectStatus={setStatusFilter}
+          />
+          <FilterTab
+            status="processing"
+            label="Processing"
+            statusFilter={statusFilter}
+            counts={counts}
+            onSelectStatus={setStatusFilter}
+          />
+          <FilterTab
+            status="shipped"
+            label="Shipped"
+            statusFilter={statusFilter}
+            counts={counts}
+            onSelectStatus={setStatusFilter}
+          />
+          <FilterTab
+            status="delivered"
+            label="Delivered"
+            statusFilter={statusFilter}
+            counts={counts}
+            onSelectStatus={setStatusFilter}
+          />
+          <FilterTab
+            status="cancelled"
+            label="Cancelled"
+            statusFilter={statusFilter}
+            counts={counts}
+            onSelectStatus={setStatusFilter}
+          />
+          <FilterTab
+            status="returned"
+            label="Returned"
+            statusFilter={statusFilter}
+            counts={counts}
+            onSelectStatus={setStatusFilter}
+          />
         </ScrollView>
       </Animated.View>
 
@@ -1202,11 +1246,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
-  },
-  searchContainerCollapsed: {
-    height: 0,
-    marginBottom: 0,
-    overflow: 'hidden',
   },
   searchBar: {
     flexDirection: 'row',

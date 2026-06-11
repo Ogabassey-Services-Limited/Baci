@@ -6,14 +6,14 @@
  * const { token, isRegistered, registerPush, unregisterPush } = usePushNotifications();
  */
 
-import { asyncStorage as AsyncStorage } from '@/lib/storage';
+import type * as DeviceType from 'expo-device';
 import type {
   EventSubscription,
   Notification as ExpoNotification,
   NotificationResponse as ExpoNotificationResponse,
 } from 'expo-notifications';
-import type * as DeviceType from 'expo-device';
 import { isRuntimePlatform } from '@/config/runtime-platform';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 
 // Dynamic imports for native modules to prevent evaluation-time crashes.
 let Device: typeof DeviceType | null = null;
@@ -51,11 +51,48 @@ import {
   removePushTokenFromServer,
   savePushTokenToServer,
 } from '@/services/push-notifications';
+import { navigateToNotificationTarget } from './push-notification-navigation';
 import { useAuth } from './useAuth';
 import { useMerchant } from './useMerchant';
-import { navigateToNotificationTarget } from './push-notification-navigation';
 
 const PUSH_TOKEN_STORAGE_KEY = '@baci_push_token';
+
+/**
+ * Fetch a push token, persist it on the server and locally, and report the
+ * registered token through `onRegistered`. Errors are swallowed after logging
+ * so callers can treat completion as "registration attempt finished".
+ */
+async function performPushRegistration(
+  userId: string,
+  merchantId: string,
+  onRegistered: (pushToken: string) => void
+): Promise<void> {
+  try {
+    // Get the push token
+    const pushToken = await registerForPushNotifications();
+
+    if (!pushToken) {
+      if (__DEV__) {
+        console.log('[Push] Registration failed - no token received');
+      }
+      return;
+    }
+
+    // Save to server
+    const saved = await savePushTokenToServer(pushToken, userId, merchantId);
+
+    if (saved) {
+      // Store locally for logout cleanup
+      await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, pushToken);
+      onRegistered(pushToken);
+      if (__DEV__) {
+        console.log('[Push] Registration complete');
+      }
+    }
+  } catch (error) {
+    console.error('[Push] Registration error:', error);
+  }
+}
 
 interface UsePushNotificationsResult {
   token: string | null;
@@ -97,39 +134,17 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
     setIsLoading(true);
 
-    try {
-      // Get the push token
-      const pushToken = await registerForPushNotifications();
-
-      if (!pushToken) {
-        if (__DEV__) {
-          console.log('[Push] Registration failed - no token received');
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      // Save to server
-      const saved = await savePushTokenToServer(
-        pushToken,
-        resolvedUserId,
-        resolvedMerchantId
-      );
-
-      if (saved) {
-        // Store locally for logout cleanup
-        await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, pushToken);
+    // performPushRegistration never rejects, so loading always resets.
+    await performPushRegistration(
+      resolvedUserId,
+      resolvedMerchantId,
+      (pushToken) => {
         setToken(pushToken);
         setIsRegistered(true);
-        if (__DEV__) {
-          console.log('[Push] Registration complete');
-        }
       }
-    } catch (error) {
-      console.error('[Push] Registration error:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    );
+
+    setIsLoading(false);
   }
 
   /**

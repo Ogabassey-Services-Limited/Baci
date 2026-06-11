@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -58,10 +58,16 @@ export function RecordPaymentSheet({
   visible,
 }: RecordPaymentSheetProps) {
   const [isAmountFocused, setIsAmountFocused] = useState(false);
+  const [prevVisible, setPrevVisible] = useState(visible);
 
-  useEffect(() => {
-    if (!visible) setIsAmountFocused(false);
-  }, [visible]);
+  // Reset focus state inline during render when the sheet visibility changes,
+  // instead of routing it through an effect (which would commit a stale frame).
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (!visible) {
+      setIsAmountFocused(false);
+    }
+  }
 
   // Show raw digits while editing so toLocaleString commas don't cause NaN.
   // Display the formatted value only when blurred.

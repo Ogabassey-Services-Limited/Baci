@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -32,22 +32,20 @@ export function PriceInput({
   value,
 }: PriceInputProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const [displayValue, setDisplayValue] = useState('');
+  const [draftValue, setDraftValue] = useState('');
 
-  useEffect(() => {
-    if (!isFocused) {
-      setDisplayValue(value ? value.toLocaleString('en-US') : '');
-    }
-  }, [value, isFocused]);
+  // While unfocused the shown text is purely derived from the `value` prop;
+  // state is only needed for the in-progress draft the user is typing.
+  const formattedPropValue = value ? value.toLocaleString('en-US') : '';
+  const displayValue = isFocused ? draftValue : formattedPropValue;
 
   const handleFocus = () => {
     setIsFocused(true);
-    setDisplayValue(value ? value.toString() : '');
+    setDraftValue(value ? value.toString() : '');
   };
 
   const handleBlur = () => {
     setIsFocused(false);
-    setDisplayValue(value ? value.toLocaleString('en-US') : '');
   };
 
   const handleChangeText = (text: string) => {
@@ -59,7 +57,7 @@ export function PriceInput({
       parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') +
       (parts.length > 1 ? `.${parts.slice(1).join('')}` : '');
 
-    setDisplayValue(formattedValue);
+    setDraftValue(formattedValue);
 
     const parsedValue = Number.parseFloat(sanitizedValue);
     onChange(Number.isNaN(parsedValue) ? 0 : parsedValue);

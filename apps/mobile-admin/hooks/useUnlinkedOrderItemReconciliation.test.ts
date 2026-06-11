@@ -4,6 +4,15 @@ const queryClientMock = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
 }));
 
+type CapturedQueryConfig = {
+  queryFn?: () => Promise<unknown>;
+  queryKey: readonly unknown[];
+};
+
+const queryMock = vi.hoisted(() => ({
+  configs: [] as CapturedQueryConfig[],
+}));
+
 const supabaseMock = vi.hoisted(() => {
   type QueryResult = {
     data: unknown[] | null;
@@ -103,7 +112,10 @@ vi.mock('@tanstack/react-query', async () => {
   return {
     ...actual,
     useMutation: vi.fn((config) => config),
-    useQuery: vi.fn((config) => config),
+    useQuery: vi.fn((config: CapturedQueryConfig) => {
+      queryMock.configs.push(config);
+      return {};
+    }),
     useQueryClient: () => queryClientMock,
   };
 });
@@ -130,19 +142,31 @@ type HookState = {
     }) => Promise<void>;
     onSuccess: () => void;
   };
-  productCandidatesQuery: {
-    queryFn: () => Promise<Candidate[]>;
-  };
 };
 
 function getHookState() {
   return useUnlinkedOrderItemReconciliation() as unknown as HookState;
 }
 
+async function runProductCandidatesQuery() {
+  getHookState();
+
+  const config = queryMock.configs.find(
+    (entry) => entry.queryKey[0] === 'transaction-reconciliation-products'
+  );
+
+  if (!config?.queryFn) {
+    throw new Error('Product candidates query config was not captured');
+  }
+
+  return (await config.queryFn()) as Candidate[];
+}
+
 describe('useUnlinkedOrderItemReconciliation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     queryClientMock.invalidateQueries.mockClear();
+    queryMock.configs.length = 0;
     supabaseMock.reset();
   });
 
@@ -197,7 +221,7 @@ describe('useUnlinkedOrderItemReconciliation', () => {
       error: null,
     });
 
-    const candidates = await getHookState().productCandidatesQuery.queryFn();
+    const candidates = await runProductCandidatesQuery();
 
     expect(candidates).toEqual(
       expect.arrayContaining([
@@ -254,7 +278,7 @@ describe('useUnlinkedOrderItemReconciliation', () => {
       });
     });
 
-    await getHookState().productCandidatesQuery.queryFn();
+    await runProductCandidatesQuery();
 
     expect(supabaseMock.rpc).toHaveBeenCalledTimes(itemCount);
     expect(maxConcurrentSearches).toBeLessThanOrEqual(4);

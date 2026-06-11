@@ -5,6 +5,9 @@ import { useCachedImageUri } from './useCachedImageUri';
 // Mock variables that can be accessed inside vi.mock using vi.hoisted
 const { mocks } = vi.hoisted(() => {
   const mockDownloadFileAsync = vi.fn();
+  const mockDigestStringAsync = vi.fn(
+    async (_algorithm: string, value: string) => `sha256_${value.length}`
+  );
   const mockFileExists = vi.fn().mockReturnValue(false);
 
   class MockURL {
@@ -26,12 +29,20 @@ const { mocks } = vi.hoisted(() => {
   return {
     mocks: {
       mockDownloadFileAsync,
+      mockDigestStringAsync,
       mockFileExists,
       MockURL,
       MockFile,
     },
   };
 });
+
+vi.mock('expo-crypto', () => ({
+  CryptoDigestAlgorithm: {
+    SHA256: 'SHA-256',
+  },
+  digestStringAsync: mocks.mockDigestStringAsync,
+}));
 
 vi.mock('expo-file-system', () => {
   return {
@@ -47,6 +58,9 @@ vi.mock('expo-file-system', () => {
 describe('useCachedImageUri', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.mockDigestStringAsync.mockImplementation(
+      async (_algorithm: string, value: string) => `sha256_${value.length}`
+    );
     mocks.mockFileExists.mockReturnValue(false);
   });
 
@@ -74,8 +88,10 @@ describe('useCachedImageUri', () => {
     });
 
     expect(typeof result.current.uri).toBe('string');
-    expect(result.current.uri).toBe(
-      'file:///cache/img_cache_https___example_com_image_png.png'
+    expect(result.current.uri).toBe('file:///cache/img_cache_sha256_29.png');
+    expect(mocks.mockDigestStringAsync).toHaveBeenCalledWith(
+      'SHA-256',
+      remoteUri
     );
     expect(mocks.mockDownloadFileAsync).not.toHaveBeenCalled();
   });

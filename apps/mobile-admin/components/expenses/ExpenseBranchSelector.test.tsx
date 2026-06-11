@@ -18,9 +18,9 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name?: string }) => <span>{name}</span>,
 
-  default: () => <span>icon</span>,
+  default: ({ name }: { name?: string }) => <span>{name}</span>,
   __esModule: true,
 }));
 

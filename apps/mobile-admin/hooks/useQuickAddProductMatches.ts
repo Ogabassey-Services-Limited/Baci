@@ -18,7 +18,7 @@ export function useQuickAddProductMatches(customItem: CustomItemDraft) {
   const queryText = debouncedName.trim();
   const isEnabled = Boolean(merchantId && queryText.length >= 2);
 
-  const productsQuery = useQuery({
+  const { data: productRows, isLoading: isProductsLoading } = useQuery({
     enabled: isEnabled,
     queryKey: ['quick-add-product-candidates', merchantId, queryText],
     queryFn: async () => {
@@ -40,7 +40,7 @@ export function useQuickAddProductMatches(customItem: CustomItemDraft) {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  const products = productsQuery.data ?? [];
+  const products = productRows ?? [];
   const variantParents = products.filter((product) => product.has_variants);
   const variantQueries = useQueries({
     queries: variantParents.slice(0, 5).map((parentProduct) => ({
@@ -61,7 +61,7 @@ export function useQuickAddProductMatches(customItem: CustomItemDraft) {
 
   return {
     isLoading:
-      productsQuery.isLoading ||
+      isProductsLoading ||
       variantQueries.some((query) => query.isLoading || query.isFetching),
     matches: findQuickAddProductMatches({
       customItem,

@@ -32,88 +32,94 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const Text = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  FlatList: ({
-    data,
-    initialNumToRender,
-    maxToRenderPerBatch,
-    removeClippedSubviews,
-    renderItem,
-    windowSize,
-  }: {
-    data: CustomizeMessage[];
-    initialNumToRender?: number;
-    maxToRenderPerBatch?: number;
-    removeClippedSubviews?: boolean;
-    renderItem: ({
-      item,
-      index,
+    ActivityIndicator: () => <Text>loading</Text>,
+    FlatList: ({
+      data,
+      initialNumToRender,
+      maxToRenderPerBatch,
+      removeClippedSubviews,
+      renderItem,
+      windowSize,
     }: {
-      item: CustomizeMessage;
-      index: number;
-      separators?: unknown;
-    }) => ReactNode;
-    windowSize?: number;
-  }) => {
-    mocks.listProps.initialNumToRender = initialNumToRender ?? 0;
-    mocks.listProps.maxToRenderPerBatch = maxToRenderPerBatch ?? 0;
-    mocks.listProps.removeClippedSubviews = removeClippedSubviews ?? false;
-    mocks.listProps.windowSize = windowSize ?? 0;
-    return (
-      <div>
-        {data.map((item, index) => (
-          <div key={item.id}>{renderItem({ item, index })}</div>
-        ))}
-      </div>
-    );
-  },
-  Pressable: ({
-    accessibilityLabel,
-    children,
-    disabled,
-    onPress,
-  }: {
-    accessibilityLabel?: string;
-    children?: ReactNode;
-    disabled?: boolean;
-    onPress?: () => void;
-  }) => (
-    <button
-      aria-label={accessibilityLabel}
-      disabled={disabled}
-      onClick={() => onPress?.()}
-      type="button"
-    >
-      {children}
-    </button>
-  ),
-  Platform: mocks.platform,
-  StyleSheet: {
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  TextInput: ({
-    accessibilityLabel,
-    onChangeText,
-    placeholder,
-    value,
-  }: {
-    accessibilityLabel?: string;
-    onChangeText?: (text: string) => void;
-    placeholder?: string;
-    value?: string;
-  }) => (
-    <textarea
-      aria-label={accessibilityLabel}
-      onChange={(event) => onChangeText?.(event.target.value)}
-      placeholder={placeholder}
-      value={value ?? ''}
-    />
-  ),
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+      data: CustomizeMessage[];
+      initialNumToRender?: number;
+      maxToRenderPerBatch?: number;
+      removeClippedSubviews?: boolean;
+      renderItem: ({
+        item,
+        index,
+      }: {
+        item: CustomizeMessage;
+        index: number;
+        separators?: unknown;
+      }) => ReactNode;
+      windowSize?: number;
+    }) => {
+      mocks.listProps.initialNumToRender = initialNumToRender ?? 0;
+      mocks.listProps.maxToRenderPerBatch = maxToRenderPerBatch ?? 0;
+      mocks.listProps.removeClippedSubviews = removeClippedSubviews ?? false;
+      mocks.listProps.windowSize = windowSize ?? 0;
+      return (
+        <div>
+          {data.map((item, index) => (
+            <div key={item.id}>{renderItem({ item, index })}</div>
+          ))}
+        </div>
+      );
+    },
+    Pressable: ({
+      accessibilityLabel,
+      children,
+      disabled,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      children?: ReactNode;
+      disabled?: boolean;
+      onPress?: () => void;
+    }) => (
+      <button
+        aria-label={accessibilityLabel}
+        disabled={disabled}
+        onClick={() => onPress?.()}
+        type="button"
+      >
+        {children}
+      </button>
+    ),
+    Platform: mocks.platform,
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text,
+    TextInput: ({
+      accessibilityLabel,
+      onChangeText,
+      placeholder,
+      value,
+    }: {
+      accessibilityLabel?: string;
+      onChangeText?: (text: string) => void;
+      placeholder?: string;
+      value?: string;
+    }) => (
+      <textarea
+        aria-label={accessibilityLabel}
+        onChange={(event) => onChangeText?.(event.target.value)}
+        placeholder={placeholder}
+        value={value ?? ''}
+      />
+    ),
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 describe('CustomizeChatPanel', () => {
   afterEach(() => {

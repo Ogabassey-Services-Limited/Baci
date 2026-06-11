@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { BlogEditorDialogs } from '@/components/blog-editor/BlogEditorDialogs';
@@ -22,7 +22,9 @@ export default function EditContentScreen() {
   const { id } = useLocalSearchParams();
   const { colors } = useTheme();
   const webViewRef = useRef<WebView>(null);
-  const initialThemeRef = useRef(colors);
+  // Theme captured once at mount; later theme changes are applied to the
+  // WebView via injectJavaScript instead of regenerating the HTML source.
+  const [initialTheme] = useState(colors);
   const {
     aiInstruction,
     closeAIModal,
@@ -56,7 +58,7 @@ export default function EditContentScreen() {
     videoUrl,
   } = useBlogEditor({ id, webViewRef });
   const editorHtml = createEditorHtml({
-    colors: initialThemeRef.current,
+    colors: initialTheme,
     content: initialEditorContent,
   });
 

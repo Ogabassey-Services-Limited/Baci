@@ -43,7 +43,9 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
 }));
 
 vi.mock('./NewOrderProductSheetEmptyState', () => ({
-  NewOrderProductSheetEmptyState: () => <div>product-empty-state</div>,
+  NewOrderProductSheetEmptyState: () => (
+    <div aria-label="product-empty-state" />
+  ),
 }));
 
 vi.mock('react-native', async () => {

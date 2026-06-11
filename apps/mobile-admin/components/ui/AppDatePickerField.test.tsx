@@ -18,7 +18,7 @@ vi.mock('@react-native-community/datetimepicker', () => ({
     onChange: (event: { type?: string }, selectedDate?: Date) => void;
   }) => {
     mocks.datePickerOnChange = onChange;
-    return <button type="button">Mock date picker</button>;
+    return <button aria-label="Mock date picker" type="button" />;
   },
 }));
 

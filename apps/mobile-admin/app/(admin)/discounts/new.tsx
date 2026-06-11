@@ -7,6 +7,7 @@ import {
   type FieldErrors,
   type Resolver,
   useForm,
+  useWatch,
 } from 'react-hook-form';
 import {
   // Switch,
@@ -110,7 +111,6 @@ export default function NewDiscountScreen() {
   const {
     control,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<DiscountFormInput, undefined, DiscountFormOutput>({
@@ -127,12 +127,12 @@ export default function NewDiscountScreen() {
     },
   });
 
-  const discountType = watch('discount_type');
-  const appliesTo = watch('applies_to');
-  const productIds = watch('product_ids') || [];
-  const categoryIds = watch('category_ids') || [];
-  const startsAt = watch('starts_at');
-  const expiresAt = watch('expires_at');
+  const discountType = useWatch({ control, name: 'discount_type' });
+  const appliesTo = useWatch({ control, name: 'applies_to' });
+  const productIds = useWatch({ control, name: 'product_ids' }) || [];
+  const categoryIds = useWatch({ control, name: 'category_ids' }) || [];
+  const startsAt = useWatch({ control, name: 'starts_at' });
+  const expiresAt = useWatch({ control, name: 'expires_at' });
 
   const onSubmit = async (data: DiscountFormOutput) => {
     try {

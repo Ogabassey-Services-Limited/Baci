@@ -24,23 +24,27 @@ vi.mock('./PriceInput', () => ({
   ),
 }));
 
-vi.mock('./ProductVariantRow', () => ({
-  ProductVariantRow: ({
-    onUpdate,
-    variantIndex,
-  }: {
-    onUpdate: (updates: { sku: string }) => void;
-    variantIndex: number;
-  }) => (
-    <button
-      aria-label={`Update variant row ${variantIndex + 1}`}
-      onClick={() => onUpdate({ sku: `SKU-${variantIndex + 1}` })}
-      type="button"
-    >
-      Update variant row {variantIndex + 1}
-    </button>
-  ),
-}));
+vi.mock('./ProductVariantRow', async () => {
+  const { Text } = await import('react-native');
+
+  return {
+    ProductVariantRow: ({
+      onUpdate,
+      variantIndex,
+    }: {
+      onUpdate: (updates: { sku: string }) => void;
+      variantIndex: number;
+    }) => (
+      <button
+        aria-label={`Update variant row ${variantIndex + 1}`}
+        onClick={() => onUpdate({ sku: `SKU-${variantIndex + 1}` })}
+        type="button"
+      >
+        <Text>Update variant row {variantIndex + 1}</Text>
+      </button>
+    ),
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');

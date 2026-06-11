@@ -14,7 +14,11 @@ export function useDiscounts() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
 
-  const query = useQuery({
+  const {
+    data: discountsData,
+    error: discountsError,
+    isLoading: isDiscountsLoading,
+  } = useQuery({
     queryKey: ['discounts', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
@@ -89,9 +93,9 @@ export function useDiscounts() {
   });
 
   return {
-    discounts: query.data || [],
-    isLoading: query.isLoading,
-    error: query.error,
+    discounts: discountsData || [],
+    isLoading: isDiscountsLoading,
+    error: discountsError,
     createDiscount: createMutation.mutateAsync,
     updateDiscount: updateMutation.mutateAsync,
     deleteDiscount: deleteMutation.mutateAsync,

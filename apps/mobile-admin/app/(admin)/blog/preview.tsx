@@ -36,12 +36,47 @@ const blogPreviewPostSchema = z.object({
 
 type BlogPreviewPost = z.infer<typeof blogPreviewPostSchema>;
 
+interface BlogPreviewFetchState {
+  errorMessage: string | null;
+  key: string;
+  post: BlogPreviewPost | null;
+}
+
 function getSingleParam(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) {
     return value[0] ?? null;
   }
 
   return value ?? null;
+}
+
+async function resolveBlogPreview(
+  postId: string,
+  merchantId: string | null
+): Promise<Omit<BlogPreviewFetchState, 'key'>> {
+  if (!merchantId) {
+    return { errorMessage: 'Missing merchant id', post: null };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select(
+        'title, excerpt, category, content, featured_image_url, status, published_at, updated_at'
+      )
+      .eq('id', postId)
+      .eq('merchant_id', merchantId)
+      .single();
+
+    if (error || !data) {
+      throw error ?? new Error('Failed to load post preview');
+    }
+
+    return { errorMessage: null, post: blogPreviewPostSchema.parse(data) };
+  } catch (error) {
+    console.error('Failed to load blog preview:', error);
+    return { errorMessage: 'Failed to load article preview.', post: null };
+  }
 }
 
 function getPreviewStatusLabel(status: BlogPreviewPost['status']): string {
@@ -100,70 +135,40 @@ export default function BlogPreviewScreen() {
     id: getSingleParam(rawParams.id),
   });
   const postId = paramsResult.success ? paramsResult.data.id : null;
-  const [post, setPost] = useState<BlogPreviewPost | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const merchantId = merchant?.id ?? null;
+  const [fetchState, setFetchState] = useState<BlogPreviewFetchState | null>(
+    null
+  );
+
+  const requestKey = postId ? `${postId}:${merchantId ?? ''}` : null;
+  const settled =
+    requestKey && fetchState?.key === requestKey ? fetchState : null;
+  const isLoading = settled === null;
+  const post = settled?.post ?? null;
+  const errorMessage = settled?.errorMessage ?? null;
 
   useEffect(() => {
-    let isActive = true;
-
     if (!postId) {
-      setIsLoading(false);
-      return () => {
-        isActive = false;
-      };
+      return;
     }
 
-    if (!merchant?.id) {
-      setPost(null);
-      setErrorMessage('Missing merchant id');
-      setIsLoading(false);
-      return () => {
-        isActive = false;
-      };
-    }
+    let isActive = true;
+    const key = `${postId}:${merchantId ?? ''}`;
 
-    async function fetchPost(validPostId: string, merchantId: string) {
-      setIsLoading(true);
-      setErrorMessage(null);
-
-      try {
-        const { data, error } = await supabase
-          .from('blog_posts')
-          .select(
-            'title, excerpt, category, content, featured_image_url, status, published_at, updated_at'
-          )
-          .eq('id', validPostId)
-          .eq('merchant_id', merchantId)
-          .single();
-
-        if (error || !data) {
-          throw error ?? new Error('Failed to load post preview');
-        }
-
-        const previewPost = blogPreviewPostSchema.parse(data);
-
-        if (isActive) {
-          setPost(previewPost);
-        }
-      } catch (error) {
-        console.error('Failed to load blog preview:', error);
-        if (isActive) {
-          setErrorMessage('Failed to load article preview.');
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+    void resolveBlogPreview(postId, merchantId).then((result) => {
+      if (isActive) {
+        setFetchState({
+          errorMessage: result.errorMessage,
+          key,
+          post: result.post,
+        });
       }
-    }
-
-    void fetchPost(postId, merchant.id);
+    });
 
     return () => {
       isActive = false;
     };
-  }, [merchant?.id, postId]);
+  }, [merchantId, postId]);
 
   if (!postId) {
     return (
