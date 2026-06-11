@@ -1047,7 +1047,8 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
     expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       'merchant-1',
       'iphone-13-pro-max-6gb-128gb'
@@ -1093,7 +1094,8 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
@@ -1111,7 +1113,8 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
     expect(mockGetCachedProductWithDetails).toHaveBeenNthCalledWith(
       1,
       'merchant-1',

@@ -464,7 +464,8 @@ describe('products/[productSlug] page', () => {
         stubParent
       );
 
-      expect(metadata.robots).toMatchObject({ index: false, follow: false });
+      expect(metadata.robots).toMatchObject({ index: false, follow: true });
+      expect(metadata.alternates).toBeNull();
       expect(mockPermanentRedirect).not.toHaveBeenCalled();
     });
 
@@ -482,7 +483,8 @@ describe('products/[productSlug] page', () => {
         stubParent
       );
 
-      expect(metadata.robots).toMatchObject({ index: false, follow: false });
+      expect(metadata.robots).toMatchObject({ index: false, follow: true });
+      expect(metadata.alternates).toBeNull();
       expect(mockPermanentRedirect).not.toHaveBeenCalled();
     });
 
@@ -613,7 +615,8 @@ describe('products/[productSlug] page', () => {
       stubParent
     );
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
@@ -681,7 +684,8 @@ describe('products/[productSlug] page', () => {
       stubParent
     );
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
@@ -779,7 +783,8 @@ describe('products/[productSlug] page', () => {
       stubParent
     );
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledWith(
       'merchant-1',
       'iphone-15'

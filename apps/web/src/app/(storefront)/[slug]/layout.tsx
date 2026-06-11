@@ -27,6 +27,16 @@ import {
   getStorefrontShellSnapshotBase,
 } from './storefront-shell-snapshot';
 
+const STORE_NOT_FOUND_METADATA: Metadata = {
+  title: 'Store Not Found',
+  // Replace root metadata alternates so noindex fallback pages do not inherit a canonical.
+  alternates: null,
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
+
 /**
  * Renders the appropriate layout wrapper based on the merchant's template.
  * Currently supports 'ogabassey' template with persistent layout.
@@ -78,7 +88,7 @@ export async function generateMetadata({
 
   // Validate identifier format
   if (!isValidMerchantIdentifier(slug)) {
-    return { title: 'Store Not Found' };
+    return STORE_NOT_FOUND_METADATA;
   }
 
   // Keep metadata cacheable. Request-bound storefront validation belongs in
@@ -86,7 +96,7 @@ export async function generateMetadata({
   const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
-    return { title: 'Store Not Found' };
+    return STORE_NOT_FOUND_METADATA;
   }
 
   // Extract verification code from feature settings or published config.

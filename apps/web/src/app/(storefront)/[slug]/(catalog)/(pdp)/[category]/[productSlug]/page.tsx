@@ -73,6 +73,12 @@ import {
 } from '@/lib/validation';
 import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
 
+const CANONICAL_PRODUCT_REDIRECT_METADATA: Metadata = {
+  // Replace root metadata alternates so noindex fallback pages do not inherit a canonical.
+  alternates: null,
+  robots: { index: false, follow: true },
+};
+
 /**
  * Converts server-side Product to Ogabassey template format
  */
@@ -914,13 +920,13 @@ export async function generateMetadata({
   const { result } = routeControl;
 
   if (!('product' in result)) {
-    return { robots: { index: false, follow: false } };
+    return CANONICAL_PRODUCT_REDIRECT_METADATA;
   }
 
   const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
 
   if (categoryMismatch || needsValuesRedirect) {
-    return { robots: { index: false, follow: false } };
+    return CANONICAL_PRODUCT_REDIRECT_METADATA;
   }
 
   return buildCategoryProductMetadata(product, merchant);
