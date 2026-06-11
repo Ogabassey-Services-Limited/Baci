@@ -24,15 +24,41 @@ export function sanitizeCartItems(
 /**
  * Calculates the total of the cart, taking into account negotiated price (if entitled) and quantity-aware assurance fees.
  */
+export function isQuizVoucherCartItem(item: CartItem): boolean {
+  return Boolean(item.quizAwardId && item.quizVoucherToken);
+}
+
+export function getCartItemCheckoutUnitPrice(item: CartItem): number {
+  if (isQuizVoucherCartItem(item)) {
+    return 0;
+  }
+
+  const rawPrice = item.negotiatedPrice ?? item.price;
+  return typeof rawPrice === 'number' && !Number.isNaN(rawPrice) ? rawPrice : 0;
+}
+
+export function calculateCartItemSubtotal(
+  cart: CartItem[],
+  hasPriceNegotiation: boolean
+): number {
+  const sanitizedCart = sanitizeCartItems(cart, hasPriceNegotiation);
+  return sanitizedCart.reduce((total, item) => {
+    const price = getCartItemCheckoutUnitPrice(item);
+    const quantity =
+      typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
+        ? item.quantity
+        : 0;
+    return total + price * quantity;
+  }, 0);
+}
+
 export function calculateCartTotal(
   cart: CartItem[],
   hasPriceNegotiation: boolean
 ): number {
   const sanitizedCart = sanitizeCartItems(cart, hasPriceNegotiation);
   return sanitizedCart.reduce((total, item) => {
-    const rawPrice = item.negotiatedPrice ?? item.price;
-    const price =
-      typeof rawPrice === 'number' && !Number.isNaN(rawPrice) ? rawPrice : 0;
+    const price = getCartItemCheckoutUnitPrice(item);
     const quantity =
       typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
         ? item.quantity

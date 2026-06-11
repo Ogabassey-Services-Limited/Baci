@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { createClient } from '@/lib/supabase/server';
 import { cartValidateSchema } from '@/schemas/cart';
@@ -50,6 +51,15 @@ function getCartValidationKey(id: string, variantId?: string) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     let body: unknown;
     try {
       body = await request.json();

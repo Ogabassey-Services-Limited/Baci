@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/test-store'),
 }));
 vi.mock('@/hooks/cart', () => ({
-  useCart: vi.fn(() => ({ totalItems: 3 })),
+  useCart: vi.fn(() => ({ totalItems: 3, isHydrated: true })),
 }));
 vi.mock('@/lib/routes', () => ({ asRoute: vi.fn((p: string) => p) }));
 
@@ -76,6 +76,7 @@ describe('MobileFooter', () => {
   it('renders a dynamic accessible name for the Cart link with singular item suffix when there is exactly 1 item', () => {
     vi.mocked(useCart).mockReturnValueOnce({
       totalItems: 1,
+      isHydrated: true,
     } as unknown as ReturnType<typeof useCart>);
 
     render(<MobileFooter storeSlug="test" />);
@@ -89,6 +90,7 @@ describe('MobileFooter', () => {
   it('keeps the clamped cart badge text in the accessible name', () => {
     vi.mocked(useCart).mockReturnValueOnce({
       totalItems: 150,
+      isHydrated: true,
     } as unknown as ReturnType<typeof useCart>);
 
     render(<MobileFooter storeSlug="test" />);
@@ -97,5 +99,22 @@ describe('MobileFooter', () => {
       'aria-label',
       'Cart (99+ items)'
     );
+  });
+
+  it('keeps the cart item count out of first render until hydration finishes', () => {
+    vi.mocked(useCart).mockReturnValueOnce({
+      totalItems: 3,
+      isHydrated: false,
+    } as unknown as ReturnType<typeof useCart>);
+
+    render(<MobileFooter storeSlug="test" />);
+
+    expect(screen.getByRole('link', { name: /^cart$/i })).toHaveAttribute(
+      'aria-label',
+      'Cart'
+    );
+    expect(
+      document.querySelector('.ogabassey-mobile-footer__badge')
+    ).not.toBeInTheDocument();
   });
 });

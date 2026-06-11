@@ -24,10 +24,15 @@ const regressionSql = readFileSync(
   resolve(migrationsDirectory, 'tests/quiz_phase1a_foundation.sql'),
   'utf8'
 );
-const allQuizMigrationSql = readdirSync(migrationsDirectory)
+const quizMigrationFiles = readdirSync(migrationsDirectory)
   .filter((file) => /^20\d{12}_.*quiz.*\.sql$/.test(file))
   .sort()
-  .map((file) => readFileSync(resolve(migrationsDirectory, file), 'utf8'))
+  .map((file) => ({
+    file,
+    sql: readFileSync(resolve(migrationsDirectory, file), 'utf8'),
+  }));
+const allQuizMigrationSql = quizMigrationFiles
+  .map(({ sql }) => sql)
   .join('\n\n');
 
 describe('quiz migration contracts', () => {
@@ -198,6 +203,33 @@ describe('quiz migration contracts', () => {
     expect(scoringRecordAnswerSql).not.toMatch(
       /pg_catalog\.extract\(\s*epoch\s+FROM/i
     );
+  });
+
+  it('keeps quiz time-limit clamping compatible with PostgreSQL conditional expressions', () => {
+    const lastClampPatchIndex = quizMigrationFiles.findLastIndex(
+      ({ sql }) =>
+        /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.start_quiz_attempt/i.test(
+          sql
+        ) &&
+        /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.submit_quiz_answer/i.test(
+          sql
+        ) &&
+        /LEAST\(GREATEST\(/i.test(sql)
+    );
+    const lastQualifiedClampBeforePatchIndex = quizMigrationFiles.findLastIndex(
+      ({ sql }, index) =>
+        index < lastClampPatchIndex &&
+        /pg_catalog\.least\(pg_catalog\.greatest\(/i.test(sql)
+    );
+    const patchSql = quizMigrationFiles[lastClampPatchIndex]?.sql ?? '';
+
+    expect(lastQualifiedClampBeforePatchIndex).toBeGreaterThanOrEqual(0);
+    expect(lastClampPatchIndex).toBeGreaterThan(
+      lastQualifiedClampBeforePatchIndex
+    );
+    expect(patchSql).toMatch(/public\.start_quiz_attempt/i);
+    expect(patchSql).toMatch(/public\.submit_quiz_answer/i);
+    expect(patchSql).not.toMatch(/pg_catalog\.(least|greatest)\(/i);
   });
 
   it('keeps catalog-backed migration regression checks for variant exposure', () => {

@@ -16,20 +16,51 @@ export function ensureGoogleTag() {
   return window.googletag;
 }
 
+function configurePageAdSettings(
+  googletag: typeof window.googletag,
+  pubAdsService: googletag.PubAdsService
+) {
+  if (typeof googletag.setConfig === 'function') {
+    googletag.setConfig({
+      collapseDiv: 'ON_NO_FILL',
+      singleRequest: true,
+    });
+    return;
+  }
+
+  pubAdsService.enableSingleRequest();
+  pubAdsService.collapseEmptyDivs();
+}
+
+function setPagePathTargeting(
+  googletag: typeof window.googletag,
+  pubAdsService: googletag.PubAdsService
+) {
+  if (typeof googletag.setConfig === 'function') {
+    googletag.setConfig({
+      targeting: {
+        path: targetedPath,
+      },
+    });
+    return;
+  }
+
+  pubAdsService.setTargeting('path', targetedPath);
+}
+
 function configureGoogleTagServices(resolve: () => void) {
   const googletag = ensureGoogleTag();
 
   googletag.cmd.push(() => {
-    if (!servicesConfigured) {
-      const pubAdsService = googletag.pubads();
+    const pubAdsService = googletag.pubads();
 
-      pubAdsService.enableSingleRequest();
-      pubAdsService.collapseEmptyDivs();
+    if (!servicesConfigured) {
+      configurePageAdSettings(googletag, pubAdsService);
       googletag.enableServices();
       servicesConfigured = true;
     }
 
-    googletag.pubads().setTargeting('path', targetedPath);
+    setPagePathTargeting(googletag, pubAdsService);
     resolve();
   });
 }
@@ -122,6 +153,6 @@ export function setGoogleAdManagerPath(pathname?: string | null) {
   }
 
   googletag.cmd.push(() => {
-    googletag.pubads().setTargeting('path', targetedPath);
+    setPagePathTargeting(googletag, googletag.pubads());
   });
 }
