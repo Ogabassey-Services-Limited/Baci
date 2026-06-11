@@ -1,68 +1,44 @@
 'use server';
 
 import { generateObject } from 'ai';
-import z from 'zod';
 import {
   gemini25FlashImage,
   geminiFlash,
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
+import {
+  ensurePermission,
+  isMerchantPermissionRedirectError,
+} from '@/lib/merchant-server';
 import type { Product } from '@/lib/products';
+import { createClient } from '@/lib/supabase/server';
+import {
+  AIResponseSchema,
+  FetchGoogleSheetInputSchema,
+  ParseCsvDirectlyInputSchema,
+  ProcessPriceListInputSchema,
+  type ValidatedImportProduct,
+} from '@/schemas/dashboard-product-import-actions';
 
-// Zod schema for the AI response
-const ChangeDetailsSchema = z.object({
-  name: z.string(),
-  price: z.number(),
-  sku: z.string().optional(),
-  description: z.string().optional(),
-  stock: z.number().optional(),
-  brand: z.string().optional(),
-  image: z.string().optional().describe('URL of the product image'),
-  category: z.string().optional().describe('The product category'),
-  attributes: z
-    .record(z.string(), z.string())
-    .optional()
-    .describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
-});
+function getInvalidProductImportResponse(): AIResponse {
+  return {
+    changes: [],
+    summary: 'Invalid input',
+  };
+}
 
-const ChangeSchema = z.object({
-  type: z.enum(['update', 'new', 'remove']),
-  productId: z
-    .string()
-    .optional()
-    .describe('SKU or ID of the product to update or remove'),
-  newPrice: z
-    .number()
-    .optional()
-    .describe('The new price for a product update'),
-  details: ChangeDetailsSchema,
-  reason: z
-    .string()
-    .optional()
-    .describe('Reasoning for the change, especially for removals'),
-});
-
-const ClarificationRequestSchema = z
-  .object({
-    question: z.string(),
-    options: z.array(z.string()),
-  })
-  .optional();
-
-const MissingParameterRequestSchema = z
-  .object({
-    productName: z.string(),
-    missingFields: z.array(z.string()),
-  })
-  .optional();
-
-const AIResponseSchema = z.object({
-  changes: z.array(ChangeSchema),
-  summary: z.string().describe('A human-readable summary of all changes'),
-  clarificationRequest: ClarificationRequestSchema,
-  missingParameterRequest: MissingParameterRequestSchema,
-});
+async function ensureProductCreatePermission(): Promise<boolean> {
+  try {
+    await ensurePermission('products', 'create');
+    return true;
+  } catch (error) {
+    if (isMerchantPermissionRedirectError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
 
 export interface Change {
   type: 'update' | 'new' | 'remove';
@@ -101,20 +77,57 @@ export async function processPriceList(
   vendor: string,
   fileType: string
 ): Promise<AIResponse> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return {
+      changes: [],
+      summary: 'Unauthorized',
+    };
+  }
+
+  const input = ProcessPriceListInputSchema.safeParse({
+    currentProducts,
+    priceListData,
+    vendor,
+    fileType,
+  });
+  if (!input.success) {
+    return getInvalidProductImportResponse();
+  }
+
+  if (!(await ensureProductCreatePermission())) {
+    return {
+      changes: [],
+      summary: 'Unauthorized',
+    };
+  }
+
   performance.mark('processPriceList-start');
-  const safeVendor = sanitizePromptInput(vendor, 100).value;
-  const safeFileType = sanitizePromptInput(fileType, 50).value;
+  const validatedCurrentProducts: ValidatedImportProduct[] =
+    input.data.currentProducts;
+  const validatedPriceListData = input.data.priceListData;
+  const safeVendor = sanitizePromptInput(input.data.vendor, 100).value;
+  const safeFileType = sanitizePromptInput(input.data.fileType, 50).value;
+  const isImage = input.data.fileType.startsWith('image/');
+  const priceListPromptContent = isImage
+    ? '[Image attachment supplied separately; inspect the attached image for vendor rows and prices.]'
+    : validatedPriceListData;
 
   const prompt = `
 You are an AI assistant for an e-commerce platform. Your task is to analyze a new price list and compare it to the current product catalog.
 Return a structured JSON object that details all suggested changes.
 
 Current Product Catalog (JSON):
-${JSON.stringify(currentProducts)}
+${JSON.stringify(validatedCurrentProducts)}
 
 New Price List from Vendor "${safeVendor}" (Format: ${safeFileType}):
 ---
-${priceListData}
+${priceListPromptContent}
 ---
 
 Instructions:
@@ -138,8 +151,6 @@ Instructions:
 7.  Provide a concise 'summary' of changes.
 `;
 
-  const isImage = fileType.startsWith('image/');
-
   try {
     const { object } = await withRetry(async () => {
       // For images, we must use the multimodal model and messages format
@@ -152,7 +163,7 @@ Instructions:
               role: 'user',
               content: [
                 { type: 'text', text: prompt },
-                { type: 'image', image: priceListData }, // priceListData is base64 string
+                { type: 'image', image: validatedPriceListData }, // priceListData is base64 string
               ],
             },
           ],
@@ -189,12 +200,41 @@ Instructions:
  * Parses CSV programmatically without AI, matches against existing products by name.
  * Much faster and handles unlimited rows.
  */
-// biome-ignore lint/suspicious/useAwait: Server Actions must be async functions
 export async function parseCSVDirectly(
   currentProducts: Product[],
   csvData: string
 ): Promise<AIResponse> {
-  const lines = csvData.split('\n').filter((line) => line.trim());
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return {
+      changes: [],
+      summary: 'Unauthorized',
+    };
+  }
+
+  const input = ParseCsvDirectlyInputSchema.safeParse({
+    currentProducts,
+    csvData,
+  });
+  if (!input.success) {
+    return getInvalidProductImportResponse();
+  }
+
+  if (!(await ensureProductCreatePermission())) {
+    return {
+      changes: [],
+      summary: 'Unauthorized',
+    };
+  }
+
+  const validatedCurrentProducts: ValidatedImportProduct[] =
+    input.data.currentProducts;
+  const lines = input.data.csvData.split('\n').filter((line) => line.trim());
   if (lines.length < 2) {
     return {
       changes: [],
@@ -280,9 +320,9 @@ export async function parseCSVDirectly(
   }
 
   // Build lookup map of existing products (by normalized name)
-  const existingByName = new Map<string, Product>();
-  const existingBySku = new Map<string, Product>();
-  for (const p of currentProducts) {
+  const existingByName = new Map<string, ValidatedImportProduct>();
+  const existingBySku = new Map<string, ValidatedImportProduct>();
+  for (const p of validatedCurrentProducts) {
     existingByName.set(normalizeName(p.name), p);
     if (p.sku) existingBySku.set(p.sku.toLowerCase().trim(), p);
   }
@@ -343,7 +383,7 @@ export async function parseCSVDirectly(
           details: {
             name: rawName,
             price: existingProduct.price,
-            sku: rawSku || existingProduct.sku,
+            sku: rawSku || existingProduct.sku || undefined,
             stock: stock ?? existingProduct.stock,
             category: rawCategory, // Include category in update if new one provided
             image: rawImage, // Include image in update
@@ -371,11 +411,11 @@ export async function parseCSVDirectly(
   // Check for removals (products in catalog but not in CSV)
   // Only suggest removals if CSV has substantial data (avoid false positives)
   const csvProductCount = processedNames.size;
-  const catalogCount = currentProducts.length;
+  const catalogCount = validatedCurrentProducts.length;
 
   // Only suggest removals if CSV has at least 50% of catalog size (likely a full update)
   if (csvProductCount >= catalogCount * 0.5) {
-    for (const product of currentProducts) {
+    for (const product of validatedCurrentProducts) {
       if (!processedNames.has(normalizeName(product.name))) {
         changes.push({
           type: 'remove',
@@ -383,7 +423,7 @@ export async function parseCSVDirectly(
           details: {
             name: product.name,
             price: product.price,
-            sku: product.sku,
+            sku: product.sku || undefined,
           },
           reason: 'Not found in updated price list',
         });
@@ -439,12 +479,33 @@ function parsePrice(priceStr: string): number {
 }
 
 export async function fetchGoogleSheet(url: string): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error('Unauthorized');
+  }
+
+  const input = FetchGoogleSheetInputSchema.safeParse({ url });
+  if (!input.success) {
+    throw new Error(
+      'Invalid URL format. Please provide a valid Google Sheets URL.'
+    );
+  }
+
+  if (!(await ensureProductCreatePermission())) {
+    throw new Error('Unauthorized');
+  }
+
   performance.mark('fetchGoogleSheet-start');
   try {
     // Validate URL format first
     let parsedUrl: URL;
     try {
-      parsedUrl = new URL(url);
+      parsedUrl = new URL(input.data.url);
     } catch {
       throw new Error(
         'Invalid URL format. Please provide a valid Google Sheets URL.'
