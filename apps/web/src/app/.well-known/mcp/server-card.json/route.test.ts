@@ -43,11 +43,11 @@ describe('GET /.well-known/mcp/server-card.json', () => {
     expect(
       body.tools.map((tool: { name: string }) => tool.name).sort()
     ).toEqual(PUBLIC_TOOL_NAMES);
-    expect(body.tools).toEqual(
-      expect.not.arrayContaining([
-        expect.objectContaining({ name: 'create_agentic_checkout_session' }),
-        expect.objectContaining({ name: 'check_order' }),
-      ])
+    expect(body.tools).not.toContainEqual(
+      expect.objectContaining({ name: 'create_agentic_checkout_session' })
+    );
+    expect(body.tools).not.toContainEqual(
+      expect.objectContaining({ name: 'check_order' })
     );
     expect(response.headers.get('cache-control')).toContain('max-age=3600');
   });
