@@ -124,6 +124,7 @@ export function HomeProductGrid({
   const interactionsActivated = useDeferredActivation({
     timeoutMs: 0,
     activateOnIdle: false,
+    deferInteractionActivationUntilNextPaint: true,
   });
 
   useEffect(() => {
