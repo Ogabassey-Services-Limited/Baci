@@ -6,7 +6,7 @@ import {
   type ReactNode,
   Suspense,
 } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 
 vi.mock('server-only', () => ({}));
@@ -16,6 +16,7 @@ const { mockGetCachedProductLcpHint, mockPreloadOgabasseyPdpProductResources } =
     mockGetCachedProductLcpHint: vi.fn(),
     mockPreloadOgabasseyPdpProductResources: vi.fn(),
   }));
+const PRODUCT_SLUG = 'dell-alienware-m18-r3-rtx-5080';
 
 vi.mock('@/lib/cached-data', async () => {
   const actual =
@@ -99,19 +100,23 @@ async function resolveRsc(element: ResolveRscValue): Promise<ReactNode> {
 }
 
 async function renderLayout({
-  productSlug = 'dell-alienware-m18-r3-rtx-5080',
+  autoRender = true,
+  children = (
+    <main>
+      <h1>Rendered product page</h1>
+    </main>
+  ),
+  productSlug = PRODUCT_SLUG,
   slug = OGABASSEY_DOMAIN,
 }: {
+  autoRender?: boolean;
+  children?: ReactNode;
   productSlug?: string;
   slug?: string;
 } = {}) {
   const { default: CategoryProductLayout } = await import('./layout');
-  const layout = await CategoryProductLayout({
-    children: (
-      <main>
-        <h1>Rendered product page</h1>
-      </main>
-    ),
+  const layoutPromise = CategoryProductLayout({
+    children,
     params: Promise.resolve({
       category: 'gaming-laptops',
       productSlug,
@@ -119,14 +124,115 @@ async function renderLayout({
     }),
   });
 
-  render(await resolveRsc(layout));
+  if (!autoRender) {
+    return { layoutPromise };
+  }
+
+  render(await resolveRsc(await layoutPromise));
+  return undefined;
+}
+
+function expectRenderedPage() {
+  expect(
+    screen.getByRole('heading', { name: 'Rendered product page' })
+  ).toBeInTheDocument();
+}
+
+function expectLcpHintLookup() {
+  expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
+    OGABASSEY_MERCHANT_ID,
+    PRODUCT_SLUG
+  );
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('CategoryProductLayout', () => {
+  it('awaits the OgaBassey product image hint before returning children', async () => {
+    let resolveHint: (
+      value: Awaited<ReturnType<typeof mockGetCachedProductLcpHint>>
+    ) => void = () => undefined;
+    let resolveHintStarted: () => void = () => undefined;
+    const hintStarted = new Promise<void>((resolve) => {
+      resolveHintStarted = resolve;
+    });
+    const hintPromise = new Promise<
+      Awaited<ReturnType<typeof mockGetCachedProductLcpHint>>
+    >((resolve) => {
+      resolveHint = resolve;
+    });
+    mockGetCachedProductLcpHint.mockImplementationOnce(() => {
+      resolveHintStarted();
+      return hintPromise;
+    });
+    const deferredLayout = await renderLayout({ autoRender: false });
+    if (!deferredLayout) {
+      throw new Error('Expected deferred layout promise');
+    }
+
+    await hintStarted;
+
+    expectLcpHintLookup();
+
+    resolveHint({
+      id: 'product-1',
+      images: [
+        {
+          alt: 'Dell Alienware M18 R3',
+          url: 'https://cdn.ogabassey.com/products/alienware.avif',
+        },
+      ],
+      name: 'Dell Alienware M18 R3',
+    });
+
+    render(await resolveRsc(await deferredLayout.layoutPromise));
+
+    expectRenderedPage();
+    expect(mockPreloadOgabasseyPdpProductResources).toHaveBeenCalledWith({
+      src: 'https://cdn.ogabassey.com/products/alienware.avif',
+    });
+  });
+
+  it('renders children when the OgaBassey product image hint stalls', async () => {
+    vi.useFakeTimers();
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    let resolveHintStarted: () => void = () => undefined;
+    const hintStarted = new Promise<void>((resolve) => {
+      resolveHintStarted = resolve;
+    });
+    mockGetCachedProductLcpHint.mockImplementationOnce(() => {
+      resolveHintStarted();
+      return new Promise(() => undefined);
+    });
+    const deferredLayout = await renderLayout({ autoRender: false });
+    if (!deferredLayout) {
+      throw new Error('Expected deferred layout promise');
+    }
+
+    await hintStarted;
+    await vi.runOnlyPendingTimersAsync();
+    render(await resolveRsc(await deferredLayout.layoutPromise));
+
+    expectRenderedPage();
+    expectLcpHintLookup();
+    expect(mockPreloadOgabasseyPdpProductResources).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Timed out preloading OgaBassey PDP product resources from layout:',
+      'dell-alienware-m18-r3-rtx-5080',
+      '120ms'
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('starts an OgaBassey product image preload from the leaf layout', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
@@ -141,13 +247,8 @@ describe('CategoryProductLayout', () => {
 
     await renderLayout();
 
-    expect(
-      screen.getByRole('heading', { name: 'Rendered product page' })
-    ).toBeInTheDocument();
-    expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
-      OGABASSEY_MERCHANT_ID,
-      'dell-alienware-m18-r3-rtx-5080'
-    );
+    expectRenderedPage();
+    expectLcpHintLookup();
     expect(mockPreloadOgabasseyPdpProductResources).toHaveBeenCalledWith({
       src: 'https://cdn.ogabassey.com/products/alienware.avif',
     });
@@ -156,9 +257,7 @@ describe('CategoryProductLayout', () => {
   it('does not preload product resources for other storefront identifiers', async () => {
     await renderLayout({ slug: 'another-storefront' });
 
-    expect(
-      screen.getByRole('heading', { name: 'Rendered product page' })
-    ).toBeInTheDocument();
+    expectRenderedPage();
     expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
     expect(mockPreloadOgabasseyPdpProductResources).not.toHaveBeenCalled();
   });
@@ -172,13 +271,8 @@ describe('CategoryProductLayout', () => {
 
     await renderLayout();
 
-    expect(
-      screen.getByRole('heading', { name: 'Rendered product page' })
-    ).toBeInTheDocument();
-    expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
-      OGABASSEY_MERCHANT_ID,
-      'dell-alienware-m18-r3-rtx-5080'
-    );
+    expectRenderedPage();
+    expectLcpHintLookup();
     expect(mockPreloadOgabasseyPdpProductResources).not.toHaveBeenCalled();
   });
 
@@ -191,9 +285,7 @@ describe('CategoryProductLayout', () => {
 
     await renderLayout();
 
-    expect(
-      screen.getByRole('heading', { name: 'Rendered product page' })
-    ).toBeInTheDocument();
+    expectRenderedPage();
     await waitFor(() => {
       expect(warnSpy).toHaveBeenCalledWith(
         'Unable to preload OgaBassey PDP product resources from layout:',
