@@ -193,10 +193,23 @@ export function ReviewForm({
             />
           </div>
 
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full"
+            aria-busy={isSubmitting}
+          >
+            {isSubmitting && (
+              <Loader2
+                className="mr-2 size-4 animate-spin"
+                aria-hidden="true"
+              />
+            )}
             Submit Review
           </Button>
+          <p className="sr-only" role="status" aria-live="polite">
+            {isSubmitting ? 'Submitting review.' : ''}
+          </p>
 
           <p className="text-xs text-muted-foreground text-center">
             Reviews are moderated and may take time to appear. Verified
