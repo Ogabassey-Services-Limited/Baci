@@ -135,6 +135,23 @@ const RATE_LIMIT_MAX_ENTRIES = 10_000; // Max unique IPs to track (prevent memor
 
 const REQUEST_TIMEOUT_MS = 30_000; // 30 second timeout
 
+const productLookupInputSchema = {
+  product_id: z
+    .string()
+    .min(1)
+    .max(80)
+    .optional()
+    .describe('Product ID from a prior search_products result'),
+  product_name: z
+    .string()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe(
+      'Exact product name from the catalog; call search_products first when unsure'
+    ),
+};
+
 // Validate required environment variables at startup (fail closed)
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('FATAL: Missing required environment variables');
@@ -1749,14 +1766,8 @@ function createOgabasseyServer() {
       title: 'Get Product Details',
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
-        'Get detailed information about a specific product including variants, conditions, specifications, and reviews.',
-      inputSchema: {
-        product_name: z
-          .string()
-          .min(1)
-          .max(100)
-          .describe('Product name to look up'),
-      },
+        'Get detailed information about a specific product including variants, conditions, specifications, and reviews. Use product_id when available; otherwise use the exact product_name returned by search_products.',
+      inputSchema: productLookupInputSchema,
       _meta: {
         'openai/outputTemplate': 'ui://widget/store.html',
         'openai/toolInvocation/invoking': 'Loading product...',
@@ -1772,18 +1783,28 @@ function createOgabasseyServer() {
         };
       }
 
-      const sanitizedName = sanitizeString(args.product_name, 100);
-      if (!sanitizedName) {
+      const sanitizedProductId = args.product_id
+        ? sanitizeString(args.product_id, 80)
+        : '';
+      const sanitizedName = args.product_name
+        ? sanitizeString(args.product_name, 100)
+        : '';
+      const lookupLabel = sanitizedProductId || sanitizedName;
+
+      if (!lookupLabel) {
         return {
           content: [
-            { type: 'text', text: 'Please provide a valid product name.' },
+            {
+              type: 'text',
+              text: 'Please provide a valid product ID or product name.',
+            },
           ],
           structuredContent: { products: [] },
         };
       }
 
       // Fetch product with all details
-      const { data: product, error: productError } = await supabase
+      let productQuery = supabase
         .from('products')
         .select(`
           id, name, slug, price, compare_at_price, images, description, stock_quantity,
@@ -1791,8 +1812,13 @@ function createOgabasseyServer() {
           weight_value, weight_unit, dimensions, schema_markup
         `)
         .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .ilike('name', `%${sanitizedName}%`)
+        .eq('status', 'active');
+
+      productQuery = sanitizedProductId
+        ? productQuery.eq('id', sanitizedProductId)
+        : productQuery.ilike('name', `%${sanitizedName}%`);
+
+      const { data: product, error: productError } = await productQuery
         .limit(1)
         .single();
 
@@ -1808,7 +1834,7 @@ function createOgabasseyServer() {
         }
         return {
           content: [
-            { type: 'text', text: `Product "${sanitizedName}" not found.` },
+            { type: 'text', text: `Product "${lookupLabel}" not found.` },
           ],
           structuredContent: { products: [] },
         };
@@ -2221,10 +2247,8 @@ function createOgabasseyServer() {
       title: 'Get Product Variants',
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
-        'Get all available variants (colors, storage options, conditions) for a product.',
-      inputSchema: {
-        product_name: z.string().min(1).max(100).describe('Product name'),
-      },
+        'Get all available variants (colors, storage options, conditions) for a product. Use product_id when available; otherwise use the exact product_name returned by search_products.',
+      inputSchema: productLookupInputSchema,
       _meta: {
         'openai/toolInvocation/invoking': 'Loading variants...',
         'openai/toolInvocation/invoked': 'Variants loaded',
@@ -2238,15 +2262,37 @@ function createOgabasseyServer() {
         };
       }
 
-      const sanitizedName = sanitizeString(args.product_name, 100);
+      const sanitizedProductId = args.product_id
+        ? sanitizeString(args.product_id, 80)
+        : '';
+      const sanitizedName = args.product_name
+        ? sanitizeString(args.product_name, 100)
+        : '';
+      const lookupLabel = sanitizedProductId || sanitizedName;
+
+      if (!lookupLabel) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Please provide a valid product ID or product name.',
+            },
+          ],
+        };
+      }
 
       // First find the product
-      const { data: product, error: productError } = await supabase
+      let productQuery = supabase
         .from('products')
         .select('id, name, has_variants, has_condition_offers')
         .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .ilike('name', `%${sanitizedName}%`)
+        .eq('status', 'active');
+
+      productQuery = sanitizedProductId
+        ? productQuery.eq('id', sanitizedProductId)
+        : productQuery.ilike('name', `%${sanitizedName}%`);
+
+      const { data: product, error: productError } = await productQuery
         .limit(1)
         .single();
 
@@ -2262,7 +2308,7 @@ function createOgabasseyServer() {
         }
         return {
           content: [
-            { type: 'text', text: `Product "${sanitizedName}" not found.` },
+            { type: 'text', text: `Product "${lookupLabel}" not found.` },
           ],
         };
       }

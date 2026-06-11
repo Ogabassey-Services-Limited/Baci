@@ -6,20 +6,28 @@ const tusMock = vi.hoisted(() => ({
     options: {
       chunkSize?: number;
       endpoint?: string | null;
+      fingerprint?: (file: File) => Promise<string>;
       headers?: Record<string, string>;
       metadata?: Record<string, string>;
       onProgress?: (bytesSent: number, bytesTotal: number) => void;
       onSuccess?: () => void;
+      removeFingerprintOnSuccess?: boolean;
     };
     resumeFromPreviousUpload: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
+  }>,
+  previousUploads: [] as Array<{
+    metadata: Record<string, string>;
+    uploadUrl: string | null;
   }>,
 }));
 
 vi.mock('tus-js-client', () => ({
   isSupported: true,
   Upload: class MockUpload {
-    findPreviousUploads = vi.fn().mockResolvedValue([]);
+    findPreviousUploads = vi
+      .fn()
+      .mockImplementation(async () => [...tusMock.previousUploads]);
     resumeFromPreviousUpload = vi.fn();
     start = vi.fn(() => {
       this.options.onProgress?.(3, 6);
@@ -31,10 +39,12 @@ vi.mock('tus-js-client', () => ({
       public options: {
         chunkSize?: number;
         endpoint?: string | null;
+        fingerprint?: (file: File) => Promise<string>;
         headers?: Record<string, string>;
         metadata?: Record<string, string>;
         onProgress?: (bytesSent: number, bytesTotal: number) => void;
         onSuccess?: () => void;
+        removeFingerprintOnSuccess?: boolean;
       }
     ) {
       tusMock.instances.push(this);
@@ -87,9 +97,26 @@ function createJsonResponse(body: unknown, ok = true): Response {
   } as Response;
 }
 
+function buildExpectedImportTusFingerprint(
+  file: File,
+  bucketName: string,
+  storagePath: string
+) {
+  return [
+    'baci-import-job',
+    bucketName,
+    storagePath,
+    file.name,
+    file.type || 'text/csv',
+    file.size,
+    file.lastModified,
+  ].join(':');
+}
+
 describe('migration-job-api', () => {
   beforeEach(() => {
     tusMock.instances = [];
+    tusMock.previousUploads = [];
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'mock-anon-key');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://mock.supabase.co');
     vi.stubGlobal('fetch', vi.fn());
@@ -260,10 +287,21 @@ describe('migration-job-api', () => {
       metadata: {
         bucketName: MIGRATION_IMPORT_BUCKET,
         objectName: 'merchant-1/orders/upload.csv',
+        clientUploadId: 'client-upload-1',
         contentType: 'text/csv',
         cacheControl: '3600',
       },
+      removeFingerprintOnSuccess: true,
     });
+    await expect(
+      tusMock.instances[0]?.options.fingerprint?.(file)
+    ).resolves.toBe(
+      buildExpectedImportTusFingerprint(
+        file,
+        MIGRATION_IMPORT_BUCKET,
+        'merchant-1/orders/upload.csv'
+      )
+    );
     expect(onUploadProgress).toHaveBeenCalledWith({
       bytesUploaded: 0,
       bytesTotal: file.size,
@@ -312,6 +350,79 @@ describe('migration-job-api', () => {
         headers: { 'x-csrf-token': 'token' },
       })
     );
+  });
+
+  it('does not resume a TUS upload stored for a different object path', async () => {
+    tusMock.previousUploads = [
+      {
+        metadata: {
+          bucketName: MIGRATION_IMPORT_BUCKET,
+          objectName: 'merchant-1/orders/old-upload.csv',
+        },
+        uploadUrl: 'https://mock.storage.supabase.co/old-upload',
+      },
+    ];
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          upload: {
+            clientUploadId: 'client-upload-2',
+            storagePath: 'merchant-1/orders/new-upload.csv',
+            uploadToken: 'upload-token',
+          },
+        })
+      )
+      .mockResolvedValueOnce(createJsonResponse({ job: { id: 'job-2' } }));
+
+    const file = new File(['id\n1'], 'orders.csv', { type: 'text/csv' });
+
+    await createImportJob({
+      entityType: 'orders',
+      file,
+      sourcePlatform: 'bumpa',
+    });
+
+    expect(tusMock.instances[0]?.findPreviousUploads).toHaveBeenCalledTimes(1);
+    expect(
+      tusMock.instances[0]?.resumeFromPreviousUpload
+    ).not.toHaveBeenCalled();
+    expect(tusMock.instances[0]?.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('resumes a TUS upload only when its stored object path matches the new upload', async () => {
+    const matchingPreviousUpload = {
+      metadata: {
+        bucketName: MIGRATION_IMPORT_BUCKET,
+        objectName: 'merchant-1/orders/resume-upload.csv',
+      },
+      uploadUrl: 'https://mock.storage.supabase.co/resume-upload',
+    };
+    tusMock.previousUploads = [matchingPreviousUpload];
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          upload: {
+            clientUploadId: 'client-upload-3',
+            storagePath: 'merchant-1/orders/resume-upload.csv',
+            uploadToken: 'upload-token',
+          },
+        })
+      )
+      .mockResolvedValueOnce(createJsonResponse({ job: { id: 'job-3' } }));
+
+    const file = new File(['id\n1'], 'orders.csv', { type: 'text/csv' });
+
+    await createImportJob({
+      entityType: 'orders',
+      file,
+      sourcePlatform: 'bumpa',
+    });
+
+    expect(tusMock.instances[0]?.findPreviousUploads).toHaveBeenCalledTimes(1);
+    expect(tusMock.instances[0]?.resumeFromPreviousUpload).toHaveBeenCalledWith(
+      matchingPreviousUpload
+    );
+    expect(tusMock.instances[0]?.start).toHaveBeenCalledTimes(1);
   });
 
   it('uses signed URL upload when TUS is unsupported', async () => {

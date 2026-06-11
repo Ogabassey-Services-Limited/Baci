@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NewsSitemapRouteContext } from './route';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
@@ -50,6 +51,14 @@ function createNewsSitemapRequest(host = 'ogabassey.com') {
   });
 }
 
+function createNewsSitemapRouteContext(
+  slug = 'ogabassey'
+): NewsSitemapRouteContext {
+  return {
+    params: Promise.resolve({ slug }),
+  };
+}
+
 describe('GET /blog/news-sitemap.xml', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -85,7 +94,10 @@ describe('GET /blog/news-sitemap.xml', () => {
     ];
 
     const { GET } = await import('./route');
-    const response = await GET(createNewsSitemapRequest());
+    const response = await GET(
+      createNewsSitemapRequest(),
+      createNewsSitemapRouteContext()
+    );
     const xml = await response.text();
 
     expect(response.status).toBe(200);
@@ -119,7 +131,10 @@ describe('GET /blog/news-sitemap.xml', () => {
     mockGetCachedFeatureSettings.mockResolvedValueOnce({ blog_enabled: false });
 
     const { GET } = await import('./route');
-    const response = await GET(createNewsSitemapRequest());
+    const response = await GET(
+      createNewsSitemapRequest(),
+      createNewsSitemapRouteContext()
+    );
     const xml = await response.text();
 
     expect(response.status).toBe(200);
@@ -145,7 +160,10 @@ describe('GET /blog/news-sitemap.xml', () => {
     ];
 
     const { GET } = await import('./route');
-    const response = await GET(createNewsSitemapRequest());
+    const response = await GET(
+      createNewsSitemapRequest(),
+      createNewsSitemapRouteContext()
+    );
     const xml = await response.text();
 
     expect(xml).toContain('<news:name>Ogabassey &amp; Sons</news:name>');
@@ -158,7 +176,10 @@ describe('GET /blog/news-sitemap.xml', () => {
     mockGetMerchantByIdentifier.mockResolvedValue(null);
 
     const { GET } = await import('./route');
-    const response = await GET(createNewsSitemapRequest('unknown.example.com'));
+    const response = await GET(
+      createNewsSitemapRequest('unknown.example.com'),
+      createNewsSitemapRouteContext('unknown')
+    );
     const xml = await response.text();
 
     expect(response.status).toBe(503);
@@ -171,7 +192,10 @@ describe('GET /blog/news-sitemap.xml', () => {
 
   it('returns an empty sitemap when there are no recent blog posts', async () => {
     const { GET } = await import('./route');
-    const response = await GET(createNewsSitemapRequest());
+    const response = await GET(
+      createNewsSitemapRequest(),
+      createNewsSitemapRouteContext()
+    );
     const xml = await response.text();
 
     expect(response.status).toBe(200);
@@ -197,7 +221,10 @@ describe('GET /blog/news-sitemap.xml', () => {
     ];
 
     const { GET } = await import('./route');
-    const response = await GET(createNewsSitemapRequest());
+    const response = await GET(
+      createNewsSitemapRequest(),
+      createNewsSitemapRouteContext()
+    );
     const xml = await response.text();
 
     expect(response.status).toBe(200);
@@ -211,8 +238,33 @@ describe('GET /blog/news-sitemap.xml', () => {
 
     const { GET } = await import('./route');
 
-    await expect(GET(createNewsSitemapRequest())).rejects.toThrow(
-      'Failed to fetch blog posts for Google News sitemap'
+    await expect(
+      GET(createNewsSitemapRequest(), createNewsSitemapRouteContext())
+    ).rejects.toThrow('Failed to fetch blog posts for Google News sitemap');
+  });
+
+  it('uses the route slug to resolve root-domain path-mode sitemap requests', async () => {
+    mockHeaders = new Map([['host', 'usebaci.com']]);
+    mockBlogPosts = [
+      {
+        slug: 'path-mode-news',
+        title: 'Path Mode News',
+        published_at: '2026-06-11T06:00:00.000Z',
+        updated_at: null,
+      },
+    ];
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://usebaci.com/ogabassey/blog/news-sitemap.xml', {
+        headers: { host: 'usebaci.com' },
+      }),
+      createNewsSitemapRouteContext('ogabassey')
     );
+    const xml = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey');
+    expect(xml).toContain('<news:title>Path Mode News</news:title>');
   });
 });

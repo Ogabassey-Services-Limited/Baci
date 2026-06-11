@@ -118,19 +118,27 @@ function createNewsSitemapResponse(entries: NewsSitemapEntry[]): NextResponse {
   });
 }
 
-export async function GET(request: Request): Promise<Response> {
+export interface NewsSitemapRouteContext {
+  params: Promise<{ slug: string }>;
+}
+
+export async function GET(
+  request: Request,
+  routeContext: NewsSitemapRouteContext
+): Promise<Response> {
+  const { slug } = await routeContext.params;
   const headersList = await headers();
-  const context = await resolveStorefrontSitemapContext(
+  const sitemapContext = await resolveStorefrontSitemapContext(
     headersList,
-    undefined,
+    slug,
     request
   );
 
-  if (!context) {
+  if (!sitemapContext) {
     return createSitemapUnavailableResponse();
   }
 
-  const { merchant, storeUrl, supabase } = context;
+  const { merchant, storeUrl, supabase } = sitemapContext;
   const features = await getCachedFeatureSettings(merchant.id);
   if (!features?.blog_enabled) {
     return createNewsSitemapResponse([]);
