@@ -186,15 +186,15 @@ export function HomeProductGrid({
     bindings: ProductGridInteractionBindingsValue,
     deferInteractiveChrome: boolean
   ) => (
-    <section className="max-w-[1400px] mx-auto px-3 md:px-6 py-6 md:py-8 relative">
-      <div className="flex items-center justify-between mb-6 md:mb-8">
+    <section className="ogabassey-home-products">
+      <div className="ogabassey-home-products__header">
         <div>
           {title === 'Featured Products' && (
-            <span className="text-store-primary font-bold uppercase tracking-wider text-xs md:text-sm">
+            <span className="ogabassey-home-products__eyebrow">
               Best Sellers
             </span>
           )}
-          <h2 className="mt-1 text-xl font-bold text-white md:text-3xl">
+          <h2 className="ogabassey-home-products__title">
             {title}
           </h2>
         </div>
@@ -202,7 +202,7 @@ export function HomeProductGrid({
           <Link
             href={allProductsHref as Route}
             prefetch={false}
-            className="hidden text-xs font-medium text-white/70 transition-colors hover:text-white md:text-base sm:block"
+            className="ogabassey-home-products__view-all"
           >
             View all products
           </Link>
@@ -210,11 +210,11 @@ export function HomeProductGrid({
       </div>
 
       {featuredProducts.length === 0 ? (
-        <div className="text-center py-20 bg-gray-50 rounded-2xl border border-gray-100">
-          <p className="text-gray-500 text-lg">No products found.</p>
+        <div className="ogabassey-home-products__empty">
+          <p className="ogabassey-home-products__empty-text">No products found.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+        <div className="ogabassey-home-products__grid">
           {visibleProducts.map((product, index) => (
             <Fragment key={product.id}>
               {deferInteractiveChrome || !InteractiveCard ? (

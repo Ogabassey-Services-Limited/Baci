@@ -1,9 +1,4 @@
 @import "tailwindcss" source(none);
-@import "./storefront-core.css";
-@import "./storefront-pdp-critical.css";
-@import "./storefront-pdp-semantic.css";
-@import "./storefront-pdp-tabs.css";
-@import "./storefront-pdp-reviews.css";
 
 @config "../../../tailwind.storefront.scoped.config.ts";
 
@@ -26,16 +21,6 @@
 @source "../../components/storefront/ogabassey/storefront-layout-providers.tsx";
 @source "../../components/storefront/ogabassey/layout";
 @source "../../components/storefront/ogabassey/providers";
-@source "../../components/storefront/ogabassey/pdp/client-islands.tsx";
-@source "../../components/storefront/ogabassey/pdp/critical-shell.tsx";
-@source "../../components/storefront/ogabassey/pdp/deferred-detail-island.tsx";
-@source "../../components/storefront/ogabassey/pdp/deferred-detail-island.client.tsx";
-@source "../../components/storefront/ogabassey/pages/product-details-page/deferred-details-skeleton.tsx";
-@source "../../components/storefront/ogabassey/pages/product-details-page/deferred-product-details-sections-loader.tsx";
-@source "../../components/storefront/ogabassey/pages/product-details-page/deferred-product-details-sections.tsx";
-@source "../../components/storefront/ogabassey/pages/product-details-page/product-details-tabs.tsx";
-@source "../../components/storefront/ogabassey/components/ProductComparisonTable.tsx";
-@source "../../components/storefront/ogabassey/components/ProductVideo.tsx";
 @source "../../components/storefront/brand-products.tsx";
 @source "../../components/storefront/breadcrumbs.tsx";
 @source "../../components/storefront/deferred-sticky-add-to-cart.tsx";
