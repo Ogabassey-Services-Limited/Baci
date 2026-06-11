@@ -27,6 +27,8 @@ interface PhoneInputCountryPickerProps {
   visible: boolean;
 }
 
+const COUNTRY_ITEM_HEIGHT = 56;
+
 export function PhoneInputCountryPicker({
   colors,
   countries,
@@ -112,6 +114,12 @@ export function PhoneInputCountryPicker({
           maxToRenderPerBatch={20}
           windowSize={10}
           removeClippedSubviews={removeClippedSubviews}
+          // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+          getItemLayout={(_data, index) => ({
+            length: COUNTRY_ITEM_HEIGHT,
+            offset: COUNTRY_ITEM_HEIGHT * index,
+            index,
+          })}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[
