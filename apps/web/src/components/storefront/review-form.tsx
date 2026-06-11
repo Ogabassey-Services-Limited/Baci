@@ -137,7 +137,11 @@ export function ReviewForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4"
+          aria-busy={isSubmitting}
+        >
           <div className="space-y-2">
             <Label>Your Rating *</Label>
             <StarRating
@@ -193,15 +197,20 @@ export function ReviewForm({
             />
           </div>
 
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            aria-busy={isSubmitting}
-            className="w-full"
-          >
-            {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
+          <Button type="submit" disabled={isSubmitting} className="w-full">
+            {isSubmitting && (
+              <Loader2
+                className="mr-2 size-4 animate-spin"
+                aria-hidden="true"
+              />
+            )}
             Submit Review
           </Button>
+          {isSubmitting && (
+            <p className="sr-only" role="status" aria-live="polite">
+              Submitting review.
+            </p>
+          )}
 
           <p className="text-xs text-muted-foreground text-center">
             Reviews are moderated and may take time to appear. Verified

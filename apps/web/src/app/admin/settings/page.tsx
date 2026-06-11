@@ -155,7 +155,10 @@ export default function PlatformSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="size-8 animate-spin text-primary" />
+        <Loader2
+          className="size-8 animate-spin text-primary"
+          aria-hidden="true"
+        />
       </div>
     );
   }
@@ -180,9 +183,9 @@ export default function PlatformSettingsPage() {
         </div>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? (
-            <Loader2 className="size-4 mr-2 animate-spin" />
+            <Loader2 className="size-4 mr-2 animate-spin" aria-hidden="true" />
           ) : (
-            <Save className="size-4 mr-2" />
+            <Save className="size-4 mr-2" aria-hidden="true" />
           )}
           Save Changes
         </Button>

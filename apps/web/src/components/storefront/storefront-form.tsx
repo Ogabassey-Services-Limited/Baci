@@ -147,7 +147,11 @@ export function StorefrontForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4"
+      aria-busy={isSubmitting}
+    >
       {submitStatus === 'error' && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex items-start gap-3">
           <AlertCircle className="size-5 text-red-600 mt-0.5 shrink-0" />
@@ -233,21 +237,21 @@ export function StorefrontForm({
         </div>
       ))}
 
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        aria-busy={isSubmitting}
-        className="w-full"
-      >
+      <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? (
           <>
-            <Loader2 className="size-4 mr-2 animate-spin" />
+            <Loader2 className="size-4 mr-2 animate-spin" aria-hidden="true" />
             Submitting…
           </>
         ) : (
           submitButtonText
         )}
       </Button>
+      {isSubmitting && (
+        <p className="sr-only" role="status" aria-live="polite">
+          Submitting form.
+        </p>
+      )}
     </form>
   );
 }

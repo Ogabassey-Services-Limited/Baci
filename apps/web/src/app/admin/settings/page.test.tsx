@@ -1,10 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformSettingsResponse } from '@/app/api/admin/settings/route';
 import PlatformSettingsPage from './page';
 
+const toastMock = vi.fn();
+
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: toastMock }),
 }));
 
 const settingsResponse: PlatformSettingsResponse = {
@@ -40,6 +42,7 @@ const settingsResponse: PlatformSettingsResponse = {
 describe('PlatformSettingsPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    toastMock.mockClear();
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -83,5 +86,31 @@ describe('PlatformSettingsPage', () => {
     expect(
       screen.getByRole('button', { name: 'Hide GA4 API secret' })
     ).toBeInTheDocument();
+  });
+
+  it('shows the load failure state when settings cannot be fetched', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: async () => ({ error: 'Failed to load settings' }),
+        ok: false,
+      })
+    );
+
+    render(<PlatformSettingsPage />);
+
+    expect(
+      await screen.findByText(
+        'Failed to load settings. Please try refreshing the page.'
+      )
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith({
+        title: 'Error',
+        description: 'Failed to load platform settings.',
+        variant: 'destructive',
+      });
+    });
   });
 });

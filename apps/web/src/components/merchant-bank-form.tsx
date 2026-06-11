@@ -296,7 +296,11 @@ export function MerchantBankForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-6"
+        aria-busy={isSubmitting || isVerifying}
+      >
         {/* 1. Account Number */}
         <FormField
           control={form.control}
@@ -587,13 +591,19 @@ export function MerchantBankForm({
           type="submit"
           className="w-full"
           disabled={isSubmitting || isVerifying || !verifiedName}
-          aria-busy={isSubmitting || isVerifying}
         >
           {isSubmitting && (
             <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
           )}
           {isSubmitting ? 'Saving...' : 'Save Bank Details'}
         </Button>
+        {(isSubmitting || isVerifying) && (
+          <p className="sr-only" role="status" aria-live="polite">
+            {isSubmitting
+              ? 'Saving bank details.'
+              : 'Verifying bank account details.'}
+          </p>
+        )}
       </form>
     </Form>
   );
