@@ -220,16 +220,15 @@ describe('POST /api/products/bulk-publish', () => {
     expect(json.error).toBe('Failed to publish products');
   });
 
-  it('handles delete error gracefully and continues', async () => {
+  it('returns 500 when delete drafts fails', async () => {
     const { POST } = await import('./route');
     deleteError = { message: 'Delete failed' };
 
     const res = await POST(createRequest());
     const json = await res.json();
 
-    // Delete error is logged but does not fail the request
-    expect(res.status).toBe(200);
-    expect(json.success).toBe(true);
+    expect(res.status).toBe(500);
+    expect(json.error).toBe('Failed to delete draft products');
   });
 
   it('handles zero deleted drafts and zero published', async () => {
