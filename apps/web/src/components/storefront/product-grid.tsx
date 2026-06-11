@@ -100,6 +100,8 @@ export function StorefrontProductGrid({
 
   const isPreviewMode =
     !merchantContext ||
+    merchant?.slug === 'preview-store' ||
+    merchant?.id === 'preview-merchant-id' ||
     merchant?.id?.endsWith('-preview') ||
     merchant?.id?.startsWith('demo-');
   const [products, setProducts] = useState<Product[]>(() => {
