@@ -72,6 +72,7 @@ export function OgabasseyLayoutChrome({
         <DeferredShellFeature
           timeoutMs={1600}
           activateOnInteraction
+          deferInteractionActivationUntilNextPaint
         >
           <Suspense fallback={null}>
             <StorefrontDeferredFooterChrome
@@ -85,7 +86,11 @@ export function OgabasseyLayoutChrome({
   }
 
   return (
-    <DeferredShellFeature timeoutMs={2200} activateOnInteraction>
+    <DeferredShellFeature
+      timeoutMs={2200}
+      activateOnInteraction
+      deferInteractionActivationUntilNextPaint
+    >
       <Suspense fallback={null}>
         <StorefrontDeferredOverlayChrome />
       </Suspense>
