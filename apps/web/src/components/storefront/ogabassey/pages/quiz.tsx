@@ -16,6 +16,13 @@ import {
   quizResultResponseSchema,
 } from '@/schemas/quiz';
 import { DeferredAdUnit } from '../components/deferred-ad-unit';
+import {
+  formatQuizDateRange,
+  formatQuizPointCount,
+  getQuizErrorMessage,
+  getQuizStartButtonText,
+} from './quiz-page-helpers';
+import { QuizQuestionAdFallback } from './quiz-question-ad-fallback';
 
 type QuizStatus = 'idle' | 'loading' | 'ready' | 'error' | 'starting' | 'question' | 'submitting' | 'result';
 
@@ -27,45 +34,6 @@ const primaryButton =
 const secondaryButton =
   'h-11 rounded-lg border border-store-primary px-5 text-sm font-semibold text-store-primary hover:bg-store-primary/10';
 const panel = 'rounded-lg border border-store-border bg-white p-5 shadow-sm';
-const questionAdFallback =
-  'mx-auto my-5 flex min-h-[250px] w-full max-w-[300px] flex-col items-center justify-center rounded-lg border border-store-border bg-store-background/60 text-center';
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Quiz action failed. Please try again.';
-}
-
-function formatPointCount(points: number): string {
-  return `${points} loyalty ${points === 1 ? 'point' : 'points'}`;
-}
-
-function formatDateRange(event: QuizEventResponse): string {
-  const formatter = new Intl.DateTimeFormat('en-NG', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-  if (event.endsAt && !event.startsAt) return `Ends ${formatter.format(new Date(event.endsAt))}`;
-  if (event.startsAt && !event.endsAt) return `Starts ${formatter.format(new Date(event.startsAt))}`;
-  if (event.startsAt && event.endsAt) return `${formatter.format(new Date(event.startsAt))} - ${formatter.format(new Date(event.endsAt))}`;
-  return 'Time not set';
-}
-
-function QuizQuestionAdFallback() {
-  return (
-    <div aria-label="Reserved sponsored quiz placement" className={questionAdFallback}>
-      <span className="text-[9px] font-semibold uppercase tracking-widest text-store-background-text/40">
-        Sponsored
-      </span>
-    </div>
-  );
-}
-
-function getStartButtonText(event: QuizEventResponse, isStarting: boolean) {
-  if (isStarting) return 'Starting...';
-  if (event.status === 'scheduled') return 'Coming soon';
-  if (event.status === 'closed') return 'Closed';
-  return 'Start exam';
-}
-
 async function fetchQuizEvents(merchantSlug: string) {
   const query = new URLSearchParams({ limit: '50', merchantSlug, offset: '0' });
   const parsed = quizEventsResponseSchema.safeParse(
@@ -117,7 +85,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
       setEvents(await fetchQuizEvents(merchantSlug));
       setStatus('ready');
     } catch (error) {
-      setError(getErrorMessage(error));
+      setError(getQuizErrorMessage(error));
       setStatus('error');
     }
   };
@@ -137,7 +105,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
       setSelectedAnswer(null);
       setStatus('question');
     } catch (error) {
-      setError(getErrorMessage(error));
+      setError(getQuizErrorMessage(error));
       setStatus('ready');
     }
   };
@@ -163,7 +131,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
         setStatus('result');
       }
     } catch (error) {
-      setError(getErrorMessage(error));
+      setError(getQuizErrorMessage(error));
       setStatus('question');
     }
   };
@@ -179,7 +147,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
               <p className="text-xs font-semibold uppercase text-store-primary">Ogabassey rewards</p>
               <h1 className="mt-2 text-3xl font-bold tracking-normal text-store-background-text sm:text-4xl">Super Quiz</h1>
               <p className="mt-3 text-sm leading-6 text-store-background-text/70">
-                Use {formatPointCount(EXAM_PASS_POINTS_COST)} as your exam pass,
+                Use {formatQuizPointCount(EXAM_PASS_POINTS_COST)} as your exam pass,
                 answer each timed question, and qualify for prize rewards.
               </p>
             </div>
@@ -240,16 +208,16 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
                     <span className="rounded-full bg-store-primary/10 px-3 py-1 text-xs font-semibold text-store-primary">{event.status}</span>
                   </div>
                   <p className="mt-4 text-sm leading-6 text-store-background-text/70">
-                    {event.questionCount} questions. {formatDateRange(event)}.
+                    {event.questionCount} questions. {formatQuizDateRange(event)}.
                   </p>
                   <button
                     type="button"
                     disabled={disabled}
-                    aria-label={`${getStartButtonText(event, status === 'starting')} for ${event.title}`}
+                    aria-label={`${getQuizStartButtonText(event, status === 'starting')} for ${event.title}`}
                     onClick={() => void handleStart(event)}
                     className={`mt-5 w-full ${primaryButton}`}
                   >
-                    {getStartButtonText(event, status === 'starting')}
+                    {getQuizStartButtonText(event, status === 'starting')}
                   </button>
                 </article>
               );
@@ -264,8 +232,8 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
             </div>
             <p className="mt-4 text-sm font-semibold text-store-primary">{attempt.question.timeLimitSeconds}s per question</p>
             <p className="mt-2 text-xs text-store-background-text/60">
-              {formatPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
-              {formatPointCount(attempt.remainingLoyaltyPoints)} left.
+              {formatQuizPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
+              {formatQuizPointCount(attempt.remainingLoyaltyPoints)} left.
             </p>
             <h2 className="mt-5 text-xl font-bold">{attempt.question.prompt}</h2>
             <DeferredAdUnit
