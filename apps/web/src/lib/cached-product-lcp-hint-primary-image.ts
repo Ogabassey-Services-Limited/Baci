@@ -6,7 +6,8 @@ export function getCachedProductLcpHintPrimaryImage(
   const firstImage = cachedProduct?.images?.[0];
   const primaryImage =
     typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? null);
-  const normalizedImage = primaryImage?.trim();
+  const normalizedImage =
+    typeof primaryImage === 'string' ? primaryImage.trim() : null;
 
   return normalizedImage || null;
 }

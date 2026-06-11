@@ -76,5 +76,15 @@ describe('getCachedProductLcpHintPrimaryImage', () => {
         ])
       )
     ).toBeNull();
+    expect(
+      getCachedProductLcpHintPrimaryImage(
+        createCachedProductLcpHint([
+          { alt: 'Numeric URL', url: 123 } as unknown as {
+            alt: string;
+            url: string;
+          },
+        ])
+      )
+    ).toBeNull();
   });
 });
