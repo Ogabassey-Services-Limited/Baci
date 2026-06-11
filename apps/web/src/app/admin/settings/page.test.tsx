@@ -1,0 +1,87 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PlatformSettingsResponse } from '@/app/api/admin/settings/route';
+import PlatformSettingsPage from './page';
+
+vi.mock('@/hooks/use-toast', () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}));
+
+const settingsResponse: PlatformSettingsResponse = {
+  created_at: '2026-06-11T00:00:00.000Z',
+  enable_analytics_export: true,
+  enable_custom_domains: true,
+  enable_merchant_signups: true,
+  facebook_pixel_id: '1234567890123456',
+  google_analytics_id: 'G-TEST1234',
+  id: 'platform-settings',
+  maintenance_message: null,
+  maintenance_mode: false,
+  payment_processor_fee_flat: 0,
+  payment_processor_fee_percentage: 1.5,
+  platform_fee_flat: 0,
+  platform_fee_percentage: 2.5,
+  platform_logo_url: null,
+  platform_name: 'Baci',
+  secretStatus: {
+    facebook_capi_token: true,
+    ga4_api_secret: true,
+    snapchat_capi_token: true,
+    tiktok_access_token: true,
+  },
+  snapchat_pixel_id: 'snap-pixel',
+  support_email: 'support@example.com',
+  support_phone: '+2348000000000',
+  tiktok_pixel_id: 'tiktok-pixel',
+  twitter_pixel_id: null,
+  updated_at: '2026-06-11T00:00:00.000Z',
+};
+
+describe('PlatformSettingsPage', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: async () => settingsResponse,
+        ok: true,
+      })
+    );
+  });
+
+  it('uses specific accessible names for secret visibility toggles', async () => {
+    render(<PlatformSettingsPage />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Show GA4 API secret' })
+    ).toBeInTheDocument();
+  });
+
+  it('updates the secret toggle accessible name when visibility changes', async () => {
+    render(<PlatformSettingsPage />);
+
+    const ga4Toggle = await screen.findByRole('button', {
+      name: 'Show GA4 API secret',
+    });
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Show Facebook Conversions API token',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Show TikTok Events API token' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'Show Snapchat Conversions API token',
+      })
+    ).toBeInTheDocument();
+
+    fireEvent.click(ga4Toggle);
+
+    expect(
+      screen.getByRole('button', { name: 'Hide GA4 API secret' })
+    ).toBeInTheDocument();
+  });
+});
