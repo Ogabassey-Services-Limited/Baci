@@ -13,6 +13,12 @@ import {
   resolveMerchantContextIdentifier,
   resolveRouteIdentifier,
 } from '@/lib/storefront-route-identifier';
+import {
+  buildMerchantTrustProfile,
+  hasPublishableReturnsPolicy,
+  hasPublishableShippingPolicy,
+  hasPublishableWarrantyPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { createAnonClient } from '@/lib/supabase/anon';
 
 export interface ProductWithCategory {
@@ -180,6 +186,34 @@ export function getStaticSitemapEntries(
       changeFrequency: 'monthly',
       priority: 0.5,
     },
+  ];
+}
+
+export function getTrustPolicySitemapEntries({
+  merchant,
+  storeUrl,
+}: StorefrontSitemapContext): MetadataRoute.Sitemap {
+  const trustProfile = buildMerchantTrustProfile(merchant, storeUrl);
+  const trustUrls = [
+    hasPublishableReturnsPolicy(trustProfile) ? `${storeUrl}/returns` : null,
+    hasPublishableShippingPolicy(trustProfile) ? `${storeUrl}/shipping` : null,
+    hasPublishableWarrantyPolicy(trustProfile) ? `${storeUrl}/warranty` : null,
+  ].filter((url): url is string => typeof url === 'string' && url.length > 0);
+
+  return trustUrls.map((url) => ({
+    url,
+    lastModified: new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.5,
+  }));
+}
+
+export function getStaticAndTrustSitemapEntries(
+  context: StorefrontSitemapContext
+): MetadataRoute.Sitemap {
+  return [
+    ...getStaticSitemapEntries(context.storeUrl),
+    ...getTrustPolicySitemapEntries(context),
   ];
 }
 
@@ -428,7 +462,7 @@ export async function getRootSitemapEntries(
     blogEntries,
     commercialSupportEntries,
   ] = await Promise.all([
-    Promise.resolve(getStaticSitemapEntries(context.storeUrl)),
+    Promise.resolve(getStaticAndTrustSitemapEntries(context)),
     getSafeSitemapEntries('products', () => getProductSitemapEntries(context)),
     getSafeSitemapEntries('categories', () =>
       getCategorySitemapEntries(context)
@@ -456,7 +490,7 @@ export function getNamedSitemapEntries(
     case 'root':
       return getRootSitemapEntries(context);
     case 'static':
-      return getStaticSitemapEntries(context.storeUrl);
+      return getStaticAndTrustSitemapEntries(context);
     case 'products':
       return getProductSitemapEntries(context);
     case 'categories':

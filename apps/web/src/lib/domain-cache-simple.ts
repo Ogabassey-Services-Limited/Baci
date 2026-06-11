@@ -16,7 +16,6 @@
  *   This is a read-only lookup - it cannot modify data.
  */
 
-import { get } from '@vercel/edge-config';
 import {
   getEdgeConfigDomainKey,
   getEdgeConfigSlugKey,
@@ -59,6 +58,7 @@ async function readFromEdgeConfig(
   merchantSlug: string
 ): Promise<string | undefined> {
   try {
+    const { get } = await import('@vercel/edge-config');
     const value = await get<string>(getEdgeConfigSlugKey(merchantSlug));
     return typeof value === 'string' && value.length > 0 ? value : undefined;
   } catch {
@@ -136,6 +136,7 @@ async function readSlugFromEdgeConfig(
   domain: string
 ): Promise<string | undefined> {
   try {
+    const { get } = await import('@vercel/edge-config');
     const value = await get<string>(getEdgeConfigDomainKey(domain));
     return typeof value === 'string' && value.length > 0 ? value : undefined;
   } catch {

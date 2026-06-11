@@ -307,6 +307,44 @@ describe('sitemap-data', () => {
     ]);
   });
 
+  it('adds publishable trust policy URLs to static and root sitemap entries', async () => {
+    const { getNamedSitemapEntries, getRootSitemapEntries } = await import(
+      './sitemap-data'
+    );
+    const context = {
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        trust_profile: {
+          return_policy: { summary: 'Returns accepted within 7 days.' },
+          shipping_policy: { summary: 'Ships nationwide.' },
+          warranty_policy: { summary: 'One-year warranty included.' },
+        },
+      },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {
+        from: () => ({
+          select: () => ({
+            eq: () => ({ data: [], error: null }),
+          }),
+        }),
+      },
+    } as unknown as StorefrontSitemapContext;
+
+    const staticEntries = await getNamedSitemapEntries(context, 'static');
+    const rootEntries = await getRootSitemapEntries(context);
+
+    for (const entries of [staticEntries, rootEntries]) {
+      expect(entries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ url: 'https://ogabassey.com/returns' }),
+          expect.objectContaining({ url: 'https://ogabassey.com/shipping' }),
+          expect.objectContaining({ url: 'https://ogabassey.com/warranty' }),
+        ])
+      );
+    }
+  });
+
   it('returns product sitemap entries with category paths and images', async () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
@@ -759,7 +797,13 @@ describe('sitemap-data', () => {
     mockGetMerchantByIdentifier.mockResolvedValue(null);
     const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
     const emptyHeaders = new Headers();
-    const req = new Request('https://invalid.usebaci.com/sitemap.xml');
+    const req = new Request('https://invalid.usebaci.com/sitemap.xml', {
+      headers: {
+        authorization: 'Bearer secret-token',
+        cookie: 'session=secret',
+        'x-custom-domain': 'invalid.example.com',
+      },
+    });
 
     const context = await resolveStorefrontSitemapContext(
       emptyHeaders,
@@ -769,6 +813,12 @@ describe('sitemap-data', () => {
 
     expect(context).toBeNull();
     expect(errorSpy).toHaveBeenCalled();
+    const [, payload] = errorSpy.mock.calls.at(-1) ?? [];
+    expect(payload).toMatchObject({
+      safeHeaders: { 'x-custom-domain': 'invalid.example.com' },
+    });
+    expect(JSON.stringify(payload)).not.toContain('secret-token');
+    expect(JSON.stringify(payload)).not.toContain('session=secret');
     errorSpy.mockRestore();
   });
 
