@@ -121,6 +121,10 @@ overrides:
   path-to-regexp: '>=8.4.0'
   mermaid: ^11.15.0
   '@grpc/grpc-js@>=1.9.0 <1.9.16': 1.9.16
+  '@grpc/grpc-js@>=1.10.0 <1.10.12': 1.10.12
+  '@grpc/grpc-js@>=1.11.0 <1.11.4': 1.11.4
+  '@grpc/grpc-js@>=1.12.0 <1.12.7': 1.12.7
+  '@grpc/grpc-js@>=1.13.0 <1.13.5': 1.13.5
   '@grpc/grpc-js@>=1.14.0 <1.14.4': 1.14.4
   shell-quote@>=1.1.0 <=1.8.3: 1.8.4
 
@@ -2998,8 +3002,8 @@ packages:
     resolution: {integrity: sha512-ZpJxMqB+Qfe3rp6uszCQoag4nSw42icURnBRfFYSOmTgEeOe4rD0vYlbA8spvCu2TlCesNTlEN9BLWtQqLxabA==}
     engines: {node: '>=18.0.0'}
 
-  '@grpc/grpc-js@1.14.4':
-    resolution: {integrity: sha512-k9Dj3DV/itK9D06Y8f190Qgop7/Ui+D0njFV3LHMPwPT75DpXLQohE9Wmz0QElrJnzsjB7KPWiKJbOl7IPDArQ==}
+  '@grpc/grpc-js@1.10.12':
+    resolution: {integrity: sha512-Cn1e1MDS2kF6QsLHGIBGjWWOXtTpnGmnJ31nO9Jzn/plm8tbD/NSovX3BEi921M4CAPLjrQmP0OLEv2Qg51CPg==}
     engines: {node: '>=12.10.0'}
 
   '@grpc/grpc-js@1.9.16':
@@ -3008,11 +3012,6 @@ packages:
 
   '@grpc/proto-loader@0.7.15':
     resolution: {integrity: sha512-tMXdRCfYVixjuFK+Hk0Q1s38gV9zDiDJfWL3h1rv4Qc39oILCu1TRTDt7+fGUI8K4G1Fj125Hx/ru3azECWTyQ==}
-    engines: {node: '>=6'}
-    hasBin: true
-
-  '@grpc/proto-loader@0.8.0':
-    resolution: {integrity: sha512-rc1hOQtjIWGxcxpb9aHAfLpIctjEnsDehj0DAiVfBlmT84uvR0uUtN2hEi/ecvWVjXUGf5qPF4qEgiLOx1YIMQ==}
     engines: {node: '>=6'}
     hasBin: true
 
@@ -15534,9 +15533,9 @@ snapshots:
       '@repeaterjs/repeater': 3.0.6
       tslib: 2.8.1
 
-  '@grpc/grpc-js@1.14.4':
+  '@grpc/grpc-js@1.10.12':
     dependencies:
-      '@grpc/proto-loader': 0.8.0
+      '@grpc/proto-loader': 0.7.15
       '@js-sdsl/ordered-map': 4.4.2
     optional: true
 
@@ -15551,14 +15550,6 @@ snapshots:
       long: 5.3.2
       protobufjs: 7.6.0
       yargs: 17.7.2
-
-  '@grpc/proto-loader@0.8.0':
-    dependencies:
-      lodash.camelcase: 4.3.0
-      long: 5.3.2
-      protobufjs: 7.6.0
-      yargs: 17.7.2
-    optional: true
 
   '@headlessui/react@2.2.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
@@ -21651,7 +21642,7 @@ snapshots:
 
   google-gax@4.6.1:
     dependencies:
-      '@grpc/grpc-js': 1.14.4
+      '@grpc/grpc-js': 1.10.12
       '@grpc/proto-loader': 0.7.15
       '@types/long': 4.0.2
       abort-controller: 3.0.0
