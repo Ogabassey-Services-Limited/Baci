@@ -125,7 +125,7 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
     mockResolveStorefrontSitemapContext.mockResolvedValue({
       merchant: { id: 'm1' },
     });
-    mockGetRootSitemapEntries.mockResolvedValue([
+    mockGetNamedSitemapEntries.mockResolvedValue([
       { url: 'https://ogabassey.com' },
       { url: 'https://ogabassey.com/smartphones/iphone-17-pro' },
     ]);
@@ -137,10 +137,11 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
     );
     const body = await response.text();
 
-    expect(mockGetRootSitemapEntries).toHaveBeenCalledWith({
-      merchant: { id: 'm1' },
-    });
-    expect(mockGetNamedSitemapEntries).not.toHaveBeenCalled();
+    expect(mockGetNamedSitemapEntries).toHaveBeenCalledWith(
+      { merchant: { id: 'm1' } },
+      'root'
+    );
+    expect(mockGetRootSitemapEntries).not.toHaveBeenCalled();
     expect(body).toContain('https://ogabassey.com/smartphones/iphone-17-pro');
   });
 

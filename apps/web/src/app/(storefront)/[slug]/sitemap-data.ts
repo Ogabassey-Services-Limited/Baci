@@ -66,10 +66,12 @@ export async function resolveStorefrontSitemapContext(
   }
 
   // 2. Request host
+  let requestHostname: string | null = null;
   if (request) {
     try {
       const url = new URL(request.url);
       const host = url.hostname.toLowerCase();
+      requestHostname = host;
       const normalizedHost = host.replace(/^www\./, '');
       const rootDomain = (
         process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
@@ -147,7 +149,7 @@ export async function resolveStorefrontSitemapContext(
       : null;
     console.error('storefront sitemap: unresolved context', {
       candidates: rawIdentifiers,
-      hosts: request ? [new URL(request.url).hostname] : [],
+      hosts: requestHostname ? [requestHostname] : [],
       safeHeaders,
     });
     return null;
