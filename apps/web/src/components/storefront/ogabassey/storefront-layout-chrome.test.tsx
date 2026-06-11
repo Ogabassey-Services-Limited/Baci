@@ -32,13 +32,18 @@ vi.mock('./components/deferred-shell-feature', () => ({
   DeferredShellFeature: ({
     children,
     fallback = null,
+    deferInteractionActivationUntilNextPaint,
     timeoutMs,
   }: {
     children: ReactNode;
     fallback?: ReactNode;
+    deferInteractionActivationUntilNextPaint?: boolean;
     timeoutMs?: number;
   }) => (
     <div
+      data-defer-interaction-until-next-paint={String(
+        Boolean(deferInteractionActivationUntilNextPaint)
+      )}
       data-timeout-ms={String(timeoutMs ?? '')}
       role="region"
       aria-label="deferred shell"
@@ -136,6 +141,9 @@ describe('OgabasseyLayoutChrome', () => {
       screen.queryByRole('navigation', { name: /ogabassey storefront/i })
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('main')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /deferred shell/i })
+    ).toHaveAttribute('data-defer-interaction-until-next-paint', 'true');
   });
 
   it('mounts deferred footer commerce chrome after activation', async () => {
@@ -214,6 +222,9 @@ describe('OgabasseyLayoutChrome', () => {
     expect(
       screen.queryByRole('region', { name: /dynamic slot/i })
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /deferred shell/i })
+    ).toHaveAttribute('data-defer-interaction-until-next-paint', 'true');
   });
 
   // Reactive hide-on-pathname coverage — this is the P1 regression fix.
