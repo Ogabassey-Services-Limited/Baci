@@ -18,6 +18,7 @@ import {
  */
 export function generateSitemaps() {
   return [
+    { id: 'root' },
     { id: 'static' },
     { id: 'products' },
     { id: 'categories' },

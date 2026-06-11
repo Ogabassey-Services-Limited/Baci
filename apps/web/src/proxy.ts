@@ -1488,7 +1488,7 @@ export async function proxy(request: NextRequest) {
       if (pathname === STOREFRONT_ROOT_SITEMAP_PATH) {
         // Next's `sitemap.ts` metadata file can lose to the dynamic
         // `[category]` route on rewritten custom domains. Keep the public URL
-        // stable while routing to the explicit sitemap route handler.
+        // stable while routing to the generated sitemap metadata route.
         return buildStorefrontRootSitemapRewriteResponse({
           request,
           pathname,

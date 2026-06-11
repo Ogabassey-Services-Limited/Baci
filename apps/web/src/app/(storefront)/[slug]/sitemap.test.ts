@@ -39,11 +39,12 @@ describe('storefront sitemap root', () => {
   });
 
   describe('generateSitemaps()', () => {
-    it('returns four sitemap IDs', async () => {
+    it('returns five sitemap IDs', async () => {
       const { generateSitemaps } = await import('./sitemap');
       const sitemaps = generateSitemaps();
 
       expect(sitemaps).toEqual([
+        { id: 'root' },
         { id: 'static' },
         { id: 'products' },
         { id: 'categories' },
@@ -98,6 +99,35 @@ describe('storefront sitemap root', () => {
           changeFrequency: 'monthly',
           priority: 0.5,
         }),
+      ]);
+    });
+
+    it('delegates root.xml rewrites to getNamedSitemapEntries through the metadata route', async () => {
+      mockResolveStorefrontSitemapContext.mockResolvedValue({
+        merchant: { id: 'm1', slug: 'ogabassey' },
+        storeUrl: 'https://ogabassey.com',
+      });
+      mockGetNamedSitemapEntries.mockResolvedValue([
+        {
+          url: 'https://ogabassey.com/smartphones/iphone-17-pro',
+          changeFrequency: 'daily',
+          priority: 0.7,
+        },
+      ]);
+
+      const { default: sitemap } = await import('./sitemap');
+      const result = await sitemap({ id: Promise.resolve('root') });
+
+      expect(mockGetNamedSitemapEntries).toHaveBeenCalledWith(
+        expect.any(Object),
+        'root'
+      );
+      expect(result).toEqual([
+        {
+          url: 'https://ogabassey.com/smartphones/iphone-17-pro',
+          changeFrequency: 'daily',
+          priority: 0.7,
+        },
       ]);
     });
 
