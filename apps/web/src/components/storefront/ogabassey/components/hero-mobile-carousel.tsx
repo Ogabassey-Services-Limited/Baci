@@ -73,146 +73,173 @@ export function HeroMobileCarousel({
   }, [currentSlide, isMobileAutoplayReady]);
 
   return (
-    <div className="md:hidden mb-4 relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-black/5 order-1 bg-gray-100">
-      {MOBILE_SLIDES.map((slide, index) => {
-        const isMobileLcpImage = index === 0 && slide.type === 'image';
+    <div className="md:hidden mb-4 order-1">
+      <div
+        className="relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-black/5 bg-gray-100"
+        data-ogabassey-mobile-hero-panel="true"
+      >
+        {MOBILE_SLIDES.map((slide, index) => {
+          const isMobileLcpImage = index === 0 && slide.type === 'image';
+          const usesContainedMedia = slide.imageFit === 'contain';
 
-        return (
-          <div
-            key={slide.id}
-            className={`absolute inset-0 transition-opacity [transition-duration:400ms] ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'} ${slide.bgClass}`}
-          >
-            {slide.type === 'image' && (
-              <>
-                <div className="relative h-full flex items-center p-6 z-10">
-                  <div className={`max-w-[55%] ${slide.textColor}`}>
-                    <h2 className="text-2xl font-extrabold leading-tight mb-2 drop-shadow-xs font-sans">
-                      {slide.title}
-                    </h2>
-                    <p className="text-[11px] font-medium leading-relaxed opacity-90">
-                      {slide.subtitle}
-                    </p>
-                    <Link
-                      href={asRoute(getHref('/products'))}
-                      prefetch={false}
-                      className="mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-opacity hover:opacity-90 border"
-                      style={HERO_CTA_STYLE}
-                    >
-                      Shop Now
-                    </Link>
-                  </div>
-                </div>
-                {slide.src ? (
-                  <div className="absolute inset-0 z-0">
+          return (
+            <div
+              key={slide.id}
+              className={`absolute inset-0 transition-opacity [transition-duration:400ms] ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'} ${slide.bgClass}`}
+            >
+              {slide.type === 'image' && (
+                <>
+                  <div className="relative h-full flex items-center px-6 py-5 z-10">
                     <div
-                      className={`relative w-full h-full ${slide.imageFit === 'contain' ? 'w-[50%] ml-auto' : 'w-full'}`}
+                      className={`${
+                        usesContainedMedia ? 'w-[46%] pr-2' : 'max-w-[55%]'
+                      } ${slide.textColor}`}
+                      data-ogabassey-mobile-hero-copy={
+                        usesContainedMedia ? 'true' : undefined
+                      }
                     >
-                      {isMobileLcpImage ? (
-                        <MobileLcpHeroImage
-                          alt={slide.title || 'Hero slide'}
-                          imageFit={slide.imageFit}
-                          inlineSrc={slide.inlineSrc}
-                          shouldPrioritizeImage={shouldPrioritizeMobileLcpImage}
-                          src={slide.src}
-                        />
-                      ) : (
-                        <Image
-                          src={slide.src}
-                          alt={slide.title || 'Hero slide'}
-                          fill
-                          sizes={MOBILE_HERO_IMAGE_SIZES}
-                          className={
-                            slide.imageFit === 'contain'
-                              ? 'object-contain object-right'
-                              : 'object-cover'
-                          }
-                          loading="lazy"
-                          quality={MOBILE_HERO_IMAGE_QUALITY}
-                        />
-                      )}
+                      <h2 className="text-2xl font-extrabold leading-tight mb-2 drop-shadow-xs font-sans">
+                        {slide.title}
+                      </h2>
+                      <p className="text-[11px] font-medium leading-relaxed opacity-90">
+                        {slide.subtitle}
+                      </p>
+                      <Link
+                        href={asRoute(getHref('/products'))}
+                        prefetch={false}
+                        className="mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-opacity hover:opacity-90 border"
+                        style={HERO_CTA_STYLE}
+                      >
+                        Shop Now
+                      </Link>
                     </div>
                   </div>
-                ) : null}
-              </>
-            )}
+                  {slide.src ? (
+                    <div className="absolute inset-0 z-0 pointer-events-none">
+                      <div
+                        className={
+                          usesContainedMedia
+                            ? 'absolute inset-y-4 right-4 w-[43%]'
+                            : 'relative h-full w-full'
+                        }
+                        data-ogabassey-mobile-hero-media={
+                          usesContainedMedia ? 'true' : undefined
+                        }
+                      >
+                        {isMobileLcpImage ? (
+                          <MobileLcpHeroImage
+                            alt={slide.title || 'Hero slide'}
+                            imageFit={slide.imageFit}
+                            inlineSrc={slide.inlineSrc}
+                            shouldPrioritizeImage={
+                              shouldPrioritizeMobileLcpImage
+                            }
+                            src={slide.src}
+                          />
+                        ) : (
+                          <Image
+                            src={slide.src}
+                            alt={slide.title || 'Hero slide'}
+                            fill
+                            sizes={MOBILE_HERO_IMAGE_SIZES}
+                            className={
+                              slide.imageFit === 'contain'
+                                ? 'object-contain object-right'
+                                : 'object-cover'
+                            }
+                            loading="lazy"
+                            quality={MOBILE_HERO_IMAGE_QUALITY}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
 
-            {slide.type === 'video' && (
-              <>
-              <div className="absolute inset-0">
-                {slide.poster && (
-                  <Image
-                    src={slide.poster}
-                    alt={slide.title || 'Promotional video'}
-                    fill
-                    sizes="100vw"
-                    className="object-cover"
-                  />
-                )}
-                {index === currentSlide && (
-                  <video
-                    src={slide.src}
-                    poster={slide.poster}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    muted
-                    loop
-                    playsInline
-                    preload="none"
-                    aria-label={slide.title || 'Promotional video'}
-                  >
-                    {slide.captions && (
-                      <track
-                        kind="captions"
-                        src={slide.captions}
-                        label="English"
-                        default
+              {slide.type === 'video' && (
+                <>
+                  <div className="absolute inset-0">
+                    {slide.poster && (
+                      <Image
+                        src={slide.poster}
+                        alt={slide.title || 'Promotional video'}
+                        fill
+                        sizes="100vw"
+                        className="object-cover"
                       />
                     )}
-                  </video>
-                )}
-              </div>
-              <div className="absolute inset-0 bg-black/30 z-1" />
-              <div className="relative h-full flex flex-col justify-center p-6 z-10 text-white">
-                <span className="bg-primary text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse w-fit mb-2">
-                  Live Demo
-                </span>
-                <h2 className="text-2xl font-extrabold leading-tight mb-1">
-                  {slide.title}
-                </h2>
-                <p className="text-xs opacity-90 mb-3">{slide.subtitle}</p>
-                <button type="button"
-                  className="text-xs font-bold px-4 py-2 rounded-full flex min-h-12 items-center gap-1 w-fit border"
-                  style={HERO_CTA_STYLE}
-                  aria-label="Watch video demo"
-                >
-                  <Play size={10} fill="currentColor" aria-hidden="true" />
-                  Watch
-                </button>
-              </div>
-            </>
-          )}
+                    {index === currentSlide && (
+                      <video
+                        src={slide.src}
+                        poster={slide.poster}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        muted
+                        loop
+                        playsInline
+                        preload="none"
+                        aria-label={slide.title || 'Promotional video'}
+                      >
+                        {slide.captions && (
+                          <track
+                            kind="captions"
+                            src={slide.captions}
+                            label="English"
+                            default
+                          />
+                        )}
+                      </video>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-black/30 z-1" />
+                  <div className="relative h-full flex flex-col justify-center p-6 z-10 text-white">
+                    <span className="bg-primary text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse w-fit mb-2">
+                      Live Demo
+                    </span>
+                    <h2 className="text-2xl font-extrabold leading-tight mb-1">
+                      {slide.title}
+                    </h2>
+                    <p className="text-xs opacity-90 mb-3">{slide.subtitle}</p>
+                    <button
+                      type="button"
+                      className="text-xs font-bold px-4 py-2 rounded-full flex min-h-12 items-center gap-1 w-fit border"
+                      style={HERO_CTA_STYLE}
+                      aria-label="Watch video demo"
+                    >
+                      <Play size={10} fill="currentColor" aria-hidden="true" />
+                      Watch
+                    </button>
+                  </div>
+                </>
+              )}
 
-          {slide.type === 'ad' && (
-            <div className="w-full h-full flex items-center justify-center bg-gray-50 relative">
-              <div className="absolute top-2 right-2 text-[8px] text-gray-400 border border-gray-200 px-1 rounded">
-                Sponsored
-              </div>
-              <div className="w-full h-full flex items-center justify-center transform scale-90">
-                <DeferredAdUnit
-                  placementKey="HEADER_LEADERBOARD"
-                  className="my-0"
-                  enabled={index === currentSlide && isMobileAutoplayReady}
-                  isActive={index === currentSlide}
-                  refreshKey={adRefreshTrigger}
-                  timeoutMs={1}
-                />
-              </div>
+              {slide.type === 'ad' && (
+                <div className="w-full h-full flex items-center justify-center bg-gray-50 relative">
+                  <div className="absolute top-2 right-2 text-[8px] text-gray-400 border border-gray-200 px-1 rounded">
+                    Sponsored
+                  </div>
+                  <div className="w-full h-full flex items-center justify-center transform scale-90">
+                    <DeferredAdUnit
+                      placementKey="HEADER_LEADERBOARD"
+                      className="my-0"
+                      enabled={index === currentSlide && isMobileAutoplayReady}
+                      isActive={index === currentSlide}
+                      refreshKey={adRefreshTrigger}
+                      timeoutMs={1}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
-      <div className="absolute bottom-3 right-6 flex gap-1.5 z-20">
+      <div
+        aria-label="Hero carousel slide controls"
+        className="mt-2 flex justify-center gap-1.5"
+        role="group"
+      >
         {MOBILE_SLIDES.map((slide, idx) => {
           const isActive = currentSlide === idx;
 
