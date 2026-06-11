@@ -4,14 +4,21 @@ const createSearchParamSchema = (
   defaultValue: number,
   minValue: number,
   maxValue: number
-) =>
-  z.preprocess(
+) => {
+  if (defaultValue < minValue || defaultValue > maxValue) {
+    throw new Error(
+      `createSearchParamSchema: defaultValue ${defaultValue} must be within [${minValue}, ${maxValue}]`
+    );
+  }
+
+  return z.preprocess(
     (value) =>
       value === null || value === undefined || value === ''
         ? defaultValue
         : value,
     z.coerce.number().int().min(minValue).max(maxValue)
   );
+};
 
 const imageDimensionSearchParamSchema = (defaultValue: number) =>
   createSearchParamSchema(defaultValue, 128, 3840);

@@ -56,6 +56,15 @@ export async function buildOgabasseyPdpLcpImageResponse({
     });
   }
 
+  if (!cachedProduct) {
+    return new NextResponse(null, {
+      headers: {
+        'Cache-Control': PRELOAD_MISS_CACHE_CONTROL,
+      },
+      status: 404,
+    });
+  }
+
   const primaryImage = getCachedProductLcpHintPrimaryImage(cachedProduct);
 
   if (!primaryImage) {
