@@ -15,7 +15,7 @@ export const DashboardOrderFiltersSchema = z.object({
   paymentStatus: z.enum(PAYMENT_STATUS_FILTER_VALUES).optional(),
   shippingStatus: z.enum(SHIPPING_STATUS_FILTER_VALUES).optional(),
   search: z.string().trim().max(200).optional(),
-  source: z.enum([AGENTIC_ORDER_SOURCE_FILTER]).optional(),
+  source: z.literal(AGENTIC_ORDER_SOURCE_FILTER).optional(),
 });
 
 export const GetOrdersInputSchema = z.object({
