@@ -72,6 +72,7 @@ describe('robots()', () => {
       'https://ogabassey.usebaci.com/sitemap/categories.xml',
       'https://ogabassey.usebaci.com/sitemap/commercial-support.xml',
       'https://ogabassey.usebaci.com/blog/sitemap.xml',
+      'https://ogabassey.usebaci.com/blog/news-sitemap.xml',
     ]);
   });
 
@@ -139,6 +140,7 @@ describe('robots()', () => {
       'https://ogabassey.usebaci.com/sitemap/categories.xml',
       'https://ogabassey.usebaci.com/sitemap/commercial-support.xml',
       'https://ogabassey.usebaci.com/blog/sitemap.xml',
+      'https://ogabassey.usebaci.com/blog/news-sitemap.xml',
     ]);
   });
 
@@ -162,6 +164,7 @@ describe('robots()', () => {
       'https://shop.ogabassey.com/sitemap/categories.xml',
       'https://shop.ogabassey.com/sitemap/commercial-support.xml',
       'https://shop.ogabassey.com/blog/sitemap.xml',
+      'https://shop.ogabassey.com/blog/news-sitemap.xml',
     ]);
   });
 
@@ -180,6 +183,7 @@ describe('robots()', () => {
       'https://ogabassey.com/sitemap/categories.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
       'https://ogabassey.com/blog/sitemap.xml',
+      'https://ogabassey.com/blog/news-sitemap.xml',
     ]);
   });
 
@@ -198,6 +202,7 @@ describe('robots()', () => {
       'https://ogabassey.com/sitemap/categories.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
       'https://ogabassey.com/blog/sitemap.xml',
+      'https://ogabassey.com/blog/news-sitemap.xml',
     ]);
   });
 
@@ -216,6 +221,7 @@ describe('robots()', () => {
       'https://ogabassey.com:8443/sitemap/categories.xml',
       'https://ogabassey.com:8443/sitemap/commercial-support.xml',
       'https://ogabassey.com:8443/blog/sitemap.xml',
+      'https://ogabassey.com:8443/blog/news-sitemap.xml',
     ]);
   });
 
