@@ -28,6 +28,12 @@ import {
 import { ProductPageRuntime } from './product-page-runtime';
 import type { PageProps } from './product-page-types';
 
+const LEGACY_PRODUCT_NOINDEX_METADATA: Metadata = {
+  // Replace root metadata alternates so noindex fallback pages do not inherit a canonical.
+  alternates: null,
+  robots: { index: false, follow: true },
+};
+
 export async function generateMetadata(
   { params, searchParams }: PageProps,
   __parent: ResolvingMetadata
@@ -55,7 +61,7 @@ export async function generateMetadata(
     // component handler runs in parallel and throws permanentRedirect at the
     // pre-render stage, which produces a real HTTP 308. Returning bare,
     // noindex metadata here is a safety net for that race.
-    return { robots: { index: false, follow: false } };
+    return LEGACY_PRODUCT_NOINDEX_METADATA;
   }
   // Mirror the page-component redirect checks so we can emit noindex metadata
   // (real HTTP 308 issues from the page render — see comment above).
@@ -67,7 +73,7 @@ export async function generateMetadata(
       resolvedSearchParams
     )
   ) {
-    return { robots: { index: false, follow: false } };
+    return LEGACY_PRODUCT_NOINDEX_METADATA;
   }
   const { merchant } = productResult;
   const baseUrl = buildStoreUrl(merchant);
