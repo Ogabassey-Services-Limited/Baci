@@ -15,7 +15,7 @@ export const ProductImportProductSchema = z.object({
   name: z.string().min(1).max(500),
   price: z.number().finite().nonnegative(),
   sku: z.string().max(256).nullable().optional(),
-  stock: z.number().finite().optional(),
+  stock: z.number().finite().nonnegative().optional(),
 });
 
 export type ValidatedImportProduct = z.infer<typeof ProductImportProductSchema>;
@@ -23,6 +23,18 @@ export type ValidatedImportProduct = z.infer<typeof ProductImportProductSchema>;
 export const ProductImportProductsSchema = z
   .array(ProductImportProductSchema)
   .max(MAX_PRODUCTS_PER_IMPORT);
+
+function isGoogleSheetsUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      ['docs.google.com', 'sheets.google.com'].includes(url.hostname) &&
+      url.pathname.includes('/spreadsheets/')
+    );
+  } catch {
+    return false;
+  }
+}
 
 function normalizePriceListFileType(value: unknown): unknown {
   if (typeof value !== 'string') {
@@ -51,11 +63,18 @@ export const ProcessPriceListInputSchema = z.object({
 
 export const ParseCsvDirectlyInputSchema = z.object({
   currentProducts: ProductImportProductsSchema,
-  csvData: z.string().max(MAX_PRICE_LIST_INPUT_CHARS),
+  csvData: z
+    .string()
+    .max(MAX_PRICE_LIST_INPUT_CHARS)
+    .refine((value) => value.trim().length > 0, {
+      message: 'CSV payload is required',
+    }),
 });
 
 export const FetchGoogleSheetInputSchema = z.object({
-  url: z.url().max(MAX_GOOGLE_SHEET_URL_CHARS),
+  url: z.url().max(MAX_GOOGLE_SHEET_URL_CHARS).refine(isGoogleSheetsUrl, {
+    message: 'URL must be a Google Sheets URL',
+  }),
 });
 
 export const ChangeDetailsSchema = z.object({
