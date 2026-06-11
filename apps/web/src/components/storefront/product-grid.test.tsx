@@ -245,7 +245,7 @@ describe('StorefrontProductGrid', () => {
 
   it('uses industry-specific sample products in preview mode', async () => {
     mockMerchantState.merchant = {
-      id: 'preview-merchant-id-preview',
+      id: 'preview-merchant-id',
       slug: 'preview-store',
       business_type: 'food-beverage',
       brand_colors: { primary: '#000', background: '#fff', accent: '#ccc' },
