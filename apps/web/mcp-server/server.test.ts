@@ -134,10 +134,15 @@ async function waitForMcpServerStartup(
   child: ReturnType<typeof spawn>
 ): Promise<void> {
   let stderr = '';
+  let stdout = '';
 
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      reject(new Error(`Timed out waiting for MCP server startup: ${stderr}`));
+      reject(
+        new Error(
+          `Timed out waiting for MCP server startup: stdout=${stdout} stderr=${stderr}`
+        )
+      );
     }, 10_000);
 
     child.stderr.on('data', (chunk: Buffer) => {
@@ -145,8 +150,8 @@ async function waitForMcpServerStartup(
     });
 
     child.stdout.on('data', (chunk: Buffer) => {
-      const output = chunk.toString('utf8');
-      if (output.includes('"event":"startup"')) {
+      stdout += chunk.toString('utf8');
+      if (stdout.includes('"event":"startup"')) {
         clearTimeout(timeout);
         resolve();
       }
@@ -158,7 +163,7 @@ async function waitForMcpServerStartup(
         new Error(
           `MCP server exited before startup: code=${code ?? 'null'} signal=${
             signal ?? 'null'
-          } stderr=${stderr}`
+          } stdout=${stdout} stderr=${stderr}`
         )
       );
     });
