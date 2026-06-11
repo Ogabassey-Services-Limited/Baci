@@ -15,6 +15,7 @@ import {
   type QuizResultResponse,
   quizResultResponseSchema,
 } from '@/schemas/quiz';
+import { DeferredAdUnit } from '../components/deferred-ad-unit';
 
 type QuizStatus = 'idle' | 'loading' | 'ready' | 'error' | 'starting' | 'question' | 'submitting' | 'result';
 
@@ -26,6 +27,8 @@ const primaryButton =
 const secondaryButton =
   'h-11 rounded-lg border border-store-primary px-5 text-sm font-semibold text-store-primary hover:bg-store-primary/10';
 const panel = 'rounded-lg border border-store-border bg-white p-5 shadow-sm';
+const questionAdFallback =
+  'mx-auto my-5 flex min-h-[250px] w-full max-w-[300px] flex-col items-center justify-center rounded-lg border border-store-border bg-store-background/60 text-center';
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Quiz action failed. Please try again.';
@@ -44,6 +47,16 @@ function formatDateRange(event: QuizEventResponse): string {
   if (event.startsAt && !event.endsAt) return `Starts ${formatter.format(new Date(event.startsAt))}`;
   if (event.startsAt && event.endsAt) return `${formatter.format(new Date(event.startsAt))} - ${formatter.format(new Date(event.endsAt))}`;
   return 'Time not set';
+}
+
+function QuizQuestionAdFallback() {
+  return (
+    <div aria-label="Reserved sponsored quiz placement" className={questionAdFallback}>
+      <span className="text-[9px] font-semibold uppercase tracking-widest text-store-background-text/40">
+        Sponsored
+      </span>
+    </div>
+  );
 }
 
 function getStartButtonText(event: QuizEventResponse, isStarting: boolean) {
@@ -255,6 +268,13 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
               {formatPointCount(attempt.remainingLoyaltyPoints)} left.
             </p>
             <h2 className="mt-5 text-xl font-bold">{attempt.question.prompt}</h2>
+            <DeferredAdUnit
+              fallback={<QuizQuestionAdFallback />}
+              loadStrategy="immediate"
+              placementKey="QUIZ_QUESTION_MPU"
+              refreshKey={attempt.question.id}
+              timeoutMs={3000}
+            />
             <div className="mt-5 grid gap-3">
               {attempt.question.options.map((option) => (
                 <button

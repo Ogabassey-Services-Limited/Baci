@@ -28,7 +28,12 @@ import { EmptyState } from './empty-state';
 import Image from 'next/image';
 import { NegotiationModal } from './NegotiationModal';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
-import { sanitizeCartItems, calculateCartTotal } from '@/lib/checkout/cart-entitlement-sanitizer';
+import {
+  calculateCartTotal,
+  getCartItemCheckoutUnitPrice,
+  isQuizVoucherCartItem,
+  sanitizeCartItems,
+} from '@/lib/checkout/cart-entitlement-sanitizer';
 
 // Helper type to manage modal state more cleanly
 interface NegotiationState {
@@ -191,10 +196,8 @@ export const CartSidebar: React.FC = () => {
                     const productHref = asRoute(
                       getStorefrontProductHref(item, basePath || '')
                     );
-                    const priceToUse =
-                      item.negotiatedPrice !== undefined
-                        ? item.negotiatedPrice
-                        : item.price;
+                    const isQuizGift = isQuizVoucherCartItem(item);
+                    const priceToUse = getCartItemCheckoutUnitPrice(item);
                     const itemTotal = priceToUse * item.quantity;
                     const assuranceRate =
                       item.assuranceRate ?? DEFAULT_ASSURANCE_RATE;
@@ -324,7 +327,7 @@ export const CartSidebar: React.FC = () => {
                               </div>
 
                               {/* Negotiation - Bottom Left */}
-                              {hasPriceNegotiation && (
+                              {hasPriceNegotiation && !isQuizGift && (
                                 item.negotiationStatus === 'accepted' ? (
                                   <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-md w-fit border border-green-100">
                                     <Check size={10} strokeWidth={3} />
@@ -346,7 +349,11 @@ export const CartSidebar: React.FC = () => {
                             </div>
 
                             <div className="text-right pb-0.5">
-                              {item.negotiatedPrice ? (
+                              {isQuizGift ? (
+                                <div className="font-bold text-green-600 text-sm">
+                                  Free gift
+                                </div>
+                              ) : item.negotiatedPrice ? (
                                 <div className="flex flex-col items-end">
                                   <span className="text-[10px] text-gray-400 line-through decoration-red-400">
                                     ₦

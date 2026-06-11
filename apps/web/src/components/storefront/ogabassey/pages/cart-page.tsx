@@ -44,7 +44,12 @@ import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { CheckoutIdentityModal } from '../components/CheckoutIdentityModal';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
-import { sanitizeCartItems, calculateCartTotal } from '@/lib/checkout/cart-entitlement-sanitizer';
+import {
+  calculateCartTotal,
+  getCartItemCheckoutUnitPrice,
+  isQuizVoucherCartItem,
+  sanitizeCartItems,
+} from '@/lib/checkout/cart-entitlement-sanitizer';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -213,12 +218,8 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
             <div className="lg:col-span-8 space-y-4">
               {displayCart.map((item, index) => {
                 const productHref = getStorefrontProductHref(item, basePath);
-                const priceToUse =
-                  (typeof item.negotiatedPrice === 'number' && !isNaN(item.negotiatedPrice))
-                    ? item.negotiatedPrice
-                    : (typeof item.price === 'number' && !isNaN(item.price))
-                      ? item.price
-                      : 0;
+                const isQuizGift = isQuizVoucherCartItem(item);
+                const priceToUse = getCartItemCheckoutUnitPrice(item);
                 const itemQuantity = (typeof item.quantity === 'number' && !isNaN(item.quantity)) ? item.quantity : 0;
                 const itemTotal = priceToUse * itemQuantity;
                 const assuranceRate =
@@ -346,7 +347,11 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
 
                       {/* Price */}
                       <div className="text-right">
-                        {item.negotiatedPrice ? (
+                        {isQuizGift ? (
+                          <div className="font-bold text-green-600 text-base md:text-xl">
+                            Free gift
+                          </div>
+                        ) : item.negotiatedPrice ? (
                           <div className="flex flex-col items-end">
                             <span className="text-[10px] text-gray-400 line-through decoration-red-400">
                               ₦{((item.price || 0) * item.quantity).toLocaleString()}
@@ -408,7 +413,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       )}
 
                       {/* Negotiate Button */}
-                      {hasPriceNegotiation && (
+                      {hasPriceNegotiation && !isQuizGift && (
                         <div className="flex items-center gap-2">
                           {item.negotiationStatus === 'accepted' ? (
                             <div className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
