@@ -4,11 +4,11 @@ import { type Href, router } from 'expo-router';
 import { Linking, Pressable, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Logo } from '@/components/ui/Logo';
-import { BRAND } from '@/constants/Colors';
 import { useMerchant } from '@/hooks';
+import { useTheme } from '@/hooks/useTheme';
 import { createLogger } from '@/lib/logger';
 import { normalizeSocialUrl, type SocialPlatform } from '@/lib/social';
-import { styles } from './footer.styles';
+import { getFooterStyles } from './footer.styles';
 
 const log = createLogger('Footer');
 
@@ -26,7 +26,10 @@ const SUPPORT_LINKS = [
 
 export function Footer() {
   const { data: merchant } = useMerchant();
+  const { colors } = useTheme();
   const currentYear = new Date().getFullYear();
+
+  const styles = getFooterStyles(colors);
 
   const handleExternalLink = async (url: string) => {
     try {
@@ -96,7 +99,7 @@ export function Footer() {
     <View style={styles.container}>
       {/* Brand Section */}
       <View style={styles.brandSection}>
-        <Logo width={100} height={20} color="white" />
+        <Logo width={100} height={20} color={colors.text} />
         <Text style={styles.tagline}>
           Making Smartphones Accessible and Affordable
         </Text>
@@ -113,7 +116,11 @@ export function Footer() {
               accessibilityRole="link"
               accessibilityLabel={`Follow us on ${social.platform}`}
             >
-              <Ionicons name={social.icon} size={18} color="#9CA3AF" />
+              <Ionicons
+                name={social.icon}
+                size={18}
+                color={colors.textSecondary}
+              />
             </Pressable>
           ))}
         </View>
@@ -157,7 +164,7 @@ export function Footer() {
         <Text style={styles.columnTitle}>CONTACT</Text>
         <View style={styles.contactList}>
           <View style={styles.contactItem}>
-            <Feather name="map-pin" size={14} color={BRAND.primary} />
+            <Feather name="map-pin" size={14} color={colors.primary} />
             <Text style={styles.contactText}>{contactInfo.address}</Text>
           </View>
           <Pressable
@@ -168,7 +175,7 @@ export function Footer() {
             accessibilityRole="link"
             accessibilityLabel={`Call us at ${contactInfo.phone}`}
           >
-            <Feather name="phone" size={14} color={BRAND.primary} />
+            <Feather name="phone" size={14} color={colors.primary} />
             <Text style={styles.contactText}>{contactInfo.phone}</Text>
           </Pressable>
           <Pressable
@@ -177,7 +184,7 @@ export function Footer() {
             accessibilityRole="link"
             accessibilityLabel={`Email us at ${contactInfo.email}`}
           >
-            <Feather name="mail" size={14} color={BRAND.primary} />
+            <Feather name="mail" size={14} color={colors.primary} />
             <Text style={styles.contactText}>{contactInfo.email}</Text>
           </Pressable>
         </View>

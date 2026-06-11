@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderMinimal } from '@/components/storefront/HeaderMinimal';
 import { getEliteHeaderTopPadding } from '@/components/storefront/header-layout';
 import { Logo } from '@/components/ui/Logo';
-import { BRAND, SPACING } from '@/constants/Colors';
+import { SPACING } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
 import { CONFIG } from '@/lib/config';
 import { SEASONAL } from '@/lib/seasonal';
@@ -102,7 +102,11 @@ export function Header({
                 accessibilityLabel="Open navigation menu"
                 accessibilityRole="button"
               >
-                <Ionicons name="menu-outline" size={28} color="#FFF" />
+                <Ionicons
+                  name="menu-outline"
+                  size={28}
+                  color={colors.primaryForeground}
+                />
               </Pressable>
 
               <Pressable
@@ -111,7 +115,11 @@ export function Header({
                 accessibilityLabel={`${storeName}, go to home`}
                 accessibilityRole="button"
               >
-                <Logo width={140} height={25} color="white" />
+                <Logo
+                  width={140}
+                  height={25}
+                  color={colors.primaryForeground}
+                />
               </Pressable>
             </View>
 
@@ -127,7 +135,11 @@ export function Header({
                 }
                 accessibilityRole="button"
               >
-                <Ionicons name="cart-outline" size={26} color="#FFF" />
+                <Ionicons
+                  name="cart-outline"
+                  size={26}
+                  color={colors.primaryForeground}
+                />
                 {itemCount > 0 && (
                   <View style={styles.badge} accessibilityElementsHidden={true}>
                     <Text style={styles.badgeText}>{itemCount}</Text>
@@ -241,7 +253,7 @@ export function Header({
             <Ionicons
               name="notifications-outline"
               size={24}
-              color={BRAND.primary}
+              color={colors.primary}
             />
           </Pressable>
           <Pressable
@@ -255,7 +267,7 @@ export function Header({
             }
             accessibilityRole="button"
           >
-            <Ionicons name="cart-outline" size={24} color={BRAND.primary} />
+            <Ionicons name="cart-outline" size={24} color={colors.primary} />
             {itemCount > 0 && (
               <View style={styles.badge} accessibilityElementsHidden={true}>
                 <Text style={styles.badgeText}>{itemCount}</Text>

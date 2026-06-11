@@ -4,17 +4,19 @@ import Svg, { G, Path } from 'react-native-svg';
 interface LogoProps {
   width?: number;
   height?: number;
-  color?: 'white' | 'black';
+  color?: string; // allow any color string now
   style?: StyleProp<ViewStyle>;
 }
 
 export const Logo = ({
   width = 150,
   height = 27, // Aspect ratio maintained (~5.5:1)
-  color = 'white',
+  color = '#fff', // fallback to white if none provided
   style,
 }: LogoProps) => {
-  const fillColor = color === 'white' ? '#fff' : '#000';
+  // Backwards compatibility for the old 'white'/'black' literal props
+  const fillColor =
+    color === 'white' ? '#fff' : color === 'black' ? '#000' : color;
 
   return (
     <Svg
