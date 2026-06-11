@@ -5,9 +5,11 @@ import {
   SavingsAuthorizationConfirmationResponseSchema,
   SavingsAuthorizationResponseSchema,
   SavingsContributionResponseSchema,
+  SavingsDeviceSwapResponseSchema,
   SavingsGoalActionResponseSchema,
   SavingsGoalSummarySchema,
 } from '@/schemas/customer-savings';
+
 export type {
   CustomerPaymentMethod,
   SavingsGoal,
@@ -179,6 +181,25 @@ export async function cancelSavingsGoalFutureDebits(input: {
   merchantSlug?: string | null;
 }) {
   return await mutateGoalStatus('cancel-future-debits', input);
+}
+
+export async function swapSavingsGoalDevice(input: {
+  goalId: string;
+  productId: string;
+  merchantId?: string | null;
+  merchantSlug?: string | null;
+  variantId?: string | null;
+}) {
+  const customerSavingsApiClient = getCustomerSavingsApiClient();
+  const data = await customerSavingsApiClient.fetchJson({
+    body: {
+      ...input,
+      ...customerSavingsApiClient.buildMerchantIdentifiers(input),
+    },
+    method: 'POST',
+    path: '/api/storefront/customer/savings/goals/swap-device',
+  });
+  return SavingsDeviceSwapResponseSchema.parse(data);
 }
 
 export async function initializeSavingsAuthorization({
