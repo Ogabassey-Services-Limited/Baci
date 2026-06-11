@@ -115,11 +115,9 @@ export function CheckoutAuthModal({
               'Sign In'
             )}
           </Button>
-          {isLoading && (
-            <p className="sr-only" role="status" aria-live="polite">
-              Signing in.
-            </p>
-          )}
+          <p className="sr-only" role="status" aria-live="polite">
+            {isLoading ? 'Signing in.' : ''}
+          </p>
         </form>
       </DialogContent>
     </Dialog>

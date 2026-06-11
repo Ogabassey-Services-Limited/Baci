@@ -597,13 +597,13 @@ export function MerchantBankForm({
           )}
           {isSubmitting ? 'Saving...' : 'Save Bank Details'}
         </Button>
-        {(isSubmitting || isVerifying) && (
-          <p className="sr-only" role="status" aria-live="polite">
-            {isSubmitting
-              ? 'Saving bank details.'
-              : 'Verifying bank account details.'}
-          </p>
-        )}
+        <p className="sr-only" role="status" aria-live="polite">
+          {isSubmitting
+            ? 'Saving bank details.'
+            : isVerifying
+              ? 'Verifying bank account details.'
+              : ''}
+        </p>
       </form>
     </Form>
   );

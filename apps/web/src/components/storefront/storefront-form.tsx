@@ -247,11 +247,9 @@ export function StorefrontForm({
           submitButtonText
         )}
       </Button>
-      {isSubmitting && (
-        <p className="sr-only" role="status" aria-live="polite">
-          Submitting form.
-        </p>
-      )}
+      <p className="sr-only" role="status" aria-live="polite">
+        {isSubmitting ? 'Submitting form.' : ''}
+      </p>
     </form>
   );
 }

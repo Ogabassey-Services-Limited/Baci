@@ -206,11 +206,9 @@ export function ReviewForm({
             )}
             Submit Review
           </Button>
-          {isSubmitting && (
-            <p className="sr-only" role="status" aria-live="polite">
-              Submitting review.
-            </p>
-          )}
+          <p className="sr-only" role="status" aria-live="polite">
+            {isSubmitting ? 'Submitting review.' : ''}
+          </p>
 
           <p className="text-xs text-muted-foreground text-center">
             Reviews are moderated and may take time to appear. Verified
