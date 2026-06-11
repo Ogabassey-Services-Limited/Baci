@@ -16,12 +16,10 @@ import {
   quizResultResponseSchema,
 } from '@/schemas/quiz';
 import { DeferredAdUnit } from '../components/deferred-ad-unit';
-import {
-  formatQuizDateRange,
-  formatQuizPointCount,
-  getQuizErrorMessage,
-  getQuizStartButtonText,
-} from './quiz-page-helpers';
+import { formatQuizDateRange } from './format-quiz-date-range';
+import { formatQuizPointCount } from './format-quiz-point-count';
+import { getQuizErrorMessage } from './get-quiz-error-message';
+import { getQuizStartButtonText } from './get-quiz-start-button-text';
 import { QuizQuestionAdFallback } from './quiz-question-ad-fallback';
 
 type QuizStatus = 'idle' | 'loading' | 'ready' | 'error' | 'starting' | 'question' | 'submitting' | 'result';

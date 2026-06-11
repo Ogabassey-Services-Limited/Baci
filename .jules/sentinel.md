@@ -43,6 +43,7 @@
 **Prevention:** Always use `constantTimeEqual` from `@/lib/constant-time-equal` for comparing secrets, API keys, or tokens. Ensure that inputs from headers are explicitly null-coalesced to strings (e.g., `?? ''`) to satisfy type requirements before comparison.
 
 ## 2026-05-18 - Missing CSRF Protection on Cart Validate Endpoint
+
 **Vulnerability:** The `POST /api/cart/validate` endpoint accepts a JSON payload to validate a cart's contents. Because it uses the `POST` method but lacks the standard CSRF protection check, it violates the monorepo's defense-in-depth policy that all mutation-like endpoints should enforce CSRF token validation.
 **Learning:** Even if an endpoint's primary function is validation or returning read-like data, if it accepts a `POST` request (especially one accepting JSON input or capable of triggering side effects inadvertently), it must still implement CSRF protection. Also, unit tests for Next.js routes must instantiate `NextRequest` (instead of standard `Request`) so that middleware utilities like `checkCsrfProtection`, which inspect `request.nextUrl`, can function correctly without causing 'undefined' errors.
-**Prevention:** Always verify that every new `POST`, `PUT`, `DELETE`, or `PATCH` API route starts with `const { valid, response } = await checkCsrfProtection(request);`. Ensure tests use `NextRequest` and properly mock the `checkCsrfProtection` utility.
+**Prevention:** Always verify that every new `POST`, `PUT`, `DELETE`, or `PATCH` API route runs `const { valid, response } = await checkCsrfProtection(request);` inside its structured `try/catch` error flow. Ensure tests use `NextRequest` and properly mock the `checkCsrfProtection` utility.

@@ -50,16 +50,16 @@ function getCartValidationKey(id: string, variantId?: string) {
  * Body: { productIds?: string[], cartItems?: { id, price, variantId? }[] }
  */
 export async function POST(request: NextRequest) {
-  const { valid: csrfValid, response: csrfResponse } =
-    await checkCsrfProtection(request);
-  if (!csrfValid) {
-    return (
-      csrfResponse ??
-      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-    );
-  }
-
   try {
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     let body: unknown;
     try {
       body = await request.json();
