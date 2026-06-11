@@ -34,7 +34,22 @@ vi.mock('@/contexts/auth-context', () => ({
 const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
 
-let mockCartItems = [
+type MockCartItem = {
+  id: string;
+  cartItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image: string;
+  category: string;
+  brand: string;
+  negotiatedPrice?: number;
+  negotiationStatus?: 'accepted';
+  quizAwardId?: string;
+  quizVoucherToken?: string;
+};
+
+let mockCartItems: MockCartItem[] = [
   {
     id: 'p1',
     cartItemId: 'ci-1',
@@ -113,7 +128,22 @@ import { CartPage } from './cart-page';
 describe('CartPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(true);
     mockMerchant = { id: 'merchant-abc', slug: 'test-store' };
+    mockCartItems = [
+      {
+        id: 'p1',
+        cartItemId: 'ci-1',
+        name: 'Test Gadget',
+        price: 25000,
+        quantity: 1,
+        image: '/gadget.jpg',
+        category: 'electronics',
+        brand: 'Brand',
+        negotiatedPrice: 20000,
+        negotiationStatus: 'accepted' as const,
+      },
+    ];
   });
 
   it('renders cart items', () => {
@@ -172,5 +202,42 @@ describe('CartPage', () => {
     expect(
       screen.queryByRole('button', { name: /^negotiate$/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('shows signed quiz voucher items as free gifts in the cart total', () => {
+    mockCartItems = [
+      {
+        id: 'p1',
+        cartItemId: 'ci-1',
+        name: 'Paid Gadget',
+        price: 25000,
+        quantity: 1,
+        image: '/gadget.jpg',
+        category: 'electronics',
+        brand: 'Brand',
+      },
+      {
+        id: 'gift-1',
+        cartItemId: 'gift-1::quiz',
+        name: 'Quiz Gift',
+        price: 205000,
+        quantity: 1,
+        image: '/gift.jpg',
+        category: 'phones',
+        brand: 'Brand',
+        quizAwardId: 'award-1',
+        quizVoucherToken: 'signed-token',
+      },
+    ];
+
+    render(<CartPage />);
+
+    expect(screen.getByText('Quiz Gift')).toBeInTheDocument();
+    expect(screen.getByText('Free gift')).toBeInTheDocument();
+    expect(screen.getAllByText('₦25,000')[0]).toBeInTheDocument();
+    expect(screen.queryByText('₦230,000')).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', { name: /^negotiate$/i })
+    ).toHaveLength(1);
   });
 });

@@ -28,7 +28,12 @@ import { EmptyState } from './empty-state';
 import Image from 'next/image';
 import { NegotiationModal } from './NegotiationModal';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
-import { sanitizeCartItems, calculateCartTotal } from '@/lib/checkout/cart-entitlement-sanitizer';
+import {
+  calculateCartTotal,
+  getCartItemCheckoutUnitPrice,
+  isQuizVoucherCartItem,
+  sanitizeCartItems,
+} from '@/lib/checkout/cart-entitlement-sanitizer';
 
 // Helper type to manage modal state more cleanly
 interface NegotiationState {
@@ -191,10 +196,8 @@ export const CartSidebar: React.FC = () => {
                     const productHref = asRoute(
                       getStorefrontProductHref(item, basePath || '')
                     );
-                    const priceToUse =
-                      item.negotiatedPrice !== undefined
-                        ? item.negotiatedPrice
-                        : item.price;
+                    const isQuizGift = isQuizVoucherCartItem(item);
+                    const priceToUse = getCartItemCheckoutUnitPrice(item);
                     const itemTotal = priceToUse * item.quantity;
                     const assuranceRate =
                       item.assuranceRate ?? DEFAULT_ASSURANCE_RATE;
@@ -324,9 +327,9 @@ export const CartSidebar: React.FC = () => {
                               </div>
 
                               {/* Negotiation - Bottom Left */}
-                              {hasPriceNegotiation && (
+                              {hasPriceNegotiation && !isQuizGift && (
                                 item.negotiationStatus === 'accepted' ? (
-                                  <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-md w-fit border border-green-100">
+                                  <div className="flex items-center gap-1 text-[10px] font-bold text-store-primary bg-store-primary/5 px-1.5 py-0.5 rounded-md w-fit border border-store-primary/15">
                                     <Check size={10} strokeWidth={3} />
                                     <span>
                                       Matched @ ₦
@@ -336,7 +339,7 @@ export const CartSidebar: React.FC = () => {
                                 ) : (
                                   <button type="button"
                                     onClick={() => openItemNegotiation(item)}
-                                    className="flex items-center gap-1.5 text-[10px] font-bold text-red-600 hover:text-red-700 transition-colors"
+                                    className="flex items-center gap-1.5 text-[10px] font-bold text-store-primary hover:text-store-primary transition-colors"
                                   >
                                     <HandCoins size={14} />
                                     <span>Negotiate</span>
@@ -346,15 +349,19 @@ export const CartSidebar: React.FC = () => {
                             </div>
 
                             <div className="text-right pb-0.5">
-                              {item.negotiatedPrice ? (
+                              {isQuizGift ? (
+                                <div className="font-bold text-store-primary text-sm">
+                                  Free gift
+                                </div>
+                              ) : item.negotiatedPrice ? (
                                 <div className="flex flex-col items-end">
-                                  <span className="text-[10px] text-gray-400 line-through decoration-red-400">
+                                  <span className="text-[10px] text-store-background-text/45 line-through decoration-store-primary/40">
                                     ₦
                                     {(
                                       item.price * item.quantity
                                     ).toLocaleString()}
                                   </span>
-                                  <span className="font-bold text-green-600 text-sm">
+                                  <span className="font-bold text-store-primary text-sm">
                                     ₦{itemTotal.toLocaleString()}
                                   </span>
                                 </div>
@@ -379,7 +386,7 @@ export const CartSidebar: React.FC = () => {
                                     }
                                     className="peer sr-only"
                                   />
-                                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
+                                  <div className="w-9 h-5 bg-store-background-text/20 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-store-primary-text after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-store-background after:border-store-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-store-primary" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex justify-between items-center">
@@ -438,7 +445,7 @@ export const CartSidebar: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Shipping</span>
-                    <span className="text-green-600">
+                    <span className="text-store-primary">
                       Calculated at checkout
                     </span>
                   </div>

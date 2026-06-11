@@ -123,6 +123,7 @@ vi.mock('./mobile-menu', () => ({
 vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     totalItems: 3,
+    isHydrated: true,
     setIsCartOpen: mocks.setIsCartOpen,
   })),
 }));
@@ -182,6 +183,7 @@ vi.mock('../components/empty-state', () => ({
   EmptyState: () => null,
 }));
 
+import { useCart } from '@/hooks/cart';
 import { OgabasseyNavbar } from './navbar';
 
 describe('OgabasseyNavbar', () => {
@@ -400,5 +402,18 @@ describe('OgabasseyNavbar', () => {
     } finally {
       consoleWarn.mockRestore();
     }
+  });
+
+  it('keeps the cart badge stable until the cart provider hydrates', () => {
+    vi.mocked(useCart).mockReturnValueOnce({
+      totalItems: 3,
+      isHydrated: false,
+      setIsCartOpen: mocks.setIsCartOpen,
+    } as unknown as ReturnType<typeof useCart>);
+
+    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    expect(screen.getByText('0')).toHaveClass('ogabassey-navbar__cart-badge');
+    expect(screen.getByText('0')).not.toHaveAttribute('data-visible');
   });
 });

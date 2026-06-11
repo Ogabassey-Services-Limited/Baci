@@ -14,6 +14,31 @@ vi.mock('@/lib/api-client', () => ({
   apiPost: vi.fn(),
 }));
 
+const mockDeferredAdUnit = vi.hoisted(() => vi.fn());
+
+vi.mock('../components/deferred-ad-unit', () => ({
+  DeferredAdUnit: ({
+    fallback,
+    placementKey,
+    refreshKey,
+  }: {
+    fallback?: ReactNode;
+    placementKey: string;
+    refreshKey?: string;
+  }) => {
+    mockDeferredAdUnit({ placementKey, refreshKey });
+    return (
+      <div
+        data-placement-key={placementKey}
+        data-refresh-key={refreshKey}
+        data-testid="quiz-question-ad"
+      >
+        {fallback}
+      </div>
+    );
+  },
+}));
+
 vi.mock('next/navigation', () => ({
   usePathname: () => '/ogabassey/quiz',
 }));
@@ -78,6 +103,7 @@ const attemptResponse = {
 
 describe('OgabasseyV2Quiz', () => {
   beforeEach(() => {
+    mockDeferredAdUnit.mockClear();
     vi.mocked(apiGet).mockReset();
     vi.mocked(apiPost).mockReset();
     vi.mocked(useCustomerAuth).mockReturnValue({
@@ -153,6 +179,74 @@ describe('OgabasseyV2Quiz', () => {
       );
     });
     expect(await screen.findByText('1 of 1')).toBeInTheDocument();
+  });
+
+  it('refreshes the sponsored question ad when the next question appears', async () => {
+    vi.mocked(apiGet).mockResolvedValue({
+      ...eventResponse,
+      events: [{ ...eventResponse.events[0], questionCount: 2 }],
+    });
+    vi.mocked(apiPost)
+      .mockResolvedValueOnce({
+        ...attemptResponse,
+        question: { ...attemptResponse.question, total: 2 },
+      })
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        correctAnswers: 1,
+        prizeEligible: false,
+        question: {
+          id: 'question-2',
+          index: 2,
+          options: [
+            { id: 'a', label: 'Answer A' },
+            { id: 'b', label: 'Answer B' },
+          ],
+          prompt: 'Pick the final answer',
+          timeLimitSeconds: 30,
+          total: 2,
+        },
+        status: 'in_progress',
+        totalQuestions: 2,
+      })
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        correctAnswers: 2,
+        prizeEligible: false,
+        status: 'completed',
+        totalQuestions: 2,
+      });
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start exam for Daily Quiz' })
+    );
+
+    expect(await screen.findByTestId('quiz-question-ad')).toHaveAttribute(
+      'data-placement-key',
+      'QUIZ_QUESTION_MPU'
+    );
+    expect(screen.getByTestId('quiz-question-ad')).toHaveAttribute(
+      'data-refresh-key',
+      'question-1'
+    );
+    expect(
+      screen.getByLabelText('Reserved sponsored quiz placement')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Answer A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit answer' }));
+
+    expect(await screen.findByText('Pick the final answer')).toBeInTheDocument();
+    expect(screen.getByTestId('quiz-question-ad')).toHaveAttribute(
+      'data-refresh-key',
+      'question-2'
+    );
+    expect(mockDeferredAdUnit).toHaveBeenLastCalledWith({
+      placementKey: 'QUIZ_QUESTION_MPU',
+      refreshKey: 'question-2',
+    });
   });
 
   it('links eligible prize winners to add the device gift to cart', async () => {
