@@ -81,6 +81,14 @@ export const SavingsGoalActionResponseSchema = z.object({
   success: z.boolean(),
 });
 
+export const SavingsDeviceSwapResponseSchema = z.object({
+  currentAmount: NonNegativeAmountSchema,
+  goalId: z.string(),
+  goalStatus: SavingsGoalStatusSchema,
+  success: z.boolean(),
+  targetAmount: PositiveAmountSchema,
+});
+
 export const SavingsAuthorizationResponseSchema = z.object({
   authorization_url: z.url(),
   checkout_url: z.url(),

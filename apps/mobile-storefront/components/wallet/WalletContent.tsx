@@ -1,14 +1,25 @@
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
+import { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { RefreshControl, ScrollView, Text, TextInput } from 'react-native';
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+} from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
+import { useDebounce } from '@/hooks/use-debounce';
+import { useProducts } from '@/hooks/use-products';
 import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
+import type { Product } from '@/types/product';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletHeroSection } from './WalletHeroSection';
 import { WalletPanelActionButtons } from './WalletPanelActionButtons';
 import { WalletRedeemPanel } from './WalletRedeemPanel';
+import { WalletSavingsDeviceSwapModal } from './WalletSavingsDeviceSwapModal';
 import { WalletSavingsProgressModal } from './WalletSavingsProgressModal';
 import {
   type WalletTransaction,
@@ -41,6 +52,10 @@ export interface WalletContentProps {
   onConfirmFund: () => void;
   onConfirmRedeem: () => void;
   onAddSavingsContribution: () => void;
+  onChangeSavingsDevice: (
+    product: Product,
+    variantId?: string | null
+  ) => Promise<boolean>;
   onChangeSavingsContributionAmount: (value: string) => void;
   onCloseSavingsProgress: () => void;
   onManageCards: () => void;
@@ -85,6 +100,7 @@ export function WalletContent({
   onConfirmFund,
   onConfirmRedeem,
   onAddSavingsContribution,
+  onChangeSavingsDevice,
   onChangeSavingsContributionAmount,
   onCloseSavingsProgress,
   onFundSavingsWallet,
@@ -106,8 +122,36 @@ export function WalletContent({
   totalBalance,
   transactions,
 }: WalletContentProps) {
+  const [showSavingsDeviceSwap, setShowSavingsDeviceSwap] = useState(false);
+  const [savingsDeviceSearch, setSavingsDeviceSearch] = useState('');
+  const [isChangingSavingsDevice, setIsChangingSavingsDevice] = useState(false);
+  const debouncedSavingsDeviceSearch = useDebounce(savingsDeviceSearch, 250);
+  const trimmedSavingsDeviceSearch = debouncedSavingsDeviceSearch.trim();
+  const { products: savingsDeviceProducts, isLoading: isSavingsDeviceLoading } =
+    useProducts({
+      enabled: showSavingsDeviceSwap,
+      limit: 8,
+      search: trimmedSavingsDeviceSearch || undefined,
+    });
   const canAddToSavings =
     activeSavingsGoal !== null && activeSavingsGoal.status !== 'completed';
+  const handleSelectSavingsDevice = async (
+    product: Product,
+    variantId?: string | null
+  ) => {
+    setIsChangingSavingsDevice(true);
+    try {
+      const didChange = await onChangeSavingsDevice(product, variantId);
+      if (didChange) {
+        setShowSavingsDeviceSwap(false);
+        setSavingsDeviceSearch('');
+      }
+    } catch {
+      Alert.alert('Unable to change device', 'Please try again in a moment.');
+    } finally {
+      setIsChangingSavingsDevice(false);
+    }
+  };
 
   return (
     <>
@@ -221,10 +265,23 @@ export function WalletContent({
         isAdding={isAddingSavingsContribution}
         onAddAmountChange={onChangeSavingsContributionAmount}
         onAddSavings={onAddSavingsContribution}
+        onChangeDevice={() => setShowSavingsDeviceSwap(true)}
         onClose={onCloseSavingsProgress}
         onFundWallet={onFundSavingsWallet}
         visible={showSavingsProgress}
         walletBalance={earningsBalance}
+      />
+      <WalletSavingsDeviceSwapModal
+        colors={colors}
+        currentAmount={activeSavingsGoal?.current_amount ?? 0}
+        isLoading={isSavingsDeviceLoading}
+        isPending={isChangingSavingsDevice}
+        onClose={() => setShowSavingsDeviceSwap(false)}
+        onSearchChange={setSavingsDeviceSearch}
+        onSelectDevice={handleSelectSavingsDevice}
+        products={savingsDeviceProducts}
+        searchValue={savingsDeviceSearch}
+        visible={showSavingsDeviceSwap && canAddToSavings}
       />
     </>
   );
