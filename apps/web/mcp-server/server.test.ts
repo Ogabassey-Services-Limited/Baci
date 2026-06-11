@@ -107,7 +107,84 @@ describe('MCP streamable HTTP probe compatibility', () => {
       'HEAD'
     );
   });
+
+  it('publishes product_id and product_name lookup inputs for product detail tools', async () => {
+    const payload = await postMcpJsonRpc(serverBaseUrl, {
+      id: 1,
+      method: 'tools/list',
+      params: {},
+    });
+    const tools = getResultTools(payload);
+    const productTools = ['get_product', 'get_product_variants'];
+
+    for (const toolName of productTools) {
+      const tool = tools.find((candidate) => candidate.name === toolName);
+      expect(tool).toBeDefined();
+
+      expect(tool?.inputSchema.properties.product_id).toMatchObject({
+        type: 'string',
+        minLength: 1,
+        maxLength: 80,
+      });
+      expect(tool?.inputSchema.properties.product_name).toMatchObject({
+        type: 'string',
+        minLength: 1,
+        maxLength: 100,
+      });
+    }
+  });
 });
+
+interface JsonRpcResponse {
+  result?: unknown;
+}
+
+interface McpToolDefinition {
+  name: string;
+  inputSchema: {
+    properties: Record<string, unknown>;
+  };
+}
+
+async function postMcpJsonRpc(
+  serverBaseUrl: string,
+  request: {
+    id: number;
+    method: string;
+    params: Record<string, unknown>;
+  }
+): Promise<JsonRpcResponse> {
+  const response = await fetch(`${serverBaseUrl}/mcp`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json, text/event-stream',
+      'content-type': 'application/json',
+      'mcp-protocol-version': '2025-06-18',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      ...request,
+    }),
+  });
+
+  expect(response.status).toBe(200);
+
+  return (await response.json()) as JsonRpcResponse;
+}
+
+function getResultTools(payload: JsonRpcResponse): McpToolDefinition[] {
+  const result = payload.result;
+  if (!result || typeof result !== 'object' || !('tools' in result)) {
+    throw new Error('MCP tools/list response did not include tools');
+  }
+
+  const tools = (result as { tools?: unknown }).tools;
+  if (!Array.isArray(tools)) {
+    throw new Error('MCP tools/list response tools field was not an array');
+  }
+
+  return tools as McpToolDefinition[];
+}
 
 async function waitForMcpServerStartup(
   child: ReturnType<typeof spawn>

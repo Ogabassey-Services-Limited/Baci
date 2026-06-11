@@ -76,6 +76,21 @@ function reportProgress(
   });
 }
 
+function buildImportTusFingerprint(
+  file: File,
+  upload: ImportUploadInitPayload['upload']
+) {
+  return [
+    'baci-import-job',
+    MIGRATION_IMPORT_BUCKET,
+    upload.storagePath,
+    file.name,
+    file.type || 'text/csv',
+    file.size,
+    file.lastModified,
+  ].join(':');
+}
+
 export function mergeJobs(
   jobs: ImportJobListItem[],
   nextJob: ImportJobListItem
@@ -187,9 +202,11 @@ async function uploadImportFileWithTus(
       metadata: {
         bucketName: MIGRATION_IMPORT_BUCKET,
         objectName: upload.storagePath,
+        clientUploadId: upload.clientUploadId,
         contentType: input.file.type || 'text/csv',
         cacheControl: '3600',
       },
+      fingerprint: async (file) => buildImportTusFingerprint(file, upload),
       chunkSize: TUS_CHUNK_SIZE_BYTES,
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
@@ -216,8 +233,14 @@ async function uploadImportFileWithTus(
     tusUpload
       .findPreviousUploads()
       .then((previousUploads) => {
-        if (previousUploads[0]) {
-          tusUpload.resumeFromPreviousUpload(previousUploads[0]);
+        const matchingPreviousUpload = previousUploads.find(
+          (previousUpload) =>
+            previousUpload.metadata.bucketName === MIGRATION_IMPORT_BUCKET &&
+            previousUpload.metadata.objectName === upload.storagePath
+        );
+
+        if (matchingPreviousUpload) {
+          tusUpload.resumeFromPreviousUpload(matchingPreviousUpload);
         }
 
         tusUpload.start();
