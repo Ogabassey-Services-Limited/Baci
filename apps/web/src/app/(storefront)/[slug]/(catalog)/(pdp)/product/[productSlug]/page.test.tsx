@@ -51,9 +51,14 @@ vi.mock('../../products/[productSlug]/build-product-redirect-path', () => ({
     `/redirect/${slug}${productPath}`,
 }));
 
-import LegacyProductPage from './page';
+import LegacyProductPage, { metadata } from './page';
 
 describe('legacy singular product route', () => {
+  it('marks the redirect-only route noindex without inheriting a root canonical', () => {
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockConnection.mockResolvedValue(undefined);
