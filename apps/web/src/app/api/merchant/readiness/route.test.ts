@@ -36,12 +36,14 @@ function merchantRow() {
     business_address: '12 Allen Avenue',
     business_name: 'Bassey Phones',
     country: 'NG',
+    email: 'owner@example.com',
     facebook_pixel_id: null,
     google_analytics_id: null,
     hero_slides: [],
     is_published: false,
     logo_url: 'https://cdn.example/logo.png',
     pages: { about: 'About us', privacy: 'Privacy', terms: 'Terms' },
+    phone: null,
     paystack_subaccount_code: 'ACCT_6uujpqtzmnufzkw',
     snapchat_pixel_id: null,
     social_media: {},
@@ -272,6 +274,31 @@ describe('GET /api/merchant/readiness', () => {
       ])
     );
     expect(body.isReady).toBe(true);
+  });
+
+  it('marks contact info complete when only the onboarding account email exists', async () => {
+    mocks.createClient.mockReturnValue(
+      createReadinessSupabaseMock({
+        merchant: {
+          ...merchantRow(),
+          support_email: null,
+          support_phone: null,
+          email: 'owner@example.com',
+          phone: null,
+        },
+      })
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'contact_info', completed: true }),
+      ])
+    );
   });
 
   it('returns 500 when storefront job status cannot be loaded', async () => {
