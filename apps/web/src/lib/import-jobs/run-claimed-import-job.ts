@@ -84,7 +84,22 @@ async function cleanupImportSourceFile(
     return;
   }
 
-  const { error } = await supabase.storage
+  const storage = (
+    supabase as {
+      storage?: Pick<SupabaseClient['storage'], 'from'>;
+    }
+  ).storage;
+
+  if (!storage) {
+    logger.error({
+      message: 'Skipped import source file cleanup; storage client unavailable',
+      jobId: job.id,
+      storagePath: job.storage_path,
+    });
+    return;
+  }
+
+  const { error } = await storage
     .from(MIGRATION_IMPORT_BUCKET)
     .remove([job.storage_path]);
 
