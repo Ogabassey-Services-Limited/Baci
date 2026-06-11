@@ -56,3 +56,22 @@ describe('MCP widget HTML escaping', () => {
     expect(runEmbeddedEscapeHtml(null)).toBe('');
   });
 });
+
+describe('MCP streamable HTTP probe compatibility', () => {
+  it('allows the MCP protocol version header in CORS preflights', () => {
+    expect(serverSource).toContain(
+      "const MCP_ALLOWED_HEADERS = 'content-type, mcp-protocol-version, mcp-session-id';"
+    );
+    expect(serverSource).toContain(
+      "'Access-Control-Allow-Headers': MCP_ALLOWED_HEADERS"
+    );
+  });
+
+  it('responds to HEAD liveness checks on the MCP endpoint', () => {
+    expect(serverSource).toContain(
+      "if (req.method === 'HEAD' && url.pathname === MCP_PATH)"
+    );
+    expect(serverSource).toContain("method: 'HEAD'");
+    expect(serverSource).toContain('statusCode: 200');
+  });
+});

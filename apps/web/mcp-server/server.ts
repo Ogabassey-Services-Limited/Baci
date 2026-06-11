@@ -52,6 +52,8 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const OGABASSEY_SLUG = 'ogabassey';
 const PORT = Number(process.env.MCP_PORT ?? 8787);
 const MCP_PATH = '/mcp';
+const MCP_ALLOWED_HEADERS = 'content-type, mcp-protocol-version, mcp-session-id';
+const MCP_ALLOWED_METHODS = 'POST, GET, OPTIONS, DELETE, HEAD';
 const AGENTIC_CHECKOUT_API_BASE_URL =
   process.env.MCP_AGENTIC_CHECKOUT_BASE_URL ?? 'https://ogabassey.com';
 const AGENTIC_CHECKOUT_API_KEY = getAgenticCredential(
@@ -3062,12 +3064,35 @@ const httpServer = createServer(
     if (req.method === 'OPTIONS' && url.pathname === MCP_PATH) {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE',
-        'Access-Control-Allow-Headers': 'content-type, mcp-session-id',
+        'Access-Control-Allow-Methods': MCP_ALLOWED_METHODS,
+        'Access-Control-Allow-Headers': MCP_ALLOWED_HEADERS,
         'Access-Control-Expose-Headers': 'Mcp-Session-Id',
         'Access-Control-Max-Age': '86400',
       });
       res.end();
+      return;
+    }
+
+    // Liveness probe for scanners that verify the streamable HTTP endpoint
+    // before issuing JSON-RPC requests.
+    if (req.method === 'HEAD' && url.pathname === MCP_PATH) {
+      res.writeHead(200, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': MCP_ALLOWED_METHODS,
+        'Access-Control-Allow-Headers': MCP_ALLOWED_HEADERS,
+        'Access-Control-Expose-Headers': 'Mcp-Session-Id',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      });
+      res.end();
+      logAudit({
+        timestamp: new Date().toISOString(),
+        requestId,
+        ip,
+        method: 'HEAD',
+        path: MCP_PATH,
+        statusCode: 200,
+        durationMs: Date.now() - startTime,
+      });
       return;
     }
 
@@ -3163,6 +3188,7 @@ const httpServer = createServer(
       MCP_METHODS.has(req.method)
     ) {
       res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Headers', MCP_ALLOWED_HEADERS);
       res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
 
       const server = createOgabasseyServer();
