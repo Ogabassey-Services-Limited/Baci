@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 
 interface DeferredShellFeatureProps {
   children: React.ReactNode;
@@ -10,6 +10,7 @@ interface DeferredShellFeatureProps {
   enabled?: boolean;
   activateOnIdle?: boolean;
   activateOnInteraction?: boolean;
+  deferInteractionActivationUntilNextPaint?: boolean;
 }
 
 export function useDeferredActivation({
@@ -17,6 +18,7 @@ export function useDeferredActivation({
   enabled = true,
   activateOnIdle = true,
   activateOnInteraction = true,
+  deferInteractionActivationUntilNextPaint = false,
 }: Omit<DeferredShellFeatureProps, 'children'>) {
   const [isActivated, setIsActivated] = useState(false);
 
@@ -32,11 +34,62 @@ export function useDeferredActivation({
 
     let cancelled = false;
     let idleCallbackId: number | undefined;
+    let interactionFrameId: number | undefined;
+    let interactionTimeoutId: number | undefined;
+    let interactionActivationScheduled = false;
     let loadListenerAttached = false;
     const activate = () => {
       if (!cancelled) {
         setIsActivated(true);
       }
+    };
+    const activateAsTransition = () => {
+      if (cancelled) {
+        return;
+      }
+
+      startTransition(() => {
+        if (!cancelled) {
+          setIsActivated(true);
+        }
+      });
+    };
+    const schedulePostPaintInteractionActivation = () => {
+      if (cancelled || interactionActivationScheduled) {
+        return;
+      }
+
+      interactionActivationScheduled = true;
+
+      const activateAfterPaint = () => {
+        if (cancelled) {
+          return;
+        }
+
+        interactionFrameId = undefined;
+        interactionTimeoutId = window.setTimeout(() => {
+          interactionTimeoutId = undefined;
+          activateAsTransition();
+        }, 0);
+      };
+
+      if (typeof window.requestAnimationFrame === 'function') {
+        interactionFrameId = window.requestAnimationFrame(activateAfterPaint);
+        return;
+      }
+
+      interactionTimeoutId = window.setTimeout(() => {
+        interactionTimeoutId = undefined;
+        activateAsTransition();
+      }, 0);
+    };
+    const handleInteraction = () => {
+      if (deferInteractionActivationUntilNextPaint) {
+        schedulePostPaintInteractionActivation();
+        return;
+      }
+
+      activate();
     };
 
     const scheduleIdleActivation = () => {
@@ -73,11 +126,11 @@ export function useDeferredActivation({
     }
 
     if (activateOnInteraction) {
-      window.addEventListener('pointerdown', activate, {
+      window.addEventListener('pointerdown', handleInteraction, {
         once: true,
         passive: true,
       });
-      window.addEventListener('keydown', activate, { once: true });
+      window.addEventListener('keydown', handleInteraction, { once: true });
     }
 
     return () => {
@@ -95,14 +148,29 @@ export function useDeferredActivation({
         }
       }
 
+      if (interactionFrameId !== undefined) {
+        window.cancelAnimationFrame(interactionFrameId);
+      }
+
+      if (interactionTimeoutId !== undefined) {
+        window.clearTimeout(interactionTimeoutId);
+      }
+
       if (loadListenerAttached) {
         window.removeEventListener('load', handleWindowLoad);
       }
 
-      window.removeEventListener('pointerdown', activate);
-      window.removeEventListener('keydown', activate);
+      window.removeEventListener('pointerdown', handleInteraction);
+      window.removeEventListener('keydown', handleInteraction);
     };
-  }, [activateOnIdle, activateOnInteraction, enabled, isActivated, timeoutMs]);
+  }, [
+    activateOnIdle,
+    activateOnInteraction,
+    deferInteractionActivationUntilNextPaint,
+    enabled,
+    isActivated,
+    timeoutMs,
+  ]);
 
   return isActivated;
 }

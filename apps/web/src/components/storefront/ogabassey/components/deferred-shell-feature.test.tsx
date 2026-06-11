@@ -58,6 +58,39 @@ describe('DeferredShellFeature', () => {
     expect(screen.getByText('Interaction child')).toBeInTheDocument();
   });
 
+  it('can yield interaction activation until after the next paint', async () => {
+    render(
+      <DeferredShellFeature
+        deferInteractionActivationUntilNextPaint
+        timeoutMs={5000}
+      >
+        <div>Yielded interaction child</div>
+      </DeferredShellFeature>
+    );
+
+    expect(
+      screen.queryByText('Yielded interaction child')
+    ).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(window);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.queryByText('Yielded interaction child')
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(16);
+      await Promise.resolve();
+      vi.runOnlyPendingTimers();
+    });
+
+    expect(screen.getByText('Yielded interaction child')).toBeInTheDocument();
+  });
+
   it('does not activate passive deferred chrome on scroll alone', async () => {
     render(
       <DeferredShellFeature timeoutMs={5000}>
