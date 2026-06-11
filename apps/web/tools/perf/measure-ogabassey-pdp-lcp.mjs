@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  getDebugBearMetric,
   getDebugBearQuickTestId,
   getDebugBearQuickTestPollPath,
 } from './debugbear-quick-test-utils.mjs';
@@ -41,17 +42,6 @@ function isComplete(body) {
     Boolean(body.lighthouseResult) ||
     Boolean(body.metrics?.['performance.largestContentfulPaint'])
   );
-}
-
-function metric(body, names) {
-  for (const name of names) {
-    const value =
-      body.metrics?.[name] ||
-      body.summary?.[name] ||
-      body.lighthouseResult?.audits?.[name]?.numericValue;
-    if (typeof value === 'number') return value;
-  }
-  return null;
 }
 
 await mkdir(rawDir, { recursive: true });
@@ -96,22 +86,22 @@ console.log(
       url: targetUrl,
       device,
       region,
-      lcpMs: metric(result, [
+      lcpMs: getDebugBearMetric(result, [
         'performance.largestContentfulPaint',
         'largestContentfulPaint',
         'lcp',
       ]),
-      fcpMs: metric(result, [
+      fcpMs: getDebugBearMetric(result, [
         'performance.firstContentfulPaint',
         'firstContentfulPaint',
         'fcp',
       ]),
-      tbtMs: metric(result, [
+      tbtMs: getDebugBearMetric(result, [
         'performance.totalBlockingTime',
         'totalBlockingTime',
         'tbt',
       ]),
-      cls: metric(result, [
+      cls: getDebugBearMetric(result, [
         'performance.cumulativeLayoutShift',
         'cumulativeLayoutShift',
         'cls',
