@@ -6,6 +6,6 @@
 **Learning:** Biome is the exclusive linter in the Baci monorepo. `// eslint-disable` comments are dead code/deprecated anti-patterns that add noise and have no effect.
 **Action:** Removed useless `// eslint-disable` comments in @baci/mobile-storefront `search.tsx` and `FilterSheet.tsx` that were masking unused rules.
 
-## 2026-06-10 - Enforce explicit unknown type in catch blocks
-**Learning:** In the Baci monorepo, strict TypeScript typing requires errors in try-catch blocks to be explicitly typed as `unknown` rather than left untyped, as relying on untyped `catch (error)` is a framework anti-pattern that reduces type safety.
-**Action:** When finding `catch (error)` blocks without a type, update them to `catch (error: unknown)`.
+## 2026-06-11 - Document explicit unknown catch variables
+**Learning:** TypeScript strict mode already treats unannotated catch variables as `unknown`, and TypeScript only permits `any` or `unknown` annotations on catch variables. Explicit `catch (error: unknown)` is therefore a valid clarity choice, not a required strict-mode fix.
+**Action:** Prefer explicit `catch (error: unknown)` only when it improves local readability while preserving proper narrowing before property access.
