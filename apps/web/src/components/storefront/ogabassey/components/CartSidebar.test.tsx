@@ -31,7 +31,22 @@ const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
 const mockToggleAssurance = vi.fn();
 
-let mockCartItems = [
+type MockCartItem = {
+  id: string;
+  cartItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image: string;
+  category: string;
+  brand: string;
+  negotiatedPrice?: number;
+  negotiationStatus?: 'accepted';
+  quizAwardId?: string;
+  quizVoucherToken?: string;
+};
+
+let mockCartItems: MockCartItem[] = [
   {
     id: 'p1',
     cartItemId: 'ci-1',
@@ -115,7 +130,22 @@ import { CartSidebar } from './CartSidebar';
 describe('CartSidebar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(true);
     mockMerchant = { id: 'merchant-abc', slug: 'test-store' };
+    mockCartItems = [
+      {
+        id: 'p1',
+        cartItemId: 'ci-1',
+        name: 'Test Shoe',
+        price: 15000,
+        quantity: 1,
+        image: '/shoe.jpg',
+        category: 'shoes',
+        brand: 'TestBrand',
+        negotiatedPrice: 10000,
+        negotiationStatus: 'accepted' as const,
+      },
+    ];
   });
 
   it('renders cart items when open', () => {
@@ -174,5 +204,42 @@ describe('CartSidebar', () => {
 
     // Should display original subtotal (15000) instead of negotiated (10000)
     expect(screen.getAllByText('₦15,000')[0]).toBeInTheDocument();
+  });
+
+  it('shows signed quiz voucher items as free gifts in the sidebar total', () => {
+    mockCartItems = [
+      {
+        id: 'p1',
+        cartItemId: 'ci-1',
+        name: 'Paid Shoe',
+        price: 15000,
+        quantity: 1,
+        image: '/shoe.jpg',
+        category: 'shoes',
+        brand: 'TestBrand',
+      },
+      {
+        id: 'gift-1',
+        cartItemId: 'gift-1::quiz',
+        name: 'Quiz Gift',
+        price: 205000,
+        quantity: 1,
+        image: '/gift.jpg',
+        category: 'phones',
+        brand: 'TestBrand',
+        quizAwardId: 'award-1',
+        quizVoucherToken: 'signed-token',
+      },
+    ];
+
+    render(<CartSidebar />);
+
+    expect(screen.getByText('Quiz Gift')).toBeInTheDocument();
+    expect(screen.getByText('Free gift')).toBeInTheDocument();
+    expect(screen.getAllByText('₦15,000')[0]).toBeInTheDocument();
+    expect(screen.queryByText('₦220,000')).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', { name: /^negotiate$/i })
+    ).toHaveLength(1);
   });
 });
