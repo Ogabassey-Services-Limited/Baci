@@ -14,6 +14,8 @@ import { phoneInputStyles as styles } from './PhoneInput.styles';
 
 type ColorsScheme = (typeof Colors)['light'];
 
+const COUNTRY_ITEM_HEIGHT = 56;
+
 interface PhoneInputCountryPickerProps {
   colors: ColorsScheme;
   countries: Country[];
@@ -112,11 +114,19 @@ export function PhoneInputCountryPicker({
           maxToRenderPerBatch={20}
           windowSize={10}
           removeClippedSubviews={removeClippedSubviews}
+          getItemLayout={(_, index) => ({
+            length: COUNTRY_ITEM_HEIGHT,
+            offset: COUNTRY_ITEM_HEIGHT * index,
+            index,
+          })}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[
                 styles.countryRow,
-                { borderBottomColor: colors.border },
+                {
+                  borderBottomColor: colors.border,
+                  height: COUNTRY_ITEM_HEIGHT,
+                },
                 item.code === selectedCountry.code && [
                   styles.countryRowSelected,
                   {
@@ -143,6 +153,7 @@ export function PhoneInputCountryPicker({
               </Text>
               <Text
                 style={[styles.countryName, { color: colors.text }]}
+                numberOfLines={1}
                 accessibilityElementsHidden={true}
                 importantForAccessibility="no"
               >
@@ -153,6 +164,7 @@ export function PhoneInputCountryPicker({
                   styles.countryDialCode,
                   { color: colors.textSecondary },
                 ]}
+                numberOfLines={1}
                 accessibilityElementsHidden={true}
                 importantForAccessibility="no"
               >
