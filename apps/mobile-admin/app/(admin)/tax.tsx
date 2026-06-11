@@ -1,6 +1,6 @@
 import { NIGERIAN_STATES } from '@baci/shared';
 import { Stack } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Alert, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddressCard } from '@/components/tax/AddressCard';
@@ -42,8 +42,9 @@ export default function TaxScreen() {
   const [stateCode, setStateCode] = useState('');
   const [showStateModal, setShowStateModal] = useState(false);
 
-  const lastSyncedAddressSignature = useRef('');
-  const lastSyncedTaxSignature = useRef('');
+  const [lastSyncedAddressSignature, setLastSyncedAddressSignature] =
+    useState('');
+  const [lastSyncedTaxSignature, setLastSyncedTaxSignature] = useState('');
   const merchantId = merchant?.id ?? null;
   const merchantAddress = merchant?.registered_address ?? null;
   const merchantStateCode = merchant?.state_code ?? '';
@@ -52,55 +53,53 @@ export default function TaxScreen() {
   const merchantTaxIdentificationNumber =
     merchant?.tax_identification_number ?? '';
   const merchantLegalEntityName = merchant?.legal_entity_name ?? '';
-  useEffect(() => {
-    const { mappedStateCode, signature: nextAddressSignature } =
-      buildMerchantAddressSyncState({
-        merchantId,
-        merchantAddress,
-        merchantStateCode,
-      });
-    const currentAddressSignature = buildAddressSyncSignature({
+  // Sync local address form state with merchant data during render (guarded
+  // prev-compare pattern) instead of in an effect, so users never see a stale
+  // frame and React Compiler can memoize this component.
+  const { mappedStateCode, signature: nextAddressSignature } =
+    buildMerchantAddressSyncState({
       merchantId,
-      street,
-      city,
-      postalCode,
-      stateCode,
+      merchantAddress,
+      merchantStateCode,
     });
+  const currentAddressSignature = buildAddressSyncSignature({
+    merchantId,
+    street,
+    city,
+    postalCode,
+    stateCode,
+  });
 
-    if (!merchantId) {
-      lastSyncedAddressSignature.current = '';
+  if (!merchantId) {
+    if (lastSyncedAddressSignature !== '') {
+      setLastSyncedAddressSignature('');
+    }
+    if (street !== '') {
       setStreet('');
+    }
+    if (city !== '') {
       setCity('');
+    }
+    if (postalCode !== '') {
       setPostalCode('');
+    }
+    if (stateCode !== '') {
       setStateCode('');
-      return;
     }
-
-    if (currentAddressSignature === nextAddressSignature) {
-      lastSyncedAddressSignature.current = nextAddressSignature;
-      return;
+  } else if (currentAddressSignature === nextAddressSignature) {
+    if (lastSyncedAddressSignature !== nextAddressSignature) {
+      setLastSyncedAddressSignature(nextAddressSignature);
     }
-    if (
-      lastSyncedAddressSignature.current &&
-      currentAddressSignature !== lastSyncedAddressSignature.current
-    ) {
-      return;
-    }
-
-    lastSyncedAddressSignature.current = nextAddressSignature;
+  } else if (
+    !lastSyncedAddressSignature ||
+    currentAddressSignature === lastSyncedAddressSignature
+  ) {
+    setLastSyncedAddressSignature(nextAddressSignature);
     setStreet(merchantAddress?.street ?? '');
     setCity(merchantAddress?.city ?? '');
     setPostalCode(merchantAddress?.postal_code ?? '');
     setStateCode(mappedStateCode);
-  }, [
-    city,
-    merchantAddress,
-    merchantId,
-    merchantStateCode,
-    postalCode,
-    stateCode,
-    street,
-  ]);
+  }
   const {
     saveAddressMutation,
     saveLegalEntityMutation,
@@ -134,53 +133,47 @@ export default function TaxScreen() {
     setTaxId(text.replace(/\D/g, '').slice(0, 10));
   const selectedStateName =
     NIGERIAN_STATES.find((state) => state.code === stateCode)?.name ?? '';
-  useEffect(() => {
-    const nextTaxSignature = buildTaxSyncSignature({
-      merchantId,
-      vatRegistrationStatus: merchantVatRegistrationStatus,
-      taxIdentificationNumber: merchantTaxIdentificationNumber,
-      legalEntityName: merchantLegalEntityName,
-    });
-    const currentTaxSignature = buildTaxSyncSignature({
-      merchantId,
-      vatRegistrationStatus: vatEnabled ? 'registered' : 'not_registered',
-      taxIdentificationNumber: taxId,
-      legalEntityName,
-    });
+  // Same render-time guarded sync as the address block above, for tax fields.
+  const nextTaxSignature = buildTaxSyncSignature({
+    merchantId,
+    vatRegistrationStatus: merchantVatRegistrationStatus,
+    taxIdentificationNumber: merchantTaxIdentificationNumber,
+    legalEntityName: merchantLegalEntityName,
+  });
+  const currentTaxSignature = buildTaxSyncSignature({
+    merchantId,
+    vatRegistrationStatus: vatEnabled ? 'registered' : 'not_registered',
+    taxIdentificationNumber: taxId,
+    legalEntityName,
+  });
 
-    if (!merchantId) {
-      lastSyncedTaxSignature.current = '';
+  if (!merchantId) {
+    if (lastSyncedTaxSignature !== '') {
+      setLastSyncedTaxSignature('');
+    }
+    if (vatEnabled) {
       setVatEnabled(false);
+    }
+    if (taxId !== '') {
       setTaxId('');
+    }
+    if (legalEntityName !== '') {
       setLegalEntityName('');
-      return;
     }
-
-    if (currentTaxSignature === nextTaxSignature) {
-      lastSyncedTaxSignature.current = nextTaxSignature;
-      return;
+  } else if (currentTaxSignature === nextTaxSignature) {
+    if (lastSyncedTaxSignature !== nextTaxSignature) {
+      setLastSyncedTaxSignature(nextTaxSignature);
     }
-    if (
-      lastSyncedTaxSignature.current &&
-      currentTaxSignature !== lastSyncedTaxSignature.current
-    ) {
-      return;
-    }
-    if (lastSyncedTaxSignature.current === nextTaxSignature) return;
-
-    lastSyncedTaxSignature.current = nextTaxSignature;
+  } else if (
+    (!lastSyncedTaxSignature ||
+      currentTaxSignature === lastSyncedTaxSignature) &&
+    lastSyncedTaxSignature !== nextTaxSignature
+  ) {
+    setLastSyncedTaxSignature(nextTaxSignature);
     setVatEnabled(merchantVatRegistrationStatus === 'registered');
     setTaxId(merchantTaxIdentificationNumber);
     setLegalEntityName(merchantLegalEntityName);
-  }, [
-    legalEntityName,
-    merchantId,
-    merchantLegalEntityName,
-    merchantTaxIdentificationNumber,
-    merchantVatRegistrationStatus,
-    taxId,
-    vatEnabled,
-  ]);
+  }
   if (isLoading) {
     return (
       <>

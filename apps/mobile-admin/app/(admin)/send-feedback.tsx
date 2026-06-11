@@ -1,14 +1,17 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getRuntimePlatform } from '@/config/runtime-platform';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -35,6 +38,42 @@ const FEEDBACK_CATEGORIES = [
   { id: 'design', label: 'Design', icon: 'color-palette-outline' as const },
   { id: 'other', label: 'Other', icon: 'ellipsis-horizontal-outline' as const },
 ];
+
+interface FeedbackSubmission {
+  categories: string[];
+  merchantId: string | undefined;
+  message: string | null;
+  rating: number;
+  userId: string | undefined;
+}
+
+// Module-scope helper: try/catch with a finalizer and throws cannot live in
+// the component body because React Compiler does not lower that syntax yet.
+async function submitFeedback({
+  categories,
+  merchantId,
+  message,
+  rating,
+  userId,
+}: FeedbackSubmission): Promise<boolean> {
+  // Real feedback submission to Supabase
+  try {
+    const { error: insertError } = await supabase.from('feedback').insert({
+      merchant_id: merchantId,
+      user_id: userId,
+      rating: rating,
+      categories: categories,
+      message: message,
+      platform: getRuntimePlatform(),
+    });
+
+    if (insertError) throw insertError;
+    return true;
+  } catch (error) {
+    console.error('Feedback submit error:', error);
+    return false;
+  }
+}
 
 export default function SendFeedbackScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -65,31 +104,25 @@ export default function SendFeedbackScreen() {
     }
 
     setIsSending(true);
+    const didSubmit = await submitFeedback({
+      categories: selectedCategories,
+      merchantId: merchant?.id,
+      message: message.trim() || null,
+      rating,
+      userId: user?.id,
+    });
+    setIsSending(false);
 
-    // Real feedback submission to Supabase
-    try {
-      const { error: insertError } = await supabase.from('feedback').insert({
-        merchant_id: merchant?.id,
-        user_id: user?.id,
-        rating: rating,
-        categories: selectedCategories,
-        message: message.trim() || null,
-        platform: getRuntimePlatform(),
-      });
-
-      if (insertError) throw insertError;
-
+    if (didSubmit) {
       Alert.alert(
         'Thank You! 🎉',
         'Your feedback has been submitted. We appreciate you taking the time to help us improve!',
         [{ text: 'OK', onPress: () => router.back() }]
       );
-    } catch (error) {
-      console.error('Feedback submit error:', error);
-      Alert.alert('Error', 'Failed to submit feedback. Please try again.');
-    } finally {
-      setIsSending(false);
+      return;
     }
+
+    Alert.alert('Error', 'Failed to submit feedback. Please try again.');
   };
 
   return (

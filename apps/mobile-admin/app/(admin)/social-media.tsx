@@ -2,7 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import type { ComponentProps } from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,10 @@ const EMPTY_SOCIAL_MEDIA: MerchantSocialMedia = {
   linkedin: '',
   snapchat: '',
 };
+
+const SOCIAL_MEDIA_KEYS = Object.keys(
+  EMPTY_SOCIAL_MEDIA
+) as (keyof MerchantSocialMedia)[];
 
 type SocialMediaFieldConfig = {
   platform: keyof MerchantSocialMedia;
@@ -97,41 +101,31 @@ export default function SocialMediaScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // State for social media
+  // State for social media, seeded from the saved merchant values
+  const remoteSocialMedia: MerchantSocialMedia = {
+    instagram: merchant?.social_media?.instagram ?? '',
+    twitter: merchant?.social_media?.twitter ?? '',
+    facebook: merchant?.social_media?.facebook ?? '',
+    tiktok: merchant?.social_media?.tiktok ?? '',
+    youtube: merchant?.social_media?.youtube ?? '',
+    pinterest: merchant?.social_media?.pinterest ?? '',
+    linkedin: merchant?.social_media?.linkedin ?? '',
+    snapchat: merchant?.social_media?.snapchat ?? '',
+  };
   const [socialMedia, setSocialMedia] =
-    useState<MerchantSocialMedia>(EMPTY_SOCIAL_MEDIA);
-  const instagram = merchant?.social_media?.instagram ?? '';
-  const twitter = merchant?.social_media?.twitter ?? '';
-  const facebook = merchant?.social_media?.facebook ?? '';
-  const tiktok = merchant?.social_media?.tiktok ?? '';
-  const youtube = merchant?.social_media?.youtube ?? '';
-  const pinterest = merchant?.social_media?.pinterest ?? '';
-  const linkedin = merchant?.social_media?.linkedin ?? '';
-  const snapchat = merchant?.social_media?.snapchat ?? '';
+    useState<MerchantSocialMedia>(remoteSocialMedia);
 
-  // Populate state
-  useEffect(() => {
-    setSocialMedia({
-      ...EMPTY_SOCIAL_MEDIA,
-      instagram,
-      twitter,
-      facebook,
-      tiktok,
-      youtube,
-      pinterest,
-      linkedin,
-      snapchat,
-    });
-  }, [
-    instagram,
-    twitter,
-    facebook,
-    tiktok,
-    youtube,
-    pinterest,
-    linkedin,
-    snapchat,
-  ]);
+  // Re-seed the form whenever a saved value changes. Adjusting state during
+  // render (guarded by a prev-value compare) avoids the extra post-commit
+  // re-render an effect would cause and keeps React Compiler memoization.
+  const [prevRemote, setPrevRemote] =
+    useState<MerchantSocialMedia>(remoteSocialMedia);
+  if (
+    SOCIAL_MEDIA_KEYS.some((key) => remoteSocialMedia[key] !== prevRemote[key])
+  ) {
+    setPrevRemote(remoteSocialMedia);
+    setSocialMedia(remoteSocialMedia);
+  }
 
   // Save Mutation
   const saveMutation = useMutation({

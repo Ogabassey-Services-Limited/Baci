@@ -19,23 +19,68 @@ import { supabase } from '@/lib/supabase';
 // Use Environment Variable or Fallback
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://baci.app/api';
 
+// Basic Regex Validation
+const DOMAIN_REGEX =
+  /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/i;
+
+interface DomainVerificationInfo {
+  domain: string;
+  token: string;
+}
+
+// Module-scope helpers keep try/finally, throw-inside-try, and dynamic
+// import() out of the component body so React Compiler can memoize it.
+async function requestDomainConnection(
+  cleanDomain: string
+): Promise<DomainVerificationInfo> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const response = await fetch(`${API_URL}/domains`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ domain: cleanDomain }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Failed to add domain');
+  }
+
+  return {
+    domain: result.domain.domain,
+    token: result.verification.value,
+  };
+}
+
+async function copyToClipboard(text: string) {
+  try {
+    const clipboard = await import('expo-clipboard');
+    await clipboard.setStringAsync(text);
+    Alert.alert('Copied', 'Text copied to clipboard');
+  } catch {
+    Alert.alert('Error', 'Failed to copy to clipboard');
+  }
+}
+
 export default function ConnectDomainScreen() {
   const { colors, shadows } = useTheme();
   const router = useRouter();
   const [domain, setDomain] = useState('');
   const [loading, setLoading] = useState(false);
-  const [verificationInfo, setVerificationInfo] = useState<{
-    domain: string;
-    token: string;
-  } | null>(null);
+  const [verificationInfo, setVerificationInfo] =
+    useState<DomainVerificationInfo | null>(null);
 
-  const handleConnect = async () => {
+  const handleConnect = () => {
     const cleanDomain = domain.trim().toLowerCase();
-    // Basic Regex Validation
-    const domainRegex =
-      /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/i;
 
-    if (!domainRegex.test(cleanDomain)) {
+    if (!DOMAIN_REGEX.test(cleanDomain)) {
       Alert.alert(
         'Invalid Domain',
         'Please enter a valid domain (e.g. example.com)'
@@ -44,47 +89,17 @@ export default function ConnectDomainScreen() {
     }
 
     setLoading(true);
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
-
-      const response = await fetch(`${API_URL}/domains`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ domain: cleanDomain }),
+    requestDomainConnection(cleanDomain)
+      .then((info) => {
+        // Success - Show verification info
+        setVerificationInfo(info);
+      })
+      .catch((error: unknown) => {
+        Alert.alert('Error', (error as Error).message);
+      })
+      .finally(() => {
+        setLoading(false);
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to add domain');
-      }
-
-      // Success - Show verification info
-      setVerificationInfo({
-        domain: result.domain.domain,
-        token: result.verification.value,
-      });
-    } catch (error: unknown) {
-      Alert.alert('Error', (error as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      const clipboard = await import('expo-clipboard');
-      await clipboard.setStringAsync(text);
-      Alert.alert('Copied', 'Text copied to clipboard');
-    } catch {
-      Alert.alert('Error', 'Failed to copy to clipboard');
-    }
   };
 
   const handleDone = () => {

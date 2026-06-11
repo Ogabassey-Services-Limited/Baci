@@ -60,6 +60,32 @@ function mapRowToTransaction(row: TaxLedgerOrderRow): Transaction {
   };
 }
 
+// Module scope so the `throw` lives outside the component body — throw inside
+// a component-level try/catch blocks React Compiler memoization.
+async function fetchTaxLedgerTransactions(
+  merchantId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<Transaction[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+                        id,
+                        created_at,
+                        total,
+                        tax_amount,
+                        customer:customers(first_name, last_name)
+                    `)
+    .eq('merchant_id', merchantId)
+    .gte('created_at', startDate.toISOString())
+    .lte('created_at', endDate.toISOString())
+    .eq('payment_status', 'paid')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(mapRowToTransaction);
+}
+
 interface ReportSelectionModalProps {
   visible: boolean;
   onClose: () => void;
@@ -88,27 +114,10 @@ export default function ReportSelectionModal({
   const handleGenerate = async (type: ReportType) => {
     setLoading(true);
     try {
-      let transactions: Transaction[] = [];
-
-      if (type === 'tax_ledger') {
-        const { data, error } = await supabase
-          .from('orders')
-          .select(`
-                        id,
-                        created_at,
-                        total,
-                        tax_amount,
-                        customer:customers(first_name, last_name)
-                    `)
-          .eq('merchant_id', merchantId)
-          .gte('created_at', startDate.toISOString())
-          .lte('created_at', endDate.toISOString())
-          .eq('payment_status', 'paid')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        transactions = (data ?? []).map(mapRowToTransaction);
-      }
+      const transactions =
+        type === 'tax_ledger'
+          ? await fetchTaxLedgerTransactions(merchantId, startDate, endDate)
+          : [];
 
       await generateReport(type, {
         title: type === 'executive' ? 'Executive Summary' : 'Sales Tax Ledger',
@@ -123,9 +132,10 @@ export default function ReportSelectionModal({
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Failed to generate report');
-    } finally {
-      setLoading(false);
     }
+    // Runs unconditionally: the catch above swallows every failure path, so
+    // this is equivalent to a `finally` (which would block React Compiler).
+    setLoading(false);
   };
 
   return (

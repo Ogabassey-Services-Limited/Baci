@@ -33,6 +33,34 @@ interface NegotiationRequest {
   evidence_url?: string;
 }
 
+// Module-scope helpers keep try/throw out of the component body so React
+// Compiler can memoize the screen (try/finally + throw-in-try are bailouts).
+async function loadNegotiationRequests(): Promise<NegotiationRequest[]> {
+  const { data, error } = await supabase
+    .from('negotiation_requests')
+    .select(
+      'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
+    )
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function updateNegotiationStatus(
+  id: string,
+  status: 'accepted' | 'rejected',
+  merchantId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('negotiation_requests')
+    .update({ status })
+    .eq('id', id)
+    .eq('merchant_id', merchantId);
+
+  if (error) throw error;
+}
+
 export default function NegotiationsScreen() {
   const { merchant } = useMerchant();
   const [requests, setRequests] = useState<NegotiationRequest[]>([]);
@@ -42,26 +70,22 @@ export default function NegotiationsScreen() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // 2026 Best Practice: Removed useCallback wrapper as React Compiler handles memoization (ADR-004)
-  const fetchRequests = async () => {
-    setFetchError(null);
-    try {
-      const { data, error } = await supabase
-        .from('negotiation_requests')
-        .select(
-          'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
-        )
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setRequests(data || []);
-    } catch (err) {
-      console.error('Error fetching negotiations:', err);
-      setFetchError('Failed to load negotiations');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  // setState happens only inside promise callbacks (never synchronously), so
+  // calling this from the mount effect cannot trigger cascading renders.
+  const fetchRequests = () =>
+    loadNegotiationRequests()
+      .then((data) => {
+        setRequests(data);
+        setFetchError(null);
+      })
+      .catch((err: unknown) => {
+        console.error('Error fetching negotiations:', err);
+        setFetchError('Failed to load negotiations');
+      })
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
 
   useEffect(() => {
     fetchRequests();
@@ -91,13 +115,7 @@ export default function NegotiationsScreen() {
     // Capture before state update to avoid stale closure after fetchRequests()
     const negotiation = requests.find((r) => r.id === id);
     try {
-      const { error } = await supabase
-        .from('negotiation_requests')
-        .update({ status })
-        .eq('id', id)
-        .eq('merchant_id', merchant.id);
-
-      if (error) throw error;
+      await updateNegotiationStatus(id, status, merchant.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await fetchRequests();
 
@@ -118,9 +136,8 @@ export default function NegotiationsScreen() {
       const message =
         error instanceof Error ? error.message : `Failed to ${status} request`;
       Alert.alert('Error', message);
-    } finally {
-      setActionLoadingId(null);
     }
+    setActionLoadingId(null);
   };
 
   const renderItem = ({ item }: { item: NegotiationRequest }) => (

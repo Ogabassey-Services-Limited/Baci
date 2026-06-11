@@ -185,12 +185,16 @@ vi.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'expense-1' }),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const { Text } = await import('react-native');
 
-  default: () => <span>icon</span>,
-  __esModule: true,
-}));
+  return {
+    Ionicons: () => <Text>icon</Text>,
+
+    default: () => <Text>icon</Text>,
+    __esModule: true,
+  };
+});
 
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
@@ -199,7 +203,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Alert: { alert: mocks.alert },
   Linking: mocks.linking,
   Pressable: ({

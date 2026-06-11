@@ -19,22 +19,10 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('react-native', async () => {
   const React = await import('react');
 
-  class AnimatedValue {
-    interpolate() {
-      return 0;
-    }
-  }
-
   return {
     StatusBar: () => null,
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Alert: { alert: vi.fn() },
-    Animated: {
-      Value: AnimatedValue,
-      timing: () => ({ start: () => undefined }),
-      View: ({ children }: { children?: React.ReactNode }) =>
-        React.createElement('div', null, children),
-    },
     Pressable: ({
       children,
       onPress,
@@ -90,6 +78,37 @@ vi.mock('react-native', async () => {
       }),
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
+  };
+});
+
+vi.mock('react-native-reanimated', async () => {
+  const React = await import('react');
+
+  const makeSharedValue = (initial: unknown) => {
+    let current = initial;
+    return {
+      get value() {
+        return current;
+      },
+      set value(next: unknown) {
+        current = next;
+      },
+      get: () => current,
+      set: (next: unknown) => {
+        current = next;
+      },
+    };
+  };
+
+  return {
+    default: {
+      View: ({ children }: { children?: React.ReactNode }) =>
+        React.createElement('div', null, children),
+    },
+    interpolate: () => 0,
+    useAnimatedStyle: () => ({}),
+    useSharedValue: makeSharedValue,
+    withTiming: (value: unknown) => value,
   };
 });
 

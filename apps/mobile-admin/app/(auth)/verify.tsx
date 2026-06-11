@@ -28,6 +28,60 @@ const OTP_DIGIT_KEYS = [
 ] as const;
 const LAST_OTP_INDEX = OTP_DIGIT_KEYS.length - 1;
 
+type OtpRequestResult = { ok: true } | { ok: false; message: string };
+
+// Module-scope helpers: try/catch with finalizers and throws cannot live in
+// the component body because React Compiler does not lower that syntax yet.
+async function requestOtpVerification(
+  email: string,
+  token: string
+): Promise<OtpRequestResult> {
+  try {
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'signup', // or 'email' depending on context. For new signups 'signup' is safer usually.
+      // However, if they are already "signed up" but unverified, 'email' might work.
+      // Let's try 'signup' first as this is the registration flow.
+    });
+
+    if (error) throw error;
+
+    return { ok: true };
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Verification error:', err);
+    // Fallback: try 'email' type if 'signup' failed (edge case)
+    try {
+      const { error: retryError } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+      if (!retryError) {
+        return { ok: true };
+      }
+      return { ok: false, message: err.message || 'Invalid code' };
+    } catch (_e) {
+      return { ok: false, message: err.message || 'Invalid code' };
+    }
+  }
+}
+
+async function requestOtpResend(email: string): Promise<OtpRequestResult> {
+  try {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+    if (error) throw error;
+    return { ok: true };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { ok: false, message: err.message };
+  }
+}
+
 export default function VerifyScreen() {
   const { colors, isDark } = useTheme();
   const styles = getStyles(colors);
@@ -141,17 +195,10 @@ export default function VerifyScreen() {
     }
 
     setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'signup', // or 'email' depending on context. For new signups 'signup' is safer usually.
-        // However, if they are already "signed up" but unverified, 'email' might work.
-        // Let's try 'signup' first as this is the registration flow.
-      });
+    const result = await requestOtpVerification(email, token);
+    setIsLoading(false);
 
-      if (error) throw error;
-
+    if (result.ok) {
       // Verification successful!
       // Session is automatically updated by the Supabase client
       // which triggers the useAuth listener.
@@ -159,46 +206,25 @@ export default function VerifyScreen() {
       // Verification successful!
       // Show custom success view
       setShowSuccess(true);
-    } catch (error: unknown) {
-      const err = error as Error;
-      console.error('Verification error:', err);
-      // Fallback: try 'email' type if 'signup' failed (edge case)
-      try {
-        const { error: retryError } = await supabase.auth.verifyOtp({
-          email,
-          token,
-          type: 'email',
-        });
-        if (!retryError) {
-          setShowSuccess(true);
-          return;
-        }
-        Alert.alert('Verification Failed', err.message || 'Invalid code');
-      } catch (_e) {
-        Alert.alert('Verification Failed', err.message || 'Invalid code');
-      }
-    } finally {
-      setIsLoading(false);
+      return;
     }
+
+    Alert.alert('Verification Failed', result.message);
   };
 
   const resendCode = async () => {
     if (timer > 0) return;
     setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email,
-      });
-      if (error) throw error;
+    const result = await requestOtpResend(email);
+    setIsLoading(false);
+
+    if (result.ok) {
       Alert.alert('Sent', 'A new code has been sent to your email.');
       setTimer(60);
-    } catch (error: unknown) {
-      const err = error as Error;
-      Alert.alert('Error', err.message);
-    } finally {
-      setIsLoading(false);
+      return;
     }
+
+    Alert.alert('Error', result.message);
   };
 
   const focusOtpInput = (index: number) => {

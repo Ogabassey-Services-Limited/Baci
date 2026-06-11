@@ -30,6 +30,50 @@ interface DiscountItemSelectorProps {
   type: 'product' | 'category';
 }
 
+interface LoadSelectableItemsParams {
+  merchantId: string;
+  requestIdRef: { current: number };
+  search: string;
+  setFetchError: (error: string | null) => void;
+  setItems: (items: SelectableItem[]) => void;
+  setLoading: (loading: boolean) => void;
+  type: 'product' | 'category';
+}
+
+// Module-scope so the try/finally stays outside the component body
+// (React Compiler cannot lower try/finally yet).
+async function loadSelectableItems({
+  merchantId,
+  requestIdRef,
+  search,
+  setFetchError,
+  setItems,
+  setLoading,
+  type,
+}: LoadSelectableItemsParams) {
+  const requestId = ++requestIdRef.current;
+  setLoading(true);
+  setFetchError(null);
+  try {
+    const fetchedItems = await fetchSelectableItems({
+      merchantId,
+      type,
+      search,
+    });
+    if (requestId !== requestIdRef.current) return;
+    setItems(fetchedItems);
+  } catch (error) {
+    console.error('[DiscountItemSelector] Error fetching items:', error);
+    if (requestId === requestIdRef.current) {
+      setFetchError('Failed to load items');
+    }
+  } finally {
+    if (requestId === requestIdRef.current) {
+      setLoading(false);
+    }
+  }
+}
+
 export function DiscountItemSelector({
   visible,
   onClose,
@@ -48,70 +92,46 @@ export function DiscountItemSelector({
   const [_fetchError, setFetchError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
-  const handleFetchItems = async (searchTerm: string) => {
+  const [prevVisible, setPrevVisible] = useState(visible);
+  const [prevInitialIds, setPrevInitialIds] = useState(initialIds);
+  if (visible !== prevVisible || initialIds !== prevInitialIds) {
+    setPrevVisible(visible);
+    setPrevInitialIds(initialIds);
+    if (visible) {
+      setSelectedIds(new Set(initialIds));
+      setSearch('');
+    }
+  }
+
+  const handleFetchItems = (searchTerm: string) => {
     if (!merchant?.id) {
       setItems([]);
       return;
     }
 
-    const requestId = ++requestIdRef.current;
-    setLoading(true);
-    setFetchError(null);
-    try {
-      const fetchedItems = await fetchSelectableItems({
-        merchantId: merchant.id,
-        type,
-        search: searchTerm,
-      });
-      if (requestId !== requestIdRef.current) return;
-      setItems(fetchedItems);
-    } catch (error) {
-      console.error('[DiscountItemSelector] Error fetching items:', error);
-      if (requestId === requestIdRef.current) {
-        setFetchError('Failed to load items');
-      }
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-      }
-    }
+    void loadSelectableItems({
+      merchantId: merchant.id,
+      requestIdRef,
+      search: searchTerm,
+      setFetchError,
+      setItems,
+      setLoading,
+      type,
+    });
   };
 
   useEffect(() => {
-    if (visible) {
-      setSelectedIds(new Set(initialIds));
-      setSearch('');
+    if (visible && merchant?.id) {
+      void loadSelectableItems({
+        merchantId: merchant.id,
+        requestIdRef,
+        search: '',
+        setFetchError,
+        setItems,
+        setLoading,
+        type,
+      });
     }
-  }, [visible, initialIds]);
-
-  useEffect(() => {
-    const loadInitialItems = async () => {
-      if (!visible || !merchant?.id) return;
-
-      const requestId = ++requestIdRef.current;
-      setLoading(true);
-      setFetchError(null);
-      try {
-        const fetchedItems = await fetchSelectableItems({
-          merchantId: merchant.id,
-          type,
-          search: '',
-        });
-        if (requestId !== requestIdRef.current) return;
-        setItems(fetchedItems);
-      } catch (error) {
-        console.error('[DiscountItemSelector] Error fetching items:', error);
-        if (requestId === requestIdRef.current) {
-          setFetchError('Failed to load items');
-        }
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadInitialItems();
 
     return () => {
       requestIdRef.current += 1;
@@ -192,7 +212,7 @@ export function DiscountItemSelector({
                   // Debounce could be added here
                 }}
                 onSubmitEditing={() => {
-                  void handleFetchItems(search);
+                  handleFetchItems(search);
                 }}
               />
             </View>

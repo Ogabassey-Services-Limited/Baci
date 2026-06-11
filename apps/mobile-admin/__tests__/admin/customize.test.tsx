@@ -61,11 +61,16 @@ vi.mock('@/hooks/useBuilderConfig', () => ({
   }),
 }));
 
-vi.mock('@/components/customize/CustomizeChatPanel', () => ({
-  CustomizeChatPanel: () => (
-    <section aria-label="customize-chat-panel">Chat panel</section>
-  ),
-}));
+vi.mock('@/components/customize/CustomizeChatPanel', async () => {
+  const { Text } = await import('react-native');
+  return {
+    CustomizeChatPanel: () => (
+      <section aria-label="customize-chat-panel">
+        <Text>Chat panel</Text>
+      </section>
+    ),
+  };
+});
 
 vi.mock('@/components/customize/CustomizePreviewPane', () => ({
   CustomizePreviewPane: ({ previewUrl }: { previewUrl: string }) => (
@@ -73,9 +78,16 @@ vi.mock('@/components/customize/CustomizePreviewPane', () => ({
   ),
 }));
 
-vi.mock('@/components/ui/ScreenSkeleton', () => ({
-  ScreenSkeleton: () => <div>loading skeleton</div>,
-}));
+vi.mock('@/components/ui/ScreenSkeleton', async () => {
+  const { Text } = await import('react-native');
+  return {
+    ScreenSkeleton: () => (
+      <div>
+        <Text>loading skeleton</Text>
+      </div>
+    ),
+  };
+});
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
@@ -84,33 +96,39 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const Text = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  Alert: {
-    alert: mocks.alert,
-  },
-  FlatList: () => null,
-  Pressable: ({
-    children,
-    disabled,
-    onPress,
-  }: {
-    children?: ReactNode;
-    disabled?: boolean;
-    onPress?: () => void;
-  }) => (
-    <button disabled={disabled} onClick={() => onPress?.()} type="button">
-      {children}
-    </button>
-  ),
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  StyleSheet: {
-    absoluteFillObject: { position: 'absolute', inset: 0 },
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+    ActivityIndicator: () => <Text>loading</Text>,
+    Alert: {
+      alert: mocks.alert,
+    },
+    FlatList: () => null,
+    Pressable: ({
+      children,
+      disabled,
+      onPress,
+    }: {
+      children?: ReactNode;
+      disabled?: boolean;
+      onPress?: () => void;
+    }) => (
+      <button disabled={disabled} onClick={() => onPress?.()} type="button">
+        {children}
+      </button>
+    ),
+    Text,
+    StyleSheet: {
+      absoluteFillObject: { position: 'absolute', inset: 0 },
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (

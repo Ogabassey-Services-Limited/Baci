@@ -5,13 +5,19 @@ interface CreateCustomizeReactNativeMockOptions {
   includePressable?: boolean;
 }
 
+// Local stand-in for React Native's Text. We cannot import the real Text here
+// because this module is the `vi.mock('react-native')` factory itself.
+const MockText = ({ children }: { children?: ReactNode }) => (
+  <span>{children}</span>
+);
+
 export function createCustomizeReactNativeMock(
   options: CreateCustomizeReactNativeMockOptions = {}
 ) {
   return {
     ...(options.includeActivityIndicator
       ? {
-          ActivityIndicator: () => <span>loading</span>,
+          ActivityIndicator: () => <MockText>loading</MockText>,
         }
       : {}),
     ...(options.includePressable
@@ -49,7 +55,7 @@ export function createCustomizeReactNativeMock(
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
-    Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+    Text: MockText,
     View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   };
 }

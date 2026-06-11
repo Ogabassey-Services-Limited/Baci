@@ -3,35 +3,39 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 
-vi.mock('@/components/ui/AppPageSheet', () => ({
-  AppPageSheet: ({
-    children,
-    onClose,
-    title,
-    trailingAccessory,
-    visible,
-  }: {
-    children?: React.ReactNode;
-    onClose: () => void;
-    title: string;
-    trailingAccessory?: React.ReactNode;
-    visible: boolean;
-  }) =>
-    visible ? (
-      <section aria-label="customer-sheet">
-        <button
-          aria-label="Close customer sheet"
-          onClick={onClose}
-          type="button"
-        >
-          Close
-        </button>
-        <h1>{title}</h1>
-        {trailingAccessory}
-        {children}
-      </section>
-    ) : null,
-}));
+vi.mock('@/components/ui/AppPageSheet', async () => {
+  const { Text } = await import('react-native');
+
+  return {
+    AppPageSheet: ({
+      children,
+      onClose,
+      title,
+      trailingAccessory,
+      visible,
+    }: {
+      children?: React.ReactNode;
+      onClose: () => void;
+      title: string;
+      trailingAccessory?: React.ReactNode;
+      visible: boolean;
+    }) =>
+      visible ? (
+        <section aria-label="customer-sheet">
+          <button
+            aria-label="Close customer sheet"
+            onClick={onClose}
+            type="button"
+          >
+            <Text>Close</Text>
+          </button>
+          <h1>{title}</h1>
+          {trailingAccessory}
+          {children}
+        </section>
+      ) : null,
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -61,13 +65,21 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('./NewOrderCustomerCreateView', () => ({
-  NewOrderCustomerCreateView: () => <div>create-view</div>,
-}));
+vi.mock('./NewOrderCustomerCreateView', async () => {
+  const { Text } = await import('react-native');
 
-vi.mock('./NewOrderCustomerSearchView', () => ({
-  NewOrderCustomerSearchView: () => <div>search-view</div>,
-}));
+  return {
+    NewOrderCustomerCreateView: () => <Text>create-view</Text>,
+  };
+});
+
+vi.mock('./NewOrderCustomerSearchView', async () => {
+  const { Text } = await import('react-native');
+
+  return {
+    NewOrderCustomerSearchView: () => <Text>search-view</Text>,
+  };
+});
 
 import { NewOrderCustomerSheet } from './NewOrderCustomerSheet';
 

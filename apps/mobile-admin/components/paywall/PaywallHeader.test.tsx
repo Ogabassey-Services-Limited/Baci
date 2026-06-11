@@ -22,15 +22,19 @@ vi.mock('expo-linear-gradient', () => ({
   },
 }));
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const { Text } = await import('react-native');
 
-  default: () => <span>icon</span>,
-  __esModule: true,
-}));
+  return {
+    Ionicons: () => <Text>icon</Text>,
+
+    default: () => <Text>icon</Text>,
+    __esModule: true,
+  };
+});
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Pressable: ({ children }: { children?: ReactNode }) => (
     <button type="button">{children}</button>
   ),

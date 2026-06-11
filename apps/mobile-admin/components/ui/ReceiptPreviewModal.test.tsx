@@ -32,9 +32,7 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
           aria-label={closeLabel ?? 'Close sheet'}
           onClick={onClose}
           type="button"
-        >
-          close
-        </button>
+        />
         <h1>{title}</h1>
         <div>{children}</div>
         <div>{footer}</div>

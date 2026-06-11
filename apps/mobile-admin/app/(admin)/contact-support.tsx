@@ -65,6 +65,8 @@ export default function ContactSupportScreen() {
 
     const mailtoUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
 
+    // No `finally` block: try/finally in a component body blocks React Compiler
+    // memoization. The catch swallows errors, so this tail always runs.
     try {
       await Linking.openURL(mailtoUrl);
       Alert.alert(
@@ -78,9 +80,8 @@ export default function ContactSupportScreen() {
         'Error',
         `Could not open email app. Please email us directly at ${SUPPORT_EMAIL}`
       );
-    } finally {
-      setIsSending(false);
     }
+    setIsSending(false);
   };
 
   return (

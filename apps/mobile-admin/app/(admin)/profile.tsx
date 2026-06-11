@@ -1,15 +1,18 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator,
+import { useState } from 'react';
+import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -28,6 +31,28 @@ interface UserProfile {
   phone: string | null;
 }
 
+// Module-scope helper: `throw` inside try/catch in a component body blocks
+// React Compiler lowering, so the throwing flow lives outside the component.
+async function requestAccountDeletion(): Promise<void> {
+  const { data: session } = await supabase.auth.getSession();
+  if (!session.session) throw new Error('No active session');
+
+  const response = await fetch(
+    `${process.env.EXPO_PUBLIC_API_URL}/api/merchant/auth/account-deletion`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.session.access_token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to delete account');
+  }
+}
+
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { unregisterPush } = usePushNotifications();
@@ -35,6 +60,7 @@ export default function ProfileScreen() {
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [prevProfile, setPrevProfile] = useState<UserProfile | null>(null);
 
   // Fetch staff registration details (where the personal name/phone usually lives)
   const { data: profile, isLoading } = useQuery({
@@ -53,12 +79,19 @@ export default function ProfileScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
-  useEffect(() => {
-    if (profile) {
-      setFullName(profile.name || '');
-      setPhone(profile.phone || '');
-    }
-  }, [profile]);
+  // Seed editable fields from fetched profile data during render (the
+  // react.dev-sanctioned "adjusting state when a prop changes" pattern)
+  // instead of a cascading setState-in-effect.
+  if (
+    profile &&
+    (prevProfile?.id !== profile.id ||
+      prevProfile?.name !== profile.name ||
+      prevProfile?.phone !== profile.phone)
+  ) {
+    setPrevProfile(profile);
+    setFullName(profile.name || '');
+    setPhone(profile.phone || '');
+  }
 
   const updateProfileMutation = useMutation({
     mutationFn: async () => {
@@ -119,27 +152,7 @@ export default function ProfileScreen() {
                   style: 'destructive',
                   onPress: async () => {
                     try {
-                      const { data: session } =
-                        await supabase.auth.getSession();
-                      if (!session.session)
-                        throw new Error('No active session');
-
-                      const response = await fetch(
-                        `${process.env.EXPO_PUBLIC_API_URL}/api/merchant/auth/account-deletion`,
-                        {
-                          method: 'POST',
-                          headers: {
-                            Authorization: `Bearer ${session.session.access_token}`,
-                          },
-                        }
-                      );
-
-                      if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(
-                          errorData.error || 'Failed to delete account'
-                        );
-                      }
+                      await requestAccountDeletion();
 
                       Alert.alert(
                         'Account Deleted',

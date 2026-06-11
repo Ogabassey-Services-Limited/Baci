@@ -49,11 +49,11 @@ function ShimmerBlock({
   useEffect(() => {
     if (!animated || reducedMotion) {
       cancelAnimation(opacity);
-      opacity.value = 0.5; // Static visible state
+      opacity.set(0.5); // Static visible state
       return;
     }
 
-    opacity.value = withRepeat(withTiming(0.7, { duration: 800 }), -1, true);
+    opacity.set(withRepeat(withTiming(0.7, { duration: 800 }), -1, true));
 
     return () => {
       cancelAnimation(opacity);
@@ -61,7 +61,7 @@ function ShimmerBlock({
   }, [animated, opacity, reducedMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
+    opacity: opacity.get(),
   }));
 
   return (

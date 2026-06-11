@@ -41,6 +41,8 @@ interface OnboardingSlide {
   subtitle: string;
 }
 
+const VIEWABILITY_CONFIG = { viewAreaCoveragePercentThreshold: 50 };
+
 const SLIDES: OnboardingSlide[] = [
   {
     id: '1',
@@ -91,7 +93,7 @@ export default function OnboardingScreen() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const scrollX = useRef(new Animated.Value(0)).current;
+  const [scrollX] = useState(() => new Animated.Value(0));
   const slidesRef = useRef<FlatList<OnboardingSlide>>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -138,15 +140,14 @@ export default function OnboardingScreen() {
     };
   }, []); // Run only once on mount
 
-  const viewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems && viewableItems.length > 0) {
-        setCurrentIndex(viewableItems[0].index || 0);
+  const [viewableItemsChanged] = useState(
+    () =>
+      ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+        if (viewableItems && viewableItems.length > 0) {
+          setCurrentIndex(viewableItems[0].index || 0);
+        }
       }
-    }
-  ).current;
-
-  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+  );
 
   const handleSignIn = async () => {
     try {
@@ -228,7 +229,7 @@ export default function OnboardingScreen() {
           )}
           scrollEventThrottle={32}
           onViewableItemsChanged={viewableItemsChanged}
-          viewabilityConfig={viewConfig}
+          viewabilityConfig={VIEWABILITY_CONFIG}
           ref={slidesRef}
           style={styles.carousel}
           getItemLayout={(_, index) => ({

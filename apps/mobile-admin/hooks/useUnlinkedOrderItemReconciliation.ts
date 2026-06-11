@@ -137,7 +137,12 @@ export function useUnlinkedOrderItemReconciliation() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
 
-  const unlinkedItemsQuery = useQuery({
+  const {
+    data: unlinkedItemsData,
+    error: unlinkedItemsError,
+    isLoading: isLoadingUnlinkedItems,
+    refetch: refetchUnlinkedItems,
+  } = useQuery({
     enabled: Boolean(merchant?.id),
     queryKey: ['unlinked-order-items', merchant?.id],
     queryFn: async () => {
@@ -151,10 +156,14 @@ export function useUnlinkedOrderItemReconciliation() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  const unlinkedItems = (unlinkedItemsQuery.data ??
-    []) as UnlinkedOrderItemRow[];
+  const unlinkedItems = (unlinkedItemsData ?? []) as UnlinkedOrderItemRow[];
   const searchTerms = buildReconciliationSearchTerms(unlinkedItems);
-  const productCandidatesQuery = useQuery({
+  const {
+    data: productCandidatesData,
+    error: productCandidatesError,
+    isLoading: isLoadingProductCandidates,
+    refetch: refetchProductCandidates,
+  } = useQuery({
     enabled: Boolean(merchant?.id && searchTerms.length > 0),
     queryKey: [
       'transaction-reconciliation-products',
@@ -294,7 +303,17 @@ export function useUnlinkedOrderItemReconciliation() {
   return {
     keepCustomMutation,
     linkItemMutation,
-    productCandidatesQuery,
-    unlinkedItemsQuery,
+    productCandidatesQuery: {
+      data: productCandidatesData,
+      error: productCandidatesError,
+      isLoading: isLoadingProductCandidates,
+      refetch: refetchProductCandidates,
+    },
+    unlinkedItemsQuery: {
+      data: unlinkedItemsData,
+      error: unlinkedItemsError,
+      isLoading: isLoadingUnlinkedItems,
+      refetch: refetchUnlinkedItems,
+    },
   };
 }

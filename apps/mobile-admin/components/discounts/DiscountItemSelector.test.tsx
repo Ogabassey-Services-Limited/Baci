@@ -45,9 +45,12 @@ vi.mock('@/lib/discount-items', () => ({
   fetchSelectableItems: mocks.fetchSelectableItems,
 }));
 
-vi.mock('@/components/ui/SafeImage', () => ({
-  default: () => <span>image</span>,
-}));
+vi.mock('@/components/ui/SafeImage', async () => {
+  const { Text } = await import('react-native');
+  return {
+    default: () => <Text>image</Text>,
+  };
+});
 
 vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   AppKeyboardContainer: ({
@@ -67,12 +70,15 @@ vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   },
 }));
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const { Text } = await import('react-native');
+  return {
+    Ionicons: () => <Text>icon</Text>,
 
-  default: () => <span>icon</span>,
-  __esModule: true,
-}));
+    default: () => <Text>icon</Text>,
+    __esModule: true,
+  };
+});
 
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: { children?: ReactNode }) => (
@@ -83,79 +89,85 @@ vi.mock('react-native-safe-area-context', () => ({
   ),
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const Text = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  FlatList: ({
-    data,
-    initialNumToRender,
-    maxToRenderPerBatch,
-    removeClippedSubviews,
-    renderItem,
-    windowSize,
-  }: {
-    data: Array<{ id: string; name: string }>;
-    initialNumToRender?: number;
-    maxToRenderPerBatch?: number;
-    removeClippedSubviews?: boolean;
-    renderItem: (props: { item: { id: string; name: string } }) => ReactNode;
-    windowSize?: number;
-  }) => {
-    mocks.listProps.initialNumToRender = initialNumToRender ?? 0;
-    mocks.listProps.maxToRenderPerBatch = maxToRenderPerBatch ?? 0;
-    mocks.listProps.removeClippedSubviews = removeClippedSubviews ?? false;
-    mocks.listProps.windowSize = windowSize ?? 0;
-    return <div>{data.map((item) => renderItem({ item }))}</div>;
-  },
-  Modal: ({
-    children,
-    visible,
-  }: {
-    children?: ReactNode;
-    visible?: boolean;
-  }) => (visible ? <div>{children}</div> : null),
-  Platform: mocks.platform,
-  Pressable: ({
-    accessibilityLabel,
-    children,
-    onPress,
-  }: {
-    accessibilityLabel?: string;
-    children?: ReactNode;
-    onPress?: () => void;
-  }) => (
-    <button
-      aria-label={accessibilityLabel}
-      onClick={() => onPress?.()}
-      type="button"
-    >
-      {children}
-    </button>
-  ),
-  SafeAreaView: ({ children }: { children?: ReactNode }) => (
-    <section>{children}</section>
-  ),
-  StyleSheet: {
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  TextInput: ({
-    onChangeText,
-    placeholder,
-    value,
-  }: {
-    onChangeText?: (value: string) => void;
-    placeholder?: string;
-    value?: string;
-  }) => (
-    <input
-      onChange={(event) => onChangeText?.(event.target.value)}
-      placeholder={placeholder}
-      value={value}
-    />
-  ),
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+    ActivityIndicator: () => <Text>loading</Text>,
+    FlatList: ({
+      data,
+      initialNumToRender,
+      maxToRenderPerBatch,
+      removeClippedSubviews,
+      renderItem,
+      windowSize,
+    }: {
+      data: Array<{ id: string; name: string }>;
+      initialNumToRender?: number;
+      maxToRenderPerBatch?: number;
+      removeClippedSubviews?: boolean;
+      renderItem: (props: { item: { id: string; name: string } }) => ReactNode;
+      windowSize?: number;
+    }) => {
+      mocks.listProps.initialNumToRender = initialNumToRender ?? 0;
+      mocks.listProps.maxToRenderPerBatch = maxToRenderPerBatch ?? 0;
+      mocks.listProps.removeClippedSubviews = removeClippedSubviews ?? false;
+      mocks.listProps.windowSize = windowSize ?? 0;
+      return <div>{data.map((item) => renderItem({ item }))}</div>;
+    },
+    Modal: ({
+      children,
+      visible,
+    }: {
+      children?: ReactNode;
+      visible?: boolean;
+    }) => (visible ? <div>{children}</div> : null),
+    Platform: mocks.platform,
+    Pressable: ({
+      accessibilityLabel,
+      children,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      children?: ReactNode;
+      onPress?: () => void;
+    }) => (
+      <button
+        aria-label={accessibilityLabel}
+        onClick={() => onPress?.()}
+        type="button"
+      >
+        {children}
+      </button>
+    ),
+    SafeAreaView: ({ children }: { children?: ReactNode }) => (
+      <section>{children}</section>
+    ),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text,
+    TextInput: ({
+      onChangeText,
+      placeholder,
+      value,
+    }: {
+      onChangeText?: (value: string) => void;
+      placeholder?: string;
+      value?: string;
+    }) => (
+      <input
+        onChange={(event) => onChangeText?.(event.target.value)}
+        placeholder={placeholder}
+        value={value}
+      />
+    ),
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 describe('DiscountItemSelector', () => {
   beforeEach(() => {

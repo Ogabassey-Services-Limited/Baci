@@ -19,12 +19,12 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   ActivityIndicator: ({
     accessibilityLabel,
   }: {
     accessibilityLabel?: string;
-  }) => <span aria-label={accessibilityLabel}>loading</span>,
+  }) => <span aria-label={accessibilityLabel} role="progressbar" />,
   Pressable: ({
     accessibilityLabel,
     accessibilityRole,

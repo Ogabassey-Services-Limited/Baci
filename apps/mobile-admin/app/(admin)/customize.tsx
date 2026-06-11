@@ -19,7 +19,7 @@ import { CustomizePreviewPane } from '@/components/customize/CustomizePreviewPan
 import { CustomizeViewModeToggle } from '@/components/customize/CustomizeViewModeToggle';
 import { customizeStyles } from '@/components/customize/customize.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { useBuilderConfig } from '@/hooks/useBuilderConfig';
+import { type BuilderConfig, useBuilderConfig } from '@/hooks/useBuilderConfig';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -84,11 +84,17 @@ export default function CustomizeScreen() {
     };
   }, [messages.length]);
 
-  useEffect(() => {
+  // Bump the preview cache-buster whenever the config identity changes.
+  // Adjusted during render (instead of in an effect) so the refreshed preview
+  // URL lands in the same commit as the new config.
+  const [prevConfig, setPrevConfig] = useState<BuilderConfig | null>(null);
+
+  if (config !== prevConfig) {
+    setPrevConfig(config);
     if (config) {
       setPreviewKey((currentKey) => currentKey + 1);
     }
-  }, [config]);
+  }
 
   const handleSend = async () => {
     const prompt = inputText.trim();
