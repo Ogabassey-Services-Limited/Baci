@@ -6,8 +6,9 @@ const routeHeadersState = vi.hoisted(() => ({
 
 const mockResolveStorefrontSitemapContext = vi.fn();
 const mockGetNamedSitemapEntries = vi.fn();
-const mockGetRootSitemapEntries = vi.fn();
+const mockGetSitemapIndexLinks = vi.fn();
 const mockCreateSitemapResponse = vi.fn();
+const mockCreateSitemapIndexResponse = vi.fn();
 const mockCreateSitemapUnavailableResponse = vi.fn();
 
 vi.mock('next/headers', () => ({
@@ -19,10 +20,12 @@ vi.mock('../../sitemap-data', () => ({
     mockResolveStorefrontSitemapContext(...args),
   getNamedSitemapEntries: (...args: unknown[]) =>
     mockGetNamedSitemapEntries(...args),
-  getRootSitemapEntries: (...args: unknown[]) =>
-    mockGetRootSitemapEntries(...args),
+  getSitemapIndexLinks: (...args: unknown[]) =>
+    mockGetSitemapIndexLinks(...args),
   createSitemapResponse: (...args: unknown[]) =>
     mockCreateSitemapResponse(...args),
+  createSitemapIndexResponse: (...args: unknown[]) =>
+    mockCreateSitemapIndexResponse(...args),
   createSitemapUnavailableResponse: (...args: unknown[]) =>
     mockCreateSitemapUnavailableResponse(...args),
 }));
@@ -34,6 +37,12 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
     mockCreateSitemapResponse.mockImplementation(
       (entries: unknown[]) =>
         new Response(JSON.stringify(entries), {
+          headers: { 'content-type': 'application/xml; charset=utf-8' },
+        })
+    );
+    mockCreateSitemapIndexResponse.mockImplementation(
+      (links: string[]) =>
+        new Response(links.join('\n'), {
           headers: { 'content-type': 'application/xml; charset=utf-8' },
         })
     );
@@ -121,13 +130,13 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
     );
   });
 
-  it('returns the combined root storefront sitemap for root.xml rewrites', async () => {
+  it('returns a sitemap index referencing child sitemaps for root.xml rewrites', async () => {
     mockResolveStorefrontSitemapContext.mockResolvedValue({
       merchant: { id: 'm1' },
     });
-    mockGetNamedSitemapEntries.mockResolvedValue([
-      { url: 'https://ogabassey.com' },
-      { url: 'https://ogabassey.com/smartphones/iphone-17-pro' },
+    mockGetSitemapIndexLinks.mockResolvedValue([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
     ]);
 
     const { GET } = await import('./route');
@@ -137,12 +146,15 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
     );
     const body = await response.text();
 
-    expect(mockGetNamedSitemapEntries).toHaveBeenCalledWith(
-      { merchant: { id: 'm1' } },
-      'root'
-    );
-    expect(mockGetRootSitemapEntries).not.toHaveBeenCalled();
-    expect(body).toContain('https://ogabassey.com/smartphones/iphone-17-pro');
+    expect(mockGetSitemapIndexLinks).toHaveBeenCalledWith({
+      merchant: { id: 'm1' },
+    });
+    expect(mockCreateSitemapIndexResponse).toHaveBeenCalledWith([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+    ]);
+    expect(mockGetNamedSitemapEntries).not.toHaveBeenCalled();
+    expect(body).toContain('https://ogabassey.com/sitemap/products.xml');
   });
 
   it('returns a 503 response when the storefront is unresolved', async () => {
