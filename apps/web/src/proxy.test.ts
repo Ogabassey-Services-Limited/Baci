@@ -673,6 +673,50 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('rewrites custom-domain favicon.ico requests to the dynamic favicon route', async () => {
+    const req = new NextRequest('https://ogabassey.com/favicon.ico');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/ogabassey/favicon.ico'
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-domain')).toBe(
+      'ogabassey.com'
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'ogabassey'
+    );
+  });
+
+  it('rewrites subdomain favicon.ico requests to the dynamic favicon route without custom domain redirect', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/favicon.ico`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      `https://ogabassey.${ROOT_DOMAIN}/ogabassey/favicon.ico`
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'ogabassey'
+    );
+    expect(res.status).not.toBe(301);
+  });
+
+  it('passes through platform root favicon.ico requests unmodified', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/favicon.ico`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.status).toBe(200);
+  });
+
   it('keeps normal custom-domain browsers in the streaming metadata bucket', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
@@ -1553,6 +1597,18 @@ describe('Middleware Proxy', () => {
       );
     });
 
+    it('lowercases /FAVICON.ICO prefix but preserves case', async () => {
+      const req = new NextRequest(`https://${ROOT_DOMAIN}/FAVICON.ICO`);
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe('/favicon.ico');
+    });
+
     it('does not redirect already-lowercase prefix paths', async () => {
       const req = new NextRequest(`https://${ROOT_DOMAIN}/api/products`);
       req.headers.set('host', ROOT_DOMAIN);
@@ -1820,8 +1876,9 @@ describe('Middleware Proxy', () => {
       if (!matcherPattern) throw new Error('Static asset matcher is missing');
       const regex = new RegExp(matcherPattern);
 
-      expect(regex.test('/favicon.ico')).toBe(false);
+      expect(regex.test('/favicon.ico')).toBe(true);
       expect(regex.test('/favicon.ico/')).toBe(true);
+      expect(regex.test('/images/some-icon.ico')).toBe(false);
       expect(regex.test('/robots.txt')).toBe(false);
       expect(regex.test('/robots.txt/')).toBe(true);
       expect(regex.test('/manifest.webmanifest')).toBe(false);
