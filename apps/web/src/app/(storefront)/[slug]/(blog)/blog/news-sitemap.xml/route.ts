@@ -3,7 +3,10 @@ import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { getCachedFeatureSettings } from '@/lib/cached-data';
 import { filterPublicBlogPosts } from '@/lib/public-blog-content-quality';
-import { resolveStorefrontSitemapContext } from '../../../sitemap-data';
+import {
+  createSitemapUnavailableResponse,
+  resolveStorefrontSitemapContext,
+} from '../../../sitemap-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,12 +120,16 @@ function createNewsSitemapResponse(entries: NewsSitemapEntry[]): NextResponse {
   });
 }
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<Response> {
   const headersList = await headers();
-  const context = await resolveStorefrontSitemapContext(headersList);
+  const context = await resolveStorefrontSitemapContext(
+    headersList,
+    undefined,
+    request
+  );
 
   if (!context) {
-    return createNewsSitemapResponse([]);
+    return createSitemapUnavailableResponse();
   }
 
   const { merchant, storeUrl, supabase } = context;

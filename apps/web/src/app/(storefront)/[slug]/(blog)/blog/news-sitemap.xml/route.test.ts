@@ -44,6 +44,12 @@ vi.mock('@/lib/supabase/anon', () => ({
   })),
 }));
 
+function createNewsSitemapRequest(host = 'ogabassey.com') {
+  return new Request(`https://${host}/blog/news-sitemap.xml`, {
+    headers: { host },
+  });
+}
+
 describe('GET /blog/news-sitemap.xml', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -79,7 +85,7 @@ describe('GET /blog/news-sitemap.xml', () => {
     ];
 
     const { GET } = await import('./route');
-    const response = await GET();
+    const response = await GET(createNewsSitemapRequest());
     const xml = await response.text();
 
     expect(response.status).toBe(200);
@@ -113,7 +119,7 @@ describe('GET /blog/news-sitemap.xml', () => {
     mockGetCachedFeatureSettings.mockResolvedValueOnce({ blog_enabled: false });
 
     const { GET } = await import('./route');
-    const response = await GET();
+    const response = await GET(createNewsSitemapRequest());
     const xml = await response.text();
 
     expect(response.status).toBe(200);
@@ -139,7 +145,7 @@ describe('GET /blog/news-sitemap.xml', () => {
     ];
 
     const { GET } = await import('./route');
-    const response = await GET();
+    const response = await GET(createNewsSitemapRequest());
     const xml = await response.text();
 
     expect(xml).toContain('<news:name>Ogabassey &amp; Sons</news:name>');
@@ -148,14 +154,16 @@ describe('GET /blog/news-sitemap.xml', () => {
     );
   });
 
-  it('returns an empty sitemap when the storefront context cannot be resolved', async () => {
-    mockGetMerchantByIdentifier.mockResolvedValueOnce(null);
+  it('returns a no-store 503 when the storefront context cannot be resolved', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
 
     const { GET } = await import('./route');
-    const response = await GET();
+    const response = await GET(createNewsSitemapRequest('unknown.example.com'));
     const xml = await response.text();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('retry-after')).toBe('300');
     expect(xml).toContain('<urlset');
     expect(xml).not.toContain('<url>');
     expect(mockFrom).not.toHaveBeenCalled();
@@ -163,7 +171,7 @@ describe('GET /blog/news-sitemap.xml', () => {
 
   it('returns an empty sitemap when there are no recent blog posts', async () => {
     const { GET } = await import('./route');
-    const response = await GET();
+    const response = await GET(createNewsSitemapRequest());
     const xml = await response.text();
 
     expect(response.status).toBe(200);
@@ -189,7 +197,7 @@ describe('GET /blog/news-sitemap.xml', () => {
     ];
 
     const { GET } = await import('./route');
-    const response = await GET();
+    const response = await GET(createNewsSitemapRequest());
     const xml = await response.text();
 
     expect(response.status).toBe(200);
@@ -203,7 +211,7 @@ describe('GET /blog/news-sitemap.xml', () => {
 
     const { GET } = await import('./route');
 
-    await expect(GET()).rejects.toThrow(
+    await expect(GET(createNewsSitemapRequest())).rejects.toThrow(
       'Failed to fetch blog posts for Google News sitemap'
     );
   });
