@@ -1,0 +1,161 @@
+import type { PostgrestError } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { getCachedFeatureSettings } from '@/lib/cached-data';
+import { filterPublicBlogPosts } from '@/lib/public-blog-content-quality';
+import { resolveStorefrontSitemapContext } from '../../../sitemap-data';
+
+export const dynamic = 'force-dynamic';
+
+const NEWS_SITEMAP_WINDOW_MS = 48 * 60 * 60 * 1000;
+const NEWS_SITEMAP_LIMIT = 1000;
+
+interface NewsSitemapPostRow {
+  slug: string;
+  title: string | null;
+  published_at: string | null;
+  updated_at: string | null;
+}
+
+interface NewsSitemapEntry {
+  loc: string;
+  lastmod: string;
+  publicationName: string;
+  publicationLanguage: string;
+  publicationDate: string;
+  title: string;
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+function getValidIsoDate(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString();
+}
+
+export function buildNewsSitemapXml(entries: NewsSitemapEntry[]): string {
+  const body = entries
+    .map(
+      (entry) =>
+        '<url>' +
+        `<loc>${escapeXml(entry.loc)}</loc>` +
+        `<lastmod>${escapeXml(entry.lastmod)}</lastmod>` +
+        '<news:news>' +
+        '<news:publication>' +
+        `<news:name>${escapeXml(entry.publicationName)}</news:name>` +
+        `<news:language>${escapeXml(entry.publicationLanguage)}</news:language>` +
+        '</news:publication>' +
+        `<news:publication_date>${escapeXml(entry.publicationDate)}</news:publication_date>` +
+        `<news:title>${escapeXml(entry.title)}</news:title>` +
+        '</news:news>' +
+        '</url>'
+    )
+    .join('');
+
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">' +
+    body +
+    '</urlset>'
+  );
+}
+
+export function buildNewsSitemapEntries({
+  posts,
+  publicationName,
+  storeUrl,
+}: {
+  posts: NewsSitemapPostRow[];
+  publicationName: string;
+  storeUrl: string;
+}): NewsSitemapEntry[] {
+  return filterPublicBlogPosts(posts).flatMap((post) => {
+    const publicationDate = getValidIsoDate(post.published_at);
+    const title = post.title?.trim();
+
+    if (!publicationDate || !title) {
+      return [];
+    }
+
+    const lastmod = getValidIsoDate(post.updated_at) || publicationDate;
+
+    return [
+      {
+        loc: `${storeUrl}/blog/${post.slug}`,
+        lastmod,
+        publicationName,
+        publicationLanguage: 'en',
+        publicationDate,
+        title,
+      },
+    ];
+  });
+}
+
+function createNewsSitemapResponse(entries: NewsSitemapEntry[]): NextResponse {
+  return new NextResponse(buildNewsSitemapXml(entries), {
+    headers: {
+      'content-type': 'application/xml; charset=utf-8',
+      'cache-control': 'public, s-maxage=300, stale-while-revalidate=600',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}
+
+export async function GET(): Promise<NextResponse> {
+  const headersList = await headers();
+  const context = await resolveStorefrontSitemapContext(headersList);
+
+  if (!context) {
+    return createNewsSitemapResponse([]);
+  }
+
+  const { merchant, storeUrl, supabase } = context;
+  const features = await getCachedFeatureSettings(merchant.id);
+  if (!features?.blog_enabled) {
+    return createNewsSitemapResponse([]);
+  }
+
+  const cutoffIso = new Date(Date.now() - NEWS_SITEMAP_WINDOW_MS).toISOString();
+  const { data: posts, error } = (await supabase
+    .from('blog_posts')
+    .select('slug, title, published_at, updated_at')
+    .eq('merchant_id', merchant.id)
+    .eq('status', 'published')
+    .not('published_at', 'is', null)
+    .gte('published_at', cutoffIso)
+    .order('published_at', { ascending: false })
+    .limit(NEWS_SITEMAP_LIMIT)) as {
+    data: NewsSitemapPostRow[] | null;
+    error: PostgrestError | null;
+  };
+
+  if (error) {
+    throw new Error('Failed to fetch blog posts for Google News sitemap', {
+      cause: error,
+    });
+  }
+
+  const entries = buildNewsSitemapEntries({
+    posts: posts || [],
+    publicationName: merchant.business_name || merchant.slug || 'Publication',
+    storeUrl,
+  });
+
+  return createNewsSitemapResponse(entries);
+}

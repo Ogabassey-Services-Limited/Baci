@@ -6,15 +6,23 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
+import {
+  extractBlogFaqItems,
+  generateFaqPageSchema,
+} from '@/lib/blog-faq-schema';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
-import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
+import { buildBlogPublisherSameAs } from '@/lib/blog-publisher-same-as';
+import {
+  getBlogStructuredDataImages,
+  getBlogStructuredDataImageUrls,
+} from '@/lib/blog-structured-data-images';
+import { getRequestLocale } from '@/lib/request-locale';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
-import { normalizeSocialUrl } from '@/lib/social';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
 import { isDomainIdentifier } from '@/lib/validation';
@@ -30,78 +38,6 @@ import { ViewCounter } from './view-counter';
 
 interface BlogPostPageContentProps {
   params: Promise<{ slug: string; postSlug: string }>;
-}
-
-const BLOG_PUBLISHER_SOCIAL_PLATFORMS = [
-  'instagram',
-  'facebook',
-  'tiktok',
-  'twitter',
-  'youtube',
-  'linkedin',
-  'snapchat',
-] as const;
-
-type BlogPublisherSocialPlatform =
-  (typeof BLOG_PUBLISHER_SOCIAL_PLATFORMS)[number];
-
-function isBlogPublisherSocialPlatform(
-  platform: string
-): platform is BlogPublisherSocialPlatform {
-  return BLOG_PUBLISHER_SOCIAL_PLATFORMS.includes(
-    platform as BlogPublisherSocialPlatform
-  );
-}
-
-function buildBlogPublisherSameAs(
-  socialMedia: Record<string, unknown> | null | undefined
-): string[] {
-  if (!socialMedia) {
-    return [];
-  }
-
-  const sameAs = new Set<string>();
-
-  for (const [platform, value] of Object.entries(socialMedia)) {
-    if (!isBlogPublisherSocialPlatform(platform)) {
-      continue;
-    }
-
-    if (typeof value !== 'string') {
-      continue;
-    }
-
-    const normalized = normalizeSocialUrl(value, platform);
-    if (normalized) {
-      sameAs.add(normalized);
-    }
-  }
-
-  return [...sameAs];
-}
-
-function getRequestLocale(headersList: Headers): string | undefined {
-  const rawLocale = headersList.get('accept-language')?.split(',')[0];
-
-  if (!rawLocale) {
-    return undefined;
-  }
-
-  try {
-    // Strip quality parameters (e.g. "en-US;q=0.8" → "en-US")
-    const [tag] = rawLocale.split(';');
-    const trimmed = tag.trim();
-
-    if (!trimmed) {
-      return undefined;
-    }
-
-    const [canonical] = Intl.getCanonicalLocales(trimmed);
-
-    return canonical;
-  } catch {
-    return undefined;
-  }
 }
 
 async function renderBlogPostContent({
@@ -139,6 +75,8 @@ async function renderBlogPostContent({
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const blogImageUrls = getBlogStructuredDataImageUrls(post);
+  const blogImages = getBlogStructuredDataImages(post);
+  const faqSchema = generateFaqPageSchema(extractBlogFaqItems(content));
 
   const blogSchema = generateBlogPostSchema({
     title: post.seo_title || post.title,
@@ -147,6 +85,7 @@ async function renderBlogPostContent({
       post.excerpt ||
       getBlogPostTextPreview(post.content),
     url: postUrl,
+    ...(blogImages.length > 0 ? { imageObjects: blogImages } : {}),
     ...(blogImageUrls.length > 0 ? { imageUrls: blogImageUrls } : {}),
     datePublished: post.published_at,
     dateModified: post.updated_at,
@@ -225,6 +164,11 @@ async function renderBlogPostContent({
       <script type="application/ld+json">
         {safeJsonLdStringify(breadcrumbSchema)}
       </script>
+      {faqSchema && (
+        <script type="application/ld+json">
+          {safeJsonLdStringify(faqSchema)}
+        </script>
+      )}
 
       <ViewCounter postId={post.id} />
 
