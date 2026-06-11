@@ -26,6 +26,7 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
+import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
@@ -499,6 +500,19 @@ function shouldRedirectResolvedProductSlugValue(
   );
 }
 
+function getKnownOgaBasseyMerchantId(
+  storeSlug: string
+): typeof OGABASSEY_MERCHANT_ID | null {
+  const normalizedSlug = storeSlug.trim().toLowerCase();
+  const normalizedTemplateId = OGABASSEY_TEMPLATE_ID.toLowerCase();
+  const normalizedDomain = OGABASSEY_DOMAIN.toLowerCase();
+
+  return normalizedSlug === normalizedTemplateId ||
+    normalizedSlug === normalizedDomain
+    ? OGABASSEY_MERCHANT_ID
+    : null;
+}
+
 function parseRouteProductNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -740,6 +754,19 @@ async function getProductRouteControl(
   categorySlug: string,
   productSlug: string
 ): Promise<CategoryProductRouteControl | null> {
+  const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(storeSlug);
+  const knownOgaBasseyLcpHintPromise = knownOgaBasseyMerchantId
+    ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug)
+    : null;
+  if (knownOgaBasseyLcpHintPromise) {
+    void knownOgaBasseyLcpHintPromise.catch((error) => {
+      console.warn(
+        'Unable to prewarm OgaBassey PDP LCP hint:',
+        sanitizeLookupLogValue(productSlug),
+        error
+      );
+    });
+  }
   const merchant = await getRequestScopedMerchant(storeSlug);
 
   if (!merchant) {
@@ -747,7 +774,10 @@ async function getProductRouteControl(
     return null;
   }
 
-  let cachedProduct = await getCachedProductLcpHint(merchant.id, productSlug);
+  let cachedProduct =
+    knownOgaBasseyMerchantId === merchant.id && knownOgaBasseyLcpHintPromise
+      ? await knownOgaBasseyLcpHintPromise
+      : await getCachedProductLcpHint(merchant.id, productSlug);
   let needsValuesRedirect = false;
 
   if (!cachedProduct && productSlug !== productSlug.toLowerCase()) {
@@ -1201,9 +1231,6 @@ export default async function CategoryProductPage({
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
-  const criticalBasePathPromise = criticalProduct
-    ? getRequestScopedCategoryProductBasePath(slug)
-    : Promise.resolve<'' | `/${string}`>('');
 
   try {
     if (primaryProductImage) {
@@ -1220,6 +1247,10 @@ export default async function CategoryProductPage({
       error
     );
   }
+
+  const criticalBasePathPromise = criticalProduct
+    ? getRequestScopedCategoryProductBasePath(slug)
+    : Promise.resolve<'' | `/${string}`>('');
 
   productResultPromise = getProductResultPromise();
 

@@ -11,6 +11,7 @@ vi.mock('next/image', () => ({
     fetchPriority,
     fill,
     loader,
+    loading,
     priority,
     quality,
     sizes,
@@ -22,6 +23,7 @@ vi.mock('next/image', () => ({
     fetchPriority?: string;
     fill?: boolean;
     loader?: () => string;
+    loading?: string;
     priority?: boolean;
     quality?: number;
     sizes?: string;
@@ -34,6 +36,7 @@ vi.mock('next/image', () => ({
       fetchPriority,
       fill,
       loader,
+      loading,
       priority,
       quality,
       sizes,
@@ -89,6 +92,9 @@ describe('OgabasseyPdpCriticalShell', () => {
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
     ).toHaveAttribute('fetchpriority', 'high');
+    expect(
+      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
+    ).toHaveAttribute('loading', 'eager');
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
     ).not.toHaveAttribute('loader');
