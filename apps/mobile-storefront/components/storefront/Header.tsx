@@ -98,7 +98,7 @@ export function Header({
               <Pressable
                 onPress={openDrawer}
                 hitSlop={12}
-                style={({ pressed }) => [styles.menuBtn, pressed && { opacity: 0.7 }]}
+                style={styles.menuBtn}
                 accessibilityLabel="Open navigation menu"
                 accessibilityRole="button"
               >
@@ -107,7 +107,7 @@ export function Header({
 
               <Pressable
                 onPress={() => router.push('/')}
-                style={({ pressed }) => [styles.logoContainer, pressed && { opacity: 0.7 }]}
+                style={styles.logoContainer}
                 accessibilityLabel={`${storeName}, go to home`}
                 accessibilityRole="button"
               >
@@ -119,7 +119,7 @@ export function Header({
               <Pressable
                 onPress={() => router.navigate('/cart')}
                 hitSlop={12}
-                style={({ pressed }) => [styles.iconBtn, styles.rightIconBtn, pressed && { opacity: 0.7 }]}
+                style={[styles.iconBtn, styles.rightIconBtn]}
                 accessibilityLabel={
                   itemCount > 0
                     ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`
@@ -161,7 +161,7 @@ export function Header({
                 {!isSearchActive ? (
                   <Pressable
                     onPress={handleSearchPress}
-                    style={({ pressed }) => [styles.searchPillPressable, pressed && { opacity: 0.7 }]}
+                    style={styles.searchPillPressable}
                     hitSlop={12}
                     accessibilityLabel="Search products, brands and categories"
                     accessibilityRole="search"
@@ -196,7 +196,6 @@ export function Header({
                 <Pressable
                   onPress={onSearchCancel}
                   hitSlop={10}
-                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                   accessibilityLabel="Cancel search"
                   accessibilityRole="button"
                 >
@@ -235,7 +234,7 @@ export function Header({
           <Pressable
             onPress={() => router.push('/notifications' as Href)}
             hitSlop={12}
-            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
+            style={styles.iconBtn}
             accessibilityLabel="Notifications"
             accessibilityRole="button"
           >
@@ -248,7 +247,7 @@ export function Header({
           <Pressable
             onPress={() => router.navigate('/cart')}
             hitSlop={12}
-            style={({ pressed }) => [styles.iconBtn, styles.rightIconBtn, pressed && { opacity: 0.7 }]}
+            style={[styles.iconBtn, styles.rightIconBtn]}
             accessibilityLabel={
               itemCount > 0
                 ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`
@@ -267,7 +266,7 @@ export function Header({
       </View>
       {showSearch && (
         <Pressable
-          style={({ pressed }) => [styles.defaultSearchBar, pressed && { opacity: 0.7 }]}
+          style={styles.defaultSearchBar}
           onPress={handleSearchPress}
           accessibilityLabel="Search our collection"
           accessibilityRole="search"
