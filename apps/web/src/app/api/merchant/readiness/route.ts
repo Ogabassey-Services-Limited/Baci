@@ -121,6 +121,8 @@ export async function GET() {
       .select(`
         id,
         business_name,
+        email,
+        phone,
         country,
         logo_url,
         support_email,
@@ -157,6 +159,8 @@ export async function GET() {
           merchants (
             id,
             business_name,
+            email,
+            phone,
             country,
             logo_url,
             support_email,
@@ -356,7 +360,10 @@ export async function GET() {
         label: 'Add contact information',
         description: 'Let customers know how to reach you',
         completed: !!(
-          validMerchant.support_email || validMerchant.support_phone
+          validMerchant.support_email ||
+          validMerchant.support_phone ||
+          validMerchant.email ||
+          validMerchant.phone
         ),
         href: '/dashboard/settings',
         priority: 'required',
