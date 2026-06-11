@@ -15,6 +15,18 @@ const originalEnv = Object.fromEntries(
   ENV_KEYS.map((key) => [key, process.env[key]])
 );
 
+const PUBLIC_MCP_TOOL_NAMES = [
+  'search_products',
+  'add_to_cart',
+  'get_product',
+  'get_product_variants',
+  'get_store_info',
+  'get_recommendations',
+  'browse_categories',
+  'get_brands',
+  'get_shipping_quote',
+];
+
 function importAgentReadiness(
   overrides: Partial<Record<(typeof ENV_KEYS)[number], string>>
 ) {
@@ -57,6 +69,13 @@ describe('agent readiness config', () => {
     expect(config.BACI_AGENT_SKILL_MARKDOWN).toContain(
       'https://ogabassey.com/.well-known/ucp'
     );
+    for (const toolName of PUBLIC_MCP_TOOL_NAMES) {
+      expect(config.BACI_AGENT_SKILL_MARKDOWN).toContain(`- ${toolName}:`);
+    }
+    expect(config.BACI_AGENT_SKILL_MARKDOWN).not.toContain(
+      'create_agentic_checkout_session'
+    );
+    expect(config.BACI_AGENT_SKILL_MARKDOWN).not.toContain('check_order');
   });
 
   it('supports environment-specific MCP and storefront discovery URLs', async () => {

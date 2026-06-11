@@ -26,6 +26,7 @@ function BumpaMigrationWorkflow({
     acting,
     entityType,
     error,
+    file,
     handleFilterChange,
     handleUpload,
     jobs,
@@ -39,6 +40,7 @@ function BumpaMigrationWorkflow({
     setEntityType,
     setFile,
     setSelectedJobId,
+    uploadProgress,
     uploading,
   } = useMigrationJobs({
     initialError,
@@ -55,6 +57,8 @@ function BumpaMigrationWorkflow({
         onJobSelect={setSelectedJobId}
         onUpload={handleUpload}
         selectedJobId={selectedJobId}
+        selectedFileName={file?.name ?? null}
+        uploadProgress={uploadProgress}
         uploading={uploading}
       />
 
