@@ -42,6 +42,16 @@ export async function ensureActionRateLimit(
   if (!identity) {
     try {
       const headerStore = await headers();
+      // IP resolution order (per Vercel request-header docs):
+      // 1. x-vercel-forwarded-for / x-real-ip are platform-set with the real
+      //    client IP and cannot be spoofed; on Vercel one of these always
+      //    exists, so the x-forwarded-for branch never runs in production.
+      // 2. The x-forwarded-for fallback (non-Vercel/dev only) deliberately
+      //    takes the LAST hop, not the first: the leftmost entry is
+      //    client-supplied and trivially spoofable, which would let attackers
+      //    mint a fresh identity per request and bypass the limiter entirely.
+      //    Worst case for .at(-1) is several clients behind one proxy sharing
+      //    a bucket (fail-closed); .at(0) fails open. Do not "fix" this back.
       identity =
         headerStore.get('x-vercel-forwarded-for')?.trim() ||
         headerStore.get('x-real-ip')?.trim() ||
