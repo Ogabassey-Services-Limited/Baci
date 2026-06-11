@@ -139,4 +139,25 @@ describe('Hero', () => {
     expect(screen.getByTestId('desktop-hero-grid')).toBeInTheDocument();
   });
 
+  it('renders the desktop LCP image in the fallback shell before viewport detection', () => {
+    render(<Hero />);
+
+    // The fallback shell is intentionally hidden from assistive technology:
+    // the interactive desktop hero chunk owns the accessible carousel.
+    const fallbackImage = screen.getByRole('img', {
+      hidden: true,
+      name: /iphone 17 pro max/i,
+    });
+    const picture = fallbackImage.closest('picture');
+    const sources = Array.from(picture?.querySelectorAll('source') ?? []);
+
+    expect(fallbackImage).toHaveAttribute('loading', 'eager');
+    expect(fallbackImage).toHaveAttribute('fetchpriority', 'high');
+    expect(picture).toBeInstanceOf(HTMLPictureElement);
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).toHaveAttribute('type', 'image/avif');
+    expect(sources[0]).toHaveAttribute('srcset');
+    expect(sources[1]).toHaveAttribute('type', 'image/jpeg');
+    expect(sources[1]).toHaveAttribute('srcset');
+  });
 });
