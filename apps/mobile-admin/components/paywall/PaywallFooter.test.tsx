@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
-import type { PurchasesPackage } from 'react-native-purchases';
 import PaywallFooter from './PaywallFooter';
 
 const mocks = vi.hoisted(() => ({
@@ -16,46 +16,52 @@ vi.mock('@/config/runtime-platform', () => ({
     mocks.platform === platform,
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const Text = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  Linking: { openURL: mocks.openURL },
-  Pressable: ({
-    accessibilityLabel,
-    accessibilityRole,
-    children,
-    disabled,
-    onPress,
-    style,
-  }: {
-    accessibilityLabel?: string;
-    accessibilityRole?: 'button' | 'link';
-    children?: ReactNode;
-    disabled?: boolean;
-    onPress?: () => void;
-    style?: unknown;
-  }) => {
-    const resolvedStyle =
-      typeof style === 'function' ? style({ pressed: false }) : style;
-    return (
-      <button
-        type="button"
-        role={accessibilityRole}
-        aria-label={accessibilityLabel}
-        data-has-style={Boolean(resolvedStyle)}
-        disabled={disabled}
-        onClick={() => onPress?.()}
-      >
-        {children}
-      </button>
-    );
-  },
-  StyleSheet: {
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+    ActivityIndicator: () => <Text>loading</Text>,
+    Linking: { openURL: mocks.openURL },
+    Pressable: ({
+      accessibilityLabel,
+      accessibilityRole,
+      children,
+      disabled,
+      onPress,
+      style,
+    }: {
+      accessibilityLabel?: string;
+      accessibilityRole?: 'button' | 'link';
+      children?: ReactNode;
+      disabled?: boolean;
+      onPress?: () => void;
+      style?: unknown;
+    }) => {
+      const resolvedStyle =
+        typeof style === 'function' ? style({ pressed: false }) : style;
+      return (
+        <button
+          type="button"
+          role={accessibilityRole}
+          aria-label={accessibilityLabel}
+          data-has-style={Boolean(resolvedStyle)}
+          disabled={disabled}
+          onClick={() => onPress?.()}
+        >
+          {children}
+        </button>
+      );
+    },
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text,
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 const colors = {
   background: '#ffffff',

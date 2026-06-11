@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -43,9 +43,11 @@ export function InviteStaffSheet({
   visible,
 }: InviteStaffSheetProps) {
   const isInviteDisabled = isPending || inviteEmail.trim().length === 0;
-  const toggleTranslateX = useRef(
-    new Animated.Value(autoCreateAccount ? TOGGLE_KNOB_TRAVEL : 0)
-  ).current;
+  // Lazy useState initializer keeps the Animated.Value stable per mount
+  // without reading a ref during render (blocks React Compiler memoization).
+  const [toggleTranslateX] = useState(
+    () => new Animated.Value(autoCreateAccount ? TOGGLE_KNOB_TRAVEL : 0)
+  );
 
   useEffect(() => {
     Animated.spring(toggleTranslateX, {

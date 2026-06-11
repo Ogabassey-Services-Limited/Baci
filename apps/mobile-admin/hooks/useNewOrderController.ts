@@ -1,6 +1,6 @@
 import type { OrderSource, PaymentStatus } from '@baci/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { CountryCode } from 'react-native-country-picker-modal';
 import {
   createEmptyCustomerInfo,
@@ -61,7 +61,19 @@ export function useNewOrderController() {
   const [discount, setDiscount] = useState(0);
   const [shippingFee, setShippingFee] = useState(0);
   const [taxes, setTaxes] = useState(0);
-  const [isVatApplied, setIsVatApplied] = useState(false);
+
+  // Initialize VAT status from merchant, and re-enable it during render when
+  // the merchant's registration status loads/changes (no effect round-trip).
+  const isVatRegistered = merchant?.vat_registration_status === 'registered';
+  const [isVatApplied, setIsVatApplied] = useState(isVatRegistered);
+  const [prevIsVatRegistered, setPrevIsVatRegistered] =
+    useState(isVatRegistered);
+  if (isVatRegistered !== prevIsVatRegistered) {
+    setPrevIsVatRegistered(isVatRegistered);
+    if (isVatRegistered) {
+      setIsVatApplied(true);
+    }
+  }
 
   // Search & Form
   const [productSearch, setProductSearch] = useState('');
@@ -111,13 +123,6 @@ export function useNewOrderController() {
 
   const [customItem, setCustomItem] = useState(createEmptyCustomItemDraft);
   const quickAddProductMatchState = useQuickAddProductMatches(customItem);
-
-  // Initialize VAT status from merchant
-  useEffect(() => {
-    if (merchant?.vat_registration_status === 'registered') {
-      setIsVatApplied(true);
-    }
-  }, [merchant?.vat_registration_status]);
 
   const [partialAmount, setPartialAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('transfer');
@@ -201,7 +206,7 @@ export function useNewOrderController() {
     setDiscount(0);
     setShippingFee(0);
     setTaxes(0);
-    setIsVatApplied(merchant?.vat_registration_status === 'registered');
+    setIsVatApplied(isVatRegistered);
     setSameAsCustomer(true);
     setDeliveryInfo(createEmptyDeliveryInfo());
     setPartialAmount('');

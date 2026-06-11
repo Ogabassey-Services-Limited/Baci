@@ -53,9 +53,7 @@ vi.mock('react-native-webview', () => {
               })
             }
             type="button"
-          >
-            fail preview
-          </button>
+          />
           <iframe
             data-mount-id={String(mountId.current)}
             sandbox=""

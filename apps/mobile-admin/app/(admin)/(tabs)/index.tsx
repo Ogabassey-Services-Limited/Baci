@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -52,6 +52,87 @@ const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
   { value: 'all', label: 'All Time' },
 ];
 
+// Module-scope helper keeps try/finally and throw-inside-try out of the
+// component body so React Compiler can memoize HomeScreen.
+async function pickAndUploadFavicon(
+  merchantId: string | undefined,
+  setIsUploading: (uploading: boolean) => void,
+  queryClient: QueryClient
+) {
+  try {
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert(
+        'Permission Required',
+        'Please allow access to your photo library to change your favicon.'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    setIsUploading(true);
+    const asset = result.assets[0];
+    const fileExt = asset.uri.split('.').pop() || 'png';
+    const fileName = `${merchantId}/favicon-${Date.now()}.${fileExt}`;
+
+    // Use FormData for reliable file upload in React Native
+    const fileData = new FormData() as RNFormData;
+    fileData.append(
+      'file',
+      createUploadFile({
+        uri: asset.uri,
+        name: fileName.split('/').pop() || 'image.png',
+        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+      })
+    );
+
+    // Upload to Supabase storage
+    const { error: uploadError } = await supabase.storage
+      .from('merchant-assets')
+      .upload(fileName, fileData, {
+        contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('merchant-assets')
+      .getPublicUrl(fileName);
+
+    // Update merchant favicon in database
+    const { error: updateError } = await supabase
+      .from('merchants')
+      .update({ favicon_png_192_url: urlData.publicUrl })
+      .eq('id', merchantId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Invalidate merchant query to refetch
+    queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    Alert.alert('Success', 'Favicon updated successfully!');
+  } catch (error) {
+    console.error('Error updating favicon:', error);
+    Alert.alert('Error', 'Failed to update favicon. Please try again.');
+  } finally {
+    setIsUploading(false);
+  }
+}
+
 export default function HomeScreen() {
   if (__DEV__) {
     console.log('[HomeScreen] Rendering');
@@ -74,80 +155,8 @@ export default function HomeScreen() {
 
   const [_, setIsUploadingFavicon] = useState(false);
 
-  const handleAvatarPress = async () => {
-    try {
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissionResult.granted) {
-        Alert.alert(
-          'Permission Required',
-          'Please allow access to your photo library to change your favicon.'
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (result.canceled || !result.assets[0]) return;
-
-      setIsUploadingFavicon(true);
-      const asset = result.assets[0];
-      const fileExt = asset.uri.split('.').pop() || 'png';
-      const fileName = `${merchant?.id}/favicon-${Date.now()}.${fileExt}`;
-
-      // Use FormData for reliable file upload in React Native
-      const fileData = new FormData() as RNFormData;
-      fileData.append(
-        'file',
-        createUploadFile({
-          uri: asset.uri,
-          name: fileName.split('/').pop() || 'image.png',
-          type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-        })
-      );
-
-      // Upload to Supabase storage
-      const { error: uploadError } = await supabase.storage
-        .from('merchant-assets')
-        .upload(fileName, fileData, {
-          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-          upsert: true,
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('merchant-assets')
-        .getPublicUrl(fileName);
-
-      // Update merchant favicon in database
-      const { error: updateError } = await supabase
-        .from('merchants')
-        .update({ favicon_png_192_url: urlData.publicUrl })
-        .eq('id', merchant?.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      // Invalidate merchant query to refetch
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      Alert.alert('Success', 'Favicon updated successfully!');
-    } catch (error) {
-      console.error('Error updating favicon:', error);
-      Alert.alert('Error', 'Failed to update favicon. Please try again.');
-    } finally {
-      setIsUploadingFavicon(false);
-    }
-  };
+  const handleAvatarPress = () =>
+    pickAndUploadFavicon(merchant?.id, setIsUploadingFavicon, queryClient);
 
   const currentPeriodLabel =
     PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'Last 7 Days';

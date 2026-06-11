@@ -51,12 +51,15 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => mocks.insets,
 }));
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const { Text } = await import('react-native');
+  return {
+    Ionicons: () => <Text>icon</Text>,
 
-  default: () => <span>icon</span>,
-  __esModule: true,
-}));
+    default: () => <Text>icon</Text>,
+    __esModule: true,
+  };
+});
 
 vi.mock('react-native', () => {
   class AnimatedValue {

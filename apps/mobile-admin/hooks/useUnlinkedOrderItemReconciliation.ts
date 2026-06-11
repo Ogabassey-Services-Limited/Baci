@@ -1,143 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
-import {
-  type AdminProductSearchPage,
-  fetchAdminProductSearchRows,
-} from '@/lib/product-search';
 import { supabase } from '@/lib/supabase';
 import type { ReconciliationProductCandidate } from '@/lib/transaction-reconciliation';
-
-interface ProductCandidateRow {
-  id: string;
-  name: string;
-  price: number | null;
-  status: string | null;
-}
-
-interface UnlinkedOrderItemRow {
-  id: string;
-  name: string | null;
-  price: number | null;
-}
-
-interface VariantCandidateRow {
-  attributes: unknown;
-  condition: string | null;
-  id: string;
-  price_override: number | null;
-  products:
-    | {
-        id: string;
-        merchant_id: string;
-        name: string;
-        price: number | null;
-        status: string | null;
-      }
-    | Array<{
-        id: string;
-        merchant_id: string;
-        name: string;
-        price: number | null;
-        status: string | null;
-      }>
-    | null;
-}
-
-const RECONCILIATION_PRODUCT_COLUMNS = 'id, name, price, status';
-const RECONCILIATION_SEARCH_BATCH_SIZE = 4;
-const RECONCILIATION_SEARCH_PAGE_SIZE = 20;
-
-function getJoinedParent(value: VariantCandidateRow['products']) {
-  return Array.isArray(value) ? (value[0] ?? null) : value;
-}
-
-function buildReconciliationSearchTerms(items: UnlinkedOrderItemRow[]) {
-  const terms = new Set<string>();
-
-  for (const item of items) {
-    const normalizedName = (item.name ?? '')
-      .replace(/\[[^\]]+\]/g, ' ')
-      .replace(/\bimei\b[:\s-]*\d+/gi, ' ')
-      .replace(/\bserial\b[:\s-]*[\w-]+/gi, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (normalizedName.length >= 2) {
-      terms.add(normalizedName);
-    }
-  }
-
-  return [...terms];
-}
-
-function dedupeProductRows(rows: ProductCandidateRow[]) {
-  const productsById = new Map<string, ProductCandidateRow>();
-  for (const row of rows) {
-    productsById.set(row.id, row);
-  }
-
-  return [...productsById.values()];
-}
-
-async function fetchCandidatePagesInBatches(
-  searchTerms: string[],
-  merchantId: string
-) {
-  const pages: Array<AdminProductSearchPage<ProductCandidateRow>> = [];
-
-  for (
-    let index = 0;
-    index < searchTerms.length;
-    index += RECONCILIATION_SEARCH_BATCH_SIZE
-  ) {
-    const batch = searchTerms.slice(
-      index,
-      index + RECONCILIATION_SEARCH_BATCH_SIZE
-    );
-    const batchPages = await Promise.all(
-      batch.map((searchTerm) =>
-        fetchAdminProductSearchRows<ProductCandidateRow>({
-          cursor: 0,
-          filters: { search: searchTerm },
-          merchantId,
-          pageSize: RECONCILIATION_SEARCH_PAGE_SIZE,
-          selectColumns: RECONCILIATION_PRODUCT_COLUMNS,
-        })
-      )
-    );
-
-    pages.push(...batchPages);
-  }
-
-  return pages;
-}
-
-async function fetchUnlinkedOrderItems(merchantId: string) {
-  const { data, error } = await supabase
-    .from('order_items')
-    .select(
-      'id, name, price, quantity, cost_price, supplier_name, product_match_status, orders!inner(id, order_number, merchant_id, customer_name, payment_status, created_at)'
-    )
-    .eq('orders.merchant_id', merchantId)
-    .eq('orders.payment_status', 'paid')
-    .is('product_id', null)
-    .neq('product_match_status', 'custom')
-    .order('created_at', { referencedTable: 'orders', ascending: false })
-    .limit(100);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []) as UnlinkedOrderItemRow[];
-}
+import {
+  buildReconciliationSearchTerms,
+  dedupeProductRows,
+  fetchCandidatePagesInBatches,
+  fetchUnlinkedOrderItems,
+  getJoinedParent,
+  type ProductCandidateRow,
+  type UnlinkedOrderItemRow,
+  type VariantCandidateRow,
+} from './unlinked-order-item-reconciliation-helpers';
 
 export function useUnlinkedOrderItemReconciliation() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
 
-  const unlinkedItemsQuery = useQuery({
+  const {
+    data: unlinkedItemsData,
+    error: unlinkedItemsError,
+    isLoading: isLoadingUnlinkedItems,
+    refetch: refetchUnlinkedItems,
+  } = useQuery({
     enabled: Boolean(merchant?.id),
     queryKey: ['unlinked-order-items', merchant?.id],
     queryFn: async () => {
@@ -151,10 +37,14 @@ export function useUnlinkedOrderItemReconciliation() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  const unlinkedItems = (unlinkedItemsQuery.data ??
-    []) as UnlinkedOrderItemRow[];
+  const unlinkedItems = (unlinkedItemsData ?? []) as UnlinkedOrderItemRow[];
   const searchTerms = buildReconciliationSearchTerms(unlinkedItems);
-  const productCandidatesQuery = useQuery({
+  const {
+    data: productCandidatesData,
+    error: productCandidatesError,
+    isLoading: isLoadingProductCandidates,
+    refetch: refetchProductCandidates,
+  } = useQuery({
     enabled: Boolean(merchant?.id && searchTerms.length > 0),
     queryKey: [
       'transaction-reconciliation-products',
@@ -294,7 +184,17 @@ export function useUnlinkedOrderItemReconciliation() {
   return {
     keepCustomMutation,
     linkItemMutation,
-    productCandidatesQuery,
-    unlinkedItemsQuery,
+    productCandidatesQuery: {
+      data: productCandidatesData,
+      error: productCandidatesError,
+      isLoading: isLoadingProductCandidates,
+      refetch: refetchProductCandidates,
+    },
+    unlinkedItemsQuery: {
+      data: unlinkedItemsData,
+      error: unlinkedItemsError,
+      isLoading: isLoadingUnlinkedItems,
+      refetch: refetchUnlinkedItems,
+    },
   };
 }

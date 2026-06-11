@@ -27,6 +27,56 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+async function loadBlogContent(
+  postId: string,
+  merchantId: string
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select('content')
+    .eq('id', postId)
+    .eq('merchant_id', merchantId)
+    .single();
+
+  if (error || !data) {
+    throw error ?? new Error('Failed to load content');
+  }
+
+  return sanitizeEditorHtml(data.content || '');
+}
+
+async function persistBlogContent(
+  postId: string | null,
+  merchantId: string | null,
+  html: string
+): Promise<string> {
+  if (!postId) {
+    throw new Error('Missing blog post id');
+  }
+
+  if (!merchantId) {
+    throw new Error('Missing merchant id');
+  }
+
+  const sanitizedHtml = sanitizeEditorHtml(html);
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .update({
+      content: sanitizedHtml,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', postId)
+    .eq('merchant_id', merchantId)
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw error ?? new Error('Failed to save content');
+  }
+
+  return sanitizedHtml;
+}
+
 export function useBlogEditorData({
   isMerchantLoading,
   merchantId,
@@ -35,129 +85,113 @@ export function useBlogEditorData({
 }: UseBlogEditorDataOptions) {
   const [content, setContent] = useState('');
   const [initialEditorContent, setInitialEditorContent] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(
+    () => Boolean(postId) && (isMerchantLoading || Boolean(merchantId))
+  );
   const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(() => {
+    if (!postId) {
+      return 'Missing blog post id';
+    }
+
+    if (!isMerchantLoading && !merchantId) {
+      return 'Missing merchant id';
+    }
+
+    return null;
+  });
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  useEffect(() => {
-    let isActive = true;
-    void reloadKey;
+  const [prevInputs, setPrevInputs] = useState({
+    isMerchantLoading,
+    merchantId,
+    postId,
+    reloadKey,
+  });
+
+  if (
+    prevInputs.isMerchantLoading !== isMerchantLoading ||
+    prevInputs.merchantId !== merchantId ||
+    prevInputs.postId !== postId ||
+    prevInputs.reloadKey !== reloadKey
+  ) {
+    setPrevInputs({ isMerchantLoading, merchantId, postId, reloadKey });
 
     if (!postId) {
       setContent('');
       setInitialEditorContent('');
       setErrorMessage('Missing blog post id');
       setIsLoading(false);
-      return () => {
-        isActive = false;
-      };
-    }
-
-    if (isMerchantLoading) {
+    } else if (isMerchantLoading) {
       setContent('');
       setInitialEditorContent('');
       setErrorMessage(null);
       setIsLoading(true);
-      return () => {
-        isActive = false;
-      };
-    }
-
-    if (!merchantId) {
+    } else if (!merchantId) {
       setContent('');
       setInitialEditorContent('');
       setErrorMessage('Missing merchant id');
       setIsLoading(false);
-      return () => {
-        isActive = false;
-      };
+    } else {
+      setErrorMessage(null);
+      setIsLoading(true);
+    }
+  }
+
+  useEffect(() => {
+    if (!postId || isMerchantLoading || !merchantId) {
+      return;
     }
 
-    async function fetchContent(validPostId: string, validMerchantId: string) {
-      setIsLoading(true);
-      setErrorMessage(null);
+    void reloadKey;
+    let isActive = true;
 
-      try {
-        const { data, error } = await supabase
-          .from('blog_posts')
-          .select('content')
-          .eq('id', validPostId)
-          .eq('merchant_id', validMerchantId)
-          .single();
-
-        if (error || !data) {
-          throw error ?? new Error('Failed to load content');
-        }
-
-        const nextContent = sanitizeEditorHtml(data.content || '');
-
+    loadBlogContent(postId, merchantId)
+      .then((nextContent) => {
         if (!isActive) {
           return;
         }
 
         setContent(nextContent);
         setInitialEditorContent(nextContent);
-      } catch (error) {
+      })
+      .catch((error: unknown) => {
         console.error(error);
         if (!isActive) {
           return;
         }
+
         setErrorMessage(getErrorMessage(error, 'Failed to load content'));
-      } finally {
+      })
+      .finally(() => {
         if (isActive) {
           setIsLoading(false);
         }
-      }
-    }
-
-    void fetchContent(postId, merchantId);
+      });
 
     return () => {
       isActive = false;
     };
   }, [isMerchantLoading, merchantId, postId, reloadKey]);
 
-  const saveContent = async (html: string) => {
+  const saveContent = (html: string) => {
     setIsSaving(true);
     setSaveErrorMessage(null);
 
-    try {
-      if (!postId) {
-        throw new Error('Missing blog post id');
-      }
-
-      if (!merchantId) {
-        throw new Error('Missing merchant id');
-      }
-
-      const sanitizedHtml = sanitizeEditorHtml(html);
-      const { data, error } = await supabase
-        .from('blog_posts')
-        .update({
-          content: sanitizedHtml,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', postId)
-        .eq('merchant_id', merchantId)
-        .select('id')
-        .single();
-
-      if (error || !data) {
-        throw error ?? new Error('Failed to save content');
-      }
-
-      setContent(sanitizedHtml);
-      setInitialEditorContent(sanitizedHtml);
-      onSaveSuccess?.();
-    } catch (error) {
-      const message = getErrorMessage(error, 'Failed to save content');
-      setSaveErrorMessage(message);
-      throw error;
-    } finally {
-      setIsSaving(false);
-    }
+    return persistBlogContent(postId, merchantId, html)
+      .then((sanitizedHtml) => {
+        setContent(sanitizedHtml);
+        setInitialEditorContent(sanitizedHtml);
+        onSaveSuccess?.();
+      })
+      .catch((error: unknown) => {
+        setSaveErrorMessage(getErrorMessage(error, 'Failed to save content'));
+        throw error;
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
   return {

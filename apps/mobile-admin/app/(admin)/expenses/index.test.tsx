@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type { ComponentType, ReactNode } from 'react';
+import { Text } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type TestBranchScope = { type: 'all' } | { type: 'branch'; branchId: string };
@@ -151,9 +152,9 @@ vi.mock('expo-router', () => ({
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: () => <Text>icon</Text>,
 
-  default: () => <span>icon</span>,
+  default: () => <Text>icon</Text>,
   __esModule: true,
 }));
 
@@ -164,11 +165,11 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('@/components/ui/ScreenSkeleton', () => ({
-  ScreenSkeleton: () => <div>loading</div>,
+  ScreenSkeleton: () => <Text>loading</Text>,
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Pressable: ({
     children,
     onPress,

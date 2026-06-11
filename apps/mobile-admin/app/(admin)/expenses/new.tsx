@@ -21,6 +21,43 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { createUploadFile, type RNFormData } from '@/types/upload';
 
+async function uploadExpenseReceipt(
+  merchantId: string,
+  receiptUri: string
+): Promise<string> {
+  const fileExt = receiptUri.split('.').pop()?.toLowerCase() || 'jpg';
+  const fileName = `${merchantId}/${Date.now()}.${fileExt}`;
+  const filePath = `expenses/${fileName}`;
+  const fileData = new FormData() as RNFormData;
+  fileData.append(
+    'file',
+    createUploadFile({
+      uri: receiptUri,
+      name: fileName.split('/').pop() || 'receipt.jpg',
+      type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+    })
+  );
+
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from('media')
+      .upload(filePath, fileData, {
+        contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage.from('media').getPublicUrl(filePath);
+    return data.publicUrl;
+  } catch (error) {
+    console.error('Receipt upload failed:', error);
+    throw new Error('Failed to upload receipt image', { cause: error });
+  }
+}
+
 export default function AddExpenseScreen() {
   const { colors } = useTheme();
   const { merchant } = useMerchant();
@@ -64,43 +101,9 @@ export default function AddExpenseScreen() {
       if (!hasValidAmount) throw new Error('Invalid expense amount');
       if (!selectedBranchId) throw new Error('No active branch is available');
 
-      let uploadedReceiptUrl: string | null = null;
-
-      if (receiptUri) {
-        const fileExt = receiptUri.split('.').pop()?.toLowerCase() || 'jpg';
-        const fileName = `${merchant.id}/${Date.now()}.${fileExt}`;
-        const filePath = `expenses/${fileName}`;
-        const fileData = new FormData() as RNFormData;
-        fileData.append(
-          'file',
-          createUploadFile({
-            uri: receiptUri,
-            name: fileName.split('/').pop() || 'receipt.jpg',
-            type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-          })
-        );
-
-        try {
-          const { error: uploadError } = await supabase.storage
-            .from('media')
-            .upload(filePath, fileData, {
-              contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-              upsert: true,
-            });
-
-          if (uploadError) {
-            throw uploadError;
-          }
-
-          const { data } = supabase.storage
-            .from('media')
-            .getPublicUrl(filePath);
-          uploadedReceiptUrl = data.publicUrl;
-        } catch (error) {
-          console.error('Receipt upload failed:', error);
-          throw new Error('Failed to upload receipt image', { cause: error });
-        }
-      }
+      const uploadedReceiptUrl = receiptUri
+        ? await uploadExpenseReceipt(merchant.id, receiptUri)
+        : null;
 
       const { error } = await supabase.from('expenses').insert({
         merchant_id: merchant.id,

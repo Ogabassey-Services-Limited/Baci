@@ -28,6 +28,21 @@ const loadClipboardModule = async () => {
   }
 };
 
+// Module-scope helper keeps throw-inside-try out of the hook body so
+// React Compiler can memoize components that call useStaffAccounts.
+const copyToClipboard = async (text: string) => {
+  try {
+    const clipboard = await loadClipboardModule();
+    if (!clipboard?.setStringAsync) {
+      throw new Error('Clipboard is not available');
+    }
+    await clipboard.setStringAsync(text);
+    Alert.alert('Copied!', 'Account number copied to clipboard.');
+  } catch (_error) {
+    Alert.alert('Error', 'Failed to copy to clipboard');
+  }
+};
+
 interface UseStaffAccountsCallbacks {
   onAccountCreated: () => void;
   onBranchCreated?: () => void;
@@ -184,19 +199,6 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
       Alert.alert('Error', error.message);
     },
   });
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      const clipboard = await loadClipboardModule();
-      if (!clipboard?.setStringAsync) {
-        throw new Error('Clipboard is not available');
-      }
-      await clipboard.setStringAsync(text);
-      Alert.alert('Copied!', 'Account number copied to clipboard.');
-    } catch (_error) {
-      Alert.alert('Error', 'Failed to copy to clipboard');
-    }
-  };
 
   const retryAll = () => {
     void queryClient.invalidateQueries({ queryKey: ['merchant'] });

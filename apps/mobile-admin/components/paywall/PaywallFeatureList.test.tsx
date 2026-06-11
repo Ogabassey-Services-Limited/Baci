@@ -5,15 +5,18 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
 import PaywallFeatureList from './PaywallFeatureList';
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const { Text } = await import('react-native');
+  return {
+    Ionicons: () => <Text>icon</Text>,
 
-  default: () => <span>icon</span>,
-  __esModule: true,
-}));
+    default: () => <Text>icon</Text>,
+    __esModule: true,
+  };
+});
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },

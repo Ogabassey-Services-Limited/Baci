@@ -29,13 +29,12 @@ vi.mock('react-native-google-places-autocomplete', () => ({
           value={props.textInputProps?.value ?? ''}
         />
         <button
+          aria-label="Choose suggested address"
           onClick={() =>
             props.onPress?.({ description: '12 Allen Avenue, Ikeja, Lagos' })
           }
           type="button"
-        >
-          Choose suggested address
-        </button>
+        />
       </div>
     );
   },

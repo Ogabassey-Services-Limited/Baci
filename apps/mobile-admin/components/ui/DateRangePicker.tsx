@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { addMonths, subMonths } from 'date-fns';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Dimensions,
   Modal,
@@ -40,8 +40,16 @@ export default function DateRangePicker({
     end: null,
   });
 
-  // Initialize state when opening
-  useEffect(() => {
+  // Initialize state when opening. Adjusted during render (instead of in an
+  // effect) so the first visible frame already reflects the incoming filter.
+  const [prevVisible, setPrevVisible] = useState(false);
+  const [prevFilter, setPrevFilter] = useState<
+    string | DateRangeSelection | null
+  >(null);
+
+  if (visible !== prevVisible || currentFilter !== prevFilter) {
+    setPrevVisible(visible);
+    setPrevFilter(currentFilter);
     if (visible) {
       if (typeof currentFilter === 'object' && currentFilter?.start) {
         setMode('calendar');
@@ -53,7 +61,7 @@ export default function DateRangePicker({
         setViewDate(new Date());
       }
     }
-  }, [visible, currentFilter]);
+  }
 
   const handleDayPress = (day: Date) => {
     setSelection(

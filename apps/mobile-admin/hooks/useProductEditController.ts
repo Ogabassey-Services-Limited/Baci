@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { createInitialProductEditFormData } from '@/components/product/product-edit.defaults';
 import type {
   ProductEditFormData,
@@ -94,7 +94,11 @@ export function useProductEditController() {
   const updateProductMutation = useUpdateProduct();
   const createProductMutation = useCreateProduct();
   const updateStatusMutation = useUpdateProductStatus();
-  const saveInFlightRef = useRef(false);
+  // Stable mutable flight lock held in state instead of useRef: it is passed
+  // to createProductEditPersistenceActions during render, and React Compiler
+  // forbids refs escaping into render-time calls. It is only read/written
+  // inside event handlers (runSingleFlight).
+  const [saveInFlightLock] = useState(() => ({ current: false }));
 
   const { data: productNameSuggestions = [] } = useProductNameSuggestions({
     productName: formData.name,
@@ -114,11 +118,10 @@ export function useProductEditController() {
       typeof variant.condition === 'string' && variant.condition.trim() !== ''
   );
 
-  useEffect(() => {
-    if (!product || isInitialized) {
-      return;
-    }
-
+  // Seed the form from the loaded product during render (guarded one-shot
+  // initialization) instead of inside an effect: avoids the extra committed
+  // frame of stale UI and the compiler's set-state-in-effect bailout.
+  if (product && !isInitialized) {
     setFormData({
       brand: product.brand ?? product.brands?.name ?? '',
       category: product.category || '',
@@ -170,7 +173,7 @@ export function useProductEditController() {
       }),
     });
     setIsInitialized(true);
-  }, [isInitialized, product]);
+  }
 
   const updateFormData = (updates: Partial<ProductEditFormData>) => {
     setFormData((previous) => ({ ...previous, ...updates }));
@@ -213,7 +216,7 @@ export function useProductEditController() {
       revertStatus: (status) =>
         setFormData((previous) => ({ ...previous, status })),
       routerBack: () => router.back(),
-      saveInFlightRef,
+      saveInFlightRef: saveInFlightLock,
       selectCreatedCategory: (categoryId, categoryName) =>
         updateCategory({ id: categoryId, name: categoryName }),
       updateProduct: updateProductMutation.mutateAsync,

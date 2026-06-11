@@ -20,6 +20,36 @@ interface UseBranchSwitcherManagementArgs {
   setAllLocations: () => void;
 }
 
+interface GuardedMutationOptions {
+  fallbackErrorMessage: string;
+  guard: { current: boolean };
+  run: () => Promise<void>;
+  setGuardActive?: (active: boolean) => void;
+}
+
+// Module-scope helper so the try/finally stays out of the hook body
+// (React Compiler cannot lower try/finally inside components/hooks yet).
+async function runGuardedMutation({
+  fallbackErrorMessage,
+  guard,
+  run,
+  setGuardActive,
+}: GuardedMutationOptions) {
+  guard.current = true;
+  setGuardActive?.(true);
+  try {
+    await run();
+  } catch (error) {
+    Alert.alert(
+      'Error',
+      error instanceof Error ? error.message : fallbackErrorMessage
+    );
+  } finally {
+    guard.current = false;
+    setGuardActive?.(false);
+  }
+}
+
 export function useBranchSwitcherManagement({
   branchId,
   branches,
@@ -31,6 +61,8 @@ export function useBranchSwitcherManagement({
   const isSubmittingRef = useRef(false);
   const isEditingRef = useRef(false);
   const isDeactivatingRef = useRef(false);
+  // State mirror of isSubmittingRef: render must not read ref.current.
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [branchName, setBranchName] = useState('');
   const [branchAddress, setBranchAddress] = useState('');
@@ -90,19 +122,16 @@ export function useBranchSwitcherManagement({
       }
       return;
     }
-    isSubmittingRef.current = true;
-    try {
-      await createBranch.mutateAsync(result.data);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      handleCloseModal();
-    } catch (error) {
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to create branch'
-      );
-    } finally {
-      isSubmittingRef.current = false;
-    }
+    await runGuardedMutation({
+      fallbackErrorMessage: 'Failed to create branch',
+      guard: isSubmittingRef,
+      run: async () => {
+        await createBranch.mutateAsync(result.data);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        handleCloseModal();
+      },
+      setGuardActive: setIsSubmitting,
+    });
   };
 
   const handleUpdateBranch = async () => {
@@ -127,22 +156,18 @@ export function useBranchSwitcherManagement({
       }
       return;
     }
-    isEditingRef.current = true;
-    try {
-      await updateBranch.mutateAsync({
-        branchId: editingBranch.id,
-        input: result.data,
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      handleCloseEditModal();
-    } catch (error) {
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to update branch'
-      );
-    } finally {
-      isEditingRef.current = false;
-    }
+    await runGuardedMutation({
+      fallbackErrorMessage: 'Failed to update branch',
+      guard: isEditingRef,
+      run: async () => {
+        await updateBranch.mutateAsync({
+          branchId: editingBranch.id,
+          input: result.data,
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        handleCloseEditModal();
+      },
+    });
   };
 
   const handleDeactivateBranch = async () => {
@@ -160,22 +185,18 @@ export function useBranchSwitcherManagement({
       );
       return;
     }
-    isDeactivatingRef.current = true;
-    try {
-      await deactivateBranch.mutateAsync(editingBranch.id);
-      if (branchId === editingBranch.id) {
-        setAllLocations();
-      }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      handleCloseEditModal();
-    } catch (error) {
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to deactivate branch'
-      );
-    } finally {
-      isDeactivatingRef.current = false;
-    }
+    await runGuardedMutation({
+      fallbackErrorMessage: 'Failed to deactivate branch',
+      guard: isDeactivatingRef,
+      run: async () => {
+        await deactivateBranch.mutateAsync(editingBranch.id);
+        if (branchId === editingBranch.id) {
+          setAllLocations();
+        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        handleCloseEditModal();
+      },
+    });
   };
 
   return {
@@ -194,7 +215,7 @@ export function useBranchSwitcherManagement({
     handleDeactivateBranch,
     handleManageBranchPress,
     handleUpdateBranch,
-    isCreateBranchLoading: createBranch.isPending || isSubmittingRef.current,
+    isCreateBranchLoading: createBranch.isPending || isSubmitting,
     isDeactivating: deactivateBranch.isPending,
     isModalVisible,
     isUpdating: updateBranch.isPending,

@@ -93,9 +93,12 @@ vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => mocks.useMerchantResult,
 }));
 
-vi.mock('@/components/ui/ScreenSkeleton', () => ({
-  ScreenSkeleton: () => <div>loading</div>,
-}));
+vi.mock('@/components/ui/ScreenSkeleton', async () => {
+  const { Text } = await import('react-native');
+  return {
+    ScreenSkeleton: () => <Text>loading</Text>,
+  };
+});
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
@@ -155,11 +158,15 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
-  default: () => <span>icon</span>,
-  __esModule: true,
-}));
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const { Text } = await import('react-native');
+  const MockIonicon = () => <Text>icon</Text>;
+  return {
+    Ionicons: MockIonicon,
+    default: MockIonicon,
+    __esModule: true,
+  };
+});
 
 export const paymentSettings = {
   id: 'settings-1',

@@ -27,15 +27,16 @@ export function OnboardingProvider({
 
   useEffect(() => {
     const checkOnboarding = async () => {
+      // No `finally` clause: the catch swallows every error, so this runs on
+      // all paths, and try/finally blocks React Compiler memoization.
       try {
         const value = await AsyncStorage.getItem(ONBOARDING_KEY);
         setHasSeenOnboarding(value === 'true');
       } catch (error) {
         console.error('Error checking onboarding status:', error);
         setHasSeenOnboarding(false);
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
 
     checkOnboarding();

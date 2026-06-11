@@ -126,12 +126,18 @@ vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   },
 }));
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+vi.mock('@react-native-vector-icons/ionicons', () => {
+  const Text = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
 
-  default: () => <span>icon</span>,
-  __esModule: true,
-}));
+  return {
+    Ionicons: () => <Text>icon</Text>,
+
+    default: () => <Text>icon</Text>,
+    __esModule: true,
+  };
+});
 
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
@@ -139,64 +145,74 @@ vi.mock('react-native-safe-area-context', () => ({
   ),
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const Text = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  Alert: { alert: mocks.alert },
-  FlatList: ({
-    data,
-    renderItem,
-  }: {
-    data: Array<{ code: string; name: string }>;
-    renderItem: (props: { item: { code: string; name: string } }) => ReactNode;
-  }) => <div>{data.map((item) => renderItem({ item }))}</div>,
-  Modal: ({
-    children,
-    visible,
-  }: {
-    children?: ReactNode;
-    visible?: boolean;
-  }) => (visible ? <div>{children}</div> : null),
-  Platform: { OS: 'ios' },
-  Pressable: ({
-    accessibilityLabel,
-    children,
-    onPress,
-  }: {
-    accessibilityLabel?: string;
-    children?: ReactNode;
-    onPress?: () => void;
-  }) => (
-    <button
-      aria-label={accessibilityLabel}
-      onClick={() => onPress?.()}
-      type="button"
-    >
-      {children}
-    </button>
-  ),
-  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  StyleSheet: {
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  TextInput: ({
-    onChangeText,
-    placeholder,
-    value,
-  }: {
-    onChangeText?: (value: string) => void;
-    placeholder?: string;
-    value?: string;
-  }) => (
-    <input
-      onChange={(event) => onChangeText?.(event.target.value)}
-      placeholder={placeholder}
-      value={value}
-    />
-  ),
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+    ActivityIndicator: () => <Text>loading</Text>,
+    Alert: { alert: mocks.alert },
+    FlatList: ({
+      data,
+      renderItem,
+    }: {
+      data: Array<{ code: string; name: string }>;
+      renderItem: (props: {
+        item: { code: string; name: string };
+      }) => ReactNode;
+    }) => <div>{data.map((item) => renderItem({ item }))}</div>,
+    Modal: ({
+      children,
+      visible,
+    }: {
+      children?: ReactNode;
+      visible?: boolean;
+    }) => (visible ? <div>{children}</div> : null),
+    Platform: { OS: 'ios' },
+    Pressable: ({
+      accessibilityLabel,
+      children,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      children?: ReactNode;
+      onPress?: () => void;
+    }) => (
+      <button
+        aria-label={accessibilityLabel}
+        onClick={() => onPress?.()}
+        type="button"
+      >
+        {children}
+      </button>
+    ),
+    ScrollView: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text,
+    TextInput: ({
+      onChangeText,
+      placeholder,
+      value,
+    }: {
+      onChangeText?: (value: string) => void;
+      placeholder?: string;
+      value?: string;
+    }) => (
+      <input
+        onChange={(event) => onChangeText?.(event.target.value)}
+        placeholder={placeholder}
+        value={value}
+      />
+    ),
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 describe('PayoutSettingsScreen', () => {
   beforeEach(() => {

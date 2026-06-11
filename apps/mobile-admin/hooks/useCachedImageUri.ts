@@ -8,6 +8,7 @@
  * Uses expo-file-system's new File/Paths API for network I/O and caching.
  */
 
+import * as Crypto from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import { useEffect, useState } from 'react';
 
@@ -18,73 +19,77 @@ interface CachedImageResult {
   isLoading: boolean;
 }
 
+function isRemoteHttpUri(uri: string): boolean {
+  return uri.startsWith('https://') || uri.startsWith('http://');
+}
+
+async function downloadToCache(remoteUri: string): Promise<string> {
+  try {
+    // Deterministic cache key over the full URL; preserving the extension keeps
+    // React Native image decoders on the fast path while avoiding URL-tail
+    // collisions.
+    const urlHash = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      remoteUri
+    );
+    const urlParts = remoteUri.split('?')[0].split('.');
+    const ext = urlParts.length > 1 ? `.${urlParts.pop()}` : '';
+    const dest = new File(Paths.cache, `img_cache_${urlHash}${ext}`);
+
+    // Check if already cached
+    if (dest.exists) {
+      return typeof dest.uri === 'string' ? dest.uri : String(dest.uri);
+    }
+
+    // Download to local cache
+    const downloaded = await File.downloadFileAsync(remoteUri, dest, {
+      idempotent: true,
+    });
+    return typeof downloaded.uri === 'string'
+      ? downloaded.uri
+      : String(downloaded.uri);
+  } catch {
+    // Network error — fall back to the original URL so SafeImage
+    // can show its normal fallback icon if that also fails
+    return remoteUri;
+  }
+}
+
 export function useCachedImageUri(
   remoteUri: string | null | undefined
 ): CachedImageResult {
-  const [localUri, setLocalUri] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [resolved, setResolved] = useState<{
+    key: string;
+    uri: string;
+  } | null>(null);
 
   useEffect(() => {
-    if (!remoteUri) {
-      setLocalUri(null);
-      return;
-    }
-
-    // Data URIs and local file paths don't need caching
-    if (!remoteUri.startsWith('https://') && !remoteUri.startsWith('http://')) {
-      setLocalUri(remoteUri);
+    if (!remoteUri || !isRemoteHttpUri(remoteUri)) {
       return;
     }
 
     let cancelled = false;
 
-    const download = async () => {
-      setIsLoading(true);
-      try {
-        // Build a deterministic cache key from the URL and preserve extension
-        const urlHash = remoteUri.replace(/[^a-zA-Z0-9]/g, '_').slice(-80);
-        const urlParts = remoteUri.split('?')[0].split('.');
-        const ext = urlParts.length > 1 ? `.${urlParts.pop()}` : '';
-        const dest = new File(Paths.cache, `img_cache_${urlHash}${ext}`);
-
-        // Check if already cached
-        if (dest.exists && !cancelled) {
-          const cachedUri =
-            typeof dest.uri === 'string' ? dest.uri : String(dest.uri);
-          setLocalUri(cachedUri);
-          setIsLoading(false);
-          return;
-        }
-
-        // Download to local cache
-        const downloaded = await File.downloadFileAsync(remoteUri, dest, {
-          idempotent: true,
-        });
-        if (!cancelled) {
-          const downloadedUri =
-            typeof downloaded.uri === 'string'
-              ? downloaded.uri
-              : String(downloaded.uri);
-          setLocalUri(downloadedUri);
-        }
-      } catch {
-        // Network error — fall back to the original URL so SafeImage
-        // can show its normal fallback icon if that also fails
-        if (!cancelled) {
-          setLocalUri(remoteUri);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+    void downloadToCache(remoteUri).then((uri) => {
+      if (!cancelled) {
+        setResolved({ key: remoteUri, uri });
       }
-    };
+    });
 
-    download();
     return () => {
       cancelled = true;
     };
   }, [remoteUri]);
 
-  return { uri: localUri, isLoading };
+  if (!remoteUri) {
+    return { uri: null, isLoading: false };
+  }
+
+  // Data URIs and local file paths don't need caching
+  if (!isRemoteHttpUri(remoteUri)) {
+    return { uri: remoteUri, isLoading: false };
+  }
+
+  const settled = resolved?.key === remoteUri ? resolved : null;
+  return { uri: settled?.uri ?? null, isLoading: settled === null };
 }

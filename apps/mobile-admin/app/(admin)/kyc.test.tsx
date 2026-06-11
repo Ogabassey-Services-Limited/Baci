@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { Text } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -34,7 +35,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 vi.mock('@/components/kyc/NinVerificationCard', () => ({
   default: ({ onVerified }: VerificationCardProps) => (
     <button onClick={() => void onVerified?.()} type="button">
-      Verify NIN
+      <Text>Verify NIN</Text>
     </button>
   ),
 }));
@@ -42,7 +43,7 @@ vi.mock('@/components/kyc/NinVerificationCard', () => ({
 vi.mock('@/components/kyc/BvnVerificationCard', () => ({
   default: ({ onVerified }: VerificationCardProps) => (
     <button onClick={() => void onVerified?.()} type="button">
-      Verify BVN
+      <Text>Verify BVN</Text>
     </button>
   ),
 }));
@@ -50,7 +51,7 @@ vi.mock('@/components/kyc/BvnVerificationCard', () => ({
 vi.mock('@/components/kyc/CacVerificationCard', () => ({
   default: ({ onVerified }: VerificationCardProps) => (
     <button onClick={() => void onVerified?.()} type="button">
-      Verify CAC
+      <Text>Verify CAC</Text>
     </button>
   ),
 }));
@@ -100,27 +101,35 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const MockText = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  Pressable: ({
-    children,
-    onPress,
-  }: {
-    children?: ReactNode;
-    onPress?: () => void;
-  }) => (
-    <button onClick={() => onPress?.()} type="button">
-      {children}
-    </button>
-  ),
-  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  StyleSheet: {
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+    ActivityIndicator: () => <MockText>loading</MockText>,
+    Pressable: ({
+      children,
+      onPress,
+    }: {
+      children?: ReactNode;
+      onPress?: () => void;
+    }) => (
+      <button onClick={() => onPress?.()} type="button">
+        {children}
+      </button>
+    ),
+    ScrollView: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text: MockText,
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
