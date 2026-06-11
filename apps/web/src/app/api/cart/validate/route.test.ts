@@ -1,5 +1,11 @@
+import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { POST } from './route';
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
+}));
 
 const PRODUCT_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_PRODUCT_ID = '22222222-2222-4222-8222-222222222222';
@@ -38,10 +44,10 @@ function buildSupabaseMock() {
 
 function postCartValidate(body: unknown) {
   return POST(
-    new Request('https://example.com/api/cart/validate', {
+    new NextRequest('https://example.com/api/cart/validate', {
       method: 'POST',
       body: JSON.stringify(body),
-    }) as never
+    })
   );
 }
 
@@ -52,6 +58,24 @@ describe('POST /api/cart/validate', () => {
     mocks.productError = null;
     mocks.variants = [];
     mocks.variantError = null;
+  });
+
+  it('returns 403 for invalid CSRF token', async () => {
+    vi.mocked(checkCsrfProtection).mockResolvedValueOnce({
+      valid: false,
+      response: NextResponse.json(
+        { error: 'CSRF validation failed' },
+        { status: 403 }
+      ),
+    });
+
+    const response = await postCartValidate({
+      cartItems: [{ id: PRODUCT_ID, price: 370_000 }],
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('CSRF validation failed');
   });
 
   it('returns 400 for invalid request body', async () => {
