@@ -8,11 +8,33 @@ import { getProductUrl } from '@/lib/seo-utils';
 import { asRoute } from '@/lib/routes';
 import type { Product } from '../types';
 import { resolveProductImageSource } from './product-image-source';
+import { ProductRatingRow } from './ProductRatingRow';
 
 interface HomeProductGridCardProps {
   product: Product;
   basePath?: string;
   deferImageLoading?: boolean;
+}
+
+function getCriticalConditionClass(condition: Product['condition']) {
+  const normalizedCondition = String(condition)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, ' ');
+
+  if (normalizedCondition === 'new') {
+    return 'ogabassey-home-product-card__condition--new';
+  }
+
+  if (normalizedCondition === 'open box') {
+    return 'ogabassey-home-product-card__condition--open-box';
+  }
+
+  if (normalizedCondition === 'new & used') {
+    return 'ogabassey-home-product-card__condition--new-used';
+  }
+
+  return 'ogabassey-home-product-card__condition--default';
 }
 
 const PLACEHOLDER_IMAGE =
@@ -30,6 +52,7 @@ export function HomeProductGridCard({
       timeoutMs: 6000,
     });
   const shouldRenderImage = !deferImageLoading || isImageViewportActive;
+  const shouldPrioritizeImage = deferImageLoading === false;
   const productHref = asRoute(
     `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
   );
@@ -43,8 +66,10 @@ export function HomeProductGridCard({
         renderedImageUrl: productImage.src,
       });
 
+  // Keep geometry-affecting classes in sync with storefront-home-critical.css;
+  // the homepage critical CSS provides a semantic card shell to prevent mobile CLS.
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm transition-all duration-300 flex flex-col h-full relative content-auto [contain-intrinsic-size:auto_360px]">
+    <div className="ogabassey-home-product-card">
       <Link href={productHref} prefetch={false} className="absolute inset-0 z-0">
         <span className="sr-only">
           {product.name} - {product.price}
@@ -53,19 +78,11 @@ export function HomeProductGridCard({
 
       <div
         ref={imageViewportRef}
-        className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden z-10 pointer-events-none"
+        className="ogabassey-home-product-card__media"
       >
         {product.condition && (
           <div
-            className={`absolute top-3 left-3 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 whitespace-nowrap ${
-              product.condition === 'New'
-                ? 'bg-gray-900'
-                : product.condition === 'Open Box'
-                  ? 'bg-indigo-600'
-                  : product.condition === 'New & Used'
-                    ? 'bg-purple-600'
-                    : 'bg-stone-500'
-            }`}
+            className={`ogabassey-home-product-card__condition ${getCriticalConditionClass(product.condition)}`}
           >
             {product.condition}
           </div>
@@ -77,30 +94,32 @@ export function HomeProductGridCard({
             alt={productImageAlt}
             fill
             sizes="(max-width: 480px) 40vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
-            loading="lazy"
-            fetchPriority="low"
-            className="object-contain p-4"
+            loading={shouldPrioritizeImage ? 'eager' : 'lazy'}
+            fetchPriority={shouldPrioritizeImage ? 'auto' : 'low'}
+            className="ogabassey-home-product-card__image"
           />
         ) : (
-          <div className="w-2/3 h-2/3 bg-gray-200 rounded-lg animate-pulse" />
+          <div className="ogabassey-home-product-card__placeholder" />
         )}
       </div>
 
-      <div className="flex flex-col flex-1 px-1 pt-1 pointer-events-none">
-        <h3 className="font-bold text-base text-gray-900 mb-1 leading-tight line-clamp-2">
+      <div className="ogabassey-home-product-card__body">
+        <h3 className="ogabassey-home-product-card__title">
           {product.name}
           {product.spec && (
-            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-500 border border-gray-200 align-middle leading-none tracking-normal">
+            <span className="ogabassey-home-product-card__spec">
               {product.spec}
             </span>
           )}
         </h3>
 
-        <div className="mt-auto flex items-end justify-between border-t border-dashed border-gray-100 pt-3">
-          <span className="text-primary font-extrabold text-lg tracking-tight">
+        <ProductRatingRow rating={product.rating} />
+
+        <div className="ogabassey-home-product-card__footer">
+          <span className="ogabassey-home-product-card__price">
             {product.price}
           </span>
-          <span className="text-xs font-semibold text-gray-900 mb-0.5">
+          <span className="ogabassey-home-product-card__details">
             Details
           </span>
         </div>

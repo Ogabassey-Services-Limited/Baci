@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { renderToString } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type MockStorefrontMerchant = {
@@ -32,6 +33,8 @@ const { mockStorefrontLayout } = vi.hoisted(() => ({
     }) => <section aria-label="generic storefront layout">{children}</section>
   ),
 }));
+const mockCriticalHomeCssImport = vi.hoisted(() => vi.fn());
+const mockFullHomeCssImport = vi.hoisted(() => vi.fn());
 
 const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
   mockGetRequestScopedMerchant: vi.fn<
@@ -58,6 +61,16 @@ const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
 
 vi.mock('server-only', () => ({}));
 
+vi.mock('@/app/(storefront)/storefront-home-critical.css', () => {
+  mockCriticalHomeCssImport();
+  return {};
+});
+
+vi.mock('@/app/(storefront)/storefront-home.css', () => {
+  mockFullHomeCssImport();
+  return {};
+});
+
 vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: mockGetRequestScopedMerchant,
 }));
@@ -74,12 +87,57 @@ import OgabasseyLayout, {
   generateMetadata,
   generateViewport,
 } from '@/app/(storefront)/ogabassey/layout';
+import { hasRenderedResourceHintLink } from '@/app/(storefront)/ogabassey/resource-hint-test-utils';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
+import { OGABASSEY_HERO_DESKTOP_LCP_SRC } from '@/config/ogabassey-hero-assets';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 describe('OgabasseyLayout', () => {
+  it('loads only the critical homepage stylesheet from the layout shell', () => {
+    expect(mockCriticalHomeCssImport).toHaveBeenCalledOnce();
+    expect(mockFullHomeCssImport).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     mockStorefrontLayout.mockClear();
     mockGetRequestScopedMerchant.mockClear();
+  });
+
+  it('emits desktop LCP resource hints and leaves mobile LCP inline', () => {
+    const html = renderToString(
+      <OgabasseyLayout>
+        <p>Home content</p>
+      </OgabasseyLayout>
+    );
+    expect(
+      hasRenderedResourceHintLink(html, {
+        href: OGABASSEY_CDN_ORIGIN,
+        rel: 'dns-prefetch',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        href: OGABASSEY_CDN_ORIGIN,
+        rel: 'preconnect',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        as: 'image',
+        fetchpriority: 'high',
+        href: OGABASSEY_HERO_DESKTOP_LCP_SRC,
+        media: '(min-width: 768px)',
+        rel: 'preload',
+        type: 'image/avif',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        as: 'image',
+        media: '(max-width: 767px)',
+        rel: 'preload',
+      })
+    ).toBe(false);
   });
 
   it('renders the storefront layout with the static OgaBassey identifier', async () => {

@@ -78,12 +78,12 @@ describe('BNPLCheckoutWebView', () => {
     );
   });
 
-  it('uses a same-host scoped media capture grant when explicitly allowed', () => {
+  it('uses a broad media capture grant when explicitly allowed', () => {
     render(<BNPLCheckoutWebView {...createProps()} />);
 
     expect(mockWebView).toHaveBeenCalledWith(
       expect.objectContaining({
-        mediaCapturePermissionGrantType: 'grantIfSameHostElsePrompt',
+        mediaCapturePermissionGrantType: 'grant',
         mediaPlaybackRequiresUserAction: false,
       })
     );

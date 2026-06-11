@@ -8,7 +8,7 @@ import {
 } from '@/config/ogabassey';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
-import { OgabasseyStaticResourceHints } from './ogabassey-static-resource-hints';
+import { OgabasseyHomeStyleLoader } from './ogabassey-home-style-loader';
 
 const ogabasseyStaticHomepageSchema = {
   '@context': 'https://schema.org',
@@ -34,12 +34,12 @@ export function OgabasseyStaticHomePageContent({
 }) {
   return (
     <>
-      <OgabasseyStaticResourceHints />
       <script type="application/ld+json">
         {safeJsonLdStringify(ogabasseyStaticHomepageSchema)}
       </script>
       {/* The storefront layout blocks unpublished merchants before rendering children; keep Hero in this page shell so mobile LCP is not delayed by dynamic home data. */}
       <Hero basePath={heroBasePath} />
+      <OgabasseyHomeStyleLoader />
       <Suspense fallback={null}>
         <OgabasseyHomePageContent renderHero={false} />
       </Suspense>

@@ -53,7 +53,7 @@ describe('StorefrontShellLayout', () => {
     );
 
     expect(screen.getByTestId('layout-providers')).toBeInTheDocument();
-    expect(screen.getByTestId('gadget-pattern')).toBeInTheDocument();
+    expect(screen.queryByTestId('gadget-pattern')).not.toBeInTheDocument();
     expect(screen.getByTestId('header-slot')).toBeInTheDocument();
     expect(screen.getByText('Storefront body')).toBeInTheDocument();
     expect(screen.getByTestId('footer-slot')).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('StorefrontShellLayout', () => {
     );
 
     expect(screen.getByTestId('layout-providers')).toBeInTheDocument();
-    expect(screen.getByTestId('gadget-pattern')).toBeInTheDocument();
+    expect(screen.queryByTestId('gadget-pattern')).not.toBeInTheDocument();
     expect(screen.getByText('Storefront body')).toBeInTheDocument();
     expect(screen.queryByTestId('header-slot')).not.toBeInTheDocument();
     expect(screen.queryByTestId('footer-slot')).not.toBeInTheDocument();

@@ -38,6 +38,7 @@ const baseProduct: Product = {
   description: 'Flagship phone with top-tier camera and performance.',
   condition: 'New',
   images: ['/iphone-black.jpg'],
+  rating: 4.8,
 };
 
 describe('HomeProductGridCard', () => {
@@ -75,6 +76,48 @@ describe('HomeProductGridCard', () => {
     delete (
       globalThis as { IntersectionObserver?: typeof IntersectionObserver }
     ).IntersectionObserver;
+  });
+
+  it('renders the semantic critical card shell classes', () => {
+    const { container } = render(<HomeProductGridCard product={baseProduct} />);
+
+    expect(container.firstElementChild).toHaveClass('ogabassey-home-product-card');
+    expect(
+      container.querySelector('.ogabassey-home-product-card__media')
+    ).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: baseProduct.name })).toHaveClass(
+      'ogabassey-home-product-card__image'
+    );
+  });
+
+  it('renders critical condition badge modifier classes before deferred CSS loads', () => {
+    render(
+      <HomeProductGridCard
+        product={{
+          ...baseProduct,
+          condition: 'Open Box',
+        }}
+      />
+    );
+
+    expect(screen.getByText('Open Box')).toHaveClass(
+      'ogabassey-home-product-card__condition--open-box'
+    );
+  });
+
+  it('maps canonical condition values to critical badge modifier classes', () => {
+    render(
+      <HomeProductGridCard
+        product={{
+          ...baseProduct,
+          condition: 'open_box',
+        }}
+      />
+    );
+
+    expect(screen.getByText('open_box')).toHaveClass(
+      'ogabassey-home-product-card__condition--open-box'
+    );
   });
 
   it('links to the storefront product details route', () => {
@@ -123,6 +166,19 @@ describe('HomeProductGridCard', () => {
     ).toBeInTheDocument();
   });
 
+  it('eagerly loads initially visible home feed images without high fetch priority', () => {
+    render(
+      <HomeProductGridCard product={baseProduct} deferImageLoading={false} />
+    );
+
+    const image = screen.getByRole('img', { name: baseProduct.name });
+
+    expect(image).toHaveAttribute('loading', 'eager');
+    expect(
+      image.getAttribute('fetchPriority') ?? image.getAttribute('fetchpriority')
+    ).toBe('auto');
+  });
+
   it('renders lazy product images without hidden styles after activation', () => {
     render(<HomeProductGridCard product={baseProduct} deferImageLoading={true} />);
 
@@ -141,11 +197,36 @@ describe('HomeProductGridCard', () => {
     const image = screen.getByRole('img', { name: baseProduct.name });
 
     expect(image).toHaveAttribute('loading', 'lazy');
-    expect(image).toHaveClass('object-contain');
+    expect(image).toHaveClass('ogabassey-home-product-card__image');
     expect(image).not.toHaveClass('opacity-0');
     expect(image).not.toHaveClass('invisible');
     expect(image).not.toHaveClass('hidden');
     expect(image).not.toHaveStyle({ opacity: '0' });
+  });
+
+  it('renders the stable rating row before interactive card enhancement', () => {
+    render(<HomeProductGridCard product={baseProduct} />);
+
+    expect(
+      screen.getByRole('img', { name: 'Rated 4.8 out of 5' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('(4.8)')).toBeInTheDocument();
+  });
+
+  it('normalizes missing ratings before interactive card enhancement', () => {
+    const productWithoutRating = {
+      ...baseProduct,
+      rating: undefined,
+    };
+
+    render(<HomeProductGridCard product={productWithoutRating} />);
+
+    expect(
+      screen.getByRole('link', { name: /iPhone 17 Pro Max/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Rated 0 out of 5' })
+    ).toBeInTheDocument();
   });
 
   it('renders blank-image home placeholders as decorative images', () => {

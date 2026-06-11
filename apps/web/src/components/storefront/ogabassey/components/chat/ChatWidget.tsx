@@ -1,5 +1,6 @@
 'use client';
 
+import '@/app/(storefront)/storefront-chat.css';
 import { Sparkles, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect } from 'react';

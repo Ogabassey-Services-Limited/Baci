@@ -1,26 +1,19 @@
-import 'server-only';
+'use client';
+
 import * as ReactDOM from 'react-dom';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
+import { OGABASSEY_HERO_DESKTOP_LCP_SRC } from '@/config/ogabassey-hero-assets';
 
 export function OgabasseyStaticResourceHints() {
-  // Keep these calls in a Server Component so React can emit the resource
-  // hints in the initial document head before the hero markup is parsed.
+  // Next's Metadata API does not model resource hints; current Next docs
+  // require these ReactDOM hint calls from a Client Component so React can
+  // safely insert them into the document head during the initial render.
   ReactDOM.prefetchDNS(OGABASSEY_CDN_ORIGIN);
   ReactDOM.preconnect(OGABASSEY_CDN_ORIGIN);
-  ReactDOM.preload(HERO_DESKTOP_LCP_SRC, {
+  ReactDOM.preload(OGABASSEY_HERO_DESKTOP_LCP_SRC, {
     as: 'image',
     fetchPriority: 'high',
     media: '(min-width: 768px)',
-    type: 'image/avif',
-  });
-  ReactDOM.preload(HERO_MOBILE_LCP_SRC, {
-    as: 'image',
-    fetchPriority: 'high',
-    media: '(max-width: 767px)',
     type: 'image/avif',
   });
 

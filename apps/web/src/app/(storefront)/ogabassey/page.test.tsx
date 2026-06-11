@@ -11,26 +11,23 @@ import {
   OGABASSEY_URL,
 } from '@/config/ogabassey';
 
+const mockHomeStorefrontCssImport = vi.hoisted(() => vi.fn());
+
+vi.mock('@/app/(storefront)/storefront-home.css', () => {
+  mockHomeStorefrontCssImport();
+  return {};
+});
+
 const mockOgabasseyHomePageContent = vi.hoisted(() =>
   vi.fn(({ renderHero }: { renderHero?: boolean }) => (
     <main>OgaBassey storefront: {String(renderHero)}</main>
   ))
 );
-const mockOgabasseyStaticResourceHints = vi.hoisted(() => vi.fn(() => null));
-const mockFullStorefrontCssImport = vi.hoisted(() => vi.fn());
+const mockHomeStyleLoader = vi.hoisted(() => vi.fn());
 vi.mock('server-only', () => ({}));
-
-vi.mock('@/app/(storefront)/storefront-full.css', () => {
-  mockFullStorefrontCssImport();
-  return {};
-});
 
 vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
   Hero: () => <section aria-label="OgaBassey hero">Hero shell</section>,
-}));
-
-vi.mock('./ogabassey-static-resource-hints', () => ({
-  OgabasseyStaticResourceHints: mockOgabasseyStaticResourceHints,
 }));
 
 vi.mock('./ogabassey-home-page-content', () => ({
@@ -38,27 +35,34 @@ vi.mock('./ogabassey-home-page-content', () => ({
     mockOgabasseyHomePageContent(props),
 }));
 
+vi.mock('./ogabassey-home-style-loader', () => ({
+  OgabasseyHomeStyleLoader: () => {
+    mockHomeStyleLoader();
+    return <span>Deferred homepage styles</span>;
+  },
+}));
+
 import * as pageModule from './page';
 import OgabasseyStaticHomePage, { metadata } from './page';
 
 describe('OgabasseyStaticHomePage', () => {
-  it('loads the full storefront stylesheet at the page leaf', () => {
-    expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
+  it('keeps the complete homepage stylesheet out of the static server shell', () => {
+    expect(mockHomeStorefrontCssImport).not.toHaveBeenCalled();
   });
-
   it('renders the OgaBassey-specific home route shell', () => {
     render(<OgabasseyStaticHomePage />);
 
     expect(
       screen.getByRole('region', { name: 'OgaBassey hero' })
     ).toBeInTheDocument();
+    expect(screen.getByText('Deferred homepage styles')).toBeInTheDocument();
+    expect(mockHomeStyleLoader).toHaveBeenCalledOnce();
     expect(screen.getByRole('main')).toHaveTextContent(
       'OgaBassey storefront: false'
     );
     expect(mockOgabasseyHomePageContent).toHaveBeenCalledWith({
       renderHero: false,
     });
-    expect(mockOgabasseyStaticResourceHints).toHaveBeenCalledOnce();
   });
 
   it('keeps the shared home shell out of the Next app-router page exports', () => {

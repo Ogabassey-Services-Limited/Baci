@@ -1,5 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import type { CSSProperties } from 'react';
+import * as ReactDOM from 'react-dom';
 import {
   ProductDetailSkeleton,
   ProductGridSkeleton,
@@ -11,6 +12,7 @@ interface ShellChromeLoadingMobileHeroImage {
   alt: string;
   avifSrc: string;
   fallbackSrc: string;
+  inlineAvifSrc?: string;
 }
 
 interface ShellChromeLoadingProps {
@@ -73,6 +75,17 @@ function LoadingStatus({
 export function ShellChromeLoading({
   mobileHeroImage,
 }: ShellChromeLoadingProps = {}) {
+  if (mobileHeroImage && !mobileHeroImage.inlineAvifSrc) {
+    // ReactDOM.preload forwards `media`; keep this viewport-scoped so the
+    // mobile shell LCP image does not compete with desktop hero resources.
+    ReactDOM.preload(mobileHeroImage.avifSrc, {
+      as: 'image',
+      fetchPriority: 'high',
+      media: '(max-width: 767px)',
+      type: 'image/avif',
+    });
+  }
+
   return (
     <LoadingStatus label="Loading storefront chrome">
       <div
@@ -86,7 +99,7 @@ export function ShellChromeLoading({
           >
             <source
               media="(max-width: 767px)"
-              srcSet={mobileHeroImage.avifSrc}
+              srcSet={mobileHeroImage.inlineAvifSrc ?? mobileHeroImage.avifSrc}
               type="image/avif"
             />
             <source

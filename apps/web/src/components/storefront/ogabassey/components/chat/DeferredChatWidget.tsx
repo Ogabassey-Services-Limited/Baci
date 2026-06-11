@@ -1,5 +1,6 @@
 'use client';
 
+import '@/app/(storefront)/storefront-chat.css';
 import { Sparkles } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';

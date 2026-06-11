@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import '@/app/(storefront)/storefront-full.css';
 import {
   OGABASSEY_APPLE_TOUCH_ICON_URL,
   OGABASSEY_DESCRIPTION,
