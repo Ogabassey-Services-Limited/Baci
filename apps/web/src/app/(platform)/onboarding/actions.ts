@@ -83,6 +83,7 @@ function hasEstablishedMerchantSlug(slug: string | null | undefined): boolean {
   return typeof slug === 'string' && slug.trim().length > 0;
 }
 
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: pre-auth onboarding submission; Zod-validated + identity/IP rate limited
 export async function submitOnboarding(
   _prevState: ServerActionState,
   formData: FormData
@@ -470,6 +471,7 @@ export async function submitOnboarding(
   }
 }
 
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: login bootstrap cannot require a session; email Zod-validated + identity/IP rate limited to the middleware budget
 export async function sendMagicLink(
   email: string
 ): Promise<{ success: boolean; message: string }> {

@@ -36,6 +36,7 @@ export type CreateRepairResult =
   | { success: true; id: string }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous repair booking; Zod-validated + identity/IP rate limited
 export async function createRepair(
   data: RepairBookingInput,
   merchantId: string
@@ -134,6 +135,7 @@ export async function createRepair(
   }
 }
 
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous shipping quote; address completeness enforced by Zod + identity/IP rate limited
 export async function calculateRepairShipping(
   place: PlaceDetails
 ): Promise<ShippingCalculationResult> {

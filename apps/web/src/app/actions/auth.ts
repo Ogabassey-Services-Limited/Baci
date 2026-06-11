@@ -16,6 +16,7 @@ export type AuthActionState = {
  * Server action for email/password login
  * Works with useActionState for progressive enhancement
  */
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: the login entry point itself; credentials verified by Supabase, Zod-validated + identity/IP rate limited
 export async function loginAction(
   _prevState: AuthActionState,
   formData: FormData
@@ -78,6 +79,7 @@ export async function loginAction(
 /**
  * Server action for password reset request
  */
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: pre-auth password reset; email Zod-validated + identity/IP rate limited
 export async function forgotPasswordAction(
   _prevState: AuthActionState,
   formData: FormData

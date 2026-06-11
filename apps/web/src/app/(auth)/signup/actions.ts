@@ -22,6 +22,7 @@ export type SignupState = {
   success?: boolean;
 };
 
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: account creation cannot require a session; Zod-validated + identity/IP rate limited
 export async function signupAction(
   _prevState: SignupState,
   formData: FormData

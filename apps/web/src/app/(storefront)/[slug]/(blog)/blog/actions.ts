@@ -21,6 +21,7 @@ interface BlogListPost {
   view_count: number | null;
 }
 
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous blog pagination of published posts; Zod-validated, merchant-scoped + identity/IP rate limited
 export async function fetchMorePosts(
   merchantId: string,
   page: number,
