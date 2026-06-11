@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StorefrontSitemapContext } from './sitemap-data';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
@@ -784,7 +785,10 @@ describe('sitemap-data', () => {
         }),
       },
     };
-    const entries = await getNamedSitemapEntries(context as any, 'root');
+    const entries = await getNamedSitemapEntries(
+      context as unknown as StorefrontSitemapContext,
+      'root'
+    );
     expect(entries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ url: 'https://ogabassey.com' }),

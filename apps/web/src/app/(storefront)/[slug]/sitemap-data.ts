@@ -108,21 +108,6 @@ export async function resolveStorefrontSitemapContext(
     rawIdentifiers.push(routeIdentifierOverrideValue);
   }
 
-  // Fallback: If any identifier looks like a custom domain (contains a dot),
-  // extract the first non-www segment as a potential merchant slug fallback
-  // to safeguard against cached/inactive custom domain mapping desyncs.
-  const fallbacks: string[] = [];
-  for (const id of rawIdentifiers) {
-    if (id.includes('.')) {
-      const parts = id.split('.');
-      const fallback = parts[0] === 'www' ? parts[1] : parts[0];
-      if (fallback) {
-        fallbacks.push(fallback);
-      }
-    }
-  }
-  rawIdentifiers.push(...fallbacks);
-
   const routeIdentifiers = rawIdentifiers.filter(
     (value, index, values): value is string =>
       Boolean(value && values.indexOf(value) === index)
@@ -146,10 +131,24 @@ export async function resolveStorefrontSitemapContext(
   }
 
   if (!merchant) {
+    const SAFE_LOG_HEADERS = [
+      'host',
+      'x-forwarded-host',
+      'x-merchant-slug',
+      'x-custom-domain',
+      'x-merchant-domain',
+    ];
+    const safeHeaders = request
+      ? Object.fromEntries(
+          [...request.headers.entries()].filter(([k]) =>
+            SAFE_LOG_HEADERS.includes(k.toLowerCase())
+          )
+        )
+      : null;
     console.error('storefront sitemap: unresolved context', {
       candidates: rawIdentifiers,
       hosts: request ? [new URL(request.url).hostname] : [],
-      headers: request ? Object.fromEntries(request.headers.entries()) : null,
+      safeHeaders,
     });
     return null;
   }
