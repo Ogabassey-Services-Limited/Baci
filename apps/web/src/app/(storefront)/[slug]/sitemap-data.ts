@@ -32,17 +32,9 @@ export interface ProductWithCategory {
   categories: { slug: string | null } | null;
 }
 
-interface BlogPostSitemapRow {
-  slug: string;
-  published_at: string | null;
-  updated_at: string | null;
-  featured_image_url: string | null;
-}
-
 const SITEMAP_QUERY_PAGE_SIZE = 1000;
-// Sitemap spec caps a single file at 50,000 URLs. Leave headroom so combined
-// static/category/commercial URLs plus product URLs stay comfortably under the
-// limit in getRootSitemapEntries.
+// Sitemap spec caps a single file at 50,000 URLs. Leave headroom so the
+// products child sitemap stays comfortably under the limit.
 const SITEMAP_MAX_PRODUCT_URLS = 45_000;
 export interface StorefrontSitemapContext {
   merchant: NonNullable<Awaited<ReturnType<typeof getMerchantByIdentifier>>>;
@@ -170,19 +162,34 @@ export async function resolveStorefrontSitemapContext(
   };
 }
 
-export function getStaticSitemapEntries(
-  storeUrl: string
-): MetadataRoute.Sitemap {
+// lastmod must reflect real content changes — Google ignores it site-wide
+// once it sees request-time values. merchant.updated_at is the closest
+// DB-backed signal for static/policy pages; omit the field when absent.
+function getMerchantLastModified(
+  merchant: StorefrontSitemapContext['merchant']
+): Date | undefined {
+  return merchant.updated_at ? new Date(merchant.updated_at) : undefined;
+}
+
+export function getStaticSitemapEntries({
+  merchant,
+  storeUrl,
+}: Pick<
+  StorefrontSitemapContext,
+  'merchant' | 'storeUrl'
+>): MetadataRoute.Sitemap {
+  const lastModified = getMerchantLastModified(merchant);
+
   return [
     {
       url: storeUrl,
-      lastModified: new Date(),
+      lastModified,
       changeFrequency: 'daily',
       priority: 1,
     },
     {
       url: `${storeUrl}/faq`,
-      lastModified: new Date(),
+      lastModified,
       changeFrequency: 'monthly',
       priority: 0.5,
     },
@@ -200,9 +207,11 @@ export function getTrustPolicySitemapEntries({
     hasPublishableWarrantyPolicy(trustProfile) ? `${storeUrl}/warranty` : null,
   ].filter((url): url is string => typeof url === 'string' && url.length > 0);
 
+  const lastModified = getMerchantLastModified(merchant);
+
   return trustUrls.map((url) => ({
     url,
-    lastModified: new Date(),
+    lastModified,
     changeFrequency: 'monthly',
     priority: 0.5,
   }));
@@ -212,7 +221,7 @@ export function getStaticAndTrustSitemapEntries(
   context: StorefrontSitemapContext
 ): MetadataRoute.Sitemap {
   return [
-    ...getStaticSitemapEntries(context.storeUrl),
+    ...getStaticSitemapEntries(context),
     ...getTrustPolicySitemapEntries(context),
   ];
 }
@@ -320,67 +329,10 @@ export async function getCategorySitemapEntries({
 
   return categories.map((cat) => ({
     url: `${storeUrl}/${cat.slug}`,
-    lastModified: cat.updated_at ? new Date(cat.updated_at) : new Date(),
+    lastModified: cat.updated_at ? new Date(cat.updated_at) : undefined,
     changeFrequency: 'daily',
     priority: 0.7,
   }));
-}
-
-export async function getBlogSitemapEntries({
-  supabase,
-  merchant,
-  storeUrl,
-}: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
-  // Mirror the blog feature-flag guard used in getCachedBlogListing /
-  // getCachedBlogPost and the dedicated /blog/sitemap.xml so storefronts
-  // without the blog enabled never expose /blog URLs in the root sitemap
-  // (those routes short-circuit to 404 when the feature is off).
-  const features = await getCachedFeatureSettings(merchant.id);
-  if (!features?.blog_enabled) {
-    return [];
-  }
-
-  const { data: posts, error } = (await supabase
-    .from('blog_posts')
-    .select('slug, published_at, updated_at, featured_image_url')
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .not('published_at', 'is', null)) as {
-    data: BlogPostSitemapRow[] | null;
-    error: PostgrestError | null;
-  };
-
-  if (error) {
-    throw error;
-  }
-
-  const entries: MetadataRoute.Sitemap = [
-    {
-      url: `${storeUrl}/blog`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1,
-    },
-  ];
-
-  for (const post of posts || []) {
-    const lastModified = post.updated_at || post.published_at;
-    if (!lastModified) {
-      continue;
-    }
-
-    entries.push({
-      url: `${storeUrl}/blog/${post.slug}`,
-      lastModified: new Date(lastModified),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-      ...(post.featured_image_url?.startsWith('http') && {
-        images: [post.featured_image_url],
-      }),
-    });
-  }
-
-  return entries;
 }
 
 export async function getCommercialSupportSitemapEntries(
@@ -428,7 +380,7 @@ export async function getCommercialSupportSitemapEntries(
       return links.map((link) => ({
         url: link.href,
         lastModified:
-          entry.lastModified instanceof Date ? entry.lastModified : new Date(),
+          entry.lastModified instanceof Date ? entry.lastModified : undefined,
         changeFrequency: 'weekly' as const,
         priority: 0.6,
       }));
@@ -438,48 +390,42 @@ export async function getCommercialSupportSitemapEntries(
   return commercialEntries.flat();
 }
 
-export async function getRootSitemapEntries(
+/**
+ * Child sitemaps referenced by the root sitemap index. Each public URL is
+ * rewritten by the proxy back into this route (or the dedicated blog
+ * sitemap routes), so every child resolves on both custom domains and
+ * platform subdomains.
+ */
+export async function getSitemapIndexLinks(
   context: StorefrontSitemapContext
-): Promise<MetadataRoute.Sitemap> {
-  const getSafeSitemapEntries = async (
-    label: string,
-    loader: () => Promise<MetadataRoute.Sitemap>
-  ): Promise<MetadataRoute.Sitemap> => {
-    try {
-      return await loader();
-    } catch (error) {
-      console.warn(`storefront sitemap: ${label} entries unavailable`, {
-        error,
-      });
-      return [];
-    }
-  };
-
-  const [
-    staticEntries,
-    productEntries,
-    categoryEntries,
-    blogEntries,
-    commercialSupportEntries,
-  ] = await Promise.all([
-    Promise.resolve(getStaticAndTrustSitemapEntries(context)),
-    getSafeSitemapEntries('products', () => getProductSitemapEntries(context)),
-    getSafeSitemapEntries('categories', () =>
-      getCategorySitemapEntries(context)
-    ),
-    getSafeSitemapEntries('blog', () => getBlogSitemapEntries(context)),
-    getSafeSitemapEntries('commercial-support', () =>
-      getCommercialSupportSitemapEntries(context)
-    ),
-  ]);
-
-  return [
-    ...staticEntries,
-    ...productEntries,
-    ...categoryEntries,
-    ...blogEntries,
-    ...commercialSupportEntries,
+): Promise<string[]> {
+  const { merchant, storeUrl } = context;
+  const links = [
+    `${storeUrl}/sitemap/static.xml`,
+    `${storeUrl}/sitemap/products.xml`,
+    `${storeUrl}/sitemap/categories.xml`,
+    `${storeUrl}/sitemap/commercial-support.xml`,
   ];
+
+  let blogEnabled = false;
+  try {
+    const features = await getCachedFeatureSettings(merchant.id);
+    blogEnabled = Boolean(features?.blog_enabled);
+  } catch (error) {
+    // Degrade to the core children rather than failing the whole index.
+    console.warn('storefront sitemap: blog feature lookup unavailable', {
+      error,
+    });
+  }
+
+  if (blogEnabled) {
+    links.push(
+      `${storeUrl}/blog/sitemap.xml`,
+      `${storeUrl}/blog/news-sitemap.xml`
+    );
+  }
+
+  return links;
 }
 
 export function getNamedSitemapEntries(
@@ -487,8 +433,6 @@ export function getNamedSitemapEntries(
   id: string
 ): MetadataRoute.Sitemap | Promise<MetadataRoute.Sitemap> {
   switch (id) {
-    case 'root':
-      return getRootSitemapEntries(context);
     case 'static':
       return getStaticAndTrustSitemapEntries(context);
     case 'products':
@@ -545,10 +489,33 @@ export function serializeSitemap(entries: MetadataRoute.Sitemap): string {
   );
 }
 
+// Index entries intentionally carry no <lastmod>: merchant.updated_at does
+// not track catalog changes, and an inaccurate value teaches Google to
+// ignore lastmod across the site.
+export function serializeSitemapIndex(links: string[]): string {
+  const body = links
+    .map((link) => `<sitemap><loc>${escapeHtml(link)}</loc></sitemap>`)
+    .join('');
+
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+    `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}</sitemapindex>`
+  );
+}
+
 export function createSitemapResponse(
   entries: MetadataRoute.Sitemap
 ): Response {
   return new Response(serializeSitemap(entries), {
+    headers: {
+      'content-type': 'application/xml; charset=utf-8',
+      'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+    },
+  });
+}
+
+export function createSitemapIndexResponse(links: string[]): Response {
+  return new Response(serializeSitemapIndex(links), {
     headers: {
       'content-type': 'application/xml; charset=utf-8',
       'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
