@@ -1,17 +1,43 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMerchantSafe } from '@/lib/cached-data';
+import { type CachedMerchant, getMerchantSafe } from '@/lib/cached-data';
 import { GET } from './route';
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantSafe: vi.fn(),
 }));
 
+type FaviconMerchantFields = Pick<
+  CachedMerchant,
+  | 'favicon_apple_touch_url'
+  | 'favicon_png_32_url'
+  | 'favicon_svg_url'
+  | 'logo_url'
+>;
+
+function createMerchant(
+  overrides: Partial<FaviconMerchantFields>
+): CachedMerchant {
+  return {
+    favicon_apple_touch_url: null,
+    favicon_png_32_url: null,
+    favicon_svg_url: null,
+    logo_url: null,
+    ...overrides,
+  } as unknown as CachedMerchant;
+}
+
+function createRequest(url = 'https://ogabassey.com/favicon.ico') {
+  return new Request(url) as unknown as NextRequest;
+}
+
 describe('Storefront Favicon Route Handler', () => {
   const ROOT_DOMAIN = 'usebaci.com';
   const fallbackUrl = `https://${ROOT_DOMAIN}/favicon.ico`;
+  const cacheControl = 'public, max-age=300, stale-while-revalidate=600';
 
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = ROOT_DOMAIN;
   });
@@ -19,28 +45,44 @@ describe('Storefront Favicon Route Handler', () => {
   it('redirects to the absolute platform fallback if merchant is not found', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(null);
 
-    const request = new Request(
-      'https://ogabassey.com/favicon.ico'
-    ) as unknown as NextRequest;
-    const response = await GET(request, {
+    const response = await GET(createRequest(), {
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
     expect(response.status).toBe(302);
     expect(response.headers.get('location')).toBe(fallbackUrl);
+    expect(response.headers.get('Cache-Control')).toBe(cacheControl);
+  });
+
+  it('uses the incoming protocol for local platform fallback redirects', async () => {
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'localhost:3000';
+    vi.mocked(getMerchantSafe).mockResolvedValue(null);
+
+    const response = await GET(
+      createRequest('http://localhost:3000/favicon.ico'),
+      {
+        params: Promise.resolve({ slug: 'ogabassey' }),
+      }
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(
+      'http://localhost:3000/favicon.ico'
+    );
+    expect(response.headers.get('Cache-Control')).toBe(cacheControl);
   });
 
   it('prioritizes favicon_png_32_url and sets short caching headers', async () => {
-    vi.mocked(getMerchantSafe).mockResolvedValue({
-      favicon_png_32_url: 'https://storage.supabase.co/favicons/1/icon-32.png',
-      favicon_svg_url: 'https://storage.supabase.co/favicons/1/icon.svg',
-      logo_url: 'https://storage.supabase.co/logos/1/logo.png',
-    } as any);
+    vi.mocked(getMerchantSafe).mockResolvedValue(
+      createMerchant({
+        favicon_png_32_url:
+          'https://storage.supabase.co/favicons/1/icon-32.png',
+        favicon_svg_url: 'https://storage.supabase.co/favicons/1/icon.svg',
+        logo_url: 'https://storage.supabase.co/logos/1/logo.png',
+      })
+    );
 
-    const request = new Request(
-      'https://ogabassey.com/favicon.ico'
-    ) as unknown as NextRequest;
-    const response = await GET(request, {
+    const response = await GET(createRequest(), {
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
@@ -48,22 +90,18 @@ describe('Storefront Favicon Route Handler', () => {
     expect(response.headers.get('location')).toBe(
       'https://storage.supabase.co/favicons/1/icon-32.png'
     );
-    expect(response.headers.get('Cache-Control')).toBe(
-      'public, max-age=300, stale-while-revalidate=600'
-    );
+    expect(response.headers.get('Cache-Control')).toBe(cacheControl);
   });
 
   it('falls back to favicon_svg_url if png_32 is missing', async () => {
-    vi.mocked(getMerchantSafe).mockResolvedValue({
-      favicon_png_32_url: null,
-      favicon_svg_url: 'https://storage.supabase.co/favicons/1/icon.svg',
-      logo_url: 'https://storage.supabase.co/logos/1/logo.png',
-    } as any);
+    vi.mocked(getMerchantSafe).mockResolvedValue(
+      createMerchant({
+        favicon_svg_url: 'https://storage.supabase.co/favicons/1/icon.svg',
+        logo_url: 'https://storage.supabase.co/logos/1/logo.png',
+      })
+    );
 
-    const request = new Request(
-      'https://ogabassey.com/favicon.ico'
-    ) as unknown as NextRequest;
-    const response = await GET(request, {
+    const response = await GET(createRequest(), {
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
@@ -74,17 +112,13 @@ describe('Storefront Favicon Route Handler', () => {
   });
 
   it('falls back to logo_url if all specific favicons are missing', async () => {
-    vi.mocked(getMerchantSafe).mockResolvedValue({
-      favicon_png_32_url: null,
-      favicon_svg_url: null,
-      favicon_apple_touch_url: null,
-      logo_url: 'https://storage.supabase.co/logos/1/logo.png',
-    } as any);
+    vi.mocked(getMerchantSafe).mockResolvedValue(
+      createMerchant({
+        logo_url: 'https://storage.supabase.co/logos/1/logo.png',
+      })
+    );
 
-    const request = new Request(
-      'https://ogabassey.com/favicon.ico'
-    ) as unknown as NextRequest;
-    const response = await GET(request, {
+    const response = await GET(createRequest(), {
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
@@ -94,20 +128,60 @@ describe('Storefront Favicon Route Handler', () => {
     );
   });
 
-  it('safely falls back to platform favicon on invalid/unsafe merchant url', async () => {
-    vi.mocked(getMerchantSafe).mockResolvedValue({
-      favicon_png_32_url: 'javascript:alert(1)', // unsafe protocol
-      logo_url: 'relative-path/logo.png', // invalid absolute url
-    } as any);
+  it('tries lower-priority favicon URLs after an invalid primary URL', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(getMerchantSafe).mockResolvedValue(
+      createMerchant({
+        favicon_png_32_url: 'javascript:alert(1)',
+        favicon_svg_url: 'https://storage.supabase.co/favicons/1/icon.svg',
+      })
+    );
 
-    const request = new Request(
-      'https://ogabassey.com/favicon.ico'
-    ) as unknown as NextRequest;
-    const response = await GET(request, {
+    const response = await GET(createRequest(), {
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(
+      'https://storage.supabase.co/favicons/1/icon.svg'
+    );
+  });
+
+  it('avoids redirect loops when merchant favicon points to the current request', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(getMerchantSafe).mockResolvedValue(
+      createMerchant({
+        favicon_png_32_url: 'https://ogabassey.com/favicon.ico',
+        logo_url: 'https://storage.supabase.co/logos/1/logo.png',
+      })
+    );
+
+    const response = await GET(createRequest(), {
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(
+      'https://storage.supabase.co/logos/1/logo.png'
+    );
+  });
+
+  it('safely falls back to platform favicon when all merchant urls are invalid', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(getMerchantSafe).mockResolvedValue(
+      createMerchant({
+        favicon_png_32_url: 'javascript:alert(1)',
+        logo_url: 'relative-path/logo.png',
+      })
+    );
+
+    const response = await GET(createRequest(), {
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
     expect(response.status).toBe(302);
     expect(response.headers.get('location')).toBe(fallbackUrl);
+    expect(response.headers.get('Cache-Control')).toBe(cacheControl);
   });
 });
