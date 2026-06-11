@@ -17,6 +17,7 @@ type WalletSavingsProgressModalProps = {
   isAdding: boolean;
   onAddAmountChange: (value: string) => void;
   onAddSavings: () => void;
+  onChangeDevice: () => void;
   onClose: () => void;
   onFundWallet: () => void;
   visible: boolean;
@@ -51,6 +52,7 @@ export function WalletSavingsProgressModal({
   isAdding,
   onAddAmountChange,
   onAddSavings,
+  onChangeDevice,
   onClose,
   onFundWallet,
   visible,
@@ -211,6 +213,29 @@ export function WalletSavingsProgressModal({
                   </Text>
                 </Pressable>
               </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Change savings device"
+                onPress={onChangeDevice}
+                style={[
+                  styles.changeDeviceButton,
+                  { borderColor: colors.border },
+                ]}
+              >
+                <Ionicons
+                  name="swap-horizontal-outline"
+                  size={16}
+                  color={colors.text}
+                />
+                <Text
+                  style={[
+                    styles.changeDeviceButtonText,
+                    { color: colors.text },
+                  ]}
+                >
+                  Change device
+                </Text>
+              </Pressable>
             </View>
           ) : (
             <Text

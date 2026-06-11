@@ -23,6 +23,14 @@ jest.mock('expo-image', () => ({
   Image: () => null,
 }));
 
+jest.mock('@/hooks/use-debounce', () => ({
+  useDebounce: (value: string) => value,
+}));
+
+jest.mock('@/hooks/use-products', () => ({
+  useProducts: () => ({ isLoading: false, products: [] }),
+}));
+
 function createProps(): WalletContentProps {
   return {
     activeSavingsGoal: {
@@ -51,6 +59,7 @@ function createProps(): WalletContentProps {
     isRefetching: false,
     loyaltyPoints: 2000,
     onAddSavingsContribution: jest.fn(),
+    onChangeSavingsDevice: jest.fn(async () => true),
     onChangeFundAmount: jest.fn(),
     onChangeRedeemPoints: jest.fn(),
     onChangeSavingsContributionAmount: jest.fn(),

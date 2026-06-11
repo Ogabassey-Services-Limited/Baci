@@ -86,6 +86,8 @@ export function mapSavingsRpcErrorStatus(message: string, code?: string) {
     normalized.includes('not_allocatable') ||
     normalized.includes('not_paused') ||
     normalized.includes('not_resumed') ||
+    normalized.includes('not_swappable') ||
+    normalized.includes('below_current_savings') ||
     normalized.includes('exceeds_remaining_target') ||
     normalized.includes('duplicate_savings_contribution_idempotency_key')
   ) {

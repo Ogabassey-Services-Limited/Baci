@@ -33,7 +33,10 @@ import {
   getWalletLoadingMessage,
   sanitizeWalletFundAmount,
 } from './wallet-screen.helpers';
-import { addSavingsContributionToGoal } from './wallet-screen-savings.handlers';
+import {
+  addSavingsContributionToGoal,
+  changeSavingsGoalDevice,
+} from './wallet-screen-savings.handlers';
 
 interface WalletScreenProps {
   presentation?: 'stack' | 'tab';
@@ -220,22 +223,16 @@ export function WalletScreen({
       setFundAmount(savingsContributionAmount);
     }
   };
-  const getSavingsContributionIdempotencyKey = () => {
-    if (!savingsContributionIdempotencyKeyRef.current) {
-      savingsContributionIdempotencyKeyRef.current = Crypto.randomUUID();
-    }
-    return savingsContributionIdempotencyKeyRef.current;
-  };
   const handleAddSavingsContribution = () =>
     addSavingsContributionToGoal({
       activeMerchantId,
       activeMerchantSlug,
       addSavingsContribution,
       clearSavingsContributionAmount: () => setSavingsContributionAmount(''),
-      clearIdempotencyKey: () => {
-        savingsContributionIdempotencyKeyRef.current = null;
-      },
-      createIdempotencyKey: getSavingsContributionIdempotencyKey,
+      clearIdempotencyKey: () =>
+        (savingsContributionIdempotencyKeyRef.current = null),
+      createIdempotencyKey: () =>
+        (savingsContributionIdempotencyKeyRef.current ??= Crypto.randomUUID()),
       cancelSavingsReminder: cancelSavingsReminderNotification,
       goal: activeSavingsGoal,
       rawAmount: savingsContributionAmount,
@@ -262,6 +259,15 @@ export function WalletScreen({
         isRefetching,
         loyaltyPoints: walletData.loyalty_points,
         onAddSavingsContribution: handleAddSavingsContribution,
+        onChangeSavingsDevice: (product, variantId) =>
+          changeSavingsGoalDevice({
+            activeMerchantId,
+            activeMerchantSlug,
+            goal: activeSavingsGoal,
+            product,
+            refetchWallet: refetch,
+            variantId,
+          }),
         onChangeSavingsContributionAmount: (value) =>
           setSavingsContributionAmount(sanitizeWalletFundAmount(value)),
         onChangeFundAmount: handleFundAmountChange,

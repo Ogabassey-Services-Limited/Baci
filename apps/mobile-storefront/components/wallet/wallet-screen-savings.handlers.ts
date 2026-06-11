@@ -1,6 +1,9 @@
 import { Alert } from 'react-native';
 import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
+import { swapSavingsGoalDevice } from '@/lib/customer-savings';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import type { Product } from '@/types/product';
+import { toSelectedProductChoice } from './savings/start-savings-controller.utils';
 
 interface AddSavingsContributionParams {
   activeMerchantId?: string;
@@ -20,6 +23,15 @@ interface AddSavingsContributionParams {
   rawAmount: string;
   refetchWallet: () => Promise<unknown>;
   setIsAddingSavingsContribution: (isPending: boolean) => void;
+}
+
+interface ChangeSavingsGoalDeviceParams {
+  activeMerchantId?: string;
+  activeMerchantSlug?: string;
+  goal: WalletActiveSavingsGoal | null;
+  product: Product;
+  refetchWallet: () => Promise<unknown>;
+  variantId?: string | null;
 }
 
 function isCompletedSavingsContributionResult(result: unknown) {
@@ -105,5 +117,58 @@ export async function addSavingsContributionToGoal({
     );
   } finally {
     setIsAddingSavingsContribution(false);
+  }
+}
+
+export async function changeSavingsGoalDevice({
+  activeMerchantId,
+  activeMerchantSlug,
+  goal,
+  product,
+  refetchWallet,
+  variantId,
+}: ChangeSavingsGoalDeviceParams): Promise<boolean> {
+  if (!goal) {
+    Alert.alert('No active savings goal', 'Start a savings goal first.');
+    return false;
+  }
+
+  const choice = toSelectedProductChoice({ product, variantId });
+  if (choice.price < goal.current_amount) {
+    Alert.alert(
+      'Device price too low',
+      `You have already saved ${formatNgnCurrency(goal.current_amount)}. Choose a device priced at or above this amount.`
+    );
+    return false;
+  }
+
+  try {
+    await swapSavingsGoalDevice({
+      goalId: goal.id,
+      merchantId: activeMerchantId,
+      merchantSlug: activeMerchantSlug,
+      productId: product.id,
+      variantId: variantId ?? null,
+    });
+    try {
+      await refetchWallet();
+    } catch {
+      Alert.alert(
+        'Device updated',
+        'Your savings device was updated, but wallet refresh failed. Pull to refresh your latest goal.'
+      );
+      return true;
+    }
+    Alert.alert(
+      'Device updated',
+      `Your savings goal is now for ${choice.name}.`
+    );
+    return true;
+  } catch (error) {
+    Alert.alert(
+      'Unable to change device',
+      error instanceof Error ? error.message : 'Please try again in a moment.'
+    );
+    return false;
   }
 }
