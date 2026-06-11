@@ -2195,6 +2195,12 @@ interface BlogPostSchemaData {
   url: string;
   image?: string;
   imageUrls?: string[];
+  imageObjects?: Array<{
+    '@type'?: 'ImageObject';
+    url: string;
+    width?: number;
+    height?: number;
+  }>;
   datePublished: string;
   dateModified?: string;
   author: {
@@ -2285,8 +2291,36 @@ export function generateBlogPostSchema(
   const imageUrls = Array.isArray(data.imageUrls)
     ? data.imageUrls.map((url) => url.trim()).filter((url) => url.length > 0)
     : [];
+  const imageObjects: Record<string, unknown>[] = Array.isArray(
+    data.imageObjects
+  )
+    ? data.imageObjects.flatMap((image) => {
+        const url = sanitizeSchemaUrl(image.url.trim());
+        if (!url) {
+          return [];
+        }
 
-  if (imageUrls.length > 0) {
+        const width = image.width;
+        const height = image.height;
+
+        return [
+          {
+            '@type': 'ImageObject',
+            url,
+            ...(typeof width === 'number' &&
+              Number.isInteger(width) &&
+              width > 0 && { width }),
+            ...(typeof height === 'number' &&
+              Number.isInteger(height) &&
+              height > 0 && { height }),
+          },
+        ];
+      })
+    : [];
+
+  if (imageObjects.length > 0) {
+    schema.image = imageObjects;
+  } else if (imageUrls.length > 0) {
     schema.image = imageUrls.map((url) => escapeHtml(url));
   } else if (data.image) {
     schema.image = {

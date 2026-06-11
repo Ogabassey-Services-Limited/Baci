@@ -43,3 +43,6 @@
 
 **Learning:** Returning all columns by default via `.select()` (or `.select('*')`) on database mutations (POST/PATCH/PUT) causes unnecessary data overfetching in response payloads.
 **Action:** When updating or inserting records using Supabase, always supply explicit column names to `.select()`, for example: `.select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))`, to minimize database query planning overhead and JSON payload size.
+## 2025-06-03 - [Replace select('*') with select('id') for explicit column selection]
+**Learning:** In Supabase queries, using .select() without arguments defaults to fetching all columns, which violates explicit column selection rules and leads to overfetching.
+**Action:** Always specify exact columns like .select('id') when inserting rows or retrieving specific data to reduce query overhead.

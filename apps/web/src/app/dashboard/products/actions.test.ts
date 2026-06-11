@@ -1,0 +1,474 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Product } from '@/lib/products';
+
+const mocks = vi.hoisted(() => ({
+  ensurePermission: vi.fn(),
+  generateObject: vi.fn(),
+  getUser: vi.fn(),
+  isMerchantPermissionRedirectError: vi.fn(),
+  withRetry: vi.fn(),
+}));
+
+vi.mock('ai', () => ({
+  generateObject: (...args: unknown[]) => mocks.generateObject(...args),
+}));
+
+vi.mock('@/ai/provider', () => ({
+  gemini25FlashImage: 'gemini-image-test-model',
+  geminiFlash: 'gemini-test-model',
+  sanitizePromptInput: (value: string) => ({ value }),
+  withRetry: (operation: () => Promise<unknown>) => mocks.withRetry(operation),
+}));
+
+vi.mock('@/lib/merchant-server', () => ({
+  ensurePermission: (...args: unknown[]) => mocks.ensurePermission(...args),
+  isMerchantPermissionRedirectError: (error: unknown) =>
+    mocks.isMerchantPermissionRedirectError(error),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(async () => ({
+    auth: {
+      getUser: mocks.getUser,
+    },
+  })),
+}));
+
+const { fetchGoogleSheet, parseCSVDirectly, processPriceList } = await import(
+  './actions'
+);
+
+const existingProducts = [
+  {
+    id: 'product-1',
+    name: 'Old Phone',
+    price: 1000,
+    sku: 'OLD-1',
+    stock: 5,
+  },
+] as unknown as Product[];
+
+describe('product import actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    mocks.ensurePermission.mockResolvedValue({
+      merchant: { id: 'merchant-1' },
+      staffAccess: { isOwner: true },
+    });
+    mocks.isMerchantPermissionRedirectError.mockReturnValue(false);
+    mocks.withRetry.mockImplementation((operation: () => Promise<unknown>) =>
+      operation()
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('does not process price lists with AI for unauthenticated callers', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Vendor',
+      'text/csv'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+    expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
+  it('does not process price lists with AI when auth lookup returns an error', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('Auth lookup failed'),
+    });
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Vendor',
+      'text/csv'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+    expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
+  it('does not process price lists with AI when product create permission is denied', async () => {
+    mocks.ensurePermission.mockRejectedValueOnce(new Error('Forbidden'));
+    mocks.isMerchantPermissionRedirectError.mockReturnValueOnce(true);
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Vendor',
+      'text/csv'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
+  it('surfaces unexpected product permission failures during price list processing', async () => {
+    mocks.ensurePermission.mockRejectedValueOnce(
+      new Error('Permission store down')
+    );
+    mocks.isMerchantPermissionRedirectError.mockReturnValueOnce(false);
+
+    await expect(
+      processPriceList(
+        existingProducts,
+        'Name,Price\nNew Phone,2000',
+        'Vendor',
+        'text/csv'
+      )
+    ).rejects.toThrow('Permission store down');
+
+    expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
+  it('does not process price lists when input validation fails', async () => {
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Vendor',
+      'not-a-mime-type'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Invalid input' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+    expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
+  it('accepts legacy text file type labels for pasted AI imports', async () => {
+    mocks.generateObject.mockResolvedValueOnce({
+      object: {
+        changes: [],
+        summary: 'Processed pasted price list',
+      },
+    });
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Pasted text',
+      'text'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary: 'Processed pasted price list',
+    });
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(mocks.generateObject).toHaveBeenCalledOnce();
+    expect(JSON.stringify(mocks.generateObject.mock.calls[0]?.[0])).toContain(
+      'Format: text/plain'
+    );
+  });
+
+  it('accepts legacy csv file type labels for Google Sheet AI fallback imports', async () => {
+    mocks.generateObject.mockResolvedValueOnce({
+      object: {
+        changes: [],
+        summary: 'Processed Google Sheet price list',
+      },
+    });
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Google Sheet Sync',
+      'csv'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary: 'Processed Google Sheet price list',
+    });
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(mocks.generateObject).toHaveBeenCalledOnce();
+    expect(JSON.stringify(mocks.generateObject.mock.calls[0]?.[0])).toContain(
+      'Format: text/csv'
+    );
+  });
+
+  it('processes image price lists without duplicating base64 in the text prompt', async () => {
+    const imagePayload = 'data:image/png;base64,THIS_SHOULD_ONLY_BE_IMAGE_DATA';
+    mocks.generateObject.mockResolvedValueOnce({
+      object: {
+        changes: [],
+        summary: 'Processed image price list',
+      },
+    });
+
+    const result = await processPriceList(
+      existingProducts,
+      imagePayload,
+      'Vendor',
+      'image/png'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary: 'Processed image price list',
+    });
+    expect(mocks.generateObject).toHaveBeenCalledOnce();
+    const call = mocks.generateObject.mock.calls[0]?.[0] as {
+      messages?: Array<{
+        content?: Array<{ type: string; text?: string; image?: string }>;
+      }>;
+    };
+    const content = call.messages?.[0]?.content ?? [];
+    const textPart = content.find((part) => part.type === 'text');
+    const imagePart = content.find((part) => part.type === 'image');
+
+    expect(textPart?.text).toContain('Image attachment supplied separately');
+    expect(textPart?.text).not.toContain(imagePayload);
+    expect(imagePart?.image).toBe(imagePayload);
+  });
+
+  it('processes price lists with AI after product create authorization', async () => {
+    const productsWithExtraFields = [
+      {
+        ...existingProducts[0],
+        internal_secret_note: 'do not send this to the model',
+      },
+    ] as unknown as Product[];
+    mocks.generateObject.mockResolvedValueOnce({
+      object: {
+        changes: [
+          {
+            details: {
+              name: 'New Phone',
+              price: 2000,
+            },
+            type: 'new',
+          },
+        ],
+        summary: 'Found 1 new product',
+      },
+    });
+
+    const result = await processPriceList(
+      productsWithExtraFields,
+      'Name,Price\nNew Phone,2000',
+      'Vendor',
+      'text/csv'
+    );
+
+    expect(result).toEqual({
+      changes: [
+        {
+          details: {
+            name: 'New Phone',
+            price: 2000,
+          },
+          type: 'new',
+        },
+      ],
+      summary: 'Found 1 new product',
+    });
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(mocks.generateObject).toHaveBeenCalledOnce();
+    expect(
+      JSON.stringify(mocks.generateObject.mock.calls[0]?.[0])
+    ).not.toContain('internal_secret_note');
+  });
+
+  it('does not parse CSV for unauthenticated callers', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price\nNew Phone,2000'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+  });
+
+  it('does not parse CSV when auth lookup returns an error', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('Auth lookup failed'),
+    });
+
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price\nNew Phone,2000'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+  });
+
+  it('does not parse CSV when product create permission is denied', async () => {
+    mocks.ensurePermission.mockRejectedValueOnce(new Error('Denied'));
+    mocks.isMerchantPermissionRedirectError.mockReturnValueOnce(true);
+
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price\nNew Phone,2000'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+  });
+
+  it('returns structural CSV parser errors for unrecognized headers so AI fallback can run', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'SKU,Quantity\nOLD-1,5'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary:
+        'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
+    });
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+  });
+
+  it('does not parse CSV when product payload validation fails', async () => {
+    const result = await parseCSVDirectly(
+      [
+        {
+          id: '',
+          name: 'Invalid product',
+          price: 1000,
+        },
+      ] as unknown as Product[],
+      'Name,Price\nNew Phone,2000'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Invalid input' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+  });
+
+  it('parses CSV after product create authorization', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price,SKU\nNew Phone,2000,NEW-1'
+    );
+
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes).toEqual([
+      {
+        details: {
+          category: 'General',
+          image: undefined,
+          name: 'New Phone',
+          price: 2000,
+          sku: 'NEW-1',
+          stock: 0,
+        },
+        type: 'new',
+      },
+      {
+        details: {
+          name: 'Old Phone',
+          price: 1000,
+          sku: 'OLD-1',
+        },
+        productId: 'product-1',
+        reason: 'Not found in updated price list',
+        type: 'remove',
+      },
+    ]);
+  });
+
+  it('does not fetch Google Sheets for unauthenticated callers', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      fetchGoogleSheet('https://docs.google.com/spreadsheets/d/sheet-id/edit')
+    ).rejects.toThrow('Unauthorized');
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch Google Sheets when auth lookup returns an error', async () => {
+    mocks.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('Auth lookup failed'),
+    });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      fetchGoogleSheet('https://docs.google.com/spreadsheets/d/sheet-id/edit')
+    ).rejects.toThrow('Unauthorized');
+
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch Google Sheets when product create permission is denied', async () => {
+    mocks.ensurePermission.mockRejectedValueOnce(new Error('Forbidden'));
+    mocks.isMerchantPermissionRedirectError.mockReturnValueOnce(true);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      fetchGoogleSheet('https://docs.google.com/spreadsheets/d/sheet-id/edit')
+    ).rejects.toThrow('Unauthorized');
+
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch Google Sheets when input validation fails', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(fetchGoogleSheet('not-a-url')).rejects.toThrow(
+      'Invalid URL format. Please provide a valid Google Sheets URL.'
+    );
+
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('fetches Google Sheets after product create authorization', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      statusText: 'OK',
+      text: async () => 'Name,Price\nNew Phone,2000',
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      fetchGoogleSheet('https://docs.google.com/spreadsheets/d/sheet-id/edit')
+    ).resolves.toBe('Name,Price\nNew Phone,2000');
+
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://docs.google.com/spreadsheets/d/sheet-id/export?format=csv',
+      {
+        headers: { Accept: 'text/csv' },
+        method: 'GET',
+      }
+    );
+  });
+});

@@ -52,6 +52,8 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const OGABASSEY_SLUG = 'ogabassey';
 const PORT = Number(process.env.MCP_PORT ?? 8787);
 const MCP_PATH = '/mcp';
+const MCP_ALLOWED_HEADERS = 'content-type, mcp-protocol-version, mcp-session-id';
+const MCP_ALLOWED_METHODS = 'POST, GET, OPTIONS, DELETE, HEAD';
 const AGENTIC_CHECKOUT_API_BASE_URL =
   process.env.MCP_AGENTIC_CHECKOUT_BASE_URL ?? 'https://ogabassey.com';
 const AGENTIC_CHECKOUT_API_KEY = getAgenticCredential(
@@ -132,6 +134,23 @@ const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute per IP
 const RATE_LIMIT_MAX_ENTRIES = 10_000; // Max unique IPs to track (prevent memory exhaustion)
 
 const REQUEST_TIMEOUT_MS = 30_000; // 30 second timeout
+
+const productLookupInputSchema = {
+  product_id: z
+    .string()
+    .min(1)
+    .max(80)
+    .optional()
+    .describe('Product ID from a prior search_products result'),
+  product_name: z
+    .string()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe(
+      'Exact product name from the catalog; call search_products first when unsure'
+    ),
+};
 
 // Validate required environment variables at startup (fail closed)
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -1747,14 +1766,8 @@ function createOgabasseyServer() {
       title: 'Get Product Details',
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
-        'Get detailed information about a specific product including variants, conditions, specifications, and reviews.',
-      inputSchema: {
-        product_name: z
-          .string()
-          .min(1)
-          .max(100)
-          .describe('Product name to look up'),
-      },
+        'Get detailed information about a specific product including variants, conditions, specifications, and reviews. Use product_id when available; otherwise use the exact product_name returned by search_products.',
+      inputSchema: productLookupInputSchema,
       _meta: {
         'openai/outputTemplate': 'ui://widget/store.html',
         'openai/toolInvocation/invoking': 'Loading product...',
@@ -1770,18 +1783,28 @@ function createOgabasseyServer() {
         };
       }
 
-      const sanitizedName = sanitizeString(args.product_name, 100);
-      if (!sanitizedName) {
+      const sanitizedProductId = args.product_id
+        ? sanitizeString(args.product_id, 80)
+        : '';
+      const sanitizedName = args.product_name
+        ? sanitizeString(args.product_name, 100)
+        : '';
+      const lookupLabel = sanitizedProductId || sanitizedName;
+
+      if (!lookupLabel) {
         return {
           content: [
-            { type: 'text', text: 'Please provide a valid product name.' },
+            {
+              type: 'text',
+              text: 'Please provide a valid product ID or product name.',
+            },
           ],
           structuredContent: { products: [] },
         };
       }
 
       // Fetch product with all details
-      const { data: product, error: productError } = await supabase
+      let productQuery = supabase
         .from('products')
         .select(`
           id, name, slug, price, compare_at_price, images, description, stock_quantity,
@@ -1789,8 +1812,13 @@ function createOgabasseyServer() {
           weight_value, weight_unit, dimensions, schema_markup
         `)
         .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .ilike('name', `%${sanitizedName}%`)
+        .eq('status', 'active');
+
+      productQuery = sanitizedProductId
+        ? productQuery.eq('id', sanitizedProductId)
+        : productQuery.ilike('name', `%${sanitizedName}%`);
+
+      const { data: product, error: productError } = await productQuery
         .limit(1)
         .single();
 
@@ -1806,7 +1834,7 @@ function createOgabasseyServer() {
         }
         return {
           content: [
-            { type: 'text', text: `Product "${sanitizedName}" not found.` },
+            { type: 'text', text: `Product "${lookupLabel}" not found.` },
           ],
           structuredContent: { products: [] },
         };
@@ -2219,10 +2247,8 @@ function createOgabasseyServer() {
       title: 'Get Product Variants',
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
-        'Get all available variants (colors, storage options, conditions) for a product.',
-      inputSchema: {
-        product_name: z.string().min(1).max(100).describe('Product name'),
-      },
+        'Get all available variants (colors, storage options, conditions) for a product. Use product_id when available; otherwise use the exact product_name returned by search_products.',
+      inputSchema: productLookupInputSchema,
       _meta: {
         'openai/toolInvocation/invoking': 'Loading variants...',
         'openai/toolInvocation/invoked': 'Variants loaded',
@@ -2236,15 +2262,37 @@ function createOgabasseyServer() {
         };
       }
 
-      const sanitizedName = sanitizeString(args.product_name, 100);
+      const sanitizedProductId = args.product_id
+        ? sanitizeString(args.product_id, 80)
+        : '';
+      const sanitizedName = args.product_name
+        ? sanitizeString(args.product_name, 100)
+        : '';
+      const lookupLabel = sanitizedProductId || sanitizedName;
+
+      if (!lookupLabel) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Please provide a valid product ID or product name.',
+            },
+          ],
+        };
+      }
 
       // First find the product
-      const { data: product, error: productError } = await supabase
+      let productQuery = supabase
         .from('products')
         .select('id, name, has_variants, has_condition_offers')
         .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .ilike('name', `%${sanitizedName}%`)
+        .eq('status', 'active');
+
+      productQuery = sanitizedProductId
+        ? productQuery.eq('id', sanitizedProductId)
+        : productQuery.ilike('name', `%${sanitizedName}%`);
+
+      const { data: product, error: productError } = await productQuery
         .limit(1)
         .single();
 
@@ -2260,7 +2308,7 @@ function createOgabasseyServer() {
         }
         return {
           content: [
-            { type: 'text', text: `Product "${sanitizedName}" not found.` },
+            { type: 'text', text: `Product "${lookupLabel}" not found.` },
           ],
         };
       }
@@ -3062,12 +3110,35 @@ const httpServer = createServer(
     if (req.method === 'OPTIONS' && url.pathname === MCP_PATH) {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE',
-        'Access-Control-Allow-Headers': 'content-type, mcp-session-id',
+        'Access-Control-Allow-Methods': MCP_ALLOWED_METHODS,
+        'Access-Control-Allow-Headers': MCP_ALLOWED_HEADERS,
         'Access-Control-Expose-Headers': 'Mcp-Session-Id',
         'Access-Control-Max-Age': '86400',
       });
       res.end();
+      return;
+    }
+
+    // Liveness probe for scanners that verify the streamable HTTP endpoint
+    // before issuing JSON-RPC requests.
+    if (req.method === 'HEAD' && url.pathname === MCP_PATH) {
+      res.writeHead(200, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': MCP_ALLOWED_METHODS,
+        'Access-Control-Allow-Headers': MCP_ALLOWED_HEADERS,
+        'Access-Control-Expose-Headers': 'Mcp-Session-Id',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      });
+      res.end();
+      logAudit({
+        timestamp: new Date().toISOString(),
+        requestId,
+        ip,
+        method: 'HEAD',
+        path: MCP_PATH,
+        statusCode: 200,
+        durationMs: Date.now() - startTime,
+      });
       return;
     }
 
@@ -3163,6 +3234,7 @@ const httpServer = createServer(
       MCP_METHODS.has(req.method)
     ) {
       res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Headers', MCP_ALLOWED_HEADERS);
       res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
 
       const server = createOgabasseyServer();
@@ -3256,11 +3328,15 @@ process.on('unhandledRejection', (reason) => {
 });
 
 httpServer.listen(PORT, () => {
+  const address = httpServer.address();
+  const actualPort =
+    typeof address === 'object' && address !== null ? address.port : PORT;
+
   console.log(
     JSON.stringify({
       type: 'lifecycle',
       event: 'startup',
-      port: PORT,
+      port: actualPort,
       timestamp: new Date().toISOString(),
     })
   );
@@ -3269,7 +3345,7 @@ httpServer.listen(PORT, () => {
 ║     Ogabassey ChatGPT MCP Server (Production)                  ║
 ╠════════════════════════════════════════════════════════════════╣
 ║  Status:    Running                                            ║
-║  Port:      ${PORT}                                                ║
+║  Port:      ${actualPort}                                                ║
 ║  Endpoint:  https://mcp.ogabassey.com/mcp                      ║
 ╠════════════════════════════════════════════════════════════════╣
 ║  Security Features:                                            ║

@@ -233,16 +233,24 @@ export function StorefrontForm({
         </div>
       ))}
 
-      <Button type="submit" disabled={isSubmitting} className="w-full">
+      <Button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full"
+        aria-busy={isSubmitting}
+      >
         {isSubmitting ? (
           <>
-            <Loader2 className="size-4 mr-2 animate-spin" />
+            <Loader2 className="size-4 mr-2 animate-spin" aria-hidden="true" />
             Submitting…
           </>
         ) : (
           submitButtonText
         )}
       </Button>
+      <p className="sr-only" role="status" aria-live="polite">
+        {isSubmitting ? 'Submitting form.' : ''}
+      </p>
     </form>
   );
 }

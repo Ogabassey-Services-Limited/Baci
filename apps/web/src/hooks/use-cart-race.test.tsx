@@ -8,6 +8,12 @@ vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: vi.fn((url: RequestInfo | URL, options?: RequestInit) =>
+    globalThis.fetch(url, options)
+  ),
+}));
+
 // Mock localStorage
 const localStorageMock = (() => {
   let store: Record<string, string> = {};

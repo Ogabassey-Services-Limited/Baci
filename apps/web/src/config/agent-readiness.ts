@@ -58,18 +58,22 @@ Use this skill when helping a user browse, compare, or buy from Ogabassey, a Bac
 
 ## Safety
 
-- Read catalog, product, policy, and order-status information before taking actions.
-- Do not submit checkout, payment, account, or wallet actions unless the user explicitly asks.
-- Treat signed checkout routes as stateful and follow the request-signing contract in agent-commerce.json.
-- Use the current storefront host as canonical when resolving product, cart, and checkout URLs.
+- Read catalog, product, policy, and availability information before taking actions.
+- Use add_to_cart only when the user asks to add a specific product to cart.
+- Do not submit checkout, payment, account, wallet, or order-management actions.
+- Use the current storefront host as canonical when resolving product and cart URLs.
 
 ## Useful MCP Tools
 
-- search_products: search product names, categories, brands, and price ranges.
-- get_product: fetch detailed product information and variants.
-- get_shipping_quote: estimate delivery options for a destination.
-- create_agentic_checkout_session: create a signed checkout session only after user confirmation.
-- check_order: look up order status from an order number or phone number supplied by the user.
+- search_products: search product names, categories, brands, conditions, and price ranges.
+- add_to_cart: add a specific product ID to the user's cart after the user asks.
+- get_product: fetch detailed product information by product_id or exact product_name.
+- get_product_variants: fetch available colors, storage options, SIM options, and condition offers.
+- get_store_info: answer contact, shipping, returns, payment, general, and policy questions.
+- get_recommendations: recommend products for a use case, category, and optional budget.
+- browse_categories: list available catalog categories.
+- get_brands: list available brands, optionally filtered by category.
+- get_shipping_quote: estimate delivery options for a Nigerian destination.
 `;
 }
 

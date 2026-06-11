@@ -19,6 +19,7 @@ import { PatternedBackground } from '@/components/storefront/PatternedBackground
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useCartStore } from '@/stores/cart-store';
@@ -41,9 +42,13 @@ export function CheckoutScreenView() {
   const isDark = (colorScheme ?? 'light') === 'dark';
   const insets = useSafeAreaInsets();
 
-  const items = useCartStore((state) => state.items);
-  const subtotal = useCartStore((state) => state.subtotal());
-  const clearCart = useCartStore((state) => state.clearCart);
+  const { items, subtotal, clearCart } = useCartStore(
+    useShallow((state) => ({
+      items: state.items,
+      subtotal: state.subtotal(),
+      clearCart: state.clearCart,
+    }))
+  );
   const { customer, isAuthenticated, user } = useAuthStatus();
 
   const [step, setStep] = React.useState<CheckoutStep>('address');

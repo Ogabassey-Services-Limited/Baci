@@ -1,15 +1,95 @@
+import { isSupported as isTusSupported, Upload } from 'tus-js-client';
 import type {
   ImportJobDetail,
   ImportJobListItem,
   ImportJobRowsResponse,
   MigrationPreviewFilter,
 } from '@/app/dashboard/migrations/migration-types';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { fetchWithCsrf } from '@/lib/api-client';
+import { MIGRATION_IMPORT_BUCKET } from '@/lib/import-jobs/import-job-storage';
 import { createClient } from '@/lib/supabase/client';
 import type {
   ImportJobEntityType,
   ImportJobSourcePlatform,
 } from '@/schemas/import-jobs';
+
+const TUS_CHUNK_SIZE_BYTES = 6 * 1024 * 1024;
+
+export interface ImportUploadProgress {
+  bytesUploaded: number;
+  bytesTotal: number;
+  percent: number;
+  stage: 'initializing' | 'uploading' | 'finalizing';
+}
+
+interface ImportUploadInitPayload {
+  upload: {
+    clientUploadId: string;
+    storagePath: string;
+    uploadToken: string;
+  };
+}
+
+interface CreateImportJobInput {
+  entityType: ImportJobEntityType;
+  file: File;
+  onUploadProgress?: (progress: ImportUploadProgress) => void;
+  sourcePlatform: ImportJobSourcePlatform;
+}
+
+function getStorageResumableUploadEndpoint() {
+  const supabaseUrl = new URL(getSupabaseUrl());
+
+  if (supabaseUrl.hostname.endsWith('.supabase.co')) {
+    supabaseUrl.hostname = supabaseUrl.hostname.replace(
+      '.supabase.co',
+      '.storage.supabase.co'
+    );
+  }
+
+  supabaseUrl.pathname = '/storage/v1/upload/resumable';
+  supabaseUrl.search = '';
+  supabaseUrl.hash = '';
+
+  return supabaseUrl.toString();
+}
+
+function toPercent(bytesUploaded: number, bytesTotal: number) {
+  if (bytesTotal <= 0) {
+    return 0;
+  }
+
+  return Math.min(
+    100,
+    Math.max(0, Math.round((bytesUploaded / bytesTotal) * 100))
+  );
+}
+
+function reportProgress(
+  input: CreateImportJobInput,
+  progress: Omit<ImportUploadProgress, 'percent'>
+) {
+  input.onUploadProgress?.({
+    ...progress,
+    percent: toPercent(progress.bytesUploaded, progress.bytesTotal),
+  });
+}
+
+function buildImportTusFingerprint(
+  file: File,
+  upload: ImportUploadInitPayload['upload']
+) {
+  return [
+    'baci-import-job',
+    MIGRATION_IMPORT_BUCKET,
+    upload.storagePath,
+    file.name,
+    file.type || 'text/csv',
+    file.size,
+    file.lastModified,
+  ].join(':');
+}
 
 export function mergeJobs(
   jobs: ImportJobListItem[],
@@ -66,11 +146,118 @@ export async function fetchImportJobRows(
   return payload as ImportJobRowsResponse;
 }
 
-export async function createImportJob(input: {
-  entityType: ImportJobEntityType;
-  file: File;
-  sourcePlatform: ImportJobSourcePlatform;
-}): Promise<ImportJobListItem> {
+async function uploadImportFileWithSignedUrl(
+  input: CreateImportJobInput,
+  upload: ImportUploadInitPayload['upload']
+) {
+  const supabase = createClient();
+  const { error: uploadError } = await supabase.storage
+    .from(MIGRATION_IMPORT_BUCKET)
+    .uploadToSignedUrl(upload.storagePath, upload.uploadToken, input.file, {
+      contentType: input.file.type || 'text/csv',
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(uploadError.message || 'Failed to upload CSV file');
+  }
+
+  reportProgress(input, {
+    bytesUploaded: input.file.size,
+    bytesTotal: input.file.size,
+    stage: 'uploading',
+  });
+}
+
+async function uploadImportFileWithTus(
+  input: CreateImportJobInput,
+  upload: ImportUploadInitPayload['upload']
+) {
+  if (!isTusSupported) {
+    await uploadImportFileWithSignedUrl(input, upload);
+    return;
+  }
+
+  const supabase = createClient();
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    throw new Error(
+      sessionError?.message || 'Authentication session is required for upload'
+    );
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const tusUpload = new Upload(input.file, {
+      endpoint: getStorageResumableUploadEndpoint(),
+      retryDelays: [0, 3000, 5000, 10_000, 20_000],
+      headers: {
+        apikey: getSupabaseAnonKey(),
+        authorization: `Bearer ${session.access_token}`,
+        'x-upsert': 'false',
+      },
+      metadata: {
+        bucketName: MIGRATION_IMPORT_BUCKET,
+        objectName: upload.storagePath,
+        clientUploadId: upload.clientUploadId,
+        contentType: input.file.type || 'text/csv',
+        cacheControl: '3600',
+      },
+      fingerprint: async (file) => buildImportTusFingerprint(file, upload),
+      chunkSize: TUS_CHUNK_SIZE_BYTES,
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      onProgress: (bytesUploaded, bytesTotal) => {
+        reportProgress(input, {
+          bytesUploaded,
+          bytesTotal,
+          stage: 'uploading',
+        });
+      },
+      onError: (error) => {
+        reject(error);
+      },
+      onSuccess: () => {
+        reportProgress(input, {
+          bytesUploaded: input.file.size,
+          bytesTotal: input.file.size,
+          stage: 'uploading',
+        });
+        resolve();
+      },
+    });
+
+    tusUpload
+      .findPreviousUploads()
+      .then((previousUploads) => {
+        const matchingPreviousUpload = previousUploads.find(
+          (previousUpload) =>
+            previousUpload.metadata.bucketName === MIGRATION_IMPORT_BUCKET &&
+            previousUpload.metadata.objectName === upload.storagePath
+        );
+
+        if (matchingPreviousUpload) {
+          tusUpload.resumeFromPreviousUpload(matchingPreviousUpload);
+        }
+
+        tusUpload.start();
+      })
+      .catch(reject);
+  });
+}
+
+export async function createImportJob(
+  input: CreateImportJobInput
+): Promise<ImportJobListItem> {
+  reportProgress(input, {
+    bytesUploaded: 0,
+    bytesTotal: input.file.size,
+    stage: 'initializing',
+  });
+
   const initResponse = await fetchWithCsrf('/api/import-jobs/upload-init', {
     method: 'POST',
     body: JSON.stringify({
@@ -99,22 +286,16 @@ export async function createImportJob(input: {
     throw new Error(initPayload.error || 'Failed to create import job');
   }
 
-  const supabase = createClient();
-  const { error: uploadError } = await supabase.storage
-    .from('migration-imports')
-    .uploadToSignedUrl(
-      initPayload.upload.storagePath,
-      initPayload.upload.uploadToken,
-      input.file,
-      {
-        contentType: input.file.type || 'text/csv',
-        upsert: false,
-      }
-    );
+  await uploadImportFileWithTus(
+    input,
+    (initPayload as ImportUploadInitPayload).upload
+  );
 
-  if (uploadError) {
-    throw new Error(uploadError.message || 'Failed to upload CSV file');
-  }
+  reportProgress(input, {
+    bytesUploaded: input.file.size,
+    bytesTotal: input.file.size,
+    stage: 'finalizing',
+  });
 
   const finalizeResponse = await fetchWithCsrf('/api/import-jobs/finalize', {
     method: 'POST',
