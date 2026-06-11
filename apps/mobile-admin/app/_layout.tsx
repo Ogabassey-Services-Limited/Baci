@@ -5,22 +5,22 @@ import {
   Inter_700Bold,
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
+import { useFonts } from 'expo-font';
+import * as NavigationBar from 'expo-navigation-bar';
+import { Slot } from 'expo-router';
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from 'expo-router/react-navigation';
-import { useFonts } from 'expo-font';
-import * as NavigationBar from 'expo-navigation-bar';
-import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { useColorScheme, StatusBar } from 'react-native';
+import { StatusBar, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { isRuntimePlatform } from '@/config/runtime-platform';
+import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { NetworkProvider } from '@/context/NetworkContext';
 import { OnboardingProvider } from '@/context/OnboardingContext';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
@@ -28,6 +28,13 @@ import { QueryProvider } from '@/lib/QueryProvider';
 import { useAuthStore } from '@/stores/auth-store';
 
 SplashScreen.preventAutoHideAsync();
+
+// Module-scope helper: reads the zustand store imperatively (no subscription)
+// without referencing the `useAuthStore` hook as a value inside the component,
+// which would block React Compiler memoization of RootLayout.
+function initializeAuthStore(): () => void {
+  return useAuthStore.getState().initialize();
+}
 
 const AdminDarkTheme = {
   ...DarkTheme,
@@ -63,11 +70,10 @@ export default function RootLayout() {
 
   // Initialize auth store ONCE — sets up a single onAuthStateChange listener
   // instead of 21+ independent listeners from each useAuth() call site
-  const initializeAuth = useAuthStore.getState().initialize;
   useEffect(() => {
-    const unsubscribe = initializeAuth();
+    const unsubscribe = initializeAuthStore();
     return unsubscribe;
-  }, [initializeAuth]);
+  }, []);
 
   const [loaded, error] = useFonts({
     Inter_400Regular,

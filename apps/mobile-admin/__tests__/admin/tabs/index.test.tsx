@@ -64,15 +64,19 @@ vi.mock('zustand/react/shallow', () => ({
   useShallow: (selector: unknown) => selector,
 }));
 
-vi.mock('@/components/dashboard', () => ({
-  BranchSwitcher: () => <div>branch-switcher</div>,
-  InsightCard: () => <div>insight-card</div>,
-  ProgressCard: () => <div>progress-card</div>,
-  QuickActionButton: ({ label }: { label: string }) => <div>{label}</div>,
-  RevenueChart: () => <div>revenue-chart</div>,
-  StatCard: ({ label }: { label: string }) => <div>{label}</div>,
-  WelcomeHeader: () => <div>welcome-header</div>,
-}));
+vi.mock('@/components/dashboard', async () => {
+  const { Text } = await import('react-native');
+
+  return {
+    BranchSwitcher: () => <Text>branch-switcher</Text>,
+    InsightCard: () => <Text>insight-card</Text>,
+    ProgressCard: () => <Text>progress-card</Text>,
+    QuickActionButton: ({ label }: { label: string }) => <Text>{label}</Text>,
+    RevenueChart: () => <Text>revenue-chart</Text>,
+    StatCard: ({ label }: { label: string }) => <Text>{label}</Text>,
+    WelcomeHeader: () => <Text>welcome-header</Text>,
+  };
+});
 
 vi.mock('@/hooks/useDashboardStats', () => ({
   useDashboardStats: () => ({

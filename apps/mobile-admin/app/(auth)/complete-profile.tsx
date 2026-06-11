@@ -84,9 +84,10 @@ export default function CompleteProfileScreen() {
         }
       } catch (e) {
         console.error('Error prefilling data:', e);
-      } finally {
-        setIsInitializing(false);
       }
+      // Runs on both paths (catch above swallows errors); a `finally` clause
+      // here would block React Compiler from compiling this component.
+      setIsInitializing(false);
     }
     prefillData();
   }, []);

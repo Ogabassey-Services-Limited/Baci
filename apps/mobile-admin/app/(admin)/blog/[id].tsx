@@ -27,6 +27,145 @@ const routeParamsSchema = z.object({
   id: z.union([z.literal('new'), z.uuid()]),
 });
 
+type BlogPostStatus = 'draft' | 'published' | 'archived';
+
+interface PersistBlogPostInput {
+  category: string;
+  excerpt: string;
+  featuredImage: string;
+  id: string | undefined;
+  merchantId: string | undefined;
+  nextStatus: BlogPostStatus;
+  publishedAt: string | null;
+  title: string;
+}
+
+// Module-scope helpers keep try/finally and throw-in-try out of the component
+// body so React Compiler can memoize the screen (it cannot lower that syntax).
+async function fetchBlogPost(id: string, merchantId: string) {
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select(
+      'title, excerpt, category, featured_image_url, status, published_at'
+    )
+    .eq('id', id)
+    .eq('merchant_id', merchantId)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function uploadBlogImage(
+  uri: string,
+  merchantId: string | undefined
+): Promise<string> {
+  const fileExt = uri.split('.').pop() || 'jpg';
+  const fileName = `${merchantId}/blog/${Date.now()}.${fileExt}`;
+
+  // Use FormData for reliable file upload in React Native
+  const fileData = new FormData() as RNFormData;
+  const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
+  fileData.append(
+    'file',
+    createUploadFile({
+      uri,
+      name: fileName.split('/').pop() || 'image.jpg',
+      type: mimeType,
+    })
+  );
+
+  const { error: uploadError } = await supabase.storage
+    .from('merchant-assets')
+    .upload(fileName, fileData, {
+      contentType: mimeType,
+      upsert: true,
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage
+    .from('merchant-assets')
+    .getPublicUrl(fileName);
+
+  return data.publicUrl;
+}
+
+async function persistBlogPost({
+  category,
+  excerpt,
+  featuredImage,
+  id,
+  merchantId,
+  nextStatus,
+  publishedAt,
+  title,
+}: PersistBlogPostInput): Promise<string | null> {
+  if (!merchantId) {
+    throw new Error('Merchant ID is missing');
+  }
+
+  const nextPublishedAt =
+    nextStatus === 'published'
+      ? publishedAt || new Date().toISOString()
+      : publishedAt;
+
+  const payload = {
+    title,
+    excerpt,
+    category,
+    featured_image_url: featuredImage,
+    status: nextStatus,
+    published_at: nextPublishedAt,
+    merchant_id: merchantId,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (id === 'new') {
+    // Create
+    // Minimal required fields
+    const { error } = await supabase.from('blog_posts').insert([
+      {
+        ...payload,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      },
+    ]);
+    if (error) throw error;
+  } else {
+    // Update
+    const { error } = await supabase
+      .from('blog_posts')
+      .update(payload)
+      .eq('id', id)
+      .eq('merchant_id', merchantId);
+    if (error) throw error;
+  }
+
+  return nextPublishedAt;
+}
+
+async function deleteBlogPost(
+  id: string,
+  merchantId: string | undefined
+): Promise<void> {
+  if (!id) {
+    throw new Error('Post ID is missing');
+  }
+  if (!merchantId) {
+    throw new Error('Merchant ID is missing');
+  }
+
+  const { error } = await supabase
+    .from('blog_posts')
+    .delete()
+    .eq('id', id)
+    .eq('merchant_id', merchantId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export default function BlogPostDetailScreen() {
   const rawParams = useLocalSearchParams();
   const { colors } = useTheme();
@@ -39,7 +178,9 @@ export default function BlogPostDetailScreen() {
   // Extract id safely (will be undefined if validation fails)
   const id = validatedParams?.id;
 
-  const [isLoading, setIsLoading] = useState(true);
+  // Only existing posts need a fetch, so 'new'/invalid ids start ready —
+  // avoids a synchronous setState inside the effect for that branch.
+  const [isLoading, setIsLoading] = useState(() => Boolean(id) && id !== 'new');
   const [isSaving, setIsSaving] = useState(false);
 
   // Form State
@@ -48,45 +189,29 @@ export default function BlogPostDetailScreen() {
   const [category, setCategory] = useState('');
   const [featuredImage, setFeaturedImage] = useState('');
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
-  const [status, setStatus] = useState<'draft' | 'published' | 'archived'>(
-    'draft'
-  );
+  const [status, setStatus] = useState<BlogPostStatus>('draft');
 
   useEffect(() => {
-    const fetchPost = async () => {
-      if (!id || id === 'new') return;
-      if (!merchant?.id) return;
-      try {
-        const { data, error } = await supabase
-          .from('blog_posts')
-          .select(
-            'title, excerpt, category, featured_image_url, status, published_at'
-          )
-          .eq('id', id)
-          .eq('merchant_id', merchant.id)
-          .single();
+    if (!id || id === 'new') return;
+    if (!merchant?.id) return;
 
-        if (error) throw error;
+    fetchBlogPost(id, merchant.id)
+      .then((data) => {
         setTitle(data.title);
         setExcerpt(data.excerpt || '');
         setCategory(data.category || '');
         setFeaturedImage(data.featured_image_url || '');
         setPublishedAt(data.published_at || null);
         setStatus(data.status);
-      } catch (e) {
+      })
+      .catch((e: unknown) => {
         console.error(e);
         Alert.alert('Error', 'Failed to load post');
         router.back();
-      } finally {
+      })
+      .finally(() => {
         setIsLoading(false);
-      }
-    };
-
-    if (id && id !== 'new') {
-      fetchPost();
-    } else {
-      setIsLoading(false);
-    }
+      });
   }, [id, merchant?.id]);
 
   // Show error screen for invalid route params (after all hooks)
@@ -112,98 +237,49 @@ export default function BlogPostDetailScreen() {
     }
   };
 
-  const uploadImage = async (uri: string) => {
+  const uploadImage = (uri: string) => {
     setIsSaving(true);
-    try {
-      const fileExt = uri.split('.').pop() || 'jpg';
-      const fileName = `${merchant?.id}/blog/${Date.now()}.${fileExt}`;
-
-      // Use FormData for reliable file upload in React Native
-      const fileData = new FormData() as RNFormData;
-      const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
-      fileData.append(
-        'file',
-        createUploadFile({
-          uri: uri,
-          name: fileName.split('/').pop() || 'image.jpg',
-          type: mimeType,
-        })
-      );
-
-      const { error: uploadError } = await supabase.storage
-        .from('merchant-assets')
-        .upload(fileName, fileData, {
-          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('merchant-assets')
-        .getPublicUrl(fileName);
-
-      setFeaturedImage(data.publicUrl);
-    } catch (e: unknown) {
-      Alert.alert('Upload Failed', (e as Error).message);
-    } finally {
-      setIsSaving(false);
-    }
+    return uploadBlogImage(uri, merchant?.id)
+      .then((publicUrl) => {
+        setFeaturedImage(publicUrl);
+      })
+      .catch((e: unknown) => {
+        Alert.alert(
+          'Upload Failed',
+          e instanceof Error ? e.message : 'Failed to upload image'
+        );
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
-  const persistPost = async (
-    nextStatus: 'draft' | 'published' | 'archived' = status
-  ) => {
+  const persistPost = (nextStatus: BlogPostStatus = status) => {
     setIsSaving(true);
-    try {
-      if (!merchant?.id) {
-        throw new Error('Merchant ID is missing');
-      }
-
-      const nextPublishedAt =
-        nextStatus === 'published'
-          ? publishedAt || new Date().toISOString()
-          : publishedAt;
-
-      const payload = {
-        title,
-        excerpt,
-        category,
-        featured_image_url: featuredImage,
-        status: nextStatus,
-        published_at: nextPublishedAt,
-        merchant_id: merchant.id,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (id === 'new') {
-        // Create
-        // Minimal required fields
-        const { error } = await supabase.from('blog_posts').insert([
-          {
-            ...payload,
-            slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          },
-        ]);
-        if (error) throw error;
-      } else {
-        // Update
-        const { error } = await supabase
-          .from('blog_posts')
-          .update(payload)
-          .eq('id', id)
-          .eq('merchant_id', merchant.id);
-        if (error) throw error;
-      }
-
-      setStatus(nextStatus);
-      setPublishedAt(nextPublishedAt);
-      router.back();
-    } catch (e: unknown) {
-      Alert.alert('Error', (e as Error).message);
-    } finally {
-      setIsSaving(false);
-    }
+    return persistBlogPost({
+      category,
+      excerpt,
+      featuredImage,
+      id,
+      merchantId: merchant?.id,
+      nextStatus,
+      publishedAt,
+      title,
+    })
+      .then((nextPublishedAt) => {
+        setStatus(nextStatus);
+        setPublishedAt(nextPublishedAt);
+        router.back();
+      })
+      .catch((e: unknown) => {
+        Alert.alert(
+          'Error',
+          e instanceof Error ? e.message : 'Failed to save blog post'
+        );
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
   const handleSave = async () => {
@@ -230,36 +306,28 @@ export default function BlogPostDetailScreen() {
   };
 
   const handleDelete = () => {
+    if (!id) {
+      Alert.alert('Error', 'Blog post ID is missing.');
+      return;
+    }
+
     Alert.alert('Delete Post', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            if (!merchant?.id) {
-              throw new Error('Merchant ID is missing');
-            }
-
-            const { error } = await supabase
-              .from('blog_posts')
-              .delete()
-              .eq('id', id)
-              .eq('merchant_id', merchant.id);
-
-            if (error) {
-              throw error;
-            }
-
-            router.back();
-          } catch (e: unknown) {
-            console.error('Failed to delete blog post:', e);
-            Alert.alert(
-              'Error',
-              'Failed to delete blog post. Please try again.'
-            );
-          }
-        },
+        onPress: () =>
+          deleteBlogPost(id, merchant?.id)
+            .then(() => {
+              router.back();
+            })
+            .catch((e: unknown) => {
+              console.error('Failed to delete blog post:', e);
+              Alert.alert(
+                'Error',
+                'Failed to delete blog post. Please try again.'
+              );
+            }),
       },
     ]);
   };

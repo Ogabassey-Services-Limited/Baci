@@ -1,7 +1,7 @@
 import { normalizeCacSearchTerm, parseCacRegistration } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, apiFormData, NetworkError } from '@/lib/api-client';
@@ -53,7 +53,14 @@ export default function CacVerificationCard({
     reason?: string;
   } | null>(null);
 
-  useEffect(() => {
+  // Sync the registration fields from the prefill prop during render (instead
+  // of in an effect) so the first frame already shows the prefilled values.
+  const [prevPrefillRcNumber, setPrevPrefillRcNumber] = useState<
+    string | null | undefined
+  >(undefined);
+
+  if (prefillRcNumber !== prevPrefillRcNumber) {
+    setPrevPrefillRcNumber(prefillRcNumber);
     const parsedRegistration = parseCacRegistration(prefillRcNumber);
 
     if (parsedRegistration?.prefix) {
@@ -63,7 +70,7 @@ export default function CacVerificationCard({
       setRegistrationPrefix('RC');
       setRcNumber(parsedRegistration?.digits ?? '');
     }
-  }, [prefillRcNumber]);
+  }
 
   const searchMutation = useMutation({
     mutationFn: async () => {

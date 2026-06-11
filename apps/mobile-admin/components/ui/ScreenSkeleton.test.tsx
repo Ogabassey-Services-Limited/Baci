@@ -85,7 +85,20 @@ vi.mock('react-native-reanimated', async () => {
     cancelAnimation: reanimatedMocks.cancelAnimation,
     useAnimatedStyle: (callback: () => object) => callback(),
     useReducedMotion: () => reanimatedMocks.reducedMotion,
-    useSharedValue: (value: number) => ({ value }),
+    useSharedValue: (value: number) => {
+      const sharedValue: {
+        value: unknown;
+        get: () => unknown;
+        set: (next: unknown) => void;
+      } = {
+        value,
+        get: () => sharedValue.value,
+        set: (next) => {
+          sharedValue.value = next;
+        },
+      };
+      return sharedValue;
+    },
     withRepeat: reanimatedMocks.withRepeat,
     withTiming: reanimatedMocks.withTiming,
   };

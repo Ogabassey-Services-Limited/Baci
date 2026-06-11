@@ -94,41 +94,47 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native', () => ({
-    StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  Alert: {
-    alert: vi.fn(),
-  },
-  Pressable: ({
-    accessibilityLabel,
-    children,
-    disabled,
-    onPress,
-  }: {
-    accessibilityLabel?: string;
-    children?: React.ReactNode;
-    disabled?: boolean;
-    onPress?: () => void;
-  }) => (
-    <button
-      aria-label={accessibilityLabel}
-      disabled={disabled}
-      onClick={() => onPress?.()}
-      type="button"
-    >
-      {children}
-    </button>
-  ),
-  StyleSheet: {
-    absoluteFillObject: { position: 'absolute', inset: 0 },
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: React.ReactNode }) => (
+vi.mock('react-native', () => {
+  const Text = ({ children }: { children?: React.ReactNode }) => (
     <span>{children}</span>
-  ),
-  View: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-}));
+  );
+
+  return {
+    StatusBar: () => null,
+    ActivityIndicator: () => <Text>loading</Text>,
+    Alert: {
+      alert: vi.fn(),
+    },
+    Pressable: ({
+      accessibilityLabel,
+      children,
+      disabled,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      children?: React.ReactNode;
+      disabled?: boolean;
+      onPress?: () => void;
+    }) => (
+      <button
+        aria-label={accessibilityLabel}
+        disabled={disabled}
+        onClick={() => onPress?.()}
+        type="button"
+      >
+        {children}
+      </button>
+    ),
+    StyleSheet: {
+      absoluteFillObject: { position: 'absolute', inset: 0 },
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text,
+    View: ({ children }: { children?: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+  };
+});
 
 vi.mock('react-native-webview', () => ({
   WebView: ({ source }: { source?: { html?: string } }) => (

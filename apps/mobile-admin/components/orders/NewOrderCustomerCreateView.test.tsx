@@ -48,9 +48,7 @@ vi.mock('react-native-google-places-autocomplete', () => ({
             props.onPress?.({ description: '12 Allen Avenue, Ikeja, Lagos' })
           }
           type="button"
-        >
-          Choose suggested address
-        </button>
+        />
       </div>
     );
   },
@@ -91,9 +89,7 @@ vi.mock('react-native-phone-number-input', () => ({
         aria-label="Switch phone country"
         onClick={() => onChangeCountry?.({ cca2: 'GH' })}
         type="button"
-      >
-        Switch phone country
-      </button>
+      />
     </div>
   ),
 }));
@@ -346,10 +342,7 @@ describe('NewOrderCustomerCreateView', () => {
     expect(emailInput).toHaveFocus();
 
     expect(emailInput).toHaveAttribute('data-return-key-type', 'done');
-    expect(emailInput).toHaveAttribute(
-      'data-submit-behavior',
-      'blurAndSubmit'
-    );
+    expect(emailInput).toHaveAttribute('data-submit-behavior', 'blurAndSubmit');
     fireEvent.keyDown(emailInput, { key: 'Enter' });
     expect(keyboardState.dismiss).toHaveBeenCalledTimes(1);
   });

@@ -18,41 +18,25 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
 
-export default function SettingsScreen() {
-  const { resetOnboarding } = useOnboarding();
-  const { signOut } = useAuth();
-  const { unregisterPush } = usePushNotifications();
+interface SettingItemProps {
+  icon: IoniconsIconName;
+  title: string;
+  subtitle?: string;
+  showArrow?: boolean;
+  toggle?: boolean;
+  onPress?: () => void;
+}
+
+function SettingItem({
+  icon,
+  title,
+  subtitle,
+  showArrow = true,
+  toggle,
+  onPress,
+}: SettingItemProps) {
   const { colors } = useTheme();
-  const _router = useRouter();
-
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await signOut(unregisterPush);
-        },
-      },
-    ]);
-  };
-
-  const SettingItem = ({
-    icon,
-    title,
-    subtitle,
-    showArrow = true,
-    toggle,
-    onPress,
-  }: {
-    icon: IoniconsIconName;
-    title: string;
-    subtitle?: string;
-    showArrow?: boolean;
-    toggle?: boolean;
-    onPress?: () => void;
-  }) => (
+  return (
     <Pressable
       style={({ pressed }) => [
         styles.settingItem,
@@ -98,6 +82,27 @@ export default function SettingsScreen() {
       ) : null}
     </Pressable>
   );
+}
+
+export default function SettingsScreen() {
+  const { resetOnboarding } = useOnboarding();
+  const { signOut } = useAuth();
+  const { unregisterPush } = usePushNotifications();
+  const { colors } = useTheme();
+  const _router = useRouter();
+
+  const handleLogout = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut(unregisterPush);
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView

@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { Text } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProfileScreen from './profile';
 
@@ -100,7 +101,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/components/ui/ScreenSkeleton', () => ({
-  ScreenSkeleton: () => <div>loading</div>,
+  ScreenSkeleton: () => <Text>loading</Text>,
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -109,28 +110,35 @@ vi.mock('react-native-safe-area-context', () => ({
   ),
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const MockText = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  Alert: { alert: vi.fn() },
-  Pressable: ({ children }: { children?: ReactNode }) => (
-    <button type="button">{children}</button>
-  ),
-  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  StyleSheet: {
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  TextInput: ({ value }: { value?: string }) => (
-    <input value={value ?? ''} readOnly />
-  ),
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+    ActivityIndicator: () => <MockText>loading</MockText>,
+    Alert: { alert: vi.fn() },
+    Pressable: ({ children }: { children?: ReactNode }) => (
+      <button type="button">{children}</button>
+    ),
+    ScrollView: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text: MockText,
+    TextInput: ({ value }: { value?: string }) => (
+      <input value={value ?? ''} readOnly />
+    ),
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: () => <Text>icon</Text>,
 
-  default: () => <span>icon</span>,
+  default: () => <Text>icon</Text>,
   __esModule: true,
 }));
 

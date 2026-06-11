@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ChangeEvent, ReactNode } from 'react';
+import { Text } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderProductSheet } from './NewOrderProductSheet';
@@ -49,7 +50,11 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
 }));
 
 vi.mock('./NewOrderProductSheetEmptyState', () => ({
-  NewOrderProductSheetEmptyState: () => <div>product-empty-state</div>,
+  NewOrderProductSheetEmptyState: () => (
+    <div>
+      <Text>product-empty-state</Text>
+    </div>
+  ),
 }));
 
 vi.mock('react-native', async () => {

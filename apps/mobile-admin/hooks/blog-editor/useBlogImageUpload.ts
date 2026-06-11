@@ -50,85 +50,90 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
-export function useBlogImageUpload({ webViewRef }: UseBlogImageUploadOptions) {
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+// Module scope so the try/finally + throw control flow stays outside the hook
+// body — try/finally in a hook blocks React Compiler memoization.
+async function pickAndUploadImage(
+  webViewRef: RefObject<WebView | null>,
+  setIsUploadingImage: (isUploading: boolean) => void
+): Promise<void> {
+  if (!webViewRef.current) {
+    Alert.alert(EDITOR_UNAVAILABLE_TITLE, EDITOR_UNAVAILABLE_MESSAGE);
+    return;
+  }
 
-  const handleImagePick = async () => {
-    if (!webViewRef.current) {
+  try {
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Please allow access to your photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.length) {
+      return;
+    }
+
+    const asset = result.assets[0];
+
+    if (!asset?.uri) {
+      return;
+    }
+
+    setIsUploadingImage(true);
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      throw new Error(sessionError?.message || 'No session');
+    }
+
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL || '';
+    const uploadedImage = await uploadBlogEditorImageDetails({
+      accessToken: session.access_token,
+      apiUrl,
+      asset,
+    });
+
+    const editorWebView = webViewRef.current;
+
+    if (!editorWebView) {
+      try {
+        await deleteBlogEditorImage({
+          accessToken: session.access_token,
+          apiUrl,
+          path: uploadedImage.path,
+        });
+      } catch (cleanupError) {
+        console.error('[ImagePick] Cleanup error:', cleanupError);
+      }
+
       Alert.alert(EDITOR_UNAVAILABLE_TITLE, EDITOR_UNAVAILABLE_MESSAGE);
       return;
     }
 
-    try {
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissionResult.granted) {
-        Alert.alert(
-          'Permission Required',
-          'Please allow access to your photos'
-        );
-        return;
-      }
+    editorWebView.injectJavaScript(buildInsertImageScript(uploadedImage.url));
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    console.error('[ImagePick] Upload error:', message);
+    Alert.alert('Upload Failed', message);
+  } finally {
+    setIsUploadingImage(false);
+  }
+}
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsEditing: true,
-        mediaTypes: ['images'],
-        quality: 0.8,
-      });
+export function useBlogImageUpload({ webViewRef }: UseBlogImageUploadOptions) {
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-      if (result.canceled || !result.assets?.length) {
-        return;
-      }
-
-      const asset = result.assets[0];
-
-      if (!asset?.uri) {
-        return;
-      }
-
-      setIsUploadingImage(true);
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error(sessionError?.message || 'No session');
-      }
-
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || '';
-      const uploadedImage = await uploadBlogEditorImageDetails({
-        accessToken: session.access_token,
-        apiUrl,
-        asset,
-      });
-
-      const editorWebView = webViewRef.current;
-
-      if (!editorWebView) {
-        try {
-          await deleteBlogEditorImage({
-            accessToken: session.access_token,
-            apiUrl,
-            path: uploadedImage.path,
-          });
-        } catch (cleanupError) {
-          console.error('[ImagePick] Cleanup error:', cleanupError);
-        }
-
-        Alert.alert(EDITOR_UNAVAILABLE_TITLE, EDITOR_UNAVAILABLE_MESSAGE);
-        return;
-      }
-
-      editorWebView.injectJavaScript(buildInsertImageScript(uploadedImage.url));
-    } catch (error: unknown) {
-      const message = getErrorMessage(error);
-      console.error('[ImagePick] Upload error:', message);
-      Alert.alert('Upload Failed', message);
-    } finally {
-      setIsUploadingImage(false);
-    }
-  };
+  const handleImagePick = () =>
+    pickAndUploadImage(webViewRef, setIsUploadingImage);
 
   return {
     handleImagePick,

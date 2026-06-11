@@ -11,22 +11,38 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@/components/ui/AppDatePickerField', () => ({
-  AppDatePickerField: ({ onConfirm }: { onConfirm: (date: Date) => void }) => {
-    mocks.appDatePickerProps.onConfirm = onConfirm;
-    return <div aria-label="dob-picker-field">picker</div>;
-  },
-}));
+vi.mock('@/components/ui/AppDatePickerField', async () => {
+  const { Text } = await import('react-native');
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  return {
+    AppDatePickerField: ({
+      onConfirm,
+    }: {
+      onConfirm: (date: Date) => void;
+    }) => {
+      mocks.appDatePickerProps.onConfirm = onConfirm;
+      return (
+        <div aria-label="dob-picker-field">
+          <Text>picker</Text>
+        </div>
+      );
+    },
+  };
+});
 
-  default: () => <span>icon</span>,
-  __esModule: true,
-}));
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const { Text } = await import('react-native');
+
+  return {
+    Ionicons: () => <Text>icon</Text>,
+
+    default: () => <Text>icon</Text>,
+    __esModule: true,
+  };
+});
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Pressable: ({
     accessibilityLabel,
     children,

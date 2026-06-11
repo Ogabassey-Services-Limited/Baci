@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, View } from 'react-native';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/theme';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
-import type { PurchasesPackage } from 'react-native-purchases';
 import PaywallFeatureList from './PaywallFeatureList';
 import PaywallFooter from './PaywallFooter';
 import PaywallHeader from './PaywallHeader';
@@ -12,10 +12,10 @@ import PaywallPackageList from './PaywallPackageList';
 import {
   DEFAULT_CLOSE_TOP,
   DEFAULT_HEADER_PADDING,
+  getDefaultPackage,
   SAFE_AREA_CLOSE_OFFSET,
   SAFE_AREA_FOOTER_OFFSET,
   SAFE_AREA_HEADER_OFFSET,
-  getDefaultPackage,
 } from './paywall.constants';
 import { paywallStyles } from './paywall.styles';
 
@@ -35,7 +35,18 @@ export default function Paywall({ onClose }: PaywallProps) {
     error,
   } = useRevenueCat();
   const [selectedPackage, setSelectedPackage] =
-    useState<PurchasesPackage | null>(null);
+    useState<PurchasesPackage | null>(() =>
+      getDefaultPackage(currentOffering?.availablePackages)
+    );
+  const [prevOffering, setPrevOffering] = useState(currentOffering);
+
+  // Re-derive the default selection inline during render when the offering
+  // changes, instead of routing it through an effect (which would commit a
+  // stale frame first).
+  if (currentOffering !== prevOffering) {
+    setPrevOffering(currentOffering);
+    setSelectedPackage(getDefaultPackage(currentOffering?.availablePackages));
+  }
 
   const headerPaddingTop = Math.max(
     DEFAULT_HEADER_PADDING,
@@ -54,10 +65,6 @@ export default function Paywall({ onClose }: PaywallProps) {
     if (!error) return;
     Alert.alert('Configuration Note', error);
   }, [error]);
-
-  useEffect(() => {
-    setSelectedPackage(getDefaultPackage(currentOffering?.availablePackages));
-  }, [currentOffering]);
 
   const onPurchase = async () => {
     if (!selectedPackage) return;
