@@ -34,11 +34,26 @@ function normalizeComparableUrl(url: URL) {
   return comparable.toString();
 }
 
-function isCurrentFaviconRequest(url: URL, request: NextRequest) {
-  return (
-    normalizeComparableUrl(url) ===
-    normalizeComparableUrl(getRequestUrl(request))
+function getCurrentFaviconRequestUrls(request: NextRequest) {
+  const requestUrl = getRequestUrl(request);
+  const requestUrls = new Set([normalizeComparableUrl(requestUrl)]);
+  const hasMerchantRewriteContext = Boolean(
+    request.headers.get('x-custom-domain') ||
+      request.headers.get('x-merchant-domain') ||
+      request.headers.get('x-merchant-slug')
   );
+
+  if (hasMerchantRewriteContext) {
+    const publicFaviconUrl = new URL(requestUrl.toString());
+    publicFaviconUrl.pathname = '/favicon.ico';
+    requestUrls.add(normalizeComparableUrl(publicFaviconUrl));
+  }
+
+  return requestUrls;
+}
+
+function isCurrentFaviconRequest(url: URL, request: NextRequest) {
+  return getCurrentFaviconRequestUrls(request).has(normalizeComparableUrl(url));
 }
 
 function resolveSafeFaviconUrl(

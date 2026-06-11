@@ -166,6 +166,30 @@ describe('Storefront Favicon Route Handler', () => {
     );
   });
 
+  it('avoids redirect loops when middleware rewrites a custom-domain root favicon request', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(getMerchantSafe).mockResolvedValue(
+      createMerchant({
+        favicon_png_32_url: 'https://ogabassey.com/favicon.ico',
+      })
+    );
+
+    const request = createRequest(
+      'https://ogabassey.com/ogabassey/favicon.ico'
+    );
+    request.headers.set('x-custom-domain', 'ogabassey.com');
+    request.headers.set('x-merchant-domain', 'ogabassey.com');
+    request.headers.set('x-merchant-slug', 'ogabassey');
+
+    const response = await GET(request, {
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(fallbackUrl);
+    expect(response.headers.get('Cache-Control')).toBe(cacheControl);
+  });
+
   it('safely falls back to platform favicon when all merchant urls are invalid', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
