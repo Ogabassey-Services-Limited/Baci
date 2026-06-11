@@ -93,3 +93,7 @@
 ## 2026-06-10 - Add `aria-label` to dynamically toggled secret input buttons
 **Learning:** Icon-only buttons used to toggle the visibility of sensitive information (e.g., "Show/Hide secret" using Eye/EyeOff icons) in settings pages often miss `aria-label` attributes, making their state and purpose opaque to screen reader users.
 **Action:** Always ensure icon-only buttons that toggle visibility state have dynamic `aria-label` attributes reflecting the current action (e.g., `aria-label={showSecret ? 'Hide secret' : 'Show secret'}`).
+
+## 2026-06-11 - Add activeOpacity visual feedback to Pressable elements
+**Learning:** In React Native mobile apps, interactive `Pressable` components that lack visual feedback upon interaction cause uncertainty and friction for users. Default `opacity` manipulation is the standard solution.
+**Action:** When implementing or modifying interactive `Pressable` elements acting as buttons or interactive zones, always use the render prop pattern `style={({ pressed }) => [..., pressed && { opacity: 0.7 }]}` to provide immediate, consistent visual feedback upon touch.

@@ -43,7 +43,7 @@ export function HeaderMinimal({
             <Pressable
               onPress={handleSearchPress}
               hitSlop={12}
-              style={styles.iconBtn}
+              style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
               accessibilityLabel="Search products"
               accessibilityRole="button"
             >
@@ -53,7 +53,7 @@ export function HeaderMinimal({
           <Pressable
             onPress={() => router.navigate('/cart' as Href)}
             hitSlop={12}
-            style={[styles.iconBtn, styles.rightIconBtn]}
+            style={({ pressed }) => [styles.iconBtn, styles.rightIconBtn, pressed && { opacity: 0.7 }]}
             accessibilityLabel={
               itemCount > 0
                 ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`
