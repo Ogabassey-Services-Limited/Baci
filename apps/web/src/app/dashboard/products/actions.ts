@@ -113,6 +113,10 @@ export async function processPriceList(
   const validatedPriceListData = input.data.priceListData;
   const safeVendor = sanitizePromptInput(input.data.vendor, 100).value;
   const safeFileType = sanitizePromptInput(input.data.fileType, 50).value;
+  const isImage = input.data.fileType.startsWith('image/');
+  const priceListPromptContent = isImage
+    ? '[Image attachment supplied separately; inspect the attached image for vendor rows and prices.]'
+    : validatedPriceListData;
 
   const prompt = `
 You are an AI assistant for an e-commerce platform. Your task is to analyze a new price list and compare it to the current product catalog.
@@ -123,7 +127,7 @@ ${JSON.stringify(validatedCurrentProducts)}
 
 New Price List from Vendor "${safeVendor}" (Format: ${safeFileType}):
 ---
-${validatedPriceListData}
+${priceListPromptContent}
 ---
 
 Instructions:
@@ -146,8 +150,6 @@ Instructions:
 6.  If a critical field is unclear, use 'clarificationRequest'.
 7.  Provide a concise 'summary' of changes.
 `;
-
-  const isImage = input.data.fileType.startsWith('image/');
 
   try {
     const { object } = await withRetry(async () => {

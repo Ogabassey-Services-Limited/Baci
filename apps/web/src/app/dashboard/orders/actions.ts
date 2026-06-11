@@ -1,6 +1,5 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import type { StaffAccess } from '@/hooks/merchant';
 import {
   generateOrderConfirmationEmail,
@@ -228,8 +227,7 @@ export async function getOrders(
   merchantId: string,
   filters: OrderFilters = {}
 ): Promise<Order[]> {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,
@@ -440,8 +438,7 @@ export async function getOrders(
 }
 
 export async function getOrderStats(merchantId: string): Promise<OrderStats> {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,
@@ -517,8 +514,7 @@ export async function getOrder(
   merchantId: string,
   orderIdentifier: string
 ): Promise<Order | null> {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,
@@ -673,8 +669,7 @@ export async function resendOrderConfirmation(
   orderId: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,

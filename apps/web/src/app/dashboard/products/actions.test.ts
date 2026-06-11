@@ -152,6 +152,41 @@ describe('product import actions', () => {
     expect(mocks.generateObject).not.toHaveBeenCalled();
   });
 
+  it('processes image price lists without duplicating base64 in the text prompt', async () => {
+    const imagePayload = 'data:image/png;base64,THIS_SHOULD_ONLY_BE_IMAGE_DATA';
+    mocks.generateObject.mockResolvedValueOnce({
+      object: {
+        changes: [],
+        summary: 'Processed image price list',
+      },
+    });
+
+    const result = await processPriceList(
+      existingProducts,
+      imagePayload,
+      'Vendor',
+      'image/png'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary: 'Processed image price list',
+    });
+    expect(mocks.generateObject).toHaveBeenCalledOnce();
+    const call = mocks.generateObject.mock.calls[0]?.[0] as {
+      messages?: Array<{
+        content?: Array<{ type: string; text?: string; image?: string }>;
+      }>;
+    };
+    const content = call.messages?.[0]?.content ?? [];
+    const textPart = content.find((part) => part.type === 'text');
+    const imagePart = content.find((part) => part.type === 'image');
+
+    expect(textPart?.text).toContain('Image attachment supplied separately');
+    expect(textPart?.text).not.toContain(imagePayload);
+    expect(imagePart?.image).toBe(imagePayload);
+  });
+
   it('processes price lists with AI after product create authorization', async () => {
     const productsWithExtraFields = [
       {
