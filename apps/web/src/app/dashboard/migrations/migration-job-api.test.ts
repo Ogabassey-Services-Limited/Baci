@@ -55,6 +55,7 @@ import type {
   ImportJobListItem,
   ImportJobRowsResponse,
 } from '@/app/dashboard/migrations/migration-types';
+import { MIGRATION_IMPORT_BUCKET } from '@/lib/import-jobs/import-job-storage';
 import { createClient } from '@/lib/supabase/client';
 
 vi.mock('@/lib/api-client', () => ({
@@ -257,7 +258,7 @@ describe('migration-job-api', () => {
         'x-upsert': 'false',
       },
       metadata: {
-        bucketName: 'migration-imports',
+        bucketName: MIGRATION_IMPORT_BUCKET,
         objectName: 'merchant-1/orders/upload.csv',
         contentType: 'text/csv',
         cacheControl: '3600',
@@ -311,6 +312,78 @@ describe('migration-job-api', () => {
         headers: { 'x-csrf-token': 'token' },
       })
     );
+  });
+
+  it('uses signed URL upload when TUS is unsupported', async () => {
+    vi.resetModules();
+    vi.doMock('tus-js-client', () => ({
+      isSupported: false,
+      Upload: class UnsupportedTusUpload {
+        constructor() {
+          throw new Error('TUS upload should not be constructed');
+        }
+      },
+    }));
+
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          upload: {
+            clientUploadId: 'client-upload-1',
+            storagePath: 'merchant-1/orders/upload.csv',
+            uploadToken: 'upload-token',
+          },
+        })
+      )
+      .mockResolvedValueOnce(createJsonResponse({ job: { id: 'job-1' } }));
+
+    const mockUploadToSignedUrl = vi.fn().mockResolvedValue({
+      data: {},
+      error: null,
+    });
+    const mockStorageFrom = vi.fn(() => ({
+      uploadToSignedUrl: mockUploadToSignedUrl,
+    }));
+    vi.mocked(createClient).mockReturnValue({
+      storage: {
+        from: mockStorageFrom,
+      },
+    } as never);
+
+    const { createImportJob: createImportJobWithSignedUrlFallback } =
+      await import('@/app/dashboard/migrations/migration-job-api');
+    const file = new File(['id\n1'], 'orders.csv', { type: 'text/csv' });
+    const onUploadProgress = vi.fn();
+
+    await createImportJobWithSignedUrlFallback({
+      entityType: 'orders',
+      file,
+      onUploadProgress,
+      sourcePlatform: 'bumpa',
+    });
+
+    expect(mockStorageFrom).toHaveBeenCalledWith(MIGRATION_IMPORT_BUCKET);
+    expect(mockUploadToSignedUrl).toHaveBeenCalledWith(
+      'merchant-1/orders/upload.csv',
+      'upload-token',
+      file,
+      {
+        contentType: 'text/csv',
+        upsert: false,
+      }
+    );
+    expect(onUploadProgress).toHaveBeenCalledWith({
+      bytesUploaded: file.size,
+      bytesTotal: file.size,
+      percent: 100,
+      stage: 'uploading',
+    });
+    expect(onUploadProgress).toHaveBeenCalledWith({
+      bytesUploaded: file.size,
+      bytesTotal: file.size,
+      percent: 100,
+      stage: 'finalizing',
+    });
   });
 
   it('falls back to multipart upload when direct upload is explicitly disabled', async () => {

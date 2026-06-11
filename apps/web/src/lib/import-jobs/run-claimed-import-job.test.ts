@@ -77,6 +77,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createFailingChunkGenerator } from '@/lib/import-jobs/import-job-test-helpers';
 import { logger } from '@/lib/logger';
 import type { ImportJobRecord } from './import-job-service';
+import { MIGRATION_IMPORT_BUCKET } from './import-job-storage';
 import { runClaimedImportJob } from './run-claimed-import-job';
 
 function makeJob(overrides: Partial<ImportJobRecord> = {}): ImportJobRecord {
@@ -196,7 +197,7 @@ describe('runClaimedImportJob', () => {
     await runClaimedImportJob(supabase, job);
 
     expect(supabase.__mocks.mockStorageFrom).toHaveBeenCalledWith(
-      'migration-imports'
+      MIGRATION_IMPORT_BUCKET
     );
     expect(supabase.__mocks.mockStorageRemove).toHaveBeenCalledWith([
       job.storage_path,
