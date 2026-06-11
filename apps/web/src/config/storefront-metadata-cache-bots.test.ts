@@ -9,6 +9,17 @@ describe('storefront metadata cache bot classifier', () => {
     ['Googlebot/2.1'],
     ['AdsBot-Google (+http://www.google.com/adsbot.html)'],
     ['Google-InspectionTool/1.0'],
+    ['GPTBot/1.1 (+https://openai.com/gptbot)'],
+    ['ChatGPT-User/1.0 (+https://openai.com/bot)'],
+    ['OAI-SearchBot/1.0 (+https://openai.com/searchbot)'],
+    ['ClaudeBot/1.0'],
+    ['Claude-SearchBot/1.0'],
+    ['PerplexityBot/1.0 (+https://perplexity.ai/perplexitybot)'],
+    [
+      'Meta-ExternalAgent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)',
+    ],
+    ['Bytespider'],
+    ['CCBot/2.0'],
     ['Twitterbot/1.0'],
   ])('uses the metadata-blocking bucket for %s', (userAgent) => {
     expect(

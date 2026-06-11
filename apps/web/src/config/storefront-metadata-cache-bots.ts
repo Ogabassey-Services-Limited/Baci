@@ -11,8 +11,14 @@ const NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN = 'Googlebot(?!-)|Googlebot$';
 // origin metadata rendering from edge-cache partitioning.
 const NEXT_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN = String.raw`[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight`;
 
+// AI answer engines usually fetch raw HTML and do not execute the Flight stream.
+// Keep them in the blocking metadata bucket so PDP title/canonical/robots tags
+// are emitted as parseable head HTML instead of only streamed client metadata.
+const AI_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN =
+  'GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-SearchBot|PerplexityBot|Meta-ExternalAgent|Meta-ExternalFetcher|Bytespider|CCBot';
+
 export const STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX = new RegExp(
-  `${NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN}|${NEXT_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}`,
+  `${NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN}|${NEXT_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}|${AI_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}`,
   'i'
 );
 
