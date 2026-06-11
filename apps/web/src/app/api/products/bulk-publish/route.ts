@@ -60,6 +60,10 @@ export async function POST(request: NextRequest) {
 
     if (deleteError) {
       console.error('Error deleting drafts:', deleteError);
+      return NextResponse.json(
+        { error: 'Failed to delete draft products' },
+        { status: 500 }
+      );
     }
 
     // Update all remaining products to active (valid statuses: draft, active, archived)
