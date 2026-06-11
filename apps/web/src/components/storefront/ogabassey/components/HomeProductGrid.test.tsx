@@ -112,6 +112,15 @@ function createTestProduct(index: number): Product {
   };
 }
 
+async function flushPostPaintActivation() {
+  await act(async () => {
+    vi.advanceTimersByTime(16);
+    await Promise.resolve();
+    vi.runOnlyPendingTimers();
+    await Promise.resolve();
+  });
+}
+
 describe('HomeProductGrid', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -293,6 +302,10 @@ describe('HomeProductGrid', () => {
       await Promise.resolve();
     });
 
+    expect(loadInteractionBindings).not.toHaveBeenCalled();
+
+    await flushPostPaintActivation();
+
     expect(loadInteractionBindings).toHaveBeenCalledOnce();
   });
 
@@ -367,6 +380,15 @@ describe('HomeProductGrid', () => {
     await act(async () => {
       await Promise.resolve();
     });
+
+    expect(loadInteractionBindings).not.toHaveBeenCalled();
+    expect(loadInteractiveCard).not.toHaveBeenCalled();
+    expect(screen.getByRole('article')).toHaveAttribute(
+      'data-card-variant',
+      'static'
+    );
+
+    await flushPostPaintActivation();
 
     expect(loadInteractionBindings).toHaveBeenCalledOnce();
     expect(loadInteractiveCard).toHaveBeenCalledOnce();
