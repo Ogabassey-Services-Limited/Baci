@@ -188,6 +188,50 @@ describe('HeroMobileCarousel', () => {
     ).toHaveClass('h-12', 'min-w-12');
   });
 
+  it('keeps mobile slide controls below the clipped carousel panel', () => {
+    const { container } = render(
+      <HeroMobileCarousel
+        getHref={(path) => `/ogabassey${path}`}
+        hasResolvedViewport={true}
+        isDesktopViewport={false}
+      />
+    );
+
+    const carouselPanel = container.querySelector(
+      '[data-ogabassey-mobile-hero-panel="true"]'
+    );
+    const slideControls = screen.getByRole('group', {
+      name: /hero carousel slide controls/i,
+    });
+
+    expect(carouselPanel).toHaveClass('overflow-hidden');
+    expect(carouselPanel).not.toContainElement(slideControls);
+    expect(slideControls).toHaveClass('mt-2');
+  });
+
+  it('keeps the first mobile hero copy in a separate column from its media rail', () => {
+    const { container } = render(
+      <HeroMobileCarousel
+        getHref={(path) => `/ogabassey${path}`}
+        hasResolvedViewport={true}
+        isDesktopViewport={false}
+      />
+    );
+
+    const firstSlideHeading = screen.getByRole('heading', {
+      name: 'iPhone 17 Pro Max',
+    });
+    const copyColumn = firstSlideHeading.closest(
+      '[data-ogabassey-mobile-hero-copy="true"]'
+    );
+    const mediaRail = container.querySelector(
+      '[data-ogabassey-mobile-hero-media="true"]'
+    );
+
+    expect(copyColumn).toHaveClass('w-[46%]', 'pr-2');
+    expect(mediaRail).toHaveClass('right-4', 'w-[43%]');
+  });
+
   it('keeps the sponsored ad wrapper mounted but disabled until the ad slide is active', async () => {
     render(
       <HeroMobileCarousel
