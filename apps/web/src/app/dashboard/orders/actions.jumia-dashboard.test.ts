@@ -133,6 +133,30 @@ describe('Jumia dashboard order data', () => {
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
+  it('honors global wildcard view permissions for dashboard order lists', async () => {
+    mocks.getMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        role: 'manager',
+        permissions: { '*': { view: true } },
+      },
+    });
+    const ordersQuery = createQuery({ data: [], error: null });
+    const jumiaQuery = createQuery({ data: [], error: null });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'orders') return ordersQuery;
+      if (table === 'jumia_orders') return jumiaQuery;
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await expect(getOrders(MERCHANT_ID)).resolves.toEqual([]);
+
+    expect(mocks.from).toHaveBeenCalledWith('orders');
+    expect(mocks.from).toHaveBeenCalledWith('jumia_orders');
+  });
+
   it('returns an empty order list when filters fail validation', async () => {
     await expect(
       getOrders(MERCHANT_ID, {
@@ -177,6 +201,41 @@ describe('Jumia dashboard order data', () => {
       { requestedMerchantId: MERCHANT_ID }
     );
     expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('honors resource wildcard view permissions for dashboard order stats', async () => {
+    mocks.getMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        role: 'manager',
+        permissions: { orders: { '*': true } },
+      },
+    });
+    const countQueries = [
+      createQuery({ count: 12, error: null }),
+      createQuery({ count: 5, error: null }),
+      createQuery({ count: 3, error: null }),
+      createQuery({ count: 4, error: null }),
+    ];
+    mocks.from.mockImplementation((table: string) => {
+      expect(table).toBe('orders');
+      const query = countQueries.shift();
+      if (!query) {
+        throw new Error('Unexpected extra stats query');
+      }
+      return query;
+    });
+
+    await expect(getOrderStats(MERCHANT_ID)).resolves.toEqual({
+      totalOrders: 12,
+      completedOrders: 5,
+      unpaidOrders: 3,
+      urgentOrders: 4,
+    });
+
+    expect(mocks.from).toHaveBeenCalledTimes(4);
   });
 
   it('returns zeroed dashboard stats when merchant ID fails validation', async () => {

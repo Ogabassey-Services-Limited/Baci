@@ -181,11 +181,16 @@ function getZeroOrderStats(): OrderStats {
 }
 
 function canAccessOrders(staffAccess: StaffAccess, action: 'view' | 'edit') {
+  const permissions = staffAccess.permissions;
+
   return (
     staffAccess.isOwner ||
-    staffAccess.permissions?.full_access?.all === true ||
-    staffAccess.permissions?.orders?.all === true ||
-    staffAccess.permissions?.orders?.[action] === true
+    permissions?.full_access?.all === true ||
+    permissions?.orders?.all === true ||
+    permissions?.['*']?.['*'] === true ||
+    permissions?.['*']?.[action] === true ||
+    permissions?.orders?.['*'] === true ||
+    permissions?.orders?.[action] === true
   );
 }
 

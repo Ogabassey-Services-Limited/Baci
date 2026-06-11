@@ -152,6 +152,58 @@ describe('product import actions', () => {
     expect(mocks.generateObject).not.toHaveBeenCalled();
   });
 
+  it('accepts legacy text file type labels for pasted AI imports', async () => {
+    mocks.generateObject.mockResolvedValueOnce({
+      object: {
+        changes: [],
+        summary: 'Processed pasted price list',
+      },
+    });
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Pasted text',
+      'text'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary: 'Processed pasted price list',
+    });
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(mocks.generateObject).toHaveBeenCalledOnce();
+    expect(JSON.stringify(mocks.generateObject.mock.calls[0]?.[0])).toContain(
+      'Format: text/plain'
+    );
+  });
+
+  it('accepts legacy csv file type labels for Google Sheet AI fallback imports', async () => {
+    mocks.generateObject.mockResolvedValueOnce({
+      object: {
+        changes: [],
+        summary: 'Processed Google Sheet price list',
+      },
+    });
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Google Sheet Sync',
+      'csv'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary: 'Processed Google Sheet price list',
+    });
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(mocks.generateObject).toHaveBeenCalledOnce();
+    expect(JSON.stringify(mocks.generateObject.mock.calls[0]?.[0])).toContain(
+      'Format: text/csv'
+    );
+  });
+
   it('processes image price lists without duplicating base64 in the text prompt', async () => {
     const imagePayload = 'data:image/png;base64,THIS_SHOULD_ONLY_BE_IMAGE_DATA';
     mocks.generateObject.mockResolvedValueOnce({
@@ -278,10 +330,30 @@ describe('product import actions', () => {
     expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
   });
 
-  it('does not parse CSV when input validation fails', async () => {
+  it('returns structural CSV parser errors for unrecognized headers so AI fallback can run', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
       'SKU,Quantity\nOLD-1,5'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary:
+        'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
+    });
+    expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+  });
+
+  it('does not parse CSV when product payload validation fails', async () => {
+    const result = await parseCSVDirectly(
+      [
+        {
+          id: '',
+          name: 'Invalid product',
+          price: 1000,
+        },
+      ] as unknown as Product[],
+      'Name,Price\nNew Phone,2000'
     );
 
     expect(result).toEqual({ changes: [], summary: 'Invalid input' });

@@ -38,7 +38,27 @@ describe('dashboard product import action schemas', () => {
     );
   });
 
-  it('rejects malformed MIME types and CSV files without name and price headers', () => {
+  it('normalizes legacy price-list file type labels from existing callers', () => {
+    expect(
+      ProcessPriceListInputSchema.parse({
+        currentProducts,
+        priceListData: 'Name,Price\nNew Phone,2000',
+        vendor: 'Pasted text',
+        fileType: 'text',
+      }).fileType
+    ).toBe('text/plain');
+
+    expect(
+      ProcessPriceListInputSchema.parse({
+        currentProducts,
+        priceListData: 'Name,Price\nNew Phone,2000',
+        vendor: 'Google Sheet Sync',
+        fileType: 'csv',
+      }).fileType
+    ).toBe('text/csv');
+  });
+
+  it('rejects malformed MIME types but preserves structural CSV parsing errors', () => {
     expect(
       ProcessPriceListInputSchema.safeParse({
         currentProducts,
@@ -53,7 +73,7 @@ describe('dashboard product import action schemas', () => {
         currentProducts,
         csvData: 'SKU,Quantity\nOLD-1,5',
       }).success
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('validates Google Sheets URLs before fetch authorization work', () => {

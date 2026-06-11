@@ -5,8 +5,10 @@ export const MAX_PRODUCTS_PER_IMPORT = 10_000;
 export const MAX_GOOGLE_SHEET_URL_CHARS = 4096;
 
 const MIME_TYPE_PATTERN = /^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/i;
-const CSV_HEADER_NAME_PATTERN = /\b(name|prod|item|title|model)\b/i;
-const CSV_HEADER_PRICE_PATTERN = /\b(price|cost|amount|naira|ngn)\b/i;
+const LEGACY_PRICE_LIST_FILE_TYPES: Record<string, string> = {
+  csv: 'text/csv',
+  text: 'text/plain',
+};
 
 export const ProductImportProductSchema = z.object({
   id: z.string().min(1).max(128),
@@ -22,28 +24,34 @@ export const ProductImportProductsSchema = z
   .array(ProductImportProductSchema)
   .max(MAX_PRODUCTS_PER_IMPORT);
 
+function normalizePriceListFileType(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return LEGACY_PRICE_LIST_FILE_TYPES[normalized] ?? normalized;
+}
+
 export const ProcessPriceListInputSchema = z.object({
   currentProducts: ProductImportProductsSchema,
   priceListData: z.string().max(MAX_PRICE_LIST_INPUT_CHARS),
   vendor: z.string().max(100),
-  fileType: z
-    .string()
-    .trim()
-    .min(1)
-    .max(100)
-    .refine((value) => MIME_TYPE_PATTERN.test(value), {
-      message: 'Invalid MIME type',
-    }),
+  fileType: z.preprocess(
+    normalizePriceListFileType,
+    z
+      .string()
+      .min(1)
+      .max(100)
+      .refine((value) => MIME_TYPE_PATTERN.test(value), {
+        message: 'Invalid MIME type',
+      })
+  ),
 });
 
 export const ParseCsvDirectlyInputSchema = z.object({
   currentProducts: ProductImportProductsSchema,
-  csvData: z
-    .string()
-    .max(MAX_PRICE_LIST_INPUT_CHARS)
-    .refine(hasLikelyCsvHeaders, {
-      message: 'CSV must include name and price columns',
-    }),
+  csvData: z.string().max(MAX_PRICE_LIST_INPUT_CHARS),
 });
 
 export const FetchGoogleSheetInputSchema = z.object({
@@ -102,16 +110,3 @@ export const AIResponseSchema = z.object({
   clarificationRequest: ClarificationRequestSchema,
   missingParameterRequest: MissingParameterRequestSchema,
 });
-
-export function hasLikelyCsvHeaders(csvData: string): boolean {
-  const lines = csvData.split('\n').filter((line) => line.trim());
-  if (lines.length < 2) {
-    return true;
-  }
-
-  const headerSearchWindow = lines.slice(0, 10).join('\n');
-  return (
-    CSV_HEADER_NAME_PATTERN.test(headerSearchWindow) &&
-    CSV_HEADER_PRICE_PATTERN.test(headerSearchWindow)
-  );
-}

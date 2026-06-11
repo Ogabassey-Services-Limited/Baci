@@ -522,6 +522,24 @@ describe('getOrder', () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
+  it('honors global wildcard view permissions for order detail lookup', async () => {
+    mockGetMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        role: 'manager',
+        permissions: { '*': { '*': true } },
+      },
+    });
+    mockGetOrderQueries();
+
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
+
+    expect(order?.id).toBe(ORDER_ID);
+    expect(mockFrom).toHaveBeenCalledWith('orders');
+  });
+
   it('returns null before merchant authorization when order input fails validation', async () => {
     const order = await getOrder(MERCHANT_ID, '');
 
