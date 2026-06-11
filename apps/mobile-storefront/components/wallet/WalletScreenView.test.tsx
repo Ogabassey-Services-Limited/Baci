@@ -54,6 +54,7 @@ describe('WalletScreenView', () => {
     isRefetching: false,
     loyaltyPoints: 2000,
     onAddSavingsContribution: jest.fn(),
+    onChangeSavingsDevice: jest.fn(async () => true),
     onChangeSavingsContributionAmount: jest.fn(),
     onChangeFundAmount: jest.fn(),
     onCreateFundingAccount: jest.fn(),

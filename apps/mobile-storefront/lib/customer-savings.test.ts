@@ -10,6 +10,7 @@ const {
   cancelSavingsGoalFutureDebits,
   pauseSavingsGoal,
   resumeSavingsGoal,
+  swapSavingsGoalDevice,
 } =
   require('@/lib/customer-savings') as typeof import('@/lib/customer-savings');
 
@@ -54,6 +55,15 @@ describe('customer savings api client', () => {
     {
       name: 'cancelSavingsGoalFutureDebits',
       call: () => cancelSavingsGoalFutureDebits({ goalId: 'goal-1' }),
+    },
+    {
+      name: 'swapSavingsGoalDevice',
+      call: () =>
+        swapSavingsGoalDevice({
+          goalId: 'goal-1',
+          productId: '00000000-0000-4000-8000-000000000101',
+          variantId: '00000000-0000-4000-8000-000000000102',
+        }),
     },
     {
       name: 'initializeSavingsAuthorization',
@@ -235,6 +245,49 @@ describe('customer savings api client', () => {
       goalStatus: 'paused',
       success: true,
     });
+  });
+
+  it('swaps a savings goal device', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        currentAmount: 120000,
+        goalId: 'goal-1',
+        goalStatus: 'active',
+        success: true,
+        targetAmount: 650000,
+      }),
+    });
+
+    await expect(
+      swapSavingsGoalDevice({
+        goalId: 'goal-1',
+        merchantSlug: 'ogabassey',
+        productId: '00000000-0000-4000-8000-000000000101',
+        variantId: '00000000-0000-4000-8000-000000000102',
+      })
+    ).resolves.toEqual({
+      currentAmount: 120000,
+      goalId: 'goal-1',
+      goalStatus: 'active',
+      success: true,
+      targetAmount: 650000,
+    });
+
+    expect(mockFetchWithTimeout).toHaveBeenCalledWith(
+      'https://usebaci.com/api/storefront/customer/savings/goals/swap-device',
+      expect.objectContaining({
+        body: JSON.stringify({
+          goalId: 'goal-1',
+          merchantSlug: 'ogabassey',
+          productId: '00000000-0000-4000-8000-000000000101',
+          variantId: '00000000-0000-4000-8000-000000000102',
+        }),
+        method: 'POST',
+      })
+    );
   });
 
   it.each(apiErrorCases)('propagates network failures from $name', async ({
