@@ -36,6 +36,10 @@ type MockWalletContentProps = {
   isRefetching?: boolean;
   loyaltyPoints?: number;
   onAddSavingsContribution?: () => void;
+  onChangeSavingsDevice?: (
+    product: unknown,
+    variantId?: string | null
+  ) => Promise<boolean>;
   onChangeSavingsContributionAmount?: (value: string) => void;
   onChangeFundAmount: (value: string) => void;
   onCreateFundingAccount?: () => void;
@@ -76,7 +80,7 @@ const mockStorefrontScreenShell =
 const mockWalletContent =
   jest.fn<(props: MockWalletContentProps) => ReactNode>();
 const mockGetScrollContentStyle = jest.fn();
-const mockRefetch = jest.fn();
+const mockRefetch = jest.fn<() => Promise<unknown>>();
 const mockMutateAsync =
   jest.fn<
     (points: number) => Promise<{
@@ -100,6 +104,8 @@ const mockAddSavingsContribution =
       walletTransactionId: string | null;
     }>
   >();
+const mockSwapSavingsGoalDevice =
+  jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const mockRandomUUID = jest.fn();
 const mockUseRequireAuth = jest.fn();
 const mockUseWallet = jest.fn();
@@ -139,6 +145,42 @@ type MockAuthState = {
   user: { email?: string; id: string } | null;
 };
 const mockUseAuthStore = jest.fn<() => MockAuthState>();
+
+function mockWalletSavingsGoal(activeSavingsGoal: unknown | null) {
+  mockUseWallet.mockReturnValue({
+    data: {
+      wallet: {
+        active_savings_goal: activeSavingsGoal,
+        balance: 125000,
+        earnings_balance: 125000,
+        funding_account: null,
+        loyalty_points: 2000,
+        requires_funding_account_consent: true,
+        savings_balance: activeSavingsGoal ? 120000 : 0,
+        total_balance: activeSavingsGoal ? 245000 : 125000,
+      },
+      transactions: [],
+    },
+    isError: false,
+    isLoading: false,
+    isRefetching: false,
+    refetch: mockRefetch,
+  });
+}
+
+function createActiveSavingsGoal(currentAmount = 120000) {
+  return {
+    contribution_amount: 500,
+    contribution_frequency: 'weekly',
+    current_amount: currentAmount,
+    id: 'goal-1',
+    maturity_date: '2026-09-30',
+    source_mode: 'manual',
+    status: 'active',
+    target_amount: 700000,
+    title: 'iPhone 15 Pro',
+  };
+}
 
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: string }) => mockRedirect({ href }),
@@ -206,6 +248,7 @@ jest.mock('@/lib/wallet-top-up', () => ({
 
 jest.mock('@/lib/customer-savings', () => ({
   addSavingsContribution: (input: unknown) => mockAddSavingsContribution(input),
+  swapSavingsGoalDevice: (input: unknown) => mockSwapSavingsGoalDevice(input),
 }));
 
 jest.mock('@/services/analytics', () => ({
@@ -245,6 +288,7 @@ describe('WalletScreen', () => {
     mockSearchParams = {};
     mockMerchantId = 'configured-merchant';
     mockMerchantSlug = 'ogabassey';
+    mockRefetch.mockResolvedValue(undefined);
     mockRedirect.mockImplementation(({ href }) => (
       <View testID="wallet-redirect" accessibilityLabel={href} />
     ));
@@ -434,6 +478,13 @@ describe('WalletScreen', () => {
       success: true,
       walletBalance: 124500,
       walletTransactionId: 'wallet-tx-1',
+    });
+    mockSwapSavingsGoalDevice.mockResolvedValue({
+      currentAmount: 120000,
+      goalId: 'goal-1',
+      goalStatus: 'active',
+      success: true,
+      targetAmount: 650000,
     });
     mockRandomUUID.mockReturnValue('savings-key-1');
   });
@@ -946,6 +997,7 @@ describe('WalletScreen', () => {
         fireEvent.press(
           screen.getByRole('button', { name: 'Confirm Savings Contribution' })
         );
+        await Promise.resolve();
       });
 
       expect(mockAddSavingsContribution).toHaveBeenCalledWith({
@@ -1015,6 +1067,7 @@ describe('WalletScreen', () => {
         fireEvent.press(
           screen.getByRole('button', { name: 'Confirm Savings Contribution' })
         );
+        await Promise.resolve();
       });
 
       expect(mockAddSavingsContribution).toHaveBeenCalledWith({
@@ -1028,6 +1081,282 @@ describe('WalletScreen', () => {
       expect(alertSpy).toHaveBeenCalledWith(
         'Unable to add savings',
         'Contribution failed'
+      );
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  it('changes an active savings goal device with the active merchant context', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockUseWallet.mockReturnValue({
+      data: {
+        wallet: {
+          active_savings_goal: {
+            contribution_amount: 500,
+            contribution_frequency: 'weekly',
+            current_amount: 120000,
+            id: 'goal-1',
+            maturity_date: '2026-09-30',
+            source_mode: 'manual',
+            status: 'active',
+            target_amount: 700000,
+            title: 'iPhone 15 Pro',
+          },
+          balance: 125000,
+          earnings_balance: 125000,
+          funding_account: null,
+          loyalty_points: 2000,
+          requires_funding_account_consent: true,
+          savings_balance: 120000,
+          total_balance: 245000,
+        },
+        transactions: [],
+      },
+      isError: false,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    try {
+      render(<WalletScreen />);
+
+      const walletContentProps = mockWalletContent.mock.calls[0]?.[0];
+      const didChange = await walletContentProps?.onChangeSavingsDevice?.(
+        {
+          id: 'product-2',
+          image: 'https://cdn.example.com/iphone-16.jpg',
+          name: 'iPhone 16 Pro',
+          price: 750000,
+          slug: 'iphone-16-pro',
+          variants: [
+            {
+              attributes: { storage: '256GB' },
+              id: 'variant-256',
+              name: '256GB',
+              price: 650000,
+            },
+          ],
+        },
+        'variant-256'
+      );
+
+      expect(didChange).toBe(true);
+      expect(mockSwapSavingsGoalDevice).toHaveBeenCalledWith({
+        goalId: 'goal-1',
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+        productId: 'product-2',
+        variantId: 'variant-256',
+      });
+      expect(mockRefetch).toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Device updated',
+        'Your savings goal is now for iPhone 16 Pro.'
+      );
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  it('does not change an active savings goal to a device below saved amount', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockUseWallet.mockReturnValue({
+      data: {
+        wallet: {
+          active_savings_goal: {
+            contribution_amount: 500,
+            contribution_frequency: 'weekly',
+            current_amount: 120000,
+            id: 'goal-1',
+            maturity_date: '2026-09-30',
+            source_mode: 'manual',
+            status: 'active',
+            target_amount: 700000,
+            title: 'iPhone 15 Pro',
+          },
+          balance: 125000,
+          earnings_balance: 125000,
+          funding_account: null,
+          loyalty_points: 2000,
+          requires_funding_account_consent: true,
+          savings_balance: 120000,
+          total_balance: 245000,
+        },
+        transactions: [],
+      },
+      isError: false,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    try {
+      render(<WalletScreen />);
+
+      const walletContentProps = mockWalletContent.mock.calls[0]?.[0];
+      const didChange = await walletContentProps?.onChangeSavingsDevice?.(
+        {
+          id: 'product-3',
+          image: 'https://cdn.example.com/budget.jpg',
+          name: 'Budget Phone',
+          price: 90000,
+          slug: 'budget-phone',
+        },
+        null
+      );
+
+      expect(didChange).toBe(false);
+      expect(mockSwapSavingsGoalDevice).not.toHaveBeenCalled();
+      expect(mockRefetch).not.toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Device price too low',
+        'You have already saved ₦120,000. Choose a device priced at or above this amount.'
+      );
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  it('shows an error when changing the savings device fails', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockSwapSavingsGoalDevice.mockRejectedValue(new Error('Swap failed'));
+    mockWalletSavingsGoal(createActiveSavingsGoal());
+
+    try {
+      render(<WalletScreen />);
+
+      const walletContentProps = mockWalletContent.mock.calls[0]?.[0];
+      const didChange = await walletContentProps?.onChangeSavingsDevice?.(
+        {
+          id: 'product-2',
+          image: 'https://cdn.example.com/iphone-16.jpg',
+          name: 'iPhone 16 Pro',
+          price: 750000,
+          slug: 'iphone-16-pro',
+        },
+        null
+      );
+
+      expect(didChange).toBe(false);
+      expect(mockSwapSavingsGoalDevice).toHaveBeenCalled();
+      expect(mockRefetch).not.toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Unable to change device',
+        'Swap failed'
+      );
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  it('keeps the device change when wallet refresh fails after swap', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockRefetch.mockRejectedValueOnce(new Error('Refresh failed'));
+    mockWalletSavingsGoal(createActiveSavingsGoal());
+
+    try {
+      render(<WalletScreen />);
+
+      const walletContentProps = mockWalletContent.mock.calls[0]?.[0];
+      const didChange = await walletContentProps?.onChangeSavingsDevice?.(
+        {
+          id: 'product-2',
+          image: 'https://cdn.example.com/iphone-16.jpg',
+          name: 'iPhone 16 Pro',
+          price: 750000,
+          slug: 'iphone-16-pro',
+        },
+        null
+      );
+
+      expect(didChange).toBe(true);
+      expect(mockSwapSavingsGoalDevice).toHaveBeenCalled();
+      expect(mockRefetch).toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Device updated',
+        'Your savings device was updated, but wallet refresh failed. Pull to refresh your latest goal.'
+      );
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  it('does not change savings device without an active savings goal', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockWalletSavingsGoal(null);
+
+    try {
+      render(<WalletScreen />);
+
+      const walletContentProps = mockWalletContent.mock.calls[0]?.[0];
+      const didChange = await walletContentProps?.onChangeSavingsDevice?.(
+        {
+          id: 'product-2',
+          image: 'https://cdn.example.com/iphone-16.jpg',
+          name: 'iPhone 16 Pro',
+          price: 750000,
+          slug: 'iphone-16-pro',
+        },
+        null
+      );
+
+      expect(didChange).toBe(false);
+      expect(mockSwapSavingsGoalDevice).not.toHaveBeenCalled();
+      expect(mockRefetch).not.toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith(
+        'No active savings goal',
+        'Start a savings goal first.'
+      );
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  it('allows changing to a device priced at the saved amount boundary', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockWalletSavingsGoal(createActiveSavingsGoal(120000));
+
+    try {
+      render(<WalletScreen />);
+
+      const walletContentProps = mockWalletContent.mock.calls[0]?.[0];
+      const didChange = await walletContentProps?.onChangeSavingsDevice?.(
+        {
+          id: 'product-2',
+          image: 'https://cdn.example.com/equal.jpg',
+          name: 'Equal Price Phone',
+          price: 120000,
+          slug: 'equal-price-phone',
+        },
+        null
+      );
+
+      expect(didChange).toBe(true);
+      expect(mockSwapSavingsGoalDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          goalId: 'goal-1',
+          productId: 'product-2',
+          variantId: null,
+        })
+      );
+      expect(mockRefetch).toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Device updated',
+        'Your savings goal is now for Equal Price Phone.'
       );
     } finally {
       alertSpy.mockRestore();
