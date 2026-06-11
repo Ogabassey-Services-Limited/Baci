@@ -39,23 +39,42 @@ describe('repairPlaceDetailsSchema', () => {
     expect(result.data).toEqual(place);
   });
 
-  it('defaults missing optional fields to empty strings', () => {
+  it('defaults non-required optional fields to empty strings', () => {
     const result = repairPlaceDetailsSchema.safeParse({
-      formattedAddress: '12 Aba Road, Port Harcourt',
+      city: 'Port Harcourt',
+      state: 'Rivers',
+      formattedAddress: '12 Aba Road, Port Harcourt, Rivers',
     });
 
     expect(result.success).toBe(true);
     if (!result.success) throw new Error('Expected place to parse');
-    expect(result.data.city).toBe('');
+    expect(result.data.streetNumber).toBe('');
     expect(result.data.country).toBe('');
   });
 
   it('rejects oversized field values', () => {
     const result = repairPlaceDetailsSchema.safeParse({
+      city: 'Ikeja',
+      state: 'Lagos',
       formattedAddress: 'a'.repeat(501),
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('rejects empty or incomplete pickup addresses', () => {
+    expect(repairPlaceDetailsSchema.safeParse({}).success).toBe(false);
+    expect(
+      repairPlaceDetailsSchema.safeParse({
+        formattedAddress: '12 Aba Road, Port Harcourt',
+      }).success
+    ).toBe(false);
+    expect(
+      repairPlaceDetailsSchema.safeParse({
+        city: 'Port Harcourt',
+        state: 'Rivers',
+      }).success
+    ).toBe(false);
   });
 
   it('rejects non-object payloads', () => {

@@ -219,6 +219,22 @@ describe('calculateRepairShipping', () => {
     expect(mocks.getQuotes).not.toHaveBeenCalled();
   });
 
+  it('rejects incomplete place details without requesting Topship quotes', async () => {
+    const result = await calculateRepairShipping({
+      ...validPlace,
+      city: '',
+      state: '',
+    });
+
+    expect(result).toEqual({
+      isFree: false,
+      price: 0,
+      formattedPrice: 'Calculated at confirmation',
+      error: 'Invalid address details',
+    });
+    expect(mocks.getQuotes).not.toHaveBeenCalled();
+  });
+
   it('offers free pickup for Lagos addresses without quoting', async () => {
     const result = await calculateRepairShipping({
       ...validPlace,

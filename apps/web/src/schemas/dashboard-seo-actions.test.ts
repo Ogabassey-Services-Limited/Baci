@@ -76,16 +76,18 @@ describe('saveSEOSettingsInputSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects meta titles longer than 70 characters', () => {
+  it('clamps overlong generated meta titles before saving', () => {
     const result = saveSEOSettingsInputSchema.safeParse({
       merchantId: MERCHANT_ID,
       optimizations: [{ ...validOptimization, meta_title: 'a'.repeat(71) }],
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected SEO settings to parse');
+    expect(result.data.optimizations[0]?.meta_title).toHaveLength(70);
   });
 
-  it('rejects meta descriptions longer than 160 characters', () => {
+  it('clamps overlong generated meta descriptions before saving', () => {
     const result = saveSEOSettingsInputSchema.safeParse({
       merchantId: MERCHANT_ID,
       optimizations: [
@@ -93,7 +95,9 @@ describe('saveSEOSettingsInputSchema', () => {
       ],
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected SEO settings to parse');
+    expect(result.data.optimizations[0]?.meta_description).toHaveLength(160);
   });
 
   it('rejects more than 20 keywords and empty keyword strings', () => {

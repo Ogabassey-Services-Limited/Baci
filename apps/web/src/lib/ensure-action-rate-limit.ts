@@ -7,9 +7,9 @@ import { createClient } from '@/lib/supabase/server';
  * Abuse guard for public / pre-auth server actions.
  *
  * Binds the rate-limit counter to the authenticated user id when a session
- * exists, otherwise to the client IP (first hop of `x-forwarded-for`). This is
- * an identity binding for counting purposes, NOT a login gate — public actions
- * stay anonymous.
+ * exists, otherwise to the platform-provided client IP. This is an identity
+ * binding for counting purposes, NOT a login gate — public actions stay
+ * anonymous.
  *
  * Counting backend: in-memory sliding window (`checkRateLimit` from
  * `@/ai/provider`). LIMITATION: per-instance memory resets on serverless cold
@@ -42,8 +42,16 @@ export async function ensureActionRateLimit(
   if (!identity) {
     try {
       const headerStore = await headers();
-      const forwardedFor = headerStore.get('x-forwarded-for');
-      identity = forwardedFor?.split(',')[0]?.trim() || 'unknown';
+      identity =
+        headerStore.get('x-vercel-forwarded-for')?.trim() ||
+        headerStore.get('x-real-ip')?.trim() ||
+        headerStore
+          .get('x-forwarded-for')
+          ?.split(',')
+          .map((ip) => ip.trim())
+          .filter(Boolean)
+          .at(-1) ||
+        'unknown';
     } catch {
       identity = 'unknown';
     }

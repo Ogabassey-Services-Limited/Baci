@@ -231,17 +231,25 @@ describe('saveSEOSettings', () => {
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
-  it('returns an invalid-payload failure for overlong meta titles', async () => {
+  it('clamps overlong generated SEO fields before updating', async () => {
     authenticate();
+    const builder = createQueryBuilder({ data: null });
+    mocks.from.mockReturnValue(builder);
+
     const result = await saveSEOSettings(MERCHANT_ID, [
-      { ...validOptimization, meta_title: 'a'.repeat(71) },
+      {
+        ...validOptimization,
+        meta_title: 'a'.repeat(71),
+        meta_description: 'b'.repeat(161),
+      },
     ]);
 
-    expect(result).toMatchObject({
-      success: false,
-      message: 'Invalid SEO settings payload',
+    expect(result).toEqual({ success: true, updated: 1, failed: 0 });
+    expect(builder.update).toHaveBeenCalledWith({
+      meta_title: 'a'.repeat(70),
+      meta_description: 'b'.repeat(160),
+      keywords: validOptimization.keywords,
     });
-    expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it('returns a permission failure without updating when denied', async () => {

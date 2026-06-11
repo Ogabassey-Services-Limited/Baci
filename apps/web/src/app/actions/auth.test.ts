@@ -92,17 +92,24 @@ describe('loginAction', () => {
     expect(mockSignInWithPassword).not.toHaveBeenCalled();
   });
 
-  it('rejects a too-short password without attempting a sign-in', async () => {
+  it('lets existing short passwords reach Supabase credential validation', async () => {
+    mockSignInWithPassword.mockResolvedValueOnce({
+      error: { message: 'Invalid login credentials' },
+    });
+
     const result = await loginAction(
       prevState,
       makeFormData({ email: 'user@example.com', password: 'short' })
     );
 
     expect(result).toEqual({
-      error: 'Password must be at least 8 characters.',
+      error: 'Invalid login credentials',
       success: false,
     });
-    expect(mockSignInWithPassword).not.toHaveBeenCalled();
+    expect(mockSignInWithPassword).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      password: 'short',
+    });
   });
 
   it('returns the supabase error message when credentials are wrong', async () => {

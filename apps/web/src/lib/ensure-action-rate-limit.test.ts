@@ -60,7 +60,39 @@ describe('ensureActionRateLimit', () => {
     );
   });
 
-  it('falls back to the first x-forwarded-for hop when unauthenticated', async () => {
+  it('falls back to the Vercel-forwarded client IP when unauthenticated', async () => {
+    mockHeadersGet.mockImplementation((name: string) =>
+      name === 'x-vercel-forwarded-for' ? '203.0.113.7' : null
+    );
+
+    const allowed = await ensureActionRateLimit('login', config);
+
+    expect(allowed).toBe(true);
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(
+      'action:login:203.0.113.7',
+      config
+    );
+  });
+
+  it('uses x-real-ip before falling back to x-forwarded-for', async () => {
+    mockHeadersGet.mockImplementation((name: string) =>
+      name === 'x-real-ip'
+        ? '198.51.100.9'
+        : name === 'x-forwarded-for'
+          ? '203.0.113.7, 10.0.0.1'
+          : null
+    );
+
+    const allowed = await ensureActionRateLimit('login', config);
+
+    expect(allowed).toBe(true);
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(
+      'action:login:198.51.100.9',
+      config
+    );
+  });
+
+  it('uses the last x-forwarded-for hop when platform headers are absent', async () => {
     mockHeadersGet.mockImplementation((name: string) =>
       name === 'x-forwarded-for' ? '203.0.113.7, 10.0.0.1' : null
     );
@@ -69,7 +101,7 @@ describe('ensureActionRateLimit', () => {
 
     expect(allowed).toBe(true);
     expect(mockCheckRateLimit).toHaveBeenCalledWith(
-      'action:login:203.0.113.7',
+      'action:login:10.0.0.1',
       config
     );
   });
