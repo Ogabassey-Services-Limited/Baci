@@ -31,6 +31,31 @@ interface UserProfile {
   phone: string | null;
 }
 
+async function readResponseMessage(
+  response: Response,
+  fallbackMessage: string
+): Promise<string> {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    try {
+      const payload: unknown = await response.json();
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        'error' in payload &&
+        typeof payload.error === 'string'
+      ) {
+        return payload.error;
+      }
+    } catch {
+      // Fall through to text/generic handling below.
+    }
+  }
+
+  const text = await response.text().catch(() => '');
+  return text.trim() || `${fallbackMessage} (${response.status})`;
+}
+
 // Module-scope helper: `throw` inside try/catch in a component body blocks
 // React Compiler lowering, so the throwing flow lives outside the component.
 async function requestAccountDeletion(): Promise<void> {
@@ -48,8 +73,9 @@ async function requestAccountDeletion(): Promise<void> {
   );
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to delete account');
+    throw new Error(
+      await readResponseMessage(response, 'Failed to delete account')
+    );
   }
 }
 

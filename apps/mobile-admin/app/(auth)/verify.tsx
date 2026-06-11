@@ -49,8 +49,8 @@ async function requestOtpVerification(
 
     return { ok: true };
   } catch (error: unknown) {
-    const err = error as Error;
-    console.error('Verification error:', err);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Verification error:', error);
     // Fallback: try 'email' type if 'signup' failed (edge case)
     try {
       const { error: retryError } = await supabase.auth.verifyOtp({
@@ -61,9 +61,9 @@ async function requestOtpVerification(
       if (!retryError) {
         return { ok: true };
       }
-      return { ok: false, message: err.message || 'Invalid code' };
+      return { ok: false, message: message || 'Invalid code' };
     } catch (_e) {
-      return { ok: false, message: err.message || 'Invalid code' };
+      return { ok: false, message: message || 'Invalid code' };
     }
   }
 }
@@ -77,8 +77,10 @@ async function requestOtpResend(email: string): Promise<OtpRequestResult> {
     if (error) throw error;
     return { ok: true };
   } catch (error: unknown) {
-    const err = error as Error;
-    return { ok: false, message: err.message };
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 

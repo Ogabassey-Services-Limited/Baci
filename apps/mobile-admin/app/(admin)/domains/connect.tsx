@@ -38,19 +38,43 @@ async function requestDomainConnection(
   } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
-  const response = await fetch(`${API_URL}/domains`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ domain: cleanDomain }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/domains`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ domain: cleanDomain }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        'Request timed out. Check your connection and try again.',
+        { cause: error }
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
-  const result = await response.json();
+  const result: {
+    error?: string;
+    domain?: { domain?: string };
+    verification?: { value?: string };
+  } = await response.json().catch(() => ({}));
 
   if (!response.ok) {
     throw new Error(result.error || 'Failed to add domain');
+  }
+
+  if (!result.domain?.domain || !result.verification?.value) {
+    throw new Error('Unexpected server response');
   }
 
   return {

@@ -74,8 +74,10 @@ describe('useCachedImageUri', () => {
     });
 
     expect(typeof result.current.uri).toBe('string');
+    // Key = djb2 hash + URL length + readable tail (collision-proof across
+    // hosts that serve identically-named files)
     expect(result.current.uri).toBe(
-      'file:///cache/img_cache_https___example_com_image_png.png'
+      'file:///cache/img_cache_1an44mm_29_https___example_com_image_png.png'
     );
     expect(mocks.mockDownloadFileAsync).not.toHaveBeenCalled();
   });

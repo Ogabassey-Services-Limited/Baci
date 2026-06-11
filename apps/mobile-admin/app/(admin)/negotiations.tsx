@@ -35,12 +35,15 @@ interface NegotiationRequest {
 
 // Module-scope helpers keep try/throw out of the component body so React
 // Compiler can memoize the screen (try/finally + throw-in-try are bailouts).
-async function loadNegotiationRequests(): Promise<NegotiationRequest[]> {
+async function loadNegotiationRequests(
+  merchantId: string
+): Promise<NegotiationRequest[]> {
   const { data, error } = await supabase
     .from('negotiation_requests')
     .select(
       'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
     )
+    .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -72,8 +75,15 @@ export default function NegotiationsScreen() {
   // 2026 Best Practice: Removed useCallback wrapper as React Compiler handles memoization (ADR-004)
   // setState happens only inside promise callbacks (never synchronously), so
   // calling this from the mount effect cannot trigger cascading renders.
-  const fetchRequests = () =>
-    loadNegotiationRequests()
+  const fetchRequests = () => {
+    const merchantId = merchant?.id;
+    if (!merchantId) {
+      return Promise.resolve().then(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
+    }
+    return loadNegotiationRequests(merchantId)
       .then((data) => {
         setRequests(data);
         setFetchError(null);
@@ -86,16 +96,30 @@ export default function NegotiationsScreen() {
         setLoading(false);
         setRefreshing(false);
       });
+  };
 
   useEffect(() => {
+    const merchantId = merchant?.id;
+    if (!merchantId) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     fetchRequests();
 
-    // Subscribe to real-time updates
+    // Supabase Realtime supports Postgres change filters; scope by merchant to
+    // avoid refetching every connected merchant on unrelated inserts.
     const channel = supabase
-      .channel('negotiation_updates')
+      .channel(`negotiation_updates:${merchantId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'negotiation_requests' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'negotiation_requests',
+          filter: `merchant_id=eq.${merchantId}`,
+        },
         () => fetchRequests()
       )
       .subscribe();
@@ -103,7 +127,10 @@ export default function NegotiationsScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+    // Refetch when the merchant becomes available; fetchRequests is recreated
+    // each render so listing it would re-subscribe the channel every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [merchant?.id]);
 
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
     if (actionLoadingId) return; // Prevent double-submit

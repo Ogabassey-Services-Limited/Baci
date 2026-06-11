@@ -180,16 +180,17 @@ describe('NegotiationsScreen', () => {
     });
   });
 
-  it('aborts status updates when the merchant context is missing', async () => {
+  it('does not fetch or render negotiations when the merchant context is missing', async () => {
     mocks.merchant = null;
 
     render(<NegotiationsScreen />);
 
-    fireEvent.click(await screen.findByText('Accept Offer'));
-
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Error', 'Merchant not found');
+      expect(screen.queryByText('Accept Offer')).toBeNull();
     });
+    expect(mocks.queryCalls.some(({ method }) => method === 'select')).toBe(
+      false
+    );
     expect(mocks.queryCalls.some(({ method }) => method === 'update')).toBe(
       false
     );

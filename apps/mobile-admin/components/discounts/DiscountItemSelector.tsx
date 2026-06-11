@@ -59,7 +59,10 @@ export function DiscountItemSelector({
 
   const handleFetchItems = (searchTerm: string) => {
     if (!merchant?.id) {
+      requestIdRef.current += 1;
       setItems([]);
+      setFetchError(null);
+      setLoading(false);
       return;
     }
 
@@ -84,6 +87,17 @@ export function DiscountItemSelector({
         setItems,
         setLoading,
         type,
+      });
+    } else if (visible) {
+      // Merchant context vanished: invalidate any in-flight request and
+      // settle the pending UI from a microtask (not synchronously in the
+      // effect) so loading cannot stick at true.
+      const requestId = ++requestIdRef.current;
+      void Promise.resolve().then(() => {
+        if (requestId !== requestIdRef.current) return;
+        setItems([]);
+        setFetchError(null);
+        setLoading(false);
       });
     }
 

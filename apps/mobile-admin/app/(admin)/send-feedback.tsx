@@ -41,10 +41,10 @@ const FEEDBACK_CATEGORIES = [
 
 interface FeedbackSubmission {
   categories: string[];
-  merchantId: string | undefined;
+  merchantId: string;
   message: string | null;
   rating: number;
-  userId: string | undefined;
+  userId: string;
 }
 
 // Module-scope helper: try/catch with a finalizer and throws cannot live in
@@ -103,13 +103,21 @@ export default function SendFeedbackScreen() {
       return;
     }
 
+    if (!merchant?.id || !user?.id) {
+      Alert.alert(
+        'Please wait',
+        'Your account is still loading. Try again in a moment.'
+      );
+      return;
+    }
+
     setIsSending(true);
     const didSubmit = await submitFeedback({
       categories: selectedCategories,
-      merchantId: merchant?.id,
+      merchantId: merchant.id,
       message: message.trim() || null,
       rating,
-      userId: user?.id,
+      userId: user.id,
     });
     setIsSending(false);
 

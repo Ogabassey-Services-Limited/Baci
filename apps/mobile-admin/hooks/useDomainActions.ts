@@ -94,7 +94,7 @@ async function runDelete(
       Alert.alert('Deleted', 'Domain has been removed.');
       onRefresh();
     } else {
-      const errData = await response.json();
+      const errData = await response.json().catch(() => ({}));
       throw new Error(errData.error || 'Failed to delete');
     }
   } catch (error) {

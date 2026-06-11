@@ -145,9 +145,12 @@ async function persistBlogPost({
 }
 
 async function deleteBlogPost(
-  id: string | undefined,
+  id: string,
   merchantId: string | undefined
 ): Promise<void> {
+  if (!id) {
+    throw new Error('Post ID is missing');
+  }
   if (!merchantId) {
     throw new Error('Merchant ID is missing');
   }
@@ -297,6 +300,11 @@ export default function BlogPostDetailScreen() {
   };
 
   const handleDelete = () => {
+    if (!id) {
+      Alert.alert('Error', 'Blog post ID is missing.');
+      return;
+    }
+
     Alert.alert('Delete Post', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {

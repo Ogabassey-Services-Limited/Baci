@@ -45,25 +45,28 @@ export default function ForgotPasswordScreen() {
       return;
     }
 
-    const emailError = getEmailError(email.trim());
+    const trimmedEmail = email.trim();
+    const emailError = getEmailError(trimmedEmail);
     if (emailError) {
       Alert.alert('Invalid Email', emailError);
       return;
     }
 
     setIsLoading(true);
-    void requestPasswordReset(email)
+    void requestPasswordReset(trimmedEmail)
       .then(() => {
         Alert.alert(
           'Check your email',
-          `We have sent a password reset link to ${email}`,
+          `We have sent a password reset link to ${trimmedEmail}`,
           [{ text: 'Back to Login', onPress: () => router.back() }]
         );
       })
       .catch((error: unknown) => {
-        const err = error as Error;
-        console.error('Reset error:', err);
-        Alert.alert('Error', err.message);
+        console.error('Reset error:', error);
+        Alert.alert(
+          'Error',
+          error instanceof Error ? error.message : 'Failed to send reset email'
+        );
       })
       .finally(() => setIsLoading(false));
   };
