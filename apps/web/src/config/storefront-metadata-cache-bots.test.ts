@@ -12,11 +12,17 @@ describe('storefront metadata cache bot classifier', () => {
     ['GPTBot/1.1 (+https://openai.com/gptbot)'],
     ['ChatGPT-User/1.0 (+https://openai.com/bot)'],
     ['OAI-SearchBot/1.0 (+https://openai.com/searchbot)'],
+    ['OAI-AdsBot/1.0 (+https://openai.com/adsbot)'],
     ['ClaudeBot/1.0'],
+    ['Claude-User/1.0'],
     ['Claude-SearchBot/1.0'],
     ['PerplexityBot/1.0 (+https://perplexity.ai/perplexitybot)'],
+    ['Perplexity-User/1.0 (+https://perplexity.ai/perplexity-user)'],
     [
       'Meta-ExternalAgent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)',
+    ],
+    [
+      'Meta-ExternalFetcher/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)',
     ],
     ['Bytespider'],
     ['CCBot/2.0'],

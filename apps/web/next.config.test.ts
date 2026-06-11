@@ -48,12 +48,20 @@ describe('next.config OgaBassey resource headers', () => {
     expect(getStorefrontMetadataCacheBucket('ClaudeBot/1.0')).toBe(
       'metadata-blocking'
     );
+    expect(getStorefrontMetadataCacheBucket('Claude-User/1.0')).toBe(
+      'metadata-blocking'
+    );
     expect(getStorefrontMetadataCacheBucket('PerplexityBot/1.0')).toBe(
+      'metadata-blocking'
+    );
+    expect(getStorefrontMetadataCacheBucket('Perplexity-User/1.0')).toBe(
       'metadata-blocking'
     );
     expect(nextConfig.htmlLimitedBots?.test('GPTBot/1.1')).toBe(true);
     expect(nextConfig.htmlLimitedBots?.test('ClaudeBot/1.0')).toBe(true);
+    expect(nextConfig.htmlLimitedBots?.test('Claude-User/1.0')).toBe(true);
     expect(nextConfig.htmlLimitedBots?.test('PerplexityBot/1.0')).toBe(true);
+    expect(nextConfig.htmlLimitedBots?.test('Perplexity-User/1.0')).toBe(true);
     expect(
       getStorefrontMetadataCacheBucket(
         'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'
