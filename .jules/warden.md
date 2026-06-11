@@ -21,3 +21,6 @@
 ## 2026-06-05 - Missing merchant_id scope in negotiation updates
 **Learning:** Updates to the `negotiation_requests` table lacked `.eq('merchant_id', merchant.id)` scoping. Although it checked `id`, omitting `merchant_id` could allow a cross-tenant data leak if an attacker somehow guesses another merchant's negotiation request ID. RLS is a defense line, but application code should always defensively scope updates to the authenticated context.
 **Action:** Always append `.eq('merchant_id', merchant.id)` when executing mutations (`.update()`, `.delete()`, `.insert()`) on tenant-specific tables to enforce defense-in-depth tenant isolation.
+## 2026-06-11 - Silent Failure on Supabase Mutations
+**Learning:** Performing a Supabase mutation (like `.delete()`) and logging the error without returning a failure response can lead to inconsistent state and silent failures, where the application incorrectly assumes success and proceeds with dependent operations.
+**Action:** Always check the `error` object returned from Supabase mutations and explicitly return an error response (e.g., `500`) to halt execution and signal the failure to the client.
