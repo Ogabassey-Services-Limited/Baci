@@ -38,7 +38,7 @@ describe('quiz route proof helpers', () => {
     expect(response?.status).toBe(500);
     expect(await (response as Response).json()).toEqual({
       code: 'quiz_route_proof_unavailable',
-      error: 'quiz_route_proof_unavailable',
+      error: 'Quiz is temporarily unavailable. Please try again later.',
     });
   });
 
