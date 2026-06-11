@@ -348,15 +348,15 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       {/* Price */}
                       <div className="text-right">
                         {isQuizGift ? (
-                          <div className="font-bold text-green-600 text-base md:text-xl">
+                          <div className="font-bold text-store-primary text-base md:text-xl">
                             Free gift
                           </div>
                         ) : item.negotiatedPrice ? (
                           <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-gray-400 line-through decoration-red-400">
+                            <span className="text-[10px] text-store-background-text/45 line-through decoration-store-primary/40">
                               ₦{((item.price || 0) * item.quantity).toLocaleString()}
                             </span>
-                            <span className="font-bold text-green-600 text-base md:text-xl">
+                            <span className="font-bold text-store-primary text-base md:text-xl">
                               ₦{(itemTotal || 0).toLocaleString()}
                             </span>
                           </div>
@@ -380,7 +380,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                               onChange={() => toggleAssurance?.(item.cartItemId)}
                               className="peer sr-only"
                             />
-                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
+                            <div className="w-9 h-5 bg-store-background-text/20 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-store-primary-text after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-store-background after:border-store-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-store-primary" />
                           </div>
                           <div className="flex flex-col">
                             <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
@@ -416,7 +416,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       {hasPriceNegotiation && !isQuizGift && (
                         <div className="flex items-center gap-2">
                           {item.negotiationStatus === 'accepted' ? (
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-store-primary bg-store-primary/5 px-3 py-1.5 rounded-lg border border-store-primary/15">
                               <Check size={12} strokeWidth={3} />
                               <span>
                                 Matched @ ₦
@@ -426,7 +426,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                           ) : (
                             <button type="button"
                               onClick={() => openItemNegotiation(item)}
-                              className="flex items-center gap-1.5 text-xs font-bold text-store-primary md:hover:bg-store-primary/5 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-store-primary/40 active:bg-store-primary/5 active:scale-95"
+                              className="flex items-center gap-1.5 text-xs font-bold text-store-primary md:hover:bg-store-primary/5 px-2 py-1.5 rounded-lg transition-colors border border-store-primary/15 md:hover:border-store-primary/40 active:bg-store-primary/5 active:scale-95"
                             >
                               <AppNegotiateIcon size={14} />
                               <span>Negotiate</span>
