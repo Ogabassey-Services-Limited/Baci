@@ -43,6 +43,7 @@ function merchantRow() {
     is_published: false,
     logo_url: 'https://cdn.example/logo.png',
     pages: { about: 'About us', privacy: 'Privacy', terms: 'Terms' },
+    phone: null,
     paystack_subaccount_code: 'ACCT_6uujpqtzmnufzkw',
     snapchat_pixel_id: null,
     social_media: {},
