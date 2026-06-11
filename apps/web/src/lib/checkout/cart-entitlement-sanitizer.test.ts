@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { CartItem } from '@/hooks/cart';
 import {
+  calculateCartItemSubtotal,
   calculateCartTotal,
+  getCartItemCheckoutUnitPrice,
+  isQuizVoucherCartItem,
   sanitizeCartItems,
 } from './cart-entitlement-sanitizer';
 
@@ -67,6 +70,77 @@ describe('cart-entitlement-sanitizer', () => {
       // Total = 3680.
       const total = calculateCartTotal(mockCart, true);
       expect(total).toBe(3680);
+    });
+
+    it('treats signed quiz voucher items as zero-priced gifts', () => {
+      const cartWithVoucherGift: CartItem[] = [
+        mockCart[1],
+        {
+          id: 'gift-product',
+          cartItemId: 'gift-product::quiz',
+          name: 'Quiz Gift',
+          price: 205000,
+          quantity: 1,
+          quizAwardId: 'award-1',
+          quizVoucherToken: 'signed-token',
+          hasAssurance: true,
+        } as CartItem,
+      ];
+
+      expect(isQuizVoucherCartItem(cartWithVoucherGift[1])).toBe(true);
+      expect(getCartItemCheckoutUnitPrice(cartWithVoucherGift[1])).toBe(0);
+      expect(calculateCartItemSubtotal(cartWithVoucherGift, false)).toBe(2000);
+      expect(calculateCartTotal(cartWithVoucherGift, false)).toBe(2000);
+    });
+
+    it('keeps signed quiz voucher gifts free when negotiated price is present', () => {
+      const voucherGift = {
+        id: 'gift-product',
+        cartItemId: 'gift-product::quiz',
+        name: 'Quiz Gift',
+        price: 205000,
+        negotiatedPrice: 50000,
+        negotiationStatus: 'accepted',
+        quantity: 2,
+        quizAwardId: 'award-1',
+        quizVoucherToken: 'signed-token',
+      } as CartItem;
+
+      expect(isQuizVoucherCartItem(voucherGift)).toBe(true);
+      expect(getCartItemCheckoutUnitPrice(voucherGift)).toBe(0);
+      expect(calculateCartItemSubtotal([voucherGift], true)).toBe(0);
+      expect(calculateCartTotal([voucherGift], true)).toBe(0);
+    });
+
+    it('uses negotiated subtotals only when negotiation is entitled', () => {
+      const negotiatedCart = [
+        {
+          id: '1',
+          cartItemId: '1::v1',
+          name: 'Item 1',
+          price: 1000,
+          negotiatedPrice: 800,
+          negotiationStatus: 'accepted',
+          quantity: 2,
+        } as CartItem,
+      ];
+
+      expect(calculateCartItemSubtotal(negotiatedCart, true)).toBe(1600);
+      expect(calculateCartItemSubtotal(negotiatedCart, false)).toBe(2000);
+    });
+
+    it('keeps quiz award items priced until the signed voucher token is present', () => {
+      const incompleteVoucherItem = {
+        id: 'gift-product',
+        cartItemId: 'gift-product::quiz',
+        name: 'Quiz Gift',
+        price: 205000,
+        quantity: 1,
+        quizAwardId: 'award-1',
+      } as CartItem;
+
+      expect(isQuizVoucherCartItem(incompleteVoucherItem)).toBe(false);
+      expect(getCartItemCheckoutUnitPrice(incompleteVoucherItem)).toBe(205000);
     });
 
     it('should treat invalid prices as 0 while preserving valid item totals', () => {
