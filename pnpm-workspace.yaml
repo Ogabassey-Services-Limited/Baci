@@ -188,6 +188,8 @@ overrides:
   "@grpc/grpc-js@>=1.12.0 <1.12.7": "1.12.7"
   "@grpc/grpc-js@>=1.13.0 <1.13.5": "1.13.5"
   "@grpc/grpc-js@>=1.14.0 <1.14.4": "1.14.4"
+  # google-gax declares a broad ^1.10.x range; keep it on the latest patched 1.14.x line instead of the 1.10.x patched floor.
+  "google-gax>@grpc/grpc-js": "1.14.4"
   # Pin vulnerable shell-quote consumers to the first patched release for CVE-2026-9277.
   "shell-quote@>=1.1.0 <=1.8.3": "1.8.4"
 
