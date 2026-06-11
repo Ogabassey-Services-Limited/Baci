@@ -181,6 +181,17 @@ overrides:
   path-to-regexp: ">=8.4.0"
   # Pin to ^11.15.0 to close GHSA-6m6c-36f7-fhxh (Gantt-chart infinite-loop DoS), GHSA-87f9-hvmw-gh4p (CSS injection via configuration), GHSA-ghcm-xqfw-q4vr (HTML injection in classDef state diagrams), and GHSA-xcj9-5m2h-648r (CSS injection in classDefs). All four advisories fixed in 11.15.0. mermaid arrives here transitively via streamdown 1.6.11 (markdown streaming for the AI chat rendering pipeline).
   mermaid: "^11.15.0"
+  # Pin vulnerable gRPC consumers to their patched minor releases for CVE-2026-48068 and CVE-2026-48069 while respecting transitive semver bounds.
+  "@grpc/grpc-js@>=1.9.0 <1.9.16": "1.9.16"
+  "@grpc/grpc-js@>=1.10.0 <1.10.12": "1.10.12"
+  "@grpc/grpc-js@>=1.11.0 <1.11.4": "1.11.4"
+  "@grpc/grpc-js@>=1.12.0 <1.12.7": "1.12.7"
+  "@grpc/grpc-js@>=1.13.0 <1.13.5": "1.13.5"
+  "@grpc/grpc-js@>=1.14.0 <1.14.4": "1.14.4"
+  # google-gax declares a broad ^1.10.x range; keep it on the latest patched 1.14.x line instead of the 1.10.x patched floor.
+  "google-gax>@grpc/grpc-js": "1.14.4"
+  # Pin vulnerable shell-quote consumers to the first patched release for CVE-2026-9277.
+  "shell-quote@>=1.1.0 <=1.8.3": "1.8.4"
 
 patchedDependencies:
   "@react-native-community/datetimepicker@9.1.0": "patches/@react-native-community/datetimepicker@9.1.0.patch"
