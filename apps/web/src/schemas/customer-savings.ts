@@ -144,6 +144,15 @@ export const customerSavingsGoalActionSchema = merchantIdentifierObjectSchema
   })
   .superRefine(requireMerchantIdentifier);
 
+export const customerSavingsGoalDeviceSwapSchema =
+  merchantIdentifierObjectSchema
+    .extend({
+      goalId: z.uuid('Goal id must be a valid UUID'),
+      productId: z.uuid('Product id must be a valid UUID'),
+      variantId: optionalUuid,
+    })
+    .superRefine(requireMerchantIdentifier);
+
 export const customerSavingsAutoDebitAuthorizeSchema =
   merchantIdentifierObjectSchema
     .extend({
@@ -168,6 +177,9 @@ export const customerSavingsAuthorizationConfirmSchema =
 
 export type CustomerSavingsCreateGoalInput = z.infer<
   typeof customerSavingsCreateGoalSchema
+>;
+export type CustomerSavingsGoalDeviceSwapInput = z.infer<
+  typeof customerSavingsGoalDeviceSwapSchema
 >;
 export type CustomerSavingsGoalActionInput = z.infer<
   typeof customerSavingsGoalActionSchema

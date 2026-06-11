@@ -30,6 +30,26 @@ jest.mock('@/lib/clipboard', () => ({
   setClipboardString: jest.fn(),
 }));
 
+jest.mock('@/hooks/use-debounce', () => ({
+  useDebounce: (value: string) => value,
+}));
+
+jest.mock('@/hooks/use-products', () => ({
+  useProducts: () => ({
+    isLoading: false,
+    products: [
+      {
+        condition: 'Used',
+        id: 'product-swap',
+        image: 'https://cdn.example.com/swap.jpg',
+        name: 'iPhone 16 Pro',
+        price: 150000,
+        slug: 'iphone-16-pro',
+      },
+    ],
+  }),
+}));
+
 jest.mock('expo-image', () => ({
   Image: () => null,
 }));
@@ -73,6 +93,7 @@ describe('WalletContent', () => {
     onCreateFundingAccount: jest.fn(),
     onChangeRedeemPoints: jest.fn(),
     onAddSavingsContribution: jest.fn(),
+    onChangeSavingsDevice: jest.fn(async () => true),
     onChangeSavingsContributionAmount: jest.fn(),
     onCloseSavingsProgress: jest.fn(),
     onConfirmFund: jest.fn(),
@@ -244,7 +265,7 @@ describe('WalletContent', () => {
     expect(screen.queryByRole('button', { name: 'Quick Save' })).toBeNull();
   });
 
-  it('renders savings progress modal and wires manual contribution actions', () => {
+  it('renders savings progress modal and wires manual contribution actions', async () => {
     render(<WalletContent {...props} showSavingsProgress />);
 
     expect(screen.getByText('Saving streak')).toBeOnTheScreen();
@@ -259,10 +280,23 @@ describe('WalletContent', () => {
     fireEvent.press(
       screen.getByRole('button', { name: 'Fund wallet for savings' })
     );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Change savings device' })
+    );
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Select iPhone 16 Pro' })
+      );
+      await Promise.resolve();
+    });
 
     expect(props.onChangeSavingsContributionAmount).toHaveBeenCalledWith('500');
     expect(props.onAddSavingsContribution).toHaveBeenCalledTimes(1);
     expect(props.onFundSavingsWallet).toHaveBeenCalledTimes(1);
+    expect(props.onChangeSavingsDevice).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'product-swap' }),
+      null
+    );
   });
 
   it('does not update copy feedback after unmounting', async () => {
