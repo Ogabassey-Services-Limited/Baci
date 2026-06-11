@@ -1,5 +1,11 @@
 minimumReleaseAge: 1440
-# trustPolicy: check
+# Refuse packages whose trust signals (provenance, signatures) weaken between
+# updates. trustLockfile keeps already-locked entries installable — the current
+# lockfile carries upstream trust downgrades (e.g. undici-types@6.21.0,
+# uuid@13.0.1 shipped without the provenance their earlier releases had) that
+# would otherwise fail every install; new resolutions are still enforced.
+trustPolicy: no-downgrade
+trustLockfile: true
 
 
 # Workspace linkers & hoisting configurations for React Native/Expo in pnpm v11

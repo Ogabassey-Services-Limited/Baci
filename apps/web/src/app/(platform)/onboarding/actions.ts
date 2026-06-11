@@ -14,10 +14,12 @@ import {
 import { triggerAiStorefrontWorker } from '@/lib/ai-storefront/trigger-storefront-worker';
 import { getCountryByCode } from '@/lib/countries';
 import { sendWelcomeEmail } from '@/lib/email';
+import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { logger } from '@/lib/logger';
 import type { createAdminClient as createAdminClientFactory } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { onboardingSchema } from '@/schemas/onboarding';
+import { onboardingMagicLinkSchema } from '@/schemas/onboarding-magic-link';
 import type { BrandColors } from '@/types';
 
 export type ServerActionState = {
@@ -85,6 +87,17 @@ export async function submitOnboarding(
   _prevState: ServerActionState,
   formData: FormData
 ): Promise<ServerActionState> {
+  const rateLimitAllowed = await ensureActionRateLimit('onboarding-submit', {
+    requests: 5,
+    windowMs: 900_000,
+  });
+  if (!rateLimitAllowed) {
+    return {
+      success: false,
+      message: 'Too many onboarding attempts. Please try again later.',
+    };
+  }
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
@@ -460,12 +473,31 @@ export async function submitOnboarding(
 export async function sendMagicLink(
   email: string
 ): Promise<{ success: boolean; message: string }> {
+  const rateLimitAllowed = await ensureActionRateLimit('magic-link', {
+    requests: 3,
+    windowMs: 60_000,
+  });
+  if (!rateLimitAllowed) {
+    return {
+      success: false,
+      message: 'Too many magic link requests. Please try again later.',
+    };
+  }
   if (!email) return { success: false, message: 'Email is required.' };
+  const validationResult = onboardingMagicLinkSchema.safeParse({ email });
+  if (!validationResult.success) {
+    return {
+      success: false,
+      message:
+        validationResult.error.issues[0]?.message ??
+        'Please enter a valid email address.',
+    };
+  }
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: validationResult.data.email,
       options: {
         shouldCreateUser: true,
         emailRedirectTo: buildOnboardingRedirectUrl('fromMagicLink=true'),

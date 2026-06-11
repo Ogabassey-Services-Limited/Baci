@@ -1,8 +1,10 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { createClient } from '@/lib/supabase/server';
+import { fetchMorePostsInputSchema } from '@/schemas/storefront-blog-actions';
 
 interface BlogListPost {
   id: string;
@@ -24,17 +26,37 @@ export async function fetchMorePosts(
   page: number,
   category?: string,
   searchQuery?: string
-) {
+): Promise<BlogListPost[]> {
+  // Public read by design (anonymous storefront pagination) — rate limiting
+  // is the abuse control here, not a login gate.
+  const allowed = await ensureActionRateLimit('storefront-blog-list', {
+    requests: 60,
+    windowMs: 60_000,
+  });
+  if (!allowed) {
+    return [];
+  }
+
+  const parsed = fetchMorePostsInputSchema.safeParse({
+    merchantId,
+    page,
+    category,
+    searchQuery,
+  });
+  if (!parsed.success) {
+    throw new Error('Invalid blog post request');
+  }
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const limit = 12;
-  const offset = (page - 1) * limit;
+  const offset = (parsed.data.page - 1) * limit;
   let query = supabase
     .from('blog_posts')
     .select(
       'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count'
     )
-    .eq('merchant_id', merchantId)
+    .eq('merchant_id', parsed.data.merchantId)
     .eq('status', 'published')
     .not('published_at', 'is', null)
     .not('title', 'is', null)
@@ -45,12 +67,12 @@ export async function fetchMorePosts(
 
   query = applyPublicBlogSqlFilters(query);
 
-  if (category) {
-    query = query.eq('category', category);
+  if (parsed.data.category) {
+    query = query.eq('category', parsed.data.category);
   }
 
-  if (searchQuery) {
-    const sanitizedSearch = searchQuery.trim().slice(0, 100);
+  if (parsed.data.searchQuery) {
+    const sanitizedSearch = parsed.data.searchQuery.trim().slice(0, 100);
     if (sanitizedSearch) {
       query = query.textSearch('search_vector', sanitizedSearch, {
         type: 'websearch',

@@ -8,38 +8,13 @@ import {
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
+import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { logger } from '@/lib/logger';
+import { guideBusinessOnboardingInputSchema } from '@/schemas/ai-guide-business-onboarding';
 import { createFallbackLogo } from './fallback-logo';
 
-const _GuideBusinessOnboardingInputSchema = z.object({
-  businessName: z.string().describe("The user's business name."),
-  businessType: z
-    .string()
-    .describe('The type of business the user is onboarding.'),
-  brandPreferences: z
-    .string()
-    .describe("The user's favorite color to influence branding."),
-  logoUrl: z
-    .string()
-    .url()
-    .optional()
-    .describe(
-      'A URL to a company logo, which will be used for color extraction.'
-    ),
-  task: z
-    .enum(['generate_logos', 'extract_colors', 'generate_names'])
-    .describe('The specific task for the flow to perform.'),
-  description: z
-    .string()
-    .optional()
-    .describe('Business description for name generation.'),
-  tone: z
-    .string()
-    .optional()
-    .describe('Desired tone for business name generation.'),
-});
 type GuideBusinessOnboardingInput = z.infer<
-  typeof _GuideBusinessOnboardingInputSchema
+  typeof guideBusinessOnboardingInputSchema
 >;
 
 const BrandColorsSchema = z.object({
@@ -79,8 +54,26 @@ type GuideBusinessOnboardingOutput = z.infer<
 >;
 
 export async function guideBusinessOnboarding(
-  input: GuideBusinessOnboardingInput
+  rawInput: GuideBusinessOnboardingInput
 ): Promise<GuideBusinessOnboardingOutput> {
+  // Pre-auth action (runs before account creation): abuse control instead of
+  // a login gate, since it spends AI budget.
+  const allowed = await ensureActionRateLimit('ai-onboarding', {
+    requests: 10,
+    windowMs: 600_000,
+  });
+  if (!allowed) {
+    throw new Error(
+      'Too many AI onboarding requests. Please try again in a few minutes.'
+    );
+  }
+
+  const parsedInput = guideBusinessOnboardingInputSchema.safeParse(rawInput);
+  if (!parsedInput.success) {
+    throw new Error('Invalid onboarding input provided.');
+  }
+  const input = parsedInput.data;
+
   if (input.task === 'extract_colors') {
     if (!input.logoUrl) {
       throw new Error('logoUrl is required for color extraction.');

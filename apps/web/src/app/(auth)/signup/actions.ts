@@ -7,6 +7,7 @@ import {
   buildAbsoluteAppRedirectUrl,
   sanitizeRelativeRedirectPath,
 } from '@/lib/auth-redirect';
+import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { checkPasswordBreach } from '@/lib/password-breach';
 import { asRoute } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
@@ -25,6 +26,18 @@ export async function signupAction(
   _prevState: SignupState,
   formData: FormData
 ): Promise<SignupState> {
+  // 0. Abuse control — signup is necessarily pre-auth, so rate limit by
+  // identity (IP for anonymous callers) instead of requiring a session.
+  const allowed = await ensureActionRateLimit('signup', {
+    requests: 5,
+    windowMs: 900_000,
+  });
+  if (!allowed) {
+    return {
+      message: 'Too many signup attempts. Please try again in a few minutes.',
+    };
+  }
+
   // 1. Validate form data
   const validatedFields = signupSchema.safeParse({
     email: formData.get('email'),

@@ -1,17 +1,16 @@
-import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import {
   AGENT_READINESS_CACHE_CONTROL,
   BACI_AGENT_SKILL_DESCRIPTION,
   BACI_AGENT_SKILL_PATH,
-  buildAgentSkillMarkdown,
 } from '@/config/agent-readiness';
+import { buildAgentSkillDigest } from '@/config/agent-skill-digest';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 
 export function GET(request: Request): NextResponse {
-  const skillMarkdownDigest = createHash('sha256')
-    .update(buildAgentSkillMarkdown(buildRequestBaseUrl(request)))
-    .digest('hex');
+  const skillMarkdownDigest = buildAgentSkillDigest(
+    buildRequestBaseUrl(request)
+  );
 
   return NextResponse.json(
     {
