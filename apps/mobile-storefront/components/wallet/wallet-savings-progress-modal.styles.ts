@@ -140,6 +140,19 @@ export const walletSavingsProgressModalStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.sm,
   },
+  changeDeviceButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    justifyContent: 'center',
+    paddingVertical: 11,
+  },
+  changeDeviceButtonText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
   secondaryButton: {
     alignItems: 'center',
     borderRadius: RADIUS.lg,

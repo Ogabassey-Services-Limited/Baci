@@ -26,6 +26,7 @@ describe('WalletSavingsProgressModal', () => {
   it('renders progress and wires manual contribution actions', () => {
     const onAddAmountChange = jest.fn();
     const onAddSavings = jest.fn();
+    const onChangeDevice = jest.fn();
     const onClose = jest.fn();
     const onFundWallet = jest.fn();
 
@@ -37,6 +38,7 @@ describe('WalletSavingsProgressModal', () => {
         isAdding={false}
         onAddAmountChange={onAddAmountChange}
         onAddSavings={onAddSavings}
+        onChangeDevice={onChangeDevice}
         onClose={onClose}
         onFundWallet={onFundWallet}
         visible
@@ -58,12 +60,16 @@ describe('WalletSavingsProgressModal', () => {
       screen.getByRole('button', { name: 'Fund wallet for savings' })
     );
     fireEvent.press(
+      screen.getByRole('button', { name: 'Change savings device' })
+    );
+    fireEvent.press(
       screen.getByRole('button', { name: 'Close savings progress' })
     );
 
     expect(onAddAmountChange).toHaveBeenCalledWith('500');
     expect(onAddSavings).toHaveBeenCalledTimes(1);
     expect(onFundWallet).toHaveBeenCalledTimes(1);
+    expect(onChangeDevice).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -76,6 +82,7 @@ describe('WalletSavingsProgressModal', () => {
         isAdding={false}
         onAddAmountChange={jest.fn()}
         onAddSavings={jest.fn()}
+        onChangeDevice={jest.fn()}
         onClose={jest.fn()}
         onFundWallet={jest.fn()}
         visible
@@ -95,6 +102,7 @@ describe('WalletSavingsProgressModal', () => {
         isAdding
         onAddAmountChange={jest.fn()}
         onAddSavings={jest.fn()}
+        onChangeDevice={jest.fn()}
         onClose={jest.fn()}
         onFundWallet={jest.fn()}
         visible
@@ -117,6 +125,7 @@ describe('WalletSavingsProgressModal', () => {
         isAdding={false}
         onAddAmountChange={jest.fn()}
         onAddSavings={jest.fn()}
+        onChangeDevice={jest.fn()}
         onClose={jest.fn()}
         onFundWallet={jest.fn()}
         visible
@@ -145,6 +154,7 @@ describe('WalletSavingsProgressModal', () => {
         isAdding={false}
         onAddAmountChange={jest.fn()}
         onAddSavings={jest.fn()}
+        onChangeDevice={jest.fn()}
         onClose={jest.fn()}
         onFundWallet={jest.fn()}
         visible
