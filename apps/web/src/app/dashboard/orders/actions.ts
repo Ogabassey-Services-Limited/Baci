@@ -1,7 +1,6 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import z from 'zod';
 import type { StaffAccess } from '@/hooks/merchant';
 import {
   generateOrderConfirmationEmail,
@@ -16,51 +15,22 @@ import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import {
+  GetOrderInputSchema,
+  GetOrderStatsInputSchema,
+  GetOrdersInputSchema,
+  ResendOrderConfirmationInputSchema,
+} from '@/schemas/dashboard-order-actions';
+import {
   AGENTIC_ORDER_SOURCE,
   AGENTIC_ORDER_SOURCE_FILTER,
   type AgenticOrderSourceFilter,
 } from './agentic-order-source';
 import { loadOrderItemImageMap } from './order-item-images';
-import {
-  PAYMENT_STATUSES,
-  type PaymentStatus,
-  SHIPPING_STATUSES,
-  type ShippingStatus,
-} from './order-statuses';
+import type { PaymentStatus, ShippingStatus } from './order-statuses';
 
 export type { PaymentStatus, ShippingStatus } from './order-statuses';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
-
-const PAYMENT_STATUS_FILTER_VALUES = ['All', ...PAYMENT_STATUSES] as const;
-const SHIPPING_STATUS_FILTER_VALUES = ['All', ...SHIPPING_STATUSES] as const;
-
-const DashboardOrderMerchantIdSchema = z.string().trim().min(1).max(128);
-const DashboardOrderIdentifierSchema = z.string().trim().min(1).max(128);
-const DashboardOrderFiltersSchema = z.object({
-  paymentStatus: z.enum(PAYMENT_STATUS_FILTER_VALUES).optional(),
-  shippingStatus: z.enum(SHIPPING_STATUS_FILTER_VALUES).optional(),
-  search: z.string().trim().max(200).optional(),
-  source: z.enum([AGENTIC_ORDER_SOURCE_FILTER]).optional(),
-});
-
-const GetOrdersInputSchema = z.object({
-  merchantId: DashboardOrderMerchantIdSchema,
-  filters: DashboardOrderFiltersSchema.optional().default({}),
-});
-
-const GetOrderStatsInputSchema = z.object({
-  merchantId: DashboardOrderMerchantIdSchema,
-});
-
-const GetOrderInputSchema = z.object({
-  merchantId: DashboardOrderMerchantIdSchema,
-  orderIdentifier: DashboardOrderIdentifierSchema,
-});
-
-const ResendOrderConfirmationInputSchema = z.object({
-  orderId: z.uuid(),
-});
 
 export interface Transaction {
   id: string;

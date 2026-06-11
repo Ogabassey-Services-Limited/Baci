@@ -1,7 +1,6 @@
 'use server';
 
 import { generateObject } from 'ai';
-import z from 'zod';
 import {
   gemini25FlashImage,
   geminiFlash,
@@ -14,42 +13,13 @@ import {
 } from '@/lib/merchant-server';
 import type { Product } from '@/lib/products';
 import { createClient } from '@/lib/supabase/server';
-
-const MAX_PRICE_LIST_INPUT_CHARS = 5_000_000;
-const MAX_PRODUCTS_PER_IMPORT = 10_000;
-const MAX_GOOGLE_SHEET_URL_CHARS = 4096;
-
-const ProductImportProductSchema = z
-  .object({
-    id: z.string().min(1).max(128),
-    name: z.string().min(1).max(500),
-    price: z.number().finite().nonnegative(),
-    sku: z.string().max(256).nullable().optional(),
-    stock: z.number().finite().optional(),
-  })
-  .passthrough();
-
-type ValidatedImportProduct = z.infer<typeof ProductImportProductSchema>;
-
-const ProductImportProductsSchema = z
-  .array(ProductImportProductSchema)
-  .max(MAX_PRODUCTS_PER_IMPORT);
-
-const ProcessPriceListInputSchema = z.object({
-  currentProducts: ProductImportProductsSchema,
-  priceListData: z.string().max(MAX_PRICE_LIST_INPUT_CHARS),
-  vendor: z.string().max(100),
-  fileType: z.string().min(1).max(100),
-});
-
-const ParseCsvDirectlyInputSchema = z.object({
-  currentProducts: ProductImportProductsSchema,
-  csvData: z.string().max(MAX_PRICE_LIST_INPUT_CHARS),
-});
-
-const FetchGoogleSheetInputSchema = z.object({
-  url: z.url().max(MAX_GOOGLE_SHEET_URL_CHARS),
-});
+import {
+  AIResponseSchema,
+  FetchGoogleSheetInputSchema,
+  ParseCsvDirectlyInputSchema,
+  ProcessPriceListInputSchema,
+  type ValidatedImportProduct,
+} from '@/schemas/dashboard-product-import-actions';
 
 function getInvalidProductImportResponse(): AIResponse {
   return {
@@ -69,60 +39,6 @@ async function ensureProductCreatePermission(): Promise<boolean> {
     throw error;
   }
 }
-
-// Zod schema for the AI response
-const ChangeDetailsSchema = z.object({
-  name: z.string(),
-  price: z.number(),
-  sku: z.string().optional(),
-  description: z.string().optional(),
-  stock: z.number().optional(),
-  brand: z.string().optional(),
-  image: z.string().optional().describe('URL of the product image'),
-  category: z.string().optional().describe('The product category'),
-  attributes: z
-    .record(z.string(), z.string())
-    .optional()
-    .describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
-});
-
-const ChangeSchema = z.object({
-  type: z.enum(['update', 'new', 'remove']),
-  productId: z
-    .string()
-    .optional()
-    .describe('SKU or ID of the product to update or remove'),
-  newPrice: z
-    .number()
-    .optional()
-    .describe('The new price for a product update'),
-  details: ChangeDetailsSchema,
-  reason: z
-    .string()
-    .optional()
-    .describe('Reasoning for the change, especially for removals'),
-});
-
-const ClarificationRequestSchema = z
-  .object({
-    question: z.string(),
-    options: z.array(z.string()),
-  })
-  .optional();
-
-const MissingParameterRequestSchema = z
-  .object({
-    productName: z.string(),
-    missingFields: z.array(z.string()),
-  })
-  .optional();
-
-const AIResponseSchema = z.object({
-  changes: z.array(ChangeSchema),
-  summary: z.string().describe('A human-readable summary of all changes'),
-  clarificationRequest: ClarificationRequestSchema,
-  missingParameterRequest: MissingParameterRequestSchema,
-});
 
 export interface Change {
   type: 'update' | 'new' | 'remove';

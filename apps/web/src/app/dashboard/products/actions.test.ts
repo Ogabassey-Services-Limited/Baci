@@ -139,7 +139,26 @@ describe('product import actions', () => {
     expect(mocks.generateObject).not.toHaveBeenCalled();
   });
 
+  it('does not process price lists when input validation fails', async () => {
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Vendor',
+      'not-a-mime-type'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Invalid input' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
+    expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
   it('processes price lists with AI after product create authorization', async () => {
+    const productsWithExtraFields = [
+      {
+        ...existingProducts[0],
+        internal_secret_note: 'do not send this to the model',
+      },
+    ] as unknown as Product[];
     mocks.generateObject.mockResolvedValueOnce({
       object: {
         changes: [
@@ -156,7 +175,7 @@ describe('product import actions', () => {
     });
 
     const result = await processPriceList(
-      existingProducts,
+      productsWithExtraFields,
       'Name,Price\nNew Phone,2000',
       'Vendor',
       'text/csv'
@@ -176,6 +195,9 @@ describe('product import actions', () => {
     });
     expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
     expect(mocks.generateObject).toHaveBeenCalledOnce();
+    expect(
+      JSON.stringify(mocks.generateObject.mock.calls[0]?.[0])
+    ).not.toContain('internal_secret_note');
   });
 
   it('does not parse CSV for unauthenticated callers', async () => {
@@ -219,6 +241,16 @@ describe('product import actions', () => {
 
     expect(result).toEqual({ changes: [], summary: 'Unauthorized' });
     expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+  });
+
+  it('does not parse CSV when input validation fails', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'SKU,Quantity\nOLD-1,5'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Invalid input' });
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
   });
 
   it('parses CSV after product create authorization', async () => {
@@ -296,6 +328,18 @@ describe('product import actions', () => {
     ).rejects.toThrow('Unauthorized');
 
     expect(mocks.ensurePermission).toHaveBeenCalledWith('products', 'create');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch Google Sheets when input validation fails', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(fetchGoogleSheet('not-a-url')).rejects.toThrow(
+      'Invalid URL format. Please provide a valid Google Sheets URL.'
+    );
+
+    expect(mocks.ensurePermission).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
