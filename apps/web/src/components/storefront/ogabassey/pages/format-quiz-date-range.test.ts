@@ -1,18 +1,16 @@
+import type { QuizEventResponse } from '@/schemas/quiz';
 import { describe, expect, it } from 'vitest';
 import { formatQuizDateRange } from './format-quiz-date-range';
 
 const baseEvent = {
   id: 'quiz-1',
   title: 'Launch quiz',
-  description: null,
-  status: 'active' as const,
+  prizeName: 'Launch prize',
+  questionCount: 1,
+  status: 'open',
   startsAt: null,
   endsAt: null,
-  timeLimitSeconds: 60,
-  maxAttempts: 1,
-  rewardPoints: 5,
-  questions: [],
-};
+} satisfies QuizEventResponse;
 
 describe('formatQuizDateRange', () => {
   it('formats missing, start-only, end-only, and ranged dates', () => {
