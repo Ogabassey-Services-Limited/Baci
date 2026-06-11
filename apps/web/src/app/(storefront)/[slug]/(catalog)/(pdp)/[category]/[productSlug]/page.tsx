@@ -26,7 +26,6 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
-import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
@@ -39,8 +38,10 @@ import {
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
+import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
+import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
 import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductCondition } from '@/lib/products';
@@ -500,19 +501,6 @@ function shouldRedirectResolvedProductSlugValue(
   );
 }
 
-function getKnownOgaBasseyMerchantId(
-  storeSlug: string
-): typeof OGABASSEY_MERCHANT_ID | null {
-  const normalizedSlug = storeSlug.trim().toLowerCase();
-  const normalizedTemplateId = OGABASSEY_TEMPLATE_ID.toLowerCase();
-  const normalizedDomain = OGABASSEY_DOMAIN.toLowerCase();
-
-  return normalizedSlug === normalizedTemplateId ||
-    normalizedSlug === normalizedDomain
-    ? OGABASSEY_MERCHANT_ID
-    : null;
-}
-
 function parseRouteProductNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -559,9 +547,7 @@ function mapCachedProductLcpHintToRouteProduct(
     ? rawFallbackCategory[0]
     : rawFallbackCategory;
   const primaryCategory = canonicalCategory ?? fallbackCategory;
-  const firstImage = cachedProduct.images?.[0];
-  const primaryImage =
-    typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? '');
+  const primaryImage = getCachedProductLcpHintPrimaryImage(cachedProduct) ?? '';
   const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
   const manageStock = cachedProduct.manage_stock ?? true;
   const stockQuantity = parseRouteProductNumber(cachedProduct.stock_quantity);
