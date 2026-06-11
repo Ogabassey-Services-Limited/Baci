@@ -6,6 +6,7 @@ import {
   SavingsAuthorizationConfirmationResponseSchema,
   SavingsAuthorizationResponseSchema,
   SavingsContributionResponseSchema,
+  SavingsDeviceSwapResponseSchema,
   SavingsGoalActionResponseSchema,
   SavingsGoalSchema,
   SavingsGoalSummarySchema,
@@ -25,6 +26,14 @@ const validGoal = {
   targetAmount: 800000,
   title: 'iPhone savings',
   variantId: null,
+};
+
+const validDeviceSwapResponse = {
+  currentAmount: 120000,
+  goalId: 'goal-1',
+  goalStatus: 'active',
+  success: true,
+  targetAmount: 650000,
 };
 
 describe('customer savings schemas', () => {
@@ -139,6 +148,10 @@ describe('customer savings schemas', () => {
     ).toEqual({ goalStatus: 'paused', success: true });
 
     expect(
+      SavingsDeviceSwapResponseSchema.parse(validDeviceSwapResponse)
+    ).toEqual(validDeviceSwapResponse);
+
+    expect(
       SavingsAuthorizationResponseSchema.parse({
         authorization_url: 'https://checkout.paystack.com/auth',
         checkout_url: 'https://checkout.paystack.com/auth',
@@ -180,6 +193,47 @@ describe('customer savings schemas', () => {
       CustomerPaymentMethodsResponseSchema.parse({ methods: [paymentMethod] })
         .methods
     ).toHaveLength(1);
+  });
+
+  it('rejects invalid savings device swap responses', () => {
+    for (const currentAmount of [-1, 1.5]) {
+      expect(() =>
+        SavingsDeviceSwapResponseSchema.parse({
+          ...validDeviceSwapResponse,
+          currentAmount,
+        })
+      ).toThrow();
+    }
+
+    for (const targetAmount of [0, -1, 1.5]) {
+      expect(() =>
+        SavingsDeviceSwapResponseSchema.parse({
+          ...validDeviceSwapResponse,
+          targetAmount,
+        })
+      ).toThrow();
+    }
+
+    expect(() =>
+      SavingsDeviceSwapResponseSchema.parse({
+        ...validDeviceSwapResponse,
+        goalStatus: 'archived',
+      })
+    ).toThrow();
+
+    for (const field of [
+      'currentAmount',
+      'goalId',
+      'goalStatus',
+      'success',
+      'targetAmount',
+    ] as const) {
+      const payload: Partial<typeof validDeviceSwapResponse> = {
+        ...validDeviceSwapResponse,
+      };
+      delete payload[field];
+      expect(() => SavingsDeviceSwapResponseSchema.parse(payload)).toThrow();
+    }
   });
 
   it('rejects invalid response statuses', () => {
