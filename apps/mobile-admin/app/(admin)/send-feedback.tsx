@@ -166,7 +166,7 @@ export default function SendFeedbackScreen() {
             <View style={styles.ratingContainer}>
               {RATING_EMOJIS.map((emoji, index) => (
                 <Pressable
-                  key={index}
+                  key={emoji}
                   style={[
                     styles.ratingButton,
                     {

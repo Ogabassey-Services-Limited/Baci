@@ -12,8 +12,8 @@ import {
   View,
 } from 'react-native';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
-import { apiClient } from '@/lib/api-client';
 import { useMerchant } from '@/hooks/useMerchant';
+import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency as formatPrice } from '@/utils/format';
 
@@ -98,6 +98,7 @@ export default function NegotiationsScreen() {
       });
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect is intentionally keyed by merchant ID; fetchRequests is recreated each render and would resubscribe continuously.
   useEffect(() => {
     const merchantId = merchant?.id;
     if (!merchantId) {
@@ -127,8 +128,8 @@ export default function NegotiationsScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-    // Refetch when the merchant becomes available; fetchRequests is recreated
-    // each render so listing it would re-subscribe the channel every render.
+    // fetchRequests is recreated every render; subscribing on merchant ID is the
+    // intended boundary for this realtime channel.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [merchant?.id]);
 

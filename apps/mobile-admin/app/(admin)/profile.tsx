@@ -138,7 +138,7 @@ export default function ProfileScreen() {
     onError: (error: unknown) => {
       Alert.alert(
         'Error',
-        (error as Error).message || 'Failed to update profile'
+        error instanceof Error ? error.message : 'Failed to update profile'
       );
     },
   });
@@ -196,7 +196,9 @@ export default function ProfileScreen() {
                     } catch (error: unknown) {
                       Alert.alert(
                         'Error',
-                        (error as Error).message || 'Failed to delete account'
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to delete account'
                       );
                     }
                   },

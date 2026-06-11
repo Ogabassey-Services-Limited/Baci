@@ -244,7 +244,10 @@ export default function BlogPostDetailScreen() {
         setFeaturedImage(publicUrl);
       })
       .catch((e: unknown) => {
-        Alert.alert('Upload Failed', (e as Error).message);
+        Alert.alert(
+          'Upload Failed',
+          e instanceof Error ? e.message : 'Failed to upload image'
+        );
       })
       .finally(() => {
         setIsSaving(false);
@@ -269,7 +272,10 @@ export default function BlogPostDetailScreen() {
         router.back();
       })
       .catch((e: unknown) => {
-        Alert.alert('Error', (e as Error).message);
+        Alert.alert(
+          'Error',
+          e instanceof Error ? e.message : 'Failed to save blog post'
+        );
       })
       .finally(() => {
         setIsSaving(false);

@@ -15,6 +15,31 @@ interface DomainActionContext {
   setActionLoading: (loading: boolean) => void;
 }
 
+async function readDomainErrorMessage(
+  response: Response,
+  fallback: string
+): Promise<string> {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    try {
+      const payload: unknown = await response.json();
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        'error' in payload &&
+        typeof payload.error === 'string'
+      ) {
+        return payload.error;
+      }
+    } catch {
+      // Fall through to text/generic handling below.
+    }
+  }
+
+  const text = await response.text().catch(() => '');
+  return text.trim() || `${fallback} (${response.status})`;
+}
+
 // Module-scope helpers own the try/finally + throw control flow so the React
 // Compiler can memoize the hook (try/finally bodies bail out compilation).
 async function runSetPrimary(
@@ -94,8 +119,9 @@ async function runDelete(
       Alert.alert('Deleted', 'Domain has been removed.');
       onRefresh();
     } else {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || 'Failed to delete');
+      throw new Error(
+        await readDomainErrorMessage(response, 'Failed to delete')
+      );
     }
   } catch (error) {
     console.error('Delete error:', error);

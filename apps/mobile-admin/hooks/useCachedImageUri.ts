@@ -8,6 +8,7 @@
  * Uses expo-file-system's new File/Paths API for network I/O and caching.
  */
 
+import * as Crypto from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import { useEffect, useState } from 'react';
 
@@ -22,22 +23,15 @@ function isRemoteHttpUri(uri: string): boolean {
   return uri.startsWith('https://') || uri.startsWith('http://');
 }
 
-// djb2 over the full URL: a readable tail alone can collide when different
-// hosts serve identically-named files.
-function hashUri(value: string): string {
-  let hash = 5381;
-  for (let index = 0; index < value.length; index++) {
-    hash = ((hash << 5) + hash + value.charCodeAt(index)) | 0;
-  }
-  return (hash >>> 0).toString(36);
-}
-
 async function downloadToCache(remoteUri: string): Promise<string> {
   try {
-    // Deterministic cache key: full-URL hash + length + readable tail,
-    // preserving the extension
-    const readableTail = remoteUri.replace(/[^a-zA-Z0-9]/g, '_').slice(-40);
-    const urlHash = `${hashUri(remoteUri)}_${remoteUri.length}_${readableTail}`;
+    // Deterministic cache key over the full URL; preserving the extension keeps
+    // React Native image decoders on the fast path while avoiding URL-tail
+    // collisions.
+    const urlHash = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      remoteUri
+    );
     const urlParts = remoteUri.split('?')[0].split('.');
     const ext = urlParts.length > 1 ? `.${urlParts.pop()}` : '';
     const dest = new File(Paths.cache, `img_cache_${urlHash}${ext}`);

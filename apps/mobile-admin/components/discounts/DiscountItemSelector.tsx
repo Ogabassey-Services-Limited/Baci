@@ -99,6 +99,14 @@ export function DiscountItemSelector({
         setFetchError(null);
         setLoading(false);
       });
+    } else {
+      // The sheet was closed: invalidate any in-flight request and settle
+      // loading so the next open starts from a clean state.
+      const requestId = ++requestIdRef.current;
+      void Promise.resolve().then(() => {
+        if (requestId !== requestIdRef.current) return;
+        setLoading(false);
+      });
     }
 
     return () => {

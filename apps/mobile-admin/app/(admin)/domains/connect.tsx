@@ -10,8 +10,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { connectStyles as styles } from '@/components/domains/connect.styles';
+import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { SPACING } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -22,10 +22,59 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://baci.app/api';
 // Basic Regex Validation
 const DOMAIN_REGEX =
   /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/i;
+const DOMAIN_CONNECT_TIMEOUT_MS = 10_000;
 
 interface DomainVerificationInfo {
   domain: string;
   token: string;
+}
+
+async function readResponseJson(response: Response): Promise<unknown> {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    return null;
+  }
+
+  return await response.json().catch(() => null);
+}
+
+async function readResponseError(
+  response: Response,
+  fallback: string,
+  payload: unknown
+): Promise<string> {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    'error' in payload &&
+    typeof payload.error === 'string' &&
+    payload.error.trim()
+  ) {
+    return payload.error;
+  }
+
+  const text = await response.text().catch(() => '');
+  return text.trim() || `${fallback} (${response.status})`;
+}
+
+function isDomainConnectionResponse(value: unknown): value is {
+  domain: { domain: string };
+  verification: { value: string };
+} {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  const domain = record.domain;
+  const verification = record.verification;
+  return (
+    !!domain &&
+    typeof domain === 'object' &&
+    typeof (domain as { domain?: unknown }).domain === 'string' &&
+    !!verification &&
+    typeof verification === 'object' &&
+    typeof (verification as { value?: unknown }).value === 'string'
+  );
 }
 
 // Module-scope helpers keep try/finally, throw-inside-try, and dynamic
@@ -39,7 +88,10 @@ async function requestDomainConnection(
   if (!session) throw new Error('Not authenticated');
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    DOMAIN_CONNECT_TIMEOUT_MS
+  );
   let response: Response;
   try {
     response = await fetch(`${API_URL}/domains`, {
@@ -63,17 +115,15 @@ async function requestDomainConnection(
     clearTimeout(timeoutId);
   }
 
-  const result: {
-    error?: string;
-    domain?: { domain?: string };
-    verification?: { value?: string };
-  } = await response.json().catch(() => ({}));
+  const result = await readResponseJson(response);
 
   if (!response.ok) {
-    throw new Error(result.error || 'Failed to add domain');
+    throw new Error(
+      await readResponseError(response, 'Failed to add domain', result)
+    );
   }
 
-  if (!result.domain?.domain || !result.verification?.value) {
+  if (!isDomainConnectionResponse(result)) {
     throw new Error('Unexpected server response');
   }
 
@@ -119,7 +169,10 @@ export default function ConnectDomainScreen() {
         setVerificationInfo(info);
       })
       .catch((error: unknown) => {
-        Alert.alert('Error', (error as Error).message);
+        Alert.alert(
+          'Error',
+          error instanceof Error ? error.message : 'Failed to add domain'
+        );
       })
       .finally(() => {
         setLoading(false);

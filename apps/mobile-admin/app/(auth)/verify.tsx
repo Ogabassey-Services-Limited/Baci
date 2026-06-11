@@ -50,7 +50,7 @@ async function requestOtpVerification(
     return { ok: true };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error('Verification error:', error);
+    console.error('Verification error:', message);
     // Fallback: try 'email' type if 'signup' failed (edge case)
     try {
       const { error: retryError } = await supabase.auth.verifyOtp({
