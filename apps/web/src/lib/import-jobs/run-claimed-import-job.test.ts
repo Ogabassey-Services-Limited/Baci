@@ -75,6 +75,7 @@ vi.mock('./import-job-service', () => ({
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createFailingChunkGenerator } from '@/lib/import-jobs/import-job-test-helpers';
+import { logger } from '@/lib/logger';
 import type { ImportJobRecord } from './import-job-service';
 import { runClaimedImportJob } from './run-claimed-import-job';
 
@@ -87,7 +88,7 @@ function makeJob(overrides: Partial<ImportJobRecord> = {}): ImportJobRecord {
     entity_type: 'orders',
     status: 'validating',
     original_filename: 'orders.csv',
-    storage_path: 'migration-imports/merchant-1/orders/file.csv',
+    storage_path: 'merchant-1/orders/file.csv',
     content_type: 'text/csv',
     file_size_bytes: 1024,
     total_rows: 0,
@@ -107,6 +108,12 @@ function createMockSupabase() {
   const mockUpsert = vi.fn().mockResolvedValue({ error: null });
   const mockDelete = vi.fn().mockReturnValue({
     eq: mockDeleteEq,
+  });
+  const mockStorageRemove = vi
+    .fn()
+    .mockResolvedValue({ data: [], error: null });
+  const mockStorageFrom = vi.fn().mockReturnValue({
+    remove: mockStorageRemove,
   });
 
   const mockSelect = vi.fn().mockReturnValue({
@@ -151,14 +158,21 @@ function createMockSupabase() {
       delete: mockDelete,
       select: mockSelect,
     }),
+    storage: {
+      from: mockStorageFrom,
+    },
     __mocks: {
       mockDelete,
       mockDeleteEq,
+      mockStorageFrom,
+      mockStorageRemove,
     },
   } as unknown as SupabaseClient & {
     __mocks: {
       mockDelete: typeof mockDelete;
       mockDeleteEq: typeof mockDeleteEq;
+      mockStorageFrom: typeof mockStorageFrom;
+      mockStorageRemove: typeof mockStorageRemove;
     };
   };
 }
@@ -173,6 +187,39 @@ describe('runClaimedImportJob', () => {
     const result = await runClaimedImportJob(supabase, makeJob());
     expect(result.status).toBe('preview_ready');
     expect(result.processed).toBe(10);
+  });
+
+  it('deletes the source CSV after a preview is ready', async () => {
+    const supabase = createMockSupabase();
+    const job = makeJob();
+
+    await runClaimedImportJob(supabase, job);
+
+    expect(supabase.__mocks.mockStorageFrom).toHaveBeenCalledWith(
+      'migration-imports'
+    );
+    expect(supabase.__mocks.mockStorageRemove).toHaveBeenCalledWith([
+      job.storage_path,
+    ]);
+  });
+
+  it('does not fail the job when source CSV cleanup fails', async () => {
+    const supabase = createMockSupabase();
+    supabase.__mocks.mockStorageRemove.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Storage unavailable' },
+    });
+
+    const result = await runClaimedImportJob(supabase, makeJob());
+
+    expect(result.status).toBe('preview_ready');
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to clean import source file',
+        jobId: 'job-1',
+        storagePath: 'merchant-1/orders/file.csv',
+      })
+    );
   });
 
   it('processes a committing job for orders', async () => {
@@ -239,5 +286,8 @@ describe('runClaimedImportJob', () => {
     const result = await runClaimedImportJob(supabase, makeJob());
     expect(result.status).toBe('failed');
     expect('error' in result && result.error).toBe('CSV parse error');
+    expect(supabase.__mocks.mockStorageRemove).toHaveBeenCalledWith([
+      'merchant-1/orders/file.csv',
+    ]);
   });
 });

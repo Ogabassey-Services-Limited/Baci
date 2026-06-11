@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 
 const NOTIFY_QUEUE_RESERVED_SLOTS = 1;
 const UPLOADED_QUEUE_RESERVED_SLOTS = 1;
+const STALE_VALIDATING_JOB_MS = 30 * 60 * 1000;
 const CLAIMED_STATUS_MAP = {
   uploaded: 'validating',
   commit_queued: 'committing',
@@ -33,6 +34,33 @@ async function loadQueuedJobsForStatus(
   if (error) {
     throw new Error(
       `Failed to load queued import jobs for status ${status}: ${error.message}`
+    );
+  }
+
+  return (data || []) as ImportJobRecord[];
+}
+
+async function loadStaleValidatingJobs(
+  supabase: SupabaseClient,
+  limit: number,
+  staleBeforeIso: string
+) {
+  if (limit <= 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('import_jobs')
+    .select(IMPORT_JOB_SELECT)
+    .eq('status', 'validating')
+    .lt('started_at', staleBeforeIso)
+    .is('completed_at', null)
+    .order('started_at', { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(
+      `Failed to load stale validating import jobs: ${error.message}`
     );
   }
 
@@ -68,6 +96,43 @@ async function claimQueuedJob(
     });
     return null;
   }
+
+  return claimedJob as ImportJobRecord;
+}
+
+async function reclaimStaleValidatingJob(
+  supabase: SupabaseClient,
+  validatingJob: ImportJobRecord,
+  staleBeforeIso: string
+) {
+  const { data: claimedJob, error: claimError } = await supabase
+    .from('import_jobs')
+    .update({
+      started_at: new Date().toISOString(),
+      error: null,
+      error_details: null,
+    })
+    .eq('id', validatingJob.id)
+    .eq('status', 'validating')
+    .lt('started_at', staleBeforeIso)
+    .select(IMPORT_JOB_SELECT)
+    .single();
+
+  if (claimError || !claimedJob) {
+    logger.info({
+      message:
+        'Skipping stale validating import job that could not be reclaimed',
+      jobId: validatingJob.id,
+      claimError: claimError?.message || null,
+    });
+    return null;
+  }
+
+  logger.warn({
+    message: 'Reclaimed stale validating import job',
+    jobId: validatingJob.id,
+    previousStartedAt: validatingJob.started_at,
+  });
 
   return claimedJob as ImportJobRecord;
 }
@@ -127,6 +192,18 @@ export async function processImportJobQueue(
     addJob(job);
   }
 
+  const staleBeforeIso = new Date(
+    Date.now() - STALE_VALIDATING_JOB_MS
+  ).toISOString();
+  const staleValidatingJobs =
+    jobs.length === 0
+      ? await loadStaleValidatingJobs(supabase, limit, staleBeforeIso)
+      : [];
+
+  for (const job of staleValidatingJobs) {
+    addJob(job);
+  }
+
   if (jobs.length === 0) {
     return [];
   }
@@ -134,7 +211,10 @@ export async function processImportJobQueue(
   const results: Record<string, unknown>[] = [];
 
   for (const queuedJob of jobs) {
-    const claimedJob = await claimQueuedJob(supabase, queuedJob);
+    const claimedJob =
+      queuedJob.status === 'validating'
+        ? await reclaimStaleValidatingJob(supabase, queuedJob, staleBeforeIso)
+        : await claimQueuedJob(supabase, queuedJob);
     if (!claimedJob) {
       continue;
     }

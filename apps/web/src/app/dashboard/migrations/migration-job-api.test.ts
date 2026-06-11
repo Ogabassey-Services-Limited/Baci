@@ -1,4 +1,47 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const tusMock = vi.hoisted(() => ({
+  instances: [] as Array<{
+    findPreviousUploads: ReturnType<typeof vi.fn>;
+    options: {
+      chunkSize?: number;
+      endpoint?: string | null;
+      headers?: Record<string, string>;
+      metadata?: Record<string, string>;
+      onProgress?: (bytesSent: number, bytesTotal: number) => void;
+      onSuccess?: () => void;
+    };
+    resumeFromPreviousUpload: ReturnType<typeof vi.fn>;
+    start: ReturnType<typeof vi.fn>;
+  }>,
+}));
+
+vi.mock('tus-js-client', () => ({
+  isSupported: true,
+  Upload: class MockUpload {
+    findPreviousUploads = vi.fn().mockResolvedValue([]);
+    resumeFromPreviousUpload = vi.fn();
+    start = vi.fn(() => {
+      this.options.onProgress?.(3, 6);
+      this.options.onSuccess?.();
+    });
+
+    constructor(
+      _file: File,
+      public options: {
+        chunkSize?: number;
+        endpoint?: string | null;
+        headers?: Record<string, string>;
+        metadata?: Record<string, string>;
+        onProgress?: (bytesSent: number, bytesTotal: number) => void;
+        onSuccess?: () => void;
+      }
+    ) {
+      tusMock.instances.push(this);
+    }
+  },
+}));
+
 import {
   buildMigrationRowsUrl,
   createImportJob,
@@ -45,8 +88,17 @@ function createJsonResponse(body: unknown, ok = true): Response {
 
 describe('migration-job-api', () => {
   beforeEach(() => {
+    tusMock.instances = [];
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'mock-anon-key');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://mock.supabase.co');
     vi.stubGlobal('fetch', vi.fn());
     vi.mocked(createClient).mockReturnValue({
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: { access_token: 'session-access-token' } },
+          error: null,
+        }),
+      },
       storage: {
         from: vi.fn(() => ({
           uploadToSignedUrl: vi
@@ -59,6 +111,7 @@ describe('migration-job-api', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
 
@@ -168,7 +221,7 @@ describe('migration-job-api', () => {
     );
   });
 
-  it('initializes direct upload, uploads to signed storage, and finalizes the job', async () => {
+  it('initializes authenticated TUS upload, reports progress, and finalizes the job', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(
         createJsonResponse({
@@ -183,15 +236,51 @@ describe('migration-job-api', () => {
       .mockResolvedValueOnce(createJsonResponse({ ok: true }));
 
     const file = new File(['id\n1'], 'orders.csv', { type: 'text/csv' });
+    const onUploadProgress = vi.fn();
 
     await createImportJob({
       entityType: 'orders',
       file,
+      onUploadProgress,
       sourcePlatform: 'bumpa',
     });
     await postImportJobAction('/api/import-jobs/job-1/commit');
 
     expect(createClient).toHaveBeenCalledTimes(1);
+    expect(tusMock.instances).toHaveLength(1);
+    expect(tusMock.instances[0]?.options).toMatchObject({
+      chunkSize: 6 * 1024 * 1024,
+      endpoint: 'https://mock.storage.supabase.co/storage/v1/upload/resumable',
+      headers: {
+        apikey: 'mock-anon-key',
+        authorization: 'Bearer session-access-token',
+        'x-upsert': 'false',
+      },
+      metadata: {
+        bucketName: 'migration-imports',
+        objectName: 'merchant-1/orders/upload.csv',
+        contentType: 'text/csv',
+        cacheControl: '3600',
+      },
+    });
+    expect(onUploadProgress).toHaveBeenCalledWith({
+      bytesUploaded: 0,
+      bytesTotal: file.size,
+      percent: 0,
+      stage: 'initializing',
+    });
+    expect(onUploadProgress).toHaveBeenCalledWith({
+      bytesUploaded: 3,
+      bytesTotal: 6,
+      percent: 50,
+      stage: 'uploading',
+    });
+    expect(onUploadProgress).toHaveBeenCalledWith({
+      bytesUploaded: file.size,
+      bytesTotal: file.size,
+      percent: 100,
+      stage: 'finalizing',
+    });
     expect(fetch).toHaveBeenNthCalledWith(
       1,
       '/api/import-jobs/upload-init',
@@ -272,7 +361,7 @@ describe('migration-job-api', () => {
     ).rejects.toThrow('Upload failed');
   });
 
-  it('throws when uploading to the signed storage target fails', async () => {
+  it('throws when the authenticated TUS upload target fails', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       createJsonResponse({
         upload: {
@@ -282,16 +371,14 @@ describe('migration-job-api', () => {
         },
       })
     );
-    vi.mocked(createClient).mockReturnValue({
-      storage: {
-        from: vi.fn(() => ({
-          uploadToSignedUrl: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'signed upload failed' },
-          }),
-        })),
-      },
-    } as never);
+    const uploadError = new Error('signed upload failed');
+    tusMock.instances.push = vi.fn((instance) => {
+      instance.start.mockImplementationOnce(() => {
+        instance.options.onProgress?.(1, 2);
+        throw uploadError;
+      });
+      return 1;
+    });
 
     const file = new File(['id\n1'], 'orders.csv', { type: 'text/csv' });
 
@@ -301,7 +388,7 @@ describe('migration-job-api', () => {
         file,
         sourcePlatform: 'bumpa',
       })
-    ).rejects.toThrow('signed upload failed');
+    ).rejects.toThrow(uploadError);
   });
 
   it('throws when queueing a job action fails', async () => {
