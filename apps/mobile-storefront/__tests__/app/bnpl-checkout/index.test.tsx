@@ -230,10 +230,7 @@ const mockRequestCameraPermissionsAsync = jest.mocked(
   Camera.requestCameraPermissionsAsync
 );
 
-function buildCameraPermissionResponse(
-  granted: boolean,
-  canAskAgain = true
-) {
+function buildCameraPermissionResponse(granted: boolean, canAskAgain = true) {
   return {
     canAskAgain,
     expires: 'never',
@@ -297,7 +294,7 @@ describe('BNPLCheckoutScreen', () => {
       'webview',
     ]);
     expect(
-      screen.getByText('media-capture:grantIfSameHostElsePrompt')
+      screen.getByText('media-capture:grant')
     ).toBeTruthy();
   });
 
@@ -585,7 +582,9 @@ describe('BNPLCheckoutScreen', () => {
       screen.getByLabelText('mock-bnpl-start-custom-domain-redirect')
     );
 
-    expect(screen.getByText(/^webview:/).props.children).toBe(initialWebViewUrl);
+    expect(screen.getByText(/^webview:/).props.children).toBe(
+      initialWebViewUrl
+    );
     expect(
       screen.queryByText(
         'Payment provider opened an untrusted checkout window.'

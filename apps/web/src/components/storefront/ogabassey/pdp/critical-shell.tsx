@@ -100,7 +100,7 @@ function getNativeProductImageProps(product: OgabasseyPdpCriticalProduct) {
     fetchPriority: 'high',
     fill: true,
     loader: imageLoader,
-    priority: true,
+    loading: 'eager',
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
     sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
     src: product.image,
@@ -108,7 +108,6 @@ function getNativeProductImageProps(product: OgabasseyPdpCriticalProduct) {
   const {
     fill: _fill,
     loader: _loader,
-    priority: _priority,
     quality: _quality,
     ...nativeProps
   } = props as NativeImagePropsWithNextInternals;

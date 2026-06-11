@@ -1,6 +1,5 @@
 import type React from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
-import { GadgetPattern } from './components/GadgetPattern';
 import type { V2ThemeMode } from './providers/v2-theme-context';
 import { OgabasseyLayoutProviders } from './storefront-layout-providers';
 import { getOgabasseyLayoutStyle } from './storefront-layout-utils';
@@ -28,7 +27,6 @@ export function StorefrontShellLayout({
         className="ogabassey-storefront-shell"
         style={getOgabasseyLayoutStyle(merchant)}
       >
-        <GadgetPattern />
         {headerChrome}
         <main id="main-content" className="ogabassey-storefront-main">
           {children}

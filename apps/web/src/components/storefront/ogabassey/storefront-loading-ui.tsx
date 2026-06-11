@@ -12,6 +12,7 @@ interface ShellChromeLoadingMobileHeroImage {
   alt: string;
   avifSrc: string;
   fallbackSrc: string;
+  inlineAvifSrc?: string;
 }
 
 interface ShellChromeLoadingProps {
@@ -74,7 +75,7 @@ function LoadingStatus({
 export function ShellChromeLoading({
   mobileHeroImage,
 }: ShellChromeLoadingProps = {}) {
-  if (mobileHeroImage) {
+  if (mobileHeroImage && !mobileHeroImage.inlineAvifSrc) {
     // ReactDOM.preload forwards `media`; keep this viewport-scoped so the
     // mobile shell LCP image does not compete with desktop hero resources.
     ReactDOM.preload(mobileHeroImage.avifSrc, {
@@ -98,7 +99,7 @@ export function ShellChromeLoading({
           >
             <source
               media="(max-width: 767px)"
-              srcSet={mobileHeroImage.avifSrc}
+              srcSet={mobileHeroImage.inlineAvifSrc ?? mobileHeroImage.avifSrc}
               type="image/avif"
             />
             <source

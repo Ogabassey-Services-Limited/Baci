@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { renderToString } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
@@ -20,12 +21,18 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
       }) => <section aria-label="storefront layout">{children}</section>
     ),
   }));
-const mockHomeStorefrontCssImport = vi.hoisted(() => vi.fn());
+const mockCriticalHomeCssImport = vi.hoisted(() => vi.fn());
+const mockFullHomeCssImport = vi.hoisted(() => vi.fn());
 
 vi.mock('server-only', () => ({}));
 
+vi.mock('@/app/(storefront)/storefront-home-critical.css', () => {
+  mockCriticalHomeCssImport();
+  return {};
+});
+
 vi.mock('@/app/(storefront)/storefront-home.css', () => {
-  mockHomeStorefrontCssImport();
+  mockFullHomeCssImport();
   return {};
 });
 
@@ -38,19 +45,60 @@ vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   }),
 }));
 
+import { hasRenderedResourceHintLink } from '@/app/(storefront)/ogabassey/resource-hint-test-utils';
 import OgabasseyDomainLayout, {
   generateMetadata,
   generateViewport,
 } from '@/app/(storefront)/ogabassey.com/layout';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
+import { OGABASSEY_HERO_DESKTOP_LCP_SRC } from '@/config/ogabassey-hero-assets';
 
 describe('OgabasseyDomainLayout', () => {
+  it('loads only the critical homepage stylesheet from the custom-domain layout shell', () => {
+    expect(mockCriticalHomeCssImport).toHaveBeenCalledOnce();
+    expect(mockFullHomeCssImport).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     mockGenerateStorefrontLayoutMetadata.mockClear();
     mockStorefrontLayout.mockClear();
   });
 
-  it('loads the reduced homepage stylesheet from the custom-domain layout shell', () => {
-    expect(mockHomeStorefrontCssImport).toHaveBeenCalledOnce();
+  it('emits desktop LCP resource hints and leaves mobile LCP inline', () => {
+    const html = renderToString(
+      <OgabasseyDomainLayout>
+        <p>Home content</p>
+      </OgabasseyDomainLayout>
+    );
+    expect(
+      hasRenderedResourceHintLink(html, {
+        href: OGABASSEY_CDN_ORIGIN,
+        rel: 'dns-prefetch',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        href: OGABASSEY_CDN_ORIGIN,
+        rel: 'preconnect',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        as: 'image',
+        fetchpriority: 'high',
+        href: OGABASSEY_HERO_DESKTOP_LCP_SRC,
+        media: '(min-width: 768px)',
+        rel: 'preload',
+        type: 'image/avif',
+      })
+    ).toBe(true);
+    expect(
+      hasRenderedResourceHintLink(html, {
+        as: 'image',
+        media: '(max-width: 767px)',
+        rel: 'preload',
+      })
+    ).toBe(false);
   });
 
   it('renders the storefront layout with the domain identifier', async () => {

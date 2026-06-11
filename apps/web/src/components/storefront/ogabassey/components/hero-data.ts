@@ -5,6 +5,7 @@ import {
   OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC,
   OGABASSEY_HERO_MOBILE_LCP_SRC,
 } from '@/config/ogabassey-hero-assets';
+import { OGABASSEY_HERO_MOBILE_LCP_INLINE_SRC } from '@/config/ogabassey-hero-inline-assets';
 
 export type HeroSlideType = 'image' | 'video' | 'ad';
 
@@ -15,6 +16,7 @@ export interface HeroSlideData {
   subtitle?: string;
   bgClass?: string;
   src?: string;
+  inlineSrc?: string;
   poster?: string;
   textColor?: string;
   imageFit?: 'contain' | 'cover';
@@ -41,12 +43,15 @@ export const HERO_DESKTOP_LCP_SRC = OGABASSEY_HERO_DESKTOP_LCP_SRC;
 export const HERO_DESKTOP_LCP_FALLBACK_SRC =
   OGABASSEY_HERO_DESKTOP_LCP_FALLBACK_SRC;
 export const HERO_MOBILE_LCP_SRC = OGABASSEY_HERO_MOBILE_LCP_SRC;
+export const HERO_MOBILE_LCP_INLINE_SRC =
+  OGABASSEY_HERO_MOBILE_LCP_INLINE_SRC;
 export const HERO_MOBILE_LCP_FALLBACK_SRC =
   OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC;
 export const OGABASSEY_SHELL_MOBILE_HERO_IMAGE = {
   alt: 'OgaBassey storefront hero',
   avifSrc: HERO_MOBILE_LCP_SRC,
   fallbackSrc: HERO_MOBILE_LCP_FALLBACK_SRC,
+  inlineAvifSrc: HERO_MOBILE_LCP_INLINE_SRC,
 } as const;
 
 export const NEW_ARRIVALS_PROMO_IMAGE = getImportedImageSrc(
@@ -63,6 +68,7 @@ export const MOBILE_SLIDES: HeroSlideData[] = [
     subtitle: 'Beyond IMAGINATION with the new nebula finish.',
     bgClass: 'bg-[#F5F5F7]',
     src: HERO_MOBILE_LCP_SRC,
+    inlineSrc: HERO_MOBILE_LCP_INLINE_SRC,
     textColor: 'text-gray-900',
     imageFit: 'contain',
   },

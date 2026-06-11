@@ -82,6 +82,34 @@ describe('storefront-loading-ui', () => {
     expect(preload?.getAttribute('type')).toBe('image/avif');
   });
 
+  it('uses an inline shell hero source without preloading an external mobile AVIF', () => {
+    const html = renderToString(
+      <ShellChromeLoading
+        mobileHeroImage={{
+          alt: 'OgaBassey storefront hero',
+          avifSrc: '/hero-mobile.avif',
+          fallbackSrc: '/hero-mobile.jpg',
+          inlineAvifSrc: 'data:image/avif;base64,AAAA',
+        }}
+      />
+    );
+    const template = document.createElement('template');
+    template.innerHTML = html;
+
+    expect(
+      template.content.querySelector(
+        'link[rel="preload"][href="/hero-mobile.avif"]'
+      )
+    ).toBeNull();
+    const inlineSource = template.content.querySelector(
+      'source[type="image/avif"]'
+    );
+
+    expect(inlineSource?.getAttribute('srcset')).toBe(
+      'data:image/avif;base64,AAAA'
+    );
+  });
+
   it('does not emit a preload link when the shell has no hero image', () => {
     const html = renderToString(<ShellChromeLoading />);
     const template = document.createElement('template');

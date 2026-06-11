@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HERO_MOBILE_LCP_FALLBACK_SRC,
+  HERO_MOBILE_LCP_INLINE_SRC,
   HERO_MOBILE_LCP_SRC,
 } from './hero-data';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
@@ -95,6 +96,29 @@ describe('MobileLcpHeroImage', () => {
     ).toHaveAttribute(
       'srcset',
       expect.stringContaining(HERO_MOBILE_LCP_FALLBACK_SRC)
+    );
+  });
+
+  it('uses the inline AVIF source for the mobile LCP candidate when provided', () => {
+    const { container } = render(
+      <MobileLcpHeroImage
+        alt="iPhone 17 Pro Max"
+        imageFit="contain"
+        inlineSrc={HERO_MOBILE_LCP_INLINE_SRC}
+        shouldPrioritizeImage={true}
+        src={HERO_MOBILE_LCP_SRC}
+      />
+    );
+
+    expect(
+      container.querySelector('source[type="image/avif"]')
+    ).toHaveAttribute('srcset', HERO_MOBILE_LCP_INLINE_SRC);
+    expect(
+      container.querySelector('source[type="image/avif"]')
+    ).not.toHaveAttribute('sizes');
+    expect(screen.getByRole('img', { name: 'iPhone 17 Pro Max' })).toHaveAttribute(
+      'src',
+      TRANSPARENT_PIXEL_SRC
     );
   });
 

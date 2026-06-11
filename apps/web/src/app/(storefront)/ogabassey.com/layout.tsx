@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import '@/app/(storefront)/storefront-home.css';
+import '@/app/(storefront)/storefront-home-critical.css';
 import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
 import { OGABASSEY_SHELL_MOBILE_HERO_IMAGE } from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_URL } from '@/config/ogabassey';
 
@@ -35,15 +36,18 @@ export default function OgabasseyDomainLayout({
   children: ReactNode;
 }) {
   return (
-    <StorefrontLayout
-      loadingFallback={
-        <ShellChromeLoading
-          mobileHeroImage={OGABASSEY_SHELL_MOBILE_HERO_IMAGE}
-        />
-      }
-      params={OGABASSEY_DOMAIN_PARAMS}
-    >
-      {children}
-    </StorefrontLayout>
+    <>
+      <OgabasseyStaticResourceHints />
+      <StorefrontLayout
+        loadingFallback={
+          <ShellChromeLoading
+            mobileHeroImage={OGABASSEY_SHELL_MOBILE_HERO_IMAGE}
+          />
+        }
+        params={OGABASSEY_DOMAIN_PARAMS}
+      >
+        {children}
+      </StorefrontLayout>
+    </>
   );
 }
