@@ -55,6 +55,20 @@ function getSecretHelperText(configured: boolean, configuredLabel: string) {
     : `No ${configuredLabel.toLowerCase()} has been configured yet.`;
 }
 
+const secretToggleLabels = {
+  fb_capi: 'Facebook Conversions API token',
+  ga4_secret: 'GA4 API secret',
+  snap_capi: 'Snapchat Conversions API token',
+  tiktok_token: 'TikTok Events API token',
+} as const;
+
+type SecretToggleKey = keyof typeof secretToggleLabels;
+
+function getSecretToggleAriaLabel(key: SecretToggleKey, isVisible: boolean) {
+  const action = isVisible ? 'Hide' : 'Show';
+  return `${action} ${secretToggleLabels[key]}`;
+}
+
 export default function PlatformSettingsPage() {
   const [settings, setSettings] = useState<PlatformSettingsResponse | null>(
     null
@@ -141,7 +155,11 @@ export default function PlatformSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="size-8 animate-spin text-primary" />
+        <Loader2
+          className="size-8 animate-spin text-primary"
+          aria-hidden="true"
+        />
+        <span className="sr-only">Loading platform settings...</span>
       </div>
     );
   }
@@ -164,14 +182,22 @@ export default function PlatformSettingsPage() {
             Configure your platform analytics, fees, and features.
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <Loader2 className="size-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="size-4 mr-2" />
-          )}
-          Save Changes
-        </Button>
+        <div className="flex flex-col items-end gap-2">
+          <Button onClick={handleSave} disabled={saving} aria-busy={saving}>
+            {saving ? (
+              <Loader2
+                className="size-4 mr-2 animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <Save className="size-4 mr-2" aria-hidden="true" />
+            )}
+            Save Changes
+          </Button>
+          <p className="sr-only" role="status" aria-live="polite">
+            {saving ? 'Saving platform settings.' : ''}
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="analytics" className="space-y-6">
@@ -252,6 +278,10 @@ export default function PlatformSettingsPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3"
                       onClick={() => toggleSecretVisibility('ga4_secret')}
+                      aria-label={getSecretToggleAriaLabel(
+                        'ga4_secret',
+                        Boolean(showSecrets.ga4_secret)
+                      )}
                     >
                       {showSecrets.ga4_secret ? (
                         <EyeOff className="size-4" />
@@ -318,6 +348,10 @@ export default function PlatformSettingsPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3"
                       onClick={() => toggleSecretVisibility('fb_capi')}
+                      aria-label={getSecretToggleAriaLabel(
+                        'fb_capi',
+                        Boolean(showSecrets.fb_capi)
+                      )}
                     >
                       {showSecrets.fb_capi ? (
                         <EyeOff className="size-4" />
@@ -390,6 +424,10 @@ export default function PlatformSettingsPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3"
                       onClick={() => toggleSecretVisibility('tiktok_token')}
+                      aria-label={getSecretToggleAriaLabel(
+                        'tiktok_token',
+                        Boolean(showSecrets.tiktok_token)
+                      )}
                     >
                       {showSecrets.tiktok_token ? (
                         <EyeOff className="size-4" />
@@ -462,6 +500,10 @@ export default function PlatformSettingsPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3"
                       onClick={() => toggleSecretVisibility('snap_capi')}
+                      aria-label={getSecretToggleAriaLabel(
+                        'snap_capi',
+                        Boolean(showSecrets.snap_capi)
+                      )}
                     >
                       {showSecrets.snap_capi ? (
                         <EyeOff className="size-4" />

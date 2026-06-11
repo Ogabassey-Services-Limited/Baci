@@ -205,6 +205,51 @@ describe('MerchantBankForm', () => {
     expect(apiPostMock).not.toHaveBeenCalled();
   });
 
+  it('keeps a live region mounted and marks the action busy while verifying bank details', async () => {
+    const user = userEvent.setup();
+
+    apiPostMock.mockImplementation((endpoint: string) => {
+      if (endpoint === '/api/paystack/resolve') {
+        return new Promise(() => undefined);
+      }
+
+      throw new Error(`Unexpected endpoint: ${endpoint}`);
+    });
+
+    render(<MerchantBankForm countryCode="NG" />);
+
+    const accountInput = screen.getByLabelText('Account Number');
+    const submitButton = screen.getByRole('button', {
+      name: /save bank details/i,
+    });
+    expect(submitButton).toHaveAttribute('aria-busy', 'false');
+    expect(screen.getByRole('status')).toHaveTextContent('');
+
+    const bankInput = screen.getByPlaceholderText(
+      'Type to search your bank (e.g. GTB, Access)'
+    );
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith('/api/paystack/banks')
+    );
+
+    await user.type(bankInput, 'Guaranty');
+    await user.click(
+      await screen.findByRole('option', { name: 'Guaranty Trust Bank' })
+    );
+    await user.type(accountInput, '1234567890');
+
+    await waitFor(() => {
+      expect(apiPostMock).toHaveBeenCalledWith('/api/paystack/resolve', {
+        accountNumber: '1234567890',
+        bankCode: '044',
+      });
+      expect(submitButton).toHaveAttribute('aria-busy', 'true');
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Verifying bank account details.'
+      );
+    });
+  });
+
   it('shows a save error and recovers on a subsequent submit', async () => {
     const user = userEvent.setup();
     const onSuccess = vi.fn();
