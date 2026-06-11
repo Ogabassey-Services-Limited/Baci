@@ -206,10 +206,15 @@ describe('quiz migration contracts', () => {
   });
 
   it('keeps quiz time-limit clamping compatible with PostgreSQL conditional expressions', () => {
-    const lastClampPatchIndex = quizMigrationFiles.findLastIndex(({ sql }) =>
-      /pg_catalog\.replace\([\s\S]*pg_catalog\.least\(pg_catalog\.greatest\([\s\S]*LEAST\(GREATEST\(/i.test(
-        sql
-      )
+    const lastClampPatchIndex = quizMigrationFiles.findLastIndex(
+      ({ sql }) =>
+        /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.start_quiz_attempt/i.test(
+          sql
+        ) &&
+        /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.submit_quiz_answer/i.test(
+          sql
+        ) &&
+        /LEAST\(GREATEST\(/i.test(sql)
     );
     const lastQualifiedClampBeforePatchIndex = quizMigrationFiles.findLastIndex(
       ({ sql }, index) =>
@@ -224,6 +229,7 @@ describe('quiz migration contracts', () => {
     );
     expect(patchSql).toMatch(/public\.start_quiz_attempt/i);
     expect(patchSql).toMatch(/public\.submit_quiz_answer/i);
+    expect(patchSql).not.toMatch(/pg_catalog\.(least|greatest)\(/i);
   });
 
   it('keeps catalog-backed migration regression checks for variant exposure', () => {

@@ -129,9 +129,15 @@ export const CheckoutPage: React.FC = () => {
     )
     .join('|');
 
-  const checkoutCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
+  const checkoutCartTotal = calculateCartTotal(
+    checkoutCart,
+    hasPriceNegotiation
+  );
 
-  const itemSubtotal = calculateCartItemSubtotal(cart, hasPriceNegotiation);
+  const itemSubtotal = calculateCartItemSubtotal(
+    checkoutCart,
+    hasPriceNegotiation
+  );
 
   const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
   const korapayCheckoutAvailable = isKorapayCheckoutAvailable(merchant);
