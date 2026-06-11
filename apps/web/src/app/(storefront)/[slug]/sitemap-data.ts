@@ -9,7 +9,16 @@ import { escapeHtml } from '@/lib/sanitize-core';
 import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { buildCategorySupportLinks } from '@/lib/storefront-compare/build-commercial-support-links';
-import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
+import {
+  resolveMerchantContextIdentifier,
+  resolveRouteIdentifier,
+} from '@/lib/storefront-route-identifier';
+import {
+  buildMerchantTrustProfile,
+  hasPublishableReturnsPolicy,
+  hasPublishableShippingPolicy,
+  hasPublishableWarrantyPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { createAnonClient } from '@/lib/supabase/anon';
 
 export interface ProductWithCategory {
@@ -43,16 +52,73 @@ export interface StorefrontSitemapContext {
 
 export async function resolveStorefrontSitemapContext(
   headersList: Headers,
-  routeIdentifierOverride?: string | null
+  routeIdentifierOverride?: string | null,
+  request?: Request
 ): Promise<StorefrontSitemapContext | null> {
+  const rawIdentifiers: string[] = [];
+  const requestHeaders = request ? new Headers(request.headers) : null;
+
+  // 1. Request headers (proxy headers set by middleware)
+  if (requestHeaders) {
+    try {
+      const requestRouteIdentifier =
+        resolveMerchantContextIdentifier(requestHeaders);
+      if (requestRouteIdentifier) {
+        rawIdentifiers.push(requestRouteIdentifier);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Request host
+  let requestHostname: string | null = null;
+  if (request) {
+    try {
+      const url = new URL(request.url);
+      const host = url.hostname.toLowerCase();
+      requestHostname = host;
+      const normalizedHost = host.replace(/^www\./, '');
+      const rootDomain = (
+        process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
+      ).toLowerCase();
+
+      if (
+        normalizedHost !== 'localhost' &&
+        normalizedHost !== '127.0.0.1' &&
+        normalizedHost !== rootDomain
+      ) {
+        if (normalizedHost.endsWith(`.${rootDomain}`)) {
+          const sub = normalizedHost.slice(0, -(rootDomain.length + 1));
+          if (sub) rawIdentifiers.push(sub);
+        } else {
+          rawIdentifiers.push(normalizedHost);
+          if (host.startsWith('www.')) {
+            rawIdentifiers.push(host);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 3. Next.js headers
   const headerRouteIdentifier = resolveRouteIdentifier(headersList);
+  if (headerRouteIdentifier) {
+    rawIdentifiers.push(headerRouteIdentifier);
+  }
+
+  // 4. Route params override
   const routeIdentifierOverrideValue =
     routeIdentifierOverride?.trim().toLowerCase() || '';
-  const routeIdentifiers = [
-    headerRouteIdentifier,
-    routeIdentifierOverrideValue,
-  ].filter((value, index, values): value is string =>
-    Boolean(value && values.indexOf(value) === index)
+  if (routeIdentifierOverrideValue) {
+    rawIdentifiers.push(routeIdentifierOverrideValue);
+  }
+
+  const routeIdentifiers = rawIdentifiers.filter(
+    (value, index, values): value is string =>
+      Boolean(value && values.indexOf(value) === index)
   );
 
   let merchant = null;
@@ -73,12 +139,33 @@ export async function resolveStorefrontSitemapContext(
   }
 
   if (!merchant) {
+    const SAFE_LOG_HEADERS = [
+      'host',
+      'x-forwarded-host',
+      'x-merchant-slug',
+      'x-custom-domain',
+      'x-merchant-domain',
+    ];
+    const safeHeaders = request
+      ? Object.fromEntries(
+          [...request.headers.entries()].filter(([k]) =>
+            SAFE_LOG_HEADERS.includes(k.toLowerCase())
+          )
+        )
+      : null;
+    console.error('storefront sitemap: unresolved context', {
+      candidates: rawIdentifiers,
+      hosts: requestHostname ? [requestHostname] : [],
+      safeHeaders,
+    });
     return null;
   }
 
+  const storeUrlHeaders = requestHeaders ?? headersList;
+
   return {
     merchant,
-    storeUrl: buildRequestScopedStoreUrl(merchant, headersList),
+    storeUrl: buildRequestScopedStoreUrl(merchant, storeUrlHeaders),
     supabase: createAnonClient(),
   };
 }
@@ -99,6 +186,34 @@ export function getStaticSitemapEntries(
       changeFrequency: 'monthly',
       priority: 0.5,
     },
+  ];
+}
+
+export function getTrustPolicySitemapEntries({
+  merchant,
+  storeUrl,
+}: StorefrontSitemapContext): MetadataRoute.Sitemap {
+  const trustProfile = buildMerchantTrustProfile(merchant, storeUrl);
+  const trustUrls = [
+    hasPublishableReturnsPolicy(trustProfile) ? `${storeUrl}/returns` : null,
+    hasPublishableShippingPolicy(trustProfile) ? `${storeUrl}/shipping` : null,
+    hasPublishableWarrantyPolicy(trustProfile) ? `${storeUrl}/warranty` : null,
+  ].filter((url): url is string => typeof url === 'string' && url.length > 0);
+
+  return trustUrls.map((url) => ({
+    url,
+    lastModified: new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.5,
+  }));
+}
+
+export function getStaticAndTrustSitemapEntries(
+  context: StorefrontSitemapContext
+): MetadataRoute.Sitemap {
+  return [
+    ...getStaticSitemapEntries(context.storeUrl),
+    ...getTrustPolicySitemapEntries(context),
   ];
 }
 
@@ -347,7 +462,7 @@ export async function getRootSitemapEntries(
     blogEntries,
     commercialSupportEntries,
   ] = await Promise.all([
-    Promise.resolve(getStaticSitemapEntries(context.storeUrl)),
+    Promise.resolve(getStaticAndTrustSitemapEntries(context)),
     getSafeSitemapEntries('products', () => getProductSitemapEntries(context)),
     getSafeSitemapEntries('categories', () =>
       getCategorySitemapEntries(context)
@@ -372,8 +487,10 @@ export function getNamedSitemapEntries(
   id: string
 ): MetadataRoute.Sitemap | Promise<MetadataRoute.Sitemap> {
   switch (id) {
+    case 'root':
+      return getRootSitemapEntries(context);
     case 'static':
-      return getStaticSitemapEntries(context.storeUrl);
+      return getStaticAndTrustSitemapEntries(context);
     case 'products':
       return getProductSitemapEntries(context);
     case 'categories':
@@ -437,4 +554,18 @@ export function createSitemapResponse(
       'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
     },
   });
+}
+
+export function createSitemapUnavailableResponse(): Response {
+  return new Response(
+    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>',
+    {
+      status: 503,
+      headers: {
+        'content-type': 'application/xml; charset=utf-8',
+        'cache-control': 'no-store',
+        'retry-after': '300',
+      },
+    }
+  );
 }

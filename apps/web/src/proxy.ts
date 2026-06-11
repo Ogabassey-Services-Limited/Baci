@@ -1486,9 +1486,9 @@ export async function proxy(request: NextRequest) {
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
       if (pathname === STOREFRONT_ROOT_SITEMAP_PATH) {
-        // Next's `sitemap.ts` metadata file can lose to the dynamic
-        // `[category]` route on rewritten custom domains. Keep the public URL
-        // stable while routing to the explicit sitemap route handler.
+        // The dynamic storefront route tree can otherwise treat `sitemap.xml`
+        // as a category segment. Keep the public URL stable while routing to
+        // the request-aware XML route handler for 503/no-store support.
         return buildStorefrontRootSitemapRewriteResponse({
           request,
           pathname,

@@ -3,6 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import {
   createImportJob,
+  type ImportUploadProgress,
   mergeJobs,
   postImportJobAction,
 } from '@/app/dashboard/migrations/migration-job-api';
@@ -45,6 +46,8 @@ export function useMigrationJobs({
   const [loading, setLoading] = useState(false);
   const [rowsLoading, setRowsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] =
+    useState<ImportUploadProgress | null>(null);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
   const jobsRef = useRef(jobs);
@@ -185,12 +188,19 @@ export function useMigrationJobs({
     }
 
     setUploading(true);
+    setUploadProgress({
+      bytesUploaded: 0,
+      bytesTotal: file.size,
+      percent: 0,
+      stage: 'initializing',
+    });
     setError(null);
 
     try {
       const nextJob = await createImportJob({
         entityType,
         file,
+        onUploadProgress: setUploadProgress,
         sourcePlatform: 'bumpa',
       });
       setJobs((currentJobs) => mergeJobs(currentJobs, nextJob));
@@ -202,6 +212,7 @@ export function useMigrationJobs({
       );
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -287,6 +298,7 @@ export function useMigrationJobs({
     setEntityType,
     setFile,
     setSelectedJobId,
+    uploadProgress,
     uploading,
   };
 }

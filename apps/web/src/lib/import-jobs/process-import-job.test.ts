@@ -11,7 +11,9 @@ import {
 } from '@/lib/import-jobs/process-import-job';
 import { runClaimedImportJob } from '@/lib/import-jobs/run-claimed-import-job';
 
-function createJob(status: 'uploaded' | 'commit_queued' | 'notify_queued') {
+function createJob(
+  status: 'uploaded' | 'commit_queued' | 'notify_queued' | 'validating'
+) {
   return {
     id: `${status}-job`,
     merchant_id: 'merchant-1',
@@ -28,6 +30,7 @@ function createJob(status: 'uploaded' | 'commit_queued' | 'notify_queued') {
     summary: null,
     error: null,
     created_at: '2026-03-22T10:00:00.000Z',
+    started_at: status === 'validating' ? '2026-03-22T10:00:00.000Z' : null,
   };
 }
 
@@ -835,6 +838,92 @@ describe('processImportJobQueue', () => {
     expect(runClaimedImportJob).toHaveBeenCalledWith(
       supabase,
       expect.objectContaining({ id: 'uploaded-job', status: 'validating' })
+    );
+  });
+
+  it('reclaims stale validating jobs when no queued jobs are available', async () => {
+    const loadCommitQuery = createLoadQuery({ data: [], error: null });
+    const loadNotifyQuery = createLoadQuery({ data: [], error: null });
+    const loadUploadedQuery = createLoadQuery({ data: [], error: null });
+    const staleJob = { ...createJob('validating'), id: 'stale-validating-job' };
+    const staleQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      lt: vi.fn(),
+      is: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    staleQuery.select.mockReturnValue(staleQuery);
+    staleQuery.eq.mockReturnValue(staleQuery);
+    staleQuery.lt.mockReturnValue(staleQuery);
+    staleQuery.is.mockReturnValue(staleQuery);
+    staleQuery.order.mockReturnValue(staleQuery);
+    staleQuery.limit.mockResolvedValue({
+      data: [staleJob],
+      error: null,
+    });
+
+    const reclaimQuery = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      lt: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    reclaimQuery.update.mockReturnValue(reclaimQuery);
+    reclaimQuery.eq.mockReturnValue(reclaimQuery);
+    reclaimQuery.lt.mockReturnValue(reclaimQuery);
+    reclaimQuery.select.mockReturnValue(reclaimQuery);
+    reclaimQuery.single.mockResolvedValue({
+      data: staleJob,
+      error: null,
+    });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadCommitQuery)
+        .mockReturnValueOnce(loadNotifyQuery)
+        .mockReturnValueOnce(loadUploadedQuery)
+        .mockReturnValueOnce(staleQuery)
+        .mockReturnValueOnce(reclaimQuery),
+    } as unknown as SupabaseClient;
+
+    vi.mocked(runClaimedImportJob).mockResolvedValueOnce({
+      id: 'stale-validating-job',
+      status: 'preview_ready',
+      processed: 1,
+    });
+
+    const result = await processImportJobQueue(supabase, 1);
+
+    expect(result).toEqual([
+      { id: 'stale-validating-job', status: 'preview_ready', processed: 1 },
+    ]);
+    expect(staleQuery.eq).toHaveBeenCalledWith('status', 'validating');
+    expect(staleQuery.lt).toHaveBeenCalledWith(
+      'started_at',
+      expect.any(String)
+    );
+    expect(staleQuery.is).toHaveBeenCalledWith('completed_at', null);
+    expect(staleQuery.order).toHaveBeenCalledWith('started_at', {
+      ascending: true,
+    });
+    expect(reclaimQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: null,
+        error_details: null,
+      })
+    );
+    expect(reclaimQuery.eq).toHaveBeenCalledWith('id', 'stale-validating-job');
+    expect(reclaimQuery.eq).toHaveBeenCalledWith('status', 'validating');
+    expect(runClaimedImportJob).toHaveBeenCalledWith(
+      supabase,
+      expect.objectContaining({
+        id: 'stale-validating-job',
+        status: 'validating',
+      })
     );
   });
 

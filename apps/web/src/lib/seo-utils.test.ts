@@ -1271,6 +1271,125 @@ describe('generateBlogPostSchema', () => {
     ]);
   });
 
+  it('prefers BlogPosting ImageObjects with width and height when supplied', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageUrls: [
+        'https://cdn.ogabassey.com/media/merchant-1/blog/post/fallback.webp',
+      ],
+      imageObjects: [
+        {
+          '@type': 'ImageObject',
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+          width: 1200,
+          height: 675,
+        },
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+        width: 1200,
+        height: 675,
+      },
+    ]);
+  });
+
+  it('falls back to imageUrls when imageObjects contain no valid URLs', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageUrls: [
+        'https://cdn.ogabassey.com/media/merchant-1/blog/fallback.webp',
+      ],
+      imageObjects: [
+        { url: '', width: 1200, height: 675 },
+        { url: 'javascript:alert(1)', width: 1200, height: 675 },
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      'https://cdn.ogabassey.com/media/merchant-1/blog/fallback.webp',
+    ]);
+  });
+
+  it('omits invalid ImageObject dimensions without dropping the valid image URL', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageObjects: [
+        {
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/negative.webp',
+          width: -1,
+          height: 0,
+        },
+        {
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/float.webp',
+          width: 1200.5,
+          height: Number.NaN,
+        },
+        {
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/infinity.webp',
+          width: Number.POSITIVE_INFINITY,
+          height: 675,
+        },
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/negative.webp',
+      },
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/float.webp',
+      },
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/infinity.webp',
+        height: 675,
+      },
+    ]);
+  });
+
+  it('falls back to imageUrls when imageObjects is empty', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageUrls: [
+        'https://cdn.ogabassey.com/media/merchant-1/blog/fallback.webp',
+      ],
+      imageObjects: [],
+    });
+
+    expect(schema.image).toEqual([
+      'https://cdn.ogabassey.com/media/merchant-1/blog/fallback.webp',
+    ]);
+  });
+
+  it('keeps only valid ImageObjects from a mixed imageObjects array', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageObjects: [
+        {
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/valid.webp',
+          width: 1200,
+          height: 675,
+        },
+        { url: 'data:text/html,bad', width: 1200, height: 675 },
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/valid.webp',
+        width: 1200,
+        height: 675,
+      },
+    ]);
+  });
+
   it('keeps the legacy single image object when only image is supplied', () => {
     const schema = generateBlogPostSchema({
       ...baseBlogSchemaInput,

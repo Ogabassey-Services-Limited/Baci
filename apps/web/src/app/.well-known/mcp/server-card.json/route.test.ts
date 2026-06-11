@@ -2,8 +2,20 @@
 
 import { describe, expect, it } from 'vitest';
 
+const PUBLIC_TOOL_NAMES = [
+  'add_to_cart',
+  'browse_categories',
+  'get_brands',
+  'get_product',
+  'get_product_variants',
+  'get_recommendations',
+  'get_shipping_quote',
+  'get_store_info',
+  'search_products',
+];
+
 describe('GET /.well-known/mcp/server-card.json', () => {
-  it('publishes the Ogabassey MCP server card', async () => {
+  it('publishes the Ogabassey public MCP server card', async () => {
     const { GET } = await import('./route');
     const response = GET();
     const body = await response.json();
@@ -28,29 +40,46 @@ describe('GET /.well-known/mcp/server-card.json', () => {
         required: false,
       },
     });
-    expect(body.tools).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          name: 'search_products',
-          inputSchema: expect.objectContaining({ type: 'object' }),
-        }),
-        expect.objectContaining({
-          name: 'create_agentic_checkout_session',
-        }),
-        expect.objectContaining({
-          name: 'get_product',
-          inputSchema: expect.objectContaining({
-            required: ['product_id'],
-          }),
-        }),
-        expect.objectContaining({
-          name: 'check_order',
-          inputSchema: expect.objectContaining({
-            required: ['order_number'],
-          }),
-        }),
-      ])
+    expect(
+      body.tools.map((tool: { name: string }) => tool.name).sort()
+    ).toEqual(PUBLIC_TOOL_NAMES);
+    expect(body.tools).not.toContainEqual(
+      expect.objectContaining({ name: 'create_agentic_checkout_session' })
+    );
+    expect(body.tools).not.toContainEqual(
+      expect.objectContaining({ name: 'check_order' })
     );
     expect(response.headers.get('cache-control')).toContain('max-age=3600');
+  });
+
+  it('matches the public MCP lookup and cart schemas', async () => {
+    const { GET } = await import('./route');
+    const body = await GET().json();
+    const toolsByName = new Map(
+      body.tools.map((tool: { name: string }) => [tool.name, tool])
+    );
+
+    expect(toolsByName.get('get_product')).toMatchObject({
+      inputSchema: {
+        anyOf: [{ required: ['product_id'] }, { required: ['product_name'] }],
+        properties: {
+          product_id: expect.objectContaining({ type: 'string' }),
+          product_name: expect.objectContaining({ type: 'string' }),
+        },
+      },
+    });
+    expect(toolsByName.get('get_product_variants')).toMatchObject({
+      inputSchema: toolsByName.get('get_product').inputSchema,
+    });
+    expect(toolsByName.get('add_to_cart')).toMatchObject({
+      annotations: {
+        destructiveHint: false,
+        openWorldHint: false,
+        readOnlyHint: false,
+      },
+      inputSchema: {
+        required: ['product_id'],
+      },
+    });
   });
 });

@@ -34,18 +34,6 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ -n "${BACI_REPO_DIR:-}" ]; then
-  REPO_DIR="$BACI_REPO_DIR"
-elif [ -d "$DEFAULT_REPO_DIR/apps/web" ]; then
-  REPO_DIR="$DEFAULT_REPO_DIR"
-elif [ -d "$LEGACY_RUNNER_REPO_DIR/apps/web" ]; then
-  echo "[$LABEL] Using legacy runner checkout fallback. Set BACI_REPO_DIR or move the checkout to $DEFAULT_REPO_DIR." >&2
-  REPO_DIR="$LEGACY_RUNNER_REPO_DIR"
-else
-  echo "[$LABEL] No checkout found. Set BACI_REPO_DIR or ensure $DEFAULT_REPO_DIR/apps/web exists." >&2
-  exit 1
-fi
-
 ENV_FILE="${BACI_WORKER_ENV:-$HOME/baci-workers/.env}"
 case "$ENV_FILE" in
   /*) ;;
@@ -61,8 +49,41 @@ case "$ENV_FILE" in
     ENV_USER_PREFIX="~$ENV_USER"
     ENV_FILE="${ENV_USER_HOME}${ENV_FILE#"$ENV_USER_PREFIX"}"
     ;;
-  *) ENV_FILE="$REPO_DIR/$ENV_FILE" ;;
+  *)
+    ENV_FILE="$(pwd)/$ENV_FILE"
+    ;;
 esac
+
+if [ -z "${BACI_REPO_DIR:-}" ] && [ -f "$ENV_FILE" ]; then
+  ENV_REPO_DIR="$(
+    awk '
+      /^BACI_REPO_DIR=/ {
+        sub(/^BACI_REPO_DIR=/, "")
+        print
+        exit
+      }
+    ' "$ENV_FILE"
+  )"
+  ENV_REPO_DIR="${ENV_REPO_DIR%\"}"
+  ENV_REPO_DIR="${ENV_REPO_DIR#\"}"
+  ENV_REPO_DIR="${ENV_REPO_DIR%\'}"
+  ENV_REPO_DIR="${ENV_REPO_DIR#\'}"
+  if [ -n "$ENV_REPO_DIR" ]; then
+    BACI_REPO_DIR="$ENV_REPO_DIR"
+  fi
+fi
+
+if [ -n "${BACI_REPO_DIR:-}" ]; then
+  REPO_DIR="$BACI_REPO_DIR"
+elif [ -d "$DEFAULT_REPO_DIR/apps/web" ]; then
+  REPO_DIR="$DEFAULT_REPO_DIR"
+elif [ -d "$LEGACY_RUNNER_REPO_DIR/apps/web" ]; then
+  echo "[$LABEL] Using legacy runner checkout fallback. Set BACI_REPO_DIR or move the checkout to $DEFAULT_REPO_DIR." >&2
+  REPO_DIR="$LEGACY_RUNNER_REPO_DIR"
+else
+  echo "[$LABEL] No checkout found. Set BACI_REPO_DIR or ensure $DEFAULT_REPO_DIR/apps/web exists." >&2
+  exit 1
+fi
 
 if [ ! -d "$REPO_DIR/apps/web" ]; then
   echo "[$LABEL] Missing Baci checkout: $REPO_DIR" >&2
@@ -108,7 +129,11 @@ if [ -z "${NODE_ENV:-}" ]; then
 fi
 
 export NODE_ENV
+export CI="${CI:-true}"
 export DOTENV_CONFIG_PATH="$ENV_FILE"
+# Worker scripts do not need Puppeteer's managed browser. Keep dependency
+# bootstrap from failing when pnpm validates a checkout with no browser cache.
+export PUPPETEER_SKIP_DOWNLOAD="${PUPPETEER_SKIP_DOWNLOAD:-1}"
 
 cd "$REPO_DIR" || {
   echo "[$LABEL] Failed to change directory to: $REPO_DIR" >&2
