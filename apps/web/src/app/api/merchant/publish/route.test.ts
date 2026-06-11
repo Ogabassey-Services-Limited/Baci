@@ -170,6 +170,8 @@ function setupMerchantData(data: Record<string, unknown> | null) {
           id: MERCHANT_ID,
           business_name: 'Test Store',
           country: 'NG',
+          email: 'owner@example.com',
+          phone: null,
           support_email: 'test@example.com',
           support_phone: '+2341234567890',
           bank_code: '044',
@@ -411,6 +413,8 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when both email and phone are missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
+        email: null,
+        phone: null,
         support_email: null,
         support_phone: null,
       });
@@ -428,6 +432,22 @@ describe('POST /api/merchant/publish', () => {
       setupAuth(true, true);
       setupMerchantData({
         support_email: 'test@example.com',
+        support_phone: null,
+      });
+      setupProductCount(1, 1);
+      setupUpdateSuccess();
+
+      const res = await POST(makeRequest('POST'));
+
+      expect(res.status).toBe(200);
+    });
+
+    it('succeeds when only account email is provided', async () => {
+      setupAuth(true, true);
+      setupMerchantData({
+        email: 'owner@example.com',
+        phone: null,
+        support_email: null,
         support_phone: null,
       });
       setupProductCount(1, 1);
@@ -575,6 +595,8 @@ describe('POST /api/merchant/publish', () => {
       });
       setupMerchantData({
         country: null,
+        email: null,
+        phone: null,
         support_email: null,
         support_phone: null,
         bank_code: null,
