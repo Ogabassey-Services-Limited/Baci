@@ -265,7 +265,6 @@ const MAIN_APP_ROUTES = [
   '/builder',
   '/reset-password',
   '/_next',
-  '/favicon.ico',
   '/robots.txt',
   '/manifest.webmanifest',
 ];
@@ -749,6 +748,53 @@ function buildStorefrontRootSitemapRewriteResponse({
   const response = NextResponse.rewrite(sitemapUrl, {
     request: {
       headers: sitemapHeaders,
+    },
+  });
+
+  return applySecurityHeaders(
+    response,
+    pathname,
+    userAgent,
+    'storefront',
+    isLocalhost(hostname),
+    undefined,
+    request,
+    hostname
+  );
+}
+
+function buildStorefrontFaviconRewriteResponse({
+  request,
+  pathname,
+  userAgent,
+  hostname,
+  routeIdentifier,
+  customDomain,
+  merchantSlug,
+}: {
+  request: NextRequest;
+  pathname: string;
+  userAgent: string;
+  hostname: string;
+  routeIdentifier: string;
+  customDomain?: string;
+  merchantSlug?: string | null;
+}): NextResponse {
+  const faviconUrl = request.nextUrl.clone();
+  faviconUrl.pathname = `/${routeIdentifier}/favicon.ico`;
+
+  const faviconHeaders = buildProxyRequestHeaders(request);
+  if (customDomain) {
+    faviconHeaders.set('x-custom-domain', customDomain);
+    faviconHeaders.set('x-merchant-domain', customDomain);
+  }
+  if (merchantSlug) {
+    faviconHeaders.set('x-merchant-slug', merchantSlug);
+  }
+
+  const response = NextResponse.rewrite(faviconUrl, {
+    request: {
+      headers: faviconHeaders,
     },
   });
 
@@ -1485,6 +1531,18 @@ export async function proxy(request: NextRequest) {
       const domainPathSegments = pathname.split('/').filter(Boolean);
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
+      if (pathname === '/favicon.ico') {
+        return buildStorefrontFaviconRewriteResponse({
+          request,
+          pathname,
+          userAgent,
+          hostname,
+          routeIdentifier: domainMerchantSlug ?? domain,
+          customDomain: domain,
+          merchantSlug: domainMerchantSlug,
+        });
+      }
+
       if (pathname === STOREFRONT_ROOT_SITEMAP_PATH) {
         // The dynamic storefront route tree can otherwise treat `sitemap.xml`
         // as a category segment. Keep the public URL stable while routing to
@@ -1776,6 +1834,17 @@ export async function proxy(request: NextRequest) {
 
   // If we have a valid subdomain (not reserved), rewrite to storefront routes
   if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
+    if (pathname === '/favicon.ico') {
+      return buildStorefrontFaviconRewriteResponse({
+        request,
+        pathname,
+        userAgent,
+        hostname,
+        routeIdentifier: subdomain,
+        merchantSlug: subdomain,
+      });
+    }
+
     // Check if trying to access main app routes from subdomain - redirect to main domain
     if (MAIN_APP_ROUTES.some((route) => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL(pathname, `https://${ROOT_DOMAIN}`));
@@ -2103,9 +2172,10 @@ function applySecurityHeaders(
 
   // Add cache headers for static assets
   if (
-    pathname.startsWith('/_next/static') ||
-    pathname.startsWith('/images') ||
-    pathname.match(IMAGE_FILES_REGEX)
+    (pathname.startsWith('/_next/static') ||
+      pathname.startsWith('/images') ||
+      pathname.match(IMAGE_FILES_REGEX)) &&
+    pathname !== '/favicon.ico'
   ) {
     response.headers.set(
       'Cache-Control',
@@ -2202,6 +2272,6 @@ export const config = {
      * - sitemap.xml (SEO file)
      * - Static files with extensions (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/image(?:/.*[^/])?$|_next/static(?:/.*[^/])?$|favicon\\.ico$|manifest\\.webmanifest$|robots\\.txt$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
+    '/((?!_next/image(?:/.*[^/])?$|_next/static(?:/.*[^/])?$|manifest\\.webmanifest$|robots\\.txt$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|woff|woff2|ttf|eot|css|js|json)$|(?!favicon\\.ico$)(?!favicon\\.ico/$).+\\.ico$).*)',
   ],
 };
