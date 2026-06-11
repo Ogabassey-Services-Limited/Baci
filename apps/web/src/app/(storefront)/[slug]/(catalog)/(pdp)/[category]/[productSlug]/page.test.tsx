@@ -9,6 +9,7 @@ import {
   Suspense,
 } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
@@ -102,6 +103,7 @@ vi.mock('next/image', () => ({
     fetchPriority,
     fill,
     loader,
+    loading,
     priority,
     quality,
     sizes,
@@ -113,6 +115,7 @@ vi.mock('next/image', () => ({
     fetchPriority?: string;
     fill?: boolean;
     loader?: () => string;
+    loading?: string;
     priority?: boolean;
     quality?: number;
     sizes?: string;
@@ -125,6 +128,7 @@ vi.mock('next/image', () => ({
       fetchPriority,
       fill,
       loader,
+      loading,
       priority,
       quality,
       sizes,
@@ -1840,6 +1844,138 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
+  it('starts the OgaBassey product LCP hint before the merchant lookup resolves', async () => {
+    let resolveMerchant:
+      | ((
+          value: typeof baseMerchant & {
+            custom_domain: string;
+            template_id: string;
+          }
+        ) => void)
+      | undefined;
+    let merchantLookupCount = 0;
+    const routeEvents: string[] = [];
+    const earlyProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/domain-lcp-hint.avif';
+    const ogabasseyMerchant = {
+      ...baseMerchant,
+      id: OGABASSEY_MERCHANT_ID,
+      slug: OGABASSEY_TEMPLATE_ID,
+      custom_domain: OGABASSEY_DOMAIN,
+      template_id: OGABASSEY_TEMPLATE_ID,
+    };
+
+    mockGetRequestScopedMerchant.mockImplementation(() => {
+      merchantLookupCount += 1;
+      if (merchantLookupCount === 1) {
+        routeEvents.push('merchant-start');
+        return new Promise((resolve) => {
+          resolveMerchant = resolve;
+        });
+      }
+
+      return Promise.resolve(ogabasseyMerchant);
+    });
+    mockGetCachedProductLcpHint.mockImplementation((merchantId) => {
+      routeEvents.push(`lcp-hint:${merchantId}`);
+      return Promise.resolve(
+        toLegacyCachedProduct({
+          ...categorizedDetailedProduct,
+          images: [earlyProductImage],
+        })
+      );
+    });
+
+    const pagePromise = CategoryProductPage({
+      params: Promise.resolve({
+        slug: OGABASSEY_DOMAIN,
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    await waitFor(() => {
+      expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
+        OGABASSEY_MERCHANT_ID,
+        'hp-laptop-14-ep0063nia'
+      );
+    });
+    expect(routeEvents).toEqual([
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
+      'merchant-start',
+    ]);
+
+    resolveMerchant?.(ogabasseyMerchant);
+    const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: earlyProductImage,
+    });
+
+    render(await resolveRsc(resolvedPage));
+
+    expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
+  });
+
+  it('propagates speculative OgaBassey LCP hint failures after merchant validation', async () => {
+    let resolveMerchant:
+      | ((
+          value: typeof baseMerchant & {
+            custom_domain: string;
+            template_id: string;
+          }
+        ) => void)
+      | undefined;
+    const transientError = new Error('temporary product cache outage');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const ogabasseyMerchant = {
+      ...baseMerchant,
+      id: OGABASSEY_MERCHANT_ID,
+      slug: OGABASSEY_TEMPLATE_ID,
+      custom_domain: OGABASSEY_DOMAIN,
+      template_id: OGABASSEY_TEMPLATE_ID,
+    };
+
+    mockGetRequestScopedMerchant.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveMerchant = resolve;
+        })
+    );
+    mockGetCachedProductLcpHint.mockRejectedValueOnce(transientError);
+
+    const pagePromise = CategoryProductPage({
+      params: Promise.resolve({
+        slug: OGABASSEY_DOMAIN,
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    await waitFor(() => {
+      expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
+        OGABASSEY_MERCHANT_ID,
+        'hp-laptop-14-ep0063nia'
+      );
+    });
+
+    resolveMerchant?.(ogabasseyMerchant);
+
+    await expect(pagePromise).rejects.toThrow('temporary product cache outage');
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Unable to prewarm OgaBassey PDP LCP hint:',
+      'hp-laptop-14-ep0063nia',
+      transientError
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('streams the OgaBassey PDP product image preload before the request base path resolves', async () => {
     let resolveBasePath: ((value: unknown) => void) | undefined;
     const routeEvents: string[] = [];
@@ -1889,8 +2025,8 @@ describe('[category]/[productSlug] page render', () => {
     });
     expect(routeEvents).toEqual([
       'lcp-hint',
-      'base-path',
       'product-hints',
+      'base-path',
       'product-details',
     ]);
     render(

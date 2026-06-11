@@ -1,3 +1,4 @@
+import '@/app/(storefront)/storefront-pdp-critical.css';
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
@@ -37,8 +38,10 @@ import {
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
+import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
+import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
 import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductCondition } from '@/lib/products';
@@ -544,9 +547,7 @@ function mapCachedProductLcpHintToRouteProduct(
     ? rawFallbackCategory[0]
     : rawFallbackCategory;
   const primaryCategory = canonicalCategory ?? fallbackCategory;
-  const firstImage = cachedProduct.images?.[0];
-  const primaryImage =
-    typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? '');
+  const primaryImage = getCachedProductLcpHintPrimaryImage(cachedProduct) ?? '';
   const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
   const manageStock = cachedProduct.manage_stock ?? true;
   const stockQuantity = parseRouteProductNumber(cachedProduct.stock_quantity);
@@ -739,6 +740,19 @@ async function getProductRouteControl(
   categorySlug: string,
   productSlug: string
 ): Promise<CategoryProductRouteControl | null> {
+  const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(storeSlug);
+  const knownOgaBasseyLcpHintPromise = knownOgaBasseyMerchantId
+    ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug)
+    : null;
+  if (knownOgaBasseyLcpHintPromise) {
+    void knownOgaBasseyLcpHintPromise.catch((error) => {
+      console.warn(
+        'Unable to prewarm OgaBassey PDP LCP hint:',
+        sanitizeLookupLogValue(productSlug),
+        error
+      );
+    });
+  }
   const merchant = await getRequestScopedMerchant(storeSlug);
 
   if (!merchant) {
@@ -746,7 +760,10 @@ async function getProductRouteControl(
     return null;
   }
 
-  let cachedProduct = await getCachedProductLcpHint(merchant.id, productSlug);
+  let cachedProduct =
+    knownOgaBasseyMerchantId === merchant.id && knownOgaBasseyLcpHintPromise
+      ? await knownOgaBasseyLcpHintPromise
+      : await getCachedProductLcpHint(merchant.id, productSlug);
   let needsValuesRedirect = false;
 
   if (!cachedProduct && productSlug !== productSlug.toLowerCase()) {
@@ -1200,9 +1217,6 @@ export default async function CategoryProductPage({
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
-  const criticalBasePathPromise = criticalProduct
-    ? getRequestScopedCategoryProductBasePath(slug)
-    : Promise.resolve<'' | `/${string}`>('');
 
   try {
     if (primaryProductImage) {
@@ -1219,6 +1233,10 @@ export default async function CategoryProductPage({
       error
     );
   }
+
+  const criticalBasePathPromise = criticalProduct
+    ? getRequestScopedCategoryProductBasePath(slug)
+    : Promise.resolve<'' | `/${string}`>('');
 
   productResultPromise = getProductResultPromise();
 
