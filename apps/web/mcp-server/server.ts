@@ -3282,11 +3282,15 @@ process.on('unhandledRejection', (reason) => {
 });
 
 httpServer.listen(PORT, () => {
+  const address = httpServer.address();
+  const actualPort =
+    typeof address === 'object' && address !== null ? address.port : PORT;
+
   console.log(
     JSON.stringify({
       type: 'lifecycle',
       event: 'startup',
-      port: PORT,
+      port: actualPort,
       timestamp: new Date().toISOString(),
     })
   );
@@ -3295,7 +3299,7 @@ httpServer.listen(PORT, () => {
 ║     Ogabassey ChatGPT MCP Server (Production)                  ║
 ╠════════════════════════════════════════════════════════════════╣
 ║  Status:    Running                                            ║
-║  Port:      ${PORT}                                                ║
+║  Port:      ${actualPort}                                                ║
 ║  Endpoint:  https://mcp.ogabassey.com/mcp                      ║
 ╠════════════════════════════════════════════════════════════════╣
 ║  Security Features:                                            ║

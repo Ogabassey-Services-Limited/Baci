@@ -1,6 +1,5 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { createServer as createNodeServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
@@ -65,20 +64,18 @@ describe('MCP streamable HTTP probe compatibility', () => {
   let serverBaseUrl: string;
 
   beforeAll(async () => {
-    const port = await getAvailablePort();
-    serverBaseUrl = `http://127.0.0.1:${port}`;
-
     serverProcess = spawn('pnpm', ['exec', 'tsx', 'mcp-server/server.ts'], {
       cwd: webRootDirectory,
       env: {
         ...process.env,
-        MCP_PORT: String(port),
+        MCP_PORT: '0',
         NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
         SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
       },
     });
 
-    await waitForMcpServerStartup(serverProcess);
+    const port = await waitForMcpServerStartup(serverProcess);
+    serverBaseUrl = `http://127.0.0.1:${port}`;
   }, 15_000);
 
   afterAll(async () => {
@@ -112,27 +109,9 @@ describe('MCP streamable HTTP probe compatibility', () => {
   });
 });
 
-async function getAvailablePort() {
-  return new Promise<number>((resolve, reject) => {
-    const probe = createNodeServer();
-
-    probe.once('error', reject);
-    probe.listen(0, '127.0.0.1', () => {
-      const address = probe.address();
-      if (!address || typeof address === 'string') {
-        probe.close();
-        reject(new Error('Unable to allocate MCP test port'));
-        return;
-      }
-
-      probe.close(() => resolve(address.port));
-    });
-  });
-}
-
 async function waitForMcpServerStartup(
   child: ReturnType<typeof spawn>
-): Promise<void> {
+): Promise<number> {
   let stderr = '';
   let stdout = '';
 
@@ -151,10 +130,17 @@ async function waitForMcpServerStartup(
 
     child.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk.toString('utf8');
-      if (stdout.includes('"event":"startup"')) {
-        clearTimeout(timeout);
-        resolve();
+      const startupMatch = /\{[^\n]*"event":"startup"[^\n]*\}/.exec(stdout);
+      if (!startupMatch) return;
+
+      const startupEvent = JSON.parse(startupMatch[0]) as { port?: unknown };
+      if (typeof startupEvent.port !== 'number' || startupEvent.port <= 0) {
+        reject(new Error(`MCP server reported invalid startup port: ${stdout}`));
+        return;
       }
+
+      clearTimeout(timeout);
+      resolve(startupEvent.port);
     });
 
     child.once('exit', (code, signal) => {
