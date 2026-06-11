@@ -16,7 +16,11 @@
  *   This is a read-only lookup - it cannot modify data.
  */
 
-import { getEdgeConfigSlugKey } from '@/lib/edge-config-keys';
+import { get } from '@vercel/edge-config';
+import {
+  getEdgeConfigDomainKey,
+  getEdgeConfigSlugKey,
+} from '@/lib/edge-config-keys';
 import { createAdminClient } from './supabase/admin';
 
 interface CacheEntry {
@@ -55,8 +59,6 @@ async function readFromEdgeConfig(
   merchantSlug: string
 ): Promise<string | undefined> {
   try {
-    // Dynamic import to avoid build errors when Edge Config is not installed
-    const { get } = await import('@vercel/edge-config');
     const value = await get<string>(getEdgeConfigSlugKey(merchantSlug));
     return typeof value === 'string' && value.length > 0 ? value : undefined;
   } catch {
@@ -108,7 +110,13 @@ export async function getSlugForCustomDomain(
     return cached.slug;
   }
 
-  // 1. Fall back to DB
+  // 1. Try Edge Config reverse mapping (domain_* -> slug)
+  const edgeSlug = await readSlugFromEdgeConfig(domain);
+  if (edgeSlug) {
+    return edgeSlug;
+  }
+
+  // 2. Fall back to DB
   const slug = await fetchSlugForDomain(domain);
 
   if (reverseDomainCache.size >= MAX_CACHE_SIZE) {
@@ -122,6 +130,17 @@ export async function getSlugForCustomDomain(
   });
 
   return slug;
+}
+
+async function readSlugFromEdgeConfig(
+  domain: string
+): Promise<string | undefined> {
+  try {
+    const value = await get<string>(getEdgeConfigDomainKey(domain));
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function fetchSlugForDomain(domain: string): Promise<string | null> {

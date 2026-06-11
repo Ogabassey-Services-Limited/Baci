@@ -261,6 +261,33 @@ describe('getCustomDomainForSlug', () => {
 });
 
 describe('getSlugForCustomDomain', () => {
+  it('returns slug from Edge Config without hitting DB', async () => {
+    mockEdgeGet.mockResolvedValue('edge-slug');
+
+    const result = await getSlugForCustomDomain('edge-domain.com');
+
+    expect(result).toBe('edge-slug');
+    expect(mockEdgeGet).toHaveBeenCalledWith('domain_edge-domain_com');
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('falls back to DB when Edge Config reverse key is missing', async () => {
+    mockEdgeGet.mockResolvedValue(undefined);
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        merchants: {
+          slug: 'db-slug-after-edge-miss',
+        },
+      },
+    });
+
+    const result = await getSlugForCustomDomain('edge-miss-domain.com');
+
+    expect(result).toBe('db-slug-after-edge-miss');
+    expect(mockEdgeGet).toHaveBeenCalledWith('domain_edge-miss-domain_com');
+    expect(mockFrom).toHaveBeenCalledWith('domains');
+  });
+
   it('falls back to DB on cache miss', async () => {
     mockMaybeSingle.mockResolvedValue({
       data: {
