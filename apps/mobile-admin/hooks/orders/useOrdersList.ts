@@ -42,6 +42,25 @@ const orderListRowSchema = z
   })
   .passthrough();
 
+function parseOrderListRows(rows: unknown[]) {
+  const normalizedRows: z.infer<typeof orderListRowSchema>[] = [];
+
+  for (const row of rows) {
+    const parsedRow = orderListRowSchema.safeParse(row);
+
+    if (parsedRow.success) {
+      normalizedRows.push(parsedRow.data);
+      continue;
+    }
+
+    console.warn('Skipping invalid order row in orders list', {
+      issues: parsedRow.error.issues.map((issue) => issue.path.join('.')),
+    });
+  }
+
+  return normalizedRows;
+}
+
 export type { Order, OrderItem, OrdersPage, OrderWithCount, ShippingStatus };
 
 export async function fetchOrders(
@@ -127,7 +146,7 @@ export async function fetchOrders(
   }
 
   const hasMore = (count ?? 0) > cursor + PAGE_SIZE;
-  const normalizedRows = z.array(orderListRowSchema).parse(data ?? []);
+  const normalizedRows = parseOrderListRows(data ?? []);
   const orders = normalizedRows.map((order) => {
     const { order_items, ...normalizedOrder } = order;
 

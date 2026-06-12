@@ -1,5 +1,12 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import type { ComponentType, ReactNode } from 'react';
+import { Alert } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Order } from '@/hooks/useOrders';
 import { groupOrdersByRelativeDate } from '@/utils/date-utils';
@@ -83,12 +90,35 @@ vi.mock('react-native', async () => {
       accessibilityLabel,
     }: {
       children?: React.ReactNode;
-      onPress?: () => void;
+      onPress?: (event: {
+        stopPropagation: () => void;
+        target: {
+          measure: (
+            callback: (
+              x: number,
+              y: number,
+              width: number,
+              height: number,
+              pageX: number,
+              pageY: number
+            ) => void
+          ) => void;
+        };
+      }) => void;
       accessibilityLabel?: string;
     }) =>
       React.createElement(
         'button',
-        { onClick: onPress, 'aria-label': accessibilityLabel },
+        {
+          onClick: () =>
+            onPress?.({
+              stopPropagation: () => undefined,
+              target: {
+                measure: (callback) => callback(0, 0, 120, 32, 220, 180),
+              },
+            }),
+          'aria-label': accessibilityLabel,
+        },
         children
       ),
     RefreshControl: () => null,
@@ -464,6 +494,60 @@ describe('OrdersScreen', () => {
       searchInput.compareDocumentPosition(pendingFilter) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
+  });
+
+  it('alerts the user when an order status update fails', async () => {
+    const mockOrders = [
+      {
+        id: 'order-1',
+        created_at: '2026-06-09T12:00:00Z',
+        shipping_status: 'pending',
+        payment_status: 'paid',
+        total: 10000,
+        currency: 'NGN',
+        order_number: 'ORD-1001',
+        customer_name: 'John Doe',
+        item_count: 2,
+        payment_method: 'card',
+        source: 'web',
+      },
+    ] as unknown as Order[];
+    mocks.useOrders.mockReturnValue({
+      data: {
+        pages: [{ orders: mockOrders, nextCursor: null }],
+        pageParams: [null],
+      },
+      isLoading: false,
+      isFetching: false,
+      isFetchingNextPage: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      error: null,
+    });
+    mocks.mutateAsync.mockRejectedValueOnce(new Error('network down'));
+    vi.mocked(groupOrdersByRelativeDate).mockReturnValue([
+      { title: 'Today', data: [mockOrders[0]] },
+    ]);
+
+    render(<OrdersScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Shipping status: Unfulfilled\. Tap to change status/i,
+      })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Order' }));
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        orderId: 'order-1',
+        status: 'processing',
+      });
+    });
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Could not update order status',
+      'Check your connection and try again. If this continues, confirm your account has permission to update orders.'
+    );
   });
 
   it('renders section headers and order items correctly in flat structure', () => {

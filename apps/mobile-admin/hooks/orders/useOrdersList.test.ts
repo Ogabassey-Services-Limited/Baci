@@ -7,8 +7,8 @@ const supabaseMock = vi.hoisted(() => {
       Record<string, unknown> & {
         id: string;
         order_items: Array<{ id: string }>;
-        payment_status: string;
-        shipping_status: string;
+        payment_status: unknown;
+        shipping_status: unknown;
       }
     >;
     error: { message: string } | null;
@@ -264,6 +264,41 @@ describe('fetchOrders', () => {
         },
       ])
     );
+  });
+
+  it('skips invalid rows without failing the whole orders view', async () => {
+    supabaseMock.setResult({
+      count: 2,
+      data: [
+        {
+          id: 'order-valid',
+          order_items: [{ id: 'item-1' }],
+          payment_status: 'paid',
+          shipping_status: 'pending',
+        },
+        {
+          id: 'order-corrupt',
+          order_items: [],
+          payment_status: null,
+          shipping_status: 'unknown-status',
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      fetchOrders('merchant-1', 0, {}, { type: 'all' })
+    ).resolves.toEqual({
+      nextCursor: null,
+      orders: [
+        expect.objectContaining({
+          id: 'order-valid',
+          item_count: 1,
+          shipping_status: 'pending',
+        }),
+      ],
+      totalCount: 2,
+    });
   });
 
   it('normalizes legacy fulfilled shipping statuses at the data boundary', async () => {

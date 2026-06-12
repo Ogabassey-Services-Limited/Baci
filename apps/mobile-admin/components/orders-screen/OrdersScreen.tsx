@@ -2,7 +2,7 @@ import type { ShippingStatus } from '@baci/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StatusBar, StyleSheet } from 'react-native';
+import { Alert, StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAiInsights } from '@/hooks/useAiInsights';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -132,6 +132,10 @@ export default function OrdersScreen() {
       closeStatusDropdown();
     } catch (statusError) {
       console.error('Failed to update status:', statusError);
+      Alert.alert(
+        'Could not update order status',
+        'Check your connection and try again. If this continues, confirm your account has permission to update orders.'
+      );
     }
   };
 
