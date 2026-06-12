@@ -26,7 +26,11 @@ export type WebMcpModelContext = {
   registerTool: (
     tool: WebMcpTool,
     options?: { signal?: AbortSignal }
-  ) => Promise<undefined> | undefined;
+  ) => unknown;
+};
+
+type CatchableRegistration = {
+  catch: (onRejected: (error: unknown) => void) => unknown;
 };
 
 type StorefrontProductResponse = {
@@ -289,6 +293,16 @@ function buildStorefrontWebMcpTools({
   ];
 }
 
+function isCatchableRegistration(
+  value: unknown
+): value is CatchableRegistration {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  return typeof (value as { catch?: unknown }).catch === 'function';
+}
+
 function logToolRegistrationError(error: unknown, toolName: string): void {
   console.warn('[WebMCP] Failed to register storefront tool', {
     error,
@@ -310,7 +324,7 @@ export function registerWebMcpStorefrontTools({
   for (const tool of tools) {
     try {
       const registration = modelContext.registerTool(tool, { signal });
-      if (registration) {
+      if (isCatchableRegistration(registration)) {
         void registration.catch((error: unknown) => {
           logToolRegistrationError(error, tool.name);
         });
