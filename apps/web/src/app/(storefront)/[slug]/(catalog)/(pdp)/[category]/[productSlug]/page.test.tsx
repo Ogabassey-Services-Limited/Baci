@@ -1510,7 +1510,7 @@ describe('[category]/[productSlug] page render', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders known OgaBassey PDP critical images through the same-origin LCP route', async () => {
+  it('renders known OgaBassey PDP critical images through the direct CDN loader', async () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif';
     mockGetRequestScopedMerchant.mockResolvedValueOnce({
@@ -1547,7 +1547,7 @@ describe('[category]/[productSlug] page render', () => {
       screen.getByRole('img', { name: 'HP Laptop 14-ep0063nia' })
     ).toHaveAttribute(
       'src',
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/hp-laptop-14-ep0063nia'
+      'https://cdn.ogabassey.com/image/width=640,quality=35,format=auto/core-assets/products/hp-laptop.avif'
     );
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
   });
