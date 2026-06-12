@@ -30,6 +30,31 @@ function useStoreSlug() {
   return knownRoutes.includes(firstSegment) ? '' : firstSegment;
 }
 
+/**
+ * Module-scope helper so the component body stays free of try/finally and
+ * throw-inside-try (React Compiler cannot lower those yet). The created_at
+ * fallback is stamped here, at fetch time, so render never calls Date.now().
+ */
+async function fetchOrderById(
+  orderId: string | string[]
+): Promise<StorefrontOrder | null> {
+  try {
+    // Use the single order API endpoint
+    const res = await fetch(`/api/storefront/orders/${orderId}`);
+    if (!res.ok) {
+      throw new Error('Order not found');
+    }
+    const data = await res.json();
+    return {
+      ...data,
+      created_at: data.created_at || new Date().toISOString(),
+    };
+  } catch (err) {
+    console.error('Failed to fetch order', err);
+    return null;
+  }
+}
+
 export const OgabasseyV2OrderDetails: React.FC = () => {
   const params = useParams(); // Get ID from URL
   const { customer: _customer, isAuthenticated: _isAuthenticated } = useCustomerAuth();
@@ -51,20 +76,9 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
       if (!orderId) return;
 
       setLoading(true);
-      try {
-        // Use the single order API endpoint
-        const res = await fetch(`/api/storefront/orders/${orderId}`);
-        if (!res.ok) {
-          throw new Error('Order not found');
-        }
-        const data = await res.json();
-        setOrder(data);
-      } catch (err) {
-        console.error('Failed to fetch order', err);
-        setOrder(null);
-      } finally {
-        setLoading(false);
-      }
+      const fetched = await fetchOrderById(orderId);
+      setOrder(fetched);
+      setLoading(false);
     };
 
     fetchOrder();
@@ -166,7 +180,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           <div>
             <h1 className="text-xl font-bold text-gray-900">Order Details</h1>
             <p className="text-xs text-gray-500">
-              #{order.order_number || order.id?.slice(0, 8)} • {new Date(order.created_at || Date.now()).toLocaleDateString()}
+              #{order.order_number || order.id?.slice(0, 8)} • {new Date(order.created_at).toLocaleDateString()}
             </p>
           </div>
         </div>

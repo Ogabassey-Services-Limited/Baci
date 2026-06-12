@@ -45,12 +45,10 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
   const [post, setPost] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchRelatedBlog() {
       if (!merchantId) {
-        setLoading(false);
         return;
       }
 
@@ -85,7 +83,6 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
 
           if (explicitPost) {
             setPost(explicitPost);
-            setLoading(false);
             return;
           }
 
@@ -121,7 +118,6 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
 
             if (!matchError && matches && matches.length > 0) {
               setPost(matches[0]);
-              setLoading(false);
               return;
             }
           }
@@ -152,7 +148,6 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
 
           if (categoryPosts && categoryPosts.length > 0) {
             setPost(categoryPosts[0]);
-            setLoading(false);
             return;
           }
         }
@@ -178,16 +173,14 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
         }
       } catch (error) {
         console.error('Error fetching related blog:', error);
-      } finally {
-        setLoading(false);
       }
     }
 
     fetchRelatedBlog();
   }, [productId, merchantId, category]);
 
-  // Don't render while loading or if no post
-  if (loading || !post) {
+  // Don't render until a post is found (output is null while loading either way)
+  if (!post) {
     return null;
   }
 

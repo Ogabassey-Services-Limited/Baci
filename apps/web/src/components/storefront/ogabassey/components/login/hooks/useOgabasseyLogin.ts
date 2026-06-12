@@ -21,6 +21,28 @@ interface UseOgabasseyLoginOptions {
 }
 
 /**
+ * Runs a social sign-in flow, surfacing failures and always clearing the
+ * loading flag. Module-scope so the try/finally stays outside the hook body.
+ */
+async function runSocialSignIn(
+  signIn: () => Promise<{ success: boolean; error?: string }>,
+  fallbackError: string,
+  setError: (message: string) => void,
+  setLoading: (loading: boolean) => void
+): Promise<void> {
+  try {
+    const result = await signIn();
+
+    if (!result.success) {
+      setError(result.error || fallbackError);
+    }
+    // On success, OAuth redirect will navigate away
+  } finally {
+    setLoading(false);
+  }
+}
+
+/**
  * Custom hook for Ogabassey login page logic
  *
  * Handles:
@@ -178,16 +200,12 @@ export function useOgabasseyLogin({
     setError('');
     setIsGoogleLoading(true);
 
-    try {
-      const result = await signInWithGoogle();
-
-      if (!result.success) {
-        setError(result.error || 'Failed to sign in with Google');
-      }
-      // On success, OAuth redirect will navigate away
-    } finally {
-      setIsGoogleLoading(false);
-    }
+    await runSocialSignIn(
+      signInWithGoogle,
+      'Failed to sign in with Google',
+      setError,
+      setIsGoogleLoading
+    );
   };
 
   /**
@@ -197,16 +215,12 @@ export function useOgabasseyLogin({
     setError('');
     setIsAppleLoading(true);
 
-    try {
-      const result = await signInWithApple();
-
-      if (!result.success) {
-        setError(result.error || 'Failed to sign in with Apple');
-      }
-      // On success, OAuth redirect will navigate away
-    } finally {
-      setIsAppleLoading(false);
-    }
+    await runSocialSignIn(
+      signInWithApple,
+      'Failed to sign in with Apple',
+      setError,
+      setIsAppleLoading
+    );
   };
 
   return {

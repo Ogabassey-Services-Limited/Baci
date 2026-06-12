@@ -33,6 +33,94 @@ interface CryptoPaymentData {
   trackingToken?: string | null;
 }
 
+type CryptoStatus =
+  | 'loading'
+  | 'ready'
+  | 'verifying'
+  | 'confirmed'
+  | 'failed'
+  | 'error';
+
+interface CryptoInitRequest {
+  merchantId?: string;
+  orderId: string;
+  amount: string;
+  customerEmail: string;
+  customerName: string;
+  customerPhone: string;
+  cryptoChain: string;
+  cryptoCurrency: string;
+  trackingToken: string | null;
+}
+
+interface CryptoInitHandlers {
+  setStatus: (status: CryptoStatus) => void;
+  setErrorMessage: (message: string | null) => void;
+  setCryptoData: (data: CryptoPaymentData | null) => void;
+}
+
+// Module-scope helper: throw-inside-try and the loading-state bookkeeping live
+// here so the component body stays compilable by React Compiler.
+async function initializeCryptoPayment(
+  request: CryptoInitRequest,
+  { setStatus, setErrorMessage, setCryptoData }: CryptoInitHandlers,
+) {
+  try {
+    setStatus('loading');
+    setErrorMessage(null);
+
+    const res = await fetch('/api/payments/initialize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        merchant_id: request.merchantId,
+        order_id: request.orderId,
+        amount: Number.parseInt(request.amount, 10),
+        currency: 'NGN',
+        customer_email: request.customerEmail,
+        customer_name: request.customerName,
+        customer_phone: request.customerPhone,
+        gateway: 'juicyway',
+        crypto_chain: request.cryptoChain,
+        crypto_currency: request.cryptoCurrency,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(
+        errorData.details || errorData.error || 'Payment initialization failed'
+      );
+    }
+
+    const result = await res.json();
+
+    if (result.success && result.crypto_payment) {
+      setCryptoData({
+        address: result.crypto_payment.address,
+        chain: result.crypto_payment.chain,
+        currency: result.crypto_payment.currency,
+        amount: result.crypto_payment.amount / 100,
+        confirmation_time: result.crypto_payment.confirmation_time,
+        orderId: request.orderId,
+        reference: result.reference,
+        paymentId: result.crypto_payment.payment_id || '',
+        qrcode: result.crypto_payment.qrcode,
+        trackingToken: request.trackingToken,
+      });
+      setStatus('ready');
+    } else {
+      throw new Error('Failed to generate crypto payment address');
+    }
+  } catch (error) {
+    console.error('Crypto payment init error:', error);
+    setStatus('error');
+    setErrorMessage(
+      error instanceof Error ? error.message : 'Failed to initialize crypto payment'
+    );
+  }
+}
+
 export function CryptoCheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -51,9 +139,7 @@ export function CryptoCheckoutPage() {
     searchParams.get('tracking_token') ||
     searchParams.get('token');
 
-  const [status, setStatus] = useState<
-    'loading' | 'ready' | 'verifying' | 'confirmed' | 'failed' | 'error'
-  >('loading');
+  const [status, setStatus] = useState<CryptoStatus>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [cryptoData, setCryptoData] = useState<CryptoPaymentData | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
@@ -81,73 +167,26 @@ export function CryptoCheckoutPage() {
     }
   };
 
-  // Initialize payment on mount
+  // Initialize payment on mount; the missing-params error is derived during
+  // render instead of being set synchronously from this effect.
   useEffect(() => {
     if (loading) return;
-    if (!orderId || !amount) {
-      setStatus('error');
-      setErrorMessage('Missing order ID or amount.');
-      return;
-    }
+    if (!orderId || !amount) return;
 
-    const initPayment = async () => {
-      try {
-        setStatus('loading');
-        setErrorMessage(null);
-
-        const res = await fetch('/api/payments/initialize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            merchant_id: merchant?.id,
-            order_id: orderId,
-            amount: Number.parseInt(amount, 10),
-            currency: 'NGN',
-            customer_email: customerEmail,
-            customer_name: customerName,
-            customer_phone: customerPhone,
-            gateway: 'juicyway',
-            crypto_chain: cryptoChain,
-            crypto_currency: cryptoCurrency,
-          }),
-        });
-
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(
-            errorData.details || errorData.error || 'Payment initialization failed'
-          );
-        }
-
-        const result = await res.json();
-
-        if (result.success && result.crypto_payment) {
-          setCryptoData({
-            address: result.crypto_payment.address,
-            chain: result.crypto_payment.chain,
-            currency: result.crypto_payment.currency,
-            amount: result.crypto_payment.amount / 100,
-            confirmation_time: result.crypto_payment.confirmation_time,
-            orderId: orderId,
-            reference: result.reference,
-            paymentId: result.crypto_payment.payment_id || '',
-            qrcode: result.crypto_payment.qrcode,
-            trackingToken,
-          });
-          setStatus('ready');
-        } else {
-          throw new Error('Failed to generate crypto payment address');
-        }
-      } catch (error) {
-        console.error('Crypto payment init error:', error);
-        setStatus('error');
-        setErrorMessage(
-          error instanceof Error ? error.message : 'Failed to initialize crypto payment'
-        );
-      }
-    };
-
-    initPayment();
+    initializeCryptoPayment(
+      {
+        merchantId: merchant?.id,
+        orderId,
+        amount,
+        customerEmail,
+        customerName,
+        customerPhone,
+        cryptoChain,
+        cryptoCurrency,
+        trackingToken,
+      },
+      { setStatus, setErrorMessage, setCryptoData }
+    );
   }, [
     orderId,
     amount,
@@ -262,7 +301,9 @@ export function CryptoCheckoutPage() {
     };
   }, []);
 
-  if (status === 'error') {
+  const missingOrderParams = !loading && (!orderId || !amount);
+
+  if (status === 'error' || missingOrderParams) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-8 text-center">
@@ -272,7 +313,9 @@ export function CryptoCheckoutPage() {
           <h2 className="text-xl font-bold text-gray-900 mb-2">
             Payment Initialization Failed
           </h2>
-          <p className="text-gray-600 mb-6">{errorMessage}</p>
+          <p className="text-gray-600 mb-6">
+            {missingOrderParams ? 'Missing order ID or amount.' : errorMessage}
+          </p>
           <button
             type="button"
             onClick={() => window.location.reload()}

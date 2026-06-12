@@ -16,6 +16,54 @@ interface LoyaltyEnrollmentFormProps {
   onEnrolled?: () => void;
 }
 
+interface SubmitLoyaltyEnrollmentParams {
+  enroll: ReturnType<typeof useLoyalty>['enroll'];
+  referralCode: string;
+  toast: ReturnType<typeof useToast>['toast'];
+  onEnrolled?: () => void;
+  setEnrollmentData: (
+    data: { points: number; referralCode: string } | null
+  ) => void;
+  setShowSuccess: (show: boolean) => void;
+  setEnrolling: (enrolling: boolean) => void;
+}
+
+async function submitLoyaltyEnrollment({
+  enroll,
+  referralCode,
+  toast,
+  onEnrolled,
+  setEnrollmentData,
+  setShowSuccess,
+  setEnrolling,
+}: SubmitLoyaltyEnrollmentParams) {
+  setEnrolling(true);
+  try {
+    const result = await enroll(referralCode || undefined);
+
+    if (result.success) {
+      setEnrollmentData({
+        points: result.points_balance || 0,
+        referralCode: result.referral_code || '',
+      });
+      setShowSuccess(true);
+      toast({
+        title: 'Welcome!',
+        description: 'You have successfully joined our loyalty program',
+      });
+      onEnrolled?.();
+    } else {
+      toast({
+        title: 'Enrollment Failed',
+        description: result.error || 'Unable to join the loyalty program',
+        variant: 'destructive',
+      });
+    }
+  } finally {
+    setEnrolling(false);
+  }
+}
+
 export function LoyaltyEnrollmentForm({
   merchantId,
   customerId,
@@ -36,32 +84,16 @@ export function LoyaltyEnrollmentForm({
     return null; // Already enrolled, component should be hidden
   }
 
-  const handleEnroll = async () => {
-    setEnrolling(true);
-    try {
-      const result = await enroll(referralCode || undefined);
-
-      if (result.success) {
-        setEnrollmentData({
-          points: result.points_balance || 0,
-          referralCode: result.referral_code || '',
-        });
-        setShowSuccess(true);
-        toast({
-          title: 'Welcome!',
-          description: 'You have successfully joined our loyalty program',
-        });
-        onEnrolled?.();
-      } else {
-        toast({
-          title: 'Enrollment Failed',
-          description: result.error || 'Unable to join the loyalty program',
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setEnrolling(false);
-    }
+  const handleEnroll = () => {
+    void submitLoyaltyEnrollment({
+      enroll,
+      referralCode,
+      toast,
+      onEnrolled,
+      setEnrollmentData,
+      setShowSuccess,
+      setEnrolling,
+    });
   };
 
   if (showSuccess && enrollmentData) {

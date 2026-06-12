@@ -1,12 +1,13 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import type { ComponentType } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateOrganizationSchema } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
-import { getTemplate } from '@/templates/registry';
+import { getTemplate, type TemplatePageProps } from '@/templates/registry';
 import { ContactPageClient } from '../pages/contact/contact-page-client';
 
 interface PageProps {
@@ -67,24 +68,15 @@ export async function ContactPageContent({ params }: PageProps) {
   );
 
   const templateId = merchant.template_id;
+  let ContactComponent: ComponentType<TemplatePageProps> | null = null;
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
     if (template) {
+      // try/catch only guards the async component load; the JSX itself is
+      // constructed outside so render errors flow to the route error boundary.
       try {
         const components = await template.getComponents();
-        if (components.Contact) {
-          const ContactComponent = components.Contact;
-          return (
-            <>
-              {jsonLdScript}
-              <ContactComponent
-                merchant={toTemplateMerchantData(merchant)}
-                storeSlug={merchant.slug}
-                isPreview={false}
-              />
-            </>
-          );
-        }
+        ContactComponent = components.Contact ?? null;
       } catch (error) {
         console.error(
           'Failed to load Contact component for template',
@@ -94,6 +86,19 @@ export async function ContactPageContent({ params }: PageProps) {
         );
       }
     }
+  }
+
+  if (ContactComponent) {
+    return (
+      <>
+        {jsonLdScript}
+        <ContactComponent
+          merchant={toTemplateMerchantData(merchant)}
+          storeSlug={merchant.slug}
+          isPreview={false}
+        />
+      </>
+    );
   }
 
   return (

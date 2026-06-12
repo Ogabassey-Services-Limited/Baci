@@ -16,6 +16,41 @@ interface Product {
   price: string;
 }
 
+// Module-scope helper: keeps try/catch out of the component body so React
+// Compiler can optimize the component.
+async function fetchReviewPageData(
+  merchantSlug: string,
+  merchantId: string,
+  customerEmail: string
+): Promise<{
+  orders: StorefrontTransformedOrder[] | null;
+  reviews: unknown[] | null;
+}> {
+  try {
+    // 1. Fetch Orders to find pending reviews
+    const ordersRes = await fetch(
+      `/api/storefront/orders?merchantSlug=${merchantSlug}`
+    );
+    const ordersData = (await ordersRes.json()) as {
+      orders?: StorefrontTransformedOrder[];
+    };
+
+    // 2. Fetch User's History of Reviews
+    const reviewsRes = await fetch(
+      `/api/reviews?merchantId=${merchantId}&customerEmail=${encodeURIComponent(customerEmail)}`
+    );
+    const reviewsData = (await reviewsRes.json()) as { reviews?: unknown[] };
+
+    return {
+      orders: ordersData.orders ?? null,
+      reviews: reviewsData.reviews ?? null,
+    };
+  } catch (err) {
+    console.error('Failed to fetch review data', err);
+    return { orders: null, reviews: null };
+  }
+}
+
 
 
 interface RatingModalProps {
@@ -142,40 +177,47 @@ export const OgabasseyV2Reviews: React.FC = () => {
 
   const [orders, setOrders] = useState<StorefrontTransformedOrder[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Loading is derived instead of mirrored into state by the effect: we are
+  // loading whenever the current auth/merchant/customer combination has not
+  // settled its fetch yet.
+  const fetchKey =
+    isAuthenticated && merchant?.slug && merchant?.id && customer?.email
+      ? `${merchant.slug}|${merchant.id}|${customer.email}`
+      : null;
+  const [settledKey, setSettledKey] = useState<string | null>(null);
+  const [prevFetchKey, setPrevFetchKey] = useState(fetchKey);
+
+  // Reset inline when the fetch inputs change (prev-prop comparison during
+  // render, before return) so a session change re-shows the loader without a
+  // stale-data frame.
+  if (fetchKey !== prevFetchKey) {
+    setPrevFetchKey(fetchKey);
+    setSettledKey(null);
+  }
+
+  const isLoading = fetchKey !== null && settledKey !== fetchKey;
 
   // Fetch data
   useEffect(() => {
-    const fetchData = async () => {
-      if (!isAuthenticated || !merchant?.slug || !customer?.email) {
-        setIsLoading(false);
-        return;
+    if (!isAuthenticated || !merchant?.slug || !merchant?.id || !customer?.email) {
+      return;
+    }
+
+    const key = `${merchant.slug}|${merchant.id}|${customer.email}`;
+    let cancelled = false;
+    fetchReviewPageData(merchant.slug, merchant.id, customer.email).then(
+      (data) => {
+        if (cancelled) return;
+        if (data.orders) setOrders(data.orders);
+        if (data.reviews) setReviews(data.reviews);
+        setSettledKey(key);
       }
+    );
 
-      setIsLoading(true);
-      try {
-        // 1. Fetch Orders to find pending reviews
-        const ordersRes = await fetch(
-          `/api/storefront/orders?merchantSlug=${merchant.slug}`
-        );
-        const ordersData = await ordersRes.json();
-
-        // 2. Fetch User's History of Reviews
-        const reviewsRes = await fetch(
-          `/api/reviews?merchantId=${merchant.id}&customerEmail=${encodeURIComponent(customer.email)}`
-        );
-        const reviewsData = await reviewsRes.json();
-
-        if (ordersData.orders) setOrders(ordersData.orders);
-        if (reviewsData.reviews) setReviews(reviewsData.reviews);
-      } catch (err) {
-        console.error('Failed to fetch review data', err);
-      } finally {
-        setIsLoading(false);
-      }
+    return () => {
+      cancelled = true;
     };
-
-    fetchData();
   }, [isAuthenticated, merchant?.slug, merchant?.id, customer?.email]);
 
   // Derive "Pending" items from Delivered orders

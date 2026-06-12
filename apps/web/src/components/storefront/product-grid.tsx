@@ -46,6 +46,14 @@ const STAGGER_CLASSES = [
   'stagger-8',
 ];
 
+/** Latest server search response, keyed by the query that produced it. */
+interface ServerSearchSnapshot {
+  query: string;
+  productIds: string[];
+  didYouMean: string | null;
+  error: string | null;
+}
+
 export function StorefrontProductGrid({
   title = 'Shop By',
   columns = 4,
@@ -104,87 +112,99 @@ export function StorefrontProductGrid({
     merchant?.id === 'preview-merchant-id' ||
     merchant?.id?.endsWith('-preview') ||
     merchant?.id?.startsWith('demo-');
-  const [products, setProducts] = useState<Product[]>(() => {
-    if (isPreviewMode) {
-      return getSampleProductsForBusinessType(merchant?.business_type);
-    }
-    return [];
-  });
+  // Preview products are a pure derivation of the business type (stable
+  // module-level samples); only fetched products live in state.
+  const [fetchedProducts, setFetchedProducts] = useState<Product[]>([]);
+  const products = isPreviewMode
+    ? getSampleProductsForBusinessType(merchant?.business_type)
+    : fetchedProducts;
   const [isLoading, setIsLoading] = useState(!isPreviewMode);
   const [filterType, setFilterType] = useState<'category' | 'brand' | 'price'>(
     'category'
   );
-  const [serverSearchProductIds, setServerSearchProductIds] = useState<
-    string[]
-  >([]);
-  const [didYouMean, setDidYouMean] = useState<string | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
+  const [serverSearch, setServerSearch] = useState<ServerSearchSnapshot | null>(
+    null
+  );
+
+  // Server-search values are derived from the latest snapshot, so clearing the
+  // query needs no effect-driven state resets.
+  const isServerSearchActive = Boolean(
+    debouncedSearchQuery && merchant?.id && !isPreviewMode
+  );
+  const hasFreshServerSearch =
+    isServerSearchActive && serverSearch?.query === debouncedSearchQuery;
+  const serverSearchProductIds = hasFreshServerSearch
+    ? (serverSearch?.productIds ?? [])
+    : [];
+  const didYouMean = isServerSearchActive
+    ? (serverSearch?.didYouMean ?? null)
+    : null;
+  const isSearching = isServerSearchActive && !hasFreshServerSearch;
+  const searchError = hasFreshServerSearch
+    ? (serverSearch?.error ?? null)
+    : null;
 
   useEffect(() => {
-    if (isPreviewMode) {
-      setProducts(getSampleProductsForBusinessType(merchant?.business_type));
+    if (isPreviewMode || !merchant?.id) {
       return;
     }
 
-    if (merchant?.id && !isPreviewMode) {
-      const params = new URLSearchParams({
-        merchant_id: merchant.id,
-        compact: 'true',
-        has_images: 'true',
-      });
+    const params = new URLSearchParams({
+      merchant_id: merchant.id,
+      compact: 'true',
+      has_images: 'true',
+    });
 
-      // Fetch products
-      apiGet<{ products: Product[] }>(
-        `/api/storefront/products?${params}`,
-        // Dashboard product creation must be visible immediately on storefronts;
-        // do not let a browser cache serve the pre-creation product list here.
-        { cache: 'no-store' }
-      )
-        .then((data) => {
-          if (data.products) {
-            setProducts(data.products);
-          }
-          setIsLoading(false);
-        })
-        .catch((err) => {
-          console.error(err);
-          setIsLoading(false);
-        });
-    }
-  }, [merchant?.business_type, merchant?.id, isPreviewMode]);
+    // Fetch products
+    apiGet<{ products: Product[] }>(
+      `/api/storefront/products?${params}`,
+      // Dashboard product creation must be visible immediately on storefronts;
+      // do not let a browser cache serve the pre-creation product list here.
+      { cache: 'no-store' }
+    )
+      .then((data) => {
+        if (data.products) {
+          setFetchedProducts(data.products);
+        }
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setIsLoading(false);
+      });
+  }, [merchant?.id, isPreviewMode]);
 
   useEffect(() => {
     if (!debouncedSearchQuery || !merchant?.id || isPreviewMode) {
-      setServerSearchProductIds([]);
-      setDidYouMean(null);
-      setIsSearching(false);
-      setSearchError(null);
       return;
     }
 
     let cancelled = false;
-    setIsSearching(true);
-    setSearchError(null);
     apiGet<{ didYouMean: string | null; productIds: string[] }>(
       `/api/search?q=${encodeURIComponent(debouncedSearchQuery)}&merchant_id=${merchant.id}`
     )
       .then((data) => {
         if (cancelled) return;
-        setServerSearchProductIds(data.productIds || []);
-        setDidYouMean(data.didYouMean || null);
-        setSearchError(null);
-        setIsSearching(false);
+        setServerSearch({
+          query: debouncedSearchQuery,
+          productIds: data.productIds || [],
+          didYouMean: data.didYouMean || null,
+          error: null,
+        });
       })
       .catch((err) => {
         if (cancelled) return;
         console.error('Search error:', err);
-        setSearchError(
-          err instanceof Error
-            ? err.message
-            : 'We could not refresh search results right now.'
-        );
-        setIsSearching(false);
+        // Keep the last available results visible alongside the error message.
+        setServerSearch((prev) => ({
+          query: debouncedSearchQuery,
+          productIds: prev?.productIds ?? [],
+          didYouMean: prev?.didYouMean ?? null,
+          error:
+            err instanceof Error
+              ? err.message
+              : 'We could not refresh search results right now.',
+        }));
       });
 
     return () => {

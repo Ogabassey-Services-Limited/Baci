@@ -8,7 +8,7 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { getTemplate } from '@/templates/registry';
+import { getTemplate, type TemplateComponents } from '@/templates/registry';
 import type { MerchantAboutPage } from '@/types/about-page';
 import { AboutPageClient } from '../pages/about/about-page-client';
 import { AboutJsonLd } from './about-json-ld';
@@ -84,17 +84,19 @@ async function AboutContent({ params }: PageProps) {
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
     if (template) {
+      // Resolve the component and its data inside try/catch, but construct
+      // the JSX outside it — try/catch cannot catch React render errors.
+      let templateAbout: {
+        AboutComponent: NonNullable<TemplateComponents['About']>;
+        merchantData: ReturnType<typeof toTemplateMerchantData>;
+      } | null = null;
       try {
         const components = await template.getComponents();
         if (components.About) {
-          const AboutComponent = components.About;
-          return (
-            <AboutComponent
-              merchant={toTemplateMerchantData(merchant)}
-              storeSlug={merchant.slug}
-              isPreview={false}
-            />
-          );
+          templateAbout = {
+            AboutComponent: components.About,
+            merchantData: toTemplateMerchantData(merchant),
+          };
         }
       } catch (error) {
         console.error(
@@ -102,6 +104,16 @@ async function AboutContent({ params }: PageProps) {
           templateId,
           ':',
           error
+        );
+      }
+      if (templateAbout) {
+        const { AboutComponent, merchantData } = templateAbout;
+        return (
+          <AboutComponent
+            merchant={merchantData}
+            storeSlug={merchant.slug}
+            isPreview={false}
+          />
         );
       }
     }

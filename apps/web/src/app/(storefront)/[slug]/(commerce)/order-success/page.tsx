@@ -39,6 +39,34 @@ interface OrderData {
 import { GoogleCustomerReviews } from '@/components/analytics/google-customer-reviews';
 import { useAuthSafe } from '@/contexts/auth-context';
 
+// Default to 5 days for delivery logic if not available
+const DELIVERY_ESTIMATE_MS = 5 * 24 * 60 * 60 * 1000;
+
+async function fetchOrderData(
+  orderId: string,
+  merchantSlug: string | undefined,
+  orderToken: string | null
+): Promise<OrderData | null> {
+  try {
+    const query = new URLSearchParams();
+    if (merchantSlug) query.set('merchant_slug', merchantSlug);
+    if (orderToken) query.set('token', orderToken);
+    const url = query.toString()
+      ? `/api/storefront/orders/${orderId}?${query.toString()}`
+      : `/api/storefront/orders/${orderId}`;
+
+    // Use storefront endpoint (guest-accessible, token-based)
+    const res = await fetch(url);
+    if (res.ok) {
+      return (await res.json()) as OrderData;
+    }
+  } catch (err) {
+    console.error('Failed to fetch order', err);
+  }
+
+  return null;
+}
+
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
@@ -54,6 +82,10 @@ function OrderSuccessContent() {
 
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [estimatedDeliveryDate] = useState(
+    () =>
+      new Date(Date.now() + DELIVERY_ESTIMATE_MS).toISOString().split('T')[0]
+  );
 
   // Helper for dynamic links
   const getHref = (path: string) =>
@@ -62,38 +94,22 @@ function OrderSuccessContent() {
       : `${basePath || ''}${path === '/' ? '' : path}`;
 
   useEffect(() => {
-    async function fetchOrder() {
-      if (!orderId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const query = new URLSearchParams();
-        if (merchant?.slug) query.set('merchant_slug', merchant.slug);
-        if (orderToken) query.set('token', orderToken);
-        const url = query.toString()
-          ? `/api/storefront/orders/${orderId}?${query.toString()}`
-          : `/api/storefront/orders/${orderId}`;
-
-        // Use storefront endpoint (guest-accessible, token-based)
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          setOrder(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch order', err);
-      } finally {
-        setLoading(false);
-      }
+    if (!orderId) {
+      return;
     }
 
-    fetchOrder();
+    fetchOrderData(orderId, merchant?.slug, orderToken).then((data) => {
+      if (data) {
+        setOrder(data);
+      }
+      setLoading(false);
+    });
   }, [orderId, merchant?.slug, orderToken]);
 
+  // Without an order id there is nothing to fetch, so we are never loading.
+  const isLoading = loading && Boolean(orderId);
   const hasValidatedOrder = Boolean(order);
-  const hasRecoveryState = !loading && !hasValidatedOrder;
+  const hasRecoveryState = !isLoading && !hasValidatedOrder;
   const isInvoice =
     _type === 'invoice' ||
     order?.payment_status === 'invoice' ||
@@ -127,12 +143,7 @@ function OrderSuccessContent() {
           merchant={merchant}
           orderId={order.id}
           email={order.customer_email}
-          // Default to 5 days for delivery logic if not available
-          deliveryDate={
-            new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
-              .toISOString()
-              .split('T')[0]
-          }
+          deliveryDate={estimatedDeliveryDate}
           country={merchant.country || 'NG'}
           products={googleCustomerReviewProducts}
         />
@@ -165,7 +176,7 @@ function OrderSuccessContent() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{heading}</h1>
           <p className="text-gray-500 mb-8">{description}</p>
 
-          {loading && (
+          {isLoading && (
             <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-500 mb-8">
               <Loader2 className="size-4 animate-spin" />
               <span>Fetching your order summary…</span>

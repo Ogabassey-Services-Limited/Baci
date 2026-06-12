@@ -2,7 +2,7 @@
 
 import { Cookie, Settings2, Shield, X } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -322,34 +322,38 @@ export function CookieConsent() {
   );
 }
 
+// Listen for consent updates (saveConsent writes localStorage before
+// dispatching, so re-reading the snapshot always observes the new value)
+function subscribeToConsentUpdates(callback: () => void) {
+  window.addEventListener('cookie-consent-updated', callback);
+  return () => window.removeEventListener('cookie-consent-updated', callback);
+}
+
+function getConsentSnapshot(): string | null {
+  return localStorage.getItem(COOKIE_CONSENT_KEY);
+}
+
+function getConsentServerSnapshot(): string | null {
+  return null;
+}
+
 /**
  * Hook to check cookie consent status
  */
-export function useCookieConsent() {
-  const [consent, setConsent] = useState<CookiePreferences | null>(null);
+export function useCookieConsent(): CookiePreferences | null {
+  const savedConsent = useSyncExternalStore(
+    subscribeToConsentUpdates,
+    getConsentSnapshot,
+    getConsentServerSnapshot
+  );
 
-  useEffect(() => {
-    const saved = localStorage.getItem(COOKIE_CONSENT_KEY);
-    if (saved) {
-      try {
-        setConsent(JSON.parse(saved));
-      } catch {
-        setConsent(null);
-      }
-    }
+  if (!savedConsent) return null;
 
-    // Listen for consent updates
-    const handleUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<CookiePreferences>;
-      setConsent(customEvent.detail);
-    };
-
-    window.addEventListener('cookie-consent-updated', handleUpdate);
-    return () =>
-      window.removeEventListener('cookie-consent-updated', handleUpdate);
-  }, []);
-
-  return consent;
+  try {
+    return JSON.parse(savedConsent) as CookiePreferences;
+  } catch {
+    return null;
+  }
 }
 
 /**

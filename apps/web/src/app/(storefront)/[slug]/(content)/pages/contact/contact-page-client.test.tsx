@@ -3,9 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies
 const mockToast = vi.fn();
+const { fetchWithCsrfMock } = vi.hoisted(() => ({
+  fetchWithCsrfMock: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
+}));
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: fetchWithCsrfMock,
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
@@ -52,7 +59,6 @@ const mockMerchant = {
 describe('ContactPageClient', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    global.fetch = vi.fn();
   });
 
   it('renders contact form fields', () => {
@@ -76,9 +82,7 @@ describe('ContactPageClient', () => {
   });
 
   it('submits form with correct field names matching API contract', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-    });
+    fetchWithCsrfMock.mockResolvedValueOnce({ ok: true });
 
     render(<ContactPageClient merchant={mockMerchant} />);
 
@@ -98,7 +102,7 @@ describe('ContactPageClient', () => {
     fireEvent.click(screen.getByRole('button', { name: /send message/i }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchWithCsrfMock).toHaveBeenCalledWith(
         '/api/forms/submit',
         expect.objectContaining({
           method: 'POST',
@@ -107,9 +111,7 @@ describe('ContactPageClient', () => {
       );
     });
 
-    const body = JSON.parse(
-      (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body
-    );
+    const body = JSON.parse(fetchWithCsrfMock.mock.calls[0][1].body);
     expect(body).toHaveProperty('merchantId', 'test-merchant-id');
     expect(body).toHaveProperty('formName', 'contact');
     expect(body).toHaveProperty('formData');
@@ -127,9 +129,7 @@ describe('ContactPageClient', () => {
   });
 
   it('shows success toast on successful submission', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-    });
+    fetchWithCsrfMock.mockResolvedValueOnce({ ok: true });
 
     render(<ContactPageClient merchant={mockMerchant} />);
 
@@ -158,10 +158,7 @@ describe('ContactPageClient', () => {
   });
 
   it('shows error toast on failed submission', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-    });
+    fetchWithCsrfMock.mockResolvedValueOnce({ ok: false, status: 500 });
 
     render(<ContactPageClient merchant={mockMerchant} />);
 

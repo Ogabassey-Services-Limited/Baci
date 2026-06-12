@@ -3,7 +3,7 @@
 import { Check, Gift, Info, MapPin, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
@@ -43,25 +43,28 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
   const [recipientPhone, setRecipientPhone] = useState('');
   const [message, setMessage] = useState('');
   const [wrapping, setWrapping] = useState<'standard' | 'custom' | null>(null);
+  const [prevIsOpen, setPrevIsOpen] = useState(false);
+  const [prevCart, setPrevCart] = useState(cart);
 
-  // Initialize/Sync selected items when modal opens or cart changes
-  useEffect(() => {
+  // Initialize/Sync selected items when modal opens or cart changes.
+  // Render-time prev comparison (instead of an effect) avoids committing a
+  // frame with a stale selection.
+  if (isOpen !== prevIsOpen || cart !== prevCart) {
+    setPrevIsOpen(isOpen);
+    setPrevCart(cart);
     if (isOpen) {
-      setSelectedItemIds((prev) => {
-        const currentCartIds = cart.map((i) => i.cartItemId);
+      const currentCartIds = cart.map((i) => i.cartItemId);
 
-        // Filter out any IDs that are no longer in the cart
-        const validPrev = prev.filter((id) => currentCartIds.includes(id));
+      // Filter out any IDs that are no longer in the cart
+      const validPrev = selectedItemIds.filter((id) =>
+        currentCartIds.includes(id)
+      );
 
-        // If selection is empty (first load or all previous selected items removed), select all
-        // This provides a good default "Gift Order" experience
-        if (validPrev.length === 0) {
-          return currentCartIds;
-        }
-        return validPrev;
-      });
+      // If selection is empty (first load or all previous selected items removed), select all
+      // This provides a good default "Gift Order" experience
+      setSelectedItemIds(validPrev.length === 0 ? currentCartIds : validPrev);
     }
-  }, [isOpen, cart]);
+  }
 
   if (!isOpen) return null;
 
