@@ -267,7 +267,10 @@ export function AddressAutocomplete({
         ) : internalValue ? (
           <Pressable
             onPress={handleClear}
-            style={styles.clearButton}
+            style={({ pressed }) => [
+              styles.clearButton,
+              pressed && { opacity: 0.7 },
+            ]}
             accessibilityLabel="Clear address"
             accessibilityRole="button"
           >
