@@ -153,8 +153,19 @@ export function ExpenseFormFields({
                   { backgroundColor: 'rgba(0,0,0,0.6)' },
                 ]}
               >
-                <Ionicons name="camera" size={20} color="#FFF" />
-                <Text style={expenseFormStyles.changeImageText}>Change</Text>
+                <Ionicons
+                  name="camera"
+                  size={20}
+                  color={colors.textOnPrimary}
+                />
+                <Text
+                  style={[
+                    expenseFormStyles.changeImageText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Change
+                </Text>
               </View>
             </>
           ) : (
