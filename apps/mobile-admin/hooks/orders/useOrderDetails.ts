@@ -16,11 +16,35 @@ interface OrderItemRow {
   product_id: string | null;
   products:
     | {
+        categories:
+          | {
+              name: string | null;
+              slug: string | null;
+            }
+          | Array<{
+              name: string | null;
+              slug: string | null;
+            }>
+          | null;
+        category: string | null;
+        category_id: string | null;
         condition: string | null;
         images: string[] | null;
         name: string;
       }
     | Array<{
+        categories:
+          | {
+              name: string | null;
+              slug: string | null;
+            }
+          | Array<{
+              name: string | null;
+              slug: string | null;
+            }>
+          | null;
+        category: string | null;
+        category_id: string | null;
         condition: string | null;
         images: string[] | null;
         name: string;
@@ -59,7 +83,7 @@ export async function fetchOrderById(
     supabase
       .from('order_items')
       .select(
-        'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition)'
+        'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition, category, category_id, categories:category_id(name, slug))'
       )
       .eq('order_id', orderId),
     supabase
@@ -167,9 +191,14 @@ export async function fetchOrderById(
     fulfillment_details: orderWithMeta.fulfillment_details ?? null,
     items: ((items as OrderItemRow[] | null) ?? []).map((item) => {
       const product = getJoinedRecord(item.products);
+      const productCategory = getJoinedRecord(product?.categories);
       const itemName = item.name ?? product?.name ?? 'Unnamed item';
+      const categoryName =
+        productCategory?.name ?? product?.category ?? undefined;
 
       return {
+        category: categoryName,
+        category_slug: productCategory?.slug ?? undefined,
         condition: product?.condition ?? undefined,
         has_assurance: item.has_assurance ?? undefined,
         id: item.id,
