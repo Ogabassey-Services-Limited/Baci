@@ -71,4 +71,19 @@ describe('applyWalletRouteAction', () => {
     expect(setters.setShowRedeemPanel).not.toHaveBeenCalled();
     expect(setters.setShowSavingsProgressModal).not.toHaveBeenCalled();
   });
+
+  it("leaves all panel state untouched for unsupported string actions like 'deposit'", () => {
+    applyWalletRouteAction({
+      routeAction: 'deposit',
+      routeRequiredAmount: '2500',
+      walletReturnTo: '/checkout',
+      ...setters,
+    });
+
+    expect(setters.setShowFundPanel).not.toHaveBeenCalled();
+    expect(setters.setShowRedeemPanel).not.toHaveBeenCalled();
+    expect(setters.setShowSavingsProgressModal).not.toHaveBeenCalled();
+    expect(setters.setFundAmount).not.toHaveBeenCalled();
+    expect(setters.setFundReturnTo).not.toHaveBeenCalled();
+  });
 });

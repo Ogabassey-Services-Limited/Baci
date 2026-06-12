@@ -98,15 +98,16 @@ export function useOrderDetailsController() {
   const requiresSignIn = Boolean(id) && (!user?.id || !customer?.id);
 
   // Reset stale order/policy state during render (instead of inside the fetch
-  // effect, which also runs on user/customer changes) so a new `id` never shows
+  // effect) so neither a new `id` nor a different signed-in identity ever shows
   // the previous order — or its insurance card — while the fetch is in flight.
-  const [prevId, setPrevId] = useState(id);
-  if (prevId !== id) {
-    setPrevId(id);
+  const resetKey = `${id ?? ''}|${user?.id ?? ''}|${customer?.id ?? ''}`;
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey);
     setOrder(null);
     setInsurancePolicy(null);
     setError(null);
-    setIsLoading(Boolean(id));
+    setIsLoading(Boolean(id) && Boolean(user?.id) && Boolean(customer?.id));
   }
 
   useEffect(() => {
