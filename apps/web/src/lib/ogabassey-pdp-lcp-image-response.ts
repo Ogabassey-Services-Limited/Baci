@@ -25,7 +25,7 @@ export async function buildOgabasseyPdpLcpImageResponse({
   productSlug,
   quality,
   width,
-}: OgabasseyPdpLcpImageResponseInput): Promise<NextResponse> {
+}: OgabasseyPdpLcpImageResponseInput): Promise<Response> {
   const parsed = ogabasseyPdpLcpImageRequestSchema.safeParse({
     productSlug,
     quality,
@@ -98,21 +98,16 @@ export async function buildOgabasseyPdpLcpImageResponse({
       sanitizeLookupLogValue(parsed.data.productSlug),
       error
     );
-    return new NextResponse(null, {
-      headers: {
-        'Cache-Control': PRELOAD_MISS_CACHE_CONTROL,
-      },
-      status: 502,
-    });
+    return createFallbackRedirectResponse(preloadUrl);
   }
 
   if (!imageResponse.ok || !imageResponse.body) {
-    return new NextResponse(null, {
-      headers: {
-        'Cache-Control': PRELOAD_MISS_CACHE_CONTROL,
-      },
-      status: 502,
-    });
+    console.warn(
+      'Transformed OgaBassey PDP LCP preload image returned unusable response:',
+      sanitizeLookupLogValue(parsed.data.productSlug),
+      imageResponse.status
+    );
+    return createFallbackRedirectResponse(preloadUrl);
   }
 
   const headers = new Headers({
@@ -127,8 +122,18 @@ export async function buildOgabasseyPdpLcpImageResponse({
     headers.set('Content-Length', contentLength);
   }
 
-  return new NextResponse(imageResponse.body, {
+  return new Response(imageResponse.body, {
     headers,
     status: 200,
+  });
+}
+
+function createFallbackRedirectResponse(preloadUrl: string): Response {
+  return new Response(null, {
+    headers: {
+      'Cache-Control': PRELOAD_MISS_CACHE_CONTROL,
+      Location: preloadUrl,
+    },
+    status: 307,
   });
 }

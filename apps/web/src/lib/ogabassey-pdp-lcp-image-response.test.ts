@@ -114,7 +114,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     expect(mockImageLoader).not.toHaveBeenCalled();
   });
 
-  it('returns 502 with a short cache when the transformed image fetch fails', async () => {
+  it('redirects to the transformed CDN image when the server-side image fetch fails', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -130,9 +130,39 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
       width: 750,
     });
 
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(307);
     expect(response.headers.get('cache-control')).toBe(
       'public, max-age=60, s-maxage=60'
+    );
+    expect(response.headers.get('location')).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+    );
+  });
+
+  it('redirects to the transformed CDN image when the upstream response is unusable', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'product-1',
+      images: [
+        'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
+      ],
+      name: 'Dell Alienware m18 R3',
+    });
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 403 }));
+
+    const response = await buildOgabasseyPdpLcpImageResponse({
+      productSlug: 'dell-alienware-m18-r3-rtx-5080',
+      quality: 30,
+      width: 750,
+    });
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+    );
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Transformed OgaBassey PDP LCP preload image returned unusable response:',
+      'dell-alienware-m18-r3-rtx-5080',
+      403
     );
   });
 
