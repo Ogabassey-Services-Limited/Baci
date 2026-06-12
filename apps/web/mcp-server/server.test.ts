@@ -172,7 +172,8 @@ describe('MCP streamable HTTP probe compatibility', () => {
         method: 'tools/list',
         params: {},
       });
-      const toolNames = getResultTools(payload).map((tool) => tool.name);
+      const tools = getResultTools(payload);
+      const toolNames = tools.map((tool) => tool.name);
 
       expect(toolNames).toEqual(
         expect.arrayContaining([
@@ -193,6 +194,15 @@ describe('MCP streamable HTTP probe compatibility', () => {
           'update_ucp_cart',
         ])
       );
+
+      const paymentTools = ['generate_payment_account', 'check_payment_status'];
+      for (const toolName of paymentTools) {
+        const tool = tools.find((candidate) => candidate.name === toolName);
+        expect(tool?.inputSchema.properties.customer_email).toMatchObject({
+          type: 'string',
+          format: 'email',
+        });
+      }
     } finally {
       await stopMcpServer(flaggedServer.process);
     }
