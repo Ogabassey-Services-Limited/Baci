@@ -9,7 +9,7 @@ import type {
   PendingCryptoOrder,
 } from '../types';
 import { CRYPTO_CHAIN_SUPPORT } from '../utils';
-import { toast } from '@/hooks/use-toast';
+import { runCryptoPaymentInitialization } from './initialize-crypto-payment';
 
 interface UseCryptoPaymentOptions {
   merchantId: string | undefined;
@@ -53,145 +53,21 @@ export function useCryptoPayment({
     }
   };
 
-  const pollForCryptoAddress = async (
-    sessionId: string,
-    paymentId: string,
-  ): Promise<{
-    address: string;
-    chain?: string;
-    currency?: string;
-    qrcode?: string;
-  } | null> => {
-    const MAX_ADDRESS_POLLS = 45; // ~90 seconds with 2s intervals
-    const POLL_INTERVAL = 2000;
-    const id = paymentId || sessionId;
-
-    for (let attempt = 0; attempt < MAX_ADDRESS_POLLS; attempt++) {
-      await new Promise((r) => setTimeout(r, POLL_INTERVAL));
-
-      try {
-        const res = await fetch(
-          `/api/payments/status?gateway=juicyway&session_id=${sessionId}&payment_id=${id}&check_address=true`,
-        );
-        if (!res.ok) continue;
-
-        const data = await res.json();
-        if (data.crypto_address?.address) {
-          return data.crypto_address;
-        }
-
-        // Stop if the payment itself failed
-        if (data.status === 'failed' || data.status === 'cancelled') {
-          return null;
-        }
-      } catch {
-        // Network error — keep trying
-      }
-    }
-    return null;
-  };
-
+  // The initialization flow lives in a module-scope helper because its
+  // try/finally + throw-inside-try/catch statements are React Compiler
+  // bailouts when defined inside the hook body.
   const initializeCryptoPayment = async () => {
     if (!pendingCryptoOrder || !merchantId) return;
 
-    setIsInitializingCrypto(true);
-    try {
-      const paymentResponse = await fetch('/api/payments/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          merchant_id: merchantId,
-          order_id: pendingCryptoOrder.orderId,
-          amount: pendingCryptoOrder.amount,
-          currency: 'NGN',
-          customer_email: pendingCryptoOrder.customerEmail,
-          customer_name: pendingCryptoOrder.customerName,
-          customer_phone: pendingCryptoOrder.customerPhone,
-          gateway: 'juicyway',
-          billing_address: pendingCryptoOrder.billingAddress,
-          items: pendingCryptoOrder.items,
-          crypto_chain: selectedCryptoChain,
-          crypto_currency: selectedCryptoCurrency,
-        }),
-      });
-
-      if (!paymentResponse.ok) {
-        const errorData = await paymentResponse.json();
-        throw new Error(
-          errorData.details ||
-            errorData.error ||
-            'Payment initialization failed',
-        );
-      }
-
-      const paymentResult = await paymentResponse.json();
-
-      if (paymentResult.success && paymentResult.crypto_payment) {
-        setShowCryptoSelector(false);
-
-        const cryptoAmount = paymentResult.crypto_payment.amount / 100;
-        const sessionId = paymentResult.session_id || '';
-        const paymentId = paymentResult.crypto_payment.payment_id || '';
-
-        // If the address is ready, set it immediately
-        if (
-          paymentResult.crypto_payment.address &&
-          !paymentResult.crypto_address_pending
-        ) {
-          setCryptoPaymentData({
-            address: paymentResult.crypto_payment.address,
-            chain: paymentResult.crypto_payment.chain,
-            currency: paymentResult.crypto_payment.currency,
-            amount: cryptoAmount,
-            confirmation_time: paymentResult.crypto_payment.confirmation_time,
-            orderId: pendingCryptoOrder.orderId,
-            reference: paymentResult.reference,
-            sessionId,
-            paymentId,
-            qrcode: paymentResult.crypto_payment.qrcode,
-            trackingToken: pendingCryptoOrder.trackingToken,
-          });
-        } else {
-          // Address still being generated — poll the status endpoint
-          const address = await pollForCryptoAddress(sessionId, paymentId);
-          if (address) {
-            setCryptoPaymentData({
-              address: address.address,
-              chain: address.chain || paymentResult.crypto_payment.chain,
-              currency:
-                address.currency || paymentResult.crypto_payment.currency,
-              amount: cryptoAmount,
-              confirmation_time:
-                paymentResult.crypto_payment.confirmation_time,
-              orderId: pendingCryptoOrder.orderId,
-              reference: paymentResult.reference,
-              sessionId,
-              paymentId,
-              qrcode: address.qrcode,
-              trackingToken: pendingCryptoOrder.trackingToken,
-            });
-          } else {
-            throw new Error(
-              'Crypto wallet address generation timed out. Please try again.',
-            );
-          }
-        }
-      } else {
-        throw new Error('Failed to generate crypto payment address');
-      }
-    } catch (error) {
-      console.error('Crypto payment initialization error:', error);
-      toast({
-        title: 'Crypto Payment Failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to initialize crypto payment',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsInitializingCrypto(false);
-    }
+    await runCryptoPaymentInitialization({
+      merchantId,
+      pendingCryptoOrder,
+      selectedCryptoChain,
+      selectedCryptoCurrency,
+      setShowCryptoSelector,
+      setCryptoPaymentData,
+      setIsInitializingCrypto,
+    });
   };
 
   // Polling ref to track interval and attempts

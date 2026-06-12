@@ -12,7 +12,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -47,6 +47,96 @@ interface WishListPageClientProps {
   merchantCountry: string | null;
 }
 
+const CUSTOMER_EMAIL_STORAGE_KEY = 'customerEmail';
+const CUSTOMER_EMAIL_UPDATED_EVENT = 'baci-customer-email-updated';
+
+// The locally stored email is an external store; useSyncExternalStore keeps
+// render in sync with it without setState-in-effect (SSR renders no email).
+function subscribeToStoredEmail(callback: () => void) {
+  window.addEventListener(CUSTOMER_EMAIL_UPDATED_EVENT, callback);
+  return () =>
+    window.removeEventListener(CUSTOMER_EMAIL_UPDATED_EVENT, callback);
+}
+
+function getStoredEmailSnapshot(): string | null {
+  try {
+    return localStorage.getItem(CUSTOMER_EMAIL_STORAGE_KEY);
+  } catch {
+    // localStorage not available
+    return null;
+  }
+}
+
+function getStoredEmailServerSnapshot(): string | null {
+  return null;
+}
+
+function writeStoredEmail(email: string | null) {
+  try {
+    if (email === null) {
+      localStorage.removeItem(CUSTOMER_EMAIL_STORAGE_KEY);
+    } else {
+      localStorage.setItem(CUSTOMER_EMAIL_STORAGE_KEY, email);
+    }
+  } catch {
+    // localStorage not available
+  }
+  window.dispatchEvent(new Event(CUSTOMER_EMAIL_UPDATED_EVENT));
+}
+
+// Module-scope helpers keep try/finally and throw-in-try out of the component
+// body so React Compiler can memoize it (react-doctor `todo` bailouts).
+async function fetchWishListItems(): Promise<WishListItem[]> {
+  // The API route resolves identity via Supabase auth cookies.
+  // For authenticated users, no extra params are needed.
+  // Email is used only for local state display, not for API lookup.
+  const response = await fetch('/api/wishlist');
+  if (!response.ok) {
+    throw new Error('Failed to fetch wish list');
+  }
+  const data = (await response.json()) as { items?: WishListItem[] };
+  return data.items ?? [];
+}
+
+async function removeWishListItem(itemId: string): Promise<void> {
+  const response = await fetchWithCsrf(`/api/wishlist?id=${itemId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to remove item');
+  }
+}
+
+// Convert wishlist item to product format for cart
+// Use joined category data if available, fallback to TEXT column
+function buildCartProduct(item: WishListItem): Product {
+  const categoryName =
+    item.products.categories?.name || item.products.category || '';
+  const categorySlug = item.products.categories?.slug;
+
+  return {
+    id: item.products.id,
+    name: item.products.name,
+    slug: item.products.slug,
+    description: item.products.description,
+    price: item.products.price,
+    image: item.products.images?.[0] || '',
+    imageLarge: item.products.images?.[0] || '',
+    imageHint: item.products.name,
+    stock:
+      item.products.stock_quantity == null
+        ? 9999
+        : item.products.stock_quantity,
+    category: categoryName,
+    category_slug: categorySlug,
+    status: item.products.status as 'active' | 'draft' | 'archived',
+    manage_stock: item.products.stock_quantity != null,
+    brand: '',
+    gtin: '',
+    mpn: '',
+  } as Product;
+}
+
 export function WishListPageClient({
   merchantCountry,
 }: WishListPageClientProps) {
@@ -56,63 +146,69 @@ export function WishListPageClient({
   const { customer, isAuthenticated } = useCustomerAuth();
   const merchantSlug = params.slug as string;
 
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [isEmailSubmitted, setIsEmailSubmitted] = useState(false);
+  const authedEmail = isAuthenticated && customer?.email ? customer.email : '';
+  const storedEmail = useSyncExternalStore(
+    subscribeToStoredEmail,
+    getStoredEmailSnapshot,
+    getStoredEmailServerSnapshot
+  );
+  const identityEmail = authedEmail || storedEmail || '';
+
+  const [customerEmail, setCustomerEmail] = useState(identityEmail);
+  const [isEmailSubmitted, setIsEmailSubmitted] = useState(
+    identityEmail !== ''
+  );
+  const [prevIdentityEmail, setPrevIdentityEmail] = useState(identityEmail);
   const [wishListItems, setWishListItems] = useState<WishListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(identityEmail !== '');
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [movingToCartId, setMovingToCartId] = useState<string | null>(null);
   const [shareUrlCopied, setShareUrlCopied] = useState(false);
 
+  // Adjust email state during render when the known identity (auth or stored
+  // email) changes
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  if (identityEmail !== prevIdentityEmail) {
+    setPrevIdentityEmail(identityEmail);
+    if (identityEmail) {
+      setCustomerEmail(identityEmail);
+      setIsEmailSubmitted(true);
+      setIsLoading(true);
+    }
+  }
+
   // Use dynamic currency based on merchant's country (provided server-side)
   const { formatCurrency } = useCurrencyWithCountry(merchantCountry);
 
-  // Check auth or localStorage and fetch wishlist
+  // Fetch the wishlist whenever the known identity changes.
+  // The API route resolves identity via Supabase auth cookies.
   useEffect(() => {
-    const loadWishList = async (emailForLookup: string) => {
-      if (!emailForLookup) return;
-      setIsLoading(true);
-      try {
-        // The API route resolves identity via Supabase auth cookies.
-        // For authenticated users, no extra params are needed.
-        // Email is used only for local state display, not for API lookup.
-        const response = await fetch('/api/wishlist');
-        if (response.ok) {
-          const data = await response.json();
-          setWishListItems(data.items || []);
-        } else {
-          throw new Error('Failed to fetch wish list');
+    if (!identityEmail) return;
+
+    let cancelled = false;
+    fetchWishListItems()
+      .then((items) => {
+        if (!cancelled) setWishListItems(items);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          toast({
+            title: 'Error',
+            description: 'Failed to load your wish list.',
+            variant: 'destructive',
+          });
         }
-      } catch {
-        toast({
-          title: 'Error',
-          description: 'Failed to load your wish list.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
     };
+  }, [identityEmail, toast]);
 
-    if (isAuthenticated && customer?.email) {
-      setCustomerEmail(customer.email);
-      setIsEmailSubmitted(true);
-      loadWishList(customer.email);
-    } else {
-      try {
-        const storedEmail = localStorage.getItem('customerEmail');
-        if (storedEmail) {
-          setCustomerEmail(storedEmail);
-          setIsEmailSubmitted(true);
-          loadWishList(storedEmail);
-        }
-      } catch {
-        // localStorage not available
-      }
-    }
-  }, [isAuthenticated, customer?.email, toast]);
-
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerEmail.trim()) {
       toast({
@@ -124,117 +220,91 @@ export function WishListPageClient({
     }
 
     // Store email in localStorage for display purposes
-    localStorage.setItem('customerEmail', customerEmail);
+    const nextIdentityEmail = authedEmail || customerEmail;
+    writeStoredEmail(customerEmail);
     setIsEmailSubmitted(true);
 
-    // Fetch wishlist - the API resolves identity via auth cookies
+    if (nextIdentityEmail !== identityEmail) {
+      // The identity change re-runs the fetch effect above.
+      return;
+    }
+
+    // Same identity (e.g. authenticated user re-submitting): fetch directly -
+    // the API resolves identity via auth cookies
     setIsLoading(true);
-    try {
-      const response = await fetch('/api/wishlist');
-      if (response.ok) {
-        const data = await response.json();
-        setWishListItems(data.items || []);
-      } else {
-        throw new Error('Failed to fetch wish list');
-      }
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to load your wish list.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRemoveItem = async (itemId: string, productName: string) => {
-    setRemovingItemId(itemId);
-    try {
-      const response = await fetchWithCsrf(`/api/wishlist?id=${itemId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to remove item');
-      }
-
-      setWishListItems((prev) => prev.filter((item) => item.id !== itemId));
-      toast({
-        title: 'Removed',
-        description: `${productName} has been removed from your wish list.`,
-      });
-    } catch (_error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to remove item from wish list.',
-        variant: 'destructive',
-      });
-    } finally {
-      setRemovingItemId(null);
-    }
-  };
-
-  const handleMoveToCart = async (item: WishListItem) => {
-    setMovingToCartId(item.id);
-    try {
-      // Convert wishlist item to product format for cart
-      // Use joined category data if available, fallback to TEXT column
-      const categoryName =
-        item.products.categories?.name || item.products.category || '';
-      const categorySlug = item.products.categories?.slug;
-
-      const product = {
-        id: item.products.id,
-        name: item.products.name,
-        slug: item.products.slug,
-        description: item.products.description,
-        price: item.products.price,
-        image: item.products.images?.[0] || '',
-        imageLarge: item.products.images?.[0] || '',
-        imageHint: item.products.name,
-        stock:
-          item.products.stock_quantity == null
-            ? 9999
-            : item.products.stock_quantity,
-        category: categoryName,
-        category_slug: categorySlug,
-        status: item.products.status as 'active' | 'draft' | 'archived',
-        manage_stock: item.products.stock_quantity != null,
-        brand: '',
-        gtin: '',
-        mpn: '',
-      } as Product;
-
-      addToCart(product, 1);
-
-      // Remove from wishlist
-      const response = await fetchWithCsrf(`/api/wishlist?id=${item.id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setWishListItems((prev) => prev.filter((i) => i.id !== item.id));
+    fetchWishListItems()
+      .then((items) => setWishListItems(items))
+      .catch(() => {
         toast({
-          title: 'Added to Cart',
-          description: `${item.products.name} has been added to your cart.`,
-        });
-      } else {
-        toast({
-          title: 'Partially Complete',
-          description: `${item.products.name} added to cart but could not be removed from wishlist.`,
+          title: 'Error',
+          description: 'Failed to load your wish list.',
           variant: 'destructive',
         });
-      }
+      })
+      .finally(() => setIsLoading(false));
+  };
+
+  const handleRemoveItem = (itemId: string, productName: string) => {
+    setRemovingItemId(itemId);
+    removeWishListItem(itemId)
+      .then(() => {
+        setWishListItems((prev) => prev.filter((item) => item.id !== itemId));
+        toast({
+          title: 'Removed',
+          description: `${productName} has been removed from your wish list.`,
+        });
+      })
+      .catch(() => {
+        toast({
+          title: 'Error',
+          description: 'Failed to remove item from wish list.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => setRemovingItemId(null));
+  };
+
+  const handleMoveToCart = (item: WishListItem) => {
+    setMovingToCartId(item.id);
+    try {
+      addToCart(buildCartProduct(item), 1);
     } catch {
       toast({
         title: 'Error',
         description: 'Failed to move item to cart.',
         variant: 'destructive',
       });
-    } finally {
       setMovingToCartId(null);
+      return;
     }
+
+    // Remove from wishlist
+    fetchWithCsrf(`/api/wishlist?id=${item.id}`, {
+      method: 'DELETE',
+    })
+      .then((response) => {
+        if (response.ok) {
+          setWishListItems((prev) => prev.filter((i) => i.id !== item.id));
+          toast({
+            title: 'Added to Cart',
+            description: `${item.products.name} has been added to your cart.`,
+          });
+        } else {
+          toast({
+            title: 'Partially Complete',
+            description: `${item.products.name} added to cart but could not be removed from wishlist.`,
+            variant: 'destructive',
+          });
+        }
+      })
+      .catch(() => {
+        toast({
+          title: 'Error',
+          description: 'Failed to move item to cart.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => setMovingToCartId(null));
   };
 
   const handleShareWishlist = async () => {
@@ -348,7 +418,7 @@ export function WishListPageClient({
             <Button
               variant="outline"
               onClick={() => {
-                localStorage.removeItem('customerEmail');
+                writeStoredEmail(null);
                 setIsEmailSubmitted(false);
                 setWishListItems([]);
               }}

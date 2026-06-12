@@ -17,6 +17,73 @@ interface UpsellToastProps {
   storeSlug?: string;
 }
 
+/**
+ * Fetch a semantically relevant product from the SAME category (Koray SEO
+ * aligned). Module-scope helper so the component body stays free of
+ * try/finally (React Compiler cannot lower try statements with finalizers).
+ */
+async function fetchUpsellSuggestion(
+  triggerProduct: Product,
+  merchantId: string | undefined
+): Promise<Product | null> {
+  try {
+    const category = triggerProduct.categorySlug || triggerProduct.category;
+    const params = new URLSearchParams({
+      limit: '4',
+      compact: 'true',
+      has_images: 'true',
+    });
+
+    // Filter to same category for semantic relevance
+    if (category) {
+      params.append('category', category);
+    }
+
+    if (merchantId) {
+      params.append('merchant_id', merchantId);
+    }
+
+    const res = await fetch(`/api/storefront/products?${params.toString()}`);
+    const data = await res.json();
+
+    // Filter out the trigger product and pick a random suggestion
+    const candidates = (data.products || []).filter(
+      (p: any) => String(p.id) !== String(triggerProduct.id)
+    );
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const randomIndex = Math.floor(Math.random() * candidates.length);
+    const rawProduct = candidates[randomIndex];
+
+    // Transform to Product type
+    return {
+      id: rawProduct.id,
+      name: rawProduct.name,
+      slug: rawProduct.slug,
+      price: new Intl.NumberFormat('en-NG', {
+        style: 'currency',
+        currency: 'NGN',
+      }).format(rawProduct.price),
+      rawPrice: rawProduct.price,
+      image: rawProduct.imageLarge || rawProduct.image,
+      images: [rawProduct.imageLarge || rawProduct.image],
+      description: rawProduct.description,
+      rating: rawProduct.rating || 0,
+      category: rawProduct.category,
+      categorySlug: rawProduct.categorySlug,
+      condition: normalizeProductCondition(rawProduct.condition) || 'new',
+      brand: rawProduct.brand,
+      merchantId: rawProduct.merchantId,
+    };
+  } catch (err) {
+    console.error('Failed to fetch upsell suggestion:', err);
+    return null;
+  }
+}
+
 export const UpsellToast: React.FC<UpsellToastProps> = ({
   isVisible,
   onClose,
@@ -30,72 +97,14 @@ export const UpsellToast: React.FC<UpsellToastProps> = ({
 
   useEffect(() => {
     if (isVisible && triggerProduct) {
-      // Fetch a semantically relevant product from the SAME category (Koray SEO aligned)
-      const fetchSuggestion = async () => {
+      const loadSuggestion = async () => {
         setLoading(true);
-        try {
-          const category = triggerProduct.categorySlug || triggerProduct.category;
-          const params = new URLSearchParams({
-            limit: '4',
-            compact: 'true',
-            has_images: 'true',
-          });
-
-          // Filter to same category for semantic relevance
-          if (category) {
-            params.append('category', category);
-          }
-
-          if (merchantId) {
-            params.append('merchant_id', merchantId);
-          }
-
-          const res = await fetch(`/api/storefront/products?${params.toString()}`);
-          const data = await res.json();
-
-          // Filter out the trigger product and pick a random suggestion
-          const candidates = (data.products || []).filter(
-            (p: any) => String(p.id) !== String(triggerProduct.id)
-          );
-
-          if (candidates.length > 0) {
-            const randomIndex = Math.floor(Math.random() * candidates.length);
-            const rawProduct = candidates[randomIndex];
-
-            // Transform to Product type
-            const product: Product = {
-              id: rawProduct.id,
-              name: rawProduct.name,
-              slug: rawProduct.slug,
-              price: new Intl.NumberFormat('en-NG', {
-                style: 'currency',
-                currency: 'NGN',
-              }).format(rawProduct.price),
-              rawPrice: rawProduct.price,
-              image: rawProduct.imageLarge || rawProduct.image,
-              images: [rawProduct.imageLarge || rawProduct.image],
-              description: rawProduct.description,
-              rating: rawProduct.rating || 0,
-              category: rawProduct.category,
-              categorySlug: rawProduct.categorySlug,
-              condition: normalizeProductCondition(rawProduct.condition) || 'new',
-              brand: rawProduct.brand,
-              merchantId: rawProduct.merchantId,
-            };
-
-            setSuggestion(product);
-          } else {
-            setSuggestion(null);
-          }
-        } catch (err) {
-          console.error('Failed to fetch upsell suggestion:', err);
-          setSuggestion(null);
-        } finally {
-          setLoading(false);
-        }
+        const product = await fetchUpsellSuggestion(triggerProduct, merchantId);
+        setSuggestion(product);
+        setLoading(false);
       };
 
-      fetchSuggestion();
+      loadSuggestion();
 
       // Auto dismiss after 8 seconds
       const timer = setTimeout(onClose, 8000);

@@ -70,6 +70,126 @@ const orderSteps = [
   { id: 'delivered', label: 'Delivered', icon: MapPin },
 ];
 
+type CheckoutVerificationStatus = 'success' | 'pending' | 'failed';
+
+interface VerifyCheckoutPaymentParams {
+  merchantSlug: string | undefined;
+  orderId: string | null;
+  reference: string | null;
+  trackingToken: string | null;
+}
+
+interface VerifyCheckoutPaymentHandlers {
+  clearCart: () => void;
+  redirectToCheckout: () => void;
+  scheduleFailedRedirect: () => void;
+  setIsVerifying: (isVerifying: boolean) => void;
+  setOrderNumber: (orderNumber: string | null) => void;
+  setPaymentMethod: (paymentMethod: string | null) => void;
+  setStatus: (status: CheckoutVerificationStatus) => void;
+}
+
+/**
+ * Runs payment/order verification and maps every outcome onto the page state
+ * via the supplied handlers. Module-scope so the try/finally blocks stay
+ * outside the component body (React Compiler cannot lower try/finally yet).
+ */
+async function verifyCheckoutPayment(
+  {
+    merchantSlug,
+    orderId,
+    reference,
+    trackingToken,
+  }: VerifyCheckoutPaymentParams,
+  {
+    clearCart,
+    redirectToCheckout,
+    scheduleFailedRedirect,
+    setIsVerifying,
+    setOrderNumber,
+    setPaymentMethod,
+    setStatus,
+  }: VerifyCheckoutPaymentHandlers
+): Promise<void> {
+  if (!reference) {
+    if (orderId) {
+      setIsVerifying(true);
+      try {
+        const query = new URLSearchParams();
+        if (merchantSlug) query.set('merchant_slug', merchantSlug);
+        if (trackingToken) query.set('tracking_token', trackingToken);
+        const queryString = query.toString();
+        const url = `/api/storefront/orders/${encodeURIComponent(orderId)}${
+          queryString ? `?${queryString}` : ''
+        }`;
+        const response = await fetch(url);
+        const data = response.ok ? await response.json() : null;
+        if (data && (data.order_number || data.short_id)) {
+          clearCart();
+          setStatus('success');
+          setOrderNumber(data.order_number || data.short_id);
+          if (data.payment_method) {
+            setPaymentMethod(data.payment_method);
+          }
+        } else {
+          // Fallback if API lookup fails
+          clearCart();
+          setStatus('success');
+          setOrderNumber(orderId.slice(0, 8).toUpperCase());
+        }
+      } catch (error) {
+        console.error('Failed to fetch order details on success page:', error);
+        clearCart();
+        setStatus('success');
+        setOrderNumber(orderId.slice(0, 8).toUpperCase());
+      } finally {
+        setIsVerifying(false);
+      }
+      return;
+    }
+
+    redirectToCheckout();
+    return;
+  }
+
+  setIsVerifying(true);
+
+  try {
+    const response = await fetchWithCsrf('/api/payments/verify', {
+      body: JSON.stringify({ reference }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    });
+    const raw: unknown = await response.json();
+    const data = isVerificationResponse(raw) ? raw : {};
+
+    if (data.status === 'pending') {
+      setStatus('pending');
+      setOrderNumber(data.orderNumber || reference.slice(0, 8).toUpperCase());
+    } else if (!response.ok) {
+      console.error('Payment verification failed:', data);
+      setStatus('failed');
+      scheduleFailedRedirect();
+    } else if (data.success && data.status === 'success') {
+      clearCart();
+      setStatus('success');
+      setOrderNumber(data.orderNumber || reference.slice(0, 8).toUpperCase());
+    } else if (data.status === 'failed' || data.status === 'cancelled') {
+      setStatus('failed');
+      scheduleFailedRedirect();
+    } else {
+      setStatus('pending');
+      setOrderNumber(reference.slice(0, 8).toUpperCase());
+    }
+  } catch (error) {
+    console.error('Failed to verify payment:', error);
+    setStatus('pending');
+    setOrderNumber(reference.slice(0, 8).toUpperCase());
+  } finally {
+    setIsVerifying(false);
+  }
+}
+
 export default function CheckoutSuccessPage() {
   return (
     <Suspense fallback={<CheckoutSuccessLoading />}>
@@ -103,9 +223,7 @@ function CheckoutSuccessContent() {
   const getHref = (path: string) =>
     path.startsWith('http') ? path : `${basePath}${path}`;
 
-  const [status, setStatus] = useState<'success' | 'pending' | 'failed'>(
-    'pending'
-  );
+  const [status, setStatus] = useState<CheckoutVerificationStatus>('pending');
   const [isVerifying, setIsVerifying] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
@@ -118,100 +236,29 @@ function CheckoutSuccessContent() {
     const timerHandle: { current: ReturnType<typeof setTimeout> | null } = {
       current: null,
     };
-
-    const verifyPayment = async () => {
-      if (!reference) {
-        if (orderId) {
-          setIsVerifying(true);
-          try {
-            const slug = merchantContext?.merchant?.slug;
-            const query = new URLSearchParams();
-            if (slug) query.set('merchant_slug', slug);
-            if (trackingToken) query.set('tracking_token', trackingToken);
-            const queryString = query.toString();
-            const url = `/api/storefront/orders/${encodeURIComponent(orderId)}${
-              queryString ? `?${queryString}` : ''
-            }`;
-            const response = await fetch(url);
-            const data = response.ok ? await response.json() : null;
-            if (data && (data.order_number || data.short_id)) {
-              clearCart();
-              setStatus('success');
-              setOrderNumber(data.order_number || data.short_id);
-              if (data.payment_method) {
-                setPaymentMethod(data.payment_method);
-              }
-            } else {
-              // Fallback if API lookup fails
-              clearCart();
-              setStatus('success');
-              setOrderNumber(orderId.slice(0, 8).toUpperCase());
-            }
-          } catch (error) {
-            console.error(
-              'Failed to fetch order details on success page:',
-              error
-            );
-            clearCart();
-            setStatus('success');
-            setOrderNumber(orderId.slice(0, 8).toUpperCase());
-          } finally {
-            setIsVerifying(false);
-          }
-          return;
-        }
-
-        router.push(asRoute(getHref('/checkout')));
-        return;
-      }
-
-      setIsVerifying(true);
-
-      try {
-        const response = await fetchWithCsrf('/api/payments/verify', {
-          body: JSON.stringify({ reference }),
-          headers: { 'Content-Type': 'application/json' },
-          method: 'POST',
-        });
-        const raw: unknown = await response.json();
-        const data = isVerificationResponse(raw) ? raw : {};
-
-        if (data.status === 'pending') {
-          setStatus('pending');
-          setOrderNumber(
-            data.orderNumber || reference.slice(0, 8).toUpperCase()
-          );
-        } else if (!response.ok) {
-          console.error('Payment verification failed:', data);
-          setStatus('failed');
-          timerHandle.current = setTimeout(() => {
-            router.push(asRoute(getHref('/checkout')));
-          }, 4000);
-        } else if (data.success && data.status === 'success') {
-          clearCart();
-          setStatus('success');
-          setOrderNumber(
-            data.orderNumber || reference.slice(0, 8).toUpperCase()
-          );
-        } else if (data.status === 'failed' || data.status === 'cancelled') {
-          setStatus('failed');
-          timerHandle.current = setTimeout(() => {
-            router.push(asRoute(getHref('/checkout')));
-          }, 4000);
-        } else {
-          setStatus('pending');
-          setOrderNumber(reference.slice(0, 8).toUpperCase());
-        }
-      } catch (error) {
-        console.error('Failed to verify payment:', error);
-        setStatus('pending');
-        setOrderNumber(reference.slice(0, 8).toUpperCase());
-      } finally {
-        setIsVerifying(false);
-      }
+    const redirectToCheckout = () => {
+      router.push(asRoute(getHref('/checkout')));
     };
 
-    verifyPayment();
+    verifyCheckoutPayment(
+      {
+        merchantSlug: merchantContext?.merchant?.slug,
+        orderId,
+        reference,
+        trackingToken,
+      },
+      {
+        clearCart,
+        redirectToCheckout,
+        scheduleFailedRedirect: () => {
+          timerHandle.current = setTimeout(redirectToCheckout, 4000);
+        },
+        setIsVerifying,
+        setOrderNumber,
+        setPaymentMethod,
+        setStatus,
+      }
+    );
 
     return () => {
       if (timerHandle.current !== null) {

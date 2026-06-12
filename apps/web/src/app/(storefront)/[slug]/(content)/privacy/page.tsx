@@ -11,7 +11,7 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
-import { getTemplate } from '@/templates/registry';
+import { getTemplate, type TemplateComponents } from '@/templates/registry';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
 interface PageProps {
@@ -110,27 +110,30 @@ async function PrivacyPageContent({ params }: PageProps) {
   if (templateHasPrivacyPage) {
     const template = getTemplate(merchant.template_id);
     if (template) {
+      let PrivacyComponent: NonNullable<TemplateComponents['Privacy']> | null =
+        null;
       try {
         const components = await template.getComponents();
-        if (components.Privacy) {
-          const PrivacyComponent = components.Privacy;
-          return (
-            <>
-              {jsonLdScript}
-              <PrivacyComponent
-                merchant={toTemplateMerchantData(merchant)}
-                storeSlug={merchant.slug}
-                isPreview={false}
-              />
-            </>
-          );
-        }
+        PrivacyComponent = components.Privacy ?? null;
       } catch (error) {
         console.error(
           'Failed to load Privacy component for template',
           merchant.template_id,
           ':',
           error
+        );
+      }
+
+      if (PrivacyComponent) {
+        return (
+          <>
+            {jsonLdScript}
+            <PrivacyComponent
+              merchant={toTemplateMerchantData(merchant)}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
+          </>
         );
       }
     }

@@ -54,6 +54,35 @@ interface ContactPageClientProps {
   legacyContent?: string;
 }
 
+interface ContactFormData {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
+// Module-scope helper: keeps try/catch out of the component body so React
+// Compiler can optimize the component.
+async function submitContactForm(
+  merchantId: string,
+  formData: ContactFormData
+): Promise<boolean> {
+  try {
+    const response = await fetch('/api/forms/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        merchantId,
+        formName: 'contact',
+        formData,
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export function ContactPageClient({
   merchant,
   legacyContent,
@@ -71,35 +100,23 @@ export function ContactPageClient({
     e.preventDefault();
     setIsSubmitting(true);
 
-    try {
-      const response = await fetch('/api/forms/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          merchantId: merchant.id,
-          formName: 'contact',
-          formData,
-        }),
-      });
+    const sent = await submitContactForm(merchant.id, formData);
 
-      if (response.ok) {
-        toast({
-          title: 'Message Sent!',
-          description: "We'll get back to you as soon as possible.",
-        });
-        setFormData({ name: '', email: '', subject: '', message: '' });
-      } else {
-        throw new Error('Failed to send message');
-      }
-    } catch {
+    if (sent) {
+      toast({
+        title: 'Message Sent!',
+        description: "We'll get back to you as soon as possible.",
+      });
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } else {
       toast({
         title: 'Error',
         description: 'Failed to send message. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
     }
+
+    setIsSubmitting(false);
   };
 
   const hasContactDetails =

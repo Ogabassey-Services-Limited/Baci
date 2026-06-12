@@ -9,34 +9,35 @@ import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { StorefrontWallet } from '@baci/shared';
 
 export function OgabasseyV2Wallet() {
-  const { isAuthenticated } = useCustomerAuth();
+  const { isAuthenticated, isLoading: isAuthLoading } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
 
   const [wallet, setWallet] = useState<StorefrontWallet | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [hasFetchSettled, setHasFetchSettled] = useState(false);
 
   useEffect(() => {
-    const fetchWallet = async () => {
-      if (!isAuthenticated || !merchant?.slug) {
-        setLoading(false);
-        return;
-      }
+    if (!isAuthenticated || !merchant?.slug) {
+      return;
+    }
 
-      try {
-        const res = await fetch(
-          `/api/storefront/customer/wallet?merchant=${merchant.slug}`
-        );
-        const data = await res.json();
+    // Promise chain instead of try/finally so React Compiler can optimize.
+    fetch(`/api/storefront/customer/wallet?merchant=${merchant.slug}`)
+      .then((res) => res.json())
+      .then((data: StorefrontWallet) => {
         setWallet(data);
-      } catch (err) {
+      })
+      .catch((err) => {
         console.error('Failed to fetch wallet', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchWallet();
+      })
+      .finally(() => {
+        setHasFetchSettled(true);
+      });
   }, [isAuthenticated, merchant?.slug]);
+
+  // Derived instead of setState-in-effect: show the spinner while auth is
+  // resolving or while the first wallet fetch is in flight.
+  const canFetch = isAuthenticated && Boolean(merchant?.slug);
+  const loading = isAuthLoading || (canFetch && !hasFetchSettled);
 
   const handleFundWallet = () => {
     // Placeholder for now as per instructions/limitations

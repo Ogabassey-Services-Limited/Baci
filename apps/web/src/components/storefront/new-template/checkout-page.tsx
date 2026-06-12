@@ -3,7 +3,7 @@
 import { ArrowLeft, Check, CreditCard, Lock, Truck } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -11,17 +11,24 @@ import { asRoute } from '@/lib/routes';
 import { Footer } from './footer';
 import { Navbar } from './navbar';
 
+// Hydration detector: the store never changes, so the snapshot is `false` on
+// the server / during hydration and `true` on the client afterwards. Replaces
+// the mount-flag `setIsClient(true)` effect (setState-in-effect bailout).
+const subscribeToNothing = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export const CheckoutPage: React.FC = () => {
   const { cart, cartTotal } = useCart();
-  const [isClient, setIsClient] = useState(false);
+  const isClient = useSyncExternalStore(
+    subscribeToNothing,
+    getClientSnapshot,
+    getServerSnapshot
+  );
   const [step, setStep] = useState(1); // 1: Shipping, 2: Payment, 3: Success
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
   const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   if (!isClient) {
     return null;

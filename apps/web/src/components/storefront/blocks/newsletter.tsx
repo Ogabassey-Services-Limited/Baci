@@ -15,6 +15,29 @@ export interface NewsletterProps {
   source?: 'widget' | 'footer' | 'checkout' | 'popup';
 }
 
+interface NewsletterSubscriptionPayload {
+  email: string;
+  merchantId: string | undefined;
+  source: NonNullable<NewsletterProps['source']>;
+}
+
+// Module-scope helper: throw-inside-try/catch in the component body blocks
+// React Compiler memoization of the Newsletter component.
+async function submitNewsletterSubscription(
+  payload: NewsletterSubscriptionPayload
+): Promise<boolean> {
+  try {
+    const response = await fetch('/api/newsletter/subscribe', {
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export function Newsletter({
   title = 'Subscribe to our newsletter',
   subtitle = 'Get the latest updates on new products and upcoming sales.',
@@ -37,27 +60,20 @@ export function Newsletter({
     setStatus('submitting');
     setError(null);
 
-    try {
-      const response = await fetch('/api/newsletter/subscribe', {
-        body: JSON.stringify({
-          email,
-          merchantId: merchant?.id,
-          source,
-        }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
+    const subscribed = await submitNewsletterSubscription({
+      email,
+      merchantId: merchant?.id,
+      source,
+    });
 
-      if (!response.ok) {
-        throw new Error('Newsletter subscription failed');
-      }
-
+    if (subscribed) {
       setEmail('');
       setStatus('success');
-    } catch {
-      setError('Could not subscribe right now. Please try again.');
-      setStatus('idle');
+      return;
     }
+
+    setError('Could not subscribe right now. Please try again.');
+    setStatus('idle');
   };
 
   const isSubmitting = status === 'submitting';

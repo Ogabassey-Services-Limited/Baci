@@ -1196,15 +1196,12 @@ export default async function CategoryProductPage({
 
   const resolvedSearchParams = await searchParams;
   let productResultPromise: Promise<CategoryProductResult> | null = null;
-  const getProductResultPromise = () => {
-    productResultPromise ??= loadProductResult();
-    return productResultPromise;
-  };
 
   // Unknown query keys can be dynamic variant axes, while campaign-only URLs
   // cannot affect selection and should still receive the early image hint.
   if (mayContainVariantSelectionParams(resolvedSearchParams)) {
-    const detailedProductResult = await getProductResultPromise();
+    productResultPromise = loadProductResult();
+    const detailedProductResult = await productResultPromise;
 
     if (detailedProductResult && 'product' in detailedProductResult) {
       redirectInvalidVariantSelectionParams(
@@ -1244,7 +1241,9 @@ export default async function CategoryProductPage({
     ? getRequestScopedCategoryProductBasePath(slug)
     : Promise.resolve<'' | `/${string}`>('');
 
-  productResultPromise = getProductResultPromise();
+  if (!productResultPromise) {
+    productResultPromise = loadProductResult();
+  }
 
   return (
     <>

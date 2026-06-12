@@ -53,15 +53,27 @@ export function HeroMobileCarousel({
     activateOnInteraction: true,
   });
 
+  // Refresh the ad each time its slide becomes active. Adjusted inline during
+  // render with a prev-compare (react.dev "Adjusting some state when a prop
+  // changes") instead of an effect, so the compiler can memoize this component
+  // and the refreshed ad commits in the same paint.
+  const isAdSlideActive =
+    isMobileAutoplayReady && MOBILE_SLIDES[currentSlide]?.type === 'ad';
+  const [prevIsAdSlideActive, setPrevIsAdSlideActive] = useState(false);
+  if (isAdSlideActive !== prevIsAdSlideActive) {
+    setPrevIsAdSlideActive(isAdSlideActive);
+    if (isAdSlideActive) {
+      setAdRefreshTrigger((prev) => prev + 1);
+    }
+  }
+
   useEffect(() => {
     if (!isMobileAutoplayReady) {
       return;
     }
 
-    const activeSlide = MOBILE_SLIDES[currentSlide];
-
-    if (activeSlide?.type === 'ad') {
-      setAdRefreshTrigger((prev) => prev + 1);
+    if (MOBILE_SLIDES[currentSlide]?.type === 'ad') {
+      // Autoplay pauses on the sponsored slide; no advance timer.
       return;
     }
 

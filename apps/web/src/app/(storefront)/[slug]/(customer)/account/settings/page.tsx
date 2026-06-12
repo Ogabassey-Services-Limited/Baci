@@ -34,19 +34,26 @@ export default function CustomerSettingsPage() {
   } = useCustomerAuth();
   const { currencySymbol } = useCurrency();
 
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [fullName, setFullName] = useState(() =>
+    customer
+      ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
+      : ''
+  );
+  const [phone, setPhone] = useState(() => customer?.phone || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [prevCustomer, setPrevCustomer] = useState(customer);
 
-  // Initialize form with customer data
-  useEffect(() => {
+  // Sync form fields inline during render when the customer record changes
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  if (customer !== prevCustomer) {
+    setPrevCustomer(customer);
     if (customer) {
       setFullName(
         `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
       );
       setPhone(customer.phone || '');
     }
-  }, [customer]);
+  }
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -58,39 +65,40 @@ export default function CustomerSettingsPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
-    try {
-      const result = await updateCustomer({
-        first_name: fullName.split(' ')[0] || '',
-        last_name: fullName.split(' ').slice(1).join(' ') || '',
-        phone: phone || undefined,
-      });
-
-      if (result.success) {
-        toast({
-          title: 'Settings saved',
-          description: 'Your profile has been updated.',
-        });
-      } else {
+    updateCustomer({
+      first_name: fullName.split(' ')[0] || '',
+      last_name: fullName.split(' ').slice(1).join(' ') || '',
+      phone: phone || undefined,
+    })
+      .then((result) => {
+        if (result.success) {
+          toast({
+            title: 'Settings saved',
+            description: 'Your profile has been updated.',
+          });
+        } else {
+          toast({
+            title: 'Error',
+            description: result.error || 'Failed to save settings',
+            variant: 'destructive',
+          });
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to update customer settings:', error);
         toast({
           title: 'Error',
-          description: result.error || 'Failed to save settings',
+          description: 'An unexpected error occurred. Please try again.',
           variant: 'destructive',
         });
-      }
-    } catch (error) {
-      console.error('Failed to update customer settings:', error);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handleLogout = async () => {

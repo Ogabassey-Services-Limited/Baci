@@ -14,6 +14,14 @@ interface PageViewTrackerModule {
 
 const PAGE_VIEW_TRACKER_DELAY_MS = 600;
 
+/**
+ * Module-scope dynamic import so the component body stays free of `import()`
+ * expressions, which block React Compiler memoization.
+ */
+function loadDefaultTrackerModule(): Promise<PageViewTrackerModule> {
+  return import('./page-view-tracker');
+}
+
 export function DeferredPageViewTracker({
   merchantId,
   loadTrackerModule,
@@ -30,8 +38,7 @@ export function DeferredPageViewTracker({
     let cancelled = false;
 
     const loadTracker = () => {
-      const trackerModule =
-        loadTrackerModule?.() ?? import('./page-view-tracker');
+      const trackerModule = loadTrackerModule?.() ?? loadDefaultTrackerModule();
 
       void trackerModule.then((module) => {
         if (!cancelled) {
