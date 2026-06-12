@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 interface DNSRecord {
   type: 'A' | 'AAAA' | 'CNAME' | 'MX' | 'TXT' | 'NS';
@@ -220,7 +221,7 @@ export default function DomainDetailsPage() {
     const updatedRecords = [...dnsRecords, newRecord];
     let succeeded = false;
     try {
-      const res = await fetch(`/api/domains/${domain}/dns`, {
+      const res = await fetchWithCsrf(`/api/domains/${domain}/dns`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ records: updatedRecords }),
@@ -250,7 +251,7 @@ export default function DomainDetailsPage() {
   const handleDeleteDnsRecord = async (index: number) => {
     try {
       const updatedRecords = dnsRecords.filter((_, i) => i !== index);
-      const res = await fetch(`/api/domains/${domain}/dns`, {
+      const res = await fetchWithCsrf(`/api/domains/${domain}/dns`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ records: updatedRecords }),
@@ -272,11 +273,14 @@ export default function DomainDetailsPage() {
   const handleAddForward = async () => {
     try {
       const updatedForwards = [...forwards, newForward];
-      const res = await fetch(`/api/domains/${domain}/email-forwarding`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forwards: updatedForwards }),
-      });
+      const res = await fetchWithCsrf(
+        `/api/domains/${domain}/email-forwarding`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ forwards: updatedForwards }),
+        }
+      );
 
       if (res.ok) {
         setForwards(updatedForwards);
@@ -294,7 +298,7 @@ export default function DomainDetailsPage() {
 
   const handleToggleIdProtection = async (checked: boolean) => {
     try {
-      const res = await fetch(`/api/domains/${domain}/id-protection`, {
+      const res = await fetchWithCsrf(`/api/domains/${domain}/id-protection`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: checked }),

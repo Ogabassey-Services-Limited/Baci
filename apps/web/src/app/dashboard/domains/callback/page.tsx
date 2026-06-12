@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 type PurchaseStatus = 'processing' | 'success' | 'error';
 
@@ -70,7 +71,7 @@ async function completePurchase({
     // Payment verified, now complete the domain purchase
     setMessage('Registering your domain...');
 
-    const purchaseResponse = await fetch('/api/domains/purchase', {
+    const purchaseResponse = await fetchWithCsrf('/api/domains/purchase', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

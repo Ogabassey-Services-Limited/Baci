@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import type { CachedMerchant } from '@/lib/cached-data';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
 
@@ -74,7 +75,7 @@ async function runDomainSearch(options: {
 }): Promise<void> {
   const { term, setResults, setSearchWarning, setIsSearching, toast } = options;
   try {
-    const response = await fetch('/api/domains/check-availability', {
+    const response = await fetchWithCsrf('/api/domains/check-availability', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ searchTerm: term }),
@@ -111,7 +112,7 @@ async function startDomainPurchase(options: {
   const { domain, setPurchasingDomain, toast } = options;
   try {
     // Initialize payment for domain purchase
-    const response = await fetch('/api/domains/initialize-payment', {
+    const response = await fetchWithCsrf('/api/domains/initialize-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ domain, years: 1 }),

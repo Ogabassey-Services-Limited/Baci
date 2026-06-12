@@ -31,6 +31,7 @@ export default function NotificationPreferencesPage() {
   const [preferences, setPreferences] =
     useState<NotificationPreferences | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
   useEffect(() => {
     let isStale = false;
 

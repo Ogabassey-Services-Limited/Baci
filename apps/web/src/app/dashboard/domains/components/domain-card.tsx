@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { setPrimaryDomain } from '../actions';
 
 export interface Domain {
@@ -90,7 +91,7 @@ async function runVerifyDomain({
   );
 
   try {
-    const response = await fetch(
+    const response = await fetchWithCsrf(
       `/api/domains/${encodeURIComponent(domainName)}/verify`,
       {
         method: 'POST',
@@ -148,7 +149,7 @@ async function runDeleteDomain({
   );
 
   try {
-    const response = await fetch(
+    const response = await fetchWithCsrf(
       `/api/domains/${encodeURIComponent(domainName)}`,
       {
         method: 'DELETE',

@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { apiPatch } from '@/lib/api-client';
+import { apiPatch, fetchWithCsrf } from '@/lib/api-client';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import {
   type Order,
@@ -88,7 +88,7 @@ async function confirmOrderRequest(
   orderId: string,
   data: ConfirmInsurancePayload
 ): Promise<ConfirmOrderResponse> {
-  const response = await fetch(`/api/orders/${orderId}/confirm`, {
+  const response = await fetchWithCsrf(`/api/orders/${orderId}/confirm`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

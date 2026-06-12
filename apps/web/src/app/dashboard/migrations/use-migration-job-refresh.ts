@@ -6,6 +6,7 @@ import {
   type SetStateAction,
   useEffectEvent,
   useRef,
+  useState,
 } from 'react';
 import {
   fetchImportJob,
@@ -278,13 +279,15 @@ export function useMigrationJobRefresh({
   const refreshRequestIdRef = useRef(0);
   const refreshInFlightCountRef = useRef(0);
   const rowsLoadingRequestIdRef = useRef<number | null>(null);
-  const rowsCacheRef = useRef<RowsCache>(new Map());
+  // Lazy state init keeps a stable Map without allocating a discarded
+  // instance on every render (useRef(new Map()) re-evaluates its argument).
+  const [rowsCache] = useState<RowsCache>(() => new Map());
 
   const clearRowsCacheForJob = useEffectEvent((jobId: string) => {
     const cacheKeyPrefix = getMigrationRowsCacheKeyPrefix(jobId);
-    for (const key of Array.from(rowsCacheRef.current.keys())) {
+    for (const key of Array.from(rowsCache.keys())) {
       if (key.startsWith(cacheKeyPrefix)) {
-        rowsCacheRef.current.delete(key);
+        rowsCache.delete(key);
       }
     }
   });
@@ -294,9 +297,9 @@ export function useMigrationJobRefresh({
       getMigrationRowsCacheKeyPrefix(jobId)
     );
 
-    for (const key of Array.from(rowsCacheRef.current.keys())) {
+    for (const key of Array.from(rowsCache.keys())) {
       if (!activeJobPrefixes.some((prefix) => key.startsWith(prefix))) {
-        rowsCacheRef.current.delete(key);
+        rowsCache.delete(key);
       }
     }
   });
@@ -309,7 +312,7 @@ export function useMigrationJobRefresh({
           loadingRequestIdRef,
           refreshInFlightCountRef,
           refreshRequestIdRef,
-          rowsCache: rowsCacheRef.current,
+          rowsCache: rowsCache,
           rowsLoadingRequestIdRef,
           selectedJobIdRef,
           selectedJobRef,

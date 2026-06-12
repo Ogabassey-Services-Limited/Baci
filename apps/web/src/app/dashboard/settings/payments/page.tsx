@@ -134,6 +134,7 @@ export default function PaymentSettingsPage() {
     : null;
   const paystackFixedFee = formatCurrencyCompact(100, 'NG');
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
   useEffect(() => {
     let isStale = false;
 

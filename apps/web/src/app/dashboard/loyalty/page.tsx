@@ -113,6 +113,7 @@ export default function LoyaltyProgramPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const [saving, setSaving] = useState(false);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
   useEffect(() => {
     let isStale = false;
 

@@ -85,6 +85,7 @@ export default function VTUSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [newAmount, setNewAmount] = useState('');
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
   useEffect(() => {
     let isStale = false;
 
