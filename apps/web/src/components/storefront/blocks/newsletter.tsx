@@ -4,6 +4,7 @@ import { Mail } from 'lucide-react';
 import { useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 export interface NewsletterProps {
   title?: string;
@@ -27,7 +28,7 @@ async function submitNewsletterSubscription(
   payload: NewsletterSubscriptionPayload
 ): Promise<boolean> {
   try {
-    const response = await fetch('/api/newsletter/subscribe', {
+    const response = await fetchWithCsrf('/api/newsletter/subscribe', {
       body: JSON.stringify(payload),
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',

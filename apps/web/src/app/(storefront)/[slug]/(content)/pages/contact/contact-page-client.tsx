@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 interface ContactPageClientProps {
   merchant: {
@@ -68,7 +69,7 @@ async function submitContactForm(
   formData: ContactFormData
 ): Promise<boolean> {
   try {
-    const response = await fetch('/api/forms/submit', {
+    const response = await fetchWithCsrf('/api/forms/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
