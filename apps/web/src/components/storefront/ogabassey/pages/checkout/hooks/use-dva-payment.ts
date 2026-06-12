@@ -51,7 +51,6 @@ async function runBankTransferInitialization(
       body: JSON.stringify({
         merchant_id: request.merchantId,
         order_id: request.orderId,
-        amount: request.paymentAmount,
         currency: 'NGN',
         customer_email: request.customerEmail,
         customer_name: request.customerName,

@@ -81,7 +81,6 @@ export async function runCryptoPaymentInitialization({
       body: JSON.stringify({
         merchant_id: merchantId,
         order_id: pendingCryptoOrder.orderId,
-        amount: pendingCryptoOrder.amount,
         currency: 'NGN',
         customer_email: pendingCryptoOrder.customerEmail,
         customer_name: pendingCryptoOrder.customerName,

@@ -102,13 +102,6 @@ async function runCryptoPaymentInitialization({
           body: JSON.stringify({
             merchant_id: CHECKOUT_MERCHANT_ID,
             order_id: order.id,
-            // The gateway portion of a wallet-composed payment can be less
-            // than the order total, so the server cannot derive it alone.
-            // /api/payments/initialize re-validates against its own order
-            // snapshot (email + merchant match) and rejects any amount
-            // exceeding the server-side total — the client value is a
-            // request, never the authority.
-            amount: orderResponse.amountDueToGateway,
             currency: 'NGN',
             customer_email: customerEmail,
             customer_name: customerName,

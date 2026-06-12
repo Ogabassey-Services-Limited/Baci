@@ -32,6 +32,28 @@ interface FinalizeCheckoutPaymentParams {
   shouldCreateWalletFundedBankTransferOrder: boolean;
 }
 
+interface PaymentInitializeAccount {
+  account_name?: string;
+  account_number?: string;
+  bank_name?: string;
+}
+
+interface PaymentInitializeData {
+  authorization_url?: string;
+  checkout_url?: string;
+  dva?: PaymentInitializeAccount;
+  error?: string;
+  reference?: string;
+  success?: boolean;
+  virtual_account?: PaymentInitializeAccount;
+}
+
+function toPaymentInitializeData(value: unknown): PaymentInitializeData {
+  return value && typeof value === 'object'
+    ? (value as PaymentInitializeData)
+    : {};
+}
+
 export async function finalizeCheckoutPayment({
   clearCart,
   customerEmail,
@@ -206,7 +228,6 @@ async function initializeGatewayAndRoute({
         body: JSON.stringify({
           merchant_id: CHECKOUT_MERCHANT_ID,
           order_id: orderId,
-          amount: orderResponse.amountDueToGateway,
           currency: 'NGN',
           customer_email: customerEmail,
           customer_name: customerName,
@@ -228,9 +249,9 @@ async function initializeGatewayAndRoute({
     clearTimeout(timeout);
   }
 
-  let initData;
+  let initData: PaymentInitializeData;
   try {
-    initData = await initResponse.json();
+    initData = toPaymentInitializeData(await initResponse.json());
   } catch (error) {
     throw new OrderError(
       'Failed to parse payment initialization response',
