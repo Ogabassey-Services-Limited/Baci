@@ -8,17 +8,20 @@ import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hi
 import imageLoader from '@/lib/image-loader';
 import { ogabasseyPdpLcpImageRequestSchema } from '@/schemas/ogabassey-pdp-lcp-image';
 
-const PRELOAD_REDIRECT_CACHE_CONTROL =
-  'public, max-age=300, s-maxage=300, stale-while-revalidate=86400';
+const PRELOAD_IMAGE_CACHE_CONTROL =
+  'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800';
 const PRELOAD_MISS_CACHE_CONTROL = 'public, max-age=60, s-maxage=60';
+const DEFAULT_IMAGE_ACCEPT_HEADER = 'image/avif,image/webp,image/*,*/*;q=0.8';
 
 type OgabasseyPdpLcpImageResponseInput = {
+  accept?: string | null;
   productSlug: string;
   quality: number | string | null;
   width: number | string | null;
 };
 
 export async function buildOgabasseyPdpLcpImageResponse({
+  accept,
   productSlug,
   quality,
   width,
@@ -82,10 +85,50 @@ export async function buildOgabasseyPdpLcpImageResponse({
     width: parsed.data.width,
   });
 
-  return NextResponse.redirect(preloadUrl, {
-    headers: {
-      'Cache-Control': PRELOAD_REDIRECT_CACHE_CONTROL,
-    },
-    status: 307,
+  let imageResponse: Response;
+  try {
+    imageResponse = await fetch(preloadUrl, {
+      headers: {
+        Accept: accept || DEFAULT_IMAGE_ACCEPT_HEADER,
+      },
+    });
+  } catch (error) {
+    console.warn(
+      'Unable to fetch transformed OgaBassey PDP LCP preload image:',
+      sanitizeLookupLogValue(parsed.data.productSlug),
+      error
+    );
+    return new NextResponse(null, {
+      headers: {
+        'Cache-Control': PRELOAD_MISS_CACHE_CONTROL,
+      },
+      status: 502,
+    });
+  }
+
+  if (!imageResponse.ok || !imageResponse.body) {
+    return new NextResponse(null, {
+      headers: {
+        'Cache-Control': PRELOAD_MISS_CACHE_CONTROL,
+      },
+      status: 502,
+    });
+  }
+
+  const headers = new Headers({
+    'Cache-Control': PRELOAD_IMAGE_CACHE_CONTROL,
+    'Content-Type':
+      imageResponse.headers.get('content-type') ?? 'application/octet-stream',
+    Vary: 'Accept',
+  });
+  const contentLength = imageResponse.headers.get('content-length');
+
+  if (contentLength) {
+    headers.set('Content-Length', contentLength);
+  }
+
+  return new NextResponse(imageResponse.body, {
+    headers,
+    status: 200,
   });
 }
