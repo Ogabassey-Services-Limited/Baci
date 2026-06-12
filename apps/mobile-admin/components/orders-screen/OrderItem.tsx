@@ -1,6 +1,13 @@
 import type { PaymentStatus, ShippingStatus } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef } from 'react';
+import {
+  type GestureResponderEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { Order } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
@@ -9,14 +16,14 @@ import type {
   PaymentStatusConfigGetter,
   ShippingStatusConfigGetter,
   SourceConfigGetter,
-  StatusPressEvent,
+  StatusPressLayout,
 } from './types';
 
 interface OrderItemProps {
   item: Order;
   currency: string;
   onPress: (id: string) => void;
-  onStatusPress: (order: Order, event: StatusPressEvent) => void;
+  onStatusPress: (order: Order, layout: StatusPressLayout) => void;
   getShippingStatusConfig: ShippingStatusConfigGetter;
   getPaymentStatusConfig: PaymentStatusConfigGetter;
   getSourceConfig: SourceConfigGetter;
@@ -40,6 +47,42 @@ export function OrderItem({
   );
   const sourceConfig = getSourceConfig(item.source);
   const itemCount = item.item_count ?? 0;
+  const statusBadgeRef = useRef<View>(null);
+
+  const getFallbackStatusLayout = (
+    event: GestureResponderEvent
+  ): StatusPressLayout => ({
+    height: 32,
+    pageX: event.nativeEvent.pageX,
+    pageY: event.nativeEvent.pageY,
+  });
+
+  const handleStatusPress = (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    const fallbackLayout = getFallbackStatusLayout(event);
+
+    const statusBadge = statusBadgeRef.current;
+    if (!statusBadge?.measure) {
+      onStatusPress(item, fallbackLayout);
+      return;
+    }
+
+    statusBadge.measure(
+      (_x, _y, _width, measuredHeight, measuredPageX, measuredPageY) => {
+        onStatusPress(item, {
+          height: Number.isFinite(measuredHeight)
+            ? measuredHeight
+            : fallbackLayout.height,
+          pageX: Number.isFinite(measuredPageX)
+            ? measuredPageX
+            : fallbackLayout.pageX,
+          pageY: Number.isFinite(measuredPageY)
+            ? measuredPageY
+            : fallbackLayout.pageY,
+        });
+      }
+    );
+  };
 
   return (
     <Pressable
@@ -88,14 +131,13 @@ export function OrderItem({
             </Text>
           </View>
           <Pressable
+            ref={statusBadgeRef}
+            collapsable={false}
             style={[
               styles.statusBadge,
               { backgroundColor: `${shippingConfig.color}20`, minHeight: 32 },
             ]}
-            onPress={(event) => {
-              event.stopPropagation();
-              onStatusPress(item, event);
-            }}
+            onPress={handleStatusPress}
             hitSlop={8}
             accessibilityLabel={`Shipping status: ${shippingConfig.label}. Tap to change status`}
             accessibilityRole="button"

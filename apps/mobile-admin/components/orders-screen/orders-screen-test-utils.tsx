@@ -112,19 +112,9 @@ vi.mock('react-native', async () => {
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: (event: {
+        nativeEvent: { pageX: number; pageY: number; target: number };
         stopPropagation: () => void;
-        target: {
-          measure: (
-            callback: (
-              x: number,
-              y: number,
-              width: number,
-              height: number,
-              pageX: number,
-              pageY: number
-            ) => void
-          ) => void;
-        };
+        target: number;
       }) => void;
     }) =>
       React.createElement(
@@ -137,10 +127,9 @@ vi.mock('react-native', async () => {
           disabled,
           onClick: () =>
             onPress?.({
+              nativeEvent: { pageX: 220, pageY: 180, target: 1 },
               stopPropagation: () => undefined,
-              target: {
-                measure: (callback) => callback(0, 0, 120, 32, 220, 180),
-              },
+              target: 1,
             }),
           role: accessibilityRole,
           type: 'button',

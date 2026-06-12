@@ -35,7 +35,7 @@ import {
   requiresPaymentPrompt,
   showPaymentRequiredPrompt,
 } from './payment-required-alert';
-import type { OrdersListRow, StatusPressEvent } from './types';
+import type { OrdersListRow, StatusPressLayout } from './types';
 
 const MODAL_TRANSITION_DELAY_MS = 300;
 
@@ -105,12 +105,13 @@ export default function OrdersScreen() {
     });
   };
 
-  const openStatusDropdown = (order: Order, event: StatusPressEvent) => {
-    event.target.measure((_x, _y, _width, height, pageX, pageY) => {
-      setDropdownPosition({ x: pageX - 100, y: pageY + height + 4 });
-      setSelectedOrder(order);
-      setShowStatusDropdown(true);
+  const openStatusDropdown = (order: Order, layout: StatusPressLayout) => {
+    setDropdownPosition({
+      x: layout.pageX - 100,
+      y: layout.pageY + layout.height + 4,
     });
+    setSelectedOrder(order);
+    setShowStatusDropdown(true);
   };
 
   const handleStatusUpdate = async (newStatus: ShippingStatus) => {

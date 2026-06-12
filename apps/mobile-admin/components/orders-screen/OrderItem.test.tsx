@@ -40,6 +40,10 @@ describe('OrderItem', () => {
     );
 
     expect(onPress).toHaveBeenCalledWith('order-1');
-    expect(onStatusPress).toHaveBeenCalledWith(mockOrder, expect.any(Object));
+    expect(onStatusPress).toHaveBeenCalledWith(mockOrder, {
+      height: 32,
+      pageX: 220,
+      pageY: 180,
+    });
   });
 });

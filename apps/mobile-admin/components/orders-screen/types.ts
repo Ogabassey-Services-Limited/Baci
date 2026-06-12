@@ -31,20 +31,11 @@ export interface StatusAction {
   color: string;
 }
 
-export type StatusPressEvent = {
-  target: {
-    measure: (
-      callback: (
-        x: number,
-        y: number,
-        width: number,
-        height: number,
-        pageX: number,
-        pageY: number
-      ) => void
-    ) => void;
-  };
-};
+export interface StatusPressLayout {
+  height: number;
+  pageX: number;
+  pageY: number;
+}
 
 export type OrdersListRenderItem = NonNullable<
   FlashListProps<OrdersListRow>['renderItem']
