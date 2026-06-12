@@ -206,3 +206,5 @@ patchedDependencies:
   "react-native-purchases@10.2.0": "patches/react-native-purchases@10.2.0.patch"
   "react-native-safe-area-context@5.8.0": "patches/react-native-safe-area-context@5.8.0.patch"
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
+  # Backport of vercel/next.js#94630; fixes PPR resume mismatch digest 1617769459 for htmlLimitedBots under cacheComponents. Remove when a stable Next release contains the fix.
+  "next@16.2.7": "patches/next@16.2.7.patch"
