@@ -49,7 +49,7 @@ export async function fetchText(
       signal,
     });
 
-    return response.ok ? response.text() : null;
+    return response.ok ? await response.text() : null;
   } catch (error) {
     console.warn('[WebMCP] Failed to fetch text document', { url, error });
     return null;
