@@ -127,6 +127,33 @@ describe('OgabasseyPdpProductResourceHints', () => {
     ]);
   });
 
+  it('emits exactly one preload per responsive PDP product image profile', () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/z-fold-7-jet-black.avif';
+
+    renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: productImage })
+    );
+
+    const calls = mockPreload.mock.calls.map(([href, options]) => ({
+      href,
+      imageSizes: (options as Record<string, unknown>).imageSizes,
+      imageSrcSet: (options as Record<string, unknown>).imageSrcSet,
+      media: (options as Record<string, unknown>).media,
+    }));
+
+    expect(calls).toHaveLength(2);
+    expect(new Set(calls.map((call) => call.media))).toEqual(
+      new Set([
+        OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+        OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+      ])
+    );
+    expect(
+      new Set(calls.map((call) => `${call.media}:${call.href}`)).size
+    ).toBe(calls.length);
+  });
+
   it('uses the fallback URL extension when the image is not CDN transformed', () => {
     const productImage =
       'https://assets.example.com/products/lenovo-legion.png';
