@@ -23,7 +23,10 @@ export type WebMcpTool = {
 };
 
 export type WebMcpModelContext = {
-  registerTool: (tool: WebMcpTool, options?: { signal?: AbortSignal }) => void;
+  registerTool: (
+    tool: WebMcpTool,
+    options?: { signal?: AbortSignal }
+  ) => Promise<undefined> | undefined;
 };
 
 type StorefrontProductResponse = {
@@ -286,18 +289,34 @@ function buildStorefrontWebMcpTools({
   ];
 }
 
+function logToolRegistrationError(error: unknown, toolName: string): void {
+  console.warn('[WebMCP] Failed to register storefront tool', {
+    error,
+    tool: toolName,
+  });
+}
+
 export function registerWebMcpStorefrontTools({
   merchantId,
   merchantSlug,
   modelContext,
   signal,
-}: RegisterWebMcpStorefrontToolsOptions) {
+}: RegisterWebMcpStorefrontToolsOptions): void {
   const tools = buildStorefrontWebMcpTools({
     merchantId,
     merchantSlug,
     signal,
   });
   for (const tool of tools) {
-    modelContext.registerTool(tool, { signal });
+    try {
+      const registration = modelContext.registerTool(tool, { signal });
+      if (registration) {
+        void registration.catch((error: unknown) => {
+          logToolRegistrationError(error, tool.name);
+        });
+      }
+    } catch (error) {
+      logToolRegistrationError(error, tool.name);
+    }
   }
 }

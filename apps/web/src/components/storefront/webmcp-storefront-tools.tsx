@@ -18,16 +18,27 @@ function importWebMcpRegistration() {
   return import('./webmcp-storefront-tools-registration');
 }
 
-function getModelContext(): WebMcpModelContext | null {
-  const currentDocument = document as DocumentWithModelContext;
-  if (currentDocument.modelContext?.registerTool) {
-    return currentDocument.modelContext;
+function addModelContext(
+  modelContexts: WebMcpModelContext[],
+  modelContext: WebMcpModelContext | undefined
+): void {
+  if (
+    modelContext?.registerTool &&
+    !modelContexts.some((candidate) => candidate === modelContext)
+  ) {
+    modelContexts.push(modelContext);
   }
+}
+
+function getModelContexts(): WebMcpModelContext[] {
+  const modelContexts: WebMcpModelContext[] = [];
+  const currentDocument = document as DocumentWithModelContext;
+  addModelContext(modelContexts, currentDocument.modelContext);
 
   const currentNavigator = navigator as NavigatorWithModelContext;
-  return currentNavigator.modelContext?.registerTool
-    ? currentNavigator.modelContext
-    : null;
+  addModelContext(modelContexts, currentNavigator.modelContext);
+
+  return modelContexts;
 }
 
 export function WebMcpStorefrontTools({
@@ -38,8 +49,8 @@ export function WebMcpStorefrontTools({
   merchantSlug: string;
 }) {
   useEffect(() => {
-    const modelContext = getModelContext();
-    if (!modelContext) {
+    const modelContexts = getModelContexts();
+    if (modelContexts.length === 0) {
       return;
     }
 
@@ -52,12 +63,14 @@ export function WebMcpStorefrontTools({
           return;
         }
 
-        registerWebMcpStorefrontTools({
-          merchantId,
-          merchantSlug,
-          modelContext,
-          signal: controller.signal,
-        });
+        for (const modelContext of modelContexts) {
+          registerWebMcpStorefrontTools({
+            merchantId,
+            merchantSlug,
+            modelContext,
+            signal: controller.signal,
+          });
+        }
       })
       .catch((error: unknown) => {
         console.warn('[WebMCP] Failed to initialize storefront tools', {
