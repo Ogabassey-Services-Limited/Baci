@@ -2,7 +2,7 @@
 
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fetchWithCsrf } from '@/lib/api-client';
@@ -117,8 +117,16 @@ function DomainPaymentCallbackContent() {
   const [status, setStatus] = useState<PurchaseStatus>('processing');
   const [message, setMessage] = useState('Processing your payment...');
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  // Guards the purchase POST against duplicate firing for the same callback
+  // params (Strict Mode double-invokes effects in development).
+  const completedPurchaseKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const purchaseKey = `${reference ?? ''}|${domain ?? ''}|${years}`;
+    if (completedPurchaseKeyRef.current === purchaseKey) {
+      return;
+    }
+    completedPurchaseKeyRef.current = purchaseKey;
     void completePurchase({
       reference,
       domain,

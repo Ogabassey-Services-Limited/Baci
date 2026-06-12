@@ -138,6 +138,12 @@ interface DomainDetailsContext {
 async function loadDomainDetails(context: DomainDetailsContext) {
   const { domain, setLoading, setLoadError, setDomainInfo, setNameservers } =
     context;
+  // The tab data only depends on the domain param, so fire those requests
+  // concurrently with the main details fetch instead of waterfalling them
+  // behind it. Each loader owns its own error handling.
+  loadDnsRecords(domain, context.setDnsRecords, context.setLoadingDns);
+  loadEmailForwards(domain, context.setForwards);
+  loadIdProtection(domain, context.setIdProtection);
   try {
     setLoading(true);
     setLoadError(null);
@@ -148,11 +154,6 @@ async function loadDomainDetails(context: DomainDetailsContext) {
       setDomainInfo(data.info);
       setNameservers(data.nameservers);
       context.setLockStatus(data.lock?.status === 'active');
-
-      // Also fetch initial tab data
-      loadDnsRecords(domain, context.setDnsRecords, context.setLoadingDns);
-      loadEmailForwards(domain, context.setForwards);
-      loadIdProtection(domain, context.setIdProtection);
     } else {
       setLoadError(data.error || 'Failed to load domain details');
     }

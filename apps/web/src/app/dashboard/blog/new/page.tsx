@@ -40,6 +40,7 @@ import {
   extractManagedBlogStoragePath,
 } from '@/lib/blog-managed-storage-paths';
 import { asRoute } from '@/lib/routes';
+import { sanitizeBlogPostData } from '@/lib/validations/blog';
 import { getPreviewUrl } from '../actions';
 
 interface Product {
@@ -377,7 +378,9 @@ async function performSavePost(
   }: SavePostContext
 ): Promise<SavedBlogPost | null> {
   try {
-    const postData = {
+    // Mirror the edit page: user-generated content is sanitized before it
+    // ever reaches the API.
+    const postData = sanitizeBlogPostData({
       title: formData.title.trim(),
       slug: formData.slug || undefined,
       content: formData.content,
@@ -407,7 +410,7 @@ async function performSavePost(
       seo_description: formData.seo_description || undefined,
       embedded_products: embeddedProducts.map((p) => p.id),
       status,
-    };
+    });
 
     const response = await fetchWithCsrf('/api/merchant/blog/posts', {
       method: 'POST',
