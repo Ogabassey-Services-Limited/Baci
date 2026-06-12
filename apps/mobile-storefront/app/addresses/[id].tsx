@@ -28,6 +28,87 @@ import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('AddressForm');
 
+// Module-scope helpers own try/throw/finally — those statements in the
+// component body block React Compiler memoization.
+async function fetchSavedAddress(
+  customerId: string,
+  merchantId: string,
+  addressId: string
+): Promise<Address | null> {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('saved_addresses')
+    .eq('id', customerId)
+    .eq('merchant_id', merchantId)
+    .single();
+
+  if (error) throw error;
+
+  const addresses = Array.isArray(data?.saved_addresses)
+    ? (data.saved_addresses as Address[])
+    : [];
+  return addresses.find((a) => a.id === addressId) ?? null;
+}
+
+async function persistAddress(params: {
+  addressId: string;
+  customerId: string;
+  form: AddressFormData;
+  isNewAddress: boolean;
+  merchantId: string;
+}): Promise<void> {
+  const { addressId, customerId, form, isNewAddress, merchantId } = params;
+
+  // Fetch current saved_addresses array
+  const { data, error: fetchError } = await supabase
+    .from('customers')
+    .select('saved_addresses')
+    .eq('id', customerId)
+    .eq('merchant_id', merchantId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  let addresses: Address[] = Array.isArray(data?.saved_addresses)
+    ? (data.saved_addresses as Address[])
+    : [];
+
+  const addressEntry: Address = {
+    id: isNewAddress ? `addr_${Date.now()}` : addressId,
+    label: form.label,
+    full_name: form.full_name,
+    phone: form.phone,
+    address: form.address,
+    city: form.city,
+    state: form.state,
+    country: 'Nigeria',
+    postal_code: form.postal_code || undefined,
+    is_default: form.is_default,
+  };
+
+  // If setting as default, clear other defaults
+  if (form.is_default) {
+    addresses = addresses.map((a) => ({ ...a, is_default: false }));
+  }
+
+  if (isNewAddress) {
+    addresses.push(addressEntry);
+  } else {
+    addresses = addresses.map((a) => (a.id === addressId ? addressEntry : a));
+  }
+
+  addresses = normalizeSavedAddresses(addresses);
+
+  // Write updated array back
+  const { error: updateError } = await supabase
+    .from('customers')
+    .update({ saved_addresses: addresses })
+    .eq('id', customerId)
+    .eq('merchant_id', merchantId);
+
+  if (updateError) throw updateError;
+}
+
 export default function AddressFormScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNewAddress = id === 'new';
@@ -64,50 +145,36 @@ export default function AddressFormScreen() {
   }, []);
 
   useEffect(() => {
-    if (!isNewAddress && id && customer?.id && merchantId) {
-      const fetchAddress = async () => {
-        try {
-          // Fetch saved_addresses JSONB from customers table
-          const { data, error } = await supabase
-            .from('customers')
-            .select('saved_addresses')
-            .eq('id', customer.id)
-            .eq('merchant_id', merchantId)
-            .single();
-
-          if (error) throw error;
-
-          // Find the address by ID in the JSONB array
-          const addresses = Array.isArray(data?.saved_addresses)
-            ? (data.saved_addresses as Address[])
-            : [];
-          const found = addresses.find((a) => a.id === id);
-
-          if (found) {
-            setForm({
-              label: found.label ?? 'Home',
-              full_name: found.full_name ?? '',
-              phone: found.phone ?? '',
-              address: found.address ?? '',
-              city: found.city ?? '',
-              state: found.state ?? 'Lagos',
-              postal_code: found.postal_code ?? '',
-              is_default: found.is_default ?? false,
-            });
-          } else {
-            Alert.alert('Error', 'Address not found');
-            router.back();
-          }
-        } catch (err) {
-          log.error('Error fetching address:', err);
-          Alert.alert('Error', 'Failed to load address');
-          router.back();
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchAddress();
+    if (isNewAddress || !id || !customer?.id || !merchantId) {
+      return;
     }
+    // Promise chain keeps try/finally out of the component body.
+    fetchSavedAddress(customer.id, merchantId, id)
+      .then((found) => {
+        if (found) {
+          setForm({
+            label: found.label ?? 'Home',
+            full_name: found.full_name ?? '',
+            phone: found.phone ?? '',
+            address: found.address ?? '',
+            city: found.city ?? '',
+            state: found.state ?? 'Lagos',
+            postal_code: found.postal_code ?? '',
+            is_default: found.is_default ?? false,
+          });
+        } else {
+          Alert.alert('Error', 'Address not found');
+          router.back();
+        }
+      })
+      .catch((err) => {
+        log.error('Error fetching address:', err);
+        Alert.alert('Error', 'Failed to load address');
+        router.back();
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, [id, isNewAddress, customer?.id, merchantId]);
 
   const validateForm = (): boolean => {
@@ -126,7 +193,7 @@ export default function AddressFormScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     // 2026 Best Practice: Dismiss keyboard on submit
     Keyboard.dismiss();
 
@@ -134,70 +201,31 @@ export default function AddressFormScreen() {
 
     setIsSaving(true);
 
-    try {
-      // Fetch current saved_addresses array
-      const { data, error: fetchError } = await supabase
-        .from('customers')
-        .select('saved_addresses')
-        .eq('id', customer.id)
-        .eq('merchant_id', merchantId)
-        .single();
+    // Promise chain keeps try/finally out of the component body.
+    persistAddress({
+      addressId: id,
+      customerId: customer.id,
+      form,
+      isNewAddress,
+      merchantId,
+    })
+      .then(() => {
+        toast.success(
+          isNewAddress
+            ? 'Address added successfully'
+            : 'Address saved successfully'
+        );
 
-      if (fetchError) throw fetchError;
-
-      let addresses: Address[] = Array.isArray(data?.saved_addresses)
-        ? (data.saved_addresses as Address[])
-        : [];
-
-      const addressEntry: Address = {
-        id: isNewAddress ? `addr_${Date.now()}` : id,
-        label: form.label,
-        full_name: form.full_name,
-        phone: form.phone,
-        address: form.address,
-        city: form.city,
-        state: form.state,
-        country: 'Nigeria',
-        postal_code: form.postal_code || undefined,
-        is_default: form.is_default,
-      };
-
-      // If setting as default, clear other defaults
-      if (form.is_default) {
-        addresses = addresses.map((a) => ({ ...a, is_default: false }));
-      }
-
-      if (isNewAddress) {
-        addresses.push(addressEntry);
-      } else {
-        addresses = addresses.map((a) => (a.id === id ? addressEntry : a));
-      }
-
-      addresses = normalizeSavedAddresses(addresses);
-
-      // Write updated array back
-      const { error: updateError } = await supabase
-        .from('customers')
-        .update({ saved_addresses: addresses })
-        .eq('id', customer.id)
-        .eq('merchant_id', merchantId);
-
-      if (updateError) throw updateError;
-
-      toast.success(
-        isNewAddress
-          ? 'Address added successfully'
-          : 'Address saved successfully'
-      );
-
-      // Small delay to let the toast show before navigating back
-      navigateTimeoutRef.current = setTimeout(() => router.back(), 500);
-    } catch (err) {
-      log.error('Error saving address:', err);
-      Alert.alert('Error', 'Failed to save address');
-    } finally {
-      setIsSaving(false);
-    }
+        // Small delay to let the toast show before navigating back
+        navigateTimeoutRef.current = setTimeout(() => router.back(), 500);
+      })
+      .catch((err) => {
+        log.error('Error saving address:', err);
+        Alert.alert('Error', 'Failed to save address');
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
   const updateField = (

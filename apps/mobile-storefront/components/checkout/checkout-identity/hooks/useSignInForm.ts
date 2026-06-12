@@ -25,6 +25,30 @@ interface UseSignInFormOptions {
 }
 
 /**
+ * Run the email/password sign-in request and translate failures into a
+ * user-friendly error message. Lives at module scope so the hook body stays
+ * free of try/finally + throw statements, which React Compiler cannot lower.
+ */
+async function signInWithEmailPassword(
+  data: SignInFormData
+): Promise<string | null> {
+  try {
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+    });
+
+    if (loginError) {
+      return getUserFriendlyError(loginError);
+    }
+
+    return null;
+  } catch (err) {
+    return getUserFriendlyError(err);
+  }
+}
+
+/**
  * Custom hook for sign-in form logic
  *
  * Handles:
@@ -69,45 +93,46 @@ export function useSignInForm({
     if (error) setError(null);
   };
 
+  // Recover from a stalled social sign-in if auth state never updates.
   useEffect(() => {
-    let isMounted = true;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-    if (pendingSocialSignInRef.current && !user) {
-      timeoutId = setTimeout(() => {
-        if (!isMounted || !pendingSocialSignInRef.current) {
-          return;
-        }
-
-        pendingSocialSignInRef.current = false;
-        setIsLoading(false);
-        setError('Sign-in timed out. Please try again.');
-        triggerHaptic('error');
-      }, 30000);
+    if (!pendingSocialSignInRef.current || user) {
+      return;
     }
 
-    if (!pendingSocialSignInRef.current || !user) {
-      return () => {
-        isMounted = false;
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-      };
-    }
+    const timeoutId = setTimeout(() => {
+      if (!pendingSocialSignInRef.current) {
+        return;
+      }
 
-    pendingSocialSignInRef.current = false;
-    setIsLoading(false);
-    triggerHaptic('success');
-    onSuccess();
-    router.replace('/checkout');
+      pendingSocialSignInRef.current = false;
+      setIsLoading(false);
+      setError('Sign-in timed out. Please try again.');
+      triggerHaptic('error');
+    }, 30000);
 
     return () => {
-      isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      clearTimeout(timeoutId);
     };
-  }, [onSuccess, triggerHaptic, user]);
+  }, [triggerHaptic, user]);
+
+  // Finalize a pending social sign-in when the auth store reports a user.
+  // Subscribing to the external store (instead of mirroring `user` through an
+  // effect dependency) keeps setState inside a subscription callback.
+  useEffect(() => {
+    const unsubscribe = useAuthStore.subscribe((state) => {
+      if (!state.user || !pendingSocialSignInRef.current) {
+        return;
+      }
+
+      pendingSocialSignInRef.current = false;
+      setIsLoading(false);
+      triggerHaptic('success');
+      onSuccess();
+      router.replace('/checkout');
+    });
+
+    return unsubscribe;
+  }, [onSuccess, triggerHaptic]);
 
   /**
    * Validate form data with Zod and set field errors
@@ -143,27 +168,21 @@ export function useSignInForm({
     setIsLoading(true);
     setError(null);
 
-    try {
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email: data.email.trim().toLowerCase(),
-        password: data.password,
-      });
+    const friendlyError = await signInWithEmailPassword(data);
 
-      if (loginError) throw loginError;
-
-      triggerHaptic('success');
-      onSuccess();
-      router.replace('/checkout');
-    } catch (err) {
-      const friendlyError = getUserFriendlyError(err);
+    if (friendlyError) {
       setError(friendlyError);
       triggerHaptic('error');
 
       // Announce error to screen readers
       AccessibilityInfo.announceForAccessibility(friendlyError);
-    } finally {
-      setIsLoading(false);
+    } else {
+      triggerHaptic('success');
+      onSuccess();
+      router.replace('/checkout');
     }
+
+    setIsLoading(false);
   });
 
   /**

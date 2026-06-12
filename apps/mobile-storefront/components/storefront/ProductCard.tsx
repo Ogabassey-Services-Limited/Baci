@@ -3,7 +3,7 @@ import {
   resolveDefaultVariantSelection,
 } from '@baci/shared/lib';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import {
   useAnimatedStyle,
@@ -162,11 +162,6 @@ export function ProductCard({
   const _imageCandidatesKey = imageCandidates.join('|');
   const [imageAttempt, setImageAttempt] = useState(0);
   const [showLocalPlaceholder, setShowLocalPlaceholder] = useState(false);
-
-  useEffect(() => {
-    setImageAttempt(0);
-    setShowLocalPlaceholder(false);
-  }, []);
 
   const imageProps = {
     placeholder: { blurhash },

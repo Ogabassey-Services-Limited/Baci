@@ -25,6 +25,22 @@ interface ReceiptShareButtonProps {
   voucherPin?: string;
 }
 
+// Module-scope helper: try/catch with a finally clause is not yet supported
+// by React Compiler inside component bodies. Never rejects.
+const shareReceiptSafely = async (
+  payload: Parameters<typeof shareUtilityReceipt>[0]
+) => {
+  try {
+    await shareUtilityReceipt(payload);
+  } catch (shareError) {
+    console.error('Failed to share utility receipt:', shareError);
+    Alert.alert(
+      'Share Failed',
+      'Could not generate the receipt PDF. Please try again.'
+    );
+  }
+};
+
 export default function ReceiptShareButton({
   amount,
   colors,
@@ -45,24 +61,17 @@ export default function ReceiptShareButton({
     }
 
     setIsSharingReceipt(true);
-    try {
-      await shareUtilityReceipt({
-        amount,
-        customerIdentifier: identifier,
-        reference,
-        status,
-        type,
-        voucherPin,
-      });
-    } catch (shareError) {
-      console.error('Failed to share utility receipt:', shareError);
-      Alert.alert(
-        'Share Failed',
-        'Could not generate the receipt PDF. Please try again.'
-      );
-    } finally {
-      setIsSharingReceipt(false);
-    }
+    // shareReceiptSafely never rejects, so the reset below always runs
+    // (same semantics as the previous finally block).
+    await shareReceiptSafely({
+      amount,
+      customerIdentifier: identifier,
+      reference,
+      status,
+      type,
+      voucherPin,
+    });
+    setIsSharingReceipt(false);
   };
 
   return (

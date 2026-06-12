@@ -34,6 +34,42 @@ interface LoginOtpStepProps {
   ) => Promise<{ error?: string; success: boolean }>;
 }
 
+interface RunOtpVerificationParams {
+  dismissAndNavigate: () => void;
+  email: string;
+  isMountedRef: RefObject<boolean>;
+  isVerifyingRef: RefObject<boolean>;
+  token: string;
+  verifyOtp: (
+    email: string,
+    token: string
+  ) => Promise<{ error?: string; success: boolean }>;
+}
+
+// Module-scope helper: keeping the try/finally statement out of the component
+// body lets React Compiler memoize LoginOtpStep.
+async function runOtpVerification({
+  dismissAndNavigate,
+  email,
+  isMountedRef,
+  isVerifyingRef,
+  token,
+  verifyOtp,
+}: RunOtpVerificationParams) {
+  isVerifyingRef.current = true;
+  try {
+    const result = await verifyOtp(email.toLowerCase().trim(), token.trim());
+    if (!isMountedRef.current) return;
+    if (result.success) {
+      dismissAndNavigate();
+    } else {
+      Alert.alert('Error', result.error || 'Invalid code');
+    }
+  } finally {
+    isVerifyingRef.current = false;
+  }
+}
+
 export function LoginOtpStep({
   colors,
   dismissAndNavigate,
@@ -58,18 +94,14 @@ export function LoginOtpStep({
       return;
     }
     setOtpError(null);
-    isVerifyingRef.current = true;
-    try {
-      const result = await verifyOtp(email.toLowerCase().trim(), token.trim());
-      if (!isMountedRef.current) return;
-      if (result.success) {
-        dismissAndNavigate();
-      } else {
-        Alert.alert('Error', result.error || 'Invalid code');
-      }
-    } finally {
-      isVerifyingRef.current = false;
-    }
+    await runOtpVerification({
+      dismissAndNavigate,
+      email,
+      isMountedRef,
+      isVerifyingRef,
+      token,
+      verifyOtp,
+    });
   };
 
   return (

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
+  type StyleProp,
   StyleSheet,
   TextInput,
-  type StyleProp,
   type TextStyle,
 } from 'react-native';
 
@@ -25,10 +25,14 @@ export default function CartQuantityInput({
   style,
 }: CartQuantityInputProps) {
   const [localValue, setLocalValue] = useState(value.toString());
+  const [prevValue, setPrevValue] = useState(value);
 
-  useEffect(() => {
+  // Reset the local draft when the external value changes, during render
+  // (guarded prev-prop compare) instead of via a setState-in-effect.
+  if (value !== prevValue) {
+    setPrevValue(value);
     setLocalValue(value.toString());
-  }, [value]);
+  }
 
   const handleCommit = () => {
     const parsed = Number.parseInt(localValue, 10);

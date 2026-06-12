@@ -34,6 +34,31 @@ function dedupeRecentSearches(searches: string[]) {
   });
 }
 
+function loadInitialRecentSearches(): string[] {
+  try {
+    const saved = storage.getItem(SEARCH_HISTORY_KEY);
+    if (!saved) return DEFAULT_SEARCHES;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(saved);
+    } catch {
+      return DEFAULT_SEARCHES;
+    }
+
+    if (
+      Array.isArray(parsed) &&
+      parsed.every((item): item is string => typeof item === 'string')
+    ) {
+      return dedupeRecentSearches(parsed);
+    }
+  } catch {
+    // Retain defaults when device storage is unavailable.
+  }
+
+  return DEFAULT_SEARCHES;
+}
+
 export default function SearchScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
   const { isOnline } = useNetworkState();
@@ -48,8 +73,9 @@ export default function SearchScreen() {
   const [selectedCondition, setSelectedCondition] = useState('All');
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [recentSearches, setRecentSearches] =
-    useState<string[]>(DEFAULT_SEARCHES);
+  const [recentSearches, setRecentSearches] = useState<string[]>(
+    loadInitialRecentSearches
+  );
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -65,29 +91,6 @@ export default function SearchScreen() {
       }
     };
   }, [activeQuery]);
-
-  useEffect(() => {
-    try {
-      const saved = storage.getItem(SEARCH_HISTORY_KEY);
-      if (!saved) return;
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(saved);
-      } catch {
-        return;
-      }
-
-      if (
-        Array.isArray(parsed) &&
-        parsed.every((item): item is string => typeof item === 'string')
-      ) {
-        setRecentSearches(dedupeRecentSearches(parsed));
-      }
-    } catch {
-      // Retain defaults when device storage is unavailable.
-    }
-  }, []);
 
   const saveToHistory = (searchTerm: string) => {
     if (!searchTerm.trim() || searchTerm.length < 2) return;
@@ -148,11 +151,11 @@ export default function SearchScreen() {
   });
   const categoryNames = ['All', ...categories.map((category) => category.name)];
 
-  useEffect(() => {
-    if (selectedBrand !== 'All' && !brandNames.includes(selectedBrand)) {
-      setSelectedBrand('All');
-    }
-  }, [brandNames, selectedBrand]);
+  // Adjust state inline during render (guarded, converges after one pass) so
+  // an invalid brand filter never commits a stale frame.
+  if (selectedBrand !== 'All' && !brandNames.includes(selectedBrand)) {
+    setSelectedBrand('All');
+  }
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);

@@ -138,6 +138,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     setIsLoading(true);
     setError(null);
 
+    // No `finally` clause here: a try/finally in the component body makes
+    // React Compiler bail out, so the loading reset is duplicated in catch.
     try {
       let token = pushToken;
       if (!token) token = await getStoredPushToken();
@@ -173,10 +175,10 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         setRegisteredUserId(null);
         setError('Failed to get push token');
       }
+      setIsLoading(false);
     } catch (err) {
       setRegisteredUserId(null);
       setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
       setIsLoading(false);
     }
   };

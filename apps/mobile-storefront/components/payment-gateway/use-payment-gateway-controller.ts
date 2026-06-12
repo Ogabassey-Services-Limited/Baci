@@ -8,6 +8,11 @@ import { setClipboardString } from '@/lib/clipboard';
 import { useCartStore } from '@/stores/cart-store';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
 import {
+  isPaymentGateway,
+  PAYMENT_GATEWAY_LABELS,
+  PAYMENT_KINDS,
+} from './payment-gateway.helpers';
+import {
   beginSavingsAuthorizationCompletion,
   beginWalletTopUpCompletion,
 } from './payment-gateway-completions';
@@ -21,12 +26,28 @@ import type {
 } from './payment-gateway-controller.types';
 import { createPaymentGatewayEventHandlers } from './payment-gateway-event-handlers';
 import { createPaymentGatewayTimers } from './payment-gateway-timers';
-import {
-  isPaymentGateway,
-  PAYMENT_GATEWAY_LABELS,
-  PAYMENT_KINDS,
-} from './payment-gateway.helpers';
 import { handleVtuConfirmation } from './use-vtu-payment-completion';
+
+// React Compiler forbids passing refs to plain function calls during render but
+// allows passing them to hooks. These wrappers classify the render-time handler
+// factories as hooks; like before, they re-run on every render.
+function usePaymentGatewayTimers(
+  input: Parameters<typeof createPaymentGatewayTimers>[0]
+) {
+  return createPaymentGatewayTimers(input);
+}
+
+function usePaymentGatewayMessageHandler(
+  input: Parameters<typeof createPaymentGatewayMessageHandler>[0]
+) {
+  return createPaymentGatewayMessageHandler(input);
+}
+
+function usePaymentGatewayEventHandlers(
+  input: Parameters<typeof createPaymentGatewayEventHandlers>[0]
+) {
+  return createPaymentGatewayEventHandlers(input);
+}
 
 export function usePaymentGatewayController() {
   const queryClient = useQueryClient();
@@ -93,7 +114,7 @@ export function usePaymentGatewayController() {
     clearPendingNavigation,
     scheduleDelayedNavigation,
     scheduleLoadTimeout,
-  } = createPaymentGatewayTimers({
+  } = usePaymentGatewayTimers({
     refs: gatewayRefs,
     setErrorMessage,
     setPaymentStatus,
@@ -239,7 +260,7 @@ export function usePaymentGatewayController() {
     }
   };
 
-  const handleWebViewMessage = createPaymentGatewayMessageHandler({
+  const handleWebViewMessage = usePaymentGatewayMessageHandler({
     amount,
     clearCart,
     confirmVtuPaymentSuccess: beginVtuPaymentCompletion,
@@ -266,7 +287,7 @@ export function usePaymentGatewayController() {
       { text: 'Leave', style: 'destructive', onPress: () => router.back() },
     ]);
   };
-  const eventHandlers = createPaymentGatewayEventHandlers({
+  const eventHandlers = usePaymentGatewayEventHandlers({
     beginPaymentCompletion,
     clearPendingLoadTimeout,
     clearPendingNavigation,

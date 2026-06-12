@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useColorScheme } from '@/components/useColorScheme';
 import { deriveWalletFundingAccountAvailability } from '@/components/wallet/deriveWalletFundingAccountAvailability';
@@ -88,6 +88,8 @@ export function WalletScreen({
   const [isAddingSavingsContribution, setIsAddingSavingsContribution] =
     useState(false);
   const [fundReturnTo, setFundReturnTo] = useState(walletReturnTo);
+  const routeActionKey = `${routeAction ?? ''}|${routeRequiredAmount}|${walletReturnTo ?? ''}`;
+  const [prevRouteActionKey, setPrevRouteActionKey] = useState(routeActionKey);
   const savingsContributionIdempotencyKeyRef = useRef<string | null>(null);
   const activeMerchantId =
     pickMerchantId(merchantId, CONFIG.MERCHANT_ID) ?? undefined;
@@ -110,25 +112,21 @@ export function WalletScreen({
     ownerId: customer?.id ?? user?.id ?? '',
     walletData: data?.wallet,
   });
-  useEffect(() => {
+  // Adjust panel state inline during render on route-action changes.
+  if (prevRouteActionKey !== routeActionKey) {
+    setPrevRouteActionKey(routeActionKey);
     if (routeAction === 'fund') {
       setShowFundPanel(true);
       setShowRedeemPanel(false);
       setFundAmount(routeRequiredAmount);
       setFundReturnTo(walletReturnTo);
-      return;
-    }
-
-    if (routeAction === 'redeem') {
+    } else if (routeAction === 'redeem') {
       setShowFundPanel(false);
       setShowRedeemPanel(true);
-      return;
-    }
-
-    if (routeAction === 'savings') {
+    } else if (routeAction === 'savings') {
       setShowSavingsProgressModal(true);
     }
-  }, [routeAction, routeRequiredAmount, walletReturnTo]);
+  }
   const handleFundAmountChange = (value: string) =>
     setFundAmount(sanitizeWalletFundAmount(value));
   const handleCreateFundingAccount = () =>
@@ -231,8 +229,10 @@ export function WalletScreen({
       clearSavingsContributionAmount: () => setSavingsContributionAmount(''),
       clearIdempotencyKey: () =>
         (savingsContributionIdempotencyKeyRef.current = null),
+      // `=` with `??` instead of `??=` (React Compiler BuildHIR todo).
       createIdempotencyKey: () =>
-        (savingsContributionIdempotencyKeyRef.current ??= Crypto.randomUUID()),
+        (savingsContributionIdempotencyKeyRef.current =
+          savingsContributionIdempotencyKeyRef.current ?? Crypto.randomUUID()),
       cancelSavingsReminder: cancelSavingsReminderNotification,
       goal: activeSavingsGoal,
       rawAmount: savingsContributionAmount,

@@ -3,11 +3,11 @@ import type React from 'react';
 import { useEffect } from 'react';
 import { Platform, TouchableOpacity } from 'react-native';
 import Animated, {
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -47,14 +47,18 @@ export function UtilityPanelCategoryItem({
   useEffect(() => {
     // Only run discrete spring animations if activeIndex is not driving the continuous flow
     if (activeIndex === undefined || index === undefined) {
-      iconScale.value = withSpring(isActive ? 1.05 : 1, {
-        damping: 16,
-        stiffness: 180,
-        mass: 1,
-      });
-      labelOpacity.value = withTiming(isActive ? 1 : 0.8, {
-        duration: 220,
-      });
+      iconScale.set(
+        withSpring(isActive ? 1.05 : 1, {
+          damping: 16,
+          stiffness: 180,
+          mass: 1,
+        })
+      );
+      labelOpacity.set(
+        withTiming(isActive ? 1 : 0.8, {
+          duration: 220,
+        })
+      );
     }
   }, [isActive, iconScale, labelOpacity, activeIndex, index]);
 

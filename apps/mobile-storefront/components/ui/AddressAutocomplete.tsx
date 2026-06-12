@@ -1,4 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
+import type { RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,11 +21,46 @@ import {
 import { addressAutocompleteStyles as styles } from './AddressAutocomplete.styles';
 import type {
   AddressAutocompleteProps,
+  PlaceDetails,
   PlacePrediction,
 } from './AddressAutocomplete.types';
 import { AddressPredictionsDropdown } from './AddressPredictionsDropdown';
 
 export type { PlaceDetails } from './AddressAutocomplete.types';
+
+interface ApplyPlaceSelectionParams {
+  details: PlaceDetails | null;
+  isMountedRef: RefObject<boolean>;
+  onSelect?: (place: PlaceDetails) => void;
+  setIsLoading: (value: boolean) => void;
+  setPredictions: (value: PlacePrediction[]) => void;
+  setSessionToken: (value: string) => void;
+}
+
+// Module-scope helper: keeping the try/finally statement out of the component
+// body lets React Compiler memoize AddressAutocomplete.
+function applyPlaceSelection({
+  details,
+  isMountedRef,
+  onSelect,
+  setIsLoading,
+  setPredictions,
+  setSessionToken,
+}: ApplyPlaceSelectionParams) {
+  try {
+    if (details && onSelect) {
+      onSelect(details);
+    }
+    if (isMountedRef.current) {
+      setSessionToken(generateSessionToken());
+    }
+  } finally {
+    if (isMountedRef.current) {
+      setIsLoading(false);
+      setPredictions([]);
+    }
+  }
+}
 
 export function AddressAutocomplete({
   value = '',
@@ -119,9 +155,13 @@ export function AddressAutocomplete({
     });
   }, [isOpen, predictions.length, scrollRef, scrollOffsetRef]);
 
-  useEffect(() => {
+  // Adjust state inline during render when the controlled value prop changes
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setInternalValue(value);
-  }, [value]);
+  }
 
   const fetchPredictions = async (input: string) => {
     if (input.length < 2) {
@@ -169,19 +209,14 @@ export function AddressAutocomplete({
     }
 
     const details = await fetchPlaceDetails({ prediction, sessionToken });
-    try {
-      if (details && onSelect) {
-        onSelect(details);
-      }
-      if (isMountedRef.current) {
-        setSessionToken(generateSessionToken());
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        setPredictions([]);
-      }
-    }
+    applyPlaceSelection({
+      details,
+      isMountedRef,
+      onSelect,
+      setIsLoading,
+      setPredictions,
+      setSessionToken,
+    });
   };
 
   const handleClear = () => {

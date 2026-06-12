@@ -32,6 +32,59 @@ import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('Addresses');
 
+// Hoisted: try/catch with `throw` in a component body blocks React Compiler.
+async function persistDefaultAddress(params: {
+  addressId: string;
+  addresses: Address[];
+  customerId: string;
+  merchantId: string;
+}): Promise<boolean> {
+  try {
+    const updated = params.addresses.map((address) => ({
+      ...address,
+      is_default: address.id === params.addressId,
+    }));
+    const { error: updateError } = await supabase
+      .from('customers')
+      .update({ saved_addresses: updated })
+      .eq('id', params.customerId)
+      .eq('merchant_id', params.merchantId);
+
+    if (updateError) throw updateError;
+    return true;
+  } catch (updateError) {
+    log.error('Error setting default address:', updateError);
+    Alert.alert('Error', 'Failed to set default address');
+    return false;
+  }
+}
+
+async function deleteAddressRecord(params: {
+  addressId: string;
+  addresses: Address[];
+  customerId: string;
+  merchantId: string;
+}): Promise<Address[] | null> {
+  try {
+    const updated = params.addresses.filter(
+      (item) => item.id !== params.addressId
+    );
+    const normalized = normalizeSavedAddresses(updated);
+    const { error: deleteError } = await supabase
+      .from('customers')
+      .update({ saved_addresses: normalized })
+      .eq('id', params.customerId)
+      .eq('merchant_id', params.merchantId);
+
+    if (deleteError) throw deleteError;
+    return normalized;
+  } catch (deleteError) {
+    log.error('Error deleting address:', deleteError);
+    Alert.alert('Error', 'Failed to delete address');
+    return null;
+  }
+}
+
 export default function AddressesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -104,24 +157,19 @@ export default function AddressesScreen() {
 
   const handleSetDefault = async (addressId: string) => {
     if (settingDefaultRef.current || !customer?.id || !merchantId) return;
+    const customerId = customer.id;
     settingDefaultRef.current = true;
 
-    try {
-      const updated = addresses.map((address) => ({
-        ...address,
-        is_default: address.id === addressId,
-      }));
+    const didPersist = await persistDefaultAddress({
+      addressId,
+      addresses,
+      customerId,
+      merchantId,
+    });
 
-      const { error: updateError } = await supabase
-        .from('customers')
-        .update({ saved_addresses: updated })
-        .eq('id', customer.id)
-        .eq('merchant_id', merchantId);
-
-      if (updateError) throw updateError;
-
+    if (didPersist) {
       void loadAddresses({
-        customerId: customer.id,
+        customerId,
         merchantId,
         isMountedRef,
         setAddresses,
@@ -129,12 +177,8 @@ export default function AddressesScreen() {
         setIsLoading,
         setIsRefreshing,
       });
-    } catch (updateError) {
-      log.error('Error setting default address:', updateError);
-      Alert.alert('Error', 'Failed to set default address');
-    } finally {
-      settingDefaultRef.current = false;
     }
+    settingDefaultRef.current = false;
   };
 
   const handleDeleteAddress = (address: Address) => {
@@ -151,22 +195,14 @@ export default function AddressesScreen() {
               Alert.alert('Error', 'Please sign in to manage addresses');
               return;
             }
-            try {
-              const updated = addresses.filter(
-                (item) => item.id !== address.id
-              );
-              const normalized = normalizeSavedAddresses(updated);
-              const { error: deleteError } = await supabase
-                .from('customers')
-                .update({ saved_addresses: normalized })
-                .eq('id', customer.id)
-                .eq('merchant_id', merchantId);
-
-              if (deleteError) throw deleteError;
+            const normalized = await deleteAddressRecord({
+              addressId: address.id,
+              addresses,
+              customerId: customer.id,
+              merchantId,
+            });
+            if (normalized) {
               setAddresses(normalized);
-            } catch (deleteError) {
-              log.error('Error deleting address:', deleteError);
-              Alert.alert('Error', 'Failed to delete address');
             }
           },
         },

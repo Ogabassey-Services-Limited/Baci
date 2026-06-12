@@ -22,6 +22,7 @@ import {
 } from './bnpl-checkout-controller-actions';
 import { createBNPLCheckoutAppNavigation } from './bnpl-checkout-app-navigation';
 import {
+  type BNPLWebViewMessageEvent,
   createBNPLWebViewMessageHandler,
   logBNPLCheckoutDebug,
 } from './bnpl-checkout-message-handler';
@@ -44,14 +45,38 @@ export function useBNPLCheckoutController({
   const webViewRef = useRef<WebView>(null);
   const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearCart = useCartStore((state) => state.clearCart);
-  const appNavigationRef = useRef(createBNPLCheckoutAppNavigation());
-  const appNavigation = appNavigationRef.current;
+  const appNavigationRef = useRef<ReturnType<
+    typeof createBNPLCheckoutAppNavigation
+  > | null>(null);
+
+  const getAppNavigation = () => {
+    if (appNavigationRef.current === null) {
+      appNavigationRef.current = createBNPLCheckoutAppNavigation();
+    }
+    return appNavigationRef.current;
+  };
+
+  const validatedParams = parseBNPLParams(params);
+  const { orderId, gateway, amount, trackingToken, merchantSlug } =
+    validatedParams.data || {};
+  const bnplUrl = buildBNPLCheckoutUrl({
+    apiBaseUrl,
+    params: validatedParams,
+  });
 
   const [status, setStatusState] = useState<BNPLCheckoutStatus>('loading');
-  const [currentUrl, setCurrentUrl] = useState('');
+  const [currentUrl, setCurrentUrl] = useState(bnplUrl);
+  const [prevBnplUrl, setPrevBnplUrl] = useState(bnplUrl);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const hasReturnedToAppRef = useRef(false);
   const statusRef = useRef<BNPLCheckoutStatus>('loading');
+
+  if (bnplUrl !== prevBnplUrl) {
+    setPrevBnplUrl(bnplUrl);
+    if (bnplUrl) {
+      setCurrentUrl(bnplUrl);
+    }
+  }
 
   const setCheckoutStatus = (
     nextStatus:
@@ -66,18 +91,16 @@ export function useBNPLCheckoutController({
     setStatusState(resolvedStatus);
   };
 
-  const validatedParams = parseBNPLParams(params);
-  const { orderId, gateway, amount, trackingToken, merchantSlug } =
-    validatedParams.data || {};
-
-  const { clearPendingLoadTimeout, scheduleLoadTimeout } = createBNPLLoadTimers(
-    {
+  const getLoadTimers = () =>
+    createBNPLLoadTimers({
       loadTimeoutRef,
       setCheckoutStatus,
       setErrorMessage,
       statusRef,
-    }
-  );
+    });
+  const clearPendingLoadTimeout = () =>
+    getLoadTimers().clearPendingLoadTimeout();
+  const scheduleLoadTimeout = () => getLoadTimers().scheduleLoadTimeout();
 
   useEffect(
     () => () => {
@@ -85,21 +108,10 @@ export function useBNPLCheckoutController({
         clearTimeout(loadTimeoutRef.current);
         loadTimeoutRef.current = null;
       }
-      appNavigation.cancelOrderSuccessNavigation();
+      appNavigationRef.current?.cancelOrderSuccessNavigation();
     },
-    [appNavigation]
+    []
   );
-
-  const bnplUrl = buildBNPLCheckoutUrl({
-    apiBaseUrl,
-    params: validatedParams,
-  });
-
-  useEffect(() => {
-    if (bnplUrl) {
-      setCurrentUrl(bnplUrl);
-    }
-  }, [bnplUrl]);
 
   const returnToAppFromProviderExit = () => {
     if (hasReturnedToAppRef.current || statusRef.current === 'success') {
@@ -109,7 +121,7 @@ export function useBNPLCheckoutController({
     clearPendingLoadTimeout();
     setErrorMessage(null);
     setCheckoutStatus('ready');
-    appNavigation.returnToApp();
+    getAppNavigation().returnToApp();
   };
 
   const handleNavigationUrl = (url: string) => {
@@ -131,7 +143,7 @@ export function useBNPLCheckoutController({
     setCheckoutStatus(effect.status);
     if (effect.status === 'success') {
       clearCart();
-      appNavigation.scheduleOrderSuccess({
+      getAppNavigation().scheduleOrderSuccess({
         gateway,
         orderId,
         reference: effect.reference,
@@ -147,26 +159,27 @@ export function useBNPLCheckoutController({
   };
 
   const handleClose = () => {
-    appNavigation.showCancelAlert(returnToAppFromProviderExit);
+    getAppNavigation().showCancelAlert(returnToAppFromProviderExit);
   };
 
-  const handleWebViewMessage = createBNPLWebViewMessageHandler({
-    onCloseMessage: returnToAppFromProviderExit,
-    onNavigationMessage: (url) => {
-      if (
-        !shouldHandleBNPLNavigationMessage({
-          apiBaseUrl,
-          merchantDomain,
-          merchantSlug,
-          url,
-        })
-      ) {
-        return;
-      }
+  const handleWebViewMessage = (event: BNPLWebViewMessageEvent) =>
+    createBNPLWebViewMessageHandler({
+      onCloseMessage: returnToAppFromProviderExit,
+      onNavigationMessage: (url) => {
+        if (
+          !shouldHandleBNPLNavigationMessage({
+            apiBaseUrl,
+            merchantDomain,
+            merchantSlug,
+            url,
+          })
+        ) {
+          return;
+        }
 
-      handleNavigationUrl(url);
-    },
-  });
+        handleNavigationUrl(url);
+      },
+    })(event);
 
   const handleRetry = () => {
     clearPendingLoadTimeout();

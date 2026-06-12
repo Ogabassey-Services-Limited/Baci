@@ -28,24 +28,28 @@ export const SuccessIcon = ({
   const scale = useSharedValue(0);
 
   useEffect(() => {
-    scale.value = withSpring(1, { damping: 12, stiffness: 100 });
-    circleProgress.value = withTiming(1, {
-      duration: 600,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-    });
-    pathProgress.value = withDelay(
-      300,
+    scale.set(withSpring(1, { damping: 12, stiffness: 100 }));
+    circleProgress.set(
       withTiming(1, {
-        duration: 500,
-        easing: Easing.out(Easing.cubic),
+        duration: 600,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
       })
+    );
+    pathProgress.set(
+      withDelay(
+        300,
+        withTiming(1, {
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
+        })
+      )
     );
   }, [circleProgress, pathProgress, scale]);
 
   const animatedCircleProps = useAnimatedProps(() => {
     const circumference = 2 * Math.PI * 46;
     return {
-      strokeDashoffset: circumference * (1 - circleProgress.value),
+      strokeDashoffset: circumference * (1 - circleProgress.get()),
     };
   });
 
@@ -53,13 +57,13 @@ export const SuccessIcon = ({
     // strokeDasharray must be >= actual path length (~60); using 100 for clean animation math
     const pathLength = 100;
     return {
-      strokeDashoffset: pathLength * (1 - pathProgress.value),
+      strokeDashoffset: pathLength * (1 - pathProgress.get()),
     };
   });
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ scale: scale.value }],
+      transform: [{ scale: scale.get() }],
     };
   });
 
