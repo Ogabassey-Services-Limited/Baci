@@ -4,6 +4,7 @@
  */
 
 import Constants from 'expo-constants';
+import type { Notification, NotificationResponse } from 'expo-notifications';
 import { Platform } from 'react-native';
 import { createLogger } from './logger';
 import { supabase } from './supabase';
@@ -11,8 +12,12 @@ import { supabase } from './supabase';
 const log = createLogger('Notifications');
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Device: any = null;
-let Notifications: any = null;
+let Device: typeof import('expo-device') | null = null;
+let Notifications: typeof import('expo-notifications') | null = null;
+
+const createEmptyNotificationSubscription = () => ({
+  remove: () => undefined,
+});
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
@@ -171,7 +176,7 @@ export async function registerPushTokenWithBackend(
           token,
           platform: Platform.OS as 'ios' | 'android',
           device_name:
-            (Device && Device.modelName) ||
+            Device?.modelName ||
             `${Device?.brand || 'Unknown'} ${Device?.modelId || ''}`,
           merchant_id: merchantId,
         }),
@@ -195,9 +200,9 @@ export async function registerPushTokenWithBackend(
  * Add notification response listener
  */
 export function addNotificationResponseListener(
-  callback: (response: any) => void
+  callback: (response: NotificationResponse) => void
 ) {
-  if (!Notifications) return { remove: () => {} };
+  if (!Notifications) return createEmptyNotificationSubscription();
   return Notifications.addNotificationResponseReceivedListener(callback);
 }
 
@@ -205,9 +210,9 @@ export function addNotificationResponseListener(
  * Add notification received listener (foreground)
  */
 export function addNotificationReceivedListener(
-  callback: (notification: any) => void
+  callback: (notification: Notification) => void
 ) {
-  if (!Notifications) return { remove: () => {} };
+  if (!Notifications) return createEmptyNotificationSubscription();
   return Notifications.addNotificationReceivedListener(callback);
 }
 
@@ -215,6 +220,7 @@ export function addNotificationReceivedListener(
  * Get badge count
  */
 export async function getBadgeCount(): Promise<number> {
+  if (!Notifications) return 0;
   return await Notifications.getBadgeCountAsync();
 }
 
@@ -222,6 +228,7 @@ export async function getBadgeCount(): Promise<number> {
  * Set badge count
  */
 export async function setBadgeCount(count: number): Promise<void> {
+  if (!Notifications) return;
   await Notifications.setBadgeCountAsync(count);
 }
 
@@ -229,6 +236,7 @@ export async function setBadgeCount(count: number): Promise<void> {
  * Clear all notifications
  */
 export async function clearAllNotifications(): Promise<void> {
+  if (!Notifications) return;
   await Notifications.dismissAllNotificationsAsync();
   await setBadgeCount(0);
 }
@@ -242,6 +250,7 @@ export async function scheduleLocalNotification(
   data?: Record<string, unknown>,
   channelId = 'general'
 ): Promise<string> {
+  if (!Notifications) return '';
   return await Notifications.scheduleNotificationAsync({
     content: {
       title,
