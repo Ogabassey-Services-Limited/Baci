@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
+import { Text } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 
@@ -83,7 +84,7 @@ vi.mock('@/components/ui/SuccessModal', () => ({
           </button>
         ) : null}
         <button aria-label="Create New Sale" onClick={onClose} type="button">
-          Create New Sale
+          <Text>Create New Sale</Text>
         </button>
       </div>
     ) : null,

@@ -26,6 +26,26 @@ vi.mock('@/lib/api-client', () => ({
   }),
 }));
 
+vi.mock('tus-js-client', () => ({
+  isSupported: true,
+  Upload: class MockUpload {
+    findPreviousUploads = vi.fn().mockResolvedValue([]);
+    resumeFromPreviousUpload = vi.fn();
+    start = vi.fn(() => {
+      this.options.onProgress?.(this.file.size, this.file.size);
+      this.options.onSuccess?.();
+    });
+
+    constructor(
+      private file: File,
+      public options: {
+        onProgress?: (bytesSent: number, bytesTotal: number) => void;
+        onSuccess?: () => void;
+      }
+    ) {}
+  },
+}));
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(),
 }));
@@ -64,6 +84,17 @@ function createMockChannel() {
   return channel;
 }
 
+function submitUploadForm() {
+  const uploadButton = screen.getByRole('button', { name: /create preview/i });
+  const uploadForm = uploadButton.closest('form');
+
+  if (!(uploadForm instanceof HTMLFormElement)) {
+    throw new Error('Upload form is missing');
+  }
+
+  fireEvent.submit(uploadForm);
+}
+
 describe('MigrationsClientPage', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
@@ -77,6 +108,12 @@ describe('MigrationsClientPage', () => {
             .fn()
             .mockResolvedValue({ data: {}, error: null }),
         })),
+      },
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: { access_token: 'session-access-token' } },
+          error: null,
+        }),
       },
     } as never);
   });
@@ -276,7 +313,7 @@ describe('MigrationsClientPage', () => {
         files: [new File(['id\n1'], 'products.csv', { type: 'text/csv' })],
       },
     });
-    fireEvent.click(screen.getByRole('button', { name: /create preview/i }));
+    submitUploadForm();
 
     await waitFor(() => {
       expect(fetch).toHaveBeenNthCalledWith(
@@ -417,7 +454,7 @@ describe('MigrationsClientPage', () => {
         files: [new File(['id\n1'], 'orders.csv', { type: 'text/csv' })],
       },
     });
-    fireEvent.click(screen.getByRole('button', { name: /create preview/i }));
+    submitUploadForm();
 
     expect(await screen.findByText(/building preview/i)).toBeInTheDocument();
     expect(fetch).toHaveBeenCalledTimes(3);

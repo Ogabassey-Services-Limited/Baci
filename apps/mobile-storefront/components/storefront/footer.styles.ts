@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
 import { SPACING } from '@/constants/Colors';
+import type { ThemeColors } from '@/hooks/useTheme';
 
-export const styles = StyleSheet.create({
+const footerBaseStyles = StyleSheet.create({
   container: {
-    backgroundColor: '#1a1a1a',
     paddingTop: SPACING.xl,
     paddingBottom: 100, // Account for tab bar height + safe area
     paddingHorizontal: SPACING.lg,
@@ -14,7 +14,6 @@ export const styles = StyleSheet.create({
   tagline: {
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
-    color: '#9CA3AF',
     marginTop: SPACING.sm,
     marginBottom: SPACING.md,
     lineHeight: 16,
@@ -41,7 +40,6 @@ export const styles = StyleSheet.create({
   columnTitle: {
     fontSize: 11,
     fontFamily: 'Inter_700Bold',
-    color: '#FFFFFF',
     marginBottom: 12,
     letterSpacing: 1,
   },
@@ -51,7 +49,6 @@ export const styles = StyleSheet.create({
   linkText: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    color: '#9CA3AF',
   },
   contactSection: {
     marginBottom: SPACING.lg,
@@ -67,7 +64,6 @@ export const styles = StyleSheet.create({
   contactText: {
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
-    color: '#9CA3AF',
     flex: 1,
     lineHeight: 16,
   },
@@ -77,7 +73,6 @@ export const styles = StyleSheet.create({
   securedByText: {
     fontSize: 10,
     fontFamily: 'Inter_500Medium',
-    color: '#6B7280',
     marginBottom: 8,
   },
   badgesRow: {
@@ -87,7 +82,6 @@ export const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -96,19 +90,44 @@ export const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontFamily: 'Inter_700Bold',
-    color: '#111827',
     letterSpacing: -0.3,
   },
   bottomBar: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
     paddingTop: SPACING.md,
     marginTop: SPACING.sm,
   },
   copyright: {
     fontSize: 10,
     fontFamily: 'Inter_400Regular',
-    color: '#6B7280',
     textAlign: 'center',
   },
+});
+
+export const getFooterStyles = (colors: ThemeColors) => ({
+  container: [footerBaseStyles.container, { backgroundColor: colors.card }],
+  brandSection: footerBaseStyles.brandSection,
+  tagline: [footerBaseStyles.tagline, { color: colors.textSecondary }],
+  socialRow: footerBaseStyles.socialRow,
+  socialButton: footerBaseStyles.socialButton,
+  socialPressed: footerBaseStyles.socialPressed,
+  gridContainer: footerBaseStyles.gridContainer,
+  column: footerBaseStyles.column,
+  columnTitle: [footerBaseStyles.columnTitle, { color: colors.text }],
+  linkItem: footerBaseStyles.linkItem,
+  linkText: [footerBaseStyles.linkText, { color: colors.textSecondary }],
+  contactSection: footerBaseStyles.contactSection,
+  contactList: footerBaseStyles.contactList,
+  contactItem: footerBaseStyles.contactItem,
+  contactText: [footerBaseStyles.contactText, { color: colors.textSecondary }],
+  securedSection: footerBaseStyles.securedSection,
+  securedByText: [
+    footerBaseStyles.securedByText,
+    { color: colors.mutedForeground },
+  ],
+  badgesRow: footerBaseStyles.badgesRow,
+  badge: [footerBaseStyles.badge, { backgroundColor: colors.background }],
+  badgeText: [footerBaseStyles.badgeText, { color: colors.text }],
+  bottomBar: [footerBaseStyles.bottomBar, { borderTopColor: colors.border }],
+  copyright: [footerBaseStyles.copyright, { color: colors.mutedForeground }],
 });

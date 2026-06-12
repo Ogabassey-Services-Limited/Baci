@@ -2,7 +2,8 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Alert,
   Animated,
   Modal,
@@ -11,16 +12,19 @@ import { ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
+  type InventoryStats,
   type Product,
   type StockFilter,
   useCategories,
@@ -66,6 +70,18 @@ const formatMetric = (value: number) => {
 
 // Category type
 type Category = { id: string; name: string; slug: string };
+
+// Tabs available on the products screen
+type ProductsTab =
+  | 'all'
+  | 'in_stock'
+  | 'low_stock'
+  | 'out_of_stock'
+  | 'categories'
+  | 'top_selling';
+
+// Product catalogue and inventory totals are always cross-branch; label is unconditional.
+const INVENTORY_SCOPE_LABEL = ' (all stores)';
 
 interface ProductItemProps {
   item: Product;
@@ -270,21 +286,186 @@ function CategoryItem({ item, onPress }: CategoryItemProps) {
   );
 }
 
+// Interactive Stat Card Component
+interface StatCardProps {
+  label: string;
+  value: number;
+  color: string;
+  isActive: boolean;
+  onPress: () => void;
+}
+
+function StatCard({ label, value, color, isActive, onPress }: StatCardProps) {
+  const { colors, shadows } = useTheme();
+  return (
+    <Pressable
+      style={[
+        styles.statCard,
+        {
+          backgroundColor: isActive ? color : colors.card,
+          borderColor: isActive ? color : colors.border,
+        },
+        shadows.sm,
+      ]}
+      onPress={onPress}
+      accessibilityLabel={`${label}: ${value} products${isActive ? ', currently selected' : ''}`}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+      accessibilityHint={`Filter products by ${label.toLowerCase()}`}
+    >
+      <Text
+        style={[
+          styles.statValue,
+          { color: isActive ? colors.textOnPrimary : color },
+        ]}
+      >
+        {value}
+      </Text>
+      <Text
+        style={[
+          styles.statLabel,
+          { color: isActive ? colors.textOnPrimary : colors.textSecondary },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+interface TabButtonProps {
+  id: ProductsTab;
+  label: string;
+  activeTab: ProductsTab;
+  onSelect: (id: ProductsTab) => void;
+}
+
+function TabButton({ id, label, activeTab, onSelect }: TabButtonProps) {
+  const { colors } = useTheme();
+  const isActive = activeTab === id;
+  if (id === 'low_stock' || id === 'out_of_stock') return null;
+
+  return (
+    <Pressable
+      style={[
+        styles.tabButton,
+        isActive && { backgroundColor: colors.gold },
+        !isActive && { backgroundColor: colors.card },
+      ]}
+      onPress={() => onSelect(id)}
+      accessibilityLabel={`${label}${isActive ? ', currently selected' : ''}`}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
+      accessibilityHint={`Show ${label.toLowerCase()} products`}
+    >
+      <Text
+        style={[
+          styles.tabText,
+          isActive
+            ? {
+                color: colors.background,
+                fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+              }
+            : { color: colors.textSecondary },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+interface InventorySummaryBarProps {
+  isLoading: boolean;
+  inventoryStats: InventoryStats | undefined;
+  currencySymbol: string;
+}
+
+function InventorySummaryBar({
+  isLoading,
+  inventoryStats,
+  currencySymbol,
+}: InventorySummaryBarProps) {
+  const { colors } = useTheme();
+
+  if (isLoading) {
+    return (
+      <View style={styles.summaryWrapper}>
+        <View style={[styles.summaryBar, { backgroundColor: colors.card }]}>
+          <Text style={{ color: colors.text }}>Loading stats…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!inventoryStats) {
+    return (
+      <View style={styles.summaryWrapper}>
+        <View
+          style={[styles.summaryBar, { backgroundColor: colors.errorLight }]}
+        >
+          <Text style={{ color: colors.error }}>No stats data</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.summaryWrapper}>
+      <View
+        style={[
+          styles.summaryBar,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <View style={styles.summaryItem}>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            {`Total Value${INVENTORY_SCOPE_LABEL}`}
+          </Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>
+            {formatPrice(inventoryStats.inventoryValue, currencySymbol)}
+          </Text>
+        </View>
+
+        <View
+          style={[styles.summaryDivider, { backgroundColor: colors.border }]}
+        />
+
+        <View style={styles.summaryItem}>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            {`Stock Cost${INVENTORY_SCOPE_LABEL}`}
+          </Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>
+            {formatPrice(inventoryStats.inventoryCost, currencySymbol)}
+          </Text>
+        </View>
+
+        <View
+          style={[styles.summaryDivider, { backgroundColor: colors.border }]}
+        />
+
+        <View style={styles.summaryItem}>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            {`Total Units${INVENTORY_SCOPE_LABEL}`}
+          </Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>
+            {inventoryStats.totalStock.toLocaleString()}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
-  // Product catalogue and inventory totals are always cross-branch; label is unconditional.
-  const inventoryScopeLabel = ' (all stores)';
 
-  const [activeTab, setActiveTab] = useState<
-    | 'all'
-    | 'in_stock'
-    | 'low_stock'
-    | 'out_of_stock'
-    | 'categories'
-    | 'top_selling'
-  >('in_stock');
+  const [activeTab, setActiveTab] = useState<ProductsTab>('in_stock');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Map activeTab to server-side stock filter
@@ -342,8 +523,9 @@ export default function ProductsScreen() {
     });
   };
 
-  // Collapsible search bar animation
-  const searchBarAnim = useRef(new Animated.Value(1)).current;
+  // Collapsible search bar animation — useState initializer keeps a stable
+  // Animated.Value without reading a ref during render (React Compiler safe).
+  const [searchBarAnim] = useState(() => new Animated.Value(1));
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
@@ -426,179 +608,6 @@ export default function ProductsScreen() {
   const renderCategory = ({ item }: ListRenderItemInfo<Category>) => (
     <CategoryItem item={item} onPress={handleCategoryPress} />
   );
-
-  // Interactive Stat Card Component
-  const StatCard = ({
-    label,
-    value,
-    color,
-    isActive,
-    onPress,
-  }: {
-    label: string;
-    value: number;
-    color: string;
-    isActive: boolean;
-    onPress: () => void;
-  }) => (
-    <Pressable
-      style={[
-        styles.statCard,
-        {
-          backgroundColor: isActive ? color : colors.card,
-          borderColor: isActive ? color : colors.border,
-        },
-        shadows.sm,
-      ]}
-      onPress={onPress}
-      accessibilityLabel={`${label}: ${value} products${isActive ? ', currently selected' : ''}`}
-      accessibilityRole="button"
-      accessibilityState={{ selected: isActive }}
-      accessibilityHint={`Filter products by ${label.toLowerCase()}`}
-    >
-      <Text
-        style={[
-          styles.statValue,
-          { color: isActive ? colors.textOnPrimary : color },
-        ]}
-      >
-        {value}
-      </Text>
-      <Text
-        style={[
-          styles.statLabel,
-          { color: isActive ? colors.textOnPrimary : colors.textSecondary },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-
-  const TabButton = ({
-    id,
-    label,
-  }: {
-    id:
-      | 'all'
-      | 'in_stock'
-      | 'low_stock'
-      | 'out_of_stock'
-      | 'categories'
-      | 'top_selling';
-    label: string;
-  }) => {
-    const isActive = activeTab === id;
-    if (id === 'low_stock' || id === 'out_of_stock') return null;
-
-    return (
-      <Pressable
-        style={[
-          styles.tabButton,
-          isActive && { backgroundColor: colors.gold },
-          !isActive && { backgroundColor: colors.card },
-        ]}
-        onPress={() => setActiveTab(id)}
-        accessibilityLabel={`${label}${isActive ? ', currently selected' : ''}`}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: isActive }}
-        accessibilityHint={`Show ${label.toLowerCase()} products`}
-      >
-        <Text
-          style={[
-            styles.tabText,
-            isActive
-              ? {
-                  color: colors.background,
-                  fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-                }
-              : { color: colors.textSecondary },
-          ]}
-        >
-          {label}
-        </Text>
-      </Pressable>
-    );
-  };
-
-  const InventorySummaryBar = () => {
-    if (isStatsLoading) {
-      return (
-        <View style={styles.summaryWrapper}>
-          <View style={[styles.summaryBar, { backgroundColor: colors.card }]}>
-            <Text style={{ color: colors.text }}>Loading stats…</Text>
-          </View>
-        </View>
-      );
-    }
-
-    if (!inventoryStats) {
-      return (
-        <View style={styles.summaryWrapper}>
-          <View
-            style={[styles.summaryBar, { backgroundColor: colors.errorLight }]}
-          >
-            <Text style={{ color: colors.error }}>No stats data</Text>
-          </View>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.summaryWrapper}>
-        <View
-          style={[
-            styles.summaryBar,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <View style={styles.summaryItem}>
-            <Text
-              style={[styles.summaryLabel, { color: colors.textSecondary }]}
-            >
-              {`Total Value${inventoryScopeLabel}`}
-            </Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {formatPrice(inventoryStats.inventoryValue, currencySymbol)}
-            </Text>
-          </View>
-
-          <View
-            style={[styles.summaryDivider, { backgroundColor: colors.border }]}
-          />
-
-          <View style={styles.summaryItem}>
-            <Text
-              style={[styles.summaryLabel, { color: colors.textSecondary }]}
-            >
-              {`Stock Cost${inventoryScopeLabel}`}
-            </Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {formatPrice(inventoryStats.inventoryCost, currencySymbol)}
-            </Text>
-          </View>
-
-          <View
-            style={[styles.summaryDivider, { backgroundColor: colors.border }]}
-          />
-
-          <View style={styles.summaryItem}>
-            <Text
-              style={[styles.summaryLabel, { color: colors.textSecondary }]}
-            >
-              {`Total Units${inventoryScopeLabel}`}
-            </Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {inventoryStats.totalStock.toLocaleString()}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
 
   return (
     <SafeAreaView
@@ -700,12 +709,29 @@ export default function ProductsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabsContent}
         >
-          <TabButton id="in_stock" label={`In Stock (${stats.active})`} />
-          <TabButton id="top_selling" label="Top Selling" />
-          <TabButton id="all" label={`All (${stats.total})`} />
+          <TabButton
+            id="in_stock"
+            label={`In Stock (${stats.active})`}
+            activeTab={activeTab}
+            onSelect={setActiveTab}
+          />
+          <TabButton
+            id="top_selling"
+            label="Top Selling"
+            activeTab={activeTab}
+            onSelect={setActiveTab}
+          />
+          <TabButton
+            id="all"
+            label={`All (${stats.total})`}
+            activeTab={activeTab}
+            onSelect={setActiveTab}
+          />
           <TabButton
             id="categories"
             label={`Categories (${categories?.length ?? 0})`}
+            activeTab={activeTab}
+            onSelect={setActiveTab}
           />
         </ScrollView>
       </View>
@@ -901,7 +927,11 @@ export default function ProductsScreen() {
         <Ionicons name="add" size={28} color={colors.textOnPrimary} />
       </Pressable>
 
-      <InventorySummaryBar />
+      <InventorySummaryBar
+        isLoading={isStatsLoading}
+        inventoryStats={inventoryStats}
+        currencySymbol={currencySymbol}
+      />
 
       {/* Create Category Modal */}
       <Modal

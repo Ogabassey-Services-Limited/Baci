@@ -1047,7 +1047,8 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
     expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       'merchant-1',
       'iphone-13-pro-max-6gb-128gb'
@@ -1093,7 +1094,8 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
@@ -1111,7 +1113,8 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
     expect(mockGetCachedProductWithDetails).toHaveBeenNthCalledWith(
       1,
       'merchant-1',
@@ -1194,6 +1197,32 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(metadata.twitter?.images).toEqual([
       'https://cdn.example.com/products/hp-laptop.png',
     ]);
+  });
+
+  it('removes stale absolute listed-price sentences from category product metadata', async () => {
+    const expectedDescription =
+      'Premium foldable phone with triple-screen multitasking, flagship cameras, warranty, delivery, and secure payment options for Nigerian shoppers.';
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      description: 'Detailed foldable phone overview.',
+      images: ['https://cdn.example.com/products/trifold.png'],
+      meta_description: `${expectedDescription} Current listed price is NGN 2,500,000.`,
+      name: 'Samsung Galaxy Z TriFold',
+      slug: 'samsung-galaxy-z-trifold',
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'samsung-galaxy-z-trifold',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.description).toBe(expectedDescription);
+    expect(metadata.openGraph?.description).toBe(metadata.description);
+    expect(metadata.twitter?.description).toBe(metadata.description);
   });
 
   it('targets device price in Nigeria when custom metadata is absent', async () => {
@@ -1746,6 +1775,69 @@ describe('[category]/[productSlug] page render', () => {
       screen.getByText('A premium laptop built for creators.')
     ).toBeInTheDocument();
     expect(screen.queryByText(/<strong>/)).not.toBeInTheDocument();
+  });
+
+  it('removes stale absolute listed-price sentences from crawlable and visible PDP copy', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      description:
+        'Premium foldable phone. Current listed price is NGN 2,500,000. Confirm selected variant price before checkout.',
+      name: 'Samsung Galaxy Z TriFold',
+      slug: 'samsung-galaxy-z-trifold',
+    });
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'samsung-galaxy-z-trifold',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    const expectedDescription =
+      'Premium foldable phone. Confirm selected variant price before checkout.';
+    const ogabasseyProps = mockOgabasseyPdpDeferredDetailIsland.mock.calls
+      .at(-1)
+      ?.at(0) as
+      | {
+          product?: {
+            description?: string;
+          };
+        }
+      | undefined;
+
+    const criticalCommerceProps = mockOgabasseyPdpCriticalCommerce.mock.calls
+      .at(-1)
+      ?.at(0) as
+      | {
+          cartProduct?: {
+            description?: string;
+          };
+        }
+      | undefined;
+
+    expect(screen.getByText(expectedDescription)).toBeInTheDocument();
+    expect(screen.queryByText(/Current listed price/i)).not.toBeInTheDocument();
+    expect(ogabasseyProps?.product?.description).toBe(expectedDescription);
+    expect(criticalCommerceProps?.cartProduct?.description).toBe(
+      expectedDescription
+    );
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: expectedDescription,
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.any(Object),
+      expect.any(Object)
+    );
   });
 
   it('mounts the OgaBassey PDP preload hints for the OgaBassey template branch', async () => {

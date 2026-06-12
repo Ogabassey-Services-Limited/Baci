@@ -10,13 +10,17 @@ const mocks = vi.hoisted(() => ({
   safeImage: vi.fn(),
 }));
 
-vi.mock('@/components/ui/SafeImage', () => ({
-  __esModule: true,
-  default: (props: unknown) => {
-    mocks.safeImage(props);
-    return <span>product-image</span>;
-  },
-}));
+vi.mock('@/components/ui/SafeImage', async () => {
+  const { Text } = await import('react-native');
+
+  return {
+    __esModule: true,
+    default: (props: unknown) => {
+      mocks.safeImage(props);
+      return <Text>product-image</Text>;
+    },
+  };
+});
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,

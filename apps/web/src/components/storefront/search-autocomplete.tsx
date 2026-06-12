@@ -187,6 +187,14 @@ export function SearchAutocomplete({
   const listboxId = `search-listbox-${merchantId}`;
   const resultsCount = suggestions.length + popularSearches.length;
 
+  useEffect(() => {
+    if (!autoFocus) {
+      return;
+    }
+
+    inputRef.current?.focus({ preventScroll: true });
+  }, [autoFocus]);
+
   return (
     <div
       ref={wrapperRef}
@@ -226,7 +234,6 @@ export function SearchAutocomplete({
           aria-label="Search products"
           id={id}
           name={name}
-          autoFocus={autoFocus}
         />
         {value && (
           <button

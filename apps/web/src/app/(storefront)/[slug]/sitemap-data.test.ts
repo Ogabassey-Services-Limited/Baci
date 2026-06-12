@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StorefrontSitemapContext } from './sitemap-data';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
@@ -14,7 +15,6 @@ const mockQueryResults = new Map<
   { data: unknown; error: Error | null }
 >();
 const mockSelectCalls: string[] = [];
-const mockNotCalls: unknown[][] = [];
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
@@ -94,18 +94,6 @@ function createEq(table: string) {
       };
     }
 
-    if (table === 'blog_posts' && key === 'status' && value === 'published') {
-      return {
-        not: (...notArgs: unknown[]) => {
-          mockNotCalls.push(notArgs);
-          return {
-            data: response?.data ?? [],
-            error: response?.error ?? null,
-          };
-        },
-      };
-    }
-
     return { eq: createEq(table) };
   });
 }
@@ -146,17 +134,12 @@ function mockCategoriesQuery(data: unknown, error: Error | null = null) {
   mockQueryResults.set('categories', { data, error });
 }
 
-function mockBlogPostsQuery(data: unknown, error: Error | null = null) {
-  mockQueryResults.set('blog_posts', { data, error });
-}
-
 describe('sitemap-data', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders = new Map();
     mockQueryResults.clear();
     mockSelectCalls.length = 0;
-    mockNotCalls.length = 0;
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -295,15 +278,77 @@ describe('sitemap-data', () => {
 
   it('returns static sitemap entries for the storefront root and faq', async () => {
     const { getStaticSitemapEntries } = await import('./sitemap-data');
-    const entries = getStaticSitemapEntries('https://ogabassey.com');
+    const entries = getStaticSitemapEntries({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        updated_at: '2026-06-01T00:00:00Z',
+      },
+      storeUrl: 'https://ogabassey.com',
+    } as unknown as Parameters<typeof getStaticSitemapEntries>[0]);
 
     expect(entries).toEqual([
-      expect.objectContaining({ url: 'https://ogabassey.com', priority: 1 }),
+      expect.objectContaining({
+        url: 'https://ogabassey.com',
+        priority: 1,
+        lastModified: new Date('2026-06-01T00:00:00Z'),
+      }),
       expect.objectContaining({
         url: 'https://ogabassey.com/faq',
         priority: 0.5,
+        lastModified: new Date('2026-06-01T00:00:00Z'),
       }),
     ]);
+  });
+
+  it('omits lastmod from static entries when the merchant has no updated_at', async () => {
+    const { getStaticSitemapEntries } = await import('./sitemap-data');
+    const entries = getStaticSitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+    } as unknown as Parameters<typeof getStaticSitemapEntries>[0]);
+
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      expect(entry.lastModified).toBeUndefined();
+    }
+  });
+
+  it('adds publishable trust policy URLs to the static sitemap entries', async () => {
+    const { getNamedSitemapEntries } = await import('./sitemap-data');
+    const context = {
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        updated_at: '2026-06-01T00:00:00Z',
+        trust_profile: {
+          return_policy: { summary: 'Returns accepted within 7 days.' },
+          shipping_policy: { summary: 'Ships nationwide.' },
+          warranty_policy: { summary: 'One-year warranty included.' },
+        },
+      },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {
+        from: () => ({
+          select: () => ({
+            eq: () => ({ data: [], error: null }),
+          }),
+        }),
+      },
+    } as unknown as StorefrontSitemapContext;
+
+    const staticEntries = await getNamedSitemapEntries(context, 'static');
+
+    expect(staticEntries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: 'https://ogabassey.com/returns',
+          lastModified: new Date('2026-06-01T00:00:00Z'),
+        }),
+        expect.objectContaining({ url: 'https://ogabassey.com/shipping' }),
+        expect.objectContaining({ url: 'https://ogabassey.com/warranty' }),
+      ])
+    );
   });
 
   it('returns product sitemap entries with category paths and images', async () => {
@@ -436,75 +481,15 @@ describe('sitemap-data', () => {
     expect(mockSelectCalls.join('\n')).not.toMatch(/\bcategory_slug\b/);
   });
 
-  it('keeps root sitemap available when product sitemap generation fails', async () => {
-    const { getRootSitemapEntries } = await import('./sitemap-data');
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-      return undefined;
-    });
-
-    try {
-      const entries = await getRootSitemapEntries({
-        merchant: {
-          id: 'merchant-1',
-          slug: 'ogabassey',
-          business_name: 'Ogabassey',
-        },
-        storeUrl: 'https://ogabassey.com',
-        supabase: {
-          from: () => {
-            throw new Error('catalog source unavailable');
-          },
-        },
-      } as unknown as Parameters<typeof getRootSitemapEntries>[0]);
-
-      expect(
-        entries.some((entry) => entry.url === 'https://ogabassey.com')
-      ).toBe(true);
-      expect(
-        entries.some((entry) => entry.url === 'https://ogabassey.com/faq')
-      ).toBe(true);
-      expect(warnSpy).toHaveBeenCalled();
-    } finally {
-      warnSpy.mockRestore();
-    }
-  });
-
-  it('includes blog entries in both root and dedicated blog sitemaps for full discoverability', async () => {
+  it('includes blog child sitemaps in the sitemap index when the blog is enabled', async () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    mockProductsQuery([
-      {
-        id: 'p1',
-        slug: 'iphone-15',
-        category: 'Smartphones',
-        images: [],
-        updated_at: '2026-01-15T00:00:00Z',
-        category_id: 'cat-1',
-        category_slug: null,
-        categories: { slug: 'smartphones' },
-      },
-    ]);
-    mockCategoriesQuery([
-      { slug: 'smartphones', updated_at: '2026-01-01T00:00:00Z' },
-    ]);
-    mockBlogPostsQuery([
-      {
-        slug: 'best-phones-in-nigeria',
-        published_at: '2026-01-01T00:00:00Z',
-        updated_at: '2026-01-03T00:00:00Z',
-        featured_image_url: 'https://img.example.com/blog.jpg',
-      },
-    ]);
-    const {
-      resolveStorefrontSitemapContext,
-      getRootSitemapEntries,
-      getNamedSitemapEntries,
-      getBlogSitemapEntries,
-    } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext, getSitemapIndexLinks } =
+      await import('./sitemap-data');
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -512,30 +497,19 @@ describe('sitemap-data', () => {
       throw new Error('Expected storefront sitemap context');
     }
 
-    const rootEntries = await getRootSitemapEntries(context);
-    const blogEntries = await getBlogSitemapEntries(context);
-    const categoryEntries = await getNamedSitemapEntries(context, 'categories');
+    const links = await getSitemapIndexLinks(context);
 
-    // Blog post URL must appear in the root sitemap so crawlers that only
-    // discover /sitemap.xml (e.g. platform domain path-mode storefronts)
-    // can still reach blog content.
-    expect(
-      rootEntries.some(
-        (entry) =>
-          entry.url === 'https://ogabassey.com/blog/best-phones-in-nigeria'
-      )
-    ).toBe(true);
-    expect(
-      blogEntries.some(
-        (entry) =>
-          entry.url === 'https://ogabassey.com/blog/best-phones-in-nigeria'
-      )
-    ).toBe(true);
-    expect(mockNotCalls).toContainEqual(['published_at', 'is', null]);
-    expect(categoryEntries[0].url).toBe('https://ogabassey.com/smartphones');
+    expect(links).toEqual([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+      'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/commercial-support.xml',
+      'https://ogabassey.com/blog/sitemap.xml',
+      'https://ogabassey.com/blog/news-sitemap.xml',
+    ]);
   });
 
-  it('omits blog URLs from the sitemap when blog_enabled is false', async () => {
+  it('omits blog child sitemaps from the sitemap index when blog_enabled is false', async () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
@@ -543,20 +517,9 @@ describe('sitemap-data', () => {
       custom_domain: 'ogabassey.com',
     });
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
-    mockBlogPostsQuery([
-      {
-        slug: 'hidden-post',
-        published_at: '2026-01-01T00:00:00Z',
-        updated_at: '2026-01-03T00:00:00Z',
-        featured_image_url: null,
-      },
-    ]);
 
-    const {
-      resolveStorefrontSitemapContext,
-      getBlogSitemapEntries,
-      getRootSitemapEntries,
-    } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext, getSitemapIndexLinks } =
+      await import('./sitemap-data');
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -564,18 +527,42 @@ describe('sitemap-data', () => {
       throw new Error('Expected storefront sitemap context');
     }
 
-    const blogEntries = await getBlogSitemapEntries(context);
+    const links = await getSitemapIndexLinks(context);
 
-    // When the blog feature is disabled, NO blog URLs (not even the /blog
-    // index) should be surfaced — they all 404 on the storefront.
-    expect(blogEntries).toEqual([]);
+    expect(links).toEqual([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+      'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/commercial-support.xml',
+    ]);
+  });
 
-    // The root sitemap must also exclude every /blog URL so crawlers don't
-    // discover blog routes that will 404 under the flag.
-    const rootEntries = await getRootSitemapEntries(context);
-    expect(rootEntries.every((entry) => !entry.url.includes('/blog'))).toBe(
-      true
+  it('keeps the core sitemap index links when the blog feature lookup fails', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      return undefined;
+    });
+    mockGetCachedFeatureSettings.mockRejectedValue(
+      new Error('feature settings unavailable')
     );
+    const { getSitemapIndexLinks } = await import('./sitemap-data');
+
+    try {
+      const links = await getSitemapIndexLinks({
+        merchant: { id: 'merchant-1', slug: 'ogabassey' },
+        storeUrl: 'https://ogabassey.com',
+        supabase: {},
+      } as unknown as StorefrontSitemapContext);
+
+      expect(links).toEqual([
+        'https://ogabassey.com/sitemap/static.xml',
+        'https://ogabassey.com/sitemap/products.xml',
+        'https://ogabassey.com/sitemap/categories.xml',
+        'https://ogabassey.com/sitemap/commercial-support.xml',
+      ]);
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('serializes sitemap XML responses with image namespace when needed', async () => {
@@ -645,11 +632,8 @@ describe('sitemap-data', () => {
         label: 'iPhone 17 Pro Max vs Samsung Galaxy Z TriFold',
       },
     ]);
-    const {
-      resolveStorefrontSitemapContext,
-      getNamedSitemapEntries,
-      getRootSitemapEntries,
-    } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext, getNamedSitemapEntries } =
+      await import('./sitemap-data');
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -662,7 +646,6 @@ describe('sitemap-data', () => {
       context,
       'commercial-support'
     );
-    const rootEntries = await getRootSitemapEntries(context);
 
     expect(
       namedEntries.some((entry) =>
@@ -671,12 +654,205 @@ describe('sitemap-data', () => {
         )
       )
     ).toBe(true);
-    expect(
-      rootEntries.some((entry) =>
-        entry.url.includes(
-          '/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold'
-        )
-      )
-    ).toBe(true);
+  });
+
+  it('resolves slug from request host when headersList is empty and override is undefined', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'hhjjk',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const emptyHeaders = new Headers();
+    const req = new Request('https://hhjjk.usebaci.com/sitemap.xml');
+
+    const context = await resolveStorefrontSitemapContext(
+      emptyHeaders,
+      undefined,
+      req
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('hhjjk');
+    expect(context?.merchant.slug).toBe('hhjjk');
+  });
+
+  it('resolves by domain from request x-custom-domain header even with a garbage slug override', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const emptyHeaders = new Headers();
+    const req = new Request('https://ogabassey.com/sitemap.xml', {
+      headers: {
+        'x-custom-domain': 'ogabassey.com',
+      },
+    });
+
+    const context = await resolveStorefrontSitemapContext(
+      emptyHeaders,
+      'garbage-slug',
+      req
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
+  it('tries non-www host segment before www host segment for a custom domain host', async () => {
+    mockGetMerchantByIdentifier.mockImplementation((id) => {
+      if (id === 'ogabassey.com') {
+        return Promise.resolve({
+          id: 'merchant-1',
+          slug: 'ogabassey',
+          custom_domain: 'ogabassey.com',
+        });
+      }
+      return Promise.resolve(null);
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const emptyHeaders = new Headers();
+    const req = new Request('https://www.ogabassey.com/sitemap.xml');
+
+    const context = await resolveStorefrontSitemapContext(
+      emptyHeaders,
+      undefined,
+      req
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(
+      1,
+      'ogabassey.com'
+    );
+    expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
+  it('skips invalid candidates without throwing and logs error on all-miss', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+      return;
+    });
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const emptyHeaders = new Headers();
+    const req = new Request('https://invalid.usebaci.com/sitemap.xml', {
+      headers: {
+        authorization: 'Bearer secret-token',
+        cookie: 'session=secret',
+        'x-custom-domain': 'invalid.example.com',
+      },
+    });
+
+    const context = await resolveStorefrontSitemapContext(
+      emptyHeaders,
+      'cart', // reserved path, invalid candidate
+      req
+    );
+
+    expect(context).toBeNull();
+    expect(errorSpy).toHaveBeenCalled();
+    const [, payload] = errorSpy.mock.calls.at(-1) ?? [];
+    expect(payload).toMatchObject({
+      safeHeaders: { 'x-custom-domain': 'invalid.example.com' },
+    });
+    expect(JSON.stringify(payload)).not.toContain('secret-token');
+    expect(JSON.stringify(payload)).not.toContain('session=secret');
+    errorSpy.mockRestore();
+  });
+
+  it('serializes a sitemap index with sitemap loc entries', async () => {
+    const { serializeSitemapIndex } = await import('./sitemap-data');
+    const xml = serializeSitemapIndex([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+    ]);
+
+    expect(xml).toContain(
+      '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    );
+    expect(xml).toContain(
+      '<sitemap><loc>https://ogabassey.com/sitemap/static.xml</loc></sitemap>'
+    );
+    expect(xml).toContain(
+      '<sitemap><loc>https://ogabassey.com/sitemap/products.xml</loc></sitemap>'
+    );
+    expect(xml).not.toContain('<urlset');
+  });
+
+  it('creates a cacheable XML response for the sitemap index', async () => {
+    const { createSitemapIndexResponse } = await import('./sitemap-data');
+    const response = createSitemapIndexResponse([
+      'https://ogabassey.com/sitemap/static.xml',
+    ]);
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/xml');
+    expect(response.headers.get('cache-control')).toBe(
+      'public, s-maxage=3600, stale-while-revalidate=86400'
+    );
+    expect(body).toContain('<sitemapindex');
+  });
+
+  it('omits lastmod from category entries when updated_at is missing', async () => {
+    mockCategoriesQuery([{ slug: 'smartphones', updated_at: null }]);
+    const { getCategorySitemapEntries } = await import('./sitemap-data');
+
+    const entries = await getCategorySitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {
+        from: (table: string) => ({
+          select: () => ({ eq: createEq(table) }),
+        }),
+      },
+    } as unknown as StorefrontSitemapContext);
+
+    expect(entries).toEqual([
+      expect.objectContaining({ url: 'https://ogabassey.com/smartphones' }),
+    ]);
+    expect(entries[0]?.lastModified).toBeUndefined();
+  });
+
+  it('omits lastmod from commercial-support entries when the category has no timestamp', async () => {
+    mockCategoriesQuery([{ slug: 'smartphones', updated_at: null }]);
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Smartphones',
+      products: [],
+    });
+    mockBuildCategorySupportLinks.mockReturnValue([
+      {
+        href: 'https://ogabassey.com/smartphones/compare/a-vs-b',
+        label: 'A vs B',
+      },
+    ]);
+    const { getCommercialSupportSitemapEntries } = await import(
+      './sitemap-data'
+    );
+
+    const entries = await getCommercialSupportSitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {
+        from: (table: string) => ({
+          select: () => ({ eq: createEq(table) }),
+        }),
+      },
+    } as unknown as StorefrontSitemapContext);
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        url: 'https://ogabassey.com/smartphones/compare/a-vs-b',
+      }),
+    ]);
+    expect(entries[0]?.lastModified).toBeUndefined();
+  });
+
+  it('creates sitemap unavailable response with 503, no-store, and retry-after', async () => {
+    const { createSitemapUnavailableResponse } = await import('./sitemap-data');
+    const response = createSitemapUnavailableResponse();
+    expect(response.status).toBe(503);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('retry-after')).toBe('300');
   });
 });

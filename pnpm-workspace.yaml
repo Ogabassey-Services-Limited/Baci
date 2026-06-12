@@ -1,6 +1,11 @@
 minimumReleaseAge: 1440
-# trustPolicy: check
-
+# Refuse packages whose trust signals (provenance, signatures) weaken between
+# updates. trustLockfile keeps already-locked entries installable — the current
+# lockfile carries upstream trust downgrades (e.g. undici-types@6.21.0,
+# uuid@13.0.1 shipped without the provenance their earlier releases had) that
+# would otherwise fail every install; new resolutions are still enforced.
+trustPolicy: no-downgrade
+trustLockfile: true
 
 # Workspace linkers & hoisting configurations for React Native/Expo in pnpm v11
 nodeLinker: hoisted
@@ -105,8 +110,8 @@ overrides:
   "uuid@>=13 <13.0.1": "13.0.1"
   # Pin to 10.2.0 to mitigate GHSA-v2v4-37r5-5v8g via transitive Lighthouse/Puppeteer proxy tooling.
   ip-address: "10.2.0"
-  # Pin to 16.2.7 to mitigate GHSA-q4gf-8mx6-v5v3 in Server Components while staying on the current Next.js 16 patch.
-  next: "16.2.7"
+  # Pin to 16.2.9 to mitigate GHSA-q4gf-8mx6-v5v3 in Server Components while staying on the current Next.js 16 patch.
+  next: "16.2.9"
   flatted: "3.4.2"
   lodash: "4.18.1"
   lodash-es: "4.18.1"
@@ -181,6 +186,17 @@ overrides:
   path-to-regexp: ">=8.4.0"
   # Pin to ^11.15.0 to close GHSA-6m6c-36f7-fhxh (Gantt-chart infinite-loop DoS), GHSA-87f9-hvmw-gh4p (CSS injection via configuration), GHSA-ghcm-xqfw-q4vr (HTML injection in classDef state diagrams), and GHSA-xcj9-5m2h-648r (CSS injection in classDefs). All four advisories fixed in 11.15.0. mermaid arrives here transitively via streamdown 1.6.11 (markdown streaming for the AI chat rendering pipeline).
   mermaid: "^11.15.0"
+  # Pin vulnerable gRPC consumers to their patched minor releases for CVE-2026-48068 and CVE-2026-48069 while respecting transitive semver bounds.
+  "@grpc/grpc-js@>=1.9.0 <1.9.16": "1.9.16"
+  "@grpc/grpc-js@>=1.10.0 <1.10.12": "1.10.12"
+  "@grpc/grpc-js@>=1.11.0 <1.11.4": "1.11.4"
+  "@grpc/grpc-js@>=1.12.0 <1.12.7": "1.12.7"
+  "@grpc/grpc-js@>=1.13.0 <1.13.5": "1.13.5"
+  "@grpc/grpc-js@>=1.14.0 <1.14.4": "1.14.4"
+  # google-gax declares a broad ^1.10.x range; keep it on the latest patched 1.14.x line instead of the 1.10.x patched floor.
+  "google-gax>@grpc/grpc-js": "1.14.4"
+  # Pin vulnerable shell-quote consumers to the first patched release for CVE-2026-9277.
+  "shell-quote@>=1.1.0 <=1.8.3": "1.8.4"
 
 patchedDependencies:
   "@react-native-community/datetimepicker@9.1.0": "patches/@react-native-community/datetimepicker@9.1.0.patch"
@@ -195,3 +211,5 @@ patchedDependencies:
   "react-native-purchases@10.2.0": "patches/react-native-purchases@10.2.0.patch"
   "react-native-safe-area-context@5.8.0": "patches/react-native-safe-area-context@5.8.0.patch"
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
+  # Backport of vercel/next.js#94630; fixes PPR resume mismatch digest 1617769459 for htmlLimitedBots under cacheComponents. Remove when a stable Next release contains the fix.
+  "next@16.2.9": "patches/next@16.2.9.patch"

@@ -42,35 +42,41 @@ vi.mock('@shopify/flash-list', () => ({
     ),
 }));
 
-vi.mock('react-native', () => ({
-    StatusBar: () => null,
-  ActivityIndicator: () => <span>loading-spinner</span>,
-  Pressable: ({
-    accessibilityLabel,
-    children,
-    onPress,
-  }: {
-    accessibilityLabel?: string;
-    children?: React.ReactNode;
-    onPress?: () => void;
-  }) => (
-    <button
-      aria-label={accessibilityLabel}
-      onClick={() => onPress?.()}
-      type="button"
-    >
-      {children}
-    </button>
-  ),
-  RefreshControl: () => null,
-  StyleSheet: {
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: React.ReactNode }) => (
+vi.mock('react-native', () => {
+  const Text = ({ children }: { children?: React.ReactNode }) => (
     <span>{children}</span>
-  ),
-  View: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-}));
+  );
+
+  return {
+    StatusBar: () => null,
+    ActivityIndicator: () => <Text>loading-spinner</Text>,
+    Pressable: ({
+      accessibilityLabel,
+      children,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      children?: React.ReactNode;
+      onPress?: () => void;
+    }) => (
+      <button
+        aria-label={accessibilityLabel}
+        onClick={() => onPress?.()}
+        type="button"
+      >
+        {children}
+      </button>
+    ),
+    RefreshControl: () => null,
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text,
+    View: ({ children }: { children?: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+  };
+});
 
 describe('StaffListSection', () => {
   it('renders staff rows and forwards member presses', () => {

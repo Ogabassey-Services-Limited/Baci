@@ -858,6 +858,186 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.description).toBe('The best gaming laptop for creators.');
   });
 
+  it('removes stale absolute listed-price sentences from structured product descriptions', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        description:
+          'Premium foldable phone. Current listed price is NGN 2,500,000. Confirm selected variant price before checkout.',
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe(
+      'Premium foldable phone. Confirm selected variant price before checkout.'
+    );
+  });
+
+  it('does not let custom schema markup reintroduce stale listed prices or empty aggregate ratings', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        description: 'Premium foldable phone.',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          description:
+            'Premium foldable phone. Current listed price is NGN 2,500,000.',
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: 5,
+            reviewCount: 0,
+          },
+        },
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe('Premium foldable phone.');
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
+  it('keeps custom aggregate ratings when ratingCount is positive and reviewCount is zero', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: 4.5,
+            reviewCount: 0,
+            ratingCount: 12,
+          },
+        },
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toEqual({
+      '@type': 'AggregateRating',
+      ratingValue: 4.5,
+      reviewCount: 0,
+      ratingCount: 12,
+    });
+  });
+
+  it('removes custom aggregate ratings with rating values outside the declared scale', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: 7,
+            reviewCount: 2,
+          },
+        },
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
+  it('removes custom aggregate ratings that use a non-storefront rating scale', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            bestRating: 100,
+            worstRating: 0,
+            ratingValue: 87,
+            ratingCount: 12,
+          },
+        },
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
+  it('ignores non-object custom schema markup without throwing', () => {
+    expect(() =>
+      generateProductSchema(
+        makeProduct({
+          schema_markup:
+            'invalid schema markup' as unknown as Product['schema_markup'],
+        }),
+        'TestStore',
+        'NGN',
+        'NG'
+      )
+    ).not.toThrow();
+
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: [
+          {
+            '@type': 'Product',
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: 5,
+              reviewCount: 2,
+            },
+          },
+        ] as unknown as Product['schema_markup'],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
+  it('does not mutate merchant-provided custom schema markup while sanitizing', () => {
+    const schemaMarkup = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      description:
+        'Premium foldable phone. Current listed price is NGN 2,500,000.',
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: 5,
+        reviewCount: 0,
+      },
+    };
+
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: schemaMarkup as Product['schema_markup'],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe('Premium foldable phone.');
+    expect(schema.aggregateRating).toBeUndefined();
+    expect(schemaMarkup.description).toBe(
+      'Premium foldable phone. Current listed price is NGN 2,500,000.'
+    );
+    expect(schemaMarkup.aggregateRating).toEqual({
+      '@type': 'AggregateRating',
+      ratingValue: 5,
+      reviewCount: 0,
+    });
+  });
+
   it('serializes product schema without double-escaping text or URL data', () => {
     const imageUrl =
       'https://cdn.example.com/products/pro.png?fit=cover&width=600';
@@ -1095,6 +1275,16 @@ describe('generateMetaDescription', () => {
     ).toBe('Shop phones, laptops and consoles.');
   });
 
+  it('removes stale absolute listed-price sentences', () => {
+    expect(
+      generateMetaDescription(
+        'Premium foldable phone. Current listed price is NGN 2,500,000. Confirm selected variant price before checkout.'
+      )
+    ).toBe(
+      'Premium foldable phone. Confirm selected variant price before checkout.'
+    );
+  });
+
   it('extends short descriptions when minLength fallback options are provided', () => {
     expect(
       generateMetaDescription('2-in-1', 160, {
@@ -1268,6 +1458,125 @@ describe('generateBlogPostSchema', () => {
       'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
       'https://cdn.ogabassey.com/media/merchant-1/blog/post/standard_4x3.webp',
       'https://cdn.ogabassey.com/media/merchant-1/blog/post/square_1x1.webp',
+    ]);
+  });
+
+  it('prefers BlogPosting ImageObjects with width and height when supplied', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageUrls: [
+        'https://cdn.ogabassey.com/media/merchant-1/blog/post/fallback.webp',
+      ],
+      imageObjects: [
+        {
+          '@type': 'ImageObject',
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+          width: 1200,
+          height: 675,
+        },
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+        width: 1200,
+        height: 675,
+      },
+    ]);
+  });
+
+  it('falls back to imageUrls when imageObjects contain no valid URLs', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageUrls: [
+        'https://cdn.ogabassey.com/media/merchant-1/blog/fallback.webp',
+      ],
+      imageObjects: [
+        { url: '', width: 1200, height: 675 },
+        { url: 'javascript:alert(1)', width: 1200, height: 675 },
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      'https://cdn.ogabassey.com/media/merchant-1/blog/fallback.webp',
+    ]);
+  });
+
+  it('omits invalid ImageObject dimensions without dropping the valid image URL', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageObjects: [
+        {
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/negative.webp',
+          width: -1,
+          height: 0,
+        },
+        {
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/float.webp',
+          width: 1200.5,
+          height: Number.NaN,
+        },
+        {
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/infinity.webp',
+          width: Number.POSITIVE_INFINITY,
+          height: 675,
+        },
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/negative.webp',
+      },
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/float.webp',
+      },
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/infinity.webp',
+        height: 675,
+      },
+    ]);
+  });
+
+  it('falls back to imageUrls when imageObjects is empty', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageUrls: [
+        'https://cdn.ogabassey.com/media/merchant-1/blog/fallback.webp',
+      ],
+      imageObjects: [],
+    });
+
+    expect(schema.image).toEqual([
+      'https://cdn.ogabassey.com/media/merchant-1/blog/fallback.webp',
+    ]);
+  });
+
+  it('keeps only valid ImageObjects from a mixed imageObjects array', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageObjects: [
+        {
+          url: 'https://cdn.ogabassey.com/media/merchant-1/blog/valid.webp',
+          width: 1200,
+          height: 675,
+        },
+        { url: 'data:text/html,bad', width: 1200, height: 675 },
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      {
+        '@type': 'ImageObject',
+        url: 'https://cdn.ogabassey.com/media/merchant-1/blog/valid.webp',
+        width: 1200,
+        height: 675,
+      },
     ]);
   });
 

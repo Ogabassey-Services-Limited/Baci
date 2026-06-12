@@ -1,15 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
-import { useBranchScope } from './useBranchScope';
 import { fetchRevenueChart } from './dashboard-revenue-chart';
-import { fetchDashboardStats } from './dashboard-stats-fetch';
 import type {
   DashboardStats,
   RevenueDataPoint,
   TimePeriod,
   TopProduct,
 } from './dashboard-stats.types';
+import { fetchDashboardStats } from './dashboard-stats-fetch';
 import { fetchTopProducts } from './dashboard-top-products';
+import { useBranchScope } from './useBranchScope';
 import { useMerchant } from './useMerchant';
 
 export type { DashboardStats, RevenueDataPoint, TimePeriod, TopProduct };
@@ -21,21 +21,31 @@ export function useDashboardStats(period: TimePeriod = 'week') {
   const merchantId = merchant?.id;
   const branchScopeKey = getBranchScopeKey(scope);
 
-  const statsQuery = useQuery({
+  const {
+    data: stats,
+    error: statsError,
+    isLoading: isStatsLoading,
+    refetch: refetchStats,
+  } = useQuery({
     enabled: !!merchantId,
     queryFn: () => fetchDashboardStats(merchantId!, period, scope),
     queryKey: ['dashboard-stats', merchantId, period, branchScopeKey],
     staleTime: 1000 * 60 * 2,
   });
 
-  const chartQuery = useQuery({
+  const {
+    data: revenueData,
+    error: chartError,
+    isLoading: isChartLoading,
+    refetch: refetchChart,
+  } = useQuery({
     enabled: !!merchantId,
     queryFn: () => fetchRevenueChart(merchantId!, period, scope),
     queryKey: ['revenue-chart', merchantId, period, branchScopeKey],
     staleTime: 1000 * 60 * 5,
   });
 
-  const topProductsQuery = useQuery({
+  const { data: topProducts, refetch: refetchTopProducts } = useQuery({
     enabled: !!merchantId,
     queryFn: () => fetchTopProducts(merchantId!, 5, scope),
     queryKey: ['top-products', merchantId, branchScopeKey],
@@ -43,15 +53,15 @@ export function useDashboardStats(period: TimePeriod = 'week') {
   });
 
   return {
-    error: statsQuery.error || chartQuery.error,
-    isLoading: statsQuery.isLoading || chartQuery.isLoading,
+    error: statsError || chartError,
+    isLoading: isStatsLoading || isChartLoading,
     refetch: () => {
-      statsQuery.refetch();
-      chartQuery.refetch();
-      topProductsQuery.refetch();
+      refetchStats();
+      refetchChart();
+      refetchTopProducts();
     },
-    revenueData: chartQuery.data ?? [],
-    stats: statsQuery.data ?? null,
-    topProducts: topProductsQuery.data ?? [],
+    revenueData: revenueData ?? [],
+    stats: stats ?? null,
+    topProducts: topProducts ?? [],
   };
 }

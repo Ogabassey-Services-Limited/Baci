@@ -89,3 +89,7 @@
 ## 2026-06-07 - Add `accessibilityState` to auth loading buttons
 **Learning:** React Native's `ActivityIndicator` visually indicates loading, but screen readers require `accessibilityState={{ disabled: true, busy: true }}` explicitly set on the parent interactive element (e.g., `Pressable`) to accurately announce the busy state and prevent double-activation during async operations.
 **Action:** When adding an `ActivityIndicator` to a button for loading states, ensure the parent button correctly implements `accessibilityState={{ disabled: isLoading, busy: isLoading }}`.
+
+## 2026-06-10 - Add `aria-label` to dynamically toggled secret input buttons
+**Learning:** Icon-only buttons used to toggle the visibility of sensitive information (e.g., "Show/Hide secret" using Eye/EyeOff icons) in settings pages often miss `aria-label` attributes, making their state and purpose opaque to screen reader users.
+**Action:** Always ensure icon-only buttons that toggle visibility state have dynamic `aria-label` attributes reflecting the current action (e.g., `aria-label={showSecret ? 'Hide secret' : 'Show secret'}`).

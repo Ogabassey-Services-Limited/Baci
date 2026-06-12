@@ -1,17 +1,24 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import type { StaffAccess } from '@/hooks/merchant';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { formatPersonName } from '@/lib/format-person-name';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { ensurePermission } from '@/lib/merchant-server';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
+import {
+  GetOrderInputSchema,
+  GetOrderStatsInputSchema,
+  GetOrdersInputSchema,
+  ResendOrderConfirmationInputSchema,
+} from '@/schemas/dashboard-order-actions';
 import {
   AGENTIC_ORDER_SOURCE,
   AGENTIC_ORDER_SOURCE_FILTER,
@@ -21,6 +28,8 @@ import { loadOrderItemImageMap } from './order-item-images';
 import type { PaymentStatus, ShippingStatus } from './order-statuses';
 
 export type { PaymentStatus, ShippingStatus } from './order-statuses';
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 export interface Transaction {
   id: string;
@@ -161,6 +170,50 @@ const ORDER_CONFIRMATION_SELECT = [
   'shipping_address',
   'order_items(id, image_url, name, quantity, price)',
 ].join(', ');
+
+function getZeroOrderStats(): OrderStats {
+  return {
+    totalOrders: 0,
+    completedOrders: 0,
+    unpaidOrders: 0,
+    urgentOrders: 0,
+  };
+}
+
+function canAccessOrders(staffAccess: StaffAccess, action: 'view' | 'edit') {
+  const permissions = staffAccess.permissions;
+
+  return (
+    staffAccess.isOwner ||
+    permissions?.full_access?.all === true ||
+    permissions?.orders?.all === true ||
+    permissions?.['*']?.['*'] === true ||
+    permissions?.['*']?.[action] === true ||
+    permissions?.orders?.['*'] === true ||
+    permissions?.orders?.[action] === true
+  );
+}
+
+async function getAuthorizedOrderMerchantId(
+  supabase: SupabaseServerClient,
+  userId: string,
+  requestedMerchantId: string,
+  action: 'view' | 'edit'
+) {
+  const merchantContext = await getMerchantForApiRequest(supabase, userId, {
+    requestedMerchantId,
+  });
+
+  if (
+    !merchantContext ||
+    !canAccessOrders(merchantContext.staffAccess, action)
+  ) {
+    return null;
+  }
+
+  return merchantContext.merchantId;
+}
+
 function isActiveFilter<T extends string>(
   value: T | 'All' | undefined
 ): value is T {
@@ -179,14 +232,41 @@ export async function getOrders(
   merchantId: string,
   filters: OrderFilters = {}
 ): Promise<Order[]> {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const paymentStatusFilter = filters.paymentStatus;
-  const shippingStatusFilter = filters.shippingStatus;
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return [];
+  }
+
+  const input = GetOrdersInputSchema.safeParse({ merchantId, filters });
+  if (!input.success) {
+    return [];
+  }
+  const validatedMerchantId = input.data.merchantId;
+  const validatedFilters = input.data.filters;
+
+  const authorizedMerchantId = await getAuthorizedOrderMerchantId(
+    supabase,
+    user.id,
+    validatedMerchantId,
+    'view'
+  );
+
+  if (!authorizedMerchantId) {
+    return [];
+  }
+
+  const paymentStatusFilter = validatedFilters.paymentStatus;
+  const shippingStatusFilter = validatedFilters.shippingStatus;
   const hasPaymentFilter = isActiveFilter(paymentStatusFilter);
   const hasShippingFilter = isActiveFilter(shippingStatusFilter);
-  const hasAgenticSourceFilter = filters.source === AGENTIC_ORDER_SOURCE_FILTER;
-  const searchTerm = filters.search?.trim();
+  const hasAgenticSourceFilter =
+    validatedFilters.source === AGENTIC_ORDER_SOURCE_FILTER;
+  const searchTerm = validatedFilters.search?.trim();
   const sanitizedSearch = searchTerm
     ? sanitizeLikePattern(sanitizeSearchQuery(searchTerm))
     : null;
@@ -194,7 +274,7 @@ export async function getOrders(
   let query = supabase
     .from('orders')
     .select(ORDER_WITH_ITEMS_QUERY)
-    .eq('merchant_id', merchantId)
+    .eq('merchant_id', authorizedMerchantId)
     .order('created_at', { ascending: false });
 
   // Apply filters
@@ -226,8 +306,8 @@ export async function getOrders(
     logger.error({
       message: 'Error fetching dashboard orders',
       error,
-      merchantId,
-      filters,
+      merchantId: authorizedMerchantId,
+      filters: validatedFilters,
       route: 'dashboard/orders/getOrders',
     });
     throw new Error('Failed to fetch dashboard orders');
@@ -243,7 +323,7 @@ export async function getOrders(
       .select(
         'status, jumia_order_id, jumia_order_number, customer_name, total_amount, created_at_jumia, items'
       )
-      .eq('merchant_id', merchantId)
+      .eq('merchant_id', authorizedMerchantId)
       .is('baci_order_id', null);
     if (sanitizedSearch) {
       jumiaQuery = jumiaQuery.or(
@@ -258,7 +338,7 @@ export async function getOrders(
       logger.error({
         message: 'Error fetching legacy Jumia orders',
         error: jumiaOrdersError,
-        merchantId,
+        merchantId: authorizedMerchantId,
         route: 'dashboard/orders/getOrders',
       });
     } else {
@@ -363,8 +443,31 @@ export async function getOrders(
 }
 
 export async function getOrderStats(merchantId: string): Promise<OrderStats> {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return getZeroOrderStats();
+  }
+
+  const input = GetOrderStatsInputSchema.safeParse({ merchantId });
+  if (!input.success) {
+    return getZeroOrderStats();
+  }
+
+  const authorizedMerchantId = await getAuthorizedOrderMerchantId(
+    supabase,
+    user.id,
+    input.data.merchantId,
+    'view'
+  );
+
+  if (!authorizedMerchantId) {
+    return getZeroOrderStats();
+  }
 
   // Fetch all order counts concurrently for stats calculation
   // PERFORMANCE: Use .select('id', { count: 'exact', head: true }) instead of fetching all rows
@@ -378,21 +481,21 @@ export async function getOrderStats(merchantId: string): Promise<OrderStats> {
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId),
+      .eq('merchant_id', authorizedMerchantId),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
+      .eq('merchant_id', authorizedMerchantId)
       .eq('shipping_status', 'delivered'),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
+      .eq('merchant_id', authorizedMerchantId)
       .eq('payment_status', 'unpaid'),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
+      .eq('merchant_id', authorizedMerchantId)
       .or('payment_status.eq.unpaid,shipping_status.eq.pending'),
   ]);
 
@@ -401,12 +504,7 @@ export async function getOrderStats(merchantId: string): Promise<OrderStats> {
       'Error fetching order stats counts:',
       totalError || completedError || unpaidError || urgentError
     );
-    return {
-      totalOrders: 0,
-      completedOrders: 0,
-      unpaidOrders: 0,
-      urgentOrders: 0,
-    };
+    return getZeroOrderStats();
   }
 
   return {
@@ -421,13 +519,38 @@ export async function getOrder(
   merchantId: string,
   orderIdentifier: string
 ): Promise<Order | null> {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return null;
+  }
+
+  const input = GetOrderInputSchema.safeParse({ merchantId, orderIdentifier });
+  if (!input.success) {
+    return null;
+  }
+  const validatedMerchantId = input.data.merchantId;
+  const validatedOrderIdentifier = input.data.orderIdentifier;
+
+  const authorizedMerchantId = await getAuthorizedOrderMerchantId(
+    supabase,
+    user.id,
+    validatedMerchantId,
+    'view'
+  );
+
+  if (!authorizedMerchantId) {
+    return null;
+  }
 
   // Check if identifier is UUID
   const isUuid =
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
-      orderIdentifier
+      validatedOrderIdentifier
     );
 
   let order: DashboardOrderRecord | null = null;
@@ -437,14 +560,16 @@ export async function getOrder(
     const { data, error } = await supabase
       .from('orders')
       .select(ORDER_WITH_ITEMS_QUERY)
-      .eq('merchant_id', merchantId)
-      .eq('id', orderIdentifier)
+      .eq('merchant_id', authorizedMerchantId)
+      .eq('id', validatedOrderIdentifier)
       .maybeSingle();
 
     order = data as DashboardOrderRecord | null;
     orderError = error;
   } else {
-    const normalizedIdentifier = orderIdentifier.replace(/^#/, '').trim();
+    const normalizedIdentifier = validatedOrderIdentifier
+      .replace(/^#/, '')
+      .trim();
     const candidateOrderNumbers = [
       normalizedIdentifier,
       `#${normalizedIdentifier}`,
@@ -454,7 +579,7 @@ export async function getOrder(
       const { data, error } = await supabase
         .from('orders')
         .select(ORDER_WITH_ITEMS_QUERY)
-        .eq('merchant_id', merchantId)
+        .eq('merchant_id', authorizedMerchantId)
         .eq('order_number', candidateOrderNumber)
         .maybeSingle();
 
@@ -475,8 +600,9 @@ export async function getOrder(
       logger.error({
         message: 'Error fetching order',
         error: orderError,
-        merchantId,
-        orderIdentifier,
+        merchantId: authorizedMerchantId,
+        requestedMerchantId: validatedMerchantId,
+        orderIdentifier: validatedOrderIdentifier,
         route: 'dashboard/orders/getOrder',
       });
     }
@@ -548,8 +674,22 @@ export async function resendOrderConfirmation(
   orderId: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, message: 'Unauthorized' };
+    }
+
+    const input = ResendOrderConfirmationInputSchema.safeParse({ orderId });
+    if (!input.success) {
+      return { success: false, message: 'Invalid order ID' };
+    }
+    const validatedOrderId = input.data.orderId;
+
     const { merchant: authorizedMerchant } = await ensurePermission(
       'orders',
       'edit'
@@ -575,7 +715,7 @@ export async function resendOrderConfirmation(
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .select(ORDER_CONFIRMATION_SELECT)
-      .eq('id', orderId)
+      .eq('id', validatedOrderId)
       .eq('merchant_id', merchant.id)
       .single();
     const order = orderData as unknown as OrderConfirmationRecord | null;
@@ -583,7 +723,7 @@ export async function resendOrderConfirmation(
     if (orderError || !order) {
       logger.error({
         message: 'Resend Notification: Order not found',
-        orderId,
+        orderId: validatedOrderId,
         merchantId: merchant.id,
         error: orderError,
       });

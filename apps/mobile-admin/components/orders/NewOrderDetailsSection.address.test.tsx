@@ -31,12 +31,15 @@ vi.mock('@react-native-community/datetimepicker', () => ({
   default: () => null,
 }));
 
-vi.mock('react-native-google-places-autocomplete', () => ({
-  GooglePlacesAutocomplete: (props: GooglePlacesProps) => {
-    googlePlacesState.lastProps = props;
-    return <div>google-places</div>;
-  },
-}));
+vi.mock('react-native-google-places-autocomplete', async () => {
+  const { Text } = await import('react-native');
+  return {
+    GooglePlacesAutocomplete: (props: GooglePlacesProps) => {
+      googlePlacesState.lastProps = props;
+      return <Text>google-places</Text>;
+    },
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');

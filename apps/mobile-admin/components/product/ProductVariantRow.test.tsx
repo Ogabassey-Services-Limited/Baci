@@ -18,9 +18,7 @@ vi.mock('@/components/product/VariantConditionEditor', () => ({
       aria-label="Set variant condition"
       onClick={() => updateVariantCondition(variantIndex, 'used')}
       type="button"
-    >
-      Set condition
-    </button>
+    />
   ),
 }));
 

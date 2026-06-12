@@ -89,11 +89,14 @@ vi.mock('expo-haptics', () => ({
   notificationAsync: (...args: unknown[]) => mocks.notificationAsync(...args),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
-  default: () => <span>icon</span>,
-  __esModule: true,
-}));
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const { Text } = await import('react-native');
+  return {
+    Ionicons: () => <Text>icon</Text>,
+    default: () => <Text>icon</Text>,
+    __esModule: true,
+  };
+});
 
 vi.mock('@shopify/flash-list', () => ({
   FlashList: ({
@@ -115,28 +118,34 @@ vi.mock('@shopify/flash-list', () => ({
   ),
 }));
 
-vi.mock('react-native', () => ({
-  ActivityIndicator: () => <span>loading</span>,
-  Alert: { alert: vi.fn() },
-  Dimensions: { get: () => ({ height: 844, width: 390 }) },
-  Pressable: ({
-    children,
-    disabled,
-    onPress,
-  }: {
-    children?: ReactNode;
-    disabled?: boolean;
-    onPress?: () => void;
-  }) => (
-    <button disabled={disabled} onClick={() => onPress?.()} type="button">
-      {children}
-    </button>
-  ),
-  RefreshControl: () => null,
-  StyleSheet: { create: <T,>(styles: T) => styles },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+vi.mock('react-native', () => {
+  const MockText = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+
+  return {
+    ActivityIndicator: () => <MockText>loading</MockText>,
+    Alert: { alert: vi.fn() },
+    Dimensions: { get: () => ({ height: 844, width: 390 }) },
+    Pressable: ({
+      children,
+      disabled,
+      onPress,
+    }: {
+      children?: ReactNode;
+      disabled?: boolean;
+      onPress?: () => void;
+    }) => (
+      <button disabled={disabled} onClick={() => onPress?.()} type="button">
+        {children}
+      </button>
+    ),
+    RefreshControl: () => null,
+    StyleSheet: { create: <T,>(styles: T) => styles },
+    Text: MockText,
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 import NegotiationsScreen from './negotiations';
 import { Alert } from 'react-native';
@@ -171,19 +180,20 @@ describe('NegotiationsScreen', () => {
     });
   });
 
-  it('aborts status updates when the merchant context is missing', async () => {
+  it('does not fetch or render negotiations when the merchant context is missing', async () => {
     mocks.merchant = null;
 
     render(<NegotiationsScreen />);
 
-    fireEvent.click(await screen.findByText('Accept Offer'));
-
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Error', 'Merchant not found');
+      expect(screen.queryByText('Accept Offer')).toBeNull();
     });
-    expect(
-      mocks.queryCalls.some(({ method }) => method === 'update')
-    ).toBe(false);
+    expect(mocks.queryCalls.some(({ method }) => method === 'select')).toBe(
+      false
+    );
+    expect(mocks.queryCalls.some(({ method }) => method === 'update')).toBe(
+      false
+    );
   });
 
   it('shows an error when the scoped Supabase update fails', async () => {

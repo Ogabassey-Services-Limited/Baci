@@ -1,4 +1,4 @@
-'use server';
+import 'server-only';
 
 import { generateText } from 'ai';
 import { cookies } from 'next/headers';

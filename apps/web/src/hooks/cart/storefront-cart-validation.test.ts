@@ -7,14 +7,16 @@ import {
 } from './storefront-cart-validation';
 
 const mocks = vi.hoisted(() => ({
-  fetch: vi.fn(),
+  fetchWithCsrf: vi.fn(),
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
   },
 }));
 
-vi.stubGlobal('fetch', mocks.fetch);
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: mocks.fetchWithCsrf,
+}));
 
 vi.mock('@/lib/logger', () => ({
   logger: mocks.logger,
@@ -43,7 +45,7 @@ function makeCartItem(overrides: Partial<CartItem> = {}): CartItem {
 
 describe('storefront-cart-validation', () => {
   beforeEach(() => {
-    mocks.fetch.mockReset();
+    mocks.fetchWithCsrf.mockReset();
     mocks.logger.info.mockReset();
     mocks.logger.warn.mockReset();
   });
@@ -77,7 +79,7 @@ describe('storefront-cart-validation', () => {
   });
 
   it('posts the first 50 cart items for validation and returns the response body', async () => {
-    mocks.fetch.mockResolvedValue({
+    mocks.fetchWithCsrf.mockResolvedValue({
       ok: true,
       json: async () => ({ invalidProductIds: ['cart-item-1'] }),
     });
@@ -95,7 +97,7 @@ describe('storefront-cart-validation', () => {
       controller.signal
     );
 
-    expect(mocks.fetch).toHaveBeenCalledWith(
+    expect(mocks.fetchWithCsrf).toHaveBeenCalledWith(
       '/api/cart/validate',
       expect.objectContaining({
         method: 'POST',
@@ -114,7 +116,7 @@ describe('storefront-cart-validation', () => {
   });
 
   it('posts SKU-matrix variant identity for server-side validation', async () => {
-    mocks.fetch.mockResolvedValue({
+    mocks.fetchWithCsrf.mockResolvedValue({
       ok: true,
       json: async () => ({ invalidProductIds: [] }),
     });
@@ -137,7 +139,7 @@ describe('storefront-cart-validation', () => {
       controller.signal
     );
 
-    expect(mocks.fetch).toHaveBeenCalledWith(
+    expect(mocks.fetchWithCsrf).toHaveBeenCalledWith(
       '/api/cart/validate',
       expect.objectContaining({
         body: JSON.stringify({
@@ -161,7 +163,7 @@ describe('storefront-cart-validation', () => {
   });
 
   it('returns null and warns when validation fails', async () => {
-    mocks.fetch.mockResolvedValue({
+    mocks.fetchWithCsrf.mockResolvedValue({
       ok: false,
       status: 503,
     });

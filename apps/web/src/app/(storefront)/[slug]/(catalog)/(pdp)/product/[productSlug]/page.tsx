@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   title: 'Product Redirect',
   description:
     'Redirects legacy product URLs to the canonical storefront product page.',
+  // Replace root metadata alternates so noindex fallback pages do not inherit a canonical.
+  alternates: null,
   robots: { index: false, follow: true },
 };
 

@@ -27,19 +27,19 @@ vi.mock('@/components/ui/AppDatePickerField', () => ({
         aria-label="Pick order date"
         onClick={() => onConfirm(new Date('2024-02-03T00:00:00.000Z'))}
         type="button"
-      >
-        Pick order date
-      </button>
-      <button aria-label="Close date picker" onClick={onClose} type="button">
-        Close date picker
-      </button>
+      />
+      <button aria-label="Close date picker" onClick={onClose} type="button" />
     </div>
   ),
 }));
 
-vi.mock('react-native-google-places-autocomplete', () => ({
-  GooglePlacesAutocomplete: () => <div>google-places</div>,
-}));
+vi.mock('react-native-google-places-autocomplete', async () => {
+  const { Text } = await import('react-native');
+
+  return {
+    GooglePlacesAutocomplete: () => <Text>google-places</Text>,
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');

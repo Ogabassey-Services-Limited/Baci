@@ -1,12 +1,15 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator,
+import { useState } from 'react';
+import {
+  ActivityIndicator,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { StoreSettingsDetailsCard } from '@/components/store-settings/StoreSettingsDetailsCard';
 import { StoreSubscriptionCard } from '@/components/store-settings/StoreSubscriptionCard';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
@@ -49,33 +52,37 @@ export default function StoreSettingsScreen() {
   const [currency, setCurrency] = useState(COUNTRIES[0].currency);
   const [slug, setSlug] = useState('');
   const [isSlugEdited, setIsSlugEdited] = useState(false);
+  const [syncedMerchant, setSyncedMerchant] = useState<typeof merchant | null>(
+    null
+  );
   const { handleManageSubscription } = useSubscriptionManagement({
     setStatusModal,
   });
 
-  useEffect(() => {
-    if (merchant) {
-      setBusinessName(merchant.business_name || '');
-      setPhone(merchant.phone || merchant.support_phone || '');
-      setEmail(merchant.email || merchant.support_email || '');
-      setAddress(merchant.business_address || '');
+  // Adjust form state during render when the merchant identity changes so the
+  // form never paints a stale frame (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  if (merchant && merchant !== syncedMerchant) {
+    setSyncedMerchant(merchant);
+    setBusinessName(merchant.business_name || '');
+    setPhone(merchant.phone || merchant.support_phone || '');
+    setEmail(merchant.email || merchant.support_email || '');
+    setAddress(merchant.business_address || '');
 
-      const initialCountry = merchant.country || COUNTRIES[0].code;
-      setCountry(initialCountry);
+    const initialCountry = merchant.country || COUNTRIES[0].code;
+    setCountry(initialCountry);
 
-      const defaultCurrencyForCountry = COUNTRIES.find(
-        (c) => c.code === initialCountry || c.name === initialCountry
-      )?.currency;
-      setCurrency(
-        merchant.payout_currency ||
-          defaultCurrencyForCountry ||
-          COUNTRIES[0].currency
-      );
+    const defaultCurrencyForCountry = COUNTRIES.find(
+      (c) => c.code === initialCountry || c.name === initialCountry
+    )?.currency;
+    setCurrency(
+      merchant.payout_currency ||
+        defaultCurrencyForCountry ||
+        COUNTRIES[0].currency
+    );
 
-      setSlug(merchant.slug || '');
-      if (merchant.slug) setIsSlugEdited(true);
-    }
-  }, [merchant]);
+    setSlug(merchant.slug || '');
+    if (merchant.slug) setIsSlugEdited(true);
+  }
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
     setCountry(selected.code);

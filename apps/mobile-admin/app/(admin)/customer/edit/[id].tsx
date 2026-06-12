@@ -1,6 +1,6 @@
 import { splitCustomerFullName } from '@baci/shared';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { ContactInfoForm } from '@/components/customer-edit/ContactInfoForm';
 import { customerEditStyles as styles } from '@/components/customer-edit/customer-edit.styles';
@@ -35,9 +35,12 @@ export default function CustomerEditScreen() {
   const [phoneModified, setPhoneModified] = useState(false);
   const [address, setAddress] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [prevCustomer, setPrevCustomer] = useState<typeof customer>(undefined);
 
-  useEffect(() => {
-    if (!customer) return;
+  // Sync form state when the fetched customer changes, during render instead
+  // of in an effect, so users never see a stale frame between two commits.
+  if (customer && customer !== prevCustomer) {
+    setPrevCustomer(customer);
 
     const fallbackNames = splitCustomerFullName(customer.full_name);
     const fName = customer.first_name ?? fallbackNames.first_name;
@@ -49,7 +52,7 @@ export default function CustomerEditScreen() {
     setPhone(formatPhoneForInput(customer.phone ?? ''));
     setAddress(customer.address ?? '');
     setPhoneModified(false);
-  }, [customer]);
+  }
 
   const handleSave = async () => {
     if (!isValidEmail(email.trim())) {

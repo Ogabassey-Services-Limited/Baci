@@ -101,6 +101,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
           `${storeUrl}/sitemap/categories.xml`,
           `${storeUrl}/sitemap/commercial-support.xml`,
           `${storeUrl}/blog/sitemap.xml`,
+          `${storeUrl}/blog/news-sitemap.xml`,
         ]
       : [
           `${storeUrl}/sitemap/static.xml`,

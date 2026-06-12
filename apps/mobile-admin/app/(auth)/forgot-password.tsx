@@ -2,13 +2,16 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Alert,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   RADIUS,
@@ -20,44 +23,52 @@ import { useTheme } from '@/hooks/useTheme';
 import { getEmailError } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 
+// Module-scope so the throw-in-try stays outside the component body
+// (React Compiler cannot lower that statement yet).
+async function requestPasswordReset(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://usebaci.com/update-password',
+  });
+
+  if (error) throw error;
+}
+
 export default function ForgotPasswordScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleReset = async () => {
+  const handleReset = () => {
     if (!email) {
       Alert.alert('Error', 'Please enter your email address');
       return;
     }
 
-    const emailError = getEmailError(email.trim());
+    const trimmedEmail = email.trim();
+    const emailError = getEmailError(trimmedEmail);
     if (emailError) {
       Alert.alert('Invalid Email', emailError);
       return;
     }
 
     setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://usebaci.com/update-password',
-      });
-
-      if (error) throw error;
-
-      Alert.alert(
-        'Check your email',
-        `We have sent a password reset link to ${email}`,
-        [{ text: 'Back to Login', onPress: () => router.back() }]
-      );
-    } catch (error: unknown) {
-      const err = error as Error;
-      console.error('Reset error:', err);
-      Alert.alert('Error', err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    void requestPasswordReset(trimmedEmail)
+      .then(() => {
+        Alert.alert(
+          'Check your email',
+          `We have sent a password reset link to ${trimmedEmail}`,
+          [{ text: 'Back to Login', onPress: () => router.back() }]
+        );
+      })
+      .catch((error: unknown) => {
+        console.error('Reset error:', error);
+        Alert.alert(
+          'Error',
+          error instanceof Error ? error.message : 'Failed to send reset email'
+        );
+      })
+      .finally(() => setIsLoading(false));
   };
 
   const styles = getStyles(colors);

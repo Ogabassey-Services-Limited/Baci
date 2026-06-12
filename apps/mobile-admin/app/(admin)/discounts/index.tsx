@@ -38,6 +38,8 @@ export default function DiscountsScreen() {
           style: 'destructive',
           onPress: async () => {
             setDeletingId(id);
+            // No `finally` block: try/finally in a component body blocks React
+            // Compiler memoization. The catch swallows, so this tail always runs.
             try {
               await deleteDiscount(id);
             } catch (error) {
@@ -46,9 +48,8 @@ export default function DiscountsScreen() {
                   ? error.message
                   : 'Failed to delete discount';
               Alert.alert('Delete Failed', message);
-            } finally {
-              setDeletingId(null);
             }
+            setDeletingId(null);
           },
         },
       ]

@@ -64,6 +64,11 @@ const CACHE_UNSAFE_ENCODED_SPACE_OR_DASH_REGEX =
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
 const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
+const CANONICAL_STOREFRONT_TERMS_PATH = '/terms';
+const LEGACY_STOREFRONT_TERMS_ALIAS_PATHS = new Set([
+  '/terms-and-conditions',
+  '/terms-of-service',
+]);
 const STOREFRONT_ROOT_SITEMAP_PATH = '/sitemap.xml';
 const STOREFRONT_ROOT_SITEMAP_REWRITE_PATH = '/sitemap/root.xml';
 const PUBLIC_MACHINE_READABLE_PATHS = new Set<string>([
@@ -112,6 +117,46 @@ function setStorefrontMetadataCacheBucketSearchParam(
   );
 }
 
+function normalizeStorefrontTermsAliasPath(pathname: string): string {
+  const lookupPathname =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname;
+
+  return LEGACY_STOREFRONT_TERMS_ALIAS_PATHS.has(lookupPathname.toLowerCase())
+    ? CANONICAL_STOREFRONT_TERMS_PATH
+    : pathname;
+}
+
+function buildLegacyTermsAliasRedirectResponse(
+  request: NextRequest,
+  pathname: string,
+  targetHostname?: string
+): NextResponse | null {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return null;
+  }
+
+  const normalizedPathname = normalizeStorefrontTermsAliasPath(pathname);
+  if (
+    normalizedPathname === pathname ||
+    normalizedPathname !== CANONICAL_STOREFRONT_TERMS_PATH
+  ) {
+    return null;
+  }
+
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = normalizedPathname;
+
+  if (targetHostname) {
+    redirectUrl.protocol = 'https:';
+    redirectUrl.hostname = targetHostname;
+    redirectUrl.port = '';
+  }
+
+  return NextResponse.redirect(redirectUrl, 301);
+}
+
 function isPublicMachineReadablePath(pathname: string): boolean {
   return PUBLIC_MACHINE_READABLE_PATHS.has(pathname);
 }
@@ -136,6 +181,57 @@ const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
 const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
+const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =
+  /\.(?:json|jsonl|md|txt|webmanifest|xml)$/i;
+const STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS = new Set(['_next', 'api']);
+const STOREFRONT_METADATA_CACHE_NON_HTML_ROUTE_SEGMENTS = new Set([
+  'apple-icon',
+  'icon',
+  'opengraph-image',
+  'twitter-image',
+]);
+const STOREFRONT_METADATA_CACHE_NON_SEO_SEGMENTS = new Set([
+  'account',
+  'cart',
+  'checkout',
+  'delete-account',
+  'my-account',
+  'order-success',
+  'receipts',
+  'track-order',
+  'wallet',
+  'wishlist',
+]);
+const PLATFORM_ROOT_ROUTE_SEGMENTS = new Set([
+  '_next',
+  'about',
+  'admin',
+  'api',
+  'auth',
+  'blog',
+  'builder',
+  'cart',
+  'checkout',
+  'contact',
+  'debug-auth',
+  'delete-account',
+  'demo',
+  'features',
+  'favicon.ico',
+  'feeds',
+  'login',
+  'manifest.webmanifest',
+  'onboarding',
+  'pricing',
+  'privacy',
+  'products',
+  'reset-password',
+  'robots.txt',
+  'sitemap.xml',
+  'template-preview',
+  'terms',
+  'track',
+]);
 // Matches blog index/post paths on both the platform root (`/blog`, `/blog/...`)
 // and slug-prefixed storefront variants served from the root domain
 // (`/{slug}/blog`, `/{slug}/blog/...`). Used to canonicalize thumbnail params.
@@ -237,6 +333,29 @@ function shouldPartitionStorefrontMetadataCache(
     return false;
   }
 
+  const lowerPathname = pathname.toLowerCase();
+  if (
+    isPublicMachineReadablePath(pathname) ||
+    STATIC_FILES_REGEX.test(lowerPathname) ||
+    STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX.test(lowerPathname)
+  ) {
+    return false;
+  }
+
+  const pathSegments = pathname.split('/').filter(Boolean);
+  if (isSlugPrefixedStorefrontRequest(hostname)) {
+    const slugSegment = pathSegments[0]?.toLowerCase();
+    if (
+      !slugSegment ||
+      !isValidSubdomain(slugSegment) ||
+      RESERVED_SUBDOMAINS.has(slugSegment) ||
+      RESERVED_STOREFRONT_SEGMENTS.has(slugSegment) ||
+      PLATFORM_ROOT_ROUTE_SEGMENTS.has(slugSegment)
+    ) {
+      return false;
+    }
+  }
+
   const contentSegments = getStorefrontContentSegments(
     pathname,
     hostname,
@@ -246,13 +365,15 @@ function shouldPartitionStorefrontMetadataCache(
 
   if (
     firstSegment &&
-    RESERVED_STOREFRONT_SEGMENTS.has(firstSegment) &&
-    firstSegment !== 'products'
+    (STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS.has(firstSegment) ||
+      STOREFRONT_METADATA_CACHE_NON_SEO_SEGMENTS.has(firstSegment))
   ) {
     return false;
   }
 
-  return isStorefrontProductPagePath(pathname, hostname, routeType);
+  return !contentSegments.some((segment) =>
+    STOREFRONT_METADATA_CACHE_NON_HTML_ROUTE_SEGMENTS.has(segment.toLowerCase())
+  );
 }
 
 // Routes that should not be rewritten (main app routes)
@@ -265,7 +386,6 @@ const MAIN_APP_ROUTES = [
   '/builder',
   '/reset-password',
   '/_next',
-  '/favicon.ico',
   '/robots.txt',
   '/manifest.webmanifest',
 ];
@@ -764,6 +884,53 @@ function buildStorefrontRootSitemapRewriteResponse({
   );
 }
 
+function buildStorefrontFaviconRewriteResponse({
+  request,
+  pathname,
+  userAgent,
+  hostname,
+  routeIdentifier,
+  customDomain,
+  merchantSlug,
+}: {
+  request: NextRequest;
+  pathname: string;
+  userAgent: string;
+  hostname: string;
+  routeIdentifier: string;
+  customDomain?: string;
+  merchantSlug?: string | null;
+}): NextResponse {
+  const faviconUrl = request.nextUrl.clone();
+  faviconUrl.pathname = `/${routeIdentifier}/favicon.ico`;
+
+  const faviconHeaders = buildProxyRequestHeaders(request);
+  if (customDomain) {
+    faviconHeaders.set('x-custom-domain', customDomain);
+    faviconHeaders.set('x-merchant-domain', customDomain);
+  }
+  if (merchantSlug) {
+    faviconHeaders.set('x-merchant-slug', merchantSlug);
+  }
+
+  const response = NextResponse.rewrite(faviconUrl, {
+    request: {
+      headers: faviconHeaders,
+    },
+  });
+
+  return applySecurityHeaders(
+    response,
+    pathname,
+    userAgent,
+    'storefront',
+    isLocalhost(hostname),
+    undefined,
+    request,
+    hostname
+  );
+}
+
 /**
  * Generate Content Security Policy based on route type
  * Multi-tenant strategy:
@@ -1233,12 +1400,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // ==== INDEXNOW KEY FILE PASSTHROUGH ====
-  // IndexNow validates ownership via a root-level `/<key>.txt` file. We only
-  // bypass storefront rewrites for Baci's own platform key AND only on the
-  // platform host (or a Vercel preview of it). Exposing the platform key at
-  // every tenant/custom-domain root would let third parties submit IndexNow
-  // URLs for merchants they don't own — scope it to the host we actually own.
-  // Merchants serve their own IndexNow key via storefront rewrites.
+  // IndexNow validates ownership via a root-level `/<key>.txt` file. Keep the
+  // platform key available on Baci-owned hosts here; registered custom domains
+  // are handled after their merchant slug lookup so arbitrary hosts cannot
+  // reuse the key.
   if (
     pathname === INDEXNOW_KEY_PATH &&
     (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname))
@@ -1485,10 +1650,35 @@ export async function proxy(request: NextRequest) {
       const domainPathSegments = pathname.split('/').filter(Boolean);
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
+      if (pathname === '/favicon.ico') {
+        return buildStorefrontFaviconRewriteResponse({
+          request,
+          pathname,
+          userAgent,
+          hostname,
+          routeIdentifier: domainMerchantSlug ?? domain,
+          customDomain: domain,
+          merchantSlug: domainMerchantSlug,
+        });
+      }
+
+      if (pathname === INDEXNOW_KEY_PATH && domainMerchantSlug) {
+        const requestHeaders = buildProxyRequestHeaders(request);
+        requestHeaders.set('x-custom-domain', domain);
+        requestHeaders.set('x-merchant-domain', domain);
+        requestHeaders.set('x-merchant-slug', domainMerchantSlug);
+
+        return NextResponse.next({
+          request: {
+            headers: requestHeaders,
+          },
+        });
+      }
+
       if (pathname === STOREFRONT_ROOT_SITEMAP_PATH) {
-        // Next's `sitemap.ts` metadata file can lose to the dynamic
-        // `[category]` route on rewritten custom domains. Keep the public URL
-        // stable while routing to the explicit sitemap route handler.
+        // The dynamic storefront route tree can otherwise treat `sitemap.xml`
+        // as a category segment. Keep the public URL stable while routing to
+        // the request-aware XML route handler for 503/no-store support.
         return buildStorefrontRootSitemapRewriteResponse({
           request,
           pathname,
@@ -1514,6 +1704,12 @@ export async function proxy(request: NextRequest) {
         });
       }
 
+      const directLegacyTermsAliasRedirect =
+        buildLegacyTermsAliasRedirectResponse(request, pathname);
+      if (directLegacyTermsAliasRedirect) {
+        return directLegacyTermsAliasRedirect;
+      }
+
       if (
         domainMerchantSlug &&
         domainPathSegments[0]?.toLowerCase() ===
@@ -1531,6 +1727,8 @@ export async function proxy(request: NextRequest) {
           pathname.slice(domainPathSegments[0].length + 1) || '/';
         const strippedSegments = strippedPathname.split('/').filter(Boolean);
         const firstStrippedSegment = strippedSegments[0]?.toLowerCase();
+        const normalizedTermsAliasPathname =
+          normalizeStorefrontTermsAliasPath(strippedPathname);
         // Only collapse `/merchantSlug/{category}/{productSlug}` to
         // `/products/{productSlug}` — i.e. exactly two stripped segments. Longer
         // paths can be legitimate category subroutes such as
@@ -1539,13 +1737,17 @@ export async function proxy(request: NextRequest) {
         // and .../best-under). Collapsing those to `/products/{lastSegment}`
         // would 301 merchants to URLs that don't exist.
         const shouldNormalizeToProductRoute =
+          normalizedTermsAliasPathname === strippedPathname &&
           strippedSegments.length === 2 &&
           !!firstStrippedSegment &&
           !RESERVED_STOREFRONT_SEGMENTS.has(firstStrippedSegment);
 
-        const normalizedPathname = shouldNormalizeToProductRoute
-          ? `/products/${strippedSegments[strippedSegments.length - 1]}`
-          : strippedPathname;
+        const normalizedPathname =
+          normalizedTermsAliasPathname !== strippedPathname
+            ? normalizedTermsAliasPathname
+            : shouldNormalizeToProductRoute
+              ? `/products/${strippedSegments[strippedSegments.length - 1]}`
+              : strippedPathname;
         const normalizedUrl = `https://${domain}${normalizedPathname}${request.nextUrl.search}`;
 
         if (normalizedUrl !== request.nextUrl.href) {
@@ -1776,6 +1978,17 @@ export async function proxy(request: NextRequest) {
 
   // If we have a valid subdomain (not reserved), rewrite to storefront routes
   if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
+    if (pathname === '/favicon.ico') {
+      return buildStorefrontFaviconRewriteResponse({
+        request,
+        pathname,
+        userAgent,
+        hostname,
+        routeIdentifier: subdomain,
+        merchantSlug: subdomain,
+      });
+    }
+
     // Check if trying to access main app routes from subdomain - redirect to main domain
     if (MAIN_APP_ROUTES.some((route) => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL(pathname, `https://${ROOT_DOMAIN}`));
@@ -1784,11 +1997,28 @@ export async function proxy(request: NextRequest) {
     // ==== REDIRECT SUBDOMAIN TO CUSTOM DOMAIN ====
     // If merchant has a custom domain, redirect subdomain URLs to prevent duplicate content
     // Example: ogabassey.usebaci.com -> ogabassey.com
+    let customDomain: string | null = null;
     if (!isLocalhost(hostname)) {
-      const customDomain = await getCustomDomainForSlug(subdomain);
+      customDomain = await getCustomDomainForSlug(subdomain);
+      const legacyTermsAliasRedirect = buildLegacyTermsAliasRedirectResponse(
+        request,
+        pathname,
+        customDomain ?? undefined
+      );
+      if (legacyTermsAliasRedirect) {
+        return legacyTermsAliasRedirect;
+      }
       if (customDomain) {
         const customDomainUrl = `https://${customDomain}${pathname}${request.nextUrl.search}`;
         return NextResponse.redirect(customDomainUrl, 301);
+      }
+    } else {
+      const legacyTermsAliasRedirect = buildLegacyTermsAliasRedirectResponse(
+        request,
+        pathname
+      );
+      if (legacyTermsAliasRedirect) {
+        return legacyTermsAliasRedirect;
       }
     }
 
@@ -1914,7 +2144,9 @@ export async function proxy(request: NextRequest) {
         const customDomain = await getCustomDomainForSlug(potentialSlug);
         if (customDomain) {
           const newPathname = pathname.replace(`/${potentialSlug}`, '') || '/';
-          const customDomainUrl = `https://${customDomain}${newPathname}${request.nextUrl.search}`;
+          const normalizedPathname =
+            normalizeStorefrontTermsAliasPath(newPathname);
+          const customDomainUrl = `https://${customDomain}${normalizedPathname}${request.nextUrl.search}`;
           return NextResponse.redirect(customDomainUrl, 301);
         }
       }
@@ -2103,9 +2335,10 @@ function applySecurityHeaders(
 
   // Add cache headers for static assets
   if (
-    pathname.startsWith('/_next/static') ||
-    pathname.startsWith('/images') ||
-    pathname.match(IMAGE_FILES_REGEX)
+    (pathname.startsWith('/_next/static') ||
+      pathname.startsWith('/images') ||
+      pathname.match(IMAGE_FILES_REGEX)) &&
+    pathname !== '/favicon.ico'
   ) {
     response.headers.set(
       'Cache-Control',
@@ -2202,6 +2435,6 @@ export const config = {
      * - sitemap.xml (SEO file)
      * - Static files with extensions (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/image(?:/.*[^/])?$|_next/static(?:/.*[^/])?$|favicon\\.ico$|manifest\\.webmanifest$|robots\\.txt$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
+    '/((?!_next/image(?:/.*[^/])?$|_next/static(?:/.*[^/])?$|manifest\\.webmanifest$|robots\\.txt$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|woff|woff2|ttf|eot|css|js|json)$|(?!favicon\\.ico$)(?!favicon\\.ico/$).+\\.ico$).*)',
   ],
 };

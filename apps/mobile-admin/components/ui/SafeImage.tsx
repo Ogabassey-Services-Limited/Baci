@@ -18,6 +18,12 @@ import { useTheme } from '@/hooks/useTheme';
 
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
 
+async function fetchSvgXml(uri: string): Promise<string> {
+  const response = await fetch(uri);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.text();
+}
+
 export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
   onLoadError?: (error: Error) => void;
   fallbackComponent?: React.ReactNode;
@@ -75,9 +81,7 @@ function SafeImage({
 
       setIsLoadingXml(true);
       try {
-        const response = await fetch(uri);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const text = await response.text();
+        const text = await fetchSvgXml(uri);
 
         if (isMounted) {
           if (!text || text.trim().length === 0) {
@@ -170,7 +174,13 @@ function SafeImage({
   if (isSvg && !hasError) {
     if (isLoadingXml) {
       return (
-        <View style={[styles.loadingContainer, { backgroundColor: colors.background }, style]}>
+        <View
+          style={[
+            styles.loadingContainer,
+            { backgroundColor: colors.background },
+            style,
+          ]}
+        >
           <ActivityIndicator size="small" color={colors.textSecondary} />
         </View>
       );

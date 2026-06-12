@@ -1,4 +1,8 @@
-'use server';
+// NOT a server action module: the sole caller is the authenticated, rate-limited
+// API route `app/api/ai/generate-faq/route.ts`. `server-only` keeps this module
+// (and its AI provider key usage) out of client bundles without exposing
+// `generateFAQ` as a public server-action endpoint.
+import 'server-only';
 
 import { generateObject } from 'ai';
 import z from 'zod';

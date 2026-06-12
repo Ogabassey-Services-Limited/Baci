@@ -86,15 +86,15 @@ vi.mock('expo-linear-gradient', () => ({
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name?: string }) => <span>{name}</span>,
 
-  default: () => <span>icon</span>,
+  default: ({ name }: { name?: string }) => <span>{name}</span>,
   __esModule: true,
 }));
 
 vi.mock('react-native', () => ({
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
+  ActivityIndicator: () => <span aria-label="loading" role="progressbar" />,
   Alert: { alert: mocks.alert },
   Dimensions: { get: () => ({ width: 390 }) },
   Linking: { openURL: vi.fn() },

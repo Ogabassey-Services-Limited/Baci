@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation } from '@tanstack/react-query';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -47,11 +47,17 @@ export default function NinVerificationCard({
   const [expanded, setExpanded] = useState(false);
   const [nin, setNin] = useState(prefillNin ?? '');
 
-  useEffect(() => {
+  // Adjust state during render (instead of in an effect) so users never see
+  // a stale NIN frame between commits when the prefill or verified prop flips.
+  const [prevPrefillNin, setPrevPrefillNin] = useState(prefillNin);
+  const [prevVerified, setPrevVerified] = useState(verified);
+  if (prefillNin !== prevPrefillNin || verified !== prevVerified) {
+    setPrevPrefillNin(prefillNin);
+    setPrevVerified(verified);
     if (!verified) {
       setNin(prefillNin ?? '');
     }
-  }, [prefillNin, verified]);
+  }
 
   const mutation = useMutation({
     mutationFn: () =>

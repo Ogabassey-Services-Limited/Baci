@@ -6,8 +6,10 @@ const routeHeadersState = vi.hoisted(() => ({
 
 const mockResolveStorefrontSitemapContext = vi.fn();
 const mockGetNamedSitemapEntries = vi.fn();
-const mockGetRootSitemapEntries = vi.fn();
+const mockGetSitemapIndexLinks = vi.fn();
 const mockCreateSitemapResponse = vi.fn();
+const mockCreateSitemapIndexResponse = vi.fn();
+const mockCreateSitemapUnavailableResponse = vi.fn();
 
 vi.mock('next/headers', () => ({
   headers: () => Promise.resolve(routeHeadersState.current),
@@ -18,10 +20,14 @@ vi.mock('../../sitemap-data', () => ({
     mockResolveStorefrontSitemapContext(...args),
   getNamedSitemapEntries: (...args: unknown[]) =>
     mockGetNamedSitemapEntries(...args),
-  getRootSitemapEntries: (...args: unknown[]) =>
-    mockGetRootSitemapEntries(...args),
+  getSitemapIndexLinks: (...args: unknown[]) =>
+    mockGetSitemapIndexLinks(...args),
   createSitemapResponse: (...args: unknown[]) =>
     mockCreateSitemapResponse(...args),
+  createSitemapIndexResponse: (...args: unknown[]) =>
+    mockCreateSitemapIndexResponse(...args),
+  createSitemapUnavailableResponse: (...args: unknown[]) =>
+    mockCreateSitemapUnavailableResponse(...args),
 }));
 
 describe('GET /[slug]/sitemap/[id].xml', () => {
@@ -32,6 +38,23 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
       (entries: unknown[]) =>
         new Response(JSON.stringify(entries), {
           headers: { 'content-type': 'application/xml; charset=utf-8' },
+        })
+    );
+    mockCreateSitemapIndexResponse.mockImplementation(
+      (links: string[]) =>
+        new Response(links.join('\n'), {
+          headers: { 'content-type': 'application/xml; charset=utf-8' },
+        })
+    );
+    mockCreateSitemapUnavailableResponse.mockImplementation(
+      () =>
+        new Response('Service Unavailable', {
+          status: 503,
+          headers: {
+            'content-type': 'application/xml; charset=utf-8',
+            'cache-control': 'no-store',
+            'retry-after': '300',
+          },
         })
     );
   });
@@ -53,7 +76,8 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
 
     expect(mockResolveStorefrontSitemapContext).toHaveBeenCalledWith(
       expect.any(Headers),
-      'ogabassey'
+      'ogabassey',
+      expect.any(Request)
     );
     expect(mockGetNamedSitemapEntries).toHaveBeenCalledWith(
       { merchant: { id: 'm1' } },
@@ -81,22 +105,9 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
 
     expect(mockResolveStorefrontSitemapContext).toHaveBeenCalledWith(
       routeHeadersState.current,
-      'ogabassey'
+      'ogabassey',
+      expect.any(Request)
     );
-  });
-
-  it('returns an empty sitemap response when the storefront is unresolved', async () => {
-    mockResolveStorefrontSitemapContext.mockResolvedValue(null);
-
-    const { GET } = await import('./route');
-    const response = await GET(
-      new Request('https://ogabassey.com/ogabassey/sitemap/static.xml'),
-      { params: Promise.resolve({ slug: 'ogabassey', id: 'static' }) }
-    );
-    const body = await response.text();
-
-    expect(mockGetNamedSitemapEntries).not.toHaveBeenCalled();
-    expect(body).toBe('[]');
   });
 
   it('normalizes .xml suffixes from live route params', async () => {
@@ -119,13 +130,13 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
     );
   });
 
-  it('returns the combined root storefront sitemap for root.xml rewrites', async () => {
+  it('returns a sitemap index referencing child sitemaps for root.xml rewrites', async () => {
     mockResolveStorefrontSitemapContext.mockResolvedValue({
       merchant: { id: 'm1' },
     });
-    mockGetRootSitemapEntries.mockResolvedValue([
-      { url: 'https://ogabassey.com' },
-      { url: 'https://ogabassey.com/smartphones/iphone-17-pro' },
+    mockGetSitemapIndexLinks.mockResolvedValue([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
     ]);
 
     const { GET } = await import('./route');
@@ -135,10 +146,61 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
     );
     const body = await response.text();
 
-    expect(mockGetRootSitemapEntries).toHaveBeenCalledWith({
+    expect(mockGetSitemapIndexLinks).toHaveBeenCalledWith({
       merchant: { id: 'm1' },
     });
+    expect(mockCreateSitemapIndexResponse).toHaveBeenCalledWith([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+    ]);
     expect(mockGetNamedSitemapEntries).not.toHaveBeenCalled();
-    expect(body).toContain('https://ogabassey.com/smartphones/iphone-17-pro');
+    expect(body).toContain('https://ogabassey.com/sitemap/products.xml');
+  });
+
+  it('returns a 503 response when the storefront is unresolved', async () => {
+    mockResolveStorefrontSitemapContext.mockResolvedValue(null);
+    const mockUnavailableResponse = new Response('Service Unavailable', {
+      status: 503,
+      headers: {
+        'cache-control': 'no-store',
+        'retry-after': '300',
+      },
+    });
+    mockCreateSitemapUnavailableResponse.mockReturnValue(
+      mockUnavailableResponse
+    );
+
+    const { GET } = await import('./route');
+    const request = new Request(
+      'https://ogabassey.com/ogabassey/sitemap/static.xml'
+    );
+    const response = await GET(request, {
+      params: Promise.resolve({ slug: 'ogabassey', id: 'static' }),
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('retry-after')).toBe('300');
+  });
+
+  it('passes the Request object as the third argument to resolveStorefrontSitemapContext', async () => {
+    mockResolveStorefrontSitemapContext.mockResolvedValue({
+      merchant: { id: 'm1' },
+    });
+    mockGetNamedSitemapEntries.mockResolvedValue([]);
+
+    const { GET } = await import('./route');
+    const request = new Request(
+      'https://ogabassey.com/ogabassey/sitemap/static.xml'
+    );
+    await GET(request, {
+      params: Promise.resolve({ slug: 'ogabassey', id: 'static' }),
+    });
+
+    expect(mockResolveStorefrontSitemapContext).toHaveBeenCalledWith(
+      expect.any(Headers),
+      'ogabassey',
+      request
+    );
   });
 });

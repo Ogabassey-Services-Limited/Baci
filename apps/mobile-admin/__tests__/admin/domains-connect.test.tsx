@@ -125,6 +125,7 @@ describe('ConnectDomainScreen', () => {
     });
     fetchMock.mockResolvedValue({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({
         domain: { domain: 'example.com' },
         verification: { value: 'verify-token' },
@@ -167,7 +168,10 @@ describe('ConnectDomainScreen', () => {
   it('shows an error alert when the domain request fails', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
+      status: 409,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({ error: 'Domain already exists' }),
+      text: async () => '',
     });
 
     render(<ConnectDomainScreen />);

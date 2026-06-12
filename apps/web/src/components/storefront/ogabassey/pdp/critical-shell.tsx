@@ -34,6 +34,14 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
+function formatRating(rating: number) {
+  const boundedRating = Math.min(Math.max(rating, 0), 5);
+
+  return new Intl.NumberFormat('en-NG', {
+    maximumFractionDigits: 1,
+  }).format(boundedRating);
+}
+
 function buildPath(basePath: string, path: string): Route {
   const prefix = basePath === '/' ? '' : basePath.replace(/\/$/, '');
   return (`${prefix}${path}` || '/') as Route;
@@ -131,6 +139,22 @@ export function OgabasseyPdpCriticalShell({
 }: OgabasseyPdpCriticalShellProps) {
   const productImageProps = getNativeProductImageProps(product);
   const mobileSourceProps = getMobileProductImageSourceProps(product);
+  const aggregateRatingCount = Math.max(
+    product.reviewCount,
+    product.ratingCount
+  );
+  const hasRatingSignal = aggregateRatingCount > 0 && product.rating > 0;
+  const ratingText = formatRating(product.rating);
+  const reviewCountText =
+    aggregateRatingCount === 0
+      ? 'No reviews yet'
+      : product.reviewCount > 0
+        ? `${product.reviewCount} ${
+            product.reviewCount === 1 ? 'Review' : 'Reviews'
+          }`
+        : `${aggregateRatingCount} ${
+            aggregateRatingCount === 1 ? 'Rating' : 'Ratings'
+          }`;
 
   return (
     <section data-ogabassey-pdp-critical-shell>
@@ -173,12 +197,16 @@ export function OgabasseyPdpCriticalShell({
             <p data-ogabassey-pdp-brand>{product.brand}</p>
             <h1 data-ogabassey-pdp-title>{product.name}</h1>
             <div data-ogabassey-pdp-rating-row>
-              <span data-ogabassey-pdp-stars aria-hidden="true">
-                ★★★★★
-              </span>
-              <span data-ogabassey-pdp-review-count>
-                {product.reviewCount} Reviews
-              </span>
+              {hasRatingSignal ? (
+                <span
+                  data-ogabassey-pdp-stars
+                  aria-label={`${ratingText} out of 5 stars`}
+                  role="img"
+                >
+                  {ratingText} ★
+                </span>
+              ) : null}
+              <span data-ogabassey-pdp-review-count>{reviewCountText}</span>
             </div>
             <div data-ogabassey-pdp-price>{formatPrice(product.price)}</div>
           </div>

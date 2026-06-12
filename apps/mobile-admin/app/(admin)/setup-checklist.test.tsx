@@ -77,32 +77,39 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const MockText = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  Alert: {
-    alert: mocks.alert,
-  },
-  Pressable: ({
-    children,
-    disabled,
-    onPress,
-  }: {
-    children?: ReactNode;
-    disabled?: boolean;
-    onPress?: () => void;
-  }) => (
-    <button disabled={disabled} onClick={() => onPress?.()} type="button">
-      {children}
-    </button>
-  ),
-  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  StyleSheet: {
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+    ActivityIndicator: () => <MockText>loading</MockText>,
+    Alert: {
+      alert: mocks.alert,
+    },
+    Pressable: ({
+      children,
+      disabled,
+      onPress,
+    }: {
+      children?: ReactNode;
+      disabled?: boolean;
+      onPress?: () => void;
+    }) => (
+      <button disabled={disabled} onClick={() => onPress?.()} type="button">
+        {children}
+      </button>
+    ),
+    ScrollView: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text: MockText,
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (

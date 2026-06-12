@@ -12,37 +12,45 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const MockText = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  Pressable: ({
-    accessibilityLabel,
-    children,
-    disabled,
-    onPress,
-  }: {
-    accessibilityLabel?: string;
-    children?: ReactNode;
-    disabled?: boolean;
-    onPress?: () => void;
-  }) => (
-    <button
-      aria-label={accessibilityLabel}
-      disabled={disabled}
-      onClick={() => onPress?.()}
-      type="button"
-    >
-      {children}
-    </button>
-  ),
-  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  StyleSheet: {
-    absoluteFillObject: { position: 'absolute', inset: 0 },
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+    ActivityIndicator: () => <MockText>loading</MockText>,
+    Pressable: ({
+      accessibilityLabel,
+      children,
+      disabled,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      children?: ReactNode;
+      disabled?: boolean;
+      onPress?: () => void;
+    }) => (
+      <button
+        aria-label={accessibilityLabel}
+        disabled={disabled}
+        onClick={() => onPress?.()}
+        type="button"
+      >
+        {children}
+      </button>
+    ),
+    ScrollView: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    StyleSheet: {
+      absoluteFillObject: { position: 'absolute', inset: 0 },
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text: MockText,
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 describe('BlogEditorToolbar', () => {
   it('forwards core formatting and insertion actions', () => {

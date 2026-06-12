@@ -38,12 +38,17 @@ const mockGetUser = vi.fn();
 const mockSignInWithPassword = vi.fn();
 const mockSignUp = vi.fn();
 const mockSignOut = vi.fn();
+const mockSignInWithOtp = vi.fn();
+const { mockEnsureActionRateLimit } = vi.hoisted(() => ({
+  mockEnsureActionRateLimit: vi.fn(),
+}));
 const mockSupabaseServer = {
   auth: {
     getUser: mockGetUser,
     signInWithPassword: mockSignInWithPassword,
     signUp: mockSignUp,
     signOut: mockSignOut,
+    signInWithOtp: mockSignInWithOtp,
   },
 };
 
@@ -75,6 +80,10 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => mockAdminClient),
+}));
+
+vi.mock('@/lib/ensure-action-rate-limit', () => ({
+  ensureActionRateLimit: mockEnsureActionRateLimit,
 }));
 
 vi.mock('@/env', () => ({
@@ -110,7 +119,7 @@ vi.mock('@/services/hero-image-generator', () => ({
   assignHeroImagesToMerchant: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { submitOnboarding } from './actions';
+import { sendMagicLink, submitOnboarding } from './actions';
 
 // --- Helpers ---
 
@@ -164,6 +173,7 @@ function setupChainedMock(
 describe('submitOnboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnsureActionRateLimit.mockResolvedValue(true);
     mockGetAppUrl.mockReturnValue('http://localhost:3000');
     mockGetConfiguredAppUrl.mockReturnValue('https://usebaci.com');
     mockGetOllamaStorefrontModel.mockReturnValue('gemma4:e4b');
@@ -238,6 +248,22 @@ describe('submitOnboarding', () => {
         }),
       };
     });
+  });
+
+  it('returns a rate-limit error before touching auth or the database', async () => {
+    mockEnsureActionRateLimit.mockResolvedValueOnce(false);
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Too many onboarding attempts');
+    expect(mockEnsureActionRateLimit).toHaveBeenCalledWith(
+      'onboarding-submit',
+      { requests: 5, windowMs: 900_000 }
+    );
+    expect(mockAdminFrom).not.toHaveBeenCalled();
+    expect(mockSignInWithPassword).not.toHaveBeenCalled();
+    expect(mockSignUp).not.toHaveBeenCalled();
   });
 
   it('returns validation error for invalid form data', async () => {
@@ -618,5 +644,79 @@ describe('submitOnboarding', () => {
 
     expect(result.success).toBe(true);
     expect(mockAiJobsInsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('sendMagicLink', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnsureActionRateLimit.mockResolvedValue(true);
+    mockGetAppUrl.mockReturnValue('http://localhost:3000');
+    mockGetConfiguredAppUrl.mockReturnValue('https://usebaci.com');
+    mockIsProduction.mockReturnValue(false);
+    mockSignInWithOtp.mockResolvedValue({ error: null });
+  });
+
+  it('returns a rate-limit error without sending an OTP email', async () => {
+    mockEnsureActionRateLimit.mockResolvedValueOnce(false);
+
+    const result = await sendMagicLink('merchant@example.com');
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Too many magic link requests');
+    expect(mockEnsureActionRateLimit).toHaveBeenCalledWith('magic-link', {
+      requests: 3,
+      windowMs: 60_000,
+    });
+    expect(mockSignInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it('returns an error for an empty email without sending an OTP email', async () => {
+    const result = await sendMagicLink('');
+
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Email is required.');
+    expect(mockSignInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid email without sending an OTP email', async () => {
+    const result = await sendMagicLink('not-an-email');
+
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Please enter a valid email address.');
+    expect(mockSignInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it('rejects an overlong email without sending an OTP email', async () => {
+    const result = await sendMagicLink(`${'a'.repeat(250)}@example.com`);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Email address is too long.');
+    expect(mockSignInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it('sends the magic link with the onboarding redirect on success', async () => {
+    const result = await sendMagicLink('merchant@example.com');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('Magic link sent');
+    expect(mockSignInWithOtp).toHaveBeenCalledWith({
+      email: 'merchant@example.com',
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: 'https://usebaci.com/onboarding?fromMagicLink=true',
+      },
+    });
+  });
+
+  it('surfaces supabase OTP errors as a failed result', async () => {
+    mockSignInWithOtp.mockResolvedValueOnce({
+      error: new Error('OTP rate limit reached'),
+    });
+
+    const result = await sendMagicLink('merchant@example.com');
+
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('OTP rate limit reached');
   });
 });

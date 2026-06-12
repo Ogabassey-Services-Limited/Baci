@@ -95,6 +95,49 @@ describe('SearchAutocomplete', () => {
     expect(clearButton).not.toBeInTheDocument();
   });
 
+  it('focuses the input on initial mount when autoFocus is true', () => {
+    render(
+      <SearchAutocomplete
+        merchantId="test-merchant"
+        value=""
+        onChange={vi.fn()}
+        autoFocus={true}
+      />
+    );
+
+    const input = screen.getByRole('searchbox', { name: /search products/i });
+    expect(input).toHaveFocus();
+  });
+
+  it('focuses the input when lazy navbar activation requests autofocus after mount', () => {
+    // Arrange
+    const handleChange = vi.fn();
+    const { rerender } = render(
+      <SearchAutocomplete
+        merchantId="test-merchant"
+        value=""
+        onChange={handleChange}
+        autoFocus={false}
+      />
+    );
+
+    const input = screen.getByRole('searchbox', { name: /search products/i });
+    expect(input).not.toHaveFocus();
+
+    // Act
+    rerender(
+      <SearchAutocomplete
+        merchantId="test-merchant"
+        value=""
+        onChange={handleChange}
+        autoFocus={true}
+      />
+    );
+
+    // Assert
+    expect(input).toHaveFocus();
+  });
+
   it('calls onChange with empty string when clear button is clicked', async () => {
     const user = userEvent.setup();
     const handleChange = vi.fn();

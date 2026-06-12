@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation } from '@tanstack/react-query';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -58,11 +58,22 @@ export default function BvnVerificationCard({
     borderColor: colors.border,
   };
 
-  useEffect(() => {
-    if (!verified && !isDirty) {
+  // Sync the prefilled BVN during render (guarded prev-compare) instead of in
+  // an effect, so the update lands pre-commit without a stale frame.
+  const shouldSyncPrefill = !verified && !isDirty;
+  const [prevPrefillSync, setPrevPrefillSync] = useState({
+    prefillBvn,
+    shouldSyncPrefill,
+  });
+  if (
+    prevPrefillSync.prefillBvn !== prefillBvn ||
+    prevPrefillSync.shouldSyncPrefill !== shouldSyncPrefill
+  ) {
+    setPrevPrefillSync({ prefillBvn, shouldSyncPrefill });
+    if (shouldSyncPrefill) {
       setBvn(prefillBvn ?? '');
     }
-  }, [prefillBvn, verified, isDirty]);
+  }
 
   const mutation = useMutation({
     mutationFn: () =>
