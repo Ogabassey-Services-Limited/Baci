@@ -894,6 +894,113 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    [
+      'custom-domain storefront home',
+      'https://ogabassey.com/',
+      '/ogabassey.com',
+      'metadata-blocking',
+      'Googlebot/2.1',
+    ],
+    [
+      'custom-domain products index',
+      'https://ogabassey.com/products',
+      '/ogabassey.com/products',
+      'metadata-blocking',
+      'Googlebot/2.1',
+    ],
+    [
+      'custom-domain category listing',
+      'https://ogabassey.com/gaming-laptops',
+      '/ogabassey.com/gaming-laptops',
+      'metadata-blocking',
+      'Googlebot/2.1',
+    ],
+    [
+      'custom-domain policy page',
+      'https://ogabassey.com/terms-and-conditions',
+      '/ogabassey.com/terms-and-conditions',
+      'metadata-blocking',
+      'Googlebot/2.1',
+    ],
+    [
+      'custom-domain blog post',
+      'https://ogabassey.com/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
+      '/ogabassey.com/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
+      'metadata-blocking',
+      'Googlebot/2.1',
+    ],
+    [
+      'subdomain category listing',
+      `https://ogabassey.${ROOT_DOMAIN}/gaming-laptops`,
+      '/ogabassey/gaming-laptops',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+    [
+      'subdomain storefront home',
+      `https://ogabassey.${ROOT_DOMAIN}/`,
+      '/ogabassey',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+    [
+      'root-domain slug-prefixed category listing',
+      `https://${ROOT_DOMAIN}/merchant-demo/gaming-laptops`,
+      '/merchant-demo/gaming-laptops',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+    [
+      'root-domain slug-prefixed storefront home',
+      `https://${ROOT_DOMAIN}/merchant-demo`,
+      '/merchant-demo',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+    [
+      'root-domain slug-prefixed blog post',
+      `https://${ROOT_DOMAIN}/merchant-demo/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025`,
+      '/merchant-demo/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+  ])('applies hidden metadata cache partitioning to public %s', async (_label, url, expectedPathname, expectedBucket, userAgent) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+    req.headers.set('user-agent', userAgent);
+
+    const res = await proxy(req);
+    expect(res.headers.get('x-middleware-rewrite')).not.toBeNull();
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
+
+    expect(rewriteUrl.pathname).toBe(expectedPathname);
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe(expectedBucket);
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe(expectedBucket);
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
+  it.each([
+    `https://${ROOT_DOMAIN}/pricing`,
+    `https://${ROOT_DOMAIN}/checkout`,
+    `https://${ROOT_DOMAIN}/blog`,
+    `https://${ROOT_DOMAIN}/terms`,
+  ])('does not add storefront metadata cache partitioning to platform route %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it.each([
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
     'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
     'https://ogabassey.com/steam-deck',
@@ -1542,11 +1649,16 @@ describe('Middleware Proxy', () => {
     req.headers.set('host', 'ogabassey.com');
 
     const res = await proxy(req);
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
 
     expect(res.status).not.toBe(301);
-    expect(res.headers.get('x-middleware-rewrite')).toBe(
-      'https://ogabassey.com/ogabassey.com/products'
-    );
+    expect(rewriteUrl.pathname).toBe('/ogabassey.com/products');
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe('streaming');
+    expect(res.headers.get('x-middleware-rewrite')).toBe(rewriteUrl.toString());
   });
 
   it('does not 410 legitimate blog slugs that merely start with a wp-admin token', async () => {
