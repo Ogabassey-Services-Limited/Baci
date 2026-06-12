@@ -1,6 +1,6 @@
 import { env } from '@/env';
 
-const DEFAULT_INDEXNOW_KEY = '0751d5c882ab3d7c013ecbfe9e624d71';
+export const DEFAULT_INDEXNOW_KEY = '0751d5c882ab3d7c013ecbfe9e624d71';
 const DEFAULT_INDEXNOW_ENDPOINT = 'https://api.indexnow.org/indexnow';
 const MAX_RESPONSE_BODY_LENGTH = 500;
 const DEFAULT_INDEXNOW_REQUEST_TIMEOUT_MS = 5000;
