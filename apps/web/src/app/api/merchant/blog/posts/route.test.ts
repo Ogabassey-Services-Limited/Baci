@@ -57,6 +57,7 @@ vi.mock('@/lib/csrf', () => ({
 const mockRevalidateBlogPosts = vi.fn();
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
 const mockDispatchZohoBlogCampaign = vi.fn();
+const mockSubmitIndexNowUrls = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
@@ -71,6 +72,15 @@ vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
   dispatchZohoBlogCampaign: (...args: unknown[]) =>
     mockDispatchZohoBlogCampaign(...args),
 }));
+
+vi.mock('@/lib/indexnow', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/indexnow')>();
+
+  return {
+    ...actual,
+    submitIndexNowUrls: (...args: unknown[]) => mockSubmitIndexNowUrls(...args),
+  };
+});
 
 vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => mockServiceSupabase.client,
@@ -891,7 +901,7 @@ describe('POST /api/merchant/blog/posts', () => {
       consoleErrorSpy.mockRestore();
     });
 
-    it('dispatches a Zoho campaign for published posts', async () => {
+    it('triggers post-publication side effects for published posts', async () => {
       mockSupabase.maybeSingle.mockResolvedValue({
         data: null,
         error: null,
@@ -940,6 +950,10 @@ describe('POST /api/merchant/blog/posts', () => {
         },
         post: expect.objectContaining({ id: '1', status: 'published' }),
         supabase: mockServiceSupabase.client,
+      });
+      expect(mockSubmitIndexNowUrls).toHaveBeenCalledWith({
+        host: 'ogabassey.com',
+        urls: ['https://ogabassey.com/blog/new-blog-post'],
       });
     });
 
