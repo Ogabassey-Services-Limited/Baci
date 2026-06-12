@@ -48,10 +48,61 @@ function getOrCreateChatSessionId(): string {
   return sessionId;
 }
 
+// Module-scope helper so the try/finally + throw statements stay outside the
+// hook body (React Compiler cannot lower those constructs in components/hooks).
+async function requestChatReply(
+  isSanta: boolean,
+  history: ChatMessage[],
+  messageText: string
+): Promise<string> {
+  const endpoint = isSanta ? '/api/chat/santa' : '/api/chat';
+  const requestBody = {
+    ...(!isSanta ? { sessionId: getOrCreateChatSessionId() } : {}),
+    messages: [
+      ...history.map((m) => ({
+        role: m.role === 'model' ? 'assistant' : 'user',
+        content: m.text,
+      })),
+      { role: 'user', content: messageText },
+    ],
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    throw new Error('Chat service unavailable');
+  }
+
+  // Parse streaming text response
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let aiResponseText = '';
+
+  try {
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        aiResponseText += decoder.decode(value, { stream: true });
+      }
+      // Flush any remaining multi-byte characters held in the decoder buffer
+      aiResponseText += decoder.decode();
+    }
+  } finally {
+    reader?.cancel();
+  }
+
+  return aiResponseText;
+}
+
 export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasseyChat {
   const { addToCart, setIsCartOpen } = useCart();
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpenState] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -70,29 +121,31 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
     return () => clearTimeout(timer);
   }, []);
 
-  // Hide proactive message when chat opens
-  useEffect(() => {
-    if (isOpen) setProactiveMsg(null);
-  }, [isOpen]);
-
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Welcome message on first open
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      setMessages([
-        {
-          role: 'model',
-          text: isSanta
-            ? 'Ho ho ho! How can Santa AI help you today?'
-            : 'Hello! How can I help you today?',
-        },
-      ]);
+  // Opening the chat is a user event: hide the proactive nudge and seed the
+  // welcome message here instead of reacting to `isOpen` in effects.
+  const setIsOpen = (open: boolean) => {
+    if (open) {
+      setProactiveMsg(null);
+      setMessages((prev) =>
+        prev.length > 0
+          ? prev
+          : [
+              {
+                role: 'model',
+                text: isSanta
+                  ? 'Ho ho ho! How can Santa AI help you today?'
+                  : 'Hello! How can I help you today?',
+              },
+            ]
+      );
     }
-  }, [isOpen, messages.length, isSanta]);
+    setIsOpenState(open);
+  };
 
   // Ref to always read fresh messages (avoids stale closure in handleSend)
   const messagesRef = useRef(messages);
@@ -108,44 +161,8 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
     setInput('');
     setIsLoading(true);
 
-    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
-      const endpoint = isSanta ? '/api/chat/santa' : '/api/chat';
-      const requestBody = {
-        ...(!isSanta ? { sessionId: getOrCreateChatSessionId() } : {}),
-        messages: [
-          ...history.map((m) => ({
-            role: m.role === 'model' ? 'assistant' : 'user',
-            content: m.text,
-          })),
-          { role: 'user', content: messageText },
-        ],
-      };
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        throw new Error('Chat service unavailable');
-      }
-
-      // Parse streaming text response
-      reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let aiResponseText = '';
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          aiResponseText += decoder.decode(value, { stream: true });
-        }
-        // Flush any remaining multi-byte characters held in the decoder buffer
-        aiResponseText += decoder.decode();
-      }
+      const aiResponseText = await requestChatReply(isSanta, history, messageText);
 
       // Check if Santa granted a wish (parse the ACTION pattern)
       let santaAction: SantaCartAction | undefined;
@@ -177,10 +194,8 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
             : "I'm having trouble connecting right now. Please try again later.",
         },
       ]);
-    } finally {
-      reader?.cancel();
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {

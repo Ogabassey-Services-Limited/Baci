@@ -2,27 +2,30 @@
 
 import { RefreshCw, WifiOff } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
+
+function subscribeToNetworkStatus(onStoreChange: () => void) {
+  window.addEventListener('online', onStoreChange);
+  window.addEventListener('offline', onStoreChange);
+
+  return () => {
+    window.removeEventListener('online', onStoreChange);
+    window.removeEventListener('offline', onStoreChange);
+  };
+}
+
+const getIsOffline = () => !navigator.onLine;
+
+// Server snapshot: assume online (navigator not available on server), matching
+// the previous hydration-safe `useState(false)` default.
+const getServerIsOffline = () => false;
 
 export const OfflineNotice: React.FC = () => {
-  // Always start false to avoid hydration mismatch (navigator not available on server)
-  const [isOffline, setIsOffline] = useState(false);
-
-  useEffect(() => {
-    // Check initial state on client only
-    setIsOffline(!navigator.onLine);
-
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+  const isOffline = useSyncExternalStore(
+    subscribeToNetworkStatus,
+    getIsOffline,
+    getServerIsOffline
+  );
 
   if (!isOffline) return null;
 

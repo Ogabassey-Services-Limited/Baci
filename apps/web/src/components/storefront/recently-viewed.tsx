@@ -3,13 +3,16 @@
 import { ChevronLeft, ChevronRight, Clock, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrency } from '@/hooks/use-currency';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
+import {
+  getRecentlyViewedIds,
+  useRecentlyViewed,
+} from '@/hooks/use-recently-viewed';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';
 import { getEffectiveStock } from '@/lib/product-stock';
@@ -28,6 +31,13 @@ interface RecentlyViewedProductsProps {
   showNavigation?: boolean;
   /** Custom class name for the container */
   className?: string;
+}
+
+/** localStorage never notifies in-tab; we only need the snapshot reads. */
+function subscribeToNothing(): () => void {
+  return () => {
+    // Intentionally empty: nothing to unsubscribe from.
+  };
 }
 
 export function RecentlyViewedProducts({
@@ -52,15 +62,37 @@ export function RecentlyViewedProducts({
   const [isLoading, setIsLoading] = useState(true);
   const [scrollPosition, setScrollPosition] = useState(0);
 
+  const merchantId = merchant?.id ?? null;
+
+  // Whether localStorage already holds any fetchable id. Read via an
+  // external-store subscription so the SSR spinner resolves to "empty"
+  // after hydration without a setState inside an effect. The server
+  // snapshot mirrors the original first paint (spinner shown).
+  const hasStoredIds = useSyncExternalStore(
+    subscribeToNothing,
+    () =>
+      getRecentlyViewedIds(merchantId).some((id) => id !== excludeProductId),
+    () => true
+  );
+
+  // Adjust loading/products state during render when the fetch inputs
+  // change (render-phase prev-compare instead of a setState-in-effect).
+  const canFetch = Boolean(merchantId) && recentlyViewedIds.length > 0;
+  const fetchKey = `${merchantId ?? ''}|${maxProducts}|${recentlyViewedIds.join(',')}`;
+  const [prevFetchKey, setPrevFetchKey] = useState(fetchKey);
+  if (prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
+    setIsLoading(canFetch);
+    if (!canFetch) {
+      setProducts([]);
+    }
+  }
+
   // Fetch products by IDs
   useEffect(() => {
     if (!merchant?.id || recentlyViewedIds.length === 0) {
-      setProducts([]);
-      setIsLoading(false);
       return;
     }
-
-    setIsLoading(true);
 
     // Fetch products by IDs
     const idsParam = recentlyViewedIds.slice(0, maxProducts).join(',');
@@ -111,8 +143,11 @@ export function RecentlyViewedProducts({
     setScrollPosition(newPosition);
   };
 
+  // Only show the loading state while there is something to resolve.
+  const showLoading = isLoading && hasStoredIds;
+
   // Don't render if no recently viewed products
-  if (!isLoading && products.length === 0) {
+  if (!showLoading && products.length === 0) {
     return null;
   }
 
@@ -161,7 +196,7 @@ export function RecentlyViewedProducts({
         </div>
 
         {/* Products */}
-        {isLoading ? (
+        {showLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="size-6 animate-spin text-muted-foreground" />
           </div>

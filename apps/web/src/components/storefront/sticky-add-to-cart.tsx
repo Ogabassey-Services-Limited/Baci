@@ -2,7 +2,7 @@
 
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { ChevronUp, ShoppingCart } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { QuantityButton } from '@/components/ui/animated-icons';
 import { useCart } from '@/hooks/use-cart';
@@ -10,6 +10,18 @@ import { useCurrency } from '@/hooks/use-currency';
 import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductVariant } from '@/lib/products';
 import { cn } from '@/lib/utils';
+
+// Module-scope subscribe helpers for useSyncExternalStore — stable identities
+// so React never tears down / re-attaches the listeners between renders.
+function subscribeToWindowResize(callback: () => void) {
+  window.addEventListener('resize', callback);
+  return () => window.removeEventListener('resize', callback);
+}
+
+function subscribeToWindowScroll(callback: () => void) {
+  window.addEventListener('scroll', callback, { passive: true });
+  return () => window.removeEventListener('scroll', callback);
+}
 
 export interface StickyAddToCartProps {
   /** Product to add to cart */
@@ -58,34 +70,22 @@ export function StickyAddToCart({
   const { cart, addToCart, updateQuantity } = useCart();
   const { toast } = useToast();
 
-  const [isVisible, setIsVisible] = useState(false);
   const [quantity, setQuantity] = useState(product.minimum_order_quantity || 1);
-  const [isMobile, setIsMobile] = useState(false);
 
-  // Check if mobile and handle scroll
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    const handleScroll = () => {
-      if (window.innerWidth < 768) {
-        setIsVisible(window.scrollY > showAfterScroll);
-      }
-    };
-
-    // Initial check
-    checkMobile();
-    handleScroll();
-
-    window.addEventListener('resize', checkMobile);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [showAfterScroll]);
+  // Sync viewport width and scroll position from the window (an external
+  // system) with useSyncExternalStore instead of mirroring them into state
+  // from an effect. Server snapshots are false, matching the previous
+  // initial-state behavior (hidden until measured on the client).
+  const isMobile = useSyncExternalStore(
+    subscribeToWindowResize,
+    () => window.innerWidth < 768,
+    () => false
+  );
+  const isVisible = useSyncExternalStore(
+    subscribeToWindowScroll,
+    () => window.scrollY > showAfterScroll,
+    () => false
+  );
 
   // Don't render on desktop
   if (!isMobile) return null;

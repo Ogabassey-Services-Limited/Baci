@@ -46,10 +46,10 @@ export const OgabasseyV2CategoryPage: React.FC<
 
   const [filters, setFilters] = useState<FilterState>(initialFilterState);
 
-  // Scroll to top when category changes & Reset filters
+  // Scroll to top on mount (the page remounts per category). Filters already
+  // initialize to `initialFilterState` via useState, so no reset is needed.
   useEffect(() => {
     window.scrollTo(0, 0);
-    setFilters(initialFilterState);
   }, []);
 
   // Derived Data: Products in the current Category

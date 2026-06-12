@@ -32,6 +32,62 @@ interface DiscountCodeInputProps {
   appliedDiscount?: DiscountResult | null;
 }
 
+async function validateDiscountCode(
+  merchantId: string,
+  code: string,
+  cartTotal: number,
+  retry = false
+): Promise<DiscountResult> {
+  // If retry, refresh CSRF token first
+  if (retry) {
+    const csrfResponse = await fetch('/api/csrf');
+    if (!csrfResponse.ok) {
+      throw new Error(
+        `Failed to refresh CSRF token (status ${csrfResponse.status})`
+      );
+    }
+  }
+
+  const response = await fetch('/api/storefront/discount/validate', {
+    method: 'POST',
+    headers: {
+      ...buildCsrfHeaders(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      merchant_id: merchantId,
+      code: code.trim().toUpperCase(),
+      cart_total: cartTotal,
+    }),
+  });
+
+  // If CSRF error and haven't retried, try once more
+  if (response.status === 403 && !retry) {
+    const errorData = await response.json();
+    if (errorData.error === 'Invalid CSRF token') {
+      return validateDiscountCode(merchantId, code, cartTotal, true);
+    }
+
+    return errorData;
+  }
+
+  return response.json();
+}
+
+async function requestDiscountValidation(
+  merchantId: string,
+  code: string,
+  cartTotal: number
+): Promise<DiscountResult | null> {
+  try {
+    return await validateDiscountCode(merchantId, code, cartTotal);
+  } catch (err) {
+    console.error('Error validating discount code:', err);
+    return null;
+  }
+}
+
 export function DiscountCodeInput({
   merchantId,
   cartTotal,
@@ -53,69 +109,30 @@ export function DiscountCodeInput({
     setLoading(true);
     setError(null);
 
-    const validateCode = async (retry = false): Promise<DiscountResult> => {
-      // If retry, refresh CSRF token first
-      if (retry) {
-        const csrfResponse = await fetch('/api/csrf');
-        if (!csrfResponse.ok) {
-          throw new Error(
-            `Failed to refresh CSRF token (status ${csrfResponse.status})`
-          );
-        }
-      }
+    const result = await requestDiscountValidation(merchantId, code, cartTotal);
+    setLoading(false);
 
-      const response = await fetch('/api/storefront/discount/validate', {
-        method: 'POST',
-        headers: {
-          ...buildCsrfHeaders(),
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          merchant_id: merchantId,
-          code: code.trim().toUpperCase(),
-          cart_total: cartTotal,
-        }),
-      });
-
-      // If CSRF error and haven't retried, try once more
-      if (response.status === 403 && !retry) {
-        const errorData = await response.json();
-        if (errorData.error === 'Invalid CSRF token') {
-          return validateCode(true);
-        }
-
-        return errorData;
-      }
-
-      return response.json();
-    };
-
-    try {
-      const result = await validateCode();
-
-      if (!result.valid) {
-        setError(result.error || 'Invalid discount code');
-        toast({
-          title: 'Invalid Code',
-          description: result.error || 'This discount code is not valid',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      onApply(result);
-      setCode('');
-      toast({
-        title: 'Discount Applied',
-        description: `${result.discount_type === 'percentage' ? `${result.discount_value}% off` : `₦${result.discount_value.toLocaleString()} off`} applied to your order`,
-      });
-    } catch (err) {
-      console.error('Error validating discount code:', err);
+    if (!result) {
       setError('Failed to validate code. Please try again.');
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    if (!result.valid) {
+      setError(result.error || 'Invalid discount code');
+      toast({
+        title: 'Invalid Code',
+        description: result.error || 'This discount code is not valid',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    onApply(result);
+    setCode('');
+    toast({
+      title: 'Discount Applied',
+      description: `${result.discount_type === 'percentage' ? `${result.discount_value}% off` : `₦${result.discount_value.toLocaleString()} off`} applied to your order`,
+    });
   };
 
   const handleRemove = () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { CheckCircle, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -23,6 +23,60 @@ interface ReviewFormProps {
   className?: string;
 }
 
+interface SubmitReviewPayload {
+  productId: string;
+  customerEmail: string;
+  customerName: string;
+  rating: number;
+  title: string;
+  body: string;
+}
+
+type SubmitReviewResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Module-scope submission helper so the component body stays free of
+ * try/catch/finally statements, which block React Compiler memoization.
+ */
+async function submitReview(
+  payload: SubmitReviewPayload
+): Promise<SubmitReviewResult> {
+  try {
+    const response = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        product_id: payload.productId,
+        customer_email: payload.customerEmail,
+        customer_name: payload.customerName || undefined,
+        rating: payload.rating,
+        title: payload.title || undefined,
+        body: payload.body || undefined,
+      }),
+    });
+
+    const data: { error?: string } = await response.json();
+
+    if (!response.ok) {
+      return { ok: false, error: data.error || 'Failed to submit review' };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Failed to submit review',
+    };
+  }
+}
+
+function getStoredCustomerEmail(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  return localStorage.getItem('customerEmail') ?? '';
+}
+
 export function ReviewForm({
   productId,
   productName,
@@ -36,7 +90,9 @@ export function ReviewForm({
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
+  // Seed from localStorage in the initializer (runs once per mount) instead
+  // of a mount effect, which would set state synchronously after commit.
+  const [customerEmail, setCustomerEmail] = useState(getStoredCustomerEmail);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,56 +117,38 @@ export function ReviewForm({
 
     setIsSubmitting(true);
 
-    try {
-      const response = await fetch('/api/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_id: productId,
-          customer_email: customerEmail,
-          customer_name: customerName || undefined,
-          rating,
-          title: title || undefined,
-          body: body || undefined,
-        }),
-      });
+    const result = await submitReview({
+      productId,
+      customerEmail,
+      customerName,
+      rating,
+      title,
+      body,
+    });
 
-      const data = await response.json();
+    setIsSubmitting(false);
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit review');
-      }
-
-      setIsSubmitted(true);
-      toast({
-        title: 'Review Submitted!',
-        description:
-          'Thank you for your feedback. Your review is pending approval.',
-      });
-
-      // Store email for future use
-      localStorage.setItem('customerEmail', customerEmail);
-
-      onSuccess?.();
-    } catch (error) {
+    if (!result.ok) {
       toast({
         title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to submit review',
+        description: result.error,
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
-  };
 
-  // Load stored email on mount
-  useEffect(() => {
-    const storedEmail = localStorage.getItem('customerEmail');
-    if (storedEmail) {
-      setCustomerEmail(storedEmail);
-    }
-  }, []);
+    setIsSubmitted(true);
+    toast({
+      title: 'Review Submitted!',
+      description:
+        'Thank you for your feedback. Your review is pending approval.',
+    });
+
+    // Store email for future use
+    localStorage.setItem('customerEmail', customerEmail);
+
+    onSuccess?.();
+  };
 
   if (isSubmitted) {
     return (

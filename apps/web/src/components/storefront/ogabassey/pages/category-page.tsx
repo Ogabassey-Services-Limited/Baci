@@ -87,13 +87,19 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       : STOREFRONT_PRODUCTS_PER_PAGE;
   const [filters, setFilters] = useState<FilterState>(INITIAL_FILTER_STATE);
 
-  // Scroll to top when category changes & Reset filters
+  // Reset filters inline during render when the category changes
+  const [prevCategoryName, setPrevCategoryName] = useState(categoryName);
+  if (categoryName !== prevCategoryName) {
+    setPrevCategoryName(categoryName);
+    setFilters(INITIAL_FILTER_STATE);
+  }
+
+  // Scroll to top when category changes
   useEffect(() => {
     if (categoryName) {
       window.scrollTo(0, 0);
-      setFilters(INITIAL_FILTER_STATE);
     }
-  }, [categoryName]); // Add categoryName dependency for proper reset
+  }, [categoryName]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(min-width: 768px)');

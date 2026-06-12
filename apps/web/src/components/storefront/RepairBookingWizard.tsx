@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 import {
   calculateRepairShipping,
@@ -102,8 +102,10 @@ export function RepairBookingWizard({
     mode: 'onTouched',
   });
 
-  const { trigger, watch } = form;
-  const formData = watch();
+  const { trigger, control } = form;
+  // useWatch instead of watch(): watch() returns interior-mutable values that
+  // force React Compiler to skip memoizing this component.
+  const formData = useWatch({ control });
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof RepairBookingInput)[] = [];
@@ -128,50 +130,57 @@ export function RepairBookingWizard({
     setCurrentStep((prev) => prev - 1);
   };
 
-  const handleAddressSelect = async (place: PlaceDetails) => {
+  const handleAddressSelect = (place: PlaceDetails) => {
     // Update form value
     form.setValue('pickupAddress', place.formattedAddress);
 
-    // Calculate shipping
+    // Calculate shipping. Promise chain instead of try/finally: React Compiler
+    // cannot lower try statements with a finalizer inside component closures.
     setIsCalculatingShipping(true);
     setShippingQuote(null);
-    try {
-      const result = await calculateRepairShipping(place);
-      setShippingQuote(result);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsCalculatingShipping(false);
-    }
+    calculateRepairShipping(place)
+      .then((result) => {
+        setShippingQuote(result);
+      })
+      .catch((error: unknown) => {
+        console.error(error);
+      })
+      .finally(() => {
+        setIsCalculatingShipping(false);
+      });
   };
 
-  const onSubmit = async (data: RepairBookingInput) => {
+  const onSubmit = (data: RepairBookingInput) => {
     setIsSubmitting(true);
-    try {
-      const result = await createRepair(data, merchantId);
-      if (result.success) {
-        setIsSuccess(true);
-        toast({
-          title: 'Request Submitted',
-          description:
-            'We have received your repair request. We will contact you shortly.',
-        });
-      } else {
+    // Promise chain instead of try/finally: React Compiler cannot lower try
+    // statements with a finalizer inside component closures.
+    return createRepair(data, merchantId)
+      .then((result) => {
+        if (result.success) {
+          setIsSuccess(true);
+          toast({
+            title: 'Request Submitted',
+            description:
+              'We have received your repair request. We will contact you shortly.',
+          });
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Submission Failed',
+            description: result.error,
+          });
+        }
+      })
+      .catch(() => {
         toast({
           variant: 'destructive',
-          title: 'Submission Failed',
-          description: result.error,
+          title: 'Error',
+          description: 'Something went wrong. Please try again.',
         });
-      }
-    } catch (_error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Something went wrong. Please try again.',
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   if (isSuccess) {

@@ -32,7 +32,10 @@ const {
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
   mockOgabasseyPdpProductResourceHints: vi.fn<
-    (props: { src: string | null | undefined }) => null
+    (props: {
+      productSlug?: string | null | undefined;
+      src: string | null | undefined;
+    }) => null
   >(() => null),
   mockOgabasseyPdpSemanticSections: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpStaticResourceHints: vi.fn<() => void>(),
@@ -108,34 +111,48 @@ vi.mock('next/image', () => ({
     quality,
     sizes,
     src,
+    width,
   }: {
     alt: string;
     className?: string;
     decoding?: string;
     fetchPriority?: string;
     fill?: boolean;
-    loader?: () => string;
+    loader?: (props: {
+      quality?: number;
+      src: string;
+      width: number;
+    }) => string;
     loading?: string;
     priority?: boolean;
     quality?: number;
     sizes?: string;
     src: string;
-  }) => ({
-    props: {
-      alt,
-      className,
-      decoding,
-      fetchPriority,
-      fill,
-      loader,
-      loading,
-      priority,
-      quality,
-      sizes,
-      src,
-      srcSet: `${src} 640w`,
-    },
-  }),
+    width?: number;
+  }) => {
+    const resolvedWidth = width ?? 640;
+    const resolvedSrc =
+      typeof loader === 'function'
+        ? loader({ quality, src, width: resolvedWidth })
+        : src;
+
+    return {
+      props: {
+        alt,
+        className,
+        decoding,
+        fetchPriority,
+        fill,
+        loader,
+        loading,
+        priority,
+        quality,
+        sizes,
+        src: resolvedSrc,
+        srcSet: `${resolvedSrc} ${resolvedWidth}w`,
+      },
+    };
+  },
 }));
 
 vi.mock('next/link', () => ({
@@ -201,9 +218,11 @@ vi.mock(
   '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints',
   () => ({
     OgabasseyPdpProductResourceHints: (props: {
+      productSlug?: string | null | undefined;
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
     preloadOgabasseyPdpProductResources: (props: {
+      productSlug?: string | null | undefined;
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
   })
@@ -1491,6 +1510,48 @@ describe('[category]/[productSlug] page render', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders known OgaBassey PDP critical images through the same-origin LCP route', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif';
+    mockGetRequestScopedMerchant.mockResolvedValueOnce({
+      ...baseMerchant,
+      id: OGABASSEY_MERCHANT_ID,
+      slug: OGABASSEY_DOMAIN,
+      template_id: OGABASSEY_TEMPLATE_ID,
+    });
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [productImage],
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      images: [productImage],
+    });
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: OGABASSEY_DOMAIN,
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(
+      screen.getByRole('img', { name: 'HP Laptop 14-ep0063nia' })
+    ).toHaveAttribute(
+      'src',
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/hp-laptop-14-ep0063nia'
+    );
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+  });
+
   it('splits OgaBassey client work into critical commerce and deferred detail islands', async () => {
     const { container } = render(
       await resolveRsc(
@@ -1867,7 +1928,7 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
@@ -1926,7 +1987,7 @@ describe('[category]/[productSlug] page render', () => {
       'product-hints',
       'product-details',
     ]);
-    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
 
     resolveProductDetails?.(categorizedDetailedProduct);
@@ -2001,9 +2062,7 @@ describe('[category]/[productSlug] page render', () => {
     resolveMerchant?.(ogabasseyMerchant);
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
-    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: earlyProductImage,
-    });
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
 
     render(await resolveRsc(resolvedPage));
 
@@ -2274,7 +2333,7 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
     });
-    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -2356,7 +2415,7 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(await resolveRsc(pageUi));
-    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
     });

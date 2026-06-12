@@ -57,12 +57,18 @@ export function BlogList({
   // that captures yesterday's `page`/`posts`.
   const loadMoreRef = useRef<(() => void) | null>(null);
 
-  // Reset state when filters change
-  useEffect(() => {
+  // Reset state when filters change — adjusted inline during render with a
+  // prev-prop comparison so users never see one frame of the stale list.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevInitialPosts, setPrevInitialPosts] = useState(initialPosts);
+  const [prevTotalPosts, setPrevTotalPosts] = useState(totalPosts);
+  if (initialPosts !== prevInitialPosts || totalPosts !== prevTotalPosts) {
+    setPrevInitialPosts(initialPosts);
+    setPrevTotalPosts(totalPosts);
     setPosts(initialPosts);
     setPage(1);
     setHasMore(initialPosts.length < totalPosts);
-  }, [initialPosts, totalPosts]);
+  }
 
   const loadMore = () => {
     startTransition(async () => {
@@ -102,8 +108,11 @@ export function BlogList({
   };
 
   // Keep the ref pointed at the current `loadMore` so the observer effect's
-  // callback always invokes the latest closure (page/posts).
-  loadMoreRef.current = loadMore;
+  // callback always invokes the latest closure (page/posts). Written in an
+  // effect (not during render) because refs must not be touched mid-render.
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+  });
 
   useEffect(() => {
     const observer = new IntersectionObserver(

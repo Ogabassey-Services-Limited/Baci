@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { getProductImageAlt } from '@baci/shared/lib';
 import type { Product } from '../types';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
@@ -112,10 +112,14 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
     .replace(/What is the .*? Price in Nigeria\??/i, '')
     .trim();
 
-  // Reset loading state when image source changes
-  useEffect(() => {
+  // Reset loading state when image source changes — adjusted inline during
+  // render with a prev-compare so the skeleton shows on the very next commit.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevImageSrc, setPrevImageSrc] = useState(currentImage.src);
+  if (currentImage.src !== prevImageSrc) {
+    setPrevImageSrc(currentImage.src);
     setIsImageLoaded(false);
-  }, [currentImage.src]);
+  }
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();

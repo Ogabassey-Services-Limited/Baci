@@ -41,8 +41,13 @@ export function PriceRangeProducts({
   const { addToCart } = useCart();
   const { toast } = useToast();
 
-  const [priceRangeProducts, setPriceRangeProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Fetched products tagged with the fetch inputs that produced them, so the
+  // loading flag and visible list derive during render instead of being
+  // mirrored into extra state from inside the effect.
+  const [fetchResult, setFetchResult] = useState<{
+    key: string;
+    products: Product[];
+  } | null>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
   const categoriesName = product.categories?.name;
   const categoryFallback = product.category;
@@ -64,16 +69,31 @@ export function PriceRangeProducts({
     enabled: Boolean(merchant?.id && productCategory && isValidPrice),
   });
 
+  const merchantId = merchant?.id;
+  const canFetch = Boolean(
+    merchantId && productCategory && isValidPrice && isActive
+  );
+  const fetchKey = canFetch
+    ? [
+        merchantId,
+        categorySlug,
+        minPrice,
+        maxPrice,
+        fetchLimit,
+        product.id,
+        product.price,
+        maxProducts,
+      ].join('|')
+    : null;
+
   useEffect(() => {
-    if (!merchant?.id || !productCategory || !isValidPrice || !isActive) {
-      setPriceRangeProducts([]);
-      setIsLoading(!isActive);
+    if (!fetchKey || !merchantId) {
       return;
     }
 
-    setIsLoading(true);
+    let cancelled = false;
     const params = new URLSearchParams({
-      merchant_id: merchant.id,
+      merchant_id: merchantId,
       category: categorySlug,
       min_price: minPrice.toString(),
       max_price: maxPrice.toString(),
@@ -84,37 +104,51 @@ export function PriceRangeProducts({
 
     apiGet<{ products: Product[] }>(`/api/storefront/products?${params}`)
       .then((data) => {
-        if (data.products) {
-          const filtered = data.products.filter(
-            (p) => p.id !== product.id && p.status === 'active'
-          );
-          filtered.sort(
-            (a, b) =>
-              Math.abs(a.price - product.price) -
-              Math.abs(b.price - product.price)
-          );
-          setPriceRangeProducts(filtered.slice(0, maxProducts));
+        if (cancelled) {
+          return;
         }
-        setIsLoading(false);
+        const matches = (data.products ?? []).filter(
+          (p) => p.id !== product.id && p.status === 'active'
+        );
+        matches.sort(
+          (a, b) =>
+            Math.abs(a.price - product.price) -
+            Math.abs(b.price - product.price)
+        );
+        setFetchResult({
+          key: fetchKey,
+          products: matches.slice(0, maxProducts),
+        });
       })
       .catch((err) => {
         console.error('Failed to fetch price range products:', err);
-        setPriceRangeProducts([]);
-        setIsLoading(false);
+        if (!cancelled) {
+          setFetchResult({ key: fetchKey, products: [] });
+        }
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
-    isActive,
-    merchant?.id,
+    fetchKey,
+    merchantId,
     product.id,
     product.price,
     categorySlug,
-    productCategory,
     fetchLimit,
     minPrice,
     maxPrice,
     maxProducts,
-    isValidPrice,
   ]);
+
+  // Derived during render: a result only counts when it matches the current
+  // fetch inputs, and the section is "loading" until that result lands.
+  const priceRangeProducts =
+    fetchKey !== null && fetchResult?.key === fetchKey
+      ? fetchResult.products
+      : [];
+  const isLoading = canFetch ? fetchResult?.key !== fetchKey : !isActive;
 
   const handleAddToCart = (p: Product) => {
     addToCart(p);

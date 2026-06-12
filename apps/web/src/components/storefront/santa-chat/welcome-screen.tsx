@@ -2,12 +2,29 @@
 
 import { Mountains_of_Christmas } from 'next/font/google';
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 
 const mountainsOfChristmas = Mountains_of_Christmas({
   weight: ['400', '700'],
   subsets: ['latin'],
 });
+
+// Module-scope subscribe helper for useSyncExternalStore — stable identity so
+// React never tears down / re-attaches the (no-op) listener between renders.
+function subscribeToNothing(): () => void {
+  return () => {
+    // Intentionally empty: nothing to unsubscribe from.
+  };
+}
+
+function createSnowflakes() {
+  return Array.from({ length: 50 }).map(() => ({
+    left: Math.random() * 100,
+    fontSize: Math.random() * 1.5 + 0.5,
+    duration: Math.random() * 5 + 5,
+    delay: -Math.random() * 5,
+  }));
+}
 
 interface WelcomeScreenProps {
   onStart: () => void;
@@ -18,20 +35,17 @@ interface WelcomeScreenProps {
  * Based on the original Santa-by-Ogabassey design
  */
 export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
-  const [snowflakes, setSnowflakes] = useState<
-    { left: number; fontSize: number; duration: number; delay: number }[]
-  >([]);
-
-  useEffect(() => {
-    setSnowflakes(
-      Array.from({ length: 50 }).map(() => ({
-        left: Math.random() * 100,
-        fontSize: Math.random() * 1.5 + 0.5,
-        duration: Math.random() * 5 + 5,
-        delay: -Math.random() * 5,
-      }))
-    );
-  }, []);
+  // Random snowflake geometry is generated once per mount in a lazy useState
+  // initializer instead of a setState-in-effect; the hydration gate keeps the
+  // server HTML (no flakes) matching the first client paint, with snow
+  // appearing right after hydration exactly like the previous mount effect.
+  const [generatedSnowflakes] = useState(createSnowflakes);
+  const isSnowfallReady = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false
+  );
+  const snowflakes = isSnowfallReady ? generatedSnowflakes : [];
 
   return (
     <div className="h-full w-full flex flex-col items-center justify-center bg-red-600 text-white p-4 text-center overflow-hidden relative">

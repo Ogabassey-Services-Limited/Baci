@@ -9,7 +9,6 @@ import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-ro
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
-import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
@@ -296,8 +295,6 @@ async function renderTemplateProductPage({
         />
       );
     }
-
-    preloadOgabasseyPdpStaticResources();
 
     return (
       <OgabasseyPdpBelowFoldIsland
@@ -1225,15 +1222,12 @@ export default async function CategoryProductPage({
 
   const resolvedSearchParams = await searchParams;
   let productResultPromise: Promise<CategoryProductResult> | null = null;
-  const getProductResultPromise = () => {
-    productResultPromise ??= loadProductResult();
-    return productResultPromise;
-  };
 
   // Unknown query keys can be dynamic variant axes, while campaign-only URLs
   // cannot affect selection and should still receive the early image hint.
   if (mayContainVariantSelectionParams(resolvedSearchParams)) {
-    const detailedProductResult = await getProductResultPromise();
+    productResultPromise = loadProductResult();
+    const detailedProductResult = await productResultPromise;
 
     if (detailedProductResult && 'product' in detailedProductResult) {
       redirectInvalidVariantSelectionParams(
@@ -1244,22 +1238,21 @@ export default async function CategoryProductPage({
     }
   }
 
-  const primaryProductImage =
-    merchant.template_id === OGABASSEY_TEMPLATE_ID
-      ? product.imageLarge || product.image || null
-      : null;
+  const primaryProductImage = product.imageLarge || product.image || null;
+  const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(slug);
+  const pageOwnsProductPreload =
+    merchant.template_id === OGABASSEY_TEMPLATE_ID && !knownOgaBasseyMerchantId;
+  const pagePreloadProductImage = pageOwnsProductPreload
+    ? primaryProductImage
+    : null;
   const criticalProduct =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
 
   try {
-    if (primaryProductImage) {
-      preloadOgabasseyPdpProductResources({ src: primaryProductImage });
-    }
-
-    if (criticalProduct) {
-      preloadOgabasseyPdpStaticResources();
+    if (pagePreloadProductImage) {
+      preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
     }
   } catch (error) {
     console.warn(
@@ -1273,7 +1266,9 @@ export default async function CategoryProductPage({
     ? getRequestScopedCategoryProductBasePath(slug)
     : Promise.resolve<'' | `/${string}`>('');
 
-  productResultPromise = getProductResultPromise();
+  if (!productResultPromise) {
+    productResultPromise = loadProductResult();
+  }
 
   return (
     <>
@@ -1282,6 +1277,7 @@ export default async function CategoryProductPage({
           <OgabasseyPdpCriticalShell
             basePath={getCategoryProductBasePath(slug)}
             basePathPromise={criticalBasePathPromise}
+            imageDelivery={knownOgaBasseyMerchantId ? 'same-origin' : 'direct'}
             product={criticalProduct}
           >
             <Suspense fallback={null}>
@@ -1307,7 +1303,11 @@ export default async function CategoryProductPage({
           fallback={
             <OgabasseyPdpProductLcpSkeleton
               merchant={merchant}
-              primaryProductImage={primaryProductImage}
+              primaryProductImage={
+                merchant.template_id === OGABASSEY_TEMPLATE_ID
+                  ? primaryProductImage
+                  : null
+              }
               productName={product.name}
             />
           }
