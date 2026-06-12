@@ -17,6 +17,11 @@ export function useStartSavingsPaymentMethods({
   activeMerchantSlug,
   sourceMode,
 }: UseStartSavingsPaymentMethodsInput) {
+  // Identity of the saved-card fetch; null when auto-debit is not selected.
+  const fetchKey =
+    sourceMode === 'auto_debit'
+      ? JSON.stringify([activeMerchantId ?? null, activeMerchantSlug ?? null])
+      : null;
   const [savedPaymentMethods, setSavedPaymentMethods] = useState<
     CustomerPaymentMethod[]
   >([]);
@@ -26,19 +31,30 @@ export function useStartSavingsPaymentMethods({
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(
     null
   );
-  const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
+  const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(
+    fetchKey !== null
+  );
+  const [prevFetchKey, setPrevFetchKey] = useState(fetchKey);
 
-  useEffect(() => {
-    if (sourceMode !== 'auto_debit') {
-      setPaymentMethodsError(null);
+  // Adjust state inline during render (prev-prop comparison) instead of in an
+  // effect, so consumers never see a stale frame between the two commits.
+  if (fetchKey !== prevFetchKey) {
+    setPrevFetchKey(fetchKey);
+    setPaymentMethodsError(null);
+    if (fetchKey === null) {
       setIsLoadingPaymentMethods(false);
       setSavedPaymentMethods([]);
       setSelectedPaymentMethodId(null);
+    } else {
+      setIsLoadingPaymentMethods(true);
+    }
+  }
+
+  useEffect(() => {
+    if (sourceMode !== 'auto_debit') {
       return;
     }
     let isCancelled = false;
-    setIsLoadingPaymentMethods(true);
-    setPaymentMethodsError(null);
     void listCustomerPaymentMethods({
       merchantId: activeMerchantId,
       merchantSlug: activeMerchantSlug,

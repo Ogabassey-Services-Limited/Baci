@@ -17,7 +17,6 @@ interface BuildKlumpInitializePayloadInput {
   customerPhone: string;
   merchantId: string;
   orderId: string;
-  orderTotal: number;
 }
 
 interface BuildKlumpBnplRouteParamsInput {
@@ -91,10 +90,8 @@ export function buildKlumpInitializePayload({
   customerPhone,
   merchantId,
   orderId,
-  orderTotal,
 }: BuildKlumpInitializePayloadInput) {
   return {
-    amount: orderTotal,
     currency: 'NGN',
     customer_email: customerEmail,
     customer_name: customerName,

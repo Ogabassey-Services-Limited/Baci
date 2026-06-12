@@ -28,7 +28,20 @@ export function useProducts(options: UseProductsOptions = {}) {
   const { data: merchant } = useMerchant();
   const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
-  const query = useInfiniteQuery({
+  // Destructure exactly the fields consumed so TanStack Query's
+  // tracked-property optimization limits re-renders to those fields.
+  const {
+    data,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isError,
+    isFetchedAfterMount,
+    isFetching,
+    isFetchingNextPage,
+    isLoading,
+    refetch,
+  } = useInfiniteQuery({
     queryKey: ['products', merchantId, options],
     queryFn: ({ pageParam = 0 }) =>
       fetchProductsPage(merchantId, options, pageParam),
@@ -42,26 +55,26 @@ export function useProducts(options: UseProductsOptions = {}) {
   });
 
   const products = dedupeById(
-    query.data?.pages.flatMap((page) => page.products) || []
+    data?.pages.flatMap((page) => page.products) || []
   );
-  const total = query.data?.pages[0]?.total || 0;
+  const total = data?.pages[0]?.total || 0;
 
   return {
     products,
     total,
-    isFetchedAfterMount: query.isFetchedAfterMount,
-    isLoading: query.isLoading,
-    isFetching: query.isFetching,
-    isError: query.isError,
-    error: query.error?.message || null,
-    hasMore: query.hasNextPage || false,
-    refetch: query.refetch,
+    isFetchedAfterMount,
+    isLoading,
+    isFetching,
+    isError,
+    error: error?.message || null,
+    hasMore: hasNextPage || false,
+    refetch,
     loadMore: () => {
-      if (query.hasNextPage && !query.isFetchingNextPage) {
-        query.fetchNextPage();
+      if (hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
       }
     },
-    isLoadingMore: query.isFetchingNextPage,
+    isLoadingMore: isFetchingNextPage,
   };
 }
 
@@ -85,7 +98,7 @@ export function useProductBrands(options: UseProductsOptions = {}) {
   const { data: merchant } = useMerchant();
   const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
-  const query = useQuery({
+  const { data, error, isError, isLoading, refetch } = useQuery({
     queryKey: ['product-brands', merchantId, options],
     queryFn: () => fetchAvailableBrands(merchantId, options),
     staleTime: 1000 * 60 * 5,
@@ -93,10 +106,10 @@ export function useProductBrands(options: UseProductsOptions = {}) {
   });
 
   return {
-    brands: query.data ?? [],
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error?.message || null,
-    refetch: query.refetch,
+    brands: data ?? [],
+    isLoading,
+    isError,
+    error: error?.message || null,
+    refetch,
   };
 }

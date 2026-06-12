@@ -75,7 +75,6 @@ async function initializeCryptoPayment(
       body: JSON.stringify({
         merchant_id: request.merchantId,
         order_id: request.orderId,
-        amount: Number.parseInt(request.amount, 10),
         currency: 'NGN',
         customer_email: request.customerEmail,
         customer_name: request.customerName,

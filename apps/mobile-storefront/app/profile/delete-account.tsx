@@ -52,27 +52,25 @@ export default function DeleteAccountScreen() {
     try {
       const result = await deleteAccount();
 
-      if (!result.success) {
+      if (result.success) {
+        setIsConfirmed(false);
+
+        Alert.alert(
+          'Account deleted',
+          'Your account has been permanently deleted from this app.',
+          [{ text: 'OK', onPress: () => router.replace('/') }]
+        );
+      } else {
         toast.error(result.error || 'Unable to delete your account right now.');
-        return;
       }
-
-      setIsConfirmed(false);
-
-      Alert.alert(
-        'Account deleted',
-        'Your account has been permanently deleted from this app.',
-        [{ text: 'OK', onPress: () => router.replace('/') }]
-      );
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : 'Something went wrong. Please try again.'
       );
-    } finally {
-      setIsDeleting(false);
     }
+    setIsDeleting(false);
   };
 
   const confirmDelete = () => {

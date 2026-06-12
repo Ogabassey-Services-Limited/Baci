@@ -140,7 +140,7 @@ describe('klump checkout helpers', () => {
     ).toBe(true);
   });
 
-  it('builds the initialize payload from the full order total', () => {
+  it('builds the initialize payload without trusting a client amount', () => {
     expect(
       buildKlumpInitializePayload({
         customerEmail: 'customer@example.com',
@@ -148,10 +148,8 @@ describe('klump checkout helpers', () => {
         customerPhone: '08012345678',
         merchantId: 'merchant-123',
         orderId: 'order-123',
-        orderTotal: 120000,
       })
     ).toEqual({
-      amount: 120000,
       currency: 'NGN',
       customer_email: 'customer@example.com',
       customer_name: 'Ada Customer',

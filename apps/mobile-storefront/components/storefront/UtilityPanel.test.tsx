@@ -19,16 +19,25 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (initialValue: number) => {
       let value = initialValue;
       const listeners: Array<(newValue: number, oldValue: number) => void> = [];
+      const assign = (newValue: number) => {
+        const oldValue = value;
+        value = newValue;
+        for (const listener of listeners) {
+          listener(newValue, oldValue);
+        }
+      };
       return {
         get value() {
           return value;
         },
         set value(newValue) {
-          const oldValue = value;
-          value = newValue;
-          for (const listener of listeners) {
-            listener(newValue, oldValue);
-          }
+          assign(newValue);
+        },
+        get() {
+          return value;
+        },
+        set(newValue: number) {
+          assign(newValue);
         },
         addListener(listener: (newValue: number, oldValue: number) => void) {
           listeners.push(listener);

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { getTypingIndicatorDotShadowStyle } from './TypingIndicator.shadows';
@@ -9,9 +9,9 @@ const DOT_DELAY_MS = 160;
 const DOT_ANIMATION_MS = 520;
 
 export function TypingIndicator() {
-  const animatedValues = useRef(
+  const [animatedValues] = useState(() =>
     Array.from({ length: DOT_COUNT }, () => new Animated.Value(0.35))
-  ).current;
+  );
   const dotShadowStyle = getTypingIndicatorDotShadowStyle(
     Platform.OS === 'web' ? 'web' : 'native'
   );
@@ -43,7 +43,9 @@ export function TypingIndicator() {
 
     return () => {
       loop.stop();
-      animatedValues.forEach((value) => value.stopAnimation());
+      for (const value of animatedValues) {
+        value.stopAnimation();
+      }
     };
   }, [animatedValues]);
 

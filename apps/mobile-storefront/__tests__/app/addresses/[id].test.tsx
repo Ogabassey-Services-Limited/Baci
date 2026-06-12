@@ -1,4 +1,11 @@
-import type React from 'react';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import {
   act,
   fireEvent,
@@ -6,6 +13,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import type React from 'react';
 import { Alert } from 'react-native';
 import AddressFormScreen from '@/app/addresses/[id]';
 
@@ -27,37 +35,54 @@ type SupabaseChainMethod = (...args: unknown[]) => SupabaseQueryBuilderMock;
 type SupabaseQueryBuilderMock = {
   eq: jest.MockedFunction<SupabaseChainMethod>;
   insert: jest.MockedFunction<SupabaseChainMethod>;
+  is: jest.MockedFunction<SupabaseChainMethod>;
   match: jest.MockedFunction<SupabaseChainMethod>;
   select: jest.MockedFunction<SupabaseChainMethod>;
   single: jest.MockedFunction<() => Promise<SupabaseAddressResult>>;
   update: jest.MockedFunction<SupabaseChainMethod>;
 };
 
-const mockSingle = jest.fn<Promise<SupabaseAddressResult>, []>(async () => ({
+const mockSingle = jest.fn<() => Promise<SupabaseAddressResult>>(async () => ({
   data: { saved_addresses: [] },
   error: null,
 }));
 const mockQueryBuilder = {} as SupabaseQueryBuilderMock;
 const createChainMock = () =>
-  jest.fn<SupabaseQueryBuilderMock, unknown[]>(() => mockQueryBuilder);
+  jest.fn<SupabaseChainMethod>(() => mockQueryBuilder);
 
 Object.assign(mockQueryBuilder, {
   eq: createChainMock(),
   insert: createChainMock(),
+  is: createChainMock(),
   match: createChainMock(),
   select: createChainMock(),
   single: mockSingle,
   update: createChainMock(),
 });
-const mockFrom = jest.fn<SupabaseQueryBuilderMock, [string]>(
+const mockFrom = jest.fn<(table: string) => SupabaseQueryBuilderMock>(
   () => mockQueryBuilder
 );
 
 const resetSupabaseChainMocks = () => {
   mockQueryBuilder.eq.mockImplementation(() => mockQueryBuilder);
   mockQueryBuilder.insert.mockImplementation(() => mockQueryBuilder);
+  // `.is('updated_at', null)` carries the optimistic version guard for legacy
+  // rows whose snapshot has no updated_at.
+  mockQueryBuilder.is.mockImplementation(() => mockQueryBuilder);
   mockQueryBuilder.match.mockImplementation(() => mockQueryBuilder);
-  mockQueryBuilder.select.mockImplementation(() => mockQueryBuilder);
+  // The read path chains `.select('saved_addresses, updated_at').eq().eq()
+  // .single()`, while the write path resolves
+  // `.update().eq().eq().eq|is(updated_at).select('id')` to the matched rows
+  // used for the row-match verification.
+  mockQueryBuilder.select.mockImplementation((...args: unknown[]) => {
+    if (args[0] === 'id') {
+      return Promise.resolve({
+        data: [{ id: 'customer-1' }],
+        error: null,
+      }) as unknown as SupabaseQueryBuilderMock;
+    }
+    return mockQueryBuilder;
+  });
   mockQueryBuilder.update.mockImplementation(() => mockQueryBuilder);
   mockFrom.mockReturnValue(mockQueryBuilder);
 };
@@ -204,7 +229,9 @@ describe('AddressFormScreen', () => {
     await waitFor(() => {
       expect(mockFrom).toHaveBeenCalledWith('customers');
     });
-    expect(mockQueryBuilder.select).toHaveBeenCalledWith('saved_addresses');
+    expect(mockQueryBuilder.select).toHaveBeenCalledWith(
+      'saved_addresses, updated_at'
+    );
     expect(mockQueryBuilder.eq).toHaveBeenNthCalledWith(1, 'id', 'customer-1');
     expect(mockQueryBuilder.eq).toHaveBeenNthCalledWith(
       2,
