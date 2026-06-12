@@ -43,8 +43,10 @@ export async function loadShippingCities(params: {
   if (!signal.aborted) setIsLoadingCities(true);
   try {
     const cities = await fetchCheckoutShippingCities(apiBaseUrl, state, signal);
-    setShippingCities(cities);
-    if (!signal.aborted) onCitiesLoaded(cities);
+    if (!signal.aborted) {
+      setShippingCities(cities);
+      onCitiesLoaded(cities);
+    }
   } catch {
     if (!signal.aborted) setShippingCities([]);
   } finally {
