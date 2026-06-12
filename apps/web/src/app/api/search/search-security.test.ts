@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '@/lib/logger';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { GET as autocompleteGET } from './autocomplete/route';
 import { GET as searchGET } from './route';
@@ -192,6 +193,14 @@ describe('Search API Security', () => {
 
       expect(response.status).toBe(200);
       expect(data.query).toBe('iphone');
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Storefront search analytics insert failed',
+          error: { message: 'insert failed' },
+          merchantId,
+          query: 'iphone',
+        })
+      );
     });
 
     it('schedules analytics after the search response instead of blocking it', async () => {
