@@ -15,11 +15,11 @@ import {
 import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
+import { FlashList } from '@shopify/flash-list';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import { FlashList } from '@shopify/flash-list';
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -29,23 +29,23 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
-  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateRangePicker from '@/components/ui/DateRangePicker';
+import { triggerLightHaptic } from '@/components/ui/haptics';
 import OrderReportModal from '@/components/ui/OrderReportModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useAiInsights } from '@/hooks/useAiInsights';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderCounts } from '@/hooks/useOrderCounts';
 import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
-import { useAiInsights } from '@/hooks/useAiInsights';
-import { triggerLightHaptic } from '@/components/ui/haptics';
 import { getOrdersViewState } from '@/lib/orders-view-state';
 import { groupOrdersByRelativeDate } from '@/utils/date-utils';
 import { orderExportTools } from '@/utils/export-orders';
@@ -106,6 +106,63 @@ interface OrderItemProps {
     color: string;
     label: string;
   };
+}
+
+type OrdersCountSnapshot = Partial<Record<ShippingStatus, number>> & {
+  all?: number;
+};
+
+type ThemeColors = ReturnType<typeof useTheme>['colors'];
+
+interface FilterTabProps {
+  status: ShippingStatus | 'all';
+  label: string;
+  statusFilter: ShippingStatus | undefined;
+  counts: OrdersCountSnapshot | null | undefined;
+  colors: ThemeColors;
+  onSelect: (status: ShippingStatus | undefined) => void;
+}
+
+function FilterTab({
+  status,
+  label,
+  statusFilter,
+  counts,
+  colors,
+  onSelect,
+}: FilterTabProps) {
+  const isActive =
+    (status === 'all' && !statusFilter) || statusFilter === status;
+  const count = counts
+    ? status === 'all'
+      ? (counts.all ?? 0)
+      : (counts[status] ?? 0)
+    : 0;
+
+  return (
+    <Pressable
+      style={[
+        styles.filterTab,
+        {
+          backgroundColor: isActive ? colors.gold : colors.card,
+        },
+      ]}
+      onPress={() => onSelect(status === 'all' ? undefined : status)}
+      accessibilityLabel={`${label} orders: ${count}${isActive ? ', currently selected' : ''}`}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
+      accessibilityHint={`Filter to show ${label.toLowerCase()} orders`}
+    >
+      <Text
+        style={[
+          styles.filterText,
+          { color: isActive ? '#000000' : colors.textSecondary },
+        ]}
+      >
+        {label} ({count})
+      </Text>
+    </Pressable>
+  );
 }
 
 function OrderItem({
@@ -693,29 +750,25 @@ export default function OrdersScreen() {
     />
   );
 
-  // Flatten orders sections into a flat list array.
-  // Memoized using useMemo to ensure referential stability and prevent layout/rendering churn.
-  const flatListData = useMemo(() => {
-    const sections = groupOrdersByRelativeDate(allOrders);
-    const flatListData: OrdersListRow[] = [];
-    sections.forEach((section, sectionIndex) => {
-      if (section.data.length === 0) return;
+  // Flatten orders sections into a flat list array. React Compiler handles memoization.
+  const sections = groupOrdersByRelativeDate(allOrders);
+  const flatListData: OrdersListRow[] = [];
+  sections.forEach((section, sectionIndex) => {
+    if (section.data.length === 0) return;
 
+    flatListData.push({
+      type: 'header',
+      id: `header-${section.title}-${sectionIndex}`,
+      title: section.title,
+    });
+    section.data.forEach((order) => {
       flatListData.push({
-        type: 'header',
-        id: `header-${section.title}-${sectionIndex}`,
-        title: section.title,
-      });
-      section.data.forEach((order) => {
-        flatListData.push({
-          type: 'item',
-          id: order.id,
-          order,
-        });
+        type: 'item',
+        id: order.id,
+        order,
       });
     });
-    return flatListData;
-  }, [allOrders]);
+  });
 
   const renderFlatListItem = ({ item }: { item: OrdersListRow }) => {
     if (item.type === 'header') {
@@ -732,51 +785,6 @@ export default function OrdersScreen() {
       );
     }
     return renderOrder({ item: item.order });
-  };
-
-  const FilterTab = ({
-    status,
-    label,
-  }: {
-    status: ShippingStatus | 'all';
-    label: string;
-  }) => {
-    const isActive =
-      (status === 'all' && !statusFilter) || statusFilter === status;
-    const count = counts
-      ? status === 'all'
-        ? counts.all
-        : (counts[status] ?? 0)
-      : 0;
-
-    return (
-      <Pressable
-        style={[
-          styles.filterTab,
-          {
-            backgroundColor: isActive ? colors.gold : colors.card,
-          },
-        ]}
-        onPress={() =>
-          setStatusFilter(
-            status === 'all' ? undefined : (status as ShippingStatus)
-          )
-        }
-        accessibilityLabel={`${label} orders: ${count}${isActive ? ', currently selected' : ''}`}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: isActive }}
-        accessibilityHint={`Filter to show ${label.toLowerCase()} orders`}
-      >
-        <Text
-          style={[
-            styles.filterText,
-            { color: isActive ? '#000000' : colors.textSecondary },
-          ]}
-        >
-          {label} ({count})
-        </Text>
-      </Pressable>
-    );
   };
 
   return (
@@ -929,12 +937,12 @@ export default function OrdersScreen() {
                 </Text>
                 {aiInsightsData.insights
                   .map((insight) => insight.action)
-                  .filter(Boolean)
-                  .map((todoText, idx) => {
-                    const isCompleted = !!completedTodos[todoText!];
+                  .filter((todoText): todoText is string => Boolean(todoText))
+                  .map((todoText) => {
+                    const isCompleted = !!completedTodos[todoText];
                     return (
                       <Pressable
-                        key={idx}
+                        key={todoText}
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
@@ -945,7 +953,7 @@ export default function OrdersScreen() {
                           triggerLightHaptic();
                           setCompletedTodos((prev) => ({
                             ...prev,
-                            [todoText!]: !isCompleted,
+                            [todoText]: !isCompleted,
                           }));
                         }}
                         accessibilityLabel={`Todo item: ${todoText}. ${isCompleted ? 'Completed' : 'Not completed'}`}
@@ -1065,13 +1073,62 @@ export default function OrdersScreen() {
           contentContainerStyle={styles.filterContent}
           style={styles.filterContainer}
         >
-          <FilterTab status="all" label="All" />
-          <FilterTab status="pending" label="Pending" />
-          <FilterTab status="processing" label="Processing" />
-          <FilterTab status="shipped" label="Shipped" />
-          <FilterTab status="delivered" label="Delivered" />
-          <FilterTab status="cancelled" label="Cancelled" />
-          <FilterTab status="returned" label="Returned" />
+          <FilterTab
+            status="all"
+            label="All"
+            statusFilter={statusFilter}
+            counts={counts}
+            colors={colors}
+            onSelect={setStatusFilter}
+          />
+          <FilterTab
+            status="pending"
+            label="Pending"
+            statusFilter={statusFilter}
+            counts={counts}
+            colors={colors}
+            onSelect={setStatusFilter}
+          />
+          <FilterTab
+            status="processing"
+            label="Processing"
+            statusFilter={statusFilter}
+            counts={counts}
+            colors={colors}
+            onSelect={setStatusFilter}
+          />
+          <FilterTab
+            status="shipped"
+            label="Shipped"
+            statusFilter={statusFilter}
+            counts={counts}
+            colors={colors}
+            onSelect={setStatusFilter}
+          />
+          <FilterTab
+            status="delivered"
+            label="Delivered"
+            statusFilter={statusFilter}
+            counts={counts}
+            colors={colors}
+            onSelect={setStatusFilter}
+          />
+          <FilterTab
+            status="cancelled"
+            label="Cancelled"
+            statusFilter={statusFilter}
+            counts={counts}
+            colors={colors}
+            onSelect={setStatusFilter}
+          />
+          <FilterTab
+            status="returned"
+            label="Returned"
+            statusFilter={statusFilter}
+            counts={counts}
+            colors={colors}
+            onSelect={setStatusFilter}
+          />
         </ScrollView>
       </Animated.View>
 

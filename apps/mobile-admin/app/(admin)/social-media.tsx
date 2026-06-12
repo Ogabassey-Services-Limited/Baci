@@ -2,7 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import type { ComponentProps } from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -97,9 +97,6 @@ export default function SocialMediaScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // State for social media
-  const [socialMedia, setSocialMedia] =
-    useState<MerchantSocialMedia>(EMPTY_SOCIAL_MEDIA);
   const instagram = merchant?.social_media?.instagram ?? '';
   const twitter = merchant?.social_media?.twitter ?? '';
   const facebook = merchant?.social_media?.facebook ?? '';
@@ -108,21 +105,8 @@ export default function SocialMediaScreen() {
   const pinterest = merchant?.social_media?.pinterest ?? '';
   const linkedin = merchant?.social_media?.linkedin ?? '';
   const snapchat = merchant?.social_media?.snapchat ?? '';
-
-  // Populate state
-  useEffect(() => {
-    setSocialMedia({
-      ...EMPTY_SOCIAL_MEDIA,
-      instagram,
-      twitter,
-      facebook,
-      tiktok,
-      youtube,
-      pinterest,
-      linkedin,
-      snapchat,
-    });
-  }, [
+  const merchantSocialMedia = {
+    ...EMPTY_SOCIAL_MEDIA,
     instagram,
     twitter,
     facebook,
@@ -131,7 +115,27 @@ export default function SocialMediaScreen() {
     pinterest,
     linkedin,
     snapchat,
-  ]);
+  } satisfies MerchantSocialMedia;
+  const merchantSocialMediaKey = [
+    instagram,
+    twitter,
+    facebook,
+    tiktok,
+    youtube,
+    pinterest,
+    linkedin,
+    snapchat,
+  ].join('\u0000');
+
+  const [socialMedia, setSocialMedia] =
+    useState<MerchantSocialMedia>(merchantSocialMedia);
+  const [previousMerchantSocialMediaKey, setPreviousMerchantSocialMediaKey] =
+    useState(merchantSocialMediaKey);
+
+  if (merchantSocialMediaKey !== previousMerchantSocialMediaKey) {
+    setPreviousMerchantSocialMediaKey(merchantSocialMediaKey);
+    setSocialMedia(merchantSocialMedia);
+  }
 
   // Save Mutation
   const saveMutation = useMutation({
