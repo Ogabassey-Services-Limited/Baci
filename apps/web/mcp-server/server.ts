@@ -54,6 +54,12 @@ const PORT = Number(process.env.MCP_PORT ?? 8787);
 const MCP_PATH = '/mcp';
 const MCP_ALLOWED_HEADERS = 'content-type, mcp-protocol-version, mcp-session-id';
 const MCP_ALLOWED_METHODS = 'POST, GET, OPTIONS, DELETE, HEAD';
+const AGENTIC_CHECKOUT_TOOLS_ENABLED =
+  process.env.MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS === '1' ||
+  process.env.MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS === 'true';
+const ORDER_PAYMENT_TOOLS_ENABLED =
+  process.env.MCP_ENABLE_ORDER_PAYMENT_TOOLS === '1' ||
+  process.env.MCP_ENABLE_ORDER_PAYMENT_TOOLS === 'true';
 const AGENTIC_CHECKOUT_API_BASE_URL =
   process.env.MCP_AGENTIC_CHECKOUT_BASE_URL ?? 'https://ogabassey.com';
 const AGENTIC_CHECKOUT_API_KEY = getAgenticCredential(
@@ -81,6 +87,10 @@ function getAgenticCredential(primaryName: string, legacyName: string) {
 function getAgenticCheckoutClientConfig():
   | ConfiguredAgenticCheckoutClientConfig
   | null {
+  if (!AGENTIC_CHECKOUT_TOOLS_ENABLED) {
+    return null;
+  }
+
   if (!AGENTIC_CHECKOUT_API_KEY || !AGENTIC_CHECKOUT_SIGNING_KEY) {
     return null;
   }
@@ -1978,36 +1988,37 @@ function createOgabasseyServer() {
     }
   );
 
-  // Tool: Check order status
-  server.registerTool(
-    'check_order',
-    {
-      title: 'Check Order Status',
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-      description: 'Look up order status by order number or phone.',
-      inputSchema: {
-        order_number: z
-          .string()
-          .max(20)
-          .optional()
-          .describe('Order number (e.g., ORD-12345)'),
-        phone: z.string().max(20).optional().describe('Phone number'),
+  if (ORDER_PAYMENT_TOOLS_ENABLED) {
+    // Tool: Check order status
+    server.registerTool(
+      'check_order',
+      {
+        title: 'Check Order Status',
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        description: 'Look up order status by order number or phone.',
+        inputSchema: {
+          order_number: z
+            .string()
+            .max(20)
+            .optional()
+            .describe('Order number (e.g., ORD-12345)'),
+          phone: z.string().max(20).optional().describe('Phone number'),
+        },
+        _meta: {
+          'openai/outputTemplate': 'ui://widget/store.html',
+          'openai/toolInvocation/invoking': 'Looking up order...',
+          'openai/toolInvocation/invoked': 'Order found',
+        },
       },
-      _meta: {
-        'openai/outputTemplate': 'ui://widget/store.html',
-        'openai/toolInvocation/invoking': 'Looking up order...',
-        'openai/toolInvocation/invoked': 'Order found',
-      },
-    },
-    async (args) => {
-      if (!args.order_number && !args.phone) {
-        return {
-          content: [
-            { type: 'text', text: 'Please provide order number or phone.' },
-          ],
-          structuredContent: { order: null },
-        };
-      }
+      async (args) => {
+        if (!args.order_number && !args.phone) {
+          return {
+            content: [
+              { type: 'text', text: 'Please provide order number or phone.' },
+            ],
+            structuredContent: { order: null },
+          };
+        }
 
       // Validate inputs
       if (args.order_number && !isValidOrderNumber(args.order_number)) {
@@ -2094,8 +2105,9 @@ function createOgabasseyServer() {
         ],
         structuredContent: { order: safeOrder },
       };
-    }
-  );
+      }
+    );
+  }
 
   // Tool: Get store info (read-only, no sensitive data)
   server.registerTool(
@@ -2731,68 +2743,69 @@ function createOgabasseyServer() {
   // [REMOVED] ask_santa
 
 
-  // Tool: Generate Payment Account (DVA for bank transfers)
-  server.registerTool(
-    'generate_payment_account',
-    {
-      title: 'Generate Payment Account',
-      description:
-        'Use this when a customer wants to pay via bank transfer. Generates a dedicated bank account (DVA) for them to transfer money to. REQUIRED: customer email, name, phone, and amount. Do NOT use if customer just wants to browse or hasn\'t decided to buy yet.',
-      inputSchema: {
-        customer_email: z.email()
-          .describe('Customer email address (REQUIRED)'),
-        customer_name: z
-          .string()
-          .min(2)
-          .max(100)
-          .describe('Customer full name (REQUIRED)'),
-        customer_phone: z
-          .string()
-          .min(10)
-          .max(20)
-          .describe('Customer phone number (REQUIRED)'),
-        amount: z
-          .number()
-          .min(100)
-          .describe('Payment amount in Naira (REQUIRED)'),
-        order_id: z
-          .string()
-          .optional()
-          .describe('Order ID to link payment to (optional)'),
+  if (ORDER_PAYMENT_TOOLS_ENABLED) {
+    // Tool: Generate Payment Account (DVA for bank transfers)
+    server.registerTool(
+      'generate_payment_account',
+      {
+        title: 'Generate Payment Account',
+        description:
+          'Use this when a customer wants to pay via bank transfer. Generates a dedicated bank account (DVA) for them to transfer money to. REQUIRED: customer email, name, phone, and amount. Do NOT use if customer just wants to browse or hasn\'t decided to buy yet.',
+        inputSchema: {
+          customer_email: z.email()
+            .describe('Customer email address (REQUIRED)'),
+          customer_name: z
+            .string()
+            .min(2)
+            .max(100)
+            .describe('Customer full name (REQUIRED)'),
+          customer_phone: z
+            .string()
+            .min(10)
+            .max(20)
+            .describe('Customer phone number (REQUIRED)'),
+          amount: z
+            .number()
+            .min(100)
+            .describe('Payment amount in Naira (REQUIRED)'),
+          order_id: z
+            .string()
+            .optional()
+            .describe('Order ID to link payment to (optional)'),
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false, // Does not delete data
+          openWorldHint: true,    // Calls external Paystack API
+          idempotentHint: false,  // Creates new order each time
+        },
+        _meta: {
+          'openai/toolInvocation/invoking': 'Generating your bank account for payment...',
+          'openai/toolInvocation/invoked': 'Payment account ready!',
+        },
       },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false, // Does not delete data
-        openWorldHint: true,    // Calls external Paystack API
-        idempotentHint: false,  // Creates new order each time
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Generating your bank account for payment...',
-        'openai/toolInvocation/invoked': 'Payment account ready!',
-      },
-    },
-    async (args) => {
-      try {
-        const { customer_email, customer_name, customer_phone, amount, order_id } = args;
+      async (args) => {
+        try {
+          const { customer_email, customer_name, customer_phone, amount, order_id } = args;
 
-        // Import the paystack function dynamically to avoid circular deps
-        const { generatePaymentAccount } = await import('../src/lib/paystack');
+          // Import the paystack function dynamically to avoid circular deps
+          const { generatePaymentAccount } = await import('../src/lib/paystack');
 
-        // Split name into first/last
-        const nameParts = customer_name?.split(' ') || [];
-        const firstName = nameParts[0] || undefined;
-        const lastName = nameParts.slice(1).join(' ') || undefined;
+          // Split name into first/last
+          const nameParts = customer_name?.split(' ') || [];
+          const firstName = nameParts[0] || undefined;
+          const lastName = nameParts.slice(1).join(' ') || undefined;
 
-        // Get merchant ID for chat order
-        const merchantId = await getMerchantId();
-        if (!merchantId) {
-          return {
-            content: [{ type: 'text', text: '❌ Store configuration error. Please try again later.' }],
-          };
-        }
+          // Get merchant ID for chat order
+          const merchantId = await getMerchantId();
+          if (!merchantId) {
+            return {
+              content: [{ type: 'text', text: '❌ Store configuration error. Please try again later.' }],
+            };
+          }
 
-        // Generate unique payment reference for this transaction
-        const paymentReference = `CHAT-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+          // Generate unique payment reference for this transaction
+          const paymentReference = `CHAT-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
         // Create chat order in database for tracking
         // Note: 'total' is a generated column (subtotal + shipping_fee), so we don't insert it
@@ -3040,6 +3053,7 @@ function createOgabasseyServer() {
       }
     }
   );
+  }
 
   return server;
 }

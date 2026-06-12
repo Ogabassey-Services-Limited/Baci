@@ -29,6 +29,13 @@ if (snippetStart === -1 || snippetEnd === -1) {
 
 const escapeHtmlSnippet = serverSource.slice(snippetStart, snippetEnd);
 const webRootDirectory = dirname(testFileDirectory);
+const repoRootDirectory = dirname(dirname(webRootDirectory));
+const tsxExecutable = join(
+  repoRootDirectory,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'tsx.cmd' : 'tsx'
+);
 
 function runEmbeddedEscapeHtml(input: unknown) {
   const context: { input: unknown; result?: string } = { input };
@@ -64,14 +71,22 @@ describe('MCP streamable HTTP probe compatibility', () => {
   let serverBaseUrl: string;
 
   beforeAll(async () => {
-    serverProcess = spawn('pnpm', ['exec', 'tsx', 'mcp-server/server.ts'], {
+    const serverEnv = {
+      ...process.env,
+      MCP_AGENTIC_CHECKOUT_BASE_URL: 'https://ogabassey.test',
+      MCP_PORT: '0',
+      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
+      OPENAI_AGENTIC_API_KEY: 'test-agentic-key',
+      OPENAI_AGENTIC_SIGNING_KEY: 'test-signing-key',
+      PAYSTACK_SECRET_KEY: 'test-paystack-key',
+      SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+    };
+    delete serverEnv.MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS;
+    delete serverEnv.MCP_ENABLE_ORDER_PAYMENT_TOOLS;
+
+    serverProcess = spawn(tsxExecutable, ['mcp-server/server.ts'], {
       cwd: webRootDirectory,
-      env: {
-        ...process.env,
-        MCP_PORT: '0',
-        NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
-        SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
-      },
+      env: serverEnv,
     });
 
     const port = await waitForMcpServerStartup(serverProcess);
@@ -132,6 +147,34 @@ describe('MCP streamable HTTP probe compatibility', () => {
         maxLength: 100,
       });
     }
+  });
+
+  it('keeps the ChatGPT tool surface public-only unless private feature flags are enabled', async () => {
+    const payload = await postMcpJsonRpc(serverBaseUrl, {
+      id: 2,
+      method: 'tools/list',
+      params: {},
+    });
+    const toolNames = getResultTools(payload)
+      .map((tool) => tool.name)
+      .sort();
+
+    expect(toolNames).toEqual([
+      'add_to_cart',
+      'browse_categories',
+      'get_brands',
+      'get_product',
+      'get_product_variants',
+      'get_recommendations',
+      'get_shipping_quote',
+      'get_store_info',
+      'search_products',
+    ]);
+    expect(toolNames).not.toContain('check_order');
+    expect(toolNames).not.toContain('check_payment_status');
+    expect(toolNames).not.toContain('create_agentic_checkout_session');
+    expect(toolNames).not.toContain('generate_payment_account');
+    expect(toolNames).not.toContain('search_ucp_catalog');
   });
 });
 
