@@ -1239,9 +1239,9 @@ export default async function CategoryProductPage({
   }
 
   const primaryProductImage = product.imageLarge || product.image || null;
+  const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(slug);
   const pageOwnsProductPreload =
-    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
-    !getKnownOgaBasseyMerchantId(slug);
+    merchant.template_id === OGABASSEY_TEMPLATE_ID && !knownOgaBasseyMerchantId;
   const pagePreloadProductImage = pageOwnsProductPreload
     ? primaryProductImage
     : null;
@@ -1277,6 +1277,7 @@ export default async function CategoryProductPage({
           <OgabasseyPdpCriticalShell
             basePath={getCategoryProductBasePath(slug)}
             basePathPromise={criticalBasePathPromise}
+            imageDelivery={knownOgaBasseyMerchantId ? 'same-origin' : 'direct'}
             product={criticalProduct}
           >
             <Suspense fallback={null}>

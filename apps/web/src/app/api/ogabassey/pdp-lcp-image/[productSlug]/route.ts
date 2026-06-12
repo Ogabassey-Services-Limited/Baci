@@ -27,5 +27,8 @@ export async function GET(
     );
   }
 
-  return buildOgabasseyPdpLcpImageResponse(parsed.data);
+  return buildOgabasseyPdpLcpImageResponse({
+    ...parsed.data,
+    accept: request.headers.get('accept'),
+  });
 }
