@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { OGABASSEY_PDP_PRIMARY_IMAGE_SIZES } from '@/components/storefront/ogabassey/config/product-media';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import { ProductMediaGallery } from './product-media-gallery';
 
@@ -73,7 +74,7 @@ describe('ProductMediaGallery', () => {
     expect(screen.getByAltText('Test Product')).toBeInTheDocument();
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
       'sizes',
-      '(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
+      OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
       'data-priority',
