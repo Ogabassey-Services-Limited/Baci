@@ -42,9 +42,9 @@ describe('Next PPR bot metadata resume patch integrity', () => {
     };
 
     // Backport of vercel/next.js#94630 for digest 1617769459.
-    // Remove this assertion together with patches/next@16.2.7.patch after
+    // Remove this assertion together with patches/next@16.2.9.patch after
     // upgrading to a stable Next release that contains the upstream fix.
-    expect(nextPackage.version).toBe('16.2.7');
+    expect(nextPackage.version).toBe('16.2.9');
   });
 
   it.each(
