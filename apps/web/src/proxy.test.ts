@@ -894,6 +894,123 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    ['terms-and-conditions', '/terms-and-conditions'],
+    ['terms-of-service', '/terms-of-service'],
+  ])('redirects custom-domain legacy %s URLs to the canonical /terms page before storefront rewrite', async (_label, legacyPathname) => {
+    const req = new NextRequest(
+      `https://ogabassey.com${legacyPathname}?utm_source=email`
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/terms?utm_source=email'
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('redirects custom-domain legacy terms aliases for HEAD requests', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/terms-and-conditions?utm_source=email',
+      { method: 'HEAD' }
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/terms?utm_source=email'
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('does not 301 non-idempotent legacy terms alias requests', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/terms-and-conditions?utm_source=email',
+      { method: 'POST' }
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('does not redirect the canonical custom-domain /terms URL to itself', async () => {
+    const req = new NextRequest('https://ogabassey.com/terms?utm_source=email');
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('location')).toBeNull();
+    expect(rewriteUrl.pathname).toBe('/ogabassey.com/terms');
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe('metadata-blocking');
+  });
+
+  it('redirects merchant subdomain legacy terms aliases to /terms without adding a slug-prefixed duplicate', async () => {
+    const req = new NextRequest(
+      `https://merchant-demo.${ROOT_DOMAIN}/terms-and-conditions?ref=legal`
+    );
+    req.headers.set('host', `merchant-demo.${ROOT_DOMAIN}`);
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      `https://merchant-demo.${ROOT_DOMAIN}/terms?ref=legal`
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('collapses custom-domain slug-prefixed legacy terms aliases directly to /terms', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/terms-and-conditions?utm_source=email'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/terms?utm_source=email'
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('collapses root-domain slug-prefixed legacy terms aliases to one custom-domain canonical hop', async () => {
+    vi.mocked(getCustomDomainForSlug).mockResolvedValueOnce('ogabassey.com');
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/ogabassey/terms-and-conditions?utm_source=email`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/terms?utm_source=email'
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it.each([
     [
       'custom-domain storefront home',
       'https://ogabassey.com/',
@@ -912,13 +1029,6 @@ describe('Middleware Proxy', () => {
       'custom-domain category listing',
       'https://ogabassey.com/gaming-laptops',
       '/ogabassey.com/gaming-laptops',
-      'metadata-blocking',
-      'Googlebot/2.1',
-    ],
-    [
-      'custom-domain policy page',
-      'https://ogabassey.com/terms-and-conditions',
-      '/ogabassey.com/terms-and-conditions',
       'metadata-blocking',
       'Googlebot/2.1',
     ],
