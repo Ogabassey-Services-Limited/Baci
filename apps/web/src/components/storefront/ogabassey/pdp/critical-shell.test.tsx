@@ -23,28 +23,43 @@ vi.mock('next/image', () => ({
     decoding?: string;
     fetchPriority?: string;
     fill?: boolean;
-    loader?: () => string;
+    loader?: (params: {
+      quality?: number;
+      src: string;
+      width: number;
+    }) => string;
     loading?: string;
     priority?: boolean;
     quality?: number;
     sizes?: string;
     src: string;
-  }) => ({
-    props: {
-      alt,
-      className,
-      decoding,
-      fetchPriority,
-      fill,
-      loader,
-      loading,
-      priority,
-      quality,
-      sizes,
-      src,
-      srcSet: `${src} 640w`,
-    },
-  }),
+  }) => {
+    const resolvedSrc = loader
+      ? loader({ quality, src, width: 3840 })
+      : src;
+    const srcSet = loader
+      ? [640, 750]
+          .map((width) => `${loader({ quality, src, width })} ${width}w`)
+          .join(', ')
+      : `${src} 640w`;
+
+    return {
+      props: {
+        alt,
+        className,
+        decoding,
+        fetchPriority,
+        fill,
+        loader,
+        loading,
+        priority,
+        quality,
+        sizes,
+        src: resolvedSrc,
+        srcSet,
+      },
+    };
+  },
 }));
 
 vi.mock('next/link', () => ({
@@ -155,6 +170,35 @@ describe('OgabasseyPdpCriticalShell', () => {
     expect(
       screen.getByRole('button', { name: 'Add to Cart' })
     ).toBeInTheDocument();
+  });
+
+  it('can render same-origin PDP image URLs for known OgaBassey routes', () => {
+    render(
+      <OgabasseyPdpCriticalShell
+        basePath=""
+        imageDelivery="same-origin"
+        product={{
+          ...defaultProduct,
+          image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
+          name: 'Lenovo Legion Pro 9',
+          slug: 'lenovo-legion-pro-9',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
+    ).toHaveAttribute(
+      'src',
+      '/api/ogabassey/pdp-lcp-image/lenovo-legion-pro-9?width=3840&quality=35'
+    );
+    expect(
+      document
+        .querySelector('source[media="(max-width: 767px)"]')
+        ?.getAttribute('srcset')
+    ).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/mobile/lenovo-legion-pro-9 750w'
+    );
   });
 
   it('does not render filled stars for products without reviews', () => {

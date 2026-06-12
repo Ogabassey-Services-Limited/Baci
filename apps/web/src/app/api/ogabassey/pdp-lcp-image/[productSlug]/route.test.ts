@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { GET } from './route';
 
 const mockGetCachedProductLcpHint = vi.fn();
+const mockFetch = vi.fn();
+let restoreFetch: () => void = () => undefined;
 const mockImageLoader = vi.fn();
 const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
@@ -17,9 +19,14 @@ vi.mock('@/lib/image-loader', () => ({
   default: (...args: unknown[]) => mockImageLoader(...args),
 }));
 
-function createRequest(search = '') {
+function createRequest(search = '', accept = 'image/avif') {
   return new NextRequest(
-    `https://ogabassey.com/api/ogabassey/pdp-lcp-image/dell-alienware-m18-r3-rtx-5080${search}`
+    `https://ogabassey.com/api/ogabassey/pdp-lcp-image/dell-alienware-m18-r3-rtx-5080${search}`,
+    {
+      headers: {
+        accept,
+      },
+    }
   );
 }
 
@@ -32,13 +39,32 @@ function createContext(productSlug = 'dell-alienware-m18-r3-rtx-5080') {
 describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((...args: Parameters<typeof fetch>) =>
+        mockFetch(...args)
+      );
+    restoreFetch = () => fetchSpy.mockRestore();
     mockWarn.mockClear();
     mockImageLoader.mockReturnValue(
       'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
+    mockFetch.mockResolvedValue(
+      new Response('image-bytes', {
+        headers: {
+          'content-type': 'image/avif',
+        },
+        status: 200,
+      })
+    );
   });
 
-  it('redirects to the transformed primary product image', async () => {
+  afterEach(() => {
+    restoreFetch();
+    restoreFetch = () => undefined;
+  });
+
+  it('streams the transformed primary product image', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -52,11 +78,19 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
       createContext()
     );
 
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+    expect(response.status).toBe(200);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif',
+      {
+        headers: {
+          Accept: 'image/avif',
+        },
+      }
     );
-    expect(response.headers.get('cache-control')).toContain('s-maxage=300');
+    expect(response.headers.get('content-type')).toBe('image/avif');
+    expect(response.headers.get('cache-control')).toContain('s-maxage=86400');
+    expect(response.headers.get('vary')).toBe('Accept');
+    await expect(response.text()).resolves.toBe('image-bytes');
     expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
       OGABASSEY_MERCHANT_ID,
       'dell-alienware-m18-r3-rtx-5080'
