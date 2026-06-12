@@ -11,6 +11,45 @@ import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import type { StorefrontOrder } from '@/types/storefront-order';
 
+type OrderFetchResult =
+  | { status: 'aborted' }
+  | { status: 'error'; message: string }
+  | { status: 'success'; order: StorefrontOrder | null };
+
+// Module-scope helper: React Compiler cannot yet compile try blocks inside a
+// component body that rely on early returns, so the fetch lives out here.
+async function fetchCustomerOrder(
+  orderId: string,
+  merchantSlug: string,
+  signal: AbortSignal
+): Promise<OrderFetchResult> {
+  try {
+    const response = await fetch(
+      `/api/storefront/account/orders/${orderId}?merchantSlug=${encodeURIComponent(merchantSlug)}`,
+      { signal }
+    );
+    const data = (await response.json()) as {
+      error?: string;
+      order?: StorefrontOrder;
+    };
+
+    if (!response.ok) {
+      return {
+        status: 'error',
+        message: data.error || 'Unable to load this order',
+      };
+    }
+
+    return { status: 'success', order: data.order ?? null };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return { status: 'aborted' };
+    }
+
+    return { status: 'error', message: 'Unable to connect. Please try again.' };
+  }
+}
+
 export default function CustomerOrderDetailsPage() {
   const router = useRouter();
   const params = useParams<{ orderId: string }>();
@@ -21,11 +60,23 @@ export default function CustomerOrderDetailsPage() {
     isAuthenticated,
     isLoading: authLoading,
   } = useCustomerAuth();
-  const [order, setOrder] = useState<StorefrontOrder | null>(null);
-  const [isLoadingOrder, setIsLoadingOrder] = useState(true);
-  const [orderError, setOrderError] = useState<string | null>(null);
+  const [loadedOrder, setLoadedOrder] = useState<{
+    key: string;
+    order: StorefrontOrder | null;
+    error: string | null;
+  } | null>(null);
 
   const resolvedBasePath = basePath || '';
+
+  // Loading state is derived from the request key instead of being mirrored
+  // into state, so the fetch effect only sets state from async results. When
+  // we cannot fetch (no session yet, missing orderId, etc.) the key is null
+  // and the derived loading flag is off, letting the auth-redirect /
+  // missing-param UI below show instead of an endless skeleton.
+  const requestKey =
+    customer && merchant?.slug && orderId
+      ? `${customer.id}|${merchant.slug}|${orderId}`
+      : null;
 
   useEffect(() => {
     if (!merchantLoading && !authLoading && !isAuthenticated) {
@@ -50,57 +101,36 @@ export default function CustomerOrderDetailsPage() {
   ]);
 
   useEffect(() => {
+    if (!requestKey || !customer || !merchant?.slug || !orderId) {
+      return;
+    }
+
     const controller = new AbortController();
-    const fetchOrder = async () => {
-      if (!customer || !merchant?.slug || !orderId) {
-        // `isLoadingOrder` initialises to `true` so the skeleton renders on
-        // first paint. When we bail out (no session yet, missing orderId,
-        // etc.) we must flip it off, otherwise the page renders the
-        // skeleton forever and the auth-redirect / missing-param UI below
-        // never gets a chance to show.
-        setIsLoadingOrder(false);
-        return;
-      }
 
-      setIsLoadingOrder(true);
-      setOrderError(null);
-
-      try {
-        const response = await fetch(
-          `/api/storefront/account/orders/${orderId}?merchantSlug=${encodeURIComponent(merchant.slug)}`,
-          {
-            signal: controller.signal,
-          }
-        );
-        const data = await response.json();
-
-        if (!response.ok) {
-          setOrderError(data.error || 'Unable to load this order');
-          setOrder(null);
+    void fetchCustomerOrder(orderId, merchant.slug, controller.signal).then(
+      (result) => {
+        if (result.status === 'aborted' || controller.signal.aborted) {
           return;
         }
 
-        setOrder(data.order);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          return;
-        }
-
-        setOrderError('Unable to connect. Please try again.');
-        setOrder(null);
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingOrder(false);
-        }
+        setLoadedOrder({
+          key: requestKey,
+          order: result.status === 'success' ? result.order : null,
+          error: result.status === 'error' ? result.message : null,
+        });
       }
-    };
-
-    void fetchOrder();
+    );
 
     return () => {
       controller.abort();
     };
-  }, [customer, merchant?.slug, orderId]);
+  }, [requestKey, customer, merchant?.slug, orderId]);
+
+  const hasFreshOrderResult =
+    loadedOrder !== null && loadedOrder.key === requestKey;
+  const order = hasFreshOrderResult ? loadedOrder.order : null;
+  const orderError = hasFreshOrderResult ? loadedOrder.error : null;
+  const isLoadingOrder = requestKey !== null && !hasFreshOrderResult;
 
   if (merchantLoading || authLoading) {
     return (

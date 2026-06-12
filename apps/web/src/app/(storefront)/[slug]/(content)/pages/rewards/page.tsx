@@ -30,69 +30,79 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useLoyalty } from '@/hooks/use-loyalty';
 
+interface MerchantInfoSetters {
+  setMerchantId: (id: string | null) => void;
+  setMerchantName: (name: string) => void;
+  setError: (error: string | null) => void;
+  setIsRetrying: (retrying: boolean) => void;
+}
+
+// Module-scope helper so the try/finally stays outside the component body
+// (React Compiler cannot lower try/finally in components) and the initial
+// fetch + retry share one implementation.
+async function loadMerchantInfo(
+  slug: string,
+  {
+    setMerchantId,
+    setMerchantName,
+    setError,
+    setIsRetrying,
+  }: MerchantInfoSetters
+): Promise<void> {
+  setIsRetrying(true);
+  setError(null); // Clear error at start of retry for better UX
+  try {
+    const response = await fetch(`/api/storefront/merchant?slug=${slug}`);
+    if (response.ok) {
+      const data = (await response.json()) as {
+        id: string;
+        business_name?: string | null;
+      };
+      setMerchantId(data.id);
+      setMerchantName(data.business_name || '');
+    } else {
+      setError('Failed to load merchant information');
+    }
+  } catch (err) {
+    console.error('Failed to fetch merchant:', err);
+    setError('Failed to load merchant information');
+  } finally {
+    setIsRetrying(false);
+  }
+}
+
 export default function RewardsPage() {
   const params = useParams();
   const slug = params.slug as string;
 
-  // In a real app, you'd get these from authentication context
   const [merchantId, setMerchantId] = useState<string | null>(null);
-  const [customerId, setCustomerId] = useState<string | null>(null);
   const [merchantName, setMerchantName] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
   // Get customer from auth context (more secure than localStorage)
   const { customer } = useCustomerAuth();
+  // Derive directly from the auth context instead of mirroring it into state
+  const customerId = customer?.id ?? null;
 
   // Fetch merchant info on mount and when slug changes
   useEffect(() => {
-    // Use customer from auth context instead of localStorage (prevents XSS exposure)
-    if (customer?.id) {
-      setCustomerId(customer.id);
-    }
-
-    const fetchMerchant = async () => {
-      setIsRetrying(true);
-      setError(null); // Clear error at start of retry for better UX
-      try {
-        const response = await fetch(`/api/storefront/merchant?slug=${slug}`);
-        if (response.ok) {
-          const data = await response.json();
-          setMerchantId(data.id);
-          setMerchantName(data.business_name || '');
-        } else {
-          setError('Failed to load merchant information');
-        }
-      } catch (err) {
-        console.error('Failed to fetch merchant:', err);
-        setError('Failed to load merchant information');
-      } finally {
-        setIsRetrying(false);
-      }
-    };
-
-    fetchMerchant();
-  }, [customer?.id, slug]);
+    loadMerchantInfo(slug, {
+      setMerchantId,
+      setMerchantName,
+      setError,
+      setIsRetrying,
+    });
+  }, [slug]);
 
   // Retry handler for error state
-  const handleRetry = async () => {
-    setIsRetrying(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/storefront/merchant?slug=${slug}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMerchantId(data.id);
-        setMerchantName(data.business_name || '');
-      } else {
-        setError('Failed to load merchant information');
-      }
-    } catch (err) {
-      console.error('Failed to fetch merchant:', err);
-      setError('Failed to load merchant information');
-    } finally {
-      setIsRetrying(false);
-    }
+  const handleRetry = () => {
+    void loadMerchantInfo(slug, {
+      setMerchantId,
+      setMerchantName,
+      setError,
+      setIsRetrying,
+    });
   };
 
   const { enrolled, loading, recentTransactions, getTierInfo, tier } =

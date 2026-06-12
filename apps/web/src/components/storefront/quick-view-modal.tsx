@@ -55,33 +55,34 @@ export function QuickViewModal({
   const { addToCart, setMerchantSlug } = useCart();
   const { toast } = useToast();
 
-  const [quantity, setQuantity] = useState(1);
-  const [selectedImage, setSelectedImage] = useState<string>('');
+  const [quantity, setQuantity] = useState(
+    () => getDefaultSelectionState(product).quantity
+  );
+  const [selectedImage, setSelectedImage] = useState<string>(
+    () => getDefaultSelectionState(product).selectedImage
+  );
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
-    null
+    () => getDefaultSelectionState(product).selectedVariant
   );
   const [selectedAttributes, setSelectedAttributes] = useState<
     Record<string, string>
-  >({});
+  >(() => getDefaultSelectionState(product).selectedAttributes);
 
-  // Reset state when product changes
-  useEffect(() => {
+  // Reset selection state during render (prev-prop comparison) when the
+  // product changes, so the new product's defaults are visible on its very
+  // first frame instead of one commit later via an effect.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevProduct, setPrevProduct] = useState(product);
+  if (product !== prevProduct) {
+    setPrevProduct(product);
     if (product) {
-      setQuantity(product.minimum_order_quantity || 1);
-      setSelectedImage(product.imageLarge || product.image);
-      setSelectedVariant(null);
-      setSelectedAttributes({});
-
-      const defaultVariantSelection = resolveDefaultVariantSelection(product);
-      if (defaultVariantSelection) {
-        setSelectedVariant(defaultVariantSelection.variant);
-        setSelectedAttributes(defaultVariantSelection.attributes);
-        if (defaultVariantSelection.variant.primary_image) {
-          setSelectedImage(defaultVariantSelection.variant.primary_image);
-        }
-      }
+      const defaults = getDefaultSelectionState(product);
+      setQuantity(defaults.quantity);
+      setSelectedImage(defaults.selectedImage);
+      setSelectedVariant(defaults.selectedVariant);
+      setSelectedAttributes(defaults.selectedAttributes);
     }
-  }, [product]);
+  }
 
   if (!product) return null;
 
@@ -473,6 +474,42 @@ export function QuickViewModal({
       </DialogContent>
     </Dialog>
   );
+}
+
+interface QuickViewSelectionState {
+  quantity: number;
+  selectedImage: string;
+  selectedVariant: ProductVariant | null;
+  selectedAttributes: Record<string, string>;
+}
+
+/**
+ * Compute the default quick-view selection for a product: minimum order
+ * quantity, the default variant (when one resolves), its attributes, and the
+ * image to feature (variant primary image, falling back to the product image).
+ */
+function getDefaultSelectionState(
+  product: Product | null
+): QuickViewSelectionState {
+  if (!product) {
+    return {
+      quantity: 1,
+      selectedImage: '',
+      selectedVariant: null,
+      selectedAttributes: {},
+    };
+  }
+
+  const defaultVariantSelection = resolveDefaultVariantSelection(product);
+  return {
+    quantity: product.minimum_order_quantity || 1,
+    selectedImage:
+      defaultVariantSelection?.variant.primary_image ||
+      product.imageLarge ||
+      product.image,
+    selectedVariant: defaultVariantSelection?.variant ?? null,
+    selectedAttributes: defaultVariantSelection?.attributes ?? {},
+  };
 }
 
 /**

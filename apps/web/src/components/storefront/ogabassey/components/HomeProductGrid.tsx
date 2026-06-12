@@ -52,6 +52,11 @@ const PRODUCTS_PER_PAGE = 20;
 const NO_PARTICLES: ProductGridParticle[] = [];
 const PRODUCT_GRID_MPU_CONFIG = AD_CONFIG.PRODUCT_GRID_MPU;
 
+const loadDefaultInteractionBindingsModule = () =>
+  import('./ProductGridInteractionBindings');
+
+const loadDefaultInteractiveCardModule = () => import('./ProductGridItem');
+
 const STATIC_BINDINGS: ProductGridInteractionBindingsValue = {
   isAdded: () => false,
   getCartQuantity: () => 0,
@@ -115,6 +120,13 @@ export function HomeProductGrid({
   const [displayCount, setDisplayCount] = useState(
     Math.max(1, initialDisplayCount)
   );
+  const [prevInitialDisplayCount, setPrevInitialDisplayCount] = useState(
+    initialDisplayCount
+  );
+  if (initialDisplayCount !== prevInitialDisplayCount) {
+    setPrevInitialDisplayCount(initialDisplayCount);
+    setDisplayCount(Math.max(1, initialDisplayCount));
+  }
   const [InteractionBindings, setInteractionBindings] = useState<
     ProductGridInteractionBindingsModule['ProductGridInteractionBindings'] | null
   >(null);
@@ -137,15 +149,12 @@ export function HomeProductGrid({
       ? Promise.resolve({
           ProductGridInteractionBindings: InteractionBindings,
         })
-      : (
-          loadInteractionBindings ??
-          (() => import('./ProductGridInteractionBindings'))
-        )();
+      : (loadInteractionBindings ?? loadDefaultInteractionBindingsModule)();
     const resolveInteractiveCardModule = InteractiveCard
       ? Promise.resolve({
           ProductGridItem: InteractiveCard,
         })
-      : (loadInteractiveCard ?? (() => import('./ProductGridItem')))();
+      : (loadInteractiveCard ?? loadDefaultInteractiveCardModule)();
 
     void Promise.all([
       resolveBindingsModule,
@@ -178,10 +187,6 @@ export function HomeProductGrid({
   const featuredProducts = prioritizeSmartphoneProducts(allProducts);
   const visibleProducts = featuredProducts.slice(0, displayCount);
   const hasMoreProducts = displayCount < featuredProducts.length;
-
-  useEffect(() => {
-    setDisplayCount(Math.max(1, initialDisplayCount));
-  }, [initialDisplayCount]);
 
   const renderGrid = (
     bindings: ProductGridInteractionBindingsValue,

@@ -96,6 +96,50 @@ function isFinalPriceProduct(productName: string): boolean {
   );
 }
 
+interface NegotiationRequestInput {
+  merchantId: string;
+  type: 'single' | 'total';
+  itemId?: string;
+  productName: string;
+  currentPrice: number;
+  offeredPrice: number;
+  evidenceUrl?: string;
+}
+
+async function insertNegotiationRequest(
+  supabase: ReturnType<typeof createClient>,
+  request: NegotiationRequestInput
+): Promise<void> {
+  // Get authenticated user if available (null for guests)
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError) {
+    console.warn('Auth check failed, continuing as guest:', authError.message);
+  }
+
+  const { error } = await supabase.from('negotiation_requests').insert({
+    merchant_id: request.merchantId,
+    session_id: getOrCreateSessionId(),
+    customer_id: user?.id ?? null,
+    type: request.type,
+    item_info:
+      request.type === 'single'
+        ? {
+            id: request.itemId,
+            name: request.productName,
+            current_price: request.currentPrice,
+          }
+        : null,
+    offered_price: request.offeredPrice,
+    evidence_url: request.evidenceUrl || null,
+    status: 'pending',
+  });
+
+  if (error) throw error;
+}
+
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   isOpen,
   onClose,
@@ -149,12 +193,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     );
   };
 
-  // Reset state when opened
-  useEffect(() => {
-    isOpenRef.current = isOpen;
-
+  // Reset state when opened — adjusted during render so users never see a
+  // stale frame (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
-      clearSubmitTimeout();
       setOffer('');
       setStatus('input');
       setMessage('');
@@ -162,9 +206,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       setCounterOffer(null);
       setUploadFile(null);
       setUploadLink('');
-      return;
     }
+  }
 
+  // Keep the open-state ref in sync and clear pending work on open/close.
+  useEffect(() => {
+    isOpenRef.current = isOpen;
     clearSubmitTimeout();
   }, [isOpen]);
 
@@ -372,30 +419,15 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     const offerAmount = Number.parseFloat(offer);
 
     try {
-      // Get authenticated user if available (null for guests)
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        console.warn('Auth check failed, continuing as guest:', authError.message);
-      }
-
-      const { error } = await supabase
-        .from('negotiation_requests')
-        .insert({
-          merchant_id: merchantId,
-          session_id: getOrCreateSessionId(),
-          customer_id: user?.id ?? null,
-          type,
-          item_info: type === 'single' ? {
-            id: itemId,
-            name: productName,
-            current_price: currentPrice,
-          } : null,
-          offered_price: offerAmount,
-          evidence_url: evidenceUrl || null,
-          status: 'pending'
-        });
-
-      if (error) throw error;
+      await insertNegotiationRequest(supabase, {
+        merchantId,
+        type,
+        itemId,
+        productName,
+        currentPrice,
+        offeredPrice: offerAmount,
+        evidenceUrl,
+      });
 
       if (!canApplyAsyncResult()) {
         return;

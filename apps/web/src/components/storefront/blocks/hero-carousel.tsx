@@ -4,7 +4,7 @@ import Autoplay from 'embla-carousel-autoplay';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Carousel,
@@ -32,7 +32,9 @@ export function HeroCarousel({
   autoplayDelay = 5000,
   height = 'fullscreen',
 }: HeroCarouselProps) {
-  const plugin = useRef(
+  // Lazy state initializer keeps a stable plugin instance without reading a
+  // ref during render (refs cannot be accessed while rendering).
+  const [plugin] = useState(() =>
     Autoplay({ delay: autoplayDelay, stopOnInteraction: true })
   );
 
@@ -49,7 +51,7 @@ export function HeroCarousel({
     >
       <Carousel
         className="w-full h-full [&>div]:h-full"
-        plugins={[plugin.current]}
+        plugins={[plugin]}
         opts={{ loop: true, duration: 60 }}
       >
         <CarouselContent className="h-full">

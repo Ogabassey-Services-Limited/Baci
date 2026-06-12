@@ -63,6 +63,29 @@ async function submitQuizAnswer(attemptId: string, questionId: string, answer: s
   return parsed.data;
 }
 
+interface QuizListSetters {
+  setError: (error: string | null) => void;
+  setEvents: (events: QuizEventResponse[]) => void;
+  setStatus: (status: QuizStatus) => void;
+}
+
+// Module-scope helper so the status/error bookkeeping is not a synchronous
+// setState inside the component's effect body.
+async function loadQuizEvents(
+  merchantSlug: string,
+  { setError, setEvents, setStatus }: QuizListSetters,
+) {
+  setError(null);
+  setStatus('loading');
+  try {
+    setEvents(await fetchQuizEvents(merchantSlug));
+    setStatus('ready');
+  } catch (error) {
+    setError(getQuizErrorMessage(error));
+    setStatus('error');
+  }
+}
+
 export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const pathname = usePathname();
   const { isAuthenticated, isLoading } = useCustomerAuth();
@@ -76,17 +99,8 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const quizPath = pathname || `${routePrefix}/quiz`;
   const loginHref = `${routePrefix}/account/login?redirect=${encodeURIComponent(quizPath)}`;
 
-  const loadEvents = async () => {
-    setError(null);
-    setStatus('loading');
-    try {
-      setEvents(await fetchQuizEvents(merchantSlug));
-      setStatus('ready');
-    } catch (error) {
-      setError(getQuizErrorMessage(error));
-      setStatus('error');
-    }
-  };
+  const loadEvents = () =>
+    loadQuizEvents(merchantSlug, { setError, setEvents, setStatus });
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && status === 'idle') void loadEvents();

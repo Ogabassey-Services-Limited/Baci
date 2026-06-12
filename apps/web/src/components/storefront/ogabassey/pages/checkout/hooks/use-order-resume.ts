@@ -25,6 +25,54 @@ interface UseOrderResumeOptions {
   setPaymentMethod: (method: PaymentMethod) => void;
 }
 
+type ResumedOrderFetchResult =
+  | { order: ResumedOrder; error: null }
+  | { order: null; error: string };
+
+/**
+ * Module-scope fetch keeps the try/finally clause out of the hook body so
+ * React Compiler can memoize callers.
+ */
+async function fetchResumedOrder(
+  resumeOrderId: string
+): Promise<ResumedOrderFetchResult> {
+  try {
+    const res = await fetch(`/api/storefront/orders/${resumeOrderId}`);
+    if (!res.ok) {
+      console.error('Failed to fetch resumed order');
+      return {
+        order: null,
+        error: 'Order not found. It may have been completed or expired.',
+      };
+    }
+
+    const orderData = await res.json();
+    return {
+      order: {
+        id: orderData.id,
+        short_id: orderData.short_id,
+        subtotal: orderData.subtotal,
+        shipping_cost: orderData.shipping_cost || 0,
+        total: orderData.total,
+        customer_name: orderData.customer_name,
+        customer_email: orderData.customer_email,
+        customer_phone: orderData.customer_phone,
+        shipping_address: orderData.shipping_address || {
+          address: '',
+          city: '',
+          state: '',
+          phone: '',
+        },
+        items: orderData.items || [],
+      },
+      error: null,
+    };
+  } catch (error) {
+    console.error('Error fetching resumed order:', error);
+    return { order: null, error: 'Failed to load order details. Please try again.' };
+  }
+}
+
 export function useOrderResume({
   resumeOrderId,
   preferredGateway,
@@ -36,65 +84,47 @@ export function useOrderResume({
   const [isLoadingResumedOrder, setIsLoadingResumedOrder] = useState(!!resumeOrderId);
   const [resumeOrderError, setResumeOrderError] = useState<string | null>(null);
 
+  // Re-enter the loading state during render when the order id changes
+  // (react.dev prev-compare pattern) instead of synchronously inside the effect.
+  const [prevResumeOrderId, setPrevResumeOrderId] = useState(resumeOrderId);
+  if (resumeOrderId !== prevResumeOrderId) {
+    setPrevResumeOrderId(resumeOrderId);
+    if (resumeOrderId) setIsLoadingResumedOrder(true);
+  }
+
   useEffect(() => {
     if (!resumeOrderId) return;
 
-    const fetchResumedOrder = async () => {
-      setIsLoadingResumedOrder(true);
-      try {
-        const res = await fetch(`/api/storefront/orders/${resumeOrderId}`);
-        if (res.ok) {
-          const orderData = await res.json();
-          setResumedOrder({
-            id: orderData.id,
-            short_id: orderData.short_id,
-            subtotal: orderData.subtotal,
-            shipping_cost: orderData.shipping_cost || 0,
-            total: orderData.total,
-            customer_name: orderData.customer_name,
-            customer_email: orderData.customer_email,
-            customer_phone: orderData.customer_phone,
-            shipping_address: orderData.shipping_address || {
-              address: '',
-              city: '',
-              state: '',
-              phone: '',
-            },
-            items: orderData.items || [],
-          });
+    fetchResumedOrder(resumeOrderId).then((result) => {
+      if (result.order) {
+        const order = result.order;
+        setResumedOrder(order);
 
-          const [first, ...rest] = (orderData.customer_name || '').split(' ');
-          setCheckoutFields({
-            firstName: first || '',
-            lastName: rest.join(' ') || '',
-            customerEmail: orderData.customer_email || '',
-            customerPhone: orderData.customer_phone || '',
-            newAddressStreet: orderData.shipping_address?.address || '',
-            newAddressState: orderData.shipping_address?.state || '',
-            newAddressCity: orderData.shipping_address?.city || '',
-            currentStep: 'payment',
-            completedSteps: { contact: true, delivery: true },
-          });
+        const [first, ...rest] = (order.customer_name || '').split(' ');
+        setCheckoutFields({
+          firstName: first || '',
+          lastName: rest.join(' ') || '',
+          customerEmail: order.customer_email || '',
+          customerPhone: order.customer_phone || '',
+          newAddressStreet: order.shipping_address?.address || '',
+          newAddressState: order.shipping_address?.state || '',
+          newAddressCity: order.shipping_address?.city || '',
+          currentStep: 'payment',
+          completedSteps: { contact: true, delivery: true },
+        });
 
-          if (preferredGateway === 'credit_direct' || preferredGateway === 'credpal') {
-            setPaymentTab('installments');
-            setPaymentMethod(preferredGateway);
-          } else if (preferredGateway) {
-            setPaymentTab('full');
-            setPaymentMethod(preferredGateway);
-          }
-        } else {
-          console.error('Failed to fetch resumed order');
-          setResumeOrderError('Order not found. It may have been completed or expired.');
+        if (preferredGateway === 'credit_direct' || preferredGateway === 'credpal') {
+          setPaymentTab('installments');
+          setPaymentMethod(preferredGateway);
+        } else if (preferredGateway) {
+          setPaymentTab('full');
+          setPaymentMethod(preferredGateway);
         }
-      } catch (error) {
-        console.error('Error fetching resumed order:', error);
-        setResumeOrderError('Failed to load order details. Please try again.');
-      } finally {
-        setIsLoadingResumedOrder(false);
+      } else {
+        setResumeOrderError(result.error);
       }
-    };
-    fetchResumedOrder();
+      setIsLoadingResumedOrder(false);
+    });
   }, [resumeOrderId, setCheckoutFields, preferredGateway]);
 
   return { resumedOrder, isLoadingResumedOrder, resumeOrderError };

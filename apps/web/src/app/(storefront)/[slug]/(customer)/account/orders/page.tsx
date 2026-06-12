@@ -41,6 +41,39 @@ interface Order {
   tracking_number?: string;
 }
 
+type OrdersFetchResult =
+  | { orders: Order[]; error: null }
+  | { orders: null; error: string };
+
+/**
+ * Module-scope fetch keeps the try/finally clause out of the component body
+ * so React Compiler can memoize the page.
+ */
+async function fetchCustomerOrders(
+  merchantSlug: string
+): Promise<OrdersFetchResult> {
+  try {
+    const response = await fetch(
+      `/api/storefront/orders?merchantSlug=${encodeURIComponent(merchantSlug)}`
+    );
+    const data = await response.json();
+
+    if (response.ok) {
+      return { orders: data.orders || [], error: null };
+    }
+
+    const errorMsg = data.error || `Failed to load orders (${response.status})`;
+    console.error('Failed to fetch orders:', errorMsg);
+    return { orders: null, error: errorMsg };
+  } catch (error) {
+    console.error('Failed to fetch orders:', error);
+    return {
+      orders: null,
+      error: 'Unable to connect. Please check your internet connection.',
+    };
+  }
+}
+
 export default function CustomerOrdersPage() {
   const router = useRouter();
   const { merchant, loading: merchantLoading, basePath } = useMerchant();
@@ -69,41 +102,41 @@ export default function CustomerOrdersPage() {
     }
   }, [merchantLoading, authLoading, isAuthenticated, router, resolvedBasePath]);
 
-  // Fetch orders
+  const applyOrdersResult = (result: OrdersFetchResult) => {
+    if (result.error !== null) {
+      setOrdersError(result.error);
+    } else {
+      setOrders(result.orders);
+      setOrdersError(null);
+    }
+    setIsLoadingOrders(false);
+  };
+
+  // Manual retry — sets the loading state from the event handler, not an effect
   const fetchOrders = async () => {
     if (!customer || !merchant?.slug) return;
 
     setIsLoadingOrders(true);
     setOrdersError(null);
-    try {
-      const response = await fetch(
-        `/api/storefront/orders?merchantSlug=${encodeURIComponent(merchant.slug)}`
-      );
-      const data = await response.json();
-
-      if (response.ok) {
-        setOrders(data.orders || []);
-      } else {
-        const errorMsg =
-          data.error || `Failed to load orders (${response.status})`;
-        console.error('Failed to fetch orders:', errorMsg);
-        setOrdersError(errorMsg);
-      }
-    } catch (error) {
-      console.error('Failed to fetch orders:', error);
-      setOrdersError(
-        'Unable to connect. Please check your internet connection.'
-      );
-    } finally {
-      setIsLoadingOrders(false);
-    }
+    applyOrdersResult(await fetchCustomerOrders(merchant.slug));
   };
 
+  // Initial fetch — isLoadingOrders starts true, so no synchronous setState is
+  // needed here; results land via the async callback.
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
-    if (customer && merchant) {
-      fetchOrders();
-    }
+    if (!customer || !merchant?.slug) return;
+
+    let cancelled = false;
+    fetchCustomerOrders(merchant.slug).then((result) => {
+      if (!cancelled) {
+        applyOrdersResult(result);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [customer, merchant]);
 
   if (merchantLoading || authLoading) {

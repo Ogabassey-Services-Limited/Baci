@@ -25,6 +25,14 @@ interface ProductGridInteractionBindingsProps {
   children: (bindings: ProductGridInteractionBindingsValue) => React.ReactNode;
 }
 
+/**
+ * Module-scope so the impure calls (Date.now/Math.random) stay out of the
+ * component's render scope; only ever invoked from event handlers.
+ */
+function createParticleId(): number {
+  return Date.now() + Math.random();
+}
+
 export function ProductGridInteractionBindings({
   children,
 }: ProductGridInteractionBindingsProps) {
@@ -39,7 +47,7 @@ export function ProductGridInteractionBindings({
     addToCart(product as never, 1);
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const particleId = Date.now() + Math.random();
+    const particleId = createParticleId();
     setParticles((currentParticles) => [
       ...currentParticles,
       {

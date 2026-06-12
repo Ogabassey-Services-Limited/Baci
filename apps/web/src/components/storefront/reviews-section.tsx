@@ -41,6 +41,32 @@ interface ReviewsSectionProps {
   className?: string;
 }
 
+interface ReviewsResponse {
+  reviews: Review[];
+  stats: ReviewStats;
+  pagination: { hasMore: boolean };
+}
+
+const REVIEWS_PAGE_SIZE = 10;
+
+// Module-scope helper keeps the throw/try out of the component body so React
+// Compiler can memoize it (react-doctor `todo` bailouts).
+async function fetchProductReviews(
+  productId: string,
+  sortBy: string,
+  offset: number
+): Promise<ReviewsResponse> {
+  const response = await fetch(
+    `/api/reviews?product_id=${productId}&sort=${sortBy}&limit=${REVIEWS_PAGE_SIZE}&offset=${offset}`
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch reviews');
+  }
+
+  return (await response.json()) as ReviewsResponse;
+}
+
 export function ReviewsSection({
   productId,
   productName,
@@ -54,51 +80,61 @@ export function ReviewsSection({
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [prevProductId, setPrevProductId] = useState(productId);
 
-  const fetchReviews = async (reset = false) => {
-    const currentOffset = reset ? 0 : offset;
+  // Show the loading state for a new product during render instead of via an
+  // effect (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  if (productId !== prevProductId) {
+    setPrevProductId(productId);
+    setIsLoading(true);
+  }
 
-    if (reset) {
-      setIsLoading(true);
-    } else {
-      setIsLoadingMore(true);
-    }
-
-    try {
-      const response = await fetch(
-        `/api/reviews?product_id=${productId}&sort=${sortBy}&limit=10&offset=${currentOffset}`
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch reviews');
-      }
-
-      const data = await response.json();
-
-      if (reset) {
-        setReviews(data.reviews);
-        setOffset(10);
-      } else {
-        setReviews((prev) => [...prev, ...data.reviews]);
-        setOffset((prev) => prev + 10);
-      }
-
-      setStats(data.stats);
-      setHasMore(data.pagination.hasMore);
-    } catch (error) {
-      console.error('Error fetching reviews:', error);
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-    }
-  };
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
-    fetchReviews(true);
+    let cancelled = false;
+
+    fetchProductReviews(productId, sortBy, 0)
+      .then((data) => {
+        if (cancelled) return;
+        setReviews(data.reviews);
+        setOffset(REVIEWS_PAGE_SIZE);
+        setStats(data.stats);
+        setHasMore(data.pagination.hasMore);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error('Error fetching reviews:', error);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [productId, sortBy]);
 
+  const handleLoadMore = () => {
+    setIsLoadingMore(true);
+    fetchProductReviews(productId, sortBy, offset)
+      .then((data) => {
+        setReviews((prev) => [...prev, ...data.reviews]);
+        setOffset((prev) => prev + REVIEWS_PAGE_SIZE);
+        setStats(data.stats);
+        setHasMore(data.pagination.hasMore);
+      })
+      .catch((error) => {
+        console.error('Error fetching reviews:', error);
+      })
+      .finally(() => {
+        setIsLoadingMore(false);
+      });
+  };
+
   const handleSortChange = (value: string) => {
+    setIsLoading(true);
     setSortBy(value);
     setOffset(0);
   };
@@ -177,7 +213,7 @@ export function ReviewsSection({
             <div className="mt-6 text-center">
               <Button
                 variant="outline"
-                onClick={() => fetchReviews(false)}
+                onClick={handleLoadMore}
                 disabled={isLoadingMore}
               >
                 {isLoadingMore && (

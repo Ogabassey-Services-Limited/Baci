@@ -9,7 +9,6 @@ import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-ro
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
-import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
@@ -59,6 +58,7 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import { stripVolatileProductPriceSentences } from '@/lib/storefront-product-description';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
@@ -295,8 +295,6 @@ async function renderTemplateProductPage({
         />
       );
     }
-
-    preloadOgabasseyPdpStaticResources();
 
     return (
       <OgabasseyPdpBelowFoldIsland
@@ -832,10 +830,16 @@ function buildCategoryProductMetadata(
     currency,
     country: merchant.country,
   });
+  const productDescription = stripVolatileProductPriceSentences(
+    product.description
+  );
+  const productMetaDescription = stripVolatileProductPriceSentences(
+    product.meta_description
+  );
   const productDescriptionFallback =
-    product.description || priceSeoCopy.description;
+    productDescription || priceSeoCopy.description;
   const seoDescriptionSource =
-    product.meta_description ||
+    productMetaDescription ||
     (priceSeoCopy.priceText
       ? priceSeoCopy.description
       : productDescriptionFallback);
@@ -988,16 +992,20 @@ async function CategoryProductPageCriticalCommerceControls({
       productResultPromise,
     }),
   ]);
-  const criticalProduct = buildOgabasseyPdpCriticalProduct(product);
+  const commerceProduct: Product = {
+    ...product,
+    description: stripVolatileProductPriceSentences(product.description),
+  };
+  const criticalProduct = buildOgabasseyPdpCriticalProduct(commerceProduct);
   const cartHref = `${basePath}/cart` as Route;
 
   return (
     <OgabasseyPdpCriticalCommerce
       cartHref={cartHref}
-      cartProduct={createCriticalCartProduct(product)}
+      cartProduct={createCriticalCartProduct(commerceProduct)}
       product={{
         ...criticalProduct,
-        variantCount: product.variants?.length ?? 0,
+        variantCount: commerceProduct.variants?.length ?? 0,
       }}
     />
   );
@@ -1040,19 +1048,30 @@ async function CategoryProductPageContent({
   });
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const renderableProduct: Product = {
+    ...product,
+    description: stripVolatileProductPriceSentences(product.description),
+    ...(product.meta_description && {
+      meta_description: stripVolatileProductPriceSentences(
+        product.meta_description
+      ),
+    }),
+  };
   const resolvedCategorySlug =
-    product.category_slug ||
-    (product.category ? generateSlug(product.category) : 'products');
+    renderableProduct.category_slug ||
+    (renderableProduct.category
+      ? generateSlug(renderableProduct.category)
+      : 'products');
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const currency = merchant.payout_currency || 'NGN';
   const priceSeoCopy = buildProductPriceSeoCopy({
-    product,
+    product: renderableProduct,
     merchantDisplayName: merchant?.business_name || DEFAULT_STORE_NAME,
-    categoryName: product.category || 'All Products',
+    categoryName: renderableProduct.category || 'All Products',
     currency,
     country: merchant.country,
   });
-  const plainProductDescription = stripHtmlTags(product.description)
+  const plainProductDescription = stripHtmlTags(renderableProduct.description)
     .replace(/\s+/g, ' ')
     .trim();
   const trustBullets = [
@@ -1062,26 +1081,30 @@ async function CategoryProductPageContent({
   const semanticSections = (
     <Suspense fallback={null}>
       <OgabasseyPdpSemanticSections
-        categoryName={product.category || 'All Products'}
+        categoryName={renderableProduct.category || 'All Products'}
         categorySlug={resolvedCategorySlug}
         merchant={merchant}
-        product={product}
+        product={renderableProduct}
         storeSlug={slug}
         storeUrl={baseUrl}
         trustBullets={trustBullets}
       />
     </Suspense>
   );
-  const derivedSpecData = buildOgabasseyProductSpecData(product);
+  const derivedSpecData = buildOgabasseyProductSpecData(renderableProduct);
   const schemaProduct =
     derivedSpecData.detailedSpecs.length > 0
       ? {
-          ...product,
+          ...renderableProduct,
           specifications: derivedSpecData.detailedSpecs,
         }
-      : product;
+      : renderableProduct;
 
-  const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
+  const productUrl = getValidatedProductUrl(
+    renderableProduct,
+    baseUrl,
+    merchant.slug
+  );
 
   // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(
@@ -1114,13 +1137,13 @@ async function CategoryProductPageContent({
 
   const breadcrumbItems = [
     { name: merchant?.business_name || 'Home', url: baseUrl },
-    { name: product.category || 'All Products', url: categoryUrl },
-    { name: product.name, url: productUrl },
+    { name: renderableProduct.category || 'All Products', url: categoryUrl },
+    { name: renderableProduct.name, url: productUrl },
   ];
 
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
   const productPage = await renderTemplateProductPage({
-    product,
+    product: renderableProduct,
     renderMode,
     semanticSections,
     templateId: merchant?.template_id,
@@ -1137,16 +1160,19 @@ async function CategoryProductPageContent({
         {safeJsonLdStringify(breadcrumbSchema)}
       </script>
       {/* Hidden crawlable summary without a second page-level heading */}
-      <article className="sr-only" aria-label={`${product.name} summary`}>
+      <article
+        className="sr-only"
+        aria-label={`${renderableProduct.name} summary`}
+      >
         <p>{priceSeoCopy.answer}</p>
         {plainProductDescription ? <p>{plainProductDescription}</p> : null}
         <dl>
           <dt>Brand</dt>
-          <dd>{product.brand || 'OgaBassey'}</dd>
+          <dd>{renderableProduct.brand || 'OgaBassey'}</dd>
           <dt>Category</dt>
-          <dd>{product.category || 'Electronics'}</dd>
+          <dd>{renderableProduct.category || 'Electronics'}</dd>
           <dt>Condition</dt>
-          <dd>{product.condition || 'New'}</dd>
+          <dd>{renderableProduct.condition || 'New'}</dd>
           <dt>Price</dt>
           <dd>{priceSeoCopy.priceText || 'Contact for price'}</dd>
         </dl>
@@ -1196,15 +1222,12 @@ export default async function CategoryProductPage({
 
   const resolvedSearchParams = await searchParams;
   let productResultPromise: Promise<CategoryProductResult> | null = null;
-  const getProductResultPromise = () => {
-    productResultPromise ??= loadProductResult();
-    return productResultPromise;
-  };
 
   // Unknown query keys can be dynamic variant axes, while campaign-only URLs
   // cannot affect selection and should still receive the early image hint.
   if (mayContainVariantSelectionParams(resolvedSearchParams)) {
-    const detailedProductResult = await getProductResultPromise();
+    productResultPromise = loadProductResult();
+    const detailedProductResult = await productResultPromise;
 
     if (detailedProductResult && 'product' in detailedProductResult) {
       redirectInvalidVariantSelectionParams(
@@ -1215,22 +1238,21 @@ export default async function CategoryProductPage({
     }
   }
 
-  const primaryProductImage =
-    merchant.template_id === OGABASSEY_TEMPLATE_ID
-      ? product.imageLarge || product.image || null
-      : null;
+  const primaryProductImage = product.imageLarge || product.image || null;
+  const pageOwnsProductPreload =
+    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
+    !getKnownOgaBasseyMerchantId(slug);
+  const pagePreloadProductImage = pageOwnsProductPreload
+    ? primaryProductImage
+    : null;
   const criticalProduct =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
 
   try {
-    if (primaryProductImage) {
-      preloadOgabasseyPdpProductResources({ src: primaryProductImage });
-    }
-
-    if (criticalProduct) {
-      preloadOgabasseyPdpStaticResources();
+    if (pagePreloadProductImage) {
+      preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
     }
   } catch (error) {
     console.warn(
@@ -1244,7 +1266,9 @@ export default async function CategoryProductPage({
     ? getRequestScopedCategoryProductBasePath(slug)
     : Promise.resolve<'' | `/${string}`>('');
 
-  productResultPromise = getProductResultPromise();
+  if (!productResultPromise) {
+    productResultPromise = loadProductResult();
+  }
 
   return (
     <>
@@ -1278,7 +1302,11 @@ export default async function CategoryProductPage({
           fallback={
             <OgabasseyPdpProductLcpSkeleton
               merchant={merchant}
-              primaryProductImage={primaryProductImage}
+              primaryProductImage={
+                merchant.template_id === OGABASSEY_TEMPLATE_ID
+                  ? primaryProductImage
+                  : null
+              }
               productName={product.name}
             />
           }
