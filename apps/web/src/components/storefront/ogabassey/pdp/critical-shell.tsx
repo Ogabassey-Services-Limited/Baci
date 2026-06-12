@@ -139,14 +139,22 @@ export function OgabasseyPdpCriticalShell({
 }: OgabasseyPdpCriticalShellProps) {
   const productImageProps = getNativeProductImageProps(product);
   const mobileSourceProps = getMobileProductImageSourceProps(product);
-  const hasReviewSignal = product.reviewCount > 0 && product.rating > 0;
+  const aggregateRatingCount = Math.max(
+    product.reviewCount,
+    product.ratingCount
+  );
+  const hasRatingSignal = aggregateRatingCount > 0 && product.rating > 0;
   const ratingText = formatRating(product.rating);
   const reviewCountText =
-    product.reviewCount === 0
+    aggregateRatingCount === 0
       ? 'No reviews yet'
-      : `${product.reviewCount} ${
-          product.reviewCount === 1 ? 'Review' : 'Reviews'
-        }`;
+      : product.reviewCount > 0
+        ? `${product.reviewCount} ${
+            product.reviewCount === 1 ? 'Review' : 'Reviews'
+          }`
+        : `${aggregateRatingCount} ${
+            aggregateRatingCount === 1 ? 'Rating' : 'Ratings'
+          }`;
 
   return (
     <section data-ogabassey-pdp-critical-shell>
@@ -189,7 +197,7 @@ export function OgabasseyPdpCriticalShell({
             <p data-ogabassey-pdp-brand>{product.brand}</p>
             <h1 data-ogabassey-pdp-title>{product.name}</h1>
             <div data-ogabassey-pdp-rating-row>
-              {hasReviewSignal ? (
+              {hasRatingSignal ? (
                 <span
                   data-ogabassey-pdp-stars
                   aria-label={`${ratingText} out of 5 stars`}

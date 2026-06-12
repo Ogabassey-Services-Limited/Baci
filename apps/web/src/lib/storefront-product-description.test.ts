@@ -76,6 +76,14 @@ describe('stripVolatileProductPriceSentences edge cases', () => {
     ).toBe('<p></p><p>Snapdragon flagship.</p>');
   });
 
+  it('removes listed-price text when inline formatting tags split the amount', () => {
+    expect(
+      stripVolatileProductPriceSentences(
+        '<p>Current listed price is <strong>NGN 2,500,000</strong>.</p><p>Snapdragon flagship.</p>'
+      )
+    ).toBe('<p></p><p>Snapdragon flagship.</p>');
+  });
+
   it('removes inline listed-price fragments without removing surrounding product copy', () => {
     expect(
       stripVolatileProductPriceSentences(

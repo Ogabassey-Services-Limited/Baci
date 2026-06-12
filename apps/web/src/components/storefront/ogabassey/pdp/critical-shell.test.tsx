@@ -74,6 +74,7 @@ const defaultProduct: OgabasseyPdpCriticalProduct = {
   name: 'Samsung Galaxy Z TriFold',
   price: 5_800_000,
   rating: 0,
+  ratingCount: 0,
   reviewCount: 0,
   slug: 'samsung-galaxy-z-trifold',
   stockQuantity: 3,
@@ -179,6 +180,27 @@ describe('OgabasseyPdpCriticalShell', () => {
     renderCriticalShell({ rating: 4, reviewCount: 1 });
 
     expect(screen.getByText('1 Review')).toBeInTheDocument();
+  });
+
+  it('renders rating-count-only aggregate ratings as ratings, not reviews', () => {
+    renderCriticalShell({ rating: 4.5, ratingCount: 12, reviewCount: 0 });
+
+    expect(
+      screen.getByRole('img', { name: '4.5 out of 5 stars' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('12 Ratings')).toBeInTheDocument();
+    expect(screen.queryByText('No reviews yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('12 Reviews')).not.toBeInTheDocument();
+  });
+
+  it('displays review count when both reviews and ratings exist', () => {
+    renderCriticalShell({ rating: 4.5, ratingCount: 12, reviewCount: 5 });
+
+    expect(
+      screen.getByRole('img', { name: '4.5 out of 5 stars' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('5 Reviews')).toBeInTheDocument();
+    expect(screen.queryByText('12 Ratings')).not.toBeInTheDocument();
   });
 
   it('shows review count without a rating signal when rating is zero', () => {

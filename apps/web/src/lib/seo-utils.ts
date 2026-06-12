@@ -813,10 +813,12 @@ function hasValidAggregateRatingSchema(value: unknown): boolean {
 function sanitizeCustomProductSchemaMarkup(
   schemaMarkup: Product['schema_markup']
 ): Record<string, unknown> {
-  const sanitizedSchema = sanitizeSchemaMarkup(schemaMarkup) as Record<
-    string,
-    unknown
-  >;
+  const sanitized = sanitizeSchemaMarkup(schemaMarkup);
+  if (!sanitized || typeof sanitized !== 'object' || Array.isArray(sanitized)) {
+    return {};
+  }
+
+  const sanitizedSchema = sanitized as Record<string, unknown>;
 
   if (typeof sanitizedSchema.description === 'string') {
     const description = stripVolatileProductPriceSentences(

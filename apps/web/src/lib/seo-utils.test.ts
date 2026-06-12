@@ -947,6 +947,40 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.aggregateRating).toBeUndefined();
   });
 
+  it('ignores non-object custom schema markup without throwing', () => {
+    expect(() =>
+      generateProductSchema(
+        makeProduct({
+          schema_markup:
+            'invalid schema markup' as unknown as Product['schema_markup'],
+        }),
+        'TestStore',
+        'NGN',
+        'NG'
+      )
+    ).not.toThrow();
+
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: [
+          {
+            '@type': 'Product',
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: 5,
+              reviewCount: 2,
+            },
+          },
+        ] as unknown as Product['schema_markup'],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
   it('serializes product schema without double-escaping text or URL data', () => {
     const imageUrl =
       'https://cdn.example.com/products/pro.png?fit=cover&width=600';

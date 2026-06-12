@@ -35,6 +35,7 @@ export interface OgabasseyPdpCriticalProduct {
   name: string;
   price: number;
   rating: number;
+  ratingCount: number;
   reviewCount: number;
   slug: string;
   stockQuantity: number | null;
@@ -66,7 +67,7 @@ function slugify(value: string) {
 
 function getAggregateRating(schemaMarkup: unknown) {
   if (!schemaMarkup || typeof schemaMarkup !== 'object') {
-    return { rating: 0, reviewCount: 0 };
+    return { rating: 0, ratingCount: 0, reviewCount: 0 };
   }
 
   const schema = schemaMarkup as {
@@ -76,13 +77,15 @@ function getAggregateRating(schemaMarkup: unknown) {
       reviewCount?: unknown;
     };
   };
+  const ratingCount = parseNumber(schema.aggregateRating?.ratingCount);
+  const reviewCount = parseNumber(schema.aggregateRating?.reviewCount);
 
   return {
     rating: parseNumber(schema.aggregateRating?.ratingValue),
-    reviewCount: parseNumber(
-      schema.aggregateRating?.reviewCount ??
-        schema.aggregateRating?.ratingCount
-    ),
+    // Surface aggregate-only rating counts so ratingCount-backed JSON-LD does
+    // not render as a zero-review/no-rating PDP shell.
+    ratingCount: Math.max(ratingCount, reviewCount),
+    reviewCount,
   };
 }
 
@@ -126,6 +129,7 @@ export function buildOgabasseyPdpCriticalProduct(
     name: product.name,
     price: parseNumber(product.price),
     rating: aggregateRating.rating,
+    ratingCount: aggregateRating.ratingCount,
     reviewCount: aggregateRating.reviewCount,
     slug: product.slug || product.id,
     stockQuantity:
