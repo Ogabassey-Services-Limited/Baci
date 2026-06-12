@@ -123,4 +123,12 @@ describe('stripVolatileProductPriceSentences edge cases', () => {
       )
     ).toBe('Description. More text.');
   });
+
+  it('preserves intentional line breaks in plain-text descriptions', () => {
+    expect(
+      stripVolatileProductPriceSentences(
+        'Line one.\nCurrent listed price is NGN 100.\nLine two with  extra spacing.'
+      )
+    ).toBe('Line one.\n\nLine two with extra spacing.');
+  });
 });

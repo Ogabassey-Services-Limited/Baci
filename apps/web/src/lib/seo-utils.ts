@@ -818,7 +818,7 @@ function sanitizeCustomProductSchemaMarkup(
     return {};
   }
 
-  const sanitizedSchema = sanitized as Record<string, unknown>;
+  const sanitizedSchema = { ...sanitized } as Record<string, unknown>;
 
   if (typeof sanitizedSchema.description === 'string') {
     const description = stripVolatileProductPriceSentences(

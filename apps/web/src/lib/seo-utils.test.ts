@@ -981,6 +981,40 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.aggregateRating).toBeUndefined();
   });
 
+  it('does not mutate merchant-provided custom schema markup while sanitizing', () => {
+    const schemaMarkup = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      description:
+        'Premium foldable phone. Current listed price is NGN 2,500,000.',
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: 5,
+        reviewCount: 0,
+      },
+    };
+
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: schemaMarkup as Product['schema_markup'],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe('Premium foldable phone.');
+    expect(schema.aggregateRating).toBeUndefined();
+    expect(schemaMarkup.description).toBe(
+      'Premium foldable phone. Current listed price is NGN 2,500,000.'
+    );
+    expect(schemaMarkup.aggregateRating).toEqual({
+      '@type': 'AggregateRating',
+      ratingValue: 5,
+      reviewCount: 0,
+    });
+  });
+
   it('serializes product schema without double-escaping text or URL data', () => {
     const imageUrl =
       'https://cdn.example.com/products/pro.png?fit=cover&width=600';

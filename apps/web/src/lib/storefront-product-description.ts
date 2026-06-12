@@ -18,8 +18,8 @@ const VOLATILE_INLINE_FORMATTED_LISTED_PRICE_SENTENCE_REGEX = new RegExp(
   `${LISTED_PRICE_SENTENCE_PREFIX_REGEX_PART}(?:the\\s+)?current\\s+listed\\s+price\\s+is\\s+${INLINE_FORMATTING_OPEN_TAGS_REGEX_PART}${LISTED_PRICE_AMOUNT_REGEX_PART}${INLINE_FORMATTING_CLOSE_TAGS_REGEX_PART}\\s*\\.?(?=\\s|<|$)`,
   'gi'
 );
-const MULTIPLE_WHITESPACE_REGEX = /\s+/g;
-const SPACE_BEFORE_SENTENCE_PUNCTUATION_REGEX = /\s+([.!?])/g;
+const MULTIPLE_HORIZONTAL_WHITESPACE_REGEX = /[^\S\r\n]{2,}/g;
+const HORIZONTAL_SPACE_BEFORE_SENTENCE_PUNCTUATION_REGEX = /[^\S\r\n]+([.!?])/g;
 
 function preserveSentenceBoundary(_match: string, prefix: string): string {
   // Keep the ">" boundary so HTML-wrapped copy remains valid, for example
@@ -40,7 +40,7 @@ export function stripVolatileProductPriceSentences(
       preserveSentenceBoundary
     )
     .replace(VOLATILE_LISTED_PRICE_SENTENCE_REGEX, preserveSentenceBoundary)
-    .replace(MULTIPLE_WHITESPACE_REGEX, ' ')
-    .replace(SPACE_BEFORE_SENTENCE_PUNCTUATION_REGEX, '$1')
+    .replace(MULTIPLE_HORIZONTAL_WHITESPACE_REGEX, ' ')
+    .replace(HORIZONTAL_SPACE_BEFORE_SENTENCE_PUNCTUATION_REGEX, '$1')
     .trim();
 }
