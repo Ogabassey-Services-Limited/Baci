@@ -25,6 +25,113 @@ interface UseShippingOptions {
   cart: CartItem[];
 }
 
+interface QuoteReceiver {
+  address: string;
+  state: string;
+  city: string;
+  phone: string;
+  fName: string;
+  lName: string;
+  email: string;
+}
+
+interface ShippingQuoteSetters {
+  setIsLoadingQuotes: (loading: boolean) => void;
+  setSelectedQuoteId: (id: string) => void;
+  setShippingQuotes: (quotes: ShippingQuote[]) => void;
+}
+
+// Module-scope helpers keep try/finally and loading-flag updates out of the
+// hook body so React Compiler can memoize the hook's consumers.
+async function loadShippingStates(
+  setShippingStates: (states: string[]) => void,
+  setIsLoadingLocations: (loading: boolean) => void,
+) {
+  setIsLoadingLocations(true);
+  try {
+    const res = await fetch('/api/shipping/locations');
+    if (res.ok) {
+      const data = await res.json();
+      setShippingStates(data.states || []);
+    }
+  } catch (error) {
+    console.error('Failed to fetch states', error);
+  } finally {
+    setIsLoadingLocations(false);
+  }
+}
+
+async function loadShippingCities(
+  state: string,
+  setShippingCities: (cities: string[]) => void,
+) {
+  try {
+    const res = await fetch(
+      `/api/shipping/locations?state=${encodeURIComponent(state)}`,
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const cities = [
+        ...new Set((data.locations as ShippingLocation[]).map((l) => l.city)),
+      ].sort();
+      setShippingCities(cities);
+    }
+  } catch (error) {
+    console.error('Failed to fetch cities', error);
+  }
+}
+
+async function loadShippingQuotes(
+  receiver: QuoteReceiver,
+  cart: CartItem[],
+  { setIsLoadingQuotes, setSelectedQuoteId, setShippingQuotes }: ShippingQuoteSetters,
+) {
+  const { address, state, city, phone, fName, lName, email } = receiver;
+  if (!state || !city || !address) return;
+
+  setIsLoadingQuotes(true);
+  setSelectedQuoteId('');
+
+  try {
+    const res = await fetch('/api/shipping/quotes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        receiver: {
+          name: `${fName} ${lName}`.trim() || 'Valued Customer',
+          email: email || 'guest@example.com',
+          phone: phone || '',
+          address,
+          city,
+          state,
+          country: 'Nigeria',
+        },
+        items: cart.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          weight: 1,
+          value: item.negotiatedPrice || item.price,
+        })),
+      }),
+    });
+
+    if (res.ok) {
+      const data: QuoteResponse = await res.json();
+      setShippingQuotes(data.quotes.all);
+
+      if (data.quotes.all.length > 0) {
+        setSelectedQuoteId(data.quotes.all[0].id);
+      }
+    } else {
+      console.warn('Failed to fetch quotes:', await res.text());
+    }
+  } catch (error) {
+    console.error('Error fetching shipping quotes:', error);
+  } finally {
+    setIsLoadingQuotes(false);
+  }
+}
+
 export function useShipping({
   deliveryMethod,
   isNewAddressMode,
@@ -45,53 +152,31 @@ export function useShipping({
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
+  const [prevAddressState, setPrevAddressState] = useState(newAddressState);
+
+  // Clear stale cities during render when the selected state is cleared,
+  // instead of waiting for an effect pass (react.dev: adjusting state when a
+  // prop changes).
+  if (newAddressState !== prevAddressState) {
+    setPrevAddressState(newAddressState);
+    if (!newAddressState) {
+      setShippingCities([]);
+    }
+  }
 
   // Fetch States on mount
   useEffect(() => {
-    const fetchLocations = async () => {
-      setIsLoadingLocations(true);
-      try {
-        const res = await fetch('/api/shipping/locations');
-        if (res.ok) {
-          const data = await res.json();
-          setShippingStates(data.states || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch states', error);
-      } finally {
-        setIsLoadingLocations(false);
-      }
-    };
-    fetchLocations();
+    loadShippingStates(setShippingStates, setIsLoadingLocations);
   }, []);
 
   // Fetch Cities when State changes
   useEffect(() => {
-    if (!newAddressState) {
-      setShippingCities([]);
-      return;
-    }
-    const fetchCities = async () => {
-      try {
-        const res = await fetch(
-          `/api/shipping/locations?state=${encodeURIComponent(newAddressState)}`,
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const cities = [
-            ...new Set((data.locations as ShippingLocation[]).map((l) => l.city)),
-          ].sort();
-          setShippingCities(cities);
-        }
-      } catch (error) {
-        console.error('Failed to fetch cities', error);
-      }
-    };
-    fetchCities();
+    if (!newAddressState) return;
+    loadShippingCities(newAddressState, setShippingCities);
   }, [newAddressState]);
 
   // Function to fetch quotes
-  const fetchShippingQuotes = async (
+  const fetchShippingQuotes = (
     address: string,
     state: string,
     city: string,
@@ -99,51 +184,12 @@ export function useShipping({
     fName: string,
     lName: string,
     email: string,
-  ) => {
-    if (!state || !city || !address) return;
-
-    setIsLoadingQuotes(true);
-    setSelectedQuoteId('');
-
-    try {
-      const res = await fetch('/api/shipping/quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          receiver: {
-            name: `${fName} ${lName}`.trim() || 'Valued Customer',
-            email: email || 'guest@example.com',
-            phone: phone || '',
-            address,
-            city,
-            state,
-            country: 'Nigeria',
-          },
-          items: cart.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            weight: 1,
-            value: item.negotiatedPrice || item.price,
-          })),
-        }),
-      });
-
-      if (res.ok) {
-        const data: QuoteResponse = await res.json();
-        setShippingQuotes(data.quotes.all);
-
-        if (data.quotes.all.length > 0) {
-          setSelectedQuoteId(data.quotes.all[0].id);
-        }
-      } else {
-        console.warn('Failed to fetch quotes:', await res.text());
-      }
-    } catch (error) {
-      console.error('Error fetching shipping quotes:', error);
-    } finally {
-      setIsLoadingQuotes(false);
-    }
-  };
+  ) =>
+    loadShippingQuotes({ address, state, city, phone, fName, lName, email }, cart, {
+      setIsLoadingQuotes,
+      setSelectedQuoteId,
+      setShippingQuotes,
+    });
 
   // Trigger quote fetch when Door Delivery is selected and we have BOTH state AND city
   useEffect(() => {

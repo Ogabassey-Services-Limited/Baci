@@ -22,6 +22,47 @@ interface CheckoutAuthModalProps {
   onSuccess: () => void;
 }
 
+interface SubmitCheckoutLoginParams {
+  supabase: ReturnType<typeof createClient>;
+  email: string;
+  password: string;
+  onSuccess: () => void;
+  onOpenChange: (open: boolean) => void;
+  setError: (error: string | null) => void;
+  setIsLoading: (isLoading: boolean) => void;
+}
+
+async function submitCheckoutLogin({
+  supabase,
+  email,
+  password,
+  onSuccess,
+  onOpenChange,
+  setError,
+  setIsLoading,
+}: SubmitCheckoutLoginParams) {
+  setIsLoading(true);
+  setError(null);
+
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    onSuccess();
+    onOpenChange(false);
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to sign in');
+  } finally {
+    setIsLoading(false);
+  }
+}
+
 export function CheckoutAuthModal({
   isOpen,
   onOpenChange,
@@ -34,28 +75,17 @@ export function CheckoutAuthModal({
 
   const supabase = createClient();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      onSuccess();
-      onOpenChange(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
-    } finally {
-      setIsLoading(false);
-    }
+    void submitCheckoutLogin({
+      supabase,
+      email,
+      password,
+      onSuccess,
+      onOpenChange,
+      setError,
+      setIsLoading,
+    });
   };
 
   return (

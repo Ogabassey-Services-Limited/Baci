@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
@@ -7,7 +8,11 @@ import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
 import { isDomainIdentifier } from '@/lib/validation';
-import { type BlogPostData, getTemplate } from '@/templates/registry';
+import {
+  type BlogPostData,
+  getTemplate,
+  type TemplateBlogPageProps,
+} from '@/templates/registry';
 import { BlogDiscoverySection } from './blog-discovery-section';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
@@ -98,44 +103,35 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
     if (template) {
+      // Resolve the template data inside try/catch, but construct JSX outside
+      // of it: try/catch cannot catch React rendering errors, and JSX inside
+      // a try block prevents React Compiler optimization.
+      let templateBlogUi: {
+        BlogComponent: ComponentType<TemplateBlogPageProps>;
+        categories: { name: string; slug: string }[];
+        posts: BlogPostData[];
+      } | null = null;
       try {
         const components = await template.getComponents();
         if (components.Blog) {
-          const BlogComponent = components.Blog;
-          const templateCategories = publicCategories.map((cat) => ({
-            name: cat,
-            slug: generateSlug(cat),
-          }));
-          const blogPosts: BlogPostData[] = posts.map((p) => ({
-            id: p.id,
-            title: p.title,
-            slug: p.slug,
-            excerpt: p.excerpt || '',
-            category: p.category || '',
-            author_name: p.author_name || merchant.business_name,
-            published_at: p.published_at,
-            featured_image_url: p.featured_image_url || '',
-            reading_time_minutes: p.reading_time_minutes || 3,
-          }));
-          return (
-            <>
-              <TemplateBlogRenderer
-                blogSchema={blogSchema}
-                breadcrumbSchema={breadcrumbSchema}
-                BlogComponent={BlogComponent}
-                basePath={basePath}
-                blogPosts={blogPosts}
-                categories={templateCategories}
-                searchQuery={searchQuery}
-              />
-              <InformationalClusterIndex collections={guideCollections} />
-              <BlogDiscoverySection
-                baseUrl={baseUrl}
-                categories={publicCategories}
-                posts={posts}
-              />
-            </>
-          );
+          templateBlogUi = {
+            BlogComponent: components.Blog,
+            categories: publicCategories.map((cat) => ({
+              name: cat,
+              slug: generateSlug(cat),
+            })),
+            posts: posts.map((p) => ({
+              id: p.id,
+              title: p.title,
+              slug: p.slug,
+              excerpt: p.excerpt || '',
+              category: p.category || '',
+              author_name: p.author_name || merchant.business_name,
+              published_at: p.published_at,
+              featured_image_url: p.featured_image_url || '',
+              reading_time_minutes: p.reading_time_minutes || 3,
+            })),
+          };
         }
       } catch (error) {
         console.error(
@@ -143,6 +139,27 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
           templateId,
           ':',
           error
+        );
+      }
+      if (templateBlogUi) {
+        return (
+          <>
+            <TemplateBlogRenderer
+              blogSchema={blogSchema}
+              breadcrumbSchema={breadcrumbSchema}
+              BlogComponent={templateBlogUi.BlogComponent}
+              basePath={basePath}
+              blogPosts={templateBlogUi.posts}
+              categories={templateBlogUi.categories}
+              searchQuery={searchQuery}
+            />
+            <InformationalClusterIndex collections={guideCollections} />
+            <BlogDiscoverySection
+              baseUrl={baseUrl}
+              categories={publicCategories}
+              posts={posts}
+            />
+          </>
         );
       }
     }

@@ -12,6 +12,12 @@ type NavigatorWithModelContext = Navigator & {
   modelContext?: WebMcpModelContext;
 };
 
+// Module-scope loader: dynamic import expressions inside the component body
+// block React Compiler memoization (BuildHIR Import expression bailout).
+function importWebMcpRegistration() {
+  return import('./webmcp-storefront-tools-registration');
+}
+
 function getModelContext(): WebMcpModelContext | null {
   const currentDocument = document as DocumentWithModelContext;
   if (currentDocument.modelContext?.registerTool) {
@@ -40,7 +46,7 @@ export function WebMcpStorefrontTools({
     const controller = new AbortController();
     let isActive = true;
 
-    void import('./webmcp-storefront-tools-registration')
+    void importWebMcpRegistration()
       .then(({ registerWebMcpStorefrontTools }) => {
         if (!isActive || controller.signal.aborted) {
           return;

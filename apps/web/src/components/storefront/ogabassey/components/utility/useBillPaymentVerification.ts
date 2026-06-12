@@ -66,6 +66,46 @@ function getErrorMessage(data: Record<string, unknown>, fallback: string) {
   return getString(data.error) ?? getString(data.message) ?? fallback;
 }
 
+/**
+ * Runs the verification request and maps every outcome to a result value.
+ * Returns null when the request was aborted. Module-scope so the
+ * try/catch/finally stays outside the hook body.
+ */
+async function requestVerification(
+  payload: BillPaymentVerifyPayload,
+  inputKey: string,
+  signal: AbortSignal
+): Promise<BillPaymentVerification | null> {
+  try {
+    const res = await fetch('/api/vtu/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    });
+    const data = await readJsonRecord(res);
+
+    if (!res.ok) {
+      return {
+        verified: false,
+        inputKey,
+        message: getErrorMessage(data, res.statusText || 'Verification failed'),
+      };
+    }
+
+    return toVerification(data, inputKey);
+  } catch (error) {
+    if (isAbortError(error)) {
+      return null;
+    }
+    return {
+      verified: false,
+      inputKey,
+      message: 'Verification failed',
+    };
+  }
+}
+
 export function useBillPaymentVerification(): {
   setVerification: (nextVerification: BillPaymentVerification | null) => void;
   verification: BillPaymentVerification | null;
@@ -107,45 +147,19 @@ export function useBillPaymentVerification(): {
     setVerifying(true);
     setVerificationState(null);
 
-    try {
-      const res = await fetch('/api/vtu/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      const data = await readJsonRecord(res);
+    const result = await requestVerification(
+      payload,
+      inputKey,
+      controller.signal
+    );
 
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
+    if (requestId !== requestIdRef.current) {
+      return;
+    }
 
-      if (!res.ok) {
-        setVerificationState({
-          verified: false,
-          inputKey,
-          message: getErrorMessage(
-            data,
-            res.statusText || 'Verification failed'
-          ),
-        });
-        return;
-      }
-
-      setVerificationState(toVerification(data, inputKey));
-    } catch (error) {
-      if (isAbortError(error) || requestId !== requestIdRef.current) {
-        return;
-      }
-      setVerificationState({
-        verified: false,
-        inputKey,
-        message: 'Verification failed',
-      });
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setVerifying(false);
-      }
+    setVerifying(false);
+    if (result) {
+      setVerificationState(result);
     }
   };
 

@@ -11,7 +11,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
@@ -45,11 +45,6 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
   // Determine current image
   const currentImage = product.images?.[activeColorIndex] || product.image;
-
-  // Reset loading state when image source changes
-  useEffect(() => {
-    setIsImageLoaded(false);
-  }, []);
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();

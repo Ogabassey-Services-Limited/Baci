@@ -49,7 +49,9 @@ export default function CustomerAddressesPage() {
     updateCustomer,
   } = useCustomerAuth();
 
-  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [addresses, setAddresses] = useState<SavedAddress[]>(
+    customer?.saved_addresses ?? []
+  );
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(
     null
   );
@@ -57,13 +59,18 @@ export default function CustomerAddressesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] =
     useState<Omit<SavedAddress, 'id'>>(emptyAddress);
+  const [prevSavedAddresses, setPrevSavedAddresses] = useState(
+    customer?.saved_addresses
+  );
 
-  // Initialize addresses from customer data
-  useEffect(() => {
+  // Adopt refreshed customer addresses during render (react.dev: adjusting
+  // state when a prop changes) instead of mirroring them via an effect.
+  if (customer?.saved_addresses !== prevSavedAddresses) {
+    setPrevSavedAddresses(customer?.saved_addresses);
     if (customer?.saved_addresses) {
       setAddresses(customer.saved_addresses);
     }
-  }, [customer?.saved_addresses]);
+  }
 
   // Redirect to login if not authenticated
   useEffect(() => {

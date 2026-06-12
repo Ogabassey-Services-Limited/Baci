@@ -265,69 +265,83 @@ export default function ProductDetailClient({
     used: 'Fully tested and inspected, 30-day warranty',
   };
 
-  useEffect(() => {
+  // Seed the selection state from the route-driven inputs inline during
+  // render with a prev-key comparison (react.dev: "Adjusting some state when
+  // a prop changes"). The previous useEffect version committed a stale frame
+  // before re-rendering with the seeded selection.
+  const routeSeedKey = [
+    product.id,
+    usesVariantRouteSelection ? 'variants' : 'simple',
+    routeCondition,
+    routeVariantId ?? '',
+    Object.entries(routeSelectionAttributes)
+      .map(([key, value]) => `${key}=${value}`)
+      .sort()
+      .join('&'),
+  ].join('|');
+  const [prevRouteSeedKey, setPrevRouteSeedKey] = useState<string | null>(null);
+  if (routeSeedKey !== prevRouteSeedKey) {
+    setPrevRouteSeedKey(routeSeedKey);
+
     if (!usesVariantRouteSelection) {
-      if (routeCondition) {
+      if (routeCondition && routeCondition !== selectedCondition) {
         setSelectedCondition(routeCondition);
       }
-      return;
-    }
-
-    const fallbackVariantSelection = resolveDefaultVariantSelection(product, {
-      condition: routeCondition,
-    });
-    const seedSelection =
-      resolveVariantDisplaySelection(product, {
-        attributes: routeSelectionAttributes,
+    } else {
+      const fallbackVariantSelection = resolveDefaultVariantSelection(product, {
         condition: routeCondition,
-        variantId: routeVariantId,
-      }) ?? fallbackVariantSelection;
+      });
+      const seedSelection =
+        resolveVariantDisplaySelection(product, {
+          attributes: routeSelectionAttributes,
+          condition: routeCondition,
+          variantId: routeVariantId,
+        }) ?? fallbackVariantSelection;
 
-    const nextCondition =
-      routeCondition ||
-      (seedSelection?.condition as ProductCondition | undefined) ||
-      normalizeCanonicalProductCondition(product.condition) ||
-      'new';
-    setSelectedCondition((current) =>
-      current === nextCondition ? current : nextCondition
-    );
+      const nextCondition =
+        routeCondition ||
+        (seedSelection?.condition as ProductCondition | undefined) ||
+        normalizeCanonicalProductCondition(product.condition) ||
+        'new';
+      if (nextCondition !== selectedCondition) {
+        setSelectedCondition(nextCondition);
+      }
 
-    if (!seedSelection) {
-      setSelectedVariant((current) => (current ? null : current));
-      setSelectedAttributes((current) =>
-        Object.keys(current).length === 0 ? current : {}
-      );
-      const fallbackImage =
-        product.imageLarge || product.image || PLACEHOLDER_IMAGE;
-      setSelectedImage((current) =>
-        current === fallbackImage ? current : fallbackImage
-      );
-      return;
+      if (!seedSelection) {
+        if (selectedVariant !== null) {
+          setSelectedVariant(null);
+        }
+        if (Object.keys(selectedAttributes).length > 0) {
+          setSelectedAttributes({});
+        }
+        const fallbackImage =
+          product.imageLarge || product.image || PLACEHOLDER_IMAGE;
+        if (selectedImage !== fallbackImage) {
+          setSelectedImage(fallbackImage);
+        }
+      } else {
+        if (selectedVariant?.id !== seedSelection.variant.id) {
+          setSelectedVariant(seedSelection.variant);
+        }
+        if (
+          !areSelectionAttributesEqual(
+            selectedAttributes,
+            seedSelection.attributes
+          )
+        ) {
+          setSelectedAttributes(seedSelection.attributes);
+        }
+        const nextImage =
+          seedSelection.variant.primary_image ||
+          product.imageLarge ||
+          product.image ||
+          PLACEHOLDER_IMAGE;
+        if (selectedImage !== nextImage) {
+          setSelectedImage(nextImage);
+        }
+      }
     }
-
-    setSelectedVariant((current) =>
-      current?.id === seedSelection.variant.id ? current : seedSelection.variant
-    );
-    setSelectedAttributes((current) =>
-      areSelectionAttributesEqual(current, seedSelection.attributes)
-        ? current
-        : seedSelection.attributes
-    );
-    const nextImage =
-      seedSelection.variant.primary_image ||
-      product.imageLarge ||
-      product.image ||
-      PLACEHOLDER_IMAGE;
-    setSelectedImage((current) =>
-      current === nextImage ? current : nextImage
-    );
-  }, [
-    product,
-    routeCondition,
-    routeSelectionAttributes,
-    routeVariantId,
-    usesVariantRouteSelection,
-  ]);
+  }
 
   // Track product view for recently viewed and analytics
   // Use product.id instead of product object to prevent duplicate tracking on reference changes

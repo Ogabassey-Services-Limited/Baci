@@ -27,6 +27,24 @@ interface AIAnalysisResult {
   matchedProduct: string;
 }
 
+// Module-scope helper: React Compiler cannot yet compile `throw` statements
+// inside a component-body try/catch, so the throwing fetch lives out here.
+async function requestDeviceGrading(videoFile: File): Promise<AIAnalysisResult> {
+  const formData = new FormData();
+  formData.append('video', videoFile);
+
+  const res = await fetch('/api/ai/grade-device', {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = (await res.json()) as { error?: string; data: AIAnalysisResult };
+
+  if (!res.ok) throw new Error(data.error || 'Failed to analyze');
+
+  return data.data;
+}
+
 function TradeInModal({
   isOpen,
   onClose,
@@ -60,20 +78,10 @@ function TradeInModal({
     if (!videoFile) return;
 
     setStep('analyzing');
-    const formData = new FormData();
-    formData.append('video', videoFile);
 
     try {
-      const res = await fetch('/api/ai/grade-device', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || 'Failed to analyze');
-
-      setResult(data.data);
+      const analysis = await requestDeviceGrading(videoFile);
+      setResult(analysis);
       setStep('result');
     } catch (err: unknown) {
       console.error(err);

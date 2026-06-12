@@ -18,6 +18,13 @@ interface QuotesResponse {
   warnings?: string[];
 }
 
+interface QuoteItemPayload {
+  name: string;
+  quantity: number;
+  weight: number;
+  value: number;
+}
+
 interface ShippingOptionsProps {
   receiverCity: string;
   receiverState: string;
@@ -51,20 +58,25 @@ export function ShippingOptions({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Use ref for onSelect to avoid re-fetching when it changes
+  // Use ref for onSelect to avoid re-fetching when it changes. The ref is
+  // synced in an effect (never during render) so the compiler can memoize.
   const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  });
 
   // Track if we've already auto-selected
   const hasAutoSelected = useRef(false);
 
-  // Store cartItems in ref to use in effect without causing re-runs
-  const cartItemsRef = useRef(cartItems);
-  cartItemsRef.current = cartItems;
-
-  // Create stable key for cartItems to only trigger when content actually changes
-  const cartItemsKey = JSON.stringify(
-    cartItems.map((i) => ({ n: i.name, q: i.quantity, p: i.price }))
+  // Serialize the request items so the fetch effect only re-runs when cart
+  // content actually changes (not when the array identity changes).
+  const serializedCartItems = JSON.stringify(
+    cartItems.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      weight: 1, // Default weight 1kg per item
+      value: item.price,
+    }))
   );
 
   // Track if we've already fetched for current address
@@ -82,59 +94,55 @@ export function ShippingOptions({
     }
 
     // Create a key for this specific fetch request
-    const fetchKey = `${receiverCity}-${receiverState}-${receiverAddress}-${cartItemsKey}`;
+    const fetchKey = `${receiverCity}-${receiverState}-${receiverAddress}-${serializedCartItems}`;
 
     // Skip if we've already fetched for this exact configuration
     if (lastFetchKey.current === fetchKey && quotes.length > 0) {
       return;
     }
 
-    const fetchQuotes = async () => {
+    const fetchQuotes = () => {
       setIsLoading(true);
       setError(null);
       lastFetchKey.current = fetchKey;
 
-      try {
-        const response = await apiPost<QuotesResponse>('/api/shipping/quotes', {
-          receiver: {
-            name: receiverName || 'Customer',
-            phone: receiverPhone || '',
-            address: receiverAddress || receiverCity,
-            city: receiverCity,
-            state: receiverState,
-            country: 'Nigeria',
-            countryCode: 'NG',
-          },
-          items: cartItemsRef.current.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            weight: 1, // Default weight 1kg per item
-            value: item.price,
-          })),
-          shipmentType: 'domestic',
+      apiPost<QuotesResponse>('/api/shipping/quotes', {
+        receiver: {
+          name: receiverName || 'Customer',
+          phone: receiverPhone || '',
+          address: receiverAddress || receiverCity,
+          city: receiverCity,
+          state: receiverState,
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+        items: JSON.parse(serializedCartItems) as QuoteItemPayload[],
+        shipmentType: 'domestic',
+      })
+        .then((response) => {
+          setQuotes(response.quotes.all);
+          setSessionId(response.sessionId);
+
+          if (response.warnings && response.warnings.length > 0) {
+            console.warn('Shipping quote warnings:', response.warnings);
+          }
+
+          // Auto-select cheapest only on first load
+          if (!hasAutoSelected.current && response.quotes.all.length > 0) {
+            const cheapest = response.quotes.all.reduce((min, q) =>
+              q.price < min.price ? q : min
+            );
+            onSelectRef.current(cheapest, response.sessionId);
+            hasAutoSelected.current = true;
+          }
+        })
+        .catch((err: unknown) => {
+          console.error('Failed to fetch shipping quotes:', err);
+          setError('Unable to get shipping options. Please try again.');
+        })
+        .finally(() => {
+          setIsLoading(false);
         });
-
-        setQuotes(response.quotes.all);
-        setSessionId(response.sessionId);
-
-        if (response.warnings && response.warnings.length > 0) {
-          console.warn('Shipping quote warnings:', response.warnings);
-        }
-
-        // Auto-select cheapest only on first load
-        if (!hasAutoSelected.current && response.quotes.all.length > 0) {
-          const cheapest = response.quotes.all.reduce((min, q) =>
-            q.price < min.price ? q : min
-          );
-          onSelectRef.current(cheapest, response.sessionId);
-          hasAutoSelected.current = true;
-        }
-      } catch (err) {
-        console.error('Failed to fetch shipping quotes:', err);
-        setError('Unable to get shipping options. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
     };
 
     // Longer debounce to wait for user to finish typing
@@ -146,7 +154,7 @@ export function ShippingOptions({
     receiverAddress,
     receiverName,
     receiverPhone,
-    cartItemsKey,
+    serializedCartItems,
     quotes.length,
   ]);
 

@@ -14,6 +14,39 @@ interface StorefrontPageWrapperProps {
   products?: Product[]; // Added optional products prop
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: Template components have varying prop types
+type AnyComponentType = React.ComponentType<any>;
+
+/**
+ * Module-scope helper so the component body stays free of try/finally
+ * (React Compiler cannot lower try statements with finalizers yet).
+ */
+async function resolveTemplatePageComponent(
+  templateId: string,
+  pageName: keyof TemplateComponents
+): Promise<AnyComponentType | null> {
+  const template = getTemplate(templateId);
+  if (!template) {
+    return null;
+  }
+
+  try {
+    const components = await template.getComponents();
+    return components[pageName] ?? null;
+  } catch (error) {
+    // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
+    console.error(
+      'Failed to load',
+      pageName,
+      'for template',
+      templateId,
+      ':',
+      error
+    );
+    return null;
+  }
+}
+
 /**
  * Wrapper that attempts to load a specific page component from the active template.
  * If the template doesn't support the page or isn't set, renders the fallback.
@@ -33,8 +66,6 @@ export function StorefrontPageWrapper({
   const merchant = initialMerchant || hookMerchant;
   const loading = !initialMerchant && hookLoading;
 
-  // biome-ignore lint/suspicious/noExplicitAny: Template components have varying prop types
-  type AnyComponentType = React.ComponentType<any>;
   const [TemplateComponent, setTemplateComponent] =
     useState<AnyComponentType | null>(null);
   const [componentLoading, setComponentLoading] = useState(true);
@@ -53,32 +84,14 @@ export function StorefrontPageWrapper({
         return;
       }
 
-      const template = getTemplate(merchant.template_id);
-      if (!template) {
-        setComponentLoading(false);
-        return;
+      const Component = await resolveTemplatePageComponent(
+        merchant.template_id,
+        pageName
+      );
+      if (Component) {
+        setTemplateComponent(() => Component);
       }
-
-      try {
-        const components = await template.getComponents();
-        const Component = components[pageName];
-
-        if (Component) {
-          setTemplateComponent(() => Component);
-        }
-      } catch (error) {
-        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
-        console.error(
-          'Failed to load',
-          pageName,
-          'for template',
-          merchant.template_id,
-          ':',
-          error
-        );
-      } finally {
-        setComponentLoading(false);
-      }
+      setComponentLoading(false);
     };
 
     loadTemplateComponent();

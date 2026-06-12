@@ -2,7 +2,7 @@
 // Migrated from temp-source/components/SourceRequestModal.tsx
 import { CheckCircle2, Loader2, Search, X } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 interface SourceRequestModalProps {
   isOpen: boolean;
@@ -18,18 +18,23 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    productName: '',
+    productName: initialQuery,
     details: '',
     contact: '',
   });
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [prevInitialQuery, setPrevInitialQuery] = useState(initialQuery);
 
-  // Update product name when initialQuery changes or modal opens
-  useEffect(() => {
+  // Sync product name and reset the step during render when initialQuery
+  // changes or the modal opens (avoids an effect-driven stale-frame commit).
+  if (isOpen !== prevIsOpen || initialQuery !== prevInitialQuery) {
+    setPrevIsOpen(isOpen);
+    setPrevInitialQuery(initialQuery);
     if (isOpen) {
       setFormData((prev) => ({ ...prev, productName: initialQuery }));
       setStep('form');
     }
-  }, [isOpen, initialQuery]);
+  }
 
   if (!isOpen) return null;
 
