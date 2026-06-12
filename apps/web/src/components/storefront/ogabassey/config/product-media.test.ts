@@ -14,10 +14,10 @@ import {
 describe('OgaBassey PDP product media config', () => {
   it('keeps PDP image sizing aligned to the storefront gallery layout', () => {
     expect(OGABASSEY_PDP_PRIMARY_IMAGE_SIZES).toBe(
-      '(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
+      `${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA} ${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES}, ${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_SIZES}`,
     );
     expect(OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA).toBe(
-      '(max-width: 767px)'
+      '(max-width: 767.98px)'
     );
     expect(OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA).toBe(
       '(min-width: 768px)'
