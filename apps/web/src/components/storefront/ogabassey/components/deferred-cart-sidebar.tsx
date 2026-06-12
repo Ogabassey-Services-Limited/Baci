@@ -64,15 +64,22 @@ export function DeferredCartSidebar() {
   const [loadError, setLoadError] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
-  useEffect(() => {
-    if (!isCartOpen) {
-      return;
+  // Latch "has opened" and clear stale load errors during render (prev-value
+  // comparison) when the cart open state flips, instead of setting state
+  // synchronously inside the load effect — React restarts the render before
+  // commit, so there is no extra stale frame.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevIsCartOpen, setPrevIsCartOpen] = useState(isCartOpen);
+  if (isCartOpen !== prevIsCartOpen) {
+    setPrevIsCartOpen(isCartOpen);
+    if (isCartOpen) {
+      setHasOpened(true);
+      setLoadError(false);
     }
+  }
 
-    setHasOpened(true);
-    setLoadError(false);
-
-    if (CartSidebar) {
+  useEffect(() => {
+    if (!isCartOpen || CartSidebar) {
       return;
     }
 

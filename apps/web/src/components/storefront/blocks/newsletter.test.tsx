@@ -2,23 +2,29 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Newsletter } from './newsletter';
 
+const { fetchWithCsrfMock } = vi.hoisted(() => ({
+  fetchWithCsrfMock: vi.fn(),
+}));
+
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({
     merchant: { id: '4db63f48-3577-4ef3-9e09-e3ec6af7a5a2' },
   }),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: fetchWithCsrfMock,
+}));
+
 describe('Newsletter', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    fetchWithCsrfMock.mockReset();
   });
 
   it('submits the subscriber email to the newsletter API', async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(
-        new Response(JSON.stringify({ success: true }), { status: 200 })
-      );
+    fetchWithCsrfMock.mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), { status: 200 })
+    );
 
     render(<Newsletter />);
 
@@ -28,15 +34,18 @@ describe('Newsletter', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Subscribe' }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/newsletter/subscribe', {
-        body: JSON.stringify({
-          email: 'Customer@Example.com',
-          merchantId: '4db63f48-3577-4ef3-9e09-e3ec6af7a5a2',
-          source: 'footer',
-        }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
+      expect(fetchWithCsrfMock).toHaveBeenCalledWith(
+        '/api/newsletter/subscribe',
+        {
+          body: JSON.stringify({
+            email: 'Customer@Example.com',
+            merchantId: '4db63f48-3577-4ef3-9e09-e3ec6af7a5a2',
+            source: 'footer',
+          }),
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+        }
+      );
     });
     expect(
       screen.getByText('You are subscribed. Check your email for updates.')
@@ -44,7 +53,7 @@ describe('Newsletter', () => {
   });
 
   it('shows an error when the newsletter API rejects the subscription', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    fetchWithCsrfMock.mockResolvedValue(
       new Response(JSON.stringify({ error: 'Failed' }), { status: 500 })
     );
 

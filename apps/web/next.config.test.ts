@@ -115,7 +115,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(ogabasseyLinkHeader).toContain('</auth.md>; rel="service-doc"');
   });
 
-  it('adds host-scoped product image preload headers for OgaBassey gaming laptop PDPs', async () => {
+  it('adds host-scoped same-origin product image preload headers for OgaBassey gaming laptop PDPs', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     const globalOgaBasseyRuleIndex = headers.findIndex(
@@ -144,7 +144,7 @@ describe('next.config OgaBassey resource headers', () => {
     );
   });
 
-  it('adds equivalent path-mode product image preload headers for OgaBassey gaming laptop PDPs', async () => {
+  it('adds equivalent path-mode same-origin product image preload headers for OgaBassey gaming laptop PDPs', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     const rule = headers.find(

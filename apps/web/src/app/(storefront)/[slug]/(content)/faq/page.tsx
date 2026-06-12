@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
+import { type ComponentType, Suspense } from 'react';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
   getMerchantByIdentifier,
@@ -10,7 +10,7 @@ import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema, getIndexableRobotsMetadata } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { getTemplate } from '@/templates/registry';
+import { getTemplate, type TemplatePageProps } from '@/templates/registry';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
 import { FAQPageClient } from '../pages/faq/faq-page-client';
 
@@ -114,17 +114,20 @@ async function FAQContent({ params }: PageProps) {
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
     if (template) {
+      // Resolve the template data inside try/catch, but construct JSX outside
+      // of it: try/catch cannot catch React rendering errors, and JSX inside
+      // a try block prevents React Compiler optimization.
+      let templateHelpUi: {
+        HelpComponent: ComponentType<TemplatePageProps>;
+        merchantData: ReturnType<typeof toTemplateMerchantData>;
+      } | null = null;
       try {
         const components = await template.getComponents();
         if (components.Help) {
-          const HelpComponent = components.Help;
-          return (
-            <HelpComponent
-              merchant={toTemplateMerchantData(merchant)}
-              storeSlug={merchant.slug}
-              isPreview={false}
-            />
-          );
+          templateHelpUi = {
+            HelpComponent: components.Help,
+            merchantData: toTemplateMerchantData(merchant),
+          };
         }
       } catch (error) {
         console.error(
@@ -132,6 +135,16 @@ async function FAQContent({ params }: PageProps) {
           templateId,
           ':',
           error
+        );
+      }
+      if (templateHelpUi) {
+        const { HelpComponent } = templateHelpUi;
+        return (
+          <HelpComponent
+            merchant={templateHelpUi.merchantData}
+            storeSlug={merchant.slug}
+            isPreview={false}
+          />
         );
       }
     }

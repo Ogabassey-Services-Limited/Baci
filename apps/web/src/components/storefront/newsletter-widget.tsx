@@ -11,6 +11,53 @@ import { cn } from '@/lib/utils';
 const NEWSLETTER_DISMISSED_KEY = 'baci-newsletter-dismissed';
 const NEWSLETTER_SUBSCRIBED_KEY = 'baci-newsletter-subscribed';
 
+/**
+ * Returns true when the widget should stay hidden: the visitor already
+ * subscribed or dismissed it within the last 7 days.
+ */
+function isNewsletterSuppressed(): boolean {
+  if (localStorage.getItem(NEWSLETTER_SUBSCRIBED_KEY)) {
+    return true;
+  }
+
+  const dismissed = localStorage.getItem(NEWSLETTER_DISMISSED_KEY);
+  if (dismissed) {
+    // Check if dismissal was more than 7 days ago
+    const dismissedDate = new Date(dismissed);
+    const daysSinceDismissed =
+      (Date.now() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceDismissed < 7) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Module-scope helper so the component body stays free of try/finally
+ * (React Compiler cannot lower try statements with finalizers yet).
+ */
+async function submitNewsletterSubscription(
+  email: string,
+  merchantId: string | undefined
+): Promise<boolean> {
+  try {
+    const response = await fetch('/api/newsletter/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        merchantId,
+        source: 'widget',
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 interface NewsletterWidgetProps {
   /**
    * Delay in milliseconds before showing the widget
@@ -44,27 +91,13 @@ export function NewsletterWidget({
   const merchant = merchantContext?.merchant;
 
   useEffect(() => {
-    // Check if already subscribed or dismissed
-    const dismissed = localStorage.getItem(NEWSLETTER_DISMISSED_KEY);
-    const subscribed = localStorage.getItem(NEWSLETTER_SUBSCRIBED_KEY);
-
-    if (subscribed) {
-      setIsSubscribed(true);
-      return;
-    }
-
-    if (dismissed) {
-      // Check if dismissal was more than 7 days ago
-      const dismissedDate = new Date(dismissed);
-      const daysSinceDismissed =
-        (Date.now() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceDismissed < 7) {
+    // Show widget after delay, unless already subscribed or recently
+    // dismissed. The check runs inside the timer callback so the effect
+    // body never calls setState synchronously.
+    const timer = setTimeout(() => {
+      if (isNewsletterSuppressed()) {
         return;
       }
-    }
-
-    // Show widget after delay
-    const timer = setTimeout(() => {
       setIsVisible(true);
     }, showDelay);
 
@@ -98,22 +131,10 @@ export function NewsletterWidget({
 
     setIsSubmitting(true);
 
-    try {
-      // Submit to API
-      const response = await fetch('/api/newsletter/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          merchantId: merchant?.id,
-          source: 'widget',
-        }),
-      });
+    const subscribed = await submitNewsletterSubscription(email, merchant?.id);
+    setIsSubmitting(false);
 
-      if (!response.ok) {
-        throw new Error('Failed to subscribe');
-      }
-
+    if (subscribed) {
       setIsSubscribed(true);
       localStorage.setItem(NEWSLETTER_SUBSCRIBED_KEY, 'true');
 
@@ -122,14 +143,12 @@ export function NewsletterWidget({
         description:
           'Thank you for subscribing. Check your email for your discount code!',
       });
-    } catch {
+    } else {
       toast({
         title: 'Subscription failed',
         description: 'Please try again later.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

@@ -1,7 +1,13 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 export type V2ThemeMode = 'standard' | 'santa';
 
@@ -38,6 +44,40 @@ function setCookie(name: string, value: string): void {
   document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
 }
 
+/**
+ * Cookie/date defaults have no change events; the snapshot only diverges from
+ * the server snapshot once, right after hydration, so no subscription is
+ * needed. Module scope keeps the subscribe identity stable.
+ */
+function subscribeToThemeDefaults(): () => void {
+  return () => {
+    // No external store events to unsubscribe from.
+  };
+}
+
+/**
+ * Resolve the client-side default theme from the current month and cookie.
+ * CRITICAL: Always force standard theme outside December so Santa mode is
+ * NEVER shown from January onwards.
+ */
+function resolveClientDefaultTheme(
+  initialTheme: V2ThemeMode | undefined
+): V2ThemeMode {
+  const isDecember = new Date().getMonth() === 11;
+  if (!isDecember) {
+    return 'standard';
+  }
+
+  // In December: Use cookie preference or date-based default
+  const cookieTheme = getCookie(THEME_COOKIE_NAME);
+  if (cookieTheme === 'standard' || cookieTheme === 'santa') {
+    return cookieTheme;
+  }
+
+  // If no cookie, use the server-provided theme or santa for December
+  return initialTheme ?? 'santa';
+}
+
 export const useV2Theme = () => {
   const context = useContext(V2ThemeContext);
   if (!context) {
@@ -56,55 +96,48 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
   children,
   initialTheme,
 }) => {
-  // CRITICAL: Use server-provided initialTheme for SSR consistency.
-  // Default to 'standard' - Santa mode can be toggled manually.
-  const [theme, setThemeState] = useState<V2ThemeMode>(
-    initialTheme ?? 'standard'
+  // Explicit user choice (toggle) wins over the resolved default.
+  const [userTheme, setUserTheme] = useState<V2ThemeMode | null>(null);
+
+  // CRITICAL: The server snapshot mirrors the server-provided initialTheme for
+  // SSR consistency (default 'standard'); React swaps in the client snapshot
+  // (date + cookie based) right after hydration, replacing the previous
+  // setState-in-effect sync without an extra stale committed frame.
+  const defaultTheme = useSyncExternalStore(
+    subscribeToThemeDefaults,
+    () => resolveClientDefaultTheme(initialTheme),
+    () => initialTheme ?? 'standard'
   );
 
-  // On mount (client-side only), apply date-based default or cookie preference
-  // This runs AFTER hydration to avoid mismatch
-  useEffect(() => {
-    // Automatic festive mode check
-    const currentMonth = new Date().getMonth();
-    const isDecember = currentMonth === 11;
+  const theme = userTheme ?? defaultTheme;
 
-    // CRITICAL FIX: Always force standard theme outside December
+  // Keep the cookie aligned with the date-based default. This only writes to
+  // an external system (document.cookie) — no React state updates.
+  useEffect(() => {
+    const isDecember = new Date().getMonth() === 11;
+    const cookieTheme = getCookie(THEME_COOKIE_NAME);
+
+    // CRITICAL FIX: Clear the santa cookie outside December
     // This ensures Santa mode is NEVER shown in January onwards
     if (!isDecember) {
-      // Always set to standard if it's not December
-      if (theme !== 'standard') {
-        setThemeState('standard');
-      }
-      // Clear the santa cookie if it exists
-      const cookieTheme = getCookie(THEME_COOKIE_NAME);
       if (cookieTheme === 'santa') {
         setCookie(THEME_COOKIE_NAME, 'standard');
       }
       return;
     }
 
-    // In December: Use cookie preference or date-based default
-    const cookieTheme = getCookie(THEME_COOKIE_NAME) as V2ThemeMode | undefined;
-
-    if (cookieTheme && (cookieTheme === 'standard' || cookieTheme === 'santa')) {
-      if (cookieTheme !== theme) {
-        setThemeState(cookieTheme);
-      }
+    if (cookieTheme === 'standard' || cookieTheme === 'santa') {
       return;
     }
 
-    // If no cookie and no server-provided theme, use santa for December
+    // If no cookie and no server-provided theme, persist the December default
     if (!initialTheme) {
-      if (theme !== 'santa') {
-        setThemeState('santa');
-        setCookie(THEME_COOKIE_NAME, 'santa');
-      }
+      setCookie(THEME_COOKIE_NAME, 'santa');
     }
-  }, []); // Only run once on mount
+  }, [initialTheme]);
 
   const setTheme = (newTheme: V2ThemeMode) => {
-    setThemeState(newTheme);
+    setUserTheme(newTheme);
     setCookie(THEME_COOKIE_NAME, newTheme);
   };
 

@@ -98,6 +98,17 @@ interface OgabasseyV2ProductDetailsProps {
   productId: string;
 }
 
+// Deterministic pseudo-random rank so comparison suggestions stay random per
+// mount (seeded once) but stable across re-renders — render must stay pure.
+const getSuggestionRank = (id: string, seed: string): number => {
+  const key = `${seed}:${id}`;
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  }
+  return hash;
+};
+
 export const OgabasseyV2ProductDetails: React.FC<
   OgabasseyV2ProductDetailsProps
 > = ({ storeSlug, productId }) => {
@@ -216,6 +227,9 @@ export const OgabasseyV2ProductDetails: React.FC<
   const [_isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [_missingFields, setMissingFields] = useState<string[]>([]);
 
+  // Stable per-mount shuffle seed (impure call lives in the initializer only)
+  const [suggestionSeed] = useState(() => Math.random().toString(36).slice(2));
+
   // Comparison Logic - Compute comparable items
   const comparableProducts = (() => {
     // 1. Get items from context that match category AND are NOT the current product
@@ -235,7 +249,11 @@ export const OgabasseyV2ProductDetails: React.FC<
             String(p.id) !== String(productData.id) &&
             !finalItems.some((fi) => String(fi.id) === String(p.id))
         )
-        .sort(() => 0.5 - Math.random())
+        .toSorted(
+          (a, b) =>
+            getSuggestionRank(String(a.id), suggestionSeed) -
+            getSuggestionRank(String(b.id), suggestionSeed)
+        )
         .slice(0, 2 - finalItems.length);
       finalItems = [...finalItems, ...suggestions];
     }
@@ -278,16 +296,17 @@ export const OgabasseyV2ProductDetails: React.FC<
   const quantityInCart = currentCartItem ? currentCartItem.quantity : 0;
 
   // Local state for editable quantity input
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState(() =>
+    quantityInCart > 0 ? quantityInCart.toString() : ''
+  );
 
-  // Sync input value with cart quantity when it changes
-  useEffect(() => {
-    if (quantityInCart > 0) {
-      setInputValue(quantityInCart.toString());
-    } else {
-      setInputValue('');
-    }
-  }, [quantityInCart]);
+  // Sync input value with cart quantity when it changes — render-time
+  // prev-compare instead of an effect, so there is no stale-frame commit.
+  const [prevQuantityInCart, setPrevQuantityInCart] = useState(quantityInCart);
+  if (quantityInCart !== prevQuantityInCart) {
+    setPrevQuantityInCart(quantityInCart);
+    setInputValue(quantityInCart > 0 ? quantityInCart.toString() : '');
+  }
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Allow empty string to let user delete content

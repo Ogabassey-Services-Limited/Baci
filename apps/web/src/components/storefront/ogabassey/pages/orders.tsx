@@ -36,42 +36,61 @@ interface _Order {
   items: _OrderItem[];
 }
 
+// Module-scope helper keeps the throw/try/finally out of the component body so
+// React Compiler can memoize it (react-doctor `todo` bailouts).
+async function fetchStorefrontOrders(
+  merchantSlug: string
+): Promise<StorefrontTransformedOrder[] | undefined> {
+  const res = await fetch(`/api/storefront/orders?merchantSlug=${merchantSlug}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch orders: ${res.status}`);
+  }
+
+  const data = (await res.json()) as {
+    orders?: StorefrontTransformedOrder[];
+  };
+  return data.orders;
+}
+
 export const OgabasseyV2Orders: React.FC = () => {
   const merchantContext = useMerchantSafe();
   const { customer: _customer, isAuthenticated } = useCustomerAuth(); // Hook into auth
   const basePath = merchantContext?.merchant?.slug ? `/${merchantContext.merchant.slug}` : '';
 
   const [orders, setOrders] = useState<StorefrontTransformedOrder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [hasResolvedOrders, setHasResolvedOrders] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const canFetchOrders = Boolean(
+    isAuthenticated && merchantContext?.merchant?.slug
+  );
+
+  // Resolve the loading state during render when there is nothing to fetch,
+  // instead of waiting for an effect to flip it after a stale paint
+  if (!canFetchOrders && !hasResolvedOrders) {
+    setHasResolvedOrders(true);
+  }
+  const isLoading = !hasResolvedOrders;
 
   // Fetch Orders
   useEffect(() => {
-    const fetchOrders = async () => {
-      if (!isAuthenticated || !merchantContext?.merchant?.slug) {
-        setIsLoading(false);
-        return;
-      }
+    if (!isAuthenticated || !merchantContext?.merchant?.slug) {
+      return;
+    }
 
-      try {
-        const res = await fetch(`/api/storefront/orders?merchantSlug=${merchantContext.merchant.slug}`);
-        if (!res.ok) {
-          throw new Error(`Failed to fetch orders: ${res.status}`);
-        }
-
-        const data = await res.json();
-        if (data.orders) {
+    fetchStorefrontOrders(merchantContext.merchant.slug)
+      .then((fetchedOrders) => {
+        if (fetchedOrders) {
           // Transform if necessary or use directly
-          setOrders(data.orders);
+          setOrders(fetchedOrders);
         }
-      } catch (err) {
+      })
+      .catch((err) => {
         console.error('Failed to fetch orders', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchOrders();
+      })
+      .finally(() => {
+        setHasResolvedOrders(true);
+      });
   }, [isAuthenticated, merchantContext?.merchant?.slug]);
 
   // Filter Logic

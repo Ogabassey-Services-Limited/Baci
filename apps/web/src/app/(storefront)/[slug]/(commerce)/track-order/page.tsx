@@ -125,6 +125,70 @@ const getCountryCodeForCurrency = (currency?: string | null) =>
 
 const TERMINAL_STATUSES = new Set(['cancelled', 'failed']);
 
+interface TrackingLookupParams {
+  order_id?: string | null;
+  order_number?: string | null;
+  email?: string | null;
+  tracking_token?: string | null;
+}
+
+type TrackingLookupResult =
+  | { data: OrderData; error: null }
+  | { data: null; error: string };
+
+/**
+ * Module-scope lookup keeps the try/finally and throw statements out of the
+ * component body so React Compiler can memoize the page.
+ */
+async function fetchOrderTracking(
+  merchantSlug: string | undefined,
+  trackingParams: TrackingLookupParams
+): Promise<TrackingLookupResult> {
+  try {
+    if (!merchantSlug) {
+      throw new Error('Store identifier is missing.');
+    }
+    // Token-based lookup doesn't need email; manual form does
+    if (!trackingParams.tracking_token && !trackingParams.email) {
+      throw new Error('Email is required to track an order.');
+    }
+
+    const queryParams = new URLSearchParams();
+    if (trackingParams.tracking_token) {
+      queryParams.set('token', trackingParams.tracking_token);
+    } else {
+      if (trackingParams.order_id)
+        queryParams.set('order_id', trackingParams.order_id);
+      if (trackingParams.order_number)
+        queryParams.set('order_number', trackingParams.order_number);
+      if (trackingParams.email) queryParams.set('email', trackingParams.email);
+    }
+    queryParams.set('merchant_slug', merchantSlug);
+
+    const response = await fetch(
+      `/api/storefront/orders/track-order?${queryParams}`
+    );
+    let data: OrderData | { error?: string };
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error('Unexpected server response. Please try again later.');
+    }
+
+    if (!response.ok) {
+      const errorData = data as { error?: string };
+      throw new Error(errorData.error || 'Failed to find order');
+    }
+
+    return { data: data as OrderData, error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : 'An error occurred',
+    };
+  }
+}
+
 function HorizontalProgressBar({
   status,
   latestUpdate,
@@ -252,110 +316,96 @@ function OrderTrackContent() {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isTokenLookup, setIsTokenLookup] = useState(false);
   const searchParams = useSearchParams();
   const params = useParams();
   const slugParam = params?.slug;
   const merchantSlug = Array.isArray(slugParam) ? slugParam[0] : slugParam;
 
-  const handleFetchTracking = async (trackingParams: {
-    order_id?: string | null;
-    order_number?: string | null;
-    email?: string | null;
-    tracking_token?: string | null;
-  }) => {
-    setLoading(true);
-    setError(null);
+  const qToken = searchParams.get('token');
+  const qOrderId = searchParams.get('order_id') || searchParams.get('orderId');
+  const qOrderNumber =
+    searchParams.get('order_number') || searchParams.get('orderNumber');
+  const qEmail = searchParams.get('email');
 
-    try {
-      if (!merchantSlug) {
-        throw new Error('Store identifier is missing.');
-      }
-      // Token-based lookup doesn't need email; manual form does
-      if (!trackingParams.tracking_token && !trackingParams.email) {
-        throw new Error('Email is required to track an order.');
-      }
+  // Token-based lookup (from order-success link) hides the manual form.
+  // Derived from the URL instead of effect-synced state.
+  const isTokenLookup = !!qToken;
 
-      const queryParams = new URLSearchParams();
-      if (trackingParams.tracking_token) {
-        queryParams.set('token', trackingParams.tracking_token);
-      } else {
-        if (trackingParams.order_id)
-          queryParams.set('order_id', trackingParams.order_id);
-        if (trackingParams.order_number)
-          queryParams.set('order_number', trackingParams.order_number);
-        if (trackingParams.email)
-          queryParams.set('email', trackingParams.email);
-      }
-      queryParams.set('merchant_slug', merchantSlug);
+  // Will the effect below auto-trigger a lookup for the current URL params?
+  const willAutoFetch = !!qToken || !!((qOrderId || qOrderNumber) && qEmail);
 
-      const response = await fetch(
-        `/api/storefront/orders/track-order?${queryParams}`
-      );
-      let data: OrderData | { error?: string };
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error('Unexpected server response. Please try again later.');
-      }
-
-      if (!response.ok) {
-        const errorData = data as { error?: string };
-        throw new Error(errorData.error || 'Failed to find order');
-      }
-
-      setOrderData(data as OrderData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setOrderData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Automatic tracking from URL params
-  useEffect(() => {
-    // Reset token lookup state when URL params change
-    setIsTokenLookup(false);
-
-    const qToken = searchParams.get('token');
-    const qOrderId =
-      searchParams.get('order_id') || searchParams.get('orderId');
-    const qOrderNumber =
-      searchParams.get('order_number') || searchParams.get('orderNumber');
-    const qEmail = searchParams.get('email');
+  // Seed/reset the form fields from URL params during render with a
+  // prev-compare instead of an effect (react.dev: adjusting some state when a
+  // prop changes), avoiding a stale frame between commits.
+  const [prevSearchKey, setPrevSearchKey] = useState<string | null>(null);
+  const searchKey = searchParams.toString();
+  if (searchKey !== prevSearchKey) {
+    setPrevSearchKey(searchKey);
 
     // Clear stale state when params are absent
     if (!qEmail) setEmail('');
     if (!qOrderId) setOrderId(null);
     if (!qOrderNumber) setOrderNumber('');
 
-    // Token-based lookup (from order-success link) — no email needed
-    if (qToken) {
-      setIsTokenLookup(true);
-      handleFetchTracking({ tracking_token: qToken });
-      return;
+    if (!qToken) {
+      if (qOrderId) setOrderId(qOrderId);
+      if (qEmail) setEmail(qEmail);
+      if (!qOrderId && qOrderNumber && qEmail) setOrderNumber(qOrderNumber);
     }
 
-    if (qOrderId) {
-      setOrderId(qOrderId);
+    // Enter the loading state for URL-triggered lookups here (render-time
+    // prev-compare) so the effect never sets state synchronously.
+    if (willAutoFetch) {
+      setLoading(true);
+      setError(null);
     }
+  }
 
-    if (qEmail) {
-      setEmail(qEmail);
-    }
+  // Manual form submissions — sets the loading state in the event handler.
+  const handleFetchTracking = async (trackingParams: TrackingLookupParams) => {
+    setLoading(true);
+    setError(null);
 
-    if ((qOrderId || qOrderNumber) && qEmail) {
-      if (qOrderId) {
-        handleFetchTracking({ order_id: qOrderId, email: qEmail });
-      } else if (qOrderNumber) {
-        setOrderNumber(qOrderNumber);
-        handleFetchTracking({ order_number: qOrderNumber, email: qEmail });
-      }
+    const result = await fetchOrderTracking(merchantSlug, trackingParams);
+
+    setOrderData(result.data);
+    setError(result.error);
+    setLoading(false);
+  };
+
+  // Automatic tracking from URL params. The loading state is entered by the
+  // render-time prev-compare above; results land via the async callback.
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const orderIdParam =
+      searchParams.get('order_id') || searchParams.get('orderId');
+    const orderNumberParam =
+      searchParams.get('order_number') || searchParams.get('orderNumber');
+    const emailParam = searchParams.get('email');
+
+    let trackingParams: TrackingLookupParams | null = null;
+    if (token) {
+      // Token-based lookup (from order-success link) — no email needed
+      trackingParams = { tracking_token: token };
+    } else if ((orderIdParam || orderNumberParam) && emailParam) {
+      trackingParams = orderIdParam
+        ? { order_id: orderIdParam, email: emailParam }
+        : { order_number: orderNumberParam, email: emailParam };
     }
-    // React Compiler handles memoization - handleFetchTracking is stable
-    // biome-ignore lint/correctness/useExhaustiveDependencies: Function doesn't actually change between renders
-  }, [searchParams, handleFetchTracking]);
+    if (!trackingParams) return;
+
+    let cancelled = false;
+    fetchOrderTracking(merchantSlug, trackingParams).then((result) => {
+      if (cancelled) return;
+      setOrderData(result.data);
+      setError(result.error);
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, merchantSlug]);
 
   const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();

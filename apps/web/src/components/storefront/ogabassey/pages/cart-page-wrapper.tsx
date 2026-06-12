@@ -19,6 +19,150 @@ interface CartPageWrapperProps {
   vatRate?: number;
 }
 
+interface FetchAndAddCartItemsOptions {
+  itemIds: string;
+  quizAwardId: string | null;
+  quizVoucherToken: string | null;
+  variantId?: string;
+  condition?: string;
+  merchantId: string;
+  cart: ReturnType<typeof useCart>['cart'];
+  addToCart: ReturnType<typeof useCart>['addToCart'];
+  toast: ReturnType<typeof useToast>['toast'];
+  setIsLoading: (loading: boolean) => void;
+}
+
+// Module-scope helper: keeps the try/finally out of the component body so
+// React Compiler can memoize CartPageWrapper.
+async function fetchAndAddCartItems({
+  itemIds,
+  quizAwardId,
+  quizVoucherToken,
+  variantId,
+  condition,
+  merchantId,
+  cart,
+  addToCart,
+  toast,
+  setIsLoading,
+}: FetchAndAddCartItemsOptions): Promise<void> {
+  const hasQuizPrizeVoucher = Boolean(quizAwardId && quizVoucherToken);
+  setIsLoading(true);
+
+  try {
+    // Support comma-separated IDs: item_id=123,456,789
+    const ids = itemIds.split(',').map(id => id.trim()).filter(Boolean);
+
+    if (ids.length === 0) return;
+
+    const supabase = createClient();
+
+    // Fetch products by ID
+    const { data: products, error } = await supabase
+      .from('products')
+      .select(
+        'id, name, description, status, price, manage_stock, stock, brand, gtin, mpn, merchant_id, images, imageHint:image_hint'
+      )
+      .eq('merchant_id', merchantId)
+      .in('id', ids)
+      .eq('status', 'active');
+
+    if (error) {
+      console.error('Error fetching products:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not add items to cart. Please try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!products || products.length === 0) {
+      toast({
+        title: 'Product not found',
+        description: 'The requested product could not be found.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const activeProducts = products.filter(
+      (product) => product.status === 'active'
+    );
+    if (activeProducts.length === 0) {
+      toast({
+        title: 'Product not found',
+        description: 'The requested product could not be found.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Add each product to cart
+    let addedCount = 0;
+    for (const product of activeProducts) {
+      const resolvedImage =
+        getPrimaryProductImage(product.images) ||
+        PRODUCT_IMAGE_PLACEHOLDER_URL;
+      // Check if already in cart
+      const existsInCart = hasQuizPrizeVoucher
+        ? cart.some(item => item.quizAwardId === quizAwardId)
+        : cart.some(item => item.id === product.id && !item.quizAwardId);
+      if (!existsInCart) {
+        addToCart(
+          {
+            ...product,
+            image: resolvedImage,
+            imageLarge: resolvedImage,
+          },
+          1,
+          hasQuizPrizeVoucher
+            ? {
+                condition,
+                platform: QUIZ_PRIZE_PLATFORM,
+                quizAwardId: quizAwardId ?? undefined,
+                quizVoucherToken: quizVoucherToken ?? undefined,
+                variantId,
+              }
+            : undefined
+        );
+        addedCount++;
+      }
+    }
+
+    if (addedCount > 0) {
+      toast({
+        title: addedCount === 1 ? 'Added to cart' : `${addedCount} items added`,
+        description: addedCount === 1
+          ? `${activeProducts[0].name} has been added to your cart.`
+          : `${addedCount} products have been added to your cart.`,
+      });
+    }
+
+    // Clean up URL by removing item_id parameter
+    const url = new URL(window.location.href);
+    url.searchParams.delete('item_id');
+    url.searchParams.delete('quiz_award_id');
+    url.searchParams.delete('quiz_voucher_token');
+    url.searchParams.delete('variant_id');
+    url.searchParams.delete('condition');
+    window.history.replaceState(
+      {},
+      '',
+      `${url.pathname}${url.search}${url.hash}`
+    );
+  } catch (err) {
+    console.error('Error adding products to cart:', err);
+    toast({
+      title: 'Error',
+      description: 'Something went wrong. Please try again.',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+}
+
 /**
  * Cart page wrapper that handles item_id query parameter for direct add-to-cart links.
  * Supports URLs like: /cart?item_id=123 or /cart?item_id=123,456,789
@@ -38,131 +182,23 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
       searchParams.get('quiz_voucher_token')?.trim() || null;
     const variantId = searchParams.get('variant_id')?.trim() || undefined;
     const condition = searchParams.get('condition')?.trim() || undefined;
-    const hasQuizPrizeVoucher = Boolean(quizAwardId && quizVoucherToken);
 
     // Only process once and only if item_id is present
     if (!itemIds || processedRef.current) return;
     processedRef.current = true;
 
-    const fetchAndAddProducts = async () => {
-      setIsLoading(true);
-
-      try {
-        // Support comma-separated IDs: item_id=123,456,789
-        const ids = itemIds.split(',').map(id => id.trim()).filter(Boolean);
-
-        if (ids.length === 0) return;
-
-        const supabase = createClient();
-
-        // Fetch products by ID
-        const { data: products, error } = await supabase
-          .from('products')
-          .select(
-            'id, name, description, status, price, manage_stock, stock, brand, gtin, mpn, merchant_id, images, imageHint:image_hint'
-          )
-          .eq('merchant_id', merchantId)
-          .in('id', ids)
-          .eq('status', 'active');
-
-        if (error) {
-          console.error('Error fetching products:', error);
-          toast({
-            title: 'Error',
-            description: 'Could not add items to cart. Please try again.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        if (!products || products.length === 0) {
-          toast({
-            title: 'Product not found',
-            description: 'The requested product could not be found.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        const activeProducts = products.filter(
-          (product) => product.status === 'active'
-        );
-        if (activeProducts.length === 0) {
-          toast({
-            title: 'Product not found',
-            description: 'The requested product could not be found.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        // Add each product to cart
-        let addedCount = 0;
-        for (const product of activeProducts) {
-          const resolvedImage =
-            getPrimaryProductImage(product.images) ||
-            PRODUCT_IMAGE_PLACEHOLDER_URL;
-          // Check if already in cart
-          const existsInCart = hasQuizPrizeVoucher
-            ? cart.some(item => item.quizAwardId === quizAwardId)
-            : cart.some(item => item.id === product.id && !item.quizAwardId);
-          if (!existsInCart) {
-            addToCart(
-              {
-                ...product,
-                image: resolvedImage,
-                imageLarge: resolvedImage,
-              },
-              1,
-              hasQuizPrizeVoucher
-                ? {
-                    condition,
-                    platform: QUIZ_PRIZE_PLATFORM,
-                    quizAwardId: quizAwardId ?? undefined,
-                    quizVoucherToken: quizVoucherToken ?? undefined,
-                    variantId,
-                  }
-                : undefined
-            );
-            addedCount++;
-          }
-        }
-
-        if (addedCount > 0) {
-          toast({
-            title: addedCount === 1 ? 'Added to cart' : `${addedCount} items added`,
-            description: addedCount === 1
-              ? `${activeProducts[0].name} has been added to your cart.`
-              : `${addedCount} products have been added to your cart.`,
-          });
-        }
-
-        // Clean up URL by removing item_id parameter
-        const url = new URL(window.location.href);
-        url.searchParams.delete('item_id');
-        url.searchParams.delete('quiz_award_id');
-	        url.searchParams.delete('quiz_voucher_token');
-	        url.searchParams.delete('variant_id');
-	        url.searchParams.delete('condition');
-	        window.history.replaceState(
-	          {},
-	          '',
-	          `${url.pathname}${url.search}${url.hash}`
-	        );
-
-      } catch (err) {
-        console.error('Error adding products to cart:', err);
-        toast({
-          title: 'Error',
-          description: 'Something went wrong. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAndAddProducts();
+    void fetchAndAddCartItems({
+      itemIds,
+      quizAwardId,
+      quizVoucherToken,
+      variantId,
+      condition,
+      merchantId,
+      cart,
+      addToCart,
+      toast,
+      setIsLoading,
+    });
   }, [searchParams, merchantId, addToCart, cart, toast]);
 
   // Show loading state while adding items

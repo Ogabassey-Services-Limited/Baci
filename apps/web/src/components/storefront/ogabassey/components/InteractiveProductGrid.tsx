@@ -22,6 +22,8 @@ interface InteractiveProductGridProps {
   showViewAll?: boolean;
 }
 
+const PRODUCTS_PER_PAGE = 20;
+
 export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   products,
   categories: explicitCategories,
@@ -48,8 +50,25 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const PRODUCTS_PER_PAGE = 20;
   const [displayCount, setDisplayCount] = useState(PRODUCTS_PER_PAGE);
+
+  // Reset pagination during render (prev-value comparison) whenever a filter
+  // changes, instead of through a useEffect — React restarts the render
+  // before commit, so shoppers never see a stale page-size frame.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const filtersKey = JSON.stringify([
+    selectedCategory,
+    priceRange.min,
+    priceRange.max,
+    selectedBrand,
+    selectedCondition,
+    minRating,
+  ]);
+  const [prevFiltersKey, setPrevFiltersKey] = useState(filtersKey);
+  if (filtersKey !== prevFiltersKey) {
+    setPrevFiltersKey(filtersKey);
+    setDisplayCount(PRODUCTS_PER_PAGE);
+  }
 
   const categories = (() => {
     if (explicitCategories && explicitCategories.length > 0) {
@@ -140,10 +159,6 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
     setMinRating(0);
     setDisplayCount(PRODUCTS_PER_PAGE); // Reset pagination on filter reset
   };
-
-  React.useEffect(() => {
-    setDisplayCount(PRODUCTS_PER_PAGE);
-  }, [selectedCategory, priceRange.min, priceRange.max, selectedBrand, selectedCondition, minRating]);
 
   const visibleProducts = filteredProducts.slice(0, displayCount);
   const hasMoreProducts = displayCount < filteredProducts.length;

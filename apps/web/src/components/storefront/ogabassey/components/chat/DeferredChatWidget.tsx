@@ -24,6 +24,11 @@ const CHAT_MOBILE_OFFSET_ATTRIBUTES = {
   'data-mobile-offset-screen': '1rem',
 } as const;
 
+// Module-scope so the dynamic import() expression stays outside the component
+// body (React Compiler cannot lower import expressions). Code splitting is
+// unaffected: the chunk still loads on first activation only.
+const loadDefaultChatWidget = () => import('./ChatWidget');
+
 function getMobileOffset(pathname: string | null) {
   const isProductPage =
     pathname?.match(/\/[^/]+\/[^/]+\/[^/]+/) &&
@@ -76,8 +81,7 @@ export function DeferredChatWidget({
     }
 
     setIsLoading(true);
-    const resolveChatWidget =
-      loadChatWidget ?? (() => import('./ChatWidget'));
+    const resolveChatWidget = loadChatWidget ?? loadDefaultChatWidget;
 
     void resolveChatWidget()
       .then((module) => {

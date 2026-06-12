@@ -149,13 +149,16 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
 
   const [adRefreshTrigger, setAdRefreshTrigger] = useState(0);
 
-  useEffect(() => {
-    const activeSlide = slides[currentSlide];
-    if (activeSlide?.type === 'ad') {
+  // Adjust state during render with a prev-comparison instead of an effect
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevSlideIndex, setPrevSlideIndex] = useState<number | null>(null);
+  if (prevSlideIndex !== currentSlide) {
+    setPrevSlideIndex(currentSlide);
+    if (slides[currentSlide]?.type === 'ad') {
       // Trigger ad refresh when ad slide becomes active
       setAdRefreshTrigger((prev) => prev + 1);
     }
-  }, [currentSlide, slides]);
+  }
 
   return (
     <div

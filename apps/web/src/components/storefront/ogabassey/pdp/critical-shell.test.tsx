@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { OgabasseyPdpCriticalShell } from './critical-shell';
+import type { OgabasseyPdpCriticalProduct } from './critical-product';
 
 vi.mock('next/image', () => ({
   getImageProps: ({
@@ -22,28 +23,43 @@ vi.mock('next/image', () => ({
     decoding?: string;
     fetchPriority?: string;
     fill?: boolean;
-    loader?: () => string;
+    loader?: (params: {
+      quality?: number;
+      src: string;
+      width: number;
+    }) => string;
     loading?: string;
     priority?: boolean;
     quality?: number;
     sizes?: string;
     src: string;
-  }) => ({
-    props: {
-      alt,
-      className,
-      decoding,
-      fetchPriority,
-      fill,
-      loader,
-      loading,
-      priority,
-      quality,
-      sizes,
-      src,
-      srcSet: `${src} 640w`,
-    },
-  }),
+  }) => {
+    const resolvedSrc = loader
+      ? loader({ quality, src, width: 3840 })
+      : src;
+    const srcSet = loader
+      ? [640, 750]
+          .map((width) => `${loader({ quality, src, width })} ${width}w`)
+          .join(', ')
+      : `${src} 640w`;
+
+    return {
+      props: {
+        alt,
+        className,
+        decoding,
+        fetchPriority,
+        fill,
+        loader,
+        loading,
+        priority,
+        quality,
+        sizes,
+        src: resolvedSrc,
+        srcSet,
+      },
+    };
+  },
 }));
 
 vi.mock('next/link', () => ({
@@ -62,28 +78,54 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+
+const defaultProduct: OgabasseyPdpCriticalProduct = {
+  brand: 'Samsung',
+  categoryName: 'Smartphones',
+  categorySlug: 'smartphones',
+  condition: 'new',
+  id: 'product-1',
+  image: 'https://cdn.ogabassey.com/core-assets/products/galaxy-trifold.avif',
+  name: 'Samsung Galaxy Z TriFold',
+  price: 5_800_000,
+  rating: 0,
+  ratingCount: 0,
+  reviewCount: 0,
+  slug: 'samsung-galaxy-z-trifold',
+  stockQuantity: 3,
+};
+
+function renderCriticalShell(
+  productOverrides: Partial<OgabasseyPdpCriticalProduct> = {},
+  children?: ReactNode
+) {
+  return render(
+    <OgabasseyPdpCriticalShell
+      basePath=""
+      product={{ ...defaultProduct, ...productOverrides }}
+    >
+      {children}
+    </OgabasseyPdpCriticalShell>
+  );
+}
+
 describe('OgabasseyPdpCriticalShell', () => {
   it('renders one server-owned product heading and high-priority image', () => {
-    render(
-      <OgabasseyPdpCriticalShell
-        basePath=""
-        product={{
-          brand: 'Lenovo',
-          categoryName: 'Laptops',
-          categorySlug: 'laptops',
-          condition: 'used',
-          id: 'product-1',
-          image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
-          name: 'Lenovo Legion Pro 9',
-          price: 5_985_000,
-          rating: 4.5,
-          reviewCount: 12,
-          slug: 'lenovo-legion-pro-9',
-          stockQuantity: 3,
-        }}
-      >
-        <button type="button">Add to Cart</button>
-      </OgabasseyPdpCriticalShell>
+    renderCriticalShell(
+      {
+        brand: 'Lenovo',
+        categoryName: 'Laptops',
+        categorySlug: 'laptops',
+        condition: 'used',
+        id: 'product-1',
+        image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
+        name: 'Lenovo Legion Pro 9',
+        price: 5_985_000,
+        rating: 4.5,
+        reviewCount: 12,
+        slug: 'lenovo-legion-pro-9',
+      },
+      <button type="button">Add to Cart</button>
     );
 
     expect(
@@ -128,5 +170,115 @@ describe('OgabasseyPdpCriticalShell', () => {
     expect(
       screen.getByRole('button', { name: 'Add to Cart' })
     ).toBeInTheDocument();
+  });
+
+  it('can render same-origin PDP image URLs for known OgaBassey routes', () => {
+    render(
+      <OgabasseyPdpCriticalShell
+        basePath=""
+        imageDelivery="same-origin"
+        product={{
+          ...defaultProduct,
+          image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
+          name: 'Lenovo Legion Pro 9',
+          slug: 'lenovo-legion-pro-9',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
+    ).toHaveAttribute(
+      'src',
+      '/api/ogabassey/pdp-lcp-image/lenovo-legion-pro-9?width=3840&quality=35'
+    );
+    expect(
+      document
+        .querySelector('source[media="(max-width: 767px)"]')
+        ?.getAttribute('srcset')
+    ).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/mobile/lenovo-legion-pro-9 750w'
+    );
+  });
+
+  it('does not render filled stars for products without reviews', () => {
+    renderCriticalShell();
+
+    expect(screen.getByText('No reviews yet')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/out of 5 stars/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('★★★★★')).not.toBeInTheDocument();
+  });
+
+  it('renders an honest rating signal for products with reviews', () => {
+    renderCriticalShell({ rating: 4.5, reviewCount: 25 });
+
+    expect(
+      screen.getByRole('img', { name: '4.5 out of 5 stars' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('4.5 ★')).toBeInTheDocument();
+    expect(screen.getByText('25 Reviews')).toBeInTheDocument();
+    expect(screen.queryByText('★★★★★')).not.toBeInTheDocument();
+  });
+
+  it('uses singular review copy for one review', () => {
+    renderCriticalShell({ rating: 4, reviewCount: 1 });
+
+    expect(screen.getByText('1 Review')).toBeInTheDocument();
+  });
+
+  it('renders rating-count-only aggregate ratings as ratings, not reviews', () => {
+    renderCriticalShell({ rating: 4.5, ratingCount: 12, reviewCount: 0 });
+
+    expect(
+      screen.getByRole('img', { name: '4.5 out of 5 stars' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('12 Ratings')).toBeInTheDocument();
+    expect(screen.queryByText('No reviews yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('12 Reviews')).not.toBeInTheDocument();
+  });
+
+  it('displays review count when both reviews and ratings exist', () => {
+    renderCriticalShell({ rating: 4.5, ratingCount: 12, reviewCount: 5 });
+
+    expect(
+      screen.getByRole('img', { name: '4.5 out of 5 stars' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('5 Reviews')).toBeInTheDocument();
+    expect(screen.queryByText('12 Ratings')).not.toBeInTheDocument();
+  });
+
+  it('shows review count without a rating signal when rating is zero', () => {
+    renderCriticalShell({ rating: 0, reviewCount: 3 });
+
+    expect(screen.getByText('3 Reviews')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/out of 5 stars/i)).not.toBeInTheDocument();
+  });
+
+  it('clamps rendered rating values to the valid five-star range', () => {
+    const { rerender } = renderCriticalShell({ rating: 5, reviewCount: 3 });
+
+    expect(
+      screen.getByRole('img', { name: '5 out of 5 stars' })
+    ).toBeInTheDocument();
+
+    rerender(
+      <OgabasseyPdpCriticalShell
+        basePath=""
+        product={{ ...defaultProduct, rating: 5.8, reviewCount: 3 }}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', { name: '5 out of 5 stars' })
+    ).toBeInTheDocument();
+
+    rerender(
+      <OgabasseyPdpCriticalShell
+        basePath=""
+        product={{ ...defaultProduct, rating: -1, reviewCount: 3 }}
+      />
+    );
+
+    expect(screen.queryByLabelText(/out of 5 stars/i)).not.toBeInTheDocument();
   });
 });
