@@ -12,7 +12,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { type CartItem, useCartStore } from '@/stores/cart-store';
+import { useCartStore } from '@/stores/cart-store';
 import { showCartToast } from './cart-notifications';
 import { getCachedProductStock } from './cart-query-cache';
 import {
@@ -36,6 +36,7 @@ export function useCart() {
     itemCount,
     subtotal,
     getItem,
+    clearCart,
   } = useCartStore(
     useShallow((state) => ({
       items: state.items,
@@ -45,6 +46,7 @@ export function useCart() {
       itemCount: state.itemCount,
       subtotal: state.subtotal,
       getItem: state.getItem,
+      clearCart: state.clearCart,
     }))
   );
 
@@ -255,7 +257,7 @@ export function useCart() {
 
     // Direct store access for non-optimistic operations
     getItem,
-    clearCart: useCartStore.getState().clearCart,
+    clearCart,
   };
 }
 

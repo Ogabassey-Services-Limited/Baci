@@ -63,7 +63,7 @@ export function useProduct(slug: string) {
   const { data: merchant } = useMerchant();
   const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
-  const query = useQuery({
+  const { data, error, isLoading, refetch } = useQuery({
     queryKey: buildProductQueryKey(slug, merchantId),
     queryFn: async () => {
       log.info('Fetching product:', slug);
@@ -139,10 +139,10 @@ export function useProduct(slug: string) {
   });
 
   return {
-    product: query.data || null,
-    isLoading: query.isLoading,
-    error: query.error?.message || null,
-    refetch: query.refetch,
+    product: data || null,
+    isLoading,
+    error: error?.message || null,
+    refetch,
   };
 }
 

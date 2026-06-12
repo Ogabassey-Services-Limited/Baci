@@ -183,17 +183,24 @@ export default function RootLayout() {
     };
   }, [initialize]);
 
+  // Latch boot completion inline during render so the first commit after the
+  // splash hides already resumes navigation, with no stale intermediate frame
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  if (
+    !hasCompletedInitialBoot &&
+    !showSplash &&
+    isInitialized &&
+    isStorageReady
+  ) {
+    setHasCompletedInitialBoot(true);
+  }
+
+  // Persist boot completion to module state (external system) for remounts.
   useEffect(() => {
-    if (
-      !hasCompletedInitialBoot &&
-      !showSplash &&
-      isInitialized &&
-      isStorageReady
-    ) {
+    if (hasCompletedInitialBoot) {
       bootstrapState.hasCompletedInitialBoot = true;
-      setHasCompletedInitialBoot(true);
     }
-  }, [hasCompletedInitialBoot, showSplash, isInitialized, isStorageReady]);
+  }, [hasCompletedInitialBoot]);
 
   // Clear attempt tracking on logout so the same account can re-register
   // after signing out and back in.

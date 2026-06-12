@@ -18,6 +18,10 @@ import {
   ADDRESS_LIST_BOTTOM_PADDING,
 } from '@/components/addresses/constants';
 import { loadAddresses } from '@/components/addresses/load-addresses';
+import {
+  deleteAddressRecord,
+  persistDefaultAddress,
+} from '@/components/addresses/mutate-saved-addresses';
 import { styles } from '@/components/addresses/styles';
 import type { Address } from '@/components/addresses/types';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
@@ -25,12 +29,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
-import { createLogger } from '@/lib/logger';
-import { normalizeSavedAddresses } from '@/lib/saved-addresses';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
-
-const log = createLogger('Addresses');
 
 export default function AddressesScreen() {
   const colorScheme = useColorScheme();
@@ -104,24 +103,18 @@ export default function AddressesScreen() {
 
   const handleSetDefault = async (addressId: string) => {
     if (settingDefaultRef.current || !customer?.id || !merchantId) return;
+    const customerId = customer.id;
     settingDefaultRef.current = true;
 
-    try {
-      const updated = addresses.map((address) => ({
-        ...address,
-        is_default: address.id === addressId,
-      }));
+    const didPersist = await persistDefaultAddress({
+      addressId,
+      customerId,
+      merchantId,
+    });
 
-      const { error: updateError } = await supabase
-        .from('customers')
-        .update({ saved_addresses: updated })
-        .eq('id', customer.id)
-        .eq('merchant_id', merchantId);
-
-      if (updateError) throw updateError;
-
+    if (didPersist) {
       void loadAddresses({
-        customerId: customer.id,
+        customerId,
         merchantId,
         isMountedRef,
         setAddresses,
@@ -129,12 +122,8 @@ export default function AddressesScreen() {
         setIsLoading,
         setIsRefreshing,
       });
-    } catch (updateError) {
-      log.error('Error setting default address:', updateError);
-      Alert.alert('Error', 'Failed to set default address');
-    } finally {
-      settingDefaultRef.current = false;
     }
+    settingDefaultRef.current = false;
   };
 
   const handleDeleteAddress = (address: Address) => {
@@ -151,22 +140,13 @@ export default function AddressesScreen() {
               Alert.alert('Error', 'Please sign in to manage addresses');
               return;
             }
-            try {
-              const updated = addresses.filter(
-                (item) => item.id !== address.id
-              );
-              const normalized = normalizeSavedAddresses(updated);
-              const { error: deleteError } = await supabase
-                .from('customers')
-                .update({ saved_addresses: normalized })
-                .eq('id', customer.id)
-                .eq('merchant_id', merchantId);
-
-              if (deleteError) throw deleteError;
+            const normalized = await deleteAddressRecord({
+              addressId: address.id,
+              customerId: customer.id,
+              merchantId,
+            });
+            if (normalized) {
               setAddresses(normalized);
-            } catch (deleteError) {
-              log.error('Error deleting address:', deleteError);
-              Alert.alert('Error', 'Failed to delete address');
             }
           },
         },

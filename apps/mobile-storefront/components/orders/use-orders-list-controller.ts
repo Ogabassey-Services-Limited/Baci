@@ -144,6 +144,15 @@ export function useOrdersListController({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] =
     useState<OrderListFilterKey>('all');
+  const [prevCustomerId, setPrevCustomerId] = useState(customerId);
+
+  // Flip back to loading inline during render when the customer changes so the
+  // UI never shows one stale frame (react.dev: "Adjusting some state when a
+  // prop changes").
+  if (customerId !== prevCustomerId) {
+    setPrevCustomerId(customerId);
+    setIsLoading(true);
+  }
 
   const fetchOrders = async () => {
     await fetchAndStoreOrders(customerId, {
@@ -155,7 +164,6 @@ export function useOrdersListController({
   };
 
   useEffect(() => {
-    setIsLoading(true);
     void fetchAndStoreOrders(customerId, {
       setError,
       setIsLoading,

@@ -1,15 +1,153 @@
 import type { FlashListRef } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
-import { useEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Platform, type TextInput } from 'react-native';
-import { createLogger } from '@/lib/logger';
 import { useShallow } from 'zustand/react/shallow';
+import { createLogger } from '@/lib/logger';
 import { useUIStore } from '@/stores/ui-store';
 import { API_BASE_URL, CHAT_REQUEST_TIMEOUT_MS } from './constants';
 import { readChatResponseText } from './read-chat-response';
 import type { ChatMessage } from './types';
 
 const log = createLogger('ChatWidget');
+
+function createWelcomeMessage(santaMode: boolean): ChatMessage {
+  return {
+    id: 'welcome',
+    role: 'model',
+    text: santaMode
+      ? 'Ho ho ho! How can Santa AI help you today?'
+      : 'Hello! How can I help you today?',
+    timestamp: new Date(),
+  };
+}
+
+type RequestChatReplyArgs = {
+  createMessageId: (prefix: 'ai' | 'error') => string;
+  history: ChatMessage[];
+  messageText: string;
+  santaMode: boolean;
+  scrollToBottom: () => void;
+  setIsLoading: Dispatch<SetStateAction<boolean>>;
+  setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
+};
+
+// Module-scope helper: try/finally cannot live inside the component body
+// because React Compiler does not lower TryStatement finalizers yet.
+async function requestChatReply({
+  createMessageId,
+  history,
+  messageText,
+  santaMode,
+  scrollToBottom,
+  setIsLoading,
+  setMessages,
+}: RequestChatReplyArgs): Promise<void> {
+  try {
+    const endpoint = santaMode
+      ? `${API_BASE_URL}/api/chat/santa`
+      : `${API_BASE_URL}/api/chat`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      CHAT_REQUEST_TIMEOUT_MS
+    );
+
+    try {
+      const requestBody = {
+        messages: [
+          ...history.map((m) => ({
+            role: m.role === 'model' ? 'assistant' : 'user',
+            content: m.text,
+          })),
+          { role: 'user', content: messageText },
+        ],
+      };
+
+      const sendRequest = async () => {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/plain',
+            'Cache-Control': 'no-cache',
+          },
+          signal: controller.signal,
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Chat service unavailable (${response.status})`);
+        }
+
+        const text = await readChatResponseText(response);
+        log.info('Chat response received', {
+          endpoint,
+          status: response.status,
+          length: text.length,
+        });
+
+        return text;
+      };
+
+      let aiResponseText = await sendRequest();
+
+      if (!aiResponseText) {
+        log.warn('Empty chat response, retrying once', { endpoint });
+        aiResponseText = await sendRequest();
+      }
+
+      if (!aiResponseText) {
+        throw new Error('Empty chat response');
+      }
+
+      // Clean response text (sanitizeHtml not needed — RN <Text> doesn't execute HTML)
+      const displayText = aiResponseText
+        .replace(/ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:[^\s]+/g, '')
+        .trim();
+
+      const aiMessage: ChatMessage = {
+        id: createMessageId('ai'),
+        role: 'model',
+        text: displayText,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success
+        ).catch(() => undefined);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } catch (error) {
+    log.error('Chat error:', error);
+
+    const errorMessage: ChatMessage = {
+      id: createMessageId('error'),
+      role: 'model',
+      text: santaMode
+        ? "Ho ho ho! Santa's workshop is a bit busy right now. Please try again!"
+        : "I'm having trouble connecting right now. Please try again later.",
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, errorMessage]);
+  } finally {
+    setIsLoading(false);
+    scrollToBottom();
+  }
+}
 
 export function useChat(santaMode: boolean) {
   const { isChatOpen, chatInitialMessage } = useUIStore(
@@ -27,44 +165,21 @@ export function useChat(santaMode: boolean) {
   const inputRef = useRef<TextInput>(null);
   const _msgCounter = useRef(0);
 
-  // H23 fix: Keep a ref of messages so handleSend always reads fresh data
-  const messagesRef = useRef<ChatMessage[]>(messages);
-  messagesRef.current = messages;
-
-  // Stable ref for isLoading so handleSend reads fresh value without re-creating
-  const isLoadingRef = useRef(isLoading);
-  isLoadingRef.current = isLoading;
-
-  // Stable ref for santaMode so handleSend doesn't re-create on prop change
-  const santaModeRef = useRef(santaMode);
-  santaModeRef.current = santaMode;
-
   const scrollToBottom = () => {
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
   };
 
-  // Initialize with welcome message
-  useEffect(() => {
-    if (isChatOpen && messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'model',
-          text: santaMode
-            ? 'Ho ho ho! How can Santa AI help you today?'
-            : 'Hello! How can I help you today?',
-          timestamp: new Date(),
-        },
-      ]);
-    }
-  }, [isChatOpen, messages.length, santaMode]);
+  // Seed the welcome message inline during render when the chat first opens
+  // (react.dev: "Adjusting some state when a prop changes"). The guard on
+  // messages.length makes the adjustment converge after one re-render.
+  if (isChatOpen && messages.length === 0) {
+    setMessages([createWelcomeMessage(santaMode)]);
+  }
 
-  // Stable handleSend via ref pattern — reads all volatile state from refs
-  // so the function identity never changes and useEffect deps stay stable.
-  const handleSendRef = useRef(async (messageText: string) => {
-    if (!messageText.trim() || isLoadingRef.current) return;
+  const handleSend = (messageText: string) => {
+    if (!messageText.trim() || isLoading) return;
 
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
@@ -84,113 +199,25 @@ export function useChat(santaMode: boolean) {
     setIsLoading(true);
     scrollToBottom();
 
-    try {
-      const isSanta = santaModeRef.current;
-      const endpoint = isSanta
-        ? `${API_BASE_URL}/api/chat/santa`
-        : `${API_BASE_URL}/api/chat`;
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(
-        () => controller.abort(),
-        CHAT_REQUEST_TIMEOUT_MS
-      );
-
-      // Capture history before setMessages so concurrent renders can't duplicate
-      const currentMessages = messagesRef.current;
-      try {
-        const requestBody = {
-          messages: [
-            ...currentMessages.map((m) => ({
-              role: m.role === 'model' ? 'assistant' : 'user',
-              content: m.text,
-            })),
-            { role: 'user', content: messageText },
-          ],
-        };
-
-        const sendRequest = async () => {
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'text/plain',
-              'Cache-Control': 'no-cache',
-            },
-            signal: controller.signal,
-            body: JSON.stringify(requestBody),
-          });
-
-          if (!response.ok) {
-            throw new Error(`Chat service unavailable (${response.status})`);
-          }
-
-          const text = await readChatResponseText(response);
-          log.info('Chat response received', {
-            endpoint,
-            status: response.status,
-            length: text.length,
-          });
-
-          return text;
-        };
-
-        let aiResponseText = await sendRequest();
-
-        if (!aiResponseText) {
-          log.warn('Empty chat response, retrying once', { endpoint });
-          aiResponseText = await sendRequest();
-        }
-
-        if (!aiResponseText) {
-          throw new Error('Empty chat response');
-        }
-
-        // Clean response text (sanitizeHtml not needed — RN <Text> doesn't execute HTML)
-        const displayText = aiResponseText
-          .replace(/ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:[^\s]+/g, '')
-          .trim();
-
-        const aiMessage: ChatMessage = {
-          id: `ai-${++_msgCounter.current}`,
-          role: 'model',
-          text: displayText,
-          timestamp: new Date(),
-        };
-
-        setMessages((prev) => [...prev, aiMessage]);
-
-        if (Platform.OS === 'ios') {
-          Haptics.notificationAsync(
-            Haptics.NotificationFeedbackType.Success
-          ).catch(() => undefined);
-        }
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch (error) {
-      log.error('Chat error:', error);
-
-      const isSanta = santaModeRef.current;
-      const errorMessage: ChatMessage = {
-        id: `error-${++_msgCounter.current}`,
-        role: 'model',
-        text: isSanta
-          ? "Ho ho ho! Santa's workshop is a bit busy right now. Please try again!"
-          : "I'm having trouble connecting right now. Please try again later.",
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      scrollToBottom();
-    }
-  });
-
-  const handleSend = (messageText: string) => {
-    handleSendRef.current(messageText);
+    // `messages` is the history BEFORE the user message above — the helper
+    // appends `messageText` itself, so concurrent renders can't duplicate it.
+    void requestChatReply({
+      createMessageId: (prefix) => `${prefix}-${++_msgCounter.current}`,
+      history: messages,
+      messageText,
+      santaMode,
+      scrollToBottom,
+      setIsLoading,
+      setMessages,
+    });
   };
+
+  // Latest-closure ref so the auto-send effect below keeps a stable dependency
+  // set; updated in an effect (never during render).
+  const handleSendRef = useRef(handleSend);
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  });
 
   // Auto-send initial message if provided by UIStore
   useEffect(() => {

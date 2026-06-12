@@ -81,11 +81,15 @@ export function Toast({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const config = getVariantColors(variant, theme);
   const icon = VARIANT_ICONS[variant];
-  // M35 fix: Store onDismiss in a ref to avoid it being a dependency in useEffect.
-  // When onDismiss is an inline function, it changes identity every render,
-  // causing the useEffect to re-fire and potentially loop.
+  // M35 fix: Store onDismiss in a ref to avoid it being a dependency in the
+  // auto-dismiss useEffect. When onDismiss is an inline function, it changes
+  // identity every render, causing that effect to re-fire and potentially loop.
+  // The ref is synced after each commit (never written during render).
   const onDismissRef = useRef(onDismiss);
-  onDismissRef.current = onDismiss;
+
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   // Cleanup timer on unmount or when visibility changes
   useEffect(() => {

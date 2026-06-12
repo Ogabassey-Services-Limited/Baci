@@ -30,7 +30,9 @@ export function useCheckoutSavedAddresses({
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<
     string | null
   >(null);
-  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+  // Starts true: with no saved addresses loaded yet, checkout opens on the
+  // new-address editor (previously converged to true via a post-mount effect).
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(true);
   const [isLoadingSavedAddresses, setIsLoadingSavedAddresses] = useState(false);
   const [isContactCollapsed, setIsContactCollapsed] = useState(false);
   const [isDeliveryCollapsed, setIsDeliveryCollapsed] = useState(false);
@@ -41,6 +43,24 @@ export function useCheckoutSavedAddresses({
   const selectedSavedAddress =
     savedAddresses.find((item) => item.id === selectedSavedAddressId) ?? null;
   const defaultSavedAddress = getDefaultSavedAddress(savedAddresses);
+  const [prevAddressContext, setPrevAddressContext] = useState({
+    hasSavedAddresses,
+    selectedSavedAddressId,
+  });
+
+  // Keep the editor mode consistent inline (pre-commit) when the saved-address
+  // context changes, instead of one frame later via an effect.
+  if (
+    prevAddressContext.hasSavedAddresses !== hasSavedAddresses ||
+    prevAddressContext.selectedSavedAddressId !== selectedSavedAddressId
+  ) {
+    setPrevAddressContext({ hasSavedAddresses, selectedSavedAddressId });
+    if (!hasSavedAddresses) {
+      setIsAddingNewAddress(true);
+    } else if (selectedSavedAddressId) {
+      setIsAddingNewAddress(false);
+    }
+  }
 
   const applySavedAddressToForm = (
     savedAddress: SavedAddress,
@@ -103,17 +123,6 @@ export function useCheckoutSavedAddresses({
 
     fetchAndHydrate();
   }, [customerId, isAuthenticated, merchantId, setValue]);
-
-  useEffect(() => {
-    if (!hasSavedAddresses) {
-      setIsAddingNewAddress(true);
-      return;
-    }
-
-    if (selectedSavedAddressId) {
-      setIsAddingNewAddress(false);
-    }
-  }, [hasSavedAddresses, selectedSavedAddressId]);
 
   return {
     applySavedAddressToForm,

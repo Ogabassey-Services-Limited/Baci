@@ -28,44 +28,61 @@ function canUseOtaUpdates() {
   return !__DEV__ && Boolean(Updates.isEnabled && Updates.runtimeVersion);
 }
 
+// Hoisted: try/finally in a component body blocks React Compiler.
+async function runMobileUpdateCheck(params: {
+  hasDeferredCheckRef: { current: boolean };
+  hasPrompt: boolean;
+  inFlightRef: { current: boolean };
+  pathname: string;
+  setPrompt: (prompt: MobileUpdatePrompt) => void;
+}) {
+  if (params.inFlightRef.current || params.hasPrompt) return;
+  params.inFlightRef.current = true;
+
+  try {
+    const result = await resolveMobileUpdatePrompt({
+      apiBaseUrl: EXPO_PUBLIC_API_URL,
+      buildNumber: Application.nativeBuildVersion,
+      channel: Updates.channel,
+      checkForUpdateAsync: Updates.checkForUpdateAsync,
+      isOtaEnabled: canUseOtaUpdates(),
+      nativeVersion: Application.nativeApplicationVersion,
+      pathname: params.pathname,
+      platform: getSupportedPlatform(),
+      runtimeVersion: Updates.runtimeVersion,
+    });
+
+    switch (result.kind) {
+      case 'deferred':
+        params.hasDeferredCheckRef.current = true;
+        return;
+      case 'none':
+        return;
+      default:
+        params.setPrompt(result);
+    }
+  } catch (error) {
+    log.warn('Mobile update check failed', error);
+  } finally {
+    params.inFlightRef.current = false;
+  }
+}
+
 export function MobileUpdateController() {
   const pathname = usePathname();
   const [prompt, setPrompt] = useState<MobileUpdatePrompt | null>(null);
   const inFlightRef = useRef(false);
   const hasDeferredCheckRef = useRef(false);
 
-  const runCheck = useEffectEvent(async () => {
-    if (inFlightRef.current || prompt) return;
-    inFlightRef.current = true;
-
-    try {
-      const result = await resolveMobileUpdatePrompt({
-        apiBaseUrl: EXPO_PUBLIC_API_URL,
-        buildNumber: Application.nativeBuildVersion,
-        channel: Updates.channel,
-        checkForUpdateAsync: Updates.checkForUpdateAsync,
-        isOtaEnabled: canUseOtaUpdates(),
-        nativeVersion: Application.nativeApplicationVersion,
-        pathname,
-        platform: getSupportedPlatform(),
-        runtimeVersion: Updates.runtimeVersion,
-      });
-
-      switch (result.kind) {
-        case 'deferred':
-          hasDeferredCheckRef.current = true;
-          return;
-        case 'none':
-          return;
-        default:
-          setPrompt(result);
-      }
-    } catch (error) {
-      log.warn('Mobile update check failed', error);
-    } finally {
-      inFlightRef.current = false;
-    }
-  });
+  const runCheck = useEffectEvent(() =>
+    runMobileUpdateCheck({
+      hasDeferredCheckRef,
+      hasPrompt: prompt !== null,
+      inFlightRef,
+      pathname,
+      setPrompt,
+    })
+  );
 
   useEffect(() => {
     void runCheck();
