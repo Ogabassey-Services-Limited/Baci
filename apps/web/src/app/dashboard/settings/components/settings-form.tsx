@@ -195,6 +195,7 @@ export function SettingsForm({
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(
     initialMerchant?.hero_slides || []
   );
+  const [heroSlidesEdited, setHeroSlidesEdited] = useState(false);
 
   // Latest social media values the user typed since the last merchant
   // refresh; null means "no edits yet" so submits fall back to the freshest
@@ -217,16 +218,28 @@ export function SettingsForm({
     },
   });
 
-  // Sync every prop-derived draft if the prop changes significantly (only if
-  // not dirty to prevent data loss). Render-time prev-compare instead of an
+  // Sync every prop-derived draft if the prop changes significantly — but
+  // only when NO draft source holds unsaved edits (color mutations, RHF form
+  // fields, hero slides, social media), so a background prop refresh can
+  // never wipe in-progress work. Render-time prev-compare instead of an
   // effect, per
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const hasUnsavedDraftEdits =
+    isDirty ||
+    form.formState.isDirty ||
+    socialMediaEdits !== null ||
+    heroSlidesEdited;
   const [prevInitialMerchant, setPrevInitialMerchant] =
     useState(initialMerchant);
-  if (initialMerchant && initialMerchant !== prevInitialMerchant && !isDirty) {
+  if (
+    initialMerchant &&
+    initialMerchant !== prevInitialMerchant &&
+    !hasUnsavedDraftEdits
+  ) {
     setPrevInitialMerchant(initialMerchant);
     setMerchantState(initialMerchant);
     setHeroSlides(initialMerchant.hero_slides || []);
+    setHeroSlidesEdited(false);
     setSocialMediaEdits(null);
     form.reset({
       business_name: initialMerchant.business_name || '',
@@ -371,7 +384,13 @@ export function SettingsForm({
 
         <DashboardAdUnit variant="horizontal" />
 
-        <HeroCarouselCard slides={heroSlides} onSlidesChange={setHeroSlides} />
+        <HeroCarouselCard
+          slides={heroSlides}
+          onSlidesChange={(slides) => {
+            setHeroSlides(slides);
+            setHeroSlidesEdited(true);
+          }}
+        />
 
         <SocialMediaCard
           initialSocialMedia={buildSocialMediaDraft(initialMerchant)}

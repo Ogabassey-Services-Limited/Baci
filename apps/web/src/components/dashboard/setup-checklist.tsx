@@ -67,6 +67,59 @@ const priorityLabels = {
   optional: 'Optional',
 };
 
+const setupItemPriorities = new Set<SetupItem['priority']>([
+  'required',
+  'recommended',
+  'optional',
+]);
+
+const setupItemCategories = new Set<SetupItem['category']>([
+  'payments',
+  'products',
+  'store',
+  'legal',
+  'marketing',
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isSetupItem(value: unknown): value is SetupItem {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === 'string' &&
+    typeof value.label === 'string' &&
+    typeof value.description === 'string' &&
+    typeof value.completed === 'boolean' &&
+    typeof value.href === 'string' &&
+    setupItemPriorities.has(value.priority as SetupItem['priority']) &&
+    setupItemCategories.has(value.category as SetupItem['category'])
+  );
+}
+
+function isStoreReadiness(value: unknown): value is StoreReadiness {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.isReady === 'boolean' &&
+    typeof value.isPublished === 'boolean' &&
+    typeof value.completedRequired === 'number' &&
+    typeof value.totalRequired === 'number' &&
+    typeof value.completedRecommended === 'number' &&
+    typeof value.totalRecommended === 'number' &&
+    typeof value.overallProgress === 'number' &&
+    Array.isArray(value.items) &&
+    value.items.every(isSetupItem) &&
+    isRecord(value.storeBuild)
+  );
+}
+
 interface SetupChecklistProps {
   onPublish?: () => void;
   compact?: boolean;
@@ -336,7 +389,10 @@ export function SetupChecklist({
         if (!response.ok) {
           throw new Error('Failed to fetch readiness');
         }
-        const data = await response.json();
+        const data: unknown = await response.json();
+        if (!isStoreReadiness(data)) {
+          throw new Error('Invalid readiness payload');
+        }
         if (active) {
           setReadiness(data);
           setLoadError(null);
