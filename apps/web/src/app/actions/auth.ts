@@ -2,32 +2,36 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import z from 'zod';
 import { sanitizeRelativeRedirectPath } from '@/lib/auth-redirect';
+import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { createClient } from '@/lib/supabase/server';
+import { forgotPasswordSchema, loginSchema } from '@/schemas/auth';
 
 export type AuthActionState = {
   error: string | null;
   success: boolean;
 };
 
-const loginSchema = z.object({
-  email: z.email({ error: 'Please enter a valid email address.' }),
-  password: z.string().min(8, 'Password must be at least 8 characters.'),
-});
-
-const forgotPasswordSchema = z.object({
-  email: z.email({ error: 'Please enter a valid email address.' }),
-});
-
 /**
  * Server action for email/password login
  * Works with useActionState for progressive enhancement
  */
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: the login entry point itself; credentials verified by Supabase, Zod-validated + identity/IP rate limited
 export async function loginAction(
   _prevState: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
+  const rateLimitAllowed = await ensureActionRateLimit('login', {
+    requests: 10,
+    windowMs: 60_000,
+  });
+  if (!rateLimitAllowed) {
+    return {
+      error: 'Too many login attempts. Please try again later.',
+      success: false,
+    };
+  }
+
   const rawData = {
     email: formData.get('email'),
     password: formData.get('password'),
@@ -75,10 +79,22 @@ export async function loginAction(
 /**
  * Server action for password reset request
  */
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: pre-auth password reset; email Zod-validated + identity/IP rate limited
 export async function forgotPasswordAction(
   _prevState: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
+  const rateLimitAllowed = await ensureActionRateLimit('forgot-password', {
+    requests: 3,
+    windowMs: 900_000,
+  });
+  if (!rateLimitAllowed) {
+    return {
+      error: 'Too many password reset requests. Please try again later.',
+      success: false,
+    };
+  }
+
   const email = formData.get('email');
 
   // Validate

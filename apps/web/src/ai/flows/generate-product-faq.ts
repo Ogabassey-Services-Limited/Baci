@@ -1,5 +1,8 @@
-'use server';
-
+// Server-side AI helper. Its only caller is the Node script
+// `src/scripts/generate-all-product-faqs.ts`, so it must NOT be a server
+// action ('use server' would expose it as a public, unauthenticated RPC
+// endpoint). Intentionally NOT importing 'server-only' either: that package
+// throws when imported from a plain Node script context.
 import { generateObject } from 'ai';
 import z from 'zod';
 import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';

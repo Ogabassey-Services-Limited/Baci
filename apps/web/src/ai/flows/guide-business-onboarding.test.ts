@@ -1,10 +1,15 @@
 import { generateObject, generateText } from 'ai';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { guideBusinessOnboarding } from './guide-business-onboarding';
 
 vi.mock('ai', () => ({
   generateObject: vi.fn(),
   generateText: vi.fn(),
+}));
+
+vi.mock('@/lib/ensure-action-rate-limit', () => ({
+  ensureActionRateLimit: vi.fn(async () => true),
 }));
 
 vi.mock('@/ai/provider', () => ({
@@ -31,10 +36,46 @@ vi.mock('@/lib/logger', () => ({
 
 const mockGenerateText = vi.mocked(generateText);
 const mockGenerateObject = vi.mocked(generateObject);
+const mockEnsureActionRateLimit = vi.mocked(ensureActionRateLimit);
 
 describe('guideBusinessOnboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnsureActionRateLimit.mockResolvedValue(true);
+  });
+
+  it('rejects rate-limited callers before invoking any AI model', async () => {
+    mockEnsureActionRateLimit.mockResolvedValueOnce(false);
+
+    await expect(
+      guideBusinessOnboarding({
+        businessName: 'Baci Style',
+        businessType: 'fashion',
+        brandPreferences: 'rose and gold',
+        task: 'generate_logos',
+      })
+    ).rejects.toThrow('Too many AI onboarding requests');
+
+    expect(mockEnsureActionRateLimit).toHaveBeenCalledWith('ai-onboarding', {
+      requests: 10,
+      windowMs: 600_000,
+    });
+    expect(mockGenerateText).not.toHaveBeenCalled();
+    expect(mockGenerateObject).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid input before invoking any AI model', async () => {
+    await expect(
+      guideBusinessOnboarding({
+        businessName: 'a'.repeat(201),
+        businessType: 'fashion',
+        brandPreferences: 'rose and gold',
+        task: 'generate_logos',
+      })
+    ).rejects.toThrow('Invalid onboarding input provided.');
+
+    expect(mockGenerateText).not.toHaveBeenCalled();
+    expect(mockGenerateObject).not.toHaveBeenCalled();
   });
 
   it('returns a fallback logo and brand colors when AI logo generation is quota exhausted', async () => {
