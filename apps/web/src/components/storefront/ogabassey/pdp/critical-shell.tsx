@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Suspense, type ComponentProps, type ReactNode } from 'react';
 import {
+  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
@@ -10,12 +11,18 @@ import {
 } from '@/components/storefront/ogabassey/config/product-media';
 import imageLoader from '@/lib/image-loader';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
-import { buildOgabasseyPdpMobileImageSrcSet } from './product-image-source';
+import {
+  buildOgabasseyPdpMobileImageSrcSet,
+  buildOgabasseyPdpSameOriginImageUrl,
+  buildOgabasseyPdpSameOriginMobileImageSrcSet,
+  buildOgabasseyPdpSameOriginProfileImageUrl,
+} from './product-image-source';
 
 interface OgabasseyPdpCriticalShellProps {
   basePath?: string;
   basePathPromise?: Promise<string>;
   children?: ReactNode;
+  imageDelivery?: 'direct' | 'same-origin';
   product: OgabasseyPdpCriticalProduct;
 }
 
@@ -101,13 +108,38 @@ async function OgabasseyPdpResolvedCriticalBreadcrumbs({
   );
 }
 
-function getNativeProductImageProps(product: OgabasseyPdpCriticalProduct) {
+function getNativeProductImageProps(
+  product: OgabasseyPdpCriticalProduct,
+  imageDelivery: OgabasseyPdpCriticalShellProps['imageDelivery']
+) {
   const { props } = getImageProps({
     alt: product.name,
     decoding: 'sync',
     fetchPriority: 'high',
     fill: true,
-    loader: imageLoader,
+    loader:
+      imageDelivery === 'same-origin'
+        ? ({ quality, width }) => {
+            const resolvedQuality =
+              quality ?? OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY;
+
+            if (
+              resolvedQuality === OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY &&
+              width === OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH
+            ) {
+              return buildOgabasseyPdpSameOriginProfileImageUrl(
+                product.slug,
+                'desktop'
+              );
+            }
+
+            return buildOgabasseyPdpSameOriginImageUrl({
+              productSlug: product.slug,
+              quality: resolvedQuality,
+              width,
+            });
+          }
+        : imageLoader,
     loading: 'eager',
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
     sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
@@ -123,11 +155,17 @@ function getNativeProductImageProps(product: OgabasseyPdpCriticalProduct) {
   return nativeProps;
 }
 
-function getMobileProductImageSourceProps(product: OgabasseyPdpCriticalProduct) {
+function getMobileProductImageSourceProps(
+  product: OgabasseyPdpCriticalProduct,
+  imageDelivery: OgabasseyPdpCriticalShellProps['imageDelivery']
+) {
   return {
     media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
     sizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-    srcSet: buildOgabasseyPdpMobileImageSrcSet(product.image),
+    srcSet:
+      imageDelivery === 'same-origin'
+        ? buildOgabasseyPdpSameOriginMobileImageSrcSet(product.slug)
+        : buildOgabasseyPdpMobileImageSrcSet(product.image),
   };
 }
 
@@ -135,10 +173,17 @@ export function OgabasseyPdpCriticalShell({
   basePath = '',
   basePathPromise,
   children,
+  imageDelivery = 'direct',
   product,
 }: OgabasseyPdpCriticalShellProps) {
-  const productImageProps = getNativeProductImageProps(product);
-  const mobileSourceProps = getMobileProductImageSourceProps(product);
+  const productImageProps = getNativeProductImageProps(
+    product,
+    imageDelivery
+  );
+  const mobileSourceProps = getMobileProductImageSourceProps(
+    product,
+    imageDelivery
+  );
   const aggregateRatingCount = Math.max(
     product.reviewCount,
     product.ratingCount
