@@ -13,6 +13,10 @@ import {
   type PendingCryptoOrder,
 } from './checkout-screen.constants';
 import { startWalletFundedBankTransferCheckout } from './checkout-wallet-funded-bank-transfer';
+import {
+  type PaymentInitializeData,
+  toPaymentInitializeData,
+} from './payment-initialize-data';
 
 const PAYMENT_INIT_TIMEOUT_MS = 10_000;
 
@@ -30,28 +34,6 @@ interface FinalizeCheckoutPaymentParams {
   setPendingOrder: (value: PendingCryptoOrder | null) => void;
   setShowCryptoSelection: (value: boolean) => void;
   shouldCreateWalletFundedBankTransferOrder: boolean;
-}
-
-interface PaymentInitializeAccount {
-  account_name?: string;
-  account_number?: string;
-  bank_name?: string;
-}
-
-interface PaymentInitializeData {
-  authorization_url?: string;
-  checkout_url?: string;
-  dva?: PaymentInitializeAccount;
-  error?: string;
-  reference?: string;
-  success?: boolean;
-  virtual_account?: PaymentInitializeAccount;
-}
-
-function toPaymentInitializeData(value: unknown): PaymentInitializeData {
-  return value && typeof value === 'object'
-    ? (value as PaymentInitializeData)
-    : {};
 }
 
 export async function finalizeCheckoutPayment({
