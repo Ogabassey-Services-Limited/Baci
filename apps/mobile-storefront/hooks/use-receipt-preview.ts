@@ -1,38 +1,36 @@
 /**
  * useReceiptPreview — manages the receipt preview state machine
  *
- * State transitions:
- *   idle → loading (user taps a receipt)
- *   loading → open (detail data arrives, HTML generated)
+ * State transitions (selectedOrderId is the only state; the rest is derived):
+ *   idle → loading (user taps a receipt; orderId selected)
+ *   loading → open (detail data arrives, HTML derived during render)
  *   open → idle (user closes the preview)
  *   loading → loading (user taps a different receipt while loading)
  */
 
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
 import { generateReceiptHtml } from '@baci/shared';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { ReceiptListItem } from '@/types/receipt';
 import { useMerchantReceiptInfo, useReceiptDetail } from './use-receipts';
 
-type PreviewState =
-  | { status: 'idle' }
-  | { status: 'loading'; orderId: string }
-  | { status: 'open'; orderId: string; html: string; isPaid: boolean };
-
 export function useReceiptPreview() {
-  const [state, setState] = useState<PreviewState>({ status: 'idle' });
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const { data: merchantInfo } = useMerchantReceiptInfo();
 
-  // Derive orderId for the detail query (null when idle disables the hook)
-  const selectedOrderId = state.status !== 'idle' ? state.orderId : null;
+  // null disables the detail query while idle
   const { data: receiptDetail } = useReceiptDetail(selectedOrderId);
 
-  // Transition loading → open when detail data arrives
-  useEffect(() => {
-    if (state.status !== 'loading') return;
-    if (!receiptDetail || !merchantInfo) return;
-    if (receiptDetail.id !== state.orderId) return;
+  // The preview is open once the detail data for the selected order arrives.
+  const isOpen =
+    selectedOrderId !== null &&
+    !!receiptDetail &&
+    !!merchantInfo &&
+    receiptDetail.id === selectedOrderId;
 
+  let html = '';
+  let isPaid = false;
+  if (isOpen) {
     const orderData: ReceiptOrder = {
       order_number: receiptDetail.order_number,
       created_at: receiptDetail.created_at,
@@ -78,32 +76,27 @@ export function useReceiptPreview() {
       pages: merchantInfo.pages,
     };
 
-    const html = generateReceiptHtml(orderData, merchant);
-    setState({
-      status: 'open',
-      orderId: state.orderId,
-      html,
-      isPaid: receiptDetail.payment_status === 'paid',
-    });
-  }, [receiptDetail, merchantInfo, state]);
+    html = generateReceiptHtml(orderData, merchant);
+    isPaid = receiptDetail.payment_status === 'paid';
+  }
 
   const openPreview = (item: ReceiptListItem) => {
-    setState({ status: 'loading', orderId: item.id });
+    setSelectedOrderId(item.id);
   };
 
   const openPreviewByOrderId = (orderId: string) => {
-    setState({ status: 'loading', orderId });
+    setSelectedOrderId(orderId);
   };
 
   const closePreview = () => {
-    setState({ status: 'idle' });
+    setSelectedOrderId(null);
   };
 
   return {
-    isLoading: state.status === 'loading',
-    isOpen: state.status === 'open',
-    html: state.status === 'open' ? state.html : '',
-    isPaid: state.status === 'open' ? state.isPaid : false,
+    isLoading: selectedOrderId !== null && !isOpen,
+    isOpen,
+    html,
+    isPaid,
     openPreview,
     openPreviewByOrderId,
     closePreview,

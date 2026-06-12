@@ -1,6 +1,6 @@
 import Feather from '@react-native-vector-icons/feather';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { palette } from '@/constants/Colors';
 import { styles } from './FilterBar.styles';
@@ -76,11 +76,17 @@ export function FilterBarActiveControls({
   const [tempMaxPrice, setTempMaxPrice] = useState(
     formatMaxPriceInput(maxPrice)
   );
+  const [prevMinPrice, setPrevMinPrice] = useState(minPrice);
+  const [prevMaxPrice, setPrevMaxPrice] = useState(maxPrice);
 
-  useEffect(() => {
+  // Re-sync the draft inputs inline during render (prev-prop comparison)
+  // instead of in an effect, so the inputs never show a stale frame.
+  if (minPrice !== prevMinPrice || maxPrice !== prevMaxPrice) {
+    setPrevMinPrice(minPrice);
+    setPrevMaxPrice(maxPrice);
     setTempMinPrice(formatMinPriceInput(minPrice));
     setTempMaxPrice(formatMaxPriceInput(maxPrice));
-  }, [minPrice, maxPrice]);
+  }
 
   const handlePriceBlur = () => {
     const nextMinPrice = normalizePriceInput(tempMinPrice, 0);

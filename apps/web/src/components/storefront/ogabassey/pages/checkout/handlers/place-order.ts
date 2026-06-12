@@ -497,7 +497,6 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       const result = await initializeCardPayment(
         merchant.id,
         order.id,
-        paymentAmount,
         customerEmail,
         `${firstName} ${lastName}`.trim(),
         customerPhone,
@@ -694,7 +693,6 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
 async function initializeCardPayment(
   merchantId: string,
   orderId: string,
-  amount: number,
   email: string,
   name: string,
   phone: string,
@@ -706,7 +704,6 @@ async function initializeCardPayment(
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: orderId,
-      amount,
       currency: 'NGN',
       customer_email: email,
       customer_name: name,

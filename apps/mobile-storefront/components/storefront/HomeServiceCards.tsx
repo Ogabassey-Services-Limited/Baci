@@ -2,7 +2,7 @@ import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
 import { type Href, useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -86,7 +86,7 @@ export function HomeServiceCards({
   // Horizontal scroll: Scale down slightly so part of the last card (Super Quiz) is visible
   const cardWidth = isCompact ? 98 : 114;
   const cardHeight = isCompact ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
-  const runnerProgress = useRef(new Animated.Value(0)).current;
+  const [runnerProgress] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     runnerProgress.setValue(0);

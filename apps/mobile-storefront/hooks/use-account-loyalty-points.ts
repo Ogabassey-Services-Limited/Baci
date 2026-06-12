@@ -36,10 +36,16 @@ export function useAccountLoyaltyPoints(
   const [loyaltyPoints, setLoyaltyPoints] = useState<number | undefined>(
     customer?.loyalty_points
   );
+  const [prevCustomerLoyaltyPoints, setPrevCustomerLoyaltyPoints] = useState(
+    customer?.loyalty_points
+  );
 
-  useEffect(() => {
+  // Adjust state inline during render when the customer prop changes so the
+  // reset commits in the same render instead of a post-commit effect pass.
+  if (prevCustomerLoyaltyPoints !== customer?.loyalty_points) {
+    setPrevCustomerLoyaltyPoints(customer?.loyalty_points);
     setLoyaltyPoints(customer?.loyalty_points);
-  }, [customer?.loyalty_points]);
+  }
 
   useEffect(() => {
     if (!(isFocused && customer?.id)) {

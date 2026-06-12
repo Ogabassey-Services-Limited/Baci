@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -37,16 +37,21 @@ export function FilterSheet({
   const insets = useSafeAreaInsets();
   const [tempMinPrice, setTempMinPrice] = useState(minPrice.toString());
   const [tempMaxPrice, setTempMaxPrice] = useState(maxPrice.toString());
+  const [prevMinPrice, setPrevMinPrice] = useState(minPrice);
+  const [prevMaxPrice, setPrevMaxPrice] = useState(maxPrice);
   const { colors, isDark } = useTheme();
 
-  // M10 FIX: Sync local state when prop values change from parent
-  useEffect(() => {
+  // M10 FIX: Sync local draft state inline (pre-commit) when prop values
+  // change from parent, avoiding a stale frame between two effect commits.
+  if (prevMinPrice !== minPrice) {
+    setPrevMinPrice(minPrice);
     setTempMinPrice(minPrice.toString());
-  }, [minPrice]);
+  }
 
-  useEffect(() => {
+  if (prevMaxPrice !== maxPrice) {
+    setPrevMaxPrice(maxPrice);
     setTempMaxPrice(maxPrice.toString());
-  }, [maxPrice]);
+  }
 
   const handleApply = () => {
     const parsePrice = (value: string, fallback: number) => {

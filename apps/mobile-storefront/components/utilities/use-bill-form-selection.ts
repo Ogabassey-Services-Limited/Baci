@@ -4,7 +4,10 @@ import {
   getAmountForLeaf,
   getInitialAmountForSelection,
 } from './bill-form.helpers';
-import { findInitialBillerMatch } from './bill-item-matching';
+import {
+  findInitialBillerMatch,
+  type InitialBillerMatch,
+} from './bill-item-matching';
 import {
   getResolvedBillItemCodes,
   resolveBillItemSelection,
@@ -42,7 +45,33 @@ export function useBillFormSelection({
   );
   const [isProviderPickerExpanded, setIsProviderPickerExpanded] =
     useState(true);
-  const hasInitializedRef = useRef(false);
+  const [initialMatch, setInitialMatch] = useState<InitialBillerMatch | null>(
+    null
+  );
+  const hasAppliedInitialMatchRef = useRef(false);
+
+  // Initialize the selection inline during render once billers arrive so the
+  // first committed frame already shows the matched biller
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes).
+  if (!initialMatch && billers?.length) {
+    const match = findInitialBillerMatch({
+      billers,
+      initialBillerName,
+      initialBillItemIdentifier,
+    });
+    if (match) {
+      const matchedSelection = resolveBillItemSelection(
+        match.biller.billItems,
+        match.codes
+      );
+      setInitialMatch(match);
+      setSelectedBiller(match.biller);
+      if (match.resolvedToSpecificBillItem && matchedSelection.isComplete) {
+        setSelectedBillItemCodes(match.codes);
+        setIsProviderPickerExpanded(false);
+      }
+    }
+  }
 
   const billItemSelection = resolveBillItemSelection(
     selectedBiller?.billItems,
@@ -64,42 +93,31 @@ export function useBillFormSelection({
     setAmountRef.current = setAmount;
   }, [onInitialRepeatPaymentReady, setAmount]);
 
+  // Parent-owned side effects (amount + repeat-payment callback) still run
+  // post-commit, exactly once, when the initial match is applied.
   useEffect(() => {
-    if (hasInitializedRef.current || !billers?.length) {
+    if (!initialMatch || hasAppliedInitialMatchRef.current) {
       return;
     }
-    const match = findInitialBillerMatch({
-      billers,
-      initialBillerName,
-      initialBillItemIdentifier,
-    });
-    if (!match) {
-      return;
-    }
-    const nextSelection = resolveBillItemSelection(
-      match.biller.billItems,
-      match.codes
+    hasAppliedInitialMatchRef.current = true;
+    const matchedSelection = resolveBillItemSelection(
+      initialMatch.biller.billItems,
+      initialMatch.codes
     );
-    setSelectedBiller(match.biller);
-    hasInitializedRef.current = true;
-    if (!match.resolvedToSpecificBillItem || !nextSelection.isComplete) {
+    if (!initialMatch.resolvedToSpecificBillItem || !matchedSelection.isComplete) {
       return;
     }
 
-    setSelectedBillItemCodes(match.codes);
-    setIsProviderPickerExpanded(false);
     setAmountRef.current(
-      getInitialAmountForSelection(nextSelection.leaf, initialAmount)
+      getInitialAmountForSelection(matchedSelection.leaf, initialAmount)
     );
     if (isRepeatPaymentReady && initialCustomerIdentifier) {
       onInitialRepeatPaymentReadyRef.current();
     }
   }, [
-    billers,
     initialAmount,
-    initialBillerName,
-    initialBillItemIdentifier,
     initialCustomerIdentifier,
+    initialMatch,
     isRepeatPaymentReady,
   ]);
 

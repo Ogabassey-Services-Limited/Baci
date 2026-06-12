@@ -121,6 +121,8 @@ function createMockSupabase() {
 
 let merchantResult: { data: unknown; error: unknown };
 let featureSettingsResult: { data: unknown; error: unknown };
+let orderPaymentResult: { data: unknown; error: unknown };
+let savingsRedemptionsResult: { data: unknown; error: unknown };
 let dvaUpsertResult: { data: unknown; error: unknown };
 
 // B1 (Δ-10): the route persists the DVA assignment via upsert.
@@ -148,6 +150,26 @@ function createMockAdminClient() {
           select: () => ({
             eq: () => ({
               single: () => Promise.resolve(featureSettingsResult),
+            }),
+          }),
+        };
+      }
+      if (table === 'orders') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                single: () => Promise.resolve(orderPaymentResult),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'customer_savings_redemptions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => Promise.resolve(savingsRedemptionsResult),
             }),
           }),
         };
@@ -243,6 +265,8 @@ function setupDefaults() {
     error: null,
   };
   featureSettingsResult = { data: null, error: null };
+  orderPaymentResult = { data: { wallet_amount_used: 0 }, error: null };
+  savingsRedemptionsResult = { data: [], error: null };
   dvaUpsertResult = { data: null, error: null };
   dvaUpsertCalls.length = 0;
   rpcCalls.length = 0;
@@ -287,11 +311,23 @@ describe('POST /api/payments/initialize', () => {
       expect(json.code).toBe('VALIDATION_ERROR');
     });
 
-    it('returns 400 for negative amount', async () => {
-      const res = await POST(makeRequest({ ...validBody, amount: -100 }));
+    it('ignores a client-supplied amount and derives the gateway amount from the order', async () => {
+      enableKorapayForTest();
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/derived',
+        checkout_url: 'https://korapay.com/checkout/derived',
+      });
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: -100, gateway: 'korapay' })
+      );
       const json = await res.json();
-      expect(res.status).toBe(400);
-      expect(json.code).toBe('VALIDATION_ERROR');
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializeKorapay).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 5000 })
+      );
     });
   });
 
@@ -325,18 +361,42 @@ describe('POST /api/payments/initialize', () => {
       expect(json.code).toBe('MERCHANT_MISMATCH');
     });
 
-    it('returns 400 when amount exceeds order total', async () => {
+    it('does not let a client amount above the order total change the charge', async () => {
       rpcResult = {
         data: [{ merchant_id: MERCHANT_ID, total: 1000 }],
         error: null,
       };
-      const res = await POST(makeRequest(validBody));
+      enableKorapayForTest();
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/derived',
+        checkout_url: 'https://korapay.com/checkout/derived',
+      });
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 5000, gateway: 'korapay' })
+      );
       const json = await res.json();
-      expect(res.status).toBe(400);
-      expect(json.code).toBe('AMOUNT_EXCEEDS_TOTAL');
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializeKorapay).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 1000 })
+      );
     });
 
-    it('rejects non-Klump request amounts slightly above the stored total before gateway initialization', async () => {
+    it('derives residual gateway amount after wallet and savings credits', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 5000,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      orderPaymentResult = { data: { wallet_amount_used: 1200 }, error: null };
+      savingsRedemptionsResult = { data: [{ amount: 800 }], error: null };
       enableKorapayForTest();
       mockInitializeKorapay.mockResolvedValue({
         authorization_url: 'https://korapay.com/checkout/abc',
@@ -344,13 +404,22 @@ describe('POST /api/payments/initialize', () => {
       });
 
       const res = await POST(
-        makeRequest({ ...validBody, amount: 5000.009, gateway: 'korapay' })
+        makeRequest({ ...validBody, amount: 1, gateway: 'korapay' })
       );
       const json = await res.json();
 
-      expect(res.status).toBe(400);
-      expect(json.code).toBe('AMOUNT_EXCEEDS_TOTAL');
-      expect(mockInitializeKorapay).not.toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializeKorapay).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 3000 })
+      );
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall?.args).toMatchObject({
+        p_amount: 3000,
+        p_gateway: 'korapay',
+      });
     });
   });
 
@@ -624,7 +693,7 @@ describe('POST /api/payments/initialize', () => {
       ).toBe(false);
     });
 
-    it('rejects Klump when the amount does not equal the full order total', async () => {
+    it('rejects Klump when store credits already reduced the payable total', async () => {
       rpcResult = {
         data: [
           {
@@ -633,6 +702,10 @@ describe('POST /api/payments/initialize', () => {
             tracking_token: 'track-token-123',
           },
         ],
+        error: null,
+      };
+      orderPaymentResult = {
+        data: { wallet_amount_used: 25_000 },
         error: null,
       };
       featureSettingsResult = {

@@ -40,20 +40,16 @@ export default function CartCheckoutFooter({
   const arrowTranslateX = useSharedValue(0);
 
   useEffect(() => {
-    arrowTranslateX.value = withRepeat(
-      withTiming(6, { duration: 600 }),
-      -1,
-      true
-    );
+    arrowTranslateX.set(withRepeat(withTiming(6, { duration: 600 }), -1, true));
 
     return () => {
       cancelAnimation(arrowTranslateX);
-      arrowTranslateX.value = 0;
+      arrowTranslateX.set(0);
     };
   }, [arrowTranslateX]);
 
   const animatedArrowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: arrowTranslateX.value }],
+    transform: [{ translateX: arrowTranslateX.get() }],
   }));
 
   return (

@@ -7,10 +7,6 @@
       "lineCount": 346
     },
     {
-      "path": "components/bnpl-checkout/use-bnpl-checkout-controller.ts",
-      "lineCount": 319
-    },
-    {
       "path": "components/checkout/CheckoutLocationPickers.tsx",
       "lineCount": 302
     },

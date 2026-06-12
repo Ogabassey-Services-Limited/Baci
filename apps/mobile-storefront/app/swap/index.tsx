@@ -5,8 +5,8 @@ import { Alert, Linking, Platform, Pressable, ScrollView } from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { SwapOverviewContent } from '@/components/swap/SwapOverviewContent';
 import {
-  SwapTradeInModal,
   type SwapModalStep,
+  SwapTradeInModal,
 } from '@/components/swap/SwapTradeInModal';
 import { swapScreenStyles as styles } from '@/components/swap/swap-screen.styles';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -36,6 +36,73 @@ const imagePickerReady = loadNativeModules();
 
 const log = createLogger('Swap');
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
+
+type AnalysisOutcome =
+  | { ok: true; data: AIAnalysisResult }
+  | { ok: false; message: string };
+
+// Module-scope helper: try/finally + throw-inside-try are not yet supported
+// by React Compiler inside component bodies, so the whole fetch/validation
+// flow lives here and reports back via a discriminated result.
+const analyzeDeviceVideo = async (
+  videoUri: string
+): Promise<AnalysisOutcome> => {
+  try {
+    const formData = new FormData();
+    const videoFile = {
+      uri: videoUri,
+      type: 'video/mp4',
+      name: 'device-video.mp4',
+    } as unknown as Blob;
+    formData.append('video', videoFile);
+
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/api/ai/grade-device`,
+      {
+        method: 'POST',
+        body: formData,
+        timeout: LONG_TIMEOUT,
+      }
+    );
+
+    if (!response.ok) {
+      let errorMessage = `Server error (HTTP ${response.status})`;
+      try {
+        const errorPayload = await response.json();
+        if (errorPayload?.error) {
+          errorMessage = errorPayload.error;
+        }
+      } catch {
+        // ignore non-JSON error bodies
+      }
+      throw new Error(errorMessage);
+    }
+
+    const rawPayload = await response.json();
+    const validated = parseApiResponse(
+      AIGradeDeviceApiResponseSchema,
+      rawPayload,
+      'AI grade device API'
+    );
+
+    if (!validated?.data) {
+      throw new Error(
+        'We could not process the AI analysis result. Please try again.'
+      );
+    }
+
+    return { ok: true, data: validated.data };
+  } catch (analysisError) {
+    log.error('Analysis error:', analysisError);
+    return {
+      ok: false,
+      message:
+        analysisError instanceof Error
+          ? analysisError.message
+          : 'Analysis failed. Please try again.',
+    };
+  }
+};
 
 export default function SwapScreen() {
   const colorScheme = useColorScheme();
@@ -125,63 +192,19 @@ export default function SwapScreen() {
     setStep('analyzing');
     setError(null);
 
-    try {
-      const formData = new FormData();
-      const videoFile = {
-        uri: videoUri,
-        type: 'video/mp4',
-        name: 'device-video.mp4',
-      } as unknown as Blob;
-      formData.append('video', videoFile);
+    // analyzeDeviceVideo never rejects, so the trailing state updates
+    // always run (same semantics as the previous finally block).
+    const outcome = await analyzeDeviceVideo(videoUri);
 
-      const response = await fetchWithTimeout(
-        `${API_BASE_URL}/api/ai/grade-device`,
-        {
-          method: 'POST',
-          body: formData,
-          timeout: LONG_TIMEOUT,
-        }
-      );
-
-      if (!response.ok) {
-        let errorMessage = `Server error (HTTP ${response.status})`;
-        try {
-          const errorPayload = await response.json();
-          if (errorPayload?.error) {
-            errorMessage = errorPayload.error;
-          }
-        } catch {
-          // ignore non-JSON error bodies
-        }
-        throw new Error(errorMessage);
-      }
-
-      const rawPayload = await response.json();
-      const validated = parseApiResponse(
-        AIGradeDeviceApiResponseSchema,
-        rawPayload,
-        'AI grade device API'
-      );
-
-      if (!validated?.data) {
-        throw new Error(
-          'We could not process the AI analysis result. Please try again.'
-        );
-      }
-
-      setResult(validated.data);
+    if (outcome.ok) {
+      setResult(outcome.data);
       setStep('result');
-    } catch (analysisError) {
-      log.error('Analysis error:', analysisError);
-      setError(
-        analysisError instanceof Error
-          ? analysisError.message
-          : 'Analysis failed. Please try again.'
-      );
+    } else {
+      setError(outcome.message);
       setStep('upload');
-    } finally {
-      setIsAnalyzing(false);
     }
+
+    setIsAnalyzing(false);
   };
 
   const resetModal = () => {
