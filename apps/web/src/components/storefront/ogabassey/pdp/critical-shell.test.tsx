@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA } from '@/components/storefront/ogabassey/config/product-media';
 import { OgabasseyPdpCriticalShell } from './critical-shell';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
 
@@ -150,7 +151,7 @@ describe('OgabasseyPdpCriticalShell', () => {
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
     ).not.toHaveAttribute('fill');
     const mobileSource = document.querySelector(
-      'source[media="(max-width: 767px)"]'
+      `source[media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"]`
     );
     expect(mobileSource).toHaveAttribute('sizes', 'calc(100vw - 32px)');
     expect(mobileSource?.getAttribute('srcset')).toContain('750w');
@@ -194,7 +195,7 @@ describe('OgabasseyPdpCriticalShell', () => {
     );
     expect(
       document
-        .querySelector('source[media="(max-width: 767px)"]')
+        .querySelector(`source[media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"]`)
         ?.getAttribute('srcset')
     ).toContain(
       '/api/ogabassey/pdp-lcp-image/profile/mobile/lenovo-legion-pro-9 750w'
