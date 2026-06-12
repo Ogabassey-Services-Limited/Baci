@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, type LayoutChangeEvent, type ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
-import { useVTUVerify } from '@/hooks/use-vtu-verify';
+import { type VerifyResult, useVTUVerify } from '@/hooks/use-vtu-verify';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import { useAuthStore } from '@/stores/auth-store';
 import {
@@ -124,18 +124,21 @@ export function useBillFormController({
     selectedBillItemIdentifier,
   });
 
-  useEffect(() => {
-    if (!(verify.data?.verified && pendingVerificationKeyRef.current)) {
+  // Runs as the verify mutation's onSuccess callback (event time) instead of
+  // an effect that mirrors verify.data into state. resetVerification nulls
+  // pendingVerificationKeyRef on any selection/identifier change, so a stale
+  // response can never apply to inputs that changed mid-flight.
+  const handleVerifySuccess = (data: VerifyResult) => {
+    if (!(data.verified && pendingVerificationKeyRef.current)) {
       return;
     }
     setVerifiedSelectionKey(pendingVerificationKeyRef.current);
     pendingVerificationKeyRef.current = null;
-    const customerName = verify.data.customerName?.trim() || null;
+    const customerName = data.customerName?.trim() || null;
     setVerifiedCustomerName(customerName);
 
     const biller = selectedBiller;
     const billItemId = selectedBillItemIdentifier;
-    const normalizedCustomerId = customerId.trim();
     if (!(biller && billItemId && customerName)) {
       setBeneficiarySaveRequest(null);
       return;
@@ -148,14 +151,7 @@ export function useBillFormController({
       customerId: normalizedCustomerId,
       customerName,
     });
-  }, [
-    verify.data?.verified,
-    verify.data?.customerName,
-    selectedBillItemIdentifier,
-    selectedBiller,
-    customerId,
-    authenticatedCustomerId,
-  ]);
+  };
 
   const handleVerify = () => {
     dismissKeyboard();
@@ -174,10 +170,13 @@ export function useBillFormController({
       return;
     }
     pendingVerificationKeyRef.current = currentVerificationKey;
-    verify.mutate({
-      billItemIdentifier: selectedBillItemIdentifier,
-      customerIdentifier: normalizedCustomerId,
-    });
+    verify.mutate(
+      {
+        billItemIdentifier: selectedBillItemIdentifier,
+        customerIdentifier: normalizedCustomerId,
+      },
+      { onSuccess: handleVerifySuccess }
+    );
   };
 
   const handleSelectBeneficiary = (beneficiary: UtilityBeneficiary) => {
@@ -191,24 +190,28 @@ export function useBillFormController({
     setIsSubmitting(nextIsSubmitting);
   };
 
-  const handlePurchase = createBillFormPurchaseHandler({
-    amount,
-    billType,
-    canShowPayment,
-    customer,
-    customerId,
-    dismissKeyboard,
-    getIsSubmitting: () => isSubmittingRef.current,
-    numericAmount,
-    onSuccess,
-    payment,
-    selectedBiller,
-    selectedBillItemIdentifier,
-    selectedBillItemPathLabel,
-    setIsSubmitting: updateSubmitting,
-    type,
-    verifiedCustomerName,
-  });
+  // Built at call time: handing a ref-reading getter to a factory invoked
+  // during render would block React Compiler memoization (refs rule). The
+  // factory is pure, so press-time construction is behavior-identical.
+  const handlePurchase = () =>
+    createBillFormPurchaseHandler({
+      amount,
+      billType,
+      canShowPayment,
+      customer,
+      customerId,
+      dismissKeyboard,
+      getIsSubmitting: () => isSubmittingRef.current,
+      numericAmount,
+      onSuccess,
+      payment,
+      selectedBiller,
+      selectedBillItemIdentifier,
+      selectedBillItemPathLabel,
+      setIsSubmitting: updateSubmitting,
+      type,
+      verifiedCustomerName,
+    })();
 
   const handlePaymentLayout = (event: LayoutChangeEvent) => {
     if (!shouldScrollToPayment) {

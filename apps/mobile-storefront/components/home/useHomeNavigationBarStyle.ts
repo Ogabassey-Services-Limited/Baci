@@ -1,6 +1,6 @@
 import { NavigationContext } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 import {
   type NavigationBarButtonStyle,
@@ -14,33 +14,28 @@ export function useHomeNavigationBarStyle(
   enabled = true
 ) {
   const navigation = useContext(NavigationContext);
-  const [isFocused, setIsFocused] = useState(
+  // Navigation focus is external state; subscribe to it instead of mirroring
+  // it into React state from an effect.
+  const isFocused = useSyncExternalStore(
+    (onStoreChange) => {
+      if (!navigation) {
+        return () => undefined;
+      }
+
+      const unsubscribeFocus = navigation.addListener('focus', onStoreChange);
+      const unsubscribeBlur = navigation.addListener('blur', onStoreChange);
+
+      return () => {
+        unsubscribeFocus();
+        unsubscribeBlur();
+      };
+    },
     () => navigation?.isFocused() ?? true
   );
   const overrideStyle =
     Platform.OS === 'android' && enabled && isFocused ? 'light' : null;
   const hasNavigationBarStyleProvider =
     useNavigationBarStyleOverride(overrideStyle);
-
-  useEffect(() => {
-    if (!navigation) {
-      setIsFocused(true);
-      return;
-    }
-
-    setIsFocused(navigation.isFocused());
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      setIsFocused(true);
-    });
-    const unsubscribeBlur = navigation.addListener('blur', () => {
-      setIsFocused(false);
-    });
-
-    return () => {
-      unsubscribeFocus();
-      unsubscribeBlur();
-    };
-  }, [navigation]);
 
   useEffect(() => {
     if (hasNavigationBarStyleProvider || Platform.OS !== 'android') {

@@ -23,6 +23,25 @@ function handleSavingsActionError(
   showAppAlert({ title, message, variant: 'error' });
 }
 
+// Hoisted: try/finally in a component body blocks React Compiler.
+async function runCopyFundingAccount(
+  copyFundingAccount: () => Promise<void>,
+  setIsCopying: (isCopying: boolean) => void
+) {
+  setIsCopying(true);
+  try {
+    await copyFundingAccount();
+  } catch (error) {
+    handleSavingsActionError(
+      error,
+      'Unable to copy account',
+      'Failed to copy funding account. Please try again.'
+    );
+  } finally {
+    setIsCopying(false);
+  }
+}
+
 export function StartSavingsTransferModal({
   colors,
   controller,
@@ -85,20 +104,11 @@ export function StartSavingsTransferModal({
 function TransferActions({ colors, controller }: TransferModalProps) {
   const [isCopying, setIsCopying] = useState(false);
 
-  const handleCopyFundingAccount = async () => {
-    setIsCopying(true);
-    try {
-      await controller.handleCopyFundingAccount();
-    } catch (error) {
-      handleSavingsActionError(
-        error,
-        'Unable to copy account',
-        'Failed to copy funding account. Please try again.'
-      );
-    } finally {
-      setIsCopying(false);
-    }
-  };
+  const handleCopyFundingAccount = () =>
+    runCopyFundingAccount(
+      () => controller.handleCopyFundingAccount(),
+      setIsCopying
+    );
 
   const handleRetrySavingsCreation = async () => {
     try {

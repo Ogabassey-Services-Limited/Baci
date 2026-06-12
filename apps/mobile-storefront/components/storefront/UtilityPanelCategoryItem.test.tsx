@@ -13,7 +13,21 @@ jest.mock('react-native-reanimated', () => {
     Text,
     cancelAnimation: jest.fn(),
     useAnimatedStyle: (updater: () => object) => updater(),
-    useSharedValue: (value: number) => ({ value }),
+    useSharedValue: (value: number) => {
+      let current = value;
+      return {
+        get value() {
+          return current;
+        },
+        set value(next: number) {
+          current = next;
+        },
+        get: () => current,
+        set: (next: number) => {
+          current = next;
+        },
+      };
+    },
     withTiming: (value: number) => value,
     withSpring: (value: number) => value,
     interpolate: (

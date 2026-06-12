@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useVTUHistory } from '@/hooks/use-vtu-history';
 import {
   type UtilityRepeatDefaults,
@@ -39,58 +39,7 @@ export function useQuickRepeat({
   repeatVerified,
   routeType,
 }: UseQuickRepeatInput) {
-  const [repeatDefaults, setRepeatDefaults] = useState<UtilityRepeatDefaults>(
-    () =>
-      routeType && currentType === routeType
-        ? getRouteRepeatDefaults(
-            buildRouteRepeatParams({
-              repeatAmount,
-              repeatBillerName,
-              repeatBillItemIdentifier,
-              repeatCustomerIdentifier,
-              repeatCustomerName,
-              repeatDataPlanCode,
-              repeatNetworkProvider,
-              repeatPhoneNumber,
-              repeatVerified,
-            })
-          )
-        : {}
-  );
-  const [repeatRevision, setRepeatRevision] = useState(0);
-  const didInitializeRef = useRef(false);
-  const { data: recentTransactions } = useVTUHistory(
-    historyFilter,
-    RECENT_RECIPIENT_HISTORY_LIMIT
-  );
-
-  useEffect(() => {
-    if (!didInitializeRef.current) {
-      didInitializeRef.current = true;
-      return;
-    }
-
-    setRepeatDefaults(
-      routeType && currentType === routeType
-        ? getRouteRepeatDefaults(
-            buildRouteRepeatParams({
-              repeatAmount,
-              repeatBillerName,
-              repeatBillItemIdentifier,
-              repeatCustomerIdentifier,
-              repeatCustomerName,
-              repeatDataPlanCode,
-              repeatNetworkProvider,
-              repeatPhoneNumber,
-              repeatVerified,
-            })
-          )
-        : {}
-    );
-    setRepeatRevision(0);
-  }, [
-    currentType,
-    routeType,
+  const routeRepeatParams = buildRouteRepeatParams({
     repeatAmount,
     repeatBillerName,
     repeatBillItemIdentifier,
@@ -100,7 +49,35 @@ export function useQuickRepeat({
     repeatNetworkProvider,
     repeatPhoneNumber,
     repeatVerified,
+  });
+  const routeRepeatSignature = JSON.stringify([
+    currentType,
+    routeType,
+    routeRepeatParams,
   ]);
+  const resolveRouteRepeatDefaults = (): UtilityRepeatDefaults =>
+    routeType && currentType === routeType
+      ? getRouteRepeatDefaults(routeRepeatParams)
+      : {};
+
+  const [repeatDefaults, setRepeatDefaults] = useState<UtilityRepeatDefaults>(
+    resolveRouteRepeatDefaults
+  );
+  const [repeatRevision, setRepeatRevision] = useState(0);
+  const [prevRouteRepeatSignature, setPrevRouteRepeatSignature] =
+    useState(routeRepeatSignature);
+  const { data: recentTransactions } = useVTUHistory(
+    historyFilter,
+    RECENT_RECIPIENT_HISTORY_LIMIT
+  );
+
+  // Adjust state during render (with a prev comparison) instead of in an
+  // effect, so route-param changes never paint a stale frame first.
+  if (routeRepeatSignature !== prevRouteRepeatSignature) {
+    setPrevRouteRepeatSignature(routeRepeatSignature);
+    setRepeatDefaults(resolveRouteRepeatDefaults());
+    setRepeatRevision(0);
+  }
 
   const recentRecipients = utilityRepeatHelpers.getRecentRecipients(
     recentTransactions,

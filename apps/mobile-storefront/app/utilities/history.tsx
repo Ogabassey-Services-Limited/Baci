@@ -1,5 +1,5 @@
 import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -34,6 +34,13 @@ export default function UtilityHistoryScreen() {
   const [selectedFilter, setSelectedFilter] = useState<UtilityHistoryFilter>(
     utilityHistoryHelpers.resolveFilter(type)
   );
+  // Sync the filter inline during render when the route param changes
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevType, setPrevType] = useState(type);
+  if (type !== prevType) {
+    setPrevType(type);
+    setSelectedFilter(utilityHistoryHelpers.resolveFilter(type));
+  }
   const {
     data: transactions,
     error,
@@ -49,10 +56,6 @@ export default function UtilityHistoryScreen() {
     sharingTransactionId,
     syncingTransactionId,
   } = useUtilityHistoryActions({ refetch });
-
-  useEffect(() => {
-    setSelectedFilter(utilityHistoryHelpers.resolveFilter(type));
-  }, [type]);
 
   if (authLoading) {
     return (
