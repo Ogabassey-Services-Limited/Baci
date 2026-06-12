@@ -1,6 +1,10 @@
 import robots from '@/app/robots';
 
 const ROBOTS_CACHE_CONTROL = 'public, max-age=300, s-maxage=300';
+// Experimental Content Signals: allow search/RAG input, disallow AI training.
+// Unsupported robots.txt consumers ignore unknown directives.
+const CONTENT_SIGNAL_DIRECTIVE =
+  'Content-Signal: ai-train=no, search=yes, ai-input=yes';
 
 type RobotsRule = {
   allow?: string | readonly string[];
@@ -45,6 +49,7 @@ function appendRuleLines(lines: string[], rule: RobotsRule): void {
   for (const userAgent of userAgents.length > 0 ? userAgents : ['*']) {
     lines.push(`User-Agent: ${userAgent}`);
   }
+  lines.push(CONTENT_SIGNAL_DIRECTIVE);
 
   for (const allowPath of stringValues(rule.allow)) {
     lines.push(`Allow: ${allowPath}`);
@@ -80,7 +85,9 @@ function serializeRobots(config: RobotsConfig): string {
 }
 
 function fallbackRobots(): string {
-  return ['User-Agent: *', 'Disallow:', ''].join('\n');
+  return ['User-Agent: *', CONTENT_SIGNAL_DIRECTIVE, 'Disallow:', ''].join(
+    '\n'
+  );
 }
 
 function robotsResponse(body: string): Response {

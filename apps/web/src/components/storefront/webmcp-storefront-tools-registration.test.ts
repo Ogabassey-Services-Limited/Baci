@@ -95,6 +95,23 @@ describe('webmcp-storefront-tools-registration', () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ signal });
   });
 
+  it('ignores truthy non-Promise registration returns from injected model contexts', () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const registerTool = vi.fn(() => true);
+
+    registerWebMcpStorefrontTools({
+      merchantId: '11111111-1111-4111-8111-111111111111',
+      merchantSlug: 'ogabassey',
+      modelContext: { registerTool },
+      signal: new AbortController().signal,
+    });
+
+    expect(registerTool).toHaveBeenCalledTimes(3);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it('passes the registration abort signal through policy document fetches', async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === '/auth.md') {
