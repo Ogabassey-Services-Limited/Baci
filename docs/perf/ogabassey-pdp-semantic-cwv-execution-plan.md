@@ -1,21 +1,36 @@
 # OgaBassey PDP semantic SEO + Core Web Vitals execution plan
 
-_Last updated: 2026-06-11_
+_Last updated: 2026-06-12_
 
 ## Current execution position
 
-This document is the working plan for OgaBassey PDP semantic SEO and Core Web Vitals follow-up work. It imports the Koray-style teardown plan and updates it with the current production state after PR #2429 (`02141f62f1 fix(web): block streamed PDP metadata for AI crawlers`) and the latest PSI/DebugBear measurements.
+This document is the working plan for OgaBassey PDP semantic SEO and Core Web Vitals follow-up work. It imports the Koray-style teardown plan and updates it with the current production state after PR #2429 (`02141f62f1 fix(web): block streamed PDP metadata for AI crawlers`), PR #2434 (`fix(web): noindex legacy storefront PDP fallbacks`), the in-flight PR #2435 (`fix(web): harden Ogabassey PDP trust signals`), and the latest PSI/DebugBear measurements.
 
 The strategy is semantic-first and architecture-first: make the canonical PDP understandable, internally consistent, richly connected, bot-readable, and trustworthy before doing more narrow Lighthouse micro-optimizations. Do not chase isolated Lighthouse hints unless they support the entity/page architecture or a clear Core Web Vitals threshold.
 
 ### Current-state overrides
 
 - **S1 bot metadata delivery is currently treated as done, pending periodic production regression checks.** PR #2429 shipped the Next `htmlLimitedBots` approach for AI crawlers/HTML-limited bots without disabling metadata streaming for ordinary human/browser traffic.
-- The work completed so far was **PDP metadata/head delivery**, not PDP body semantics. It did not repair trust contradictions, reviews, entity attributes, buyer-decision sections, footer/related-link HTML, or PDP LCP internals.
-- **Primary next SEO PR:** S2 canonical/robots leak cleanup for platform-domain PDP routes.
-- **Primary next semantic PR after S2:** S3 trust contradictions: stale absolute prices, zero-review filled-star UI, variant/color/image contradictions, and still-reproducible price/FAB overlap.
-- **Primary current lab performance bottleneck:** PDP mobile LCP. Home is close in lab; field data will lag because CrUX is a rolling 28-day field window.
+- The work completed so far has moved from **PDP metadata/head delivery** into **the first PDP trust cleanup pass**, but it has not yet repaired reviews-on-canonical-route, entity attributes, buyer-decision sections, footer/related-link HTML, or PDP LCP internals.
+- **S2 canonical/robots leak cleanup is merged.** PR #2434 merged on 2026-06-11 and noindexed the legacy storefront PDP fallbacks. Keep production raw-HTML regression checks, but S2 is no longer the primary next PR.
+- **Primary next semantic action:** finish PR #2435 review follow-up, update it from `main`, and merge the S3 trust-contradiction pass. It already covers stale absolute-price sentences and invalid/fake rating signals; variant/color/image contradictions and price/FAB overlap remain open unless separately proven fixed.
+- **Primary current lab performance bottleneck:** PDP mobile LCP. Home is close in lab; field data will lag because CrUX is a rolling 28-day field window. No post-#2435 production performance attribution is valid until #2435 is merged and deployed.
 - `proxy.ts` remains protected. No proxy diff without explicit approval and a gated replay/preview plan.
+
+
+### Progress ledger as of 2026-06-12
+
+| Area | Plan phase | Current state | Evidence / next action |
+|---|---|---|---|
+| Measurement tooling | Phase 0 | **In progress.** PR #2433 is open, CI quality gates are green, but GitHub reports the branch behind base. | DebugBear polling was repaired to use `/project/:projectId/quickTest/:id` when the create response has no poll link. Update from `main`, revalidate, then merge before treating the script behavior as available on `main`. |
+| Bot metadata delivery | S1 | **Done, monitor.** | PR #2429 shipped the Next `htmlLimitedBots` architecture. Continue raw bot-UA HTML checks for PDP/category/home. |
+| Platform-domain PDP leak | S2 | **Merged.** | PR #2434 merged on 2026-06-11. Keep a production regression check that legacy `/products/<slug>` and `/product/<slug>` fallbacks do not emit indexable platform-domain PDP canonicals. |
+| PDP trust contradictions | S3 | **In review / not merged.** | PR #2435 is open. CI quality-gate jobs are green, but Jules reported a medium follow-up: guard `sanitizeCustomProductSchemaMarkup` against nullish/non-object `sanitizeSchemaMarkup` results. Branch also needs latest `main` alignment. |
+| Ratings/reviews canonical route | S4 | **Not started, except schema guardrails.** | PR #2435 hardens invalid/custom `aggregateRating` handling and suppresses fake zero-review stars. It does **not** wire approved review stats/reviews into the canonical category PDP route. |
+| Entity attributes | S5 | **Open.** | Brand/GTIN/MPN, `og:type=product`, duplicate `additionalProperty`, and variant image/catalog contradictions remain to be split into code-owned vs data-owned work. |
+| Buyer-decision content / headings | S6 | **Open.** | Price-in-Nigeria, specs, installment, delivery/warranty, reviews, compare, FAQ, related links, and server-rendered footer links remain after S3-S5. |
+| PDP lab LCP residue | Phase 2 | **Open, blocked behind semantic/trust cleanup unless LCP regresses.** | Re-measure after #2435 deploy before adding PDP preconnect/Flight-payload work. |
+| Field TTFB/cache experiment | Phase 3 | **Gated / not started.** | Requires explicit approval before any `proxy.ts` diff. |
 
 ## Source alignment
 
@@ -30,7 +45,7 @@ This plan is aligned to current public guidance rather than Lighthouse-score cha
 
 ### PageSpeed Insights / CrUX
 
-Latest bounded production PSI snapshot after PR #2429 deploy:
+Latest bounded production PSI snapshot after PR #2429 deploy. No newer production measurement is attributable to PR #2435 yet because that PR is still open:
 
 | Route | Device | PSI Perf | Lab LCP | Lab FCP | Lab TBT | Lab CLS | SEO |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -88,7 +103,7 @@ The old env pairing was stale:
 - old key/project: `uc88...0nF8` + `100906`,
 - current key/project: `XqHv...4B8X` + `101919`.
 
-The DebugBear poll endpoint must use `/project/:projectId/quickTest/:id` when the create response omits an API poll link.
+The DebugBear poll endpoint must use `/project/:projectId/quickTest/:id` when the create response omits an API poll link. PR #2433 implements this in the measurement script, but it is still open as of 2026-06-12 and must be merged before this behavior exists on `main`.
 
 ## Imported teardown verdict
 
@@ -106,15 +121,15 @@ Important evidence from the pasted plan:
 ## Verified showstoppers and current status
 
 1. **Bot metadata failure** — Status: **fixed by PR #2429, keep regression checks.** Before the fix, bot/AI crawler HTML exposed key metadata only through streamed Flight data or not at all. The current architectural fix uses the Next metadata HTML-limited-bot path rather than disabling metadata streaming globally.
-2. **Knowledge-based trust contradictions** — Status: **open.** Stale absolute price text, filled stars beside zero reviews, color/variant image contradictions, and possible price/FAB overlap need direct fixes.
-3. **usebaci.com canonical leak** — Status: **open, next critical PR.** `/products/<slug>` and `/product/<slug>` platform routes must not emit misleading platform-domain canonicals or inconsistent robots.
-4. **Reviews backwards** — Status: **open.** Review/rating data is not on the canonical category PDP route. Emit `aggregateRating`/`review` only when valid approved review count is greater than zero.
+2. **Knowledge-based trust contradictions** — Status: **partially fixed in PR #2435, pending merge.** Stale absolute-price sentences are stripped from PDP metadata/JSON-LD/visible payloads, fake zero-review rating display is suppressed, and invalid custom aggregate ratings are removed. Remaining S3 work: catalog/data variant image/color contradictions, still-reproducible price/FAB overlap, and stored-description data hygiene.
+3. **usebaci.com canonical leak** — Status: **fixed for legacy PDP fallbacks by PR #2434, keep production regression checks.** `/products/<slug>` and `/product/<slug>` platform fallback behavior is no longer the next critical PR. Reopen only if raw production HTML still exposes indexable platform-domain PDP canonicals.
+4. **Reviews backwards** — Status: **open.** PR #2435 adds guardrails so invalid/fake aggregate ratings do not leak, but approved review stats/reviews are still not wired into the canonical category PDP route. Emit `aggregateRating`/`review` only when valid approved review count is greater than zero and matching visible review content exists.
 5. **Heading vector has weak micro-intent coverage** — Status: **open.** Add server-rendered buyer-decision sections only after canonical/trust/entity hygiene.
 6. **Initial HTML has weak crawl paths** — Status: **open.** Related links, footer links, FAQ wiring, and category crawl cost need follow-up.
 
 ## Phase 0 — verify, measure, avoid overlap
 
-Status: **ongoing before every PR.**
+Status: **ongoing before every PR. Measurement tooling repair is in PR #2433 and still needs merge/update from `main`.**
 
 1. Fetch `origin/main` and inspect open PRs to avoid colliding with the other active agent.
 2. Confirm recently merged performance commits are deployed before attributing wins or regressions.
@@ -143,13 +158,18 @@ Files to monitor:
 
 ### S2. Fix usebaci.com canonical leak and robots inconsistency
 
-Status: **next critical SEO PR.**
+Status: **merged by PR #2434; monitor with raw production HTML checks.**
 
 Goal:
 
 - Stop `/products/<slug>` and `/product/<slug>` on `usebaci.com` from emitting misleading platform-origin canonicals.
 - Standardize noindex behavior on platform leak routes while preserving merchant canonical routes.
 - Prefer `noindex,follow` for leak shells unless current repo intent proves otherwise, so discovery can still flow without indexing the duplicate shell.
+
+Progress:
+
+- PR #2434 (`fix(web): noindex legacy storefront PDP fallbacks`) merged on 2026-06-11.
+- Keep this phase in monitor mode: verify production raw HTML for representative legacy fallbacks, then only reopen if platform-domain canonicals or inconsistent robots still reproduce.
 
 Likely files:
 
@@ -163,7 +183,7 @@ Why before content expansion:
 
 ### S3. Kill PDP trust contradictions
 
-Status: **critical after S2.**
+Status: **in review in PR #2435; finish review follow-up before starting S4/S5/S6.**
 
 Scope:
 
@@ -172,6 +192,15 @@ Scope:
 - Suppress filled-star UI until `review_count > 0`.
 - Fix variant color/image contradictions if code-owned; flag catalog data repairs separately when data-owned.
 - Fix visible price/FAB overlap if still reproducible.
+
+Progress in PR #2435:
+
+- Implemented `stripVolatileProductPriceSentences` and applied it to PDP metadata, JSON-LD/custom schema descriptions, hidden summary/body payloads, and cart payloads.
+- Added regressions for stale price copy, HTML-wrapped stale price text, inline stale price fragments, `ratingCount > 0` with `reviewCount: 0`, and out-of-range custom `ratingValue`.
+- Hardened custom `aggregateRating` validation against zero counts and out-of-range 1-5 scale values.
+- Suppressed dishonest filled-star/aggregate-rating output when no valid reviews/ratings exist.
+- Remaining review item before merge: guard `sanitizeCustomProductSchemaMarkup` when `sanitizeSchemaMarkup` returns nullish/non-object data.
+- Remaining S3 after merge: catalog/data variant image/color contradictions, possible price/FAB overlap if still reproducible, and a stored-description cleanup job.
 
 Likely files:
 
@@ -186,7 +215,7 @@ Reason:
 
 ### S4. Ratings and reviews on the canonical route
 
-Status: **major rich-result and trust PR.**
+Status: **open. PR #2435 only adds rating guardrails; it does not implement canonical-route review wiring.**
 
 Scope:
 
@@ -360,7 +389,7 @@ Goal: move toward tech-commerce authority in Nigeria by expanding semantic cover
 
 ## Verification checklist per PR
 
-- Fetch/rebase from `origin/main` and inspect active PRs for overlap.
+- Fetch/rebase from `origin/main` and inspect active PRs for overlap. Current active PRs to consider as of 2026-06-12: #2433 measurement tooling and #2435 PDP trust signals.
 - Targeted tests for changed logic.
 - `pnpm turbo lint --filter=@baci/web`.
 - `pnpm --dir apps/web exec tsc --noEmit --pretty false`.
