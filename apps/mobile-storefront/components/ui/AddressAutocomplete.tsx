@@ -1,14 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Dimensions,
-  Keyboard,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Dimensions, Keyboard, Pressable, Text, TextInput, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import {
