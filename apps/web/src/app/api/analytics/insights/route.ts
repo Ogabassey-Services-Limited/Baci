@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateObject } from 'ai';
 import { NextResponse } from 'next/server';
-import z from 'zod';
 import {
   AI_RATE_LIMITS,
   checkRateLimit,
@@ -14,22 +13,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-
-// Schema for AI insights
-const InsightSchema = z.object({
-  insights: z.array(
-    z.object({
-      title: z.string(),
-      description: z.string(),
-      type: z.enum(['positive', 'negative', 'neutral', 'opportunity']),
-      priority: z.enum(['high', 'medium', 'low']),
-      action: z
-        .string()
-        .optional()
-        .describe('Suggested action for the merchant'),
-    })
-  ),
-});
+import { analyticsInsightsSchema } from '@/schemas/analytics-insights';
 
 const AI_INSIGHTS_TIMEOUT_MS = 10_000;
 const AI_INSIGHTS_RETRY_CONFIG = {
@@ -127,7 +111,7 @@ async function generateInsights(
     const { object } = await withRetry(async () => {
       return await generateObject({
         model: geminiFlash,
-        schema: InsightSchema,
+        schema: analyticsInsightsSchema,
         maxRetries: 0,
         timeout: AI_INSIGHTS_TIMEOUT_MS,
         prompt: `

@@ -1,49 +1,22 @@
 import type { Order, OrderItem, ShippingStatus } from '@baci/shared';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { z } from 'zod';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { ORDER_COLUMNS } from '@/lib/orders';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
+import {
+  type OrderListRow,
+  orderListRowSchema,
+} from '@/schemas/order-list-row';
 import { useBranchScope } from '../useBranchScope';
 import { useMerchant } from '../useMerchant';
 import { applyOrderListVisibilityFilter } from './order-list-visibility';
 import type { OrdersPage, OrderWithCount } from './order-types';
 
 const PAGE_SIZE = 20;
-const SHIPPING_STATUSES = [
-  'pending',
-  'processing',
-  'shipped',
-  'delivered',
-  'cancelled',
-  'returned',
-] as const;
-const PAYMENT_STATUSES = [
-  'paid',
-  'unpaid',
-  'pending',
-  'failed',
-  'refunded',
-  'partially_paid',
-  'bnpl_approved',
-  'bnpl_pending',
-] as const;
-
-const orderListRowSchema = z
-  .object({
-    order_items: z.array(z.object({ id: z.string() }).passthrough()).nullish(),
-    payment_status: z.enum(PAYMENT_STATUSES),
-    shipping_status: z.preprocess(
-      (status) => (status === 'fulfilled' ? 'delivered' : status),
-      z.enum(SHIPPING_STATUSES)
-    ),
-  })
-  .passthrough();
-
 function parseOrderListRows(rows: unknown[]) {
-  const normalizedRows: z.infer<typeof orderListRowSchema>[] = [];
+  const normalizedRows: OrderListRow[] = [];
 
   for (const row of rows) {
     const parsedRow = orderListRowSchema.safeParse(row);

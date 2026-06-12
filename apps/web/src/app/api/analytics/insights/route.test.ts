@@ -128,6 +128,67 @@ describe('GET /api/analytics/insights', () => {
     vi.restoreAllMocks();
   });
 
+  it('returns 401 when authentication fails', async () => {
+    vi.mocked(authenticateApiRequest).mockResolvedValueOnce({
+      error: 'Invalid token',
+      supabase: null,
+      user: null,
+    } as Awaited<ReturnType<typeof authenticateApiRequest>>);
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
+    expect(getMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when merchant context is missing', async () => {
+    vi.mocked(getMerchantForApiRequest).mockResolvedValueOnce(null);
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Merchant not found',
+    });
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when analytics view permission is denied', async () => {
+    vi.mocked(hasPermission).mockReturnValueOnce(false);
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 when the insights rate limit is exceeded', async () => {
+    vi.mocked(checkRateLimit).mockReturnValueOnce({
+      allowed: false,
+      remaining: 0,
+      resetIn: 45_000,
+    });
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Rate limit exceeded',
+      details: 'Please wait 45 seconds before trying again.',
+    });
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
   it('bounds AI insight generation below the Vercel function timeout', async () => {
     vi.mocked(generateObject).mockResolvedValue({
       object: {
