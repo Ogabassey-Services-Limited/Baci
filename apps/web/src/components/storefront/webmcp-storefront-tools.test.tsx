@@ -72,6 +72,10 @@ describe('WebMcpStorefrontTools', () => {
       configurable: true,
       value: undefined,
     });
+    Object.defineProperty(navigator, 'modelContext', {
+      configurable: true,
+      value: undefined,
+    });
     global.fetch = originalFetch;
   });
 
@@ -109,6 +113,46 @@ describe('WebMcpStorefrontTools', () => {
     unmount();
 
     expect(registerOptions.signal?.aborted).toBe(true);
+  });
+
+  it('registers against current document and legacy navigator model contexts', async () => {
+    const documentRegisterTool = getRegisterTool();
+    const navigatorRegisterTool = vi.fn();
+    Object.defineProperty(navigator, 'modelContext', {
+      configurable: true,
+      value: {
+        registerTool: navigatorRegisterTool,
+      },
+    });
+
+    renderTools();
+
+    await waitFor(() => {
+      expect(documentRegisterTool).toHaveBeenCalledTimes(3);
+      expect(navigatorRegisterTool).toHaveBeenCalledTimes(3);
+    });
+
+    const documentTools = documentRegisterTool.mock.calls.map(
+      ([tool]) => tool as RegisteredTool
+    );
+    const navigatorTools = navigatorRegisterTool.mock.calls.map(
+      ([tool]) => tool as RegisteredTool
+    );
+    expect(navigatorTools.map((tool) => tool.name)).toEqual(
+      documentTools.map((tool) => tool.name)
+    );
+    for (const [index, documentTool] of documentTools.entries()) {
+      expect(navigatorTools[index]).toMatchObject({
+        annotations: documentTool.annotations,
+        inputSchema: documentTool.inputSchema,
+        name: documentTool.name,
+      });
+      expect(
+        (navigatorRegisterTool.mock.calls[index][1] as RegisterOptions).signal
+      ).toBe(
+        (documentRegisterTool.mock.calls[index][1] as RegisterOptions).signal
+      );
+    }
   });
 
   it('executes catalog search against the public same-origin storefront API', async () => {
