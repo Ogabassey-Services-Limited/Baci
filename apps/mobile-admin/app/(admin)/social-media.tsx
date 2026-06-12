@@ -2,18 +2,18 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import type { ComponentProps } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SocialMediaInput from '@/components/settings/SocialMediaInput';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
@@ -30,10 +30,6 @@ const EMPTY_SOCIAL_MEDIA: MerchantSocialMedia = {
   linkedin: '',
   snapchat: '',
 };
-
-const SOCIAL_MEDIA_KEYS = Object.keys(
-  EMPTY_SOCIAL_MEDIA
-) as (keyof MerchantSocialMedia)[];
 
 type SocialMediaFieldConfig = {
   platform: keyof MerchantSocialMedia;
@@ -101,31 +97,41 @@ export default function SocialMediaScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // State for social media, seeded from the saved merchant values
-  const remoteSocialMedia: MerchantSocialMedia = {
-    instagram: merchant?.social_media?.instagram ?? '',
-    twitter: merchant?.social_media?.twitter ?? '',
-    facebook: merchant?.social_media?.facebook ?? '',
-    tiktok: merchant?.social_media?.tiktok ?? '',
-    youtube: merchant?.social_media?.youtube ?? '',
-    pinterest: merchant?.social_media?.pinterest ?? '',
-    linkedin: merchant?.social_media?.linkedin ?? '',
-    snapchat: merchant?.social_media?.snapchat ?? '',
-  };
+  // State for social media
   const [socialMedia, setSocialMedia] =
-    useState<MerchantSocialMedia>(remoteSocialMedia);
+    useState<MerchantSocialMedia>(EMPTY_SOCIAL_MEDIA);
+  const instagram = merchant?.social_media?.instagram ?? '';
+  const twitter = merchant?.social_media?.twitter ?? '';
+  const facebook = merchant?.social_media?.facebook ?? '';
+  const tiktok = merchant?.social_media?.tiktok ?? '';
+  const youtube = merchant?.social_media?.youtube ?? '';
+  const pinterest = merchant?.social_media?.pinterest ?? '';
+  const linkedin = merchant?.social_media?.linkedin ?? '';
+  const snapchat = merchant?.social_media?.snapchat ?? '';
 
-  // Re-seed the form whenever a saved value changes. Adjusting state during
-  // render (guarded by a prev-value compare) avoids the extra post-commit
-  // re-render an effect would cause and keeps React Compiler memoization.
-  const [prevRemote, setPrevRemote] =
-    useState<MerchantSocialMedia>(remoteSocialMedia);
-  if (
-    SOCIAL_MEDIA_KEYS.some((key) => remoteSocialMedia[key] !== prevRemote[key])
-  ) {
-    setPrevRemote(remoteSocialMedia);
-    setSocialMedia(remoteSocialMedia);
-  }
+  // Populate state
+  useEffect(() => {
+    setSocialMedia({
+      ...EMPTY_SOCIAL_MEDIA,
+      instagram,
+      twitter,
+      facebook,
+      tiktok,
+      youtube,
+      pinterest,
+      linkedin,
+      snapchat,
+    });
+  }, [
+    instagram,
+    twitter,
+    facebook,
+    tiktok,
+    youtube,
+    pinterest,
+    linkedin,
+    snapchat,
+  ]);
 
   // Save Mutation
   const saveMutation = useMutation({
@@ -200,9 +206,10 @@ export default function SocialMediaScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <ScrollView
-          style={styles.scrollView}
+        <AppKeyboardContainer
+          align="start"
           contentContainerStyle={styles.scrollContent}
+          offsetPreset="compactHeader"
         >
           <View
             style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
@@ -238,7 +245,7 @@ export default function SocialMediaScreen() {
               )
             )}
           </View>
-        </ScrollView>
+        </AppKeyboardContainer>
       </SafeAreaView>
     </>
   );
@@ -246,7 +253,6 @@ export default function SocialMediaScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollView: { flex: 1 },
   scrollContent: { padding: SPACING.lg },
   backButton: {}, // Native handles padding
   saveButton: {},

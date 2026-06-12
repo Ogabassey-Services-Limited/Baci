@@ -1,11 +1,14 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { groupOrdersByRelativeDate } from '@/utils/date-utils';
+import type { Order } from '@/hooks/useOrders';
 
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   useMerchant: vi.fn(),
   useOrders: vi.fn(),
   useOrderCounts: vi.fn(),
+  useAiInsights: vi.fn(),
   mutateAsync: vi.fn(),
   push: vi.fn(),
 }));
@@ -19,10 +22,23 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('react-native', async () => {
   const React = await import('react');
 
+  class AnimatedValue {
+    interpolate() {
+      return 0;
+    }
+  }
+
   return {
     StatusBar: () => null,
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Alert: { alert: vi.fn() },
+    Animated: {
+      Value: AnimatedValue,
+      timing: () => ({ start: () => undefined }),
+      createAnimatedComponent: vi.fn((c) => c),
+      View: ({ children }: { children?: React.ReactNode }) =>
+        React.createElement('div', null, children),
+    },
     Pressable: ({
       children,
       onPress,
@@ -81,37 +97,6 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('react-native-reanimated', async () => {
-  const React = await import('react');
-
-  const makeSharedValue = (initial: unknown) => {
-    let current = initial;
-    return {
-      get value() {
-        return current;
-      },
-      set value(next: unknown) {
-        current = next;
-      },
-      get: () => current,
-      set: (next: unknown) => {
-        current = next;
-      },
-    };
-  };
-
-  return {
-    default: {
-      View: ({ children }: { children?: React.ReactNode }) =>
-        React.createElement('div', null, children),
-    },
-    interpolate: () => 0,
-    useAnimatedStyle: () => ({}),
-    useSharedValue: makeSharedValue,
-    withTiming: (value: unknown) => value,
-  };
-});
-
 vi.mock('react-native-safe-area-context', async () => {
   const React = await import('react');
 
@@ -148,6 +133,10 @@ vi.mock('@/components/ui/OrderReportModal', () => ({
   default: () => null,
 }));
 
+vi.mock('@/components/ui/haptics', () => ({
+  triggerLightHaptic: vi.fn(),
+}));
+
 vi.mock('@/hooks/useDebounce', () => ({
   useDebounce: (value: string) => value,
 }));
@@ -158,6 +147,10 @@ vi.mock('@/hooks/useMerchant', () => ({
 
 vi.mock('@/hooks/useOrderCounts', () => ({
   useOrderCounts: mocks.useOrderCounts,
+}));
+
+vi.mock('@/hooks/useAiInsights', () => ({
+  useAiInsights: mocks.useAiInsights,
 }));
 
 vi.mock('@/hooks/useOrders', () => ({
@@ -203,7 +196,7 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('@/utils/date-utils', () => ({
-  groupOrdersByRelativeDate: () => [],
+  groupOrdersByRelativeDate: vi.fn(() => []),
 }));
 
 vi.mock('@/utils/export-orders', () => ({
@@ -211,6 +204,42 @@ vi.mock('@/utils/export-orders', () => ({
     exportOrdersRPC: vi.fn(),
   },
 }));
+
+vi.mock('@shopify/flash-list', async () => {
+  const React = await import('react');
+
+  return {
+    FlashList: ({
+      data = [],
+      renderItem,
+      keyExtractor,
+      ListEmptyComponent,
+      ListFooterComponent,
+    }: any) => {
+      const renderMaybeComponent = (ComponentOrNode: any) => {
+        if (!ComponentOrNode) return null;
+        return typeof ComponentOrNode === 'function'
+          ? React.createElement(ComponentOrNode)
+          : ComponentOrNode;
+      };
+
+      return React.createElement(
+        'div',
+        null,
+        data.length > 0
+          ? data.map((item: any, index: number) =>
+              React.createElement(
+                React.Fragment,
+                { key: keyExtractor?.(item, index) ?? index },
+                renderItem({ item, index })
+              )
+            )
+          : renderMaybeComponent(ListEmptyComponent),
+        renderMaybeComponent(ListFooterComponent)
+      );
+    },
+  };
+});
 
 import OrdersScreen from '../../../app/(admin)/(tabs)/orders';
 
@@ -238,6 +267,22 @@ describe('OrdersScreen', () => {
       error: null,
     });
     mocks.useOrderCounts.mockReturnValue({ data: null });
+    mocks.useAiInsights.mockReturnValue({
+      data: {
+        insights: [
+          {
+            title: 'Verify Pending Shipments',
+            description:
+              'There are 503 unfulfilled orders. Shipped items prompt positive customer reviews.',
+            type: 'opportunity',
+            priority: 'high',
+            action: 'Fulfill outstanding pending orders',
+          },
+        ],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -334,6 +379,11 @@ describe('OrdersScreen', () => {
   });
 
   it('renders the insight card above the search bar and keeps filters below search', () => {
+    mocks.useAiInsights.mockReturnValue({
+      data: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
     mocks.useOrderCounts.mockReturnValue({
       data: {
         all: 8,
@@ -362,5 +412,96 @@ describe('OrdersScreen', () => {
       searchInput.compareDocumentPosition(pendingFilter) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
+  });
+
+  it('renders section headers and order items correctly in flat structure', () => {
+    const mockOrders = [
+      {
+        id: 'order-1',
+        created_at: '2026-06-09T12:00:00Z',
+        shipping_status: 'pending',
+        payment_status: 'paid',
+        total: 10000,
+        currency: 'NGN',
+        order_number: 'ORD-1001',
+        customer_name: 'John Doe',
+        items_count: 2,
+        payment_method: 'card',
+        channel: 'web',
+      },
+      {
+        id: 'order-2',
+        created_at: '2026-06-08T12:00:00Z',
+        shipping_status: 'shipped',
+        payment_status: 'paid',
+        total: 25000,
+        currency: 'NGN',
+        order_number: 'ORD-1002',
+        customer_name: 'Jane Smith',
+        items_count: 1,
+        payment_method: 'transfer',
+        channel: 'whatsapp',
+      },
+    ] as unknown as Order[];
+
+    mocks.useOrders.mockReturnValue({
+      data: {
+        pages: [{ orders: mockOrders, nextCursor: null }],
+        pageParams: [null],
+      },
+      isLoading: false,
+      isFetching: false,
+      isFetchingNextPage: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      error: null,
+    });
+
+    vi.mocked(groupOrdersByRelativeDate).mockReturnValue([
+      { title: 'Today', data: [mockOrders[0]] },
+      { title: 'Yesterday', data: [mockOrders[1]] },
+    ]);
+
+    render(<OrdersScreen />);
+
+    // Section headers should render
+    expect(screen.getByText('Today')).toBeTruthy();
+    expect(screen.getByText('Yesterday')).toBeTruthy();
+
+    // Order details should render
+    expect(screen.getByText('ORD-1001')).toBeTruthy();
+    expect(screen.getByText('ORD-1002')).toBeTruthy();
+    expect(screen.getByText('John Doe')).toBeTruthy();
+    expect(screen.getByText('Jane Smith')).toBeTruthy();
+  });
+
+  it('renders pagination footer when isFetchingNextPage is true', () => {
+    mocks.useOrders.mockReturnValue({
+      data: {
+        pages: [{ orders: [], nextCursor: 'next-page' }],
+        pageParams: [null],
+      },
+      isLoading: false,
+      isFetching: false,
+      isFetchingNextPage: true,
+      hasNextPage: true,
+      fetchNextPage: vi.fn(),
+      error: null,
+    });
+
+    render(<OrdersScreen />);
+    expect(screen.getByText('loading')).toBeTruthy();
+  });
+
+  it('renders Gemma AI insights and actionable checklist TODOs', () => {
+    render(<OrdersScreen />);
+    expect(screen.getByText('AI INSIGHTS')).toBeTruthy();
+    expect(screen.getByText('Verify Pending Shipments')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'There are 503 unfulfilled orders. Shipped items prompt positive customer reviews.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByText('Fulfill outstanding pending orders')).toBeTruthy();
   });
 });

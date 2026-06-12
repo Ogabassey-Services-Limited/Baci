@@ -18,45 +18,41 @@ import Ionicons, {
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
+import { useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
-  SectionList,
-  type SectionListData,
-  type SectionListRenderItemInfo,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
+  StatusBar,
 } from 'react-native';
-import Animated, {
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import OrderReportModal from '@/components/ui/OrderReportModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
-import { type OrderCounts, useOrderCounts } from '@/hooks/useOrderCounts';
+import { useOrderCounts } from '@/hooks/useOrderCounts';
 import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
+import { useAiInsights } from '@/hooks/useAiInsights';
+import { triggerLightHaptic } from '@/components/ui/haptics';
 import { getOrdersViewState } from '@/lib/orders-view-state';
-import {
-  groupOrdersByRelativeDate,
-  type OrderSection,
-} from '@/utils/date-utils';
+import { groupOrdersByRelativeDate } from '@/utils/date-utils';
 import { orderExportTools } from '@/utils/export-orders';
+
+type OrdersListRow =
+  | { type: 'header'; id: string; title: string }
+  | { type: 'item'; id: string; order: Order };
 
 // Helper functions moved outside component
 const formatPrice = (amount: number, currency: string = 'NGN') => {
@@ -157,7 +153,11 @@ function OrderItem({
               color={sourceConfig.color}
             />
           </View>
-          <Text style={[styles.customerName, { color: colors.text }]}>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.customerName, { color: colors.text }]}
+          >
             {item.customer_name}
           </Text>
         </View>
@@ -229,63 +229,10 @@ function OrderItem({
   );
 }
 
-// Filter tab component — hoisted to module scope so React keeps its identity
-// stable across OrdersScreen renders (calls useTheme() internally like OrderItem)
-interface FilterTabProps {
-  status: ShippingStatus | 'all';
-  label: string;
-  statusFilter: ShippingStatus | undefined;
-  counts: OrderCounts | undefined;
-  onSelectStatus: (status: ShippingStatus | undefined) => void;
-}
-
-function FilterTab({
-  status,
-  label,
-  statusFilter,
-  counts,
-  onSelectStatus,
-}: FilterTabProps) {
-  const { colors } = useTheme();
-  const isActive =
-    (status === 'all' && !statusFilter) || statusFilter === status;
-  const count = counts
-    ? status === 'all'
-      ? counts.all
-      : (counts[status] ?? 0)
-    : 0;
-
-  return (
-    <Pressable
-      style={[
-        styles.filterTab,
-        {
-          backgroundColor: isActive ? colors.gold : colors.card,
-        },
-      ]}
-      onPress={() => onSelectStatus(status === 'all' ? undefined : status)}
-      accessibilityLabel={`${label} orders: ${count}${isActive ? ', currently selected' : ''}`}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: isActive }}
-      accessibilityHint={`Filter to show ${label.toLowerCase()} orders`}
-    >
-      <Text
-        style={[
-          styles.filterText,
-          { color: isActive ? '#000000' : colors.textSecondary },
-        ]}
-      >
-        {label} ({count})
-      </Text>
-    </Pressable>
-  );
-}
-
 export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
   const queryClient = useQueryClient();
   const {
-    storeUrl,
     merchant,
     isLoading: isMerchantLoading,
     error: merchantError,
@@ -304,45 +251,52 @@ export default function OrdersScreen() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
+  const [completedTodos, setCompletedTodos] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  // AI Insights hook
+  const {
+    data: aiInsightsData,
+    isLoading: isAiInsightsLoading,
+    refetch: refetchAiInsights,
+  } = useAiInsights();
 
   // Status update mutation
   const updateStatus = useUpdateOrderStatus();
 
-  // Collapsible search bar animation — Reanimated shared values so scrolling
-  // never calls setState (no screen re-renders per scroll event)
-  const headerVisibility = useSharedValue(1);
-  const isSearchVisible = useSharedValue(true);
-  const lastScrollY = useSharedValue(0);
+  // Collapsible search bar animation
+  const headerVisibilityAnim = useRef(new Animated.Value(1)).current;
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const lastScrollY = useRef(0);
+  const isSearchVisible = useRef(true);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
-    const diff = currentScrollY - lastScrollY.get();
+    const diff = currentScrollY - lastScrollY.current;
 
     if (Math.abs(diff) > 10) {
-      if (diff > 0 && isSearchVisible.get() && currentScrollY > 50) {
-        isSearchVisible.set(false);
-        headerVisibility.set(withTiming(0, { duration: 200 }));
-      } else if (diff < 0 && !isSearchVisible.get()) {
-        isSearchVisible.set(true);
-        headerVisibility.set(withTiming(1, { duration: 200 }));
+      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
+        isSearchVisible.current = false;
+        setIsHeaderCollapsed(true);
+        Animated.timing(headerVisibilityAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      } else if (diff < 0 && !isSearchVisible.current) {
+        isSearchVisible.current = true;
+        setIsHeaderCollapsed(false);
+        Animated.timing(headerVisibilityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
       }
     }
 
-    lastScrollY.set(currentScrollY);
+    lastScrollY.current = currentScrollY;
   };
-
-  const searchHeaderStyle = useAnimatedStyle(() => {
-    const collapsed = !isSearchVisible.get();
-    return {
-      opacity: headerVisibility.get(),
-      transform: [
-        { translateY: interpolate(headerVisibility.get(), [0, 1], [-24, 0]) },
-      ],
-      height: collapsed ? 0 : 'auto',
-      marginBottom: collapsed ? 0 : SPACING.md,
-      overflow: collapsed ? 'hidden' : 'visible',
-    };
-  });
 
   // Fetch orders with filter
   const {
@@ -690,6 +644,7 @@ export default function OrdersScreen() {
 
   const handleRetry = () => {
     void queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    void refetchAiInsights();
 
     if (!merchant?.id) {
       return;
@@ -726,9 +681,7 @@ export default function OrdersScreen() {
 
   const merchantCurrency = merchant?.payout_currency || 'NGN';
 
-  const renderOrder = ({
-    item,
-  }: SectionListRenderItemInfo<Order, OrderSection>) => (
+  const renderOrder = ({ item }: { item: Order }) => (
     <OrderItem
       item={item}
       currency={merchantCurrency}
@@ -740,25 +693,91 @@ export default function OrdersScreen() {
     />
   );
 
-  const orderKeyExtractor = (item: Order) => item.id;
+  // Flatten orders sections into a flat list array.
+  // Memoized using useMemo to ensure referential stability and prevent layout/rendering churn.
+  const flatListData = useMemo(() => {
+    const sections = groupOrdersByRelativeDate(allOrders);
+    const flatListData: OrdersListRow[] = [];
+    sections.forEach((section, sectionIndex) => {
+      if (section.data.length === 0) return;
 
-  // Group orders by relative date for section list
-  const sections = groupOrdersByRelativeDate(allOrders);
+      flatListData.push({
+        type: 'header',
+        id: `header-${section.title}-${sectionIndex}`,
+        title: section.title,
+      });
+      section.data.forEach((order) => {
+        flatListData.push({
+          type: 'item',
+          id: order.id,
+          order,
+        });
+      });
+    });
+    return flatListData;
+  }, [allOrders]);
 
-  // Section header renderer
-  const renderSectionHeader = ({
-    section,
+  const renderFlatListItem = ({ item }: { item: OrdersListRow }) => {
+    if (item.type === 'header') {
+      return (
+        <View
+          style={[styles.sectionHeader, { backgroundColor: colors.background }]}
+        >
+          <Text
+            style={[styles.sectionHeaderText, { color: colors.textSecondary }]}
+          >
+            {item.title}
+          </Text>
+        </View>
+      );
+    }
+    return renderOrder({ item: item.order });
+  };
+
+  const FilterTab = ({
+    status,
+    label,
   }: {
-    section: SectionListData<Order, OrderSection>;
-  }) => (
-    <View
-      style={[styles.sectionHeader, { backgroundColor: colors.background }]}
-    >
-      <Text style={[styles.sectionHeaderText, { color: colors.textSecondary }]}>
-        {section.title}
-      </Text>
-    </View>
-  );
+    status: ShippingStatus | 'all';
+    label: string;
+  }) => {
+    const isActive =
+      (status === 'all' && !statusFilter) || statusFilter === status;
+    const count = counts
+      ? status === 'all'
+        ? counts.all
+        : (counts[status] ?? 0)
+      : 0;
+
+    return (
+      <Pressable
+        style={[
+          styles.filterTab,
+          {
+            backgroundColor: isActive ? colors.gold : colors.card,
+          },
+        ]}
+        onPress={() =>
+          setStatusFilter(
+            status === 'all' ? undefined : (status as ShippingStatus)
+          )
+        }
+        accessibilityLabel={`${label} orders: ${count}${isActive ? ', currently selected' : ''}`}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: isActive }}
+        accessibilityHint={`Filter to show ${label.toLowerCase()} orders`}
+      >
+        <Text
+          style={[
+            styles.filterText,
+            { color: isActive ? '#000000' : colors.textSecondary },
+          ]}
+        >
+          {label} ({count})
+        </Text>
+      </Pressable>
+    );
+  };
 
   return (
     <SafeAreaView
@@ -801,7 +820,7 @@ export default function OrdersScreen() {
       </View>
 
       {/* Insight Card */}
-      {showInsight && pendingCount > 0 ? (
+      {showInsight ? (
         <View
           style={[
             styles.insightCard,
@@ -812,19 +831,19 @@ export default function OrdersScreen() {
           <View style={styles.insightHeader}>
             <View
               style={{
-                width: 32,
-                height: 32,
+                width: 24,
+                height: 24,
                 borderRadius: RADIUS.sm,
                 backgroundColor: colors.goldLight,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Ionicons name="sparkles" size={20} color={colors.gold} />
+              <Ionicons name="sparkles" size={14} color={colors.gold} />
             </View>
             <View style={styles.storeInfo}>
               <Text style={[styles.storeName, { color: colors.gold }]}>
-                {storeUrl}
+                AI INSIGHTS
               </Text>
             </View>
             <Pressable
@@ -845,36 +864,168 @@ export default function OrdersScreen() {
                   { backgroundColor: colors.backgroundLight },
                 ]}
               >
-                <Ionicons name="close" size={16} color={colors.textMuted} />
+                <Ionicons name="close" size={12} color={colors.textMuted} />
               </View>
             </Pressable>
           </View>
-          <Text
-            style={[styles.insightMessage, { color: colors.textSecondary }]}
-          >
-            You have {pendingCount} pending orders awaiting confirmation.
-            Process them to keep customers happy!
-          </Text>
-          <Pressable
-            style={[styles.insightLink, { minHeight: 44 }]}
-            onPress={() => {
-              setStatusFilter('pending');
-              setShowInsight(false);
-            }}
-            accessibilityLabel={`View ${pendingCount} pending orders`}
-            accessibilityRole="button"
-            accessibilityHint="Filters orders to show only pending orders"
-          >
-            <Text style={[styles.insightLinkText, { color: colors.gold }]}>
-              View pending
-            </Text>
-            <Ionicons name="arrow-forward" size={14} color={colors.gold} />
-          </Pressable>
+
+          {isAiInsightsLoading ? (
+            <View style={{ paddingVertical: SPACING.md, alignItems: 'center' }}>
+              <ActivityIndicator color={colors.gold} size="small" />
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontSize: TYPOGRAPHY.size.xs,
+                  marginTop: SPACING.sm,
+                  fontFamily: TYPOGRAPHY.fontFamily.medium,
+                }}
+              >
+                Analyzing sales context...
+              </Text>
+            </View>
+          ) : aiInsightsData?.insights && aiInsightsData.insights.length > 0 ? (
+            <View>
+              {/* Main Insight Title & Description */}
+              <View style={{ marginBottom: SPACING.sm }}>
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontSize: TYPOGRAPHY.size.sm,
+                    fontFamily: TYPOGRAPHY.fontFamily.bold,
+                    marginBottom: 4,
+                  }}
+                >
+                  {aiInsightsData.insights[0].title}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: TYPOGRAPHY.size.xs,
+                    fontFamily: TYPOGRAPHY.fontFamily.regular,
+                    lineHeight: 18,
+                  }}
+                >
+                  {aiInsightsData.insights[0].description}
+                </Text>
+              </View>
+
+              {/* Actionable TODOs Checklist */}
+              <View
+                style={{
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border,
+                  paddingTop: SPACING.sm,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.gold,
+                    fontSize: TYPOGRAPHY.size.xs,
+                    fontFamily: TYPOGRAPHY.fontFamily.bold,
+                    marginBottom: 4,
+                  }}
+                >
+                  TODOS FOR TODAY:
+                </Text>
+                {aiInsightsData.insights
+                  .map((insight) => insight.action)
+                  .filter(Boolean)
+                  .map((todoText, idx) => {
+                    const isCompleted = !!completedTodos[todoText!];
+                    return (
+                      <Pressable
+                        key={idx}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingVertical: 4,
+                          gap: SPACING.sm,
+                        }}
+                        onPress={() => {
+                          triggerLightHaptic();
+                          setCompletedTodos((prev) => ({
+                            ...prev,
+                            [todoText!]: !isCompleted,
+                          }));
+                        }}
+                        accessibilityLabel={`Todo item: ${todoText}. ${isCompleted ? 'Completed' : 'Not completed'}`}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: isCompleted }}
+                      >
+                        <Ionicons
+                          name={isCompleted ? 'checkbox' : 'square-outline'}
+                          size={18}
+                          color={
+                            isCompleted ? colors.success : colors.textMuted
+                          }
+                        />
+                        <Text
+                          style={{
+                            flex: 1,
+                            fontSize: TYPOGRAPHY.size.xs,
+                            fontFamily: TYPOGRAPHY.fontFamily.medium,
+                            color: isCompleted
+                              ? colors.textMuted
+                              : colors.textSecondary,
+                            textDecorationLine: isCompleted
+                              ? 'line-through'
+                              : 'none',
+                          }}
+                        >
+                          {todoText}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+              </View>
+            </View>
+          ) : (
+            /* Fallback to static count banner if no AI insights or error */
+            <View>
+              <Text
+                style={[styles.insightMessage, { color: colors.textSecondary }]}
+              >
+                You have {pendingCount} pending orders awaiting confirmation.
+                Process them to keep customers happy!
+              </Text>
+              <Pressable
+                style={[styles.insightLink, { minHeight: 44 }]}
+                onPress={() => {
+                  setStatusFilter('pending');
+                  setShowInsight(false);
+                }}
+                accessibilityLabel={`View ${pendingCount} pending orders`}
+                accessibilityRole="button"
+                accessibilityHint="Filters orders to show only pending orders"
+              >
+                <Text style={[styles.insightLinkText, { color: colors.gold }]}>
+                  View pending
+                </Text>
+                <Ionicons name="arrow-forward" size={14} color={colors.gold} />
+              </Pressable>
+            </View>
+          )}
         </View>
       ) : null}
 
       {/* Collapsible Search + Filter Header */}
-      <Animated.View style={[styles.searchContainer, searchHeaderStyle]}>
+      <Animated.View
+        style={[
+          styles.searchContainer,
+          isHeaderCollapsed && styles.searchContainerCollapsed,
+          {
+            opacity: headerVisibilityAnim,
+            transform: [
+              {
+                translateY: headerVisibilityAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-24, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
         <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
           <Ionicons name="search" size={20} color={colors.textMuted} />
           <TextInput
@@ -914,55 +1065,13 @@ export default function OrdersScreen() {
           contentContainerStyle={styles.filterContent}
           style={styles.filterContainer}
         >
-          <FilterTab
-            status="all"
-            label="All"
-            statusFilter={statusFilter}
-            counts={counts}
-            onSelectStatus={setStatusFilter}
-          />
-          <FilterTab
-            status="pending"
-            label="Pending"
-            statusFilter={statusFilter}
-            counts={counts}
-            onSelectStatus={setStatusFilter}
-          />
-          <FilterTab
-            status="processing"
-            label="Processing"
-            statusFilter={statusFilter}
-            counts={counts}
-            onSelectStatus={setStatusFilter}
-          />
-          <FilterTab
-            status="shipped"
-            label="Shipped"
-            statusFilter={statusFilter}
-            counts={counts}
-            onSelectStatus={setStatusFilter}
-          />
-          <FilterTab
-            status="delivered"
-            label="Delivered"
-            statusFilter={statusFilter}
-            counts={counts}
-            onSelectStatus={setStatusFilter}
-          />
-          <FilterTab
-            status="cancelled"
-            label="Cancelled"
-            statusFilter={statusFilter}
-            counts={counts}
-            onSelectStatus={setStatusFilter}
-          />
-          <FilterTab
-            status="returned"
-            label="Returned"
-            statusFilter={statusFilter}
-            counts={counts}
-            onSelectStatus={setStatusFilter}
-          />
+          <FilterTab status="all" label="All" />
+          <FilterTab status="pending" label="Pending" />
+          <FilterTab status="processing" label="Processing" />
+          <FilterTab status="shipped" label="Shipped" />
+          <FilterTab status="delivered" label="Delivered" />
+          <FilterTab status="cancelled" label="Cancelled" />
+          <FilterTab status="returned" label="Returned" />
         </ScrollView>
       </Animated.View>
 
@@ -994,16 +1103,13 @@ export default function OrdersScreen() {
         </View>
       ) : null}
 
-      <SectionList
-        sections={sections}
-        renderItem={renderOrder}
-        renderSectionHeader={renderSectionHeader}
-        keyExtractor={orderKeyExtractor}
-        stickySectionHeadersEnabled={true}
+      <FlashList
+        data={flatListData}
+        renderItem={renderFlatListItem}
+        getItemType={(item) => item.type}
+        ItemSeparatorComponent={() => <View style={{ height: SPACING.md }} />}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={5}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
@@ -1247,6 +1353,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
   },
+  searchContainerCollapsed: {
+    height: 0,
+    marginBottom: 0,
+    overflow: 'hidden',
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1365,13 +1476,14 @@ const styles = StyleSheet.create({
   insightCard: {
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
   insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.xs,
   },
   storeInfo: {
     flex: 1,
@@ -1382,8 +1494,8 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   dismissButton: {
-    width: 28,
-    height: 28,
+    width: 20,
+    height: 20,
     borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1428,7 +1540,6 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     paddingTop: SPACING.sm,
     paddingBottom: 80,
-    gap: SPACING.md,
   },
   orderCard: {
     borderRadius: RADIUS.lg,
@@ -1444,6 +1555,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
+    flex: 1,
+    marginRight: SPACING.sm,
   },
   sourceIcon: {
     width: 28,
@@ -1491,6 +1604,7 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    flex: 1,
   },
   orderFooter: {
     flexDirection: 'row',
@@ -1553,6 +1667,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: 2,
     paddingTop: SPACING.xs,
+    zIndex: 10,
   },
   sectionHeaderText: {
     fontSize: TYPOGRAPHY.size.sm,
