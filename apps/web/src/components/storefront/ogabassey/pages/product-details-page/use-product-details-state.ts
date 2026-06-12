@@ -163,13 +163,25 @@ export function useProductDetailsState(serverProduct: Product) {
       stock_quantity: variant.stock_quantity ?? null,
     }))
   );
+  const selectionSeedKey = JSON.stringify([
+    productData.condition,
+    productData.id,
+    productData.manage_stock ?? null,
+    productColorsKey,
+    productVariantSeedKey,
+    relatedProductsProduct.price,
+    routeCondition,
+    routeSelectionAttributesKey,
+    routeVariantId ?? null,
+  ]);
   // Resolve the initial variant selection at render time (not in an effect) so
   // the very first render — including server-side render and pre-hydration
   // markup — already has a concrete variant selected. Previously we seeded
   // from a `useEffect`, which meant the mobile action bar rendered "Out of
-  // Stock" in SSR HTML before hydration could swap it to "Add to Cart". The
-  // existing post-hydration effect still fires on route-param changes; its
-  // equality checks bail out when state already matches (no wasted renders).
+  // Stock" in SSR HTML before hydration could swap it to "Add to Cart".
+  // Route-param/product changes re-apply the seed via a render-time
+  // prev-key comparison further down; its equality checks bail out when
+  // state already matches (no wasted renders).
   // Each `useState` uses a lazy initializer so the seed resolution runs once
   // on mount instead of on every render.
   const resolveInitialSeed = () =>
@@ -222,7 +234,6 @@ export function useProductDetailsState(serverProduct: Product) {
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [animatingParticles, setAnimatingParticles] = useState<DOMRect[]>([]);
-  const [inputValue, setInputValue] = useState('');
   const selectedColorName =
     selectedColor !== null
       ? productData.colors[selectedColor]?.name
@@ -343,7 +354,16 @@ export function useProductDetailsState(serverProduct: Product) {
     productData,
   ]);
 
-  useEffect(() => {
+  // Re-apply the seed selection during render (prev-key comparison) when the
+  // product or route selection params change, instead of routing the sync
+  // through a useEffect. React re-renders immediately before commit, so
+  // shoppers never see a one-frame-stale selection between two commits.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [appliedSelectionSeedKey, setAppliedSelectionSeedKey] =
+    useState(selectionSeedKey);
+  if (selectionSeedKey !== appliedSelectionSeedKey) {
+    setAppliedSelectionSeedKey(selectionSeedKey);
+
     const seedSelection =
       resolveVariantDisplaySelection(
         {
@@ -374,7 +394,30 @@ export function useProductDetailsState(serverProduct: Product) {
       }
     );
 
-    if (!seedSelection) {
+    if (seedSelection) {
+      const nextAttributes = {
+        ...routeSelectionAttributes,
+        ...seedSelection.attributes,
+      };
+
+      setSelectedAttributes((previousAttributes) =>
+        areSelectionAttributesEqual(previousAttributes, nextAttributes)
+          ? previousAttributes
+          : nextAttributes
+      );
+      const defaultColorIndex = seedSelection.color
+        ? productData.colors.findIndex(
+            (color) => color.name === seedSelection.color
+          )
+        : -1;
+      const nextColor = defaultColorIndex >= 0 ? defaultColorIndex : null;
+      setSelectedColor((previousColor) =>
+        previousColor === nextColor ? previousColor : nextColor
+      );
+      setSecondaryColor((previousColor) =>
+        previousColor === null ? previousColor : null
+      );
+    } else {
       setSelectedColor((previousColor) =>
         previousColor === null ? previousColor : null
       );
@@ -384,42 +427,8 @@ export function useProductDetailsState(serverProduct: Product) {
       setSelectedAttributes((previousAttributes) =>
         Object.keys(previousAttributes).length === 0 ? previousAttributes : {}
       );
-      return;
     }
-
-    const nextAttributes = {
-      ...routeSelectionAttributes,
-      ...seedSelection.attributes,
-    };
-
-    setSelectedAttributes((previousAttributes) =>
-      areSelectionAttributesEqual(previousAttributes, nextAttributes)
-        ? previousAttributes
-        : nextAttributes
-    );
-    const defaultColorIndex = seedSelection.color
-      ? productData.colors.findIndex(
-          (color) => color.name === seedSelection.color
-        )
-      : -1;
-    const nextColor = defaultColorIndex >= 0 ? defaultColorIndex : null;
-    setSelectedColor((previousColor) =>
-      previousColor === nextColor ? previousColor : nextColor
-    );
-    setSecondaryColor((previousColor) =>
-      previousColor === null ? previousColor : null
-    );
-  }, [
-    productData.condition,
-    productData.id,
-    productData.manage_stock,
-    productColorsKey,
-    productVariantSeedKey,
-    relatedProductsProduct.price,
-    routeCondition,
-    routeSelectionAttributesKey,
-    routeVariantId,
-  ]);
+  }
 
   const currentCartItemId = buildCartItemId(productData.id, {
     color:
@@ -443,9 +452,17 @@ export function useProductDetailsState(serverProduct: Product) {
     : undefined;
   const quantityInCart = cartItem?.quantity || 0;
 
-  useEffect(() => {
+  // Mirror the cart quantity into the editable input during render (prev-value
+  // comparison) instead of an effect, so the input never shows a stale
+  // quantity for a frame after the cart changes.
+  const [inputValue, setInputValue] = useState(() =>
+    quantityInCart > 0 ? String(quantityInCart) : ''
+  );
+  const [prevQuantityInCart, setPrevQuantityInCart] = useState(quantityInCart);
+  if (quantityInCart !== prevQuantityInCart) {
+    setPrevQuantityInCart(quantityInCart);
     setInputValue(quantityInCart > 0 ? String(quantityInCart) : '');
-  }, [quantityInCart]);
+  }
 
   const currentOffer = resolveCurrentOffer(
     productData,

@@ -120,9 +120,10 @@ export function StorefrontForm({
     } catch (error) {
       setSubmitStatus('error');
       console.error('Form submission error:', error);
-    } finally {
-      setIsSubmitting(false);
     }
+    // Runs on success and failure alike; the catch above never rethrows, so
+    // this replaces the `finally` clause React Compiler cannot lower.
+    setIsSubmitting(false);
   };
 
   const handleChange = (fieldId: string, value: unknown) => {

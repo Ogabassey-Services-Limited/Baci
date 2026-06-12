@@ -51,6 +51,47 @@ describe('buildOgabasseyPdpCriticalProduct', () => {
     ).toBe('https://cdn.ogabassey.com/core-assets/products/iphone.avif');
   });
 
+  it('keeps rating-count-only aggregate ratings visible without claiming reviews', () => {
+    const product = buildOgabasseyPdpCriticalProduct({
+      category: 'Smartphones',
+      id: 'product-2',
+      name: 'Rating Count Product',
+      price: 100,
+      schema_markup: {
+        aggregateRating: {
+          ratingValue: 4.5,
+          reviewCount: 0,
+          ratingCount: 12,
+        },
+      },
+    });
+
+    expect(product.rating).toBe(4.5);
+    expect(product.reviewCount).toBe(0);
+    expect(product.ratingCount).toBe(12);
+  });
+
+  it('ignores aggregate ratings that use a non-storefront rating scale', () => {
+    const product = buildOgabasseyPdpCriticalProduct({
+      category: 'Smartphones',
+      id: 'product-3',
+      name: 'Hundred Point Rating Product',
+      price: 100,
+      schema_markup: {
+        aggregateRating: {
+          bestRating: 100,
+          worstRating: 0,
+          ratingValue: 87,
+          ratingCount: 12,
+        },
+      },
+    });
+
+    expect(product.rating).toBe(0);
+    expect(product.reviewCount).toBe(0);
+    expect(product.ratingCount).toBe(0);
+  });
+
   it('uses safe defaults for legacy rows without schema markup or condition', () => {
     const product = buildOgabasseyPdpCriticalProduct({
       category: null,
@@ -71,6 +112,7 @@ describe('buildOgabasseyPdpCriticalProduct', () => {
       image: '/placeholder.png',
       price: 0,
       rating: 0,
+      ratingCount: 0,
       reviewCount: 0,
       slug: 'legacy-product',
       stockQuantity: null,

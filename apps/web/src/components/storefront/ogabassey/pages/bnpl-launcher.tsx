@@ -1,5 +1,6 @@
 'use client';
 
+import type { Route } from 'next';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
@@ -166,6 +167,438 @@ function notifyNativeBnplClose(gateway: NativeBNPLBridgeGateway) {
     }
 }
 
+type BnplGateway = 'credit_direct' | 'credpal' | 'klump';
+
+function tryStartPaymentLaunch(
+    paymentLaunchKeyRef: { current: string | null },
+    key: string
+) {
+    if (paymentLaunchKeyRef.current === key) {
+        return false;
+    }
+
+    paymentLaunchKeyRef.current = key;
+    return true;
+}
+
+function clearPaymentLaunch(paymentLaunchKeyRef: { current: string | null }) {
+    paymentLaunchKeyRef.current = null;
+}
+
+interface BnplLaunchParams {
+    orderId: string | null;
+    gateway: BnplGateway | null;
+    klumpCallback: boolean;
+    klumpReference: string | null;
+    klumpTransactionId: string | null;
+    trackingToken: string | null;
+    lookupEmail: string | null;
+    lookupPhone: string | null;
+    lookupCustomerName: string | null;
+    merchantSlugParam: string | null;
+    contextMerchantSlug: string | null;
+    fallbackMerchantSlug: string;
+    pendingOrderSnapshot: ReturnType<typeof readPendingOrderSnapshot>;
+    paymentLaunchKeyRef: { current: string | null };
+    klumpSuccessRedirectRef: { current: boolean };
+    router: ReturnType<typeof useRouter>;
+    setStatus: (status: 'loading' | 'processing' | 'error') => void;
+    setErrorMessage: (message: string | null) => void;
+}
+
+// Hoisted to module scope: the throw-inside-try/catch statements and dynamic
+// imports below would otherwise block React Compiler memoization of
+// BnplLauncher (BuildHIR bailouts).
+async function launchBnplPayment({
+    orderId,
+    gateway,
+    klumpCallback,
+    klumpReference,
+    klumpTransactionId,
+    trackingToken,
+    lookupEmail,
+    lookupPhone,
+    lookupCustomerName,
+    merchantSlugParam,
+    contextMerchantSlug,
+    fallbackMerchantSlug,
+    pendingOrderSnapshot,
+    paymentLaunchKeyRef,
+    klumpSuccessRedirectRef,
+    router,
+    setStatus,
+    setErrorMessage,
+}: BnplLaunchParams) {
+    try {
+        if (!orderId || !gateway) {
+            setStatus('error');
+            setErrorMessage('Missing order ID or gateway information.');
+            return;
+        }
+
+        setStatus('loading');
+        setErrorMessage(null);
+
+        if (gateway === 'klump' && klumpCallback) {
+            if (!klumpReference || !trackingToken) {
+                throw new Error('Missing Klump callback context.');
+            }
+
+            if (!klumpTransactionId) {
+                throw new Error(
+                    'Klump checkout returned without a transaction id.'
+                );
+            }
+
+            if (
+                !tryStartPaymentLaunch(
+                    paymentLaunchKeyRef,
+                    `klump-callback:${orderId}:${klumpReference}:${klumpTransactionId}:${trackingToken}`
+                )
+            ) {
+                return;
+            }
+
+            const recordResponse = await apiPost<KlumpRecordResponse>(
+                '/api/payments/klump/record',
+                {
+                    merchant_reference: klumpReference,
+                    klump_transaction_id: klumpTransactionId,
+                    tracking_token: trackingToken,
+                }
+            );
+
+            if (!recordResponse?.success) {
+                throw new Error(
+                    recordResponse?.error ||
+                        'Failed to record Klump transaction.'
+                );
+            }
+
+            const successQuery = new URLSearchParams({
+                orderId,
+                reference: klumpReference,
+                type: 'klump',
+            });
+            successQuery.set('trackingToken', trackingToken);
+            router.push(`/order-success?${successQuery.toString()}` as Route);
+            return;
+        }
+
+        const slug =
+            merchantSlugParam ||
+            contextMerchantSlug ||
+            fallbackMerchantSlug;
+        const query = new URLSearchParams({ merchant_slug: slug });
+        if (trackingToken) {
+            query.set('token', trackingToken);
+        }
+        if (lookupEmail) {
+            query.set('email', lookupEmail);
+        }
+
+        if (process.env.NODE_ENV === 'development') {
+            console.log(
+                `[BnplLauncher] Fetching order ${orderId} for merchant ${slug}`
+            );
+        }
+        const url = `/api/storefront/orders/${orderId}?${query.toString()}`;
+        const res = await fetch(url);
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error(
+                `[BnplLauncher] Fetch failed: ${res.status} ${errorText}`
+            );
+            throw new Error(
+                `Failed to fetch order details (Status: ${res.status})`
+            );
+        }
+
+        const order = (await res.json()) as BnplOrder;
+        if (!order.items || order.items.length === 0) {
+            throw new Error('Order has no items.');
+        }
+
+        const checkoutCustomerEmail = getUnmaskedValue(
+            pendingOrderSnapshot?.customerEmail,
+            lookupEmail,
+            order.customer_email
+        );
+        const checkoutCustomerPhone = getUnmaskedValue(
+            pendingOrderSnapshot?.customerPhone,
+            lookupPhone,
+            order.customer_phone
+        );
+        const checkoutCustomerName =
+            lookupCustomerName || order.customer_name || '';
+
+        setStatus('processing');
+
+        if (gateway === 'credit_direct') {
+            const normalizedAmount = Number(order.total);
+            if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+                throw new Error('Invalid order total for Credit Direct checkout.');
+            }
+
+            if (
+                !tryStartPaymentLaunch(
+                    paymentLaunchKeyRef,
+                    `credit-direct:${order.id}:${order.tracking_token || trackingToken || ''}`
+                )
+            ) {
+                return;
+            }
+
+            await openCreditDirectCheckout({
+                merchantSlug: slug,
+                orderId: order.id,
+                amount: normalizedAmount,
+                customerEmail: checkoutCustomerEmail || '',
+                customerPhone: checkoutCustomerPhone || '',
+                customerName: checkoutCustomerName,
+                items: order.items.map(
+                    (item: {
+                        product_id?: string;
+                        id?: string;
+                        product_name?: string;
+                        name?: string;
+                        price: number;
+                        quantity: number;
+                    }) => ({
+                        id: String(item.product_id || item.id),
+                        name: item.product_name || item.name || '',
+                        price: item.price,
+                        quantity: item.quantity,
+                    })
+                ),
+                onSuccess: (ref) => {
+                    const successQuery = new URLSearchParams({
+                        orderId: order.id,
+                        reference: ref,
+                        type: 'credit_direct',
+                    });
+                    if (order.tracking_token) {
+                        successQuery.set('trackingToken', order.tracking_token);
+                    }
+                    router.push(`/order-success?${successQuery.toString()}` as Route);
+                },
+                onPopup: async (transactionId) => {
+                    try {
+                        await apiPost('/api/orders/update-payment-ref', {
+                            gateway: 'credit_direct',
+                            orderId: order.id,
+                            paymentRef: transactionId,
+                            ...(order.tracking_token && {
+                                tracking_token: order.tracking_token,
+                            }),
+                        });
+                    } catch (error) {
+                        console.error(
+                            'Failed to persist Credit Direct popup reference:',
+                            error instanceof Error ? error.message : error
+                        );
+                    }
+                },
+                onClose: () => {
+                    if (notifyNativeBnplClose('credit_direct')) {
+                        clearPaymentLaunch(paymentLaunchKeyRef);
+                        return;
+                    }
+
+                    window.setTimeout(() => {
+                        if (document.getElementById('klump_checkout')) {
+                            return;
+                        }
+
+                        clearPaymentLaunch(paymentLaunchKeyRef);
+                        setStatus('error');
+                        setErrorMessage('Payment cancelled. Please try again.');
+                    }, 0);
+                },
+                onError: (error) => {
+                    clearPaymentLaunch(paymentLaunchKeyRef);
+                    console.error('Credit Direct Error:', error);
+                    setStatus('error');
+                    setErrorMessage(error);
+                },
+            });
+            return;
+        }
+
+        if (gateway === 'credpal') {
+            const { getCredPalKey } = await import('@/lib/credpal');
+            const credPalAmount = toCurrencyAmount(order.total);
+            if (credPalAmount <= 0) {
+                throw new Error('Invalid order total for CredPal checkout.');
+            }
+
+            if (
+                !tryStartPaymentLaunch(
+                    paymentLaunchKeyRef,
+                    `credpal:${order.id}:${order.tracking_token || trackingToken || ''}`
+                )
+            ) {
+                return;
+            }
+
+            await openCredPalCheckout({
+                key: getCredPalKey(),
+                amount: credPalAmount,
+                product: `Order #${order.id}`,
+                customerEmail: checkoutCustomerEmail || '',
+                customerName: checkoutCustomerName,
+                customerPhone: checkoutCustomerPhone || '',
+                onSuccess: (data) => {
+                    const successQuery = new URLSearchParams({
+                        orderId: order.id,
+                        reference: data.order_no,
+                        type: 'credpal',
+                    });
+                    if (order.tracking_token) {
+                        successQuery.set('trackingToken', order.tracking_token);
+                    }
+                    router.push(`/order-success?${successQuery.toString()}` as Route);
+                },
+                onClose: () => {
+                    if (notifyNativeBnplClose('credpal')) {
+                        clearPaymentLaunch(paymentLaunchKeyRef);
+                        return;
+                    }
+
+                    clearPaymentLaunch(paymentLaunchKeyRef);
+                    setStatus('error');
+                    setErrorMessage('Payment cancelled.');
+                },
+                onError: (error) => {
+                    clearPaymentLaunch(paymentLaunchKeyRef);
+                    setStatus('error');
+                    setErrorMessage(error.message);
+                },
+            });
+            return;
+        }
+
+        if (gateway === 'klump') {
+            if (!klumpReference || !trackingToken) {
+                throw new Error(
+                    'Missing Klump reference or tracking token.'
+                );
+            }
+
+            const klumpAmount = toKlumpIntegerAmount(order.total);
+            if (klumpAmount <= 0) {
+                setStatus('error');
+                setErrorMessage('Invalid order total for Klump checkout.');
+                return;
+            }
+
+            await loadKlumpSdk();
+            const KlumpCheckout = getKlumpConstructor();
+            if (!KlumpCheckout) {
+                throw new Error('Klump SDK failed to load');
+            }
+
+            const publicKey = getKlumpPublicKey();
+            const callbackQuery = new URLSearchParams({
+                gateway: 'klump',
+                klump_callback: '1',
+                merchant_slug: slug,
+                orderId: order.id,
+                reference: klumpReference,
+                type: 'klump',
+            });
+            callbackQuery.set('trackingToken', trackingToken);
+            if (lookupEmail) {
+                callbackQuery.set('email', lookupEmail);
+            }
+
+            const [first_name, ...rest] = (checkoutCustomerName || '')
+                .trim()
+                .split(/\s+/);
+            const last_name = rest.join(' ');
+            const phone = normalizeKlumpPhone(
+                checkoutCustomerPhone
+            );
+
+            if (
+                !tryStartPaymentLaunch(
+                    paymentLaunchKeyRef,
+                    `klump:${order.id}:${klumpReference}:${trackingToken}`
+                )
+            ) {
+                return;
+            }
+            clearPendingKlumpRedirect();
+            klumpSuccessRedirectRef.current = false;
+
+            const klumpRedirectUrl = buildCurrentPathRedirectUrl(callbackQuery);
+
+            new KlumpCheckout({
+                publicKey,
+                data: {
+                    amount: klumpAmount,
+                    currency: 'NGN',
+                    ...(checkoutCustomerEmail ? { email: checkoutCustomerEmail } : {}),
+                    ...(first_name ? { first_name } : {}),
+                    ...(last_name ? { last_name } : {}),
+                    ...(phone ? { phone } : {}),
+                    merchant_reference: klumpReference,
+                    redirect_url: klumpRedirectUrl,
+                    items: buildKlumpItems(order),
+                    meta_data: {
+                        order_id: order.id,
+                        source: 'baci-web',
+                    },
+                },
+                onClose: () => {
+                    window.setTimeout(() => {
+                        if (
+                            klumpSuccessRedirectRef.current ||
+                            hasPendingKlumpRedirect(klumpRedirectUrl) ||
+                            document.getElementById('klump_checkout')
+                        ) {
+                            return;
+                        }
+
+                        if (notifyNativeBnplClose('klump')) {
+                            clearPaymentLaunch(paymentLaunchKeyRef);
+                            return;
+                        }
+
+                        clearPaymentLaunch(paymentLaunchKeyRef);
+                        setStatus('error');
+                        setErrorMessage('Payment cancelled. Please try again.');
+                    }, 0);
+                },
+                onLoad: () => undefined,
+                onOpen: () => undefined,
+                onSuccess: () => {
+                    klumpSuccessRedirectRef.current = true;
+                },
+                onError: (error) => {
+                    clearPaymentLaunch(paymentLaunchKeyRef);
+                    setStatus('error');
+                    setErrorMessage(
+                        error instanceof Error
+                            ? error.message
+                            : 'Klump checkout failed.'
+                    );
+                },
+            });
+            return;
+        }
+
+        throw new Error('Unsupported gateway for this launcher.');
+    } catch (error) {
+        console.error('BNPL Launch Error:', error);
+        setStatus('error');
+        setErrorMessage(
+            error instanceof Error ? error.message : 'Failed to launch payment.'
+        );
+    }
+}
+
 interface BnplLauncherProps {
     merchantSlug?: string;
 }
@@ -176,11 +609,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     const merchantContext = useMerchantSafe();
 
     const orderId = searchParams.get('orderId');
-    const gateway = searchParams.get('gateway') as
-        | 'credit_direct'
-        | 'credpal'
-        | 'klump'
-        | null;
+    const gateway = searchParams.get('gateway') as BnplGateway | null;
     const klumpReference = searchParams.get('reference')?.trim() || null;
     const klumpCallback = searchParams.get('klump_callback') === '1';
     const klumpTransactionId = getKlumpTransactionId(searchParams);
@@ -213,388 +642,27 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     const paymentLaunchKeyRef = useRef<string | null>(null);
     const klumpSuccessRedirectRef = useRef(false);
 
-    const tryStartPaymentLaunch = (key: string) => {
-        if (paymentLaunchKeyRef.current === key) {
-            return false;
-        }
-
-        paymentLaunchKeyRef.current = key;
-        return true;
-    };
-
-    const clearPaymentLaunch = () => {
-        paymentLaunchKeyRef.current = null;
-    };
-
     useEffect(() => {
-        const launchPayment = async () => {
-            try {
-                if (!orderId || !gateway) {
-                    setStatus('error');
-                    setErrorMessage('Missing order ID or gateway information.');
-                    return;
-                }
-
-                setStatus('loading');
-                setErrorMessage(null);
-
-                if (gateway === 'klump' && klumpCallback) {
-                    if (!klumpReference || !trackingToken) {
-                        throw new Error('Missing Klump callback context.');
-                    }
-
-                    if (!klumpTransactionId) {
-                        throw new Error(
-                            'Klump checkout returned without a transaction id.'
-                        );
-                    }
-
-                    if (
-                        !tryStartPaymentLaunch(
-                            `klump-callback:${orderId}:${klumpReference}:${klumpTransactionId}:${trackingToken}`
-                        )
-                    ) {
-                        return;
-                    }
-
-                    const recordResponse = await apiPost<KlumpRecordResponse>(
-                        '/api/payments/klump/record',
-                        {
-                            merchant_reference: klumpReference,
-                            klump_transaction_id: klumpTransactionId,
-                            tracking_token: trackingToken,
-                        }
-                    );
-
-                    if (!recordResponse?.success) {
-                        throw new Error(
-                            recordResponse?.error ||
-                                'Failed to record Klump transaction.'
-                        );
-                    }
-
-                    const successQuery = new URLSearchParams({
-                        orderId,
-                        reference: klumpReference,
-                        type: 'klump',
-                    });
-                    successQuery.set('trackingToken', trackingToken);
-                    router.push(`/order-success?${successQuery.toString()}`);
-                    return;
-                }
-
-                const slug =
-                    merchantSlugParam ||
-                    merchantContext?.merchant?.slug ||
-                    merchantSlug;
-                const query = new URLSearchParams({ merchant_slug: slug });
-                if (trackingToken) {
-                    query.set('token', trackingToken);
-                }
-                if (lookupEmail) {
-                    query.set('email', lookupEmail);
-                }
-
-                if (process.env.NODE_ENV === 'development') {
-                    console.log(
-                        `[BnplLauncher] Fetching order ${orderId} for merchant ${slug}`
-                    );
-                }
-                const url = `/api/storefront/orders/${orderId}?${query.toString()}`;
-                const res = await fetch(url);
-
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    console.error(
-                        `[BnplLauncher] Fetch failed: ${res.status} ${errorText}`
-                    );
-                    throw new Error(
-                        `Failed to fetch order details (Status: ${res.status})`
-                    );
-                }
-
-                const order = (await res.json()) as BnplOrder;
-                if (!order.items || order.items.length === 0) {
-                    throw new Error('Order has no items.');
-                }
-
-                const checkoutCustomerEmail = getUnmaskedValue(
-                    pendingOrderSnapshot?.customerEmail,
-                    lookupEmail,
-                    order.customer_email
-                );
-                const checkoutCustomerPhone = getUnmaskedValue(
-                    pendingOrderSnapshot?.customerPhone,
-                    lookupPhone,
-                    order.customer_phone
-                );
-                const checkoutCustomerName =
-                    lookupCustomerName || order.customer_name || '';
-
-                setStatus('processing');
-
-                if (gateway === 'credit_direct') {
-                    const normalizedAmount = Number(order.total);
-                    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-                        throw new Error('Invalid order total for Credit Direct checkout.');
-                    }
-
-                    if (
-                        !tryStartPaymentLaunch(
-                            `credit-direct:${order.id}:${order.tracking_token || trackingToken || ''}`
-                        )
-                    ) {
-                        return;
-                    }
-
-                    await openCreditDirectCheckout({
-                        merchantSlug: slug,
-                        orderId: order.id,
-                        amount: normalizedAmount,
-                        customerEmail: checkoutCustomerEmail || '',
-                        customerPhone: checkoutCustomerPhone || '',
-                        customerName: checkoutCustomerName,
-                        items: order.items.map(
-                            (item: {
-                                product_id?: string;
-                                id?: string;
-                                product_name?: string;
-                                name?: string;
-                                price: number;
-                                quantity: number;
-                            }) => ({
-                                id: String(item.product_id || item.id),
-                                name: item.product_name || item.name || '',
-                                price: item.price,
-                                quantity: item.quantity,
-                            })
-                        ),
-                        onSuccess: (ref) => {
-                            const successQuery = new URLSearchParams({
-                                orderId: order.id,
-                                reference: ref,
-                                type: 'credit_direct',
-                            });
-                            if (order.tracking_token) {
-                                successQuery.set('trackingToken', order.tracking_token);
-                            }
-                            router.push(`/order-success?${successQuery.toString()}`);
-                        },
-                        onPopup: async (transactionId) => {
-                            try {
-                                await apiPost('/api/orders/update-payment-ref', {
-                                    gateway: 'credit_direct',
-                                    orderId: order.id,
-                                    paymentRef: transactionId,
-                                    ...(order.tracking_token && {
-                                        tracking_token: order.tracking_token,
-                                    }),
-                                });
-                            } catch (error) {
-                                console.error(
-                                    'Failed to persist Credit Direct popup reference:',
-                                    error instanceof Error ? error.message : error
-                                );
-                            }
-                        },
-                        onClose: () => {
-                            if (notifyNativeBnplClose('credit_direct')) {
-                                clearPaymentLaunch();
-                                return;
-                            }
-
-                            window.setTimeout(() => {
-                                if (document.getElementById('klump_checkout')) {
-                                    return;
-                                }
-
-                                clearPaymentLaunch();
-                                setStatus('error');
-                                setErrorMessage('Payment cancelled. Please try again.');
-                            }, 0);
-                        },
-                        onError: (error) => {
-                            clearPaymentLaunch();
-                            console.error('Credit Direct Error:', error);
-                            setStatus('error');
-                            setErrorMessage(error);
-                        },
-                    });
-                    return;
-                }
-
-                if (gateway === 'credpal') {
-                    const { getCredPalKey } = await import('@/lib/credpal');
-                    const credPalAmount = toCurrencyAmount(order.total);
-                    if (credPalAmount <= 0) {
-                        throw new Error('Invalid order total for CredPal checkout.');
-                    }
-
-                    if (
-                        !tryStartPaymentLaunch(
-                            `credpal:${order.id}:${order.tracking_token || trackingToken || ''}`
-                        )
-                    ) {
-                        return;
-                    }
-
-                    await openCredPalCheckout({
-                        key: getCredPalKey(),
-                        amount: credPalAmount,
-                        product: `Order #${order.id}`,
-                        customerEmail: checkoutCustomerEmail || '',
-                        customerName: checkoutCustomerName,
-                        customerPhone: checkoutCustomerPhone || '',
-                        onSuccess: (data) => {
-                            const successQuery = new URLSearchParams({
-                                orderId: order.id,
-                                reference: data.order_no,
-                                type: 'credpal',
-                            });
-                            if (order.tracking_token) {
-                                successQuery.set('trackingToken', order.tracking_token);
-                            }
-                            router.push(`/order-success?${successQuery.toString()}`);
-                        },
-                        onClose: () => {
-                            if (notifyNativeBnplClose('credpal')) {
-                                clearPaymentLaunch();
-                                return;
-                            }
-
-                            clearPaymentLaunch();
-                            setStatus('error');
-                            setErrorMessage('Payment cancelled.');
-                        },
-                        onError: (error) => {
-                            clearPaymentLaunch();
-                            setStatus('error');
-                            setErrorMessage(error.message);
-                        },
-                    });
-                    return;
-                }
-
-                if (gateway === 'klump') {
-                    if (!klumpReference || !trackingToken) {
-                        throw new Error(
-                            'Missing Klump reference or tracking token.'
-                        );
-                    }
-
-                    const klumpAmount = toKlumpIntegerAmount(order.total);
-                    if (klumpAmount <= 0) {
-                        setStatus('error');
-                        setErrorMessage('Invalid order total for Klump checkout.');
-                        return;
-                    }
-
-                    await loadKlumpSdk();
-                    const KlumpCheckout = getKlumpConstructor();
-                    if (!KlumpCheckout) {
-                        throw new Error('Klump SDK failed to load');
-                    }
-
-                    const publicKey = getKlumpPublicKey();
-                    const callbackQuery = new URLSearchParams({
-                        gateway: 'klump',
-                        klump_callback: '1',
-                        merchant_slug: slug,
-                        orderId: order.id,
-                        reference: klumpReference,
-                        type: 'klump',
-                    });
-                    callbackQuery.set('trackingToken', trackingToken);
-                    if (lookupEmail) {
-                        callbackQuery.set('email', lookupEmail);
-                    }
-
-                    const [first_name, ...rest] = (checkoutCustomerName || '')
-                        .trim()
-                        .split(/\s+/);
-                    const last_name = rest.join(' ');
-                    const phone = normalizeKlumpPhone(
-                        checkoutCustomerPhone
-                    );
-
-                    if (
-                        !tryStartPaymentLaunch(
-                            `klump:${order.id}:${klumpReference}:${trackingToken}`
-                        )
-                    ) {
-                        return;
-                    }
-                    clearPendingKlumpRedirect();
-                    klumpSuccessRedirectRef.current = false;
-
-                    const klumpRedirectUrl = buildCurrentPathRedirectUrl(callbackQuery);
-
-                    new KlumpCheckout({
-                        publicKey,
-                        data: {
-                            amount: klumpAmount,
-                            currency: 'NGN',
-                            ...(checkoutCustomerEmail ? { email: checkoutCustomerEmail } : {}),
-                            ...(first_name ? { first_name } : {}),
-                            ...(last_name ? { last_name } : {}),
-                            ...(phone ? { phone } : {}),
-                            merchant_reference: klumpReference,
-                            redirect_url: klumpRedirectUrl,
-                            items: buildKlumpItems(order),
-                            meta_data: {
-                                order_id: order.id,
-                                source: 'baci-web',
-                            },
-                        },
-                        onClose: () => {
-                            window.setTimeout(() => {
-                                if (
-                                    klumpSuccessRedirectRef.current ||
-                                    hasPendingKlumpRedirect(klumpRedirectUrl) ||
-                                    document.getElementById('klump_checkout')
-                                ) {
-                                    return;
-                                }
-
-                                if (notifyNativeBnplClose('klump')) {
-                                    clearPaymentLaunch();
-                                    return;
-                                }
-
-                                clearPaymentLaunch();
-                                setStatus('error');
-                                setErrorMessage('Payment cancelled. Please try again.');
-                            }, 0);
-                        },
-                        onLoad: () => undefined,
-                        onOpen: () => undefined,
-                        onSuccess: () => {
-                            klumpSuccessRedirectRef.current = true;
-                        },
-                        onError: (error) => {
-                            clearPaymentLaunch();
-                            setStatus('error');
-                            setErrorMessage(
-                                error instanceof Error
-                                    ? error.message
-                                    : 'Klump checkout failed.'
-                            );
-                        },
-                    });
-                    return;
-                }
-
-                throw new Error('Unsupported gateway for this launcher.');
-            } catch (error) {
-                console.error('BNPL Launch Error:', error);
-                setStatus('error');
-                setErrorMessage(
-                    error instanceof Error ? error.message : 'Failed to launch payment.'
-                );
-            }
-        };
-
-        launchPayment();
+        void launchBnplPayment({
+            orderId,
+            gateway,
+            klumpCallback,
+            klumpReference,
+            klumpTransactionId,
+            trackingToken,
+            lookupEmail,
+            lookupPhone,
+            lookupCustomerName,
+            merchantSlugParam,
+            contextMerchantSlug: merchantContext?.merchant?.slug ?? null,
+            fallbackMerchantSlug: merchantSlug,
+            pendingOrderSnapshot,
+            paymentLaunchKeyRef,
+            klumpSuccessRedirectRef,
+            router,
+            setStatus,
+            setErrorMessage,
+        });
     }, [
         orderId,
         gateway,

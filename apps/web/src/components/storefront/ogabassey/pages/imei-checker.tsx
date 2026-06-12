@@ -48,6 +48,89 @@ const createIdempotencyKey = () => {
   return createFallbackUuid();
 };
 
+/**
+ * Module-scope fetch keeps the try/finally clause out of the component body
+ * so React Compiler can memoize the checker.
+ */
+async function fetchDeviceSuggestions(
+  query: string
+): Promise<ProductSuggestion[] | null> {
+  try {
+    const response = await fetch(
+      `/api/storefront/products?q=${encodeURIComponent(query)}&limit=5`
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    return (
+      data.data?.map((p: Record<string, unknown>) => ({
+        id: p.id as string,
+        name: p.name as string,
+        category: p.category as string | undefined,
+        image: p.image as string | undefined,
+      })) || []
+    );
+  } catch {
+    console.warn('Failed to fetch device suggestions');
+    return null;
+  }
+}
+
+interface ImeiCheckOutcome {
+  result: ImeiResult | null;
+  error: string | null;
+  keepRequestIdentity: boolean;
+}
+
+/**
+ * Module-scope request keeps the try/finally clause out of the component body
+ * so React Compiler can memoize the checker.
+ */
+async function performImeiCheck(
+  imei: string,
+  tier: ServiceTier,
+  idempotencyKey: string
+): Promise<ImeiCheckOutcome> {
+  try {
+    const response = await fetchWithCsrf('/api/storefront/imei-check', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify({ imei, tier }),
+    });
+
+    const data: {
+      success?: boolean;
+      error?: string;
+      code?: string;
+      data?: ImeiResult;
+    } = await response.json();
+    const keepRequestIdentity =
+      typeof data?.code === 'string' &&
+      UNRESOLVED_IMEI_RESPONSE_CODES.has(data.code);
+
+    if (!response.ok || !data.success) {
+      return {
+        result: null,
+        error: data.error || 'Unable to check IMEI. Please try again.',
+        keepRequestIdentity,
+      };
+    }
+
+    return { result: data.data ?? null, error: null, keepRequestIdentity };
+  } catch (err) {
+    console.error('IMEI check failed:', err);
+    return {
+      result: null,
+      error: 'Network error. Please check your connection and try again.',
+      keepRequestIdentity: true,
+    };
+  }
+}
+
 export const OgabasseyImeiChecker: React.FC = () => {
   const [imei, setImei] = useState('');
   const [selectedTier, setSelectedTier] = useState<ServiceTier>('full');
@@ -65,35 +148,20 @@ export const OgabasseyImeiChecker: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  // Debounced search for product suggestions
+  // Debounced search for product suggestions. Suggestions are cleared in the
+  // query change handler, so this effect only syncs with the external API.
   useEffect(() => {
     if (deviceQuery.length < 2) {
-      setSuggestions([]);
       return;
     }
 
     const timer = setTimeout(async () => {
       setSearchLoading(true);
-      try {
-        const response = await fetch(
-          `/api/storefront/products?q=${encodeURIComponent(deviceQuery)}&limit=5`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setSuggestions(
-            data.data?.map((p: Record<string, unknown>) => ({
-              id: p.id as string,
-              name: p.name as string,
-              category: p.category as string | undefined,
-              image: p.image as string | undefined,
-            })) || []
-          );
-        }
-      } catch {
-        console.warn('Failed to fetch device suggestions');
-      } finally {
-        setSearchLoading(false);
+      const fetched = await fetchDeviceSuggestions(deviceQuery);
+      if (fetched) {
+        setSuggestions(fetched);
       }
+      setSearchLoading(false);
     }, 300);
 
     return () => clearTimeout(timer);
@@ -113,52 +181,47 @@ export const OgabasseyImeiChecker: React.FC = () => {
     setResult(null);
     setError(null);
 
+    const normalizedImei = imei.trim();
+    const existingIdentityMatches =
+      requestIdentity?.imei === normalizedImei &&
+      requestIdentity.tier === selectedTier;
+
+    let idempotencyKey: string;
     try {
-      const normalizedImei = imei.trim();
-      const existingIdentityMatches =
-        requestIdentity?.imei === normalizedImei &&
-        requestIdentity.tier === selectedTier;
-      const idempotencyKey = existingIdentityMatches
+      idempotencyKey = existingIdentityMatches
         ? requestIdentity.key
         : createIdempotencyKey();
-
-      if (idempotencyKey !== requestIdentity?.key) {
-        setRequestIdentity({
-          imei: normalizedImei,
-          tier: selectedTier,
-          key: idempotencyKey,
-        });
-      }
-
-      const response = await fetchWithCsrf('/api/storefront/imei-check', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotency-Key': idempotencyKey,
-        },
-        body: JSON.stringify({ imei: normalizedImei, tier: selectedTier }),
-      });
-
-      const data = await response.json();
-      const shouldKeepRequestIdentity =
-        typeof data?.code === 'string' &&
-        UNRESOLVED_IMEI_RESPONSE_CODES.has(data.code);
-      if (!shouldKeepRequestIdentity) {
-        setRequestIdentity(null);
-      }
-
-      if (!response.ok || !data.success) {
-        setError(data.error || 'Unable to check IMEI. Please try again.');
-        return;
-      }
-
-      setResult(data.data);
     } catch (err) {
       console.error('IMEI check failed:', err);
       setError('Network error. Please check your connection and try again.');
-    } finally {
       setIsLoading(false);
+      return;
     }
+
+    if (idempotencyKey !== requestIdentity?.key) {
+      setRequestIdentity({
+        imei: normalizedImei,
+        tier: selectedTier,
+        key: idempotencyKey,
+      });
+    }
+
+    const outcome = await performImeiCheck(
+      normalizedImei,
+      selectedTier,
+      idempotencyKey
+    );
+
+    if (!outcome.keepRequestIdentity) {
+      setRequestIdentity(null);
+    }
+
+    if (outcome.error !== null) {
+      setError(outcome.error);
+    } else {
+      setResult(outcome.result);
+    }
+    setIsLoading(false);
   };
 
   const currentTier = SERVICE_TIERS[selectedTier];
@@ -178,6 +241,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
               setDeviceQuery(value);
               setShowSuggestions(true);
               if (!value) setSelectedDevice(null);
+              if (value.length < 2) setSuggestions([]);
             }}
             onDeviceSearchFocus={() => setShowSuggestions(true)}
             onImeiChange={setImei}

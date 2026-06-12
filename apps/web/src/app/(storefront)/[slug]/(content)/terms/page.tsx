@@ -11,7 +11,7 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
-import { getTemplate } from '@/templates/registry';
+import { getTemplate, type TemplateComponents } from '@/templates/registry';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
 interface PageProps {
@@ -106,31 +106,35 @@ async function TermsPageContent({ params }: PageProps) {
     </script>
   );
 
-  // Resolve template component server-side for SEO (H1 in SSR HTML)
+  // Resolve template component server-side for SEO (H1 in SSR HTML).
+  // The try/catch only guards loading the component module — JSX is
+  // constructed outside it (try/catch cannot catch render errors anyway).
   if (templateHasTermsPage) {
     const template = getTemplate(merchant.template_id);
     if (template) {
+      let components: TemplateComponents | null = null;
       try {
-        const components = await template.getComponents();
-        if (components.Terms) {
-          const TermsComponent = components.Terms;
-          return (
-            <>
-              {jsonLdScript}
-              <TermsComponent
-                merchant={toTemplateMerchantData(merchant)}
-                storeSlug={merchant.slug}
-                isPreview={false}
-              />
-            </>
-          );
-        }
+        components = await template.getComponents();
       } catch (error) {
         console.error(
           'Failed to load Terms component for template',
           merchant.template_id,
           ':',
           error
+        );
+      }
+
+      const TermsComponent = components?.Terms;
+      if (TermsComponent) {
+        return (
+          <>
+            {jsonLdScript}
+            <TermsComponent
+              merchant={toTemplateMerchantData(merchant)}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
+          </>
         );
       }
     }

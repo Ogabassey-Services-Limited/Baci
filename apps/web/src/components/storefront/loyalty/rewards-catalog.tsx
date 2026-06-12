@@ -81,28 +81,30 @@ export function RewardsCatalog({
     expiresAt: string;
   } | null>(null);
 
-  const handleRedeem = async (reward: Reward) => {
+  const handleRedeem = (reward: Reward) => {
     setRedeeming(reward.id);
-    try {
-      const result = await redeemReward(reward.id);
-
-      if (result.success) {
-        setRedemptionResult({
-          code: result.redemption_code || '',
-          instructions: result.instructions || '',
-          expiresAt: result.expires_at || '',
-        });
-        setShowSuccessDialog(true);
-      } else {
-        toast({
-          title: 'Redemption Failed',
-          description: result.error || 'Unable to redeem reward',
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setRedeeming(null);
-    }
+    // Promise chain instead of try/finally so the React Compiler can
+    // memoize this component (it cannot lower try/finally statements yet).
+    return redeemReward(reward.id)
+      .then((result) => {
+        if (result.success) {
+          setRedemptionResult({
+            code: result.redemption_code || '',
+            instructions: result.instructions || '',
+            expiresAt: result.expires_at || '',
+          });
+          setShowSuccessDialog(true);
+        } else {
+          toast({
+            title: 'Redemption Failed',
+            description: result.error || 'Unable to redeem reward',
+            variant: 'destructive',
+          });
+        }
+      })
+      .finally(() => {
+        setRedeeming(null);
+      });
   };
 
   const copyCode = () => {

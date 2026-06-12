@@ -26,7 +26,15 @@ import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/hooks/cart';
 import type { CartItem } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import type { PaymentMethod, ResumedOrder } from './checkout/types';
+import type {
+  CryptoChain,
+  CryptoCurrency,
+  CryptoPaymentData,
+  DvaData,
+  PaymentMethod,
+  PendingCryptoOrder,
+  ResumedOrder,
+} from './checkout/types';
 import {
   usePersistedForm,
   usePersistedState,
@@ -35,7 +43,7 @@ import { useAuthSafe } from '@/contexts/auth-context';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { CheckoutAuthModal } from '@/components/storefront/checkout-auth-modal';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
-import { openCredPalCheckout } from '@/lib/credpal';
+import { getCredPalKey, openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
 import type { ShippingQuote } from '@/types/shipping-quote';
@@ -113,6 +121,377 @@ interface InferredCheckoutAddressLocation {
 }
 
 const MANUAL_ADDRESS_LOCATION_DEBOUNCE_MS = 500;
+
+/**
+ * Module-scope checkout helpers.
+ *
+ * React Compiler cannot yet lower `try {} finally {}` blocks or `throw`
+ * statements nested inside a `try/catch` within a component body — each one
+ * bails the entire component out of automatic memoization. The async
+ * fetch/payment flows below are hoisted to module scope (taking state setters
+ * as explicit parameters) so `CheckoutPage` stays compilable while runtime
+ * behavior is unchanged.
+ */
+
+/**
+ * Throws at module scope so call sites inside the component's try/catch avoid
+ * the compiler's "ThrowStatement inside of try/catch" bailout.
+ */
+function raiseCheckoutError(message: string): never {
+  throw new Error(message);
+}
+
+interface ResumedOrderFormFields {
+  firstName: string;
+  lastName: string;
+  customerEmail: string;
+  customerPhone: string;
+  newAddressStreet: string;
+  newAddressState: string;
+  newAddressCity: string;
+  currentStep: 'contact' | 'delivery' | 'payment';
+  completedSteps: { contact: boolean; delivery: boolean };
+}
+
+interface LoadResumedCheckoutOrderParams {
+  resumeOrderId: string;
+  resumeMerchantSlug: string;
+  resumeTrackingToken: string | null;
+  resumeLookupEmail: string | null;
+  preferredGateway: 'credpal' | 'credit_direct' | null;
+  setIsLoadingResumedOrder: (isLoading: boolean) => void;
+  setResumedOrder: (order: ResumedOrder) => void;
+  setCheckoutFields: (fields: ResumedOrderFormFields) => void;
+  setPaymentTab: (tab: 'full' | 'installments') => void;
+  setPaymentMethod: (method: PaymentMethod) => void;
+  setResumeOrderError: (error: string | null) => void;
+}
+
+async function loadResumedCheckoutOrder({
+  resumeOrderId,
+  resumeMerchantSlug,
+  resumeTrackingToken,
+  resumeLookupEmail,
+  preferredGateway,
+  setIsLoadingResumedOrder,
+  setResumedOrder,
+  setCheckoutFields,
+  setPaymentTab,
+  setPaymentMethod,
+  setResumeOrderError,
+}: LoadResumedCheckoutOrderParams): Promise<void> {
+  setIsLoadingResumedOrder(true);
+  try {
+    const query = new URLSearchParams();
+    query.set('merchant_slug', resumeMerchantSlug);
+    if (resumeTrackingToken) {
+      query.set('token', resumeTrackingToken);
+    }
+    if (resumeLookupEmail) {
+      query.set('email', resumeLookupEmail);
+    }
+
+    const res = await fetch(
+      query.toString()
+        ? `/api/storefront/orders/${resumeOrderId}?${query.toString()}`
+        : `/api/storefront/orders/${resumeOrderId}`
+    );
+    if (res.ok) {
+      const orderData = await res.json();
+      setResumedOrder({
+        id: orderData.id,
+        short_id: orderData.short_id,
+        subtotal: orderData.subtotal,
+        shipping_cost: orderData.shipping_cost || 0,
+        total: orderData.total,
+        customer_name: orderData.customer_name,
+        customer_email: orderData.customer_email,
+        customer_phone: orderData.customer_phone,
+        tracking_token: orderData.tracking_token,
+        shipping_address: orderData.shipping_address || {
+          address: '',
+          city: '',
+          state: '',
+          phone: '',
+        },
+        items: orderData.items || [],
+      });
+
+      // Pre-fill form with order data
+      const [first, ...rest] = (orderData.customer_name || '').split(' ');
+      setCheckoutFields({
+        firstName: first || '',
+        lastName: rest.join(' ') || '',
+        customerEmail: orderData.customer_email || '',
+        customerPhone: orderData.customer_phone || '',
+        newAddressStreet: orderData.shipping_address?.address || '',
+        newAddressState: orderData.shipping_address?.state || '',
+        newAddressCity: orderData.shipping_address?.city || '',
+        // Skip directly to payment step for resumed orders
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      });
+
+      // 2025 FIX: Sync paymentTab with preferredGateway to prevent UI crash
+      // If a BNPL gateway is selected, we MUST switch to the 'installments' tab
+      if (preferredGateway === 'credit_direct' || preferredGateway === 'credpal') {
+        setPaymentTab('installments');
+        setPaymentMethod(preferredGateway);
+      } else if (preferredGateway) {
+        setPaymentTab('full');
+        setPaymentMethod(preferredGateway);
+      }
+    } else {
+      console.error('Failed to fetch resumed order');
+      setResumeOrderError('Order not found. It may have been completed or expired.');
+    }
+  } catch (error) {
+    console.error('Error fetching resumed order:', error);
+    setResumeOrderError('Failed to load order details. Please try again.');
+  } finally {
+    setIsLoadingResumedOrder(false);
+  }
+}
+
+interface LoadShippingStatesParams {
+  setIsLoadingLocations: (isLoading: boolean) => void;
+  setShippingStates: (states: string[]) => void;
+}
+
+async function loadShippingStates({
+  setIsLoadingLocations,
+  setShippingStates,
+}: LoadShippingStatesParams): Promise<void> {
+  setIsLoadingLocations(true);
+  try {
+    const res = await fetch('/api/shipping/locations');
+    if (res.ok) {
+      const data = await res.json();
+      setShippingStates(data.states || []);
+    }
+  } catch (error) {
+    console.error('Failed to fetch states', error);
+  } finally {
+    setIsLoadingLocations(false);
+  }
+}
+
+interface LoadShippingQuotesParams {
+  address: string;
+  state: string;
+  city: string;
+  phone: string;
+  receiverFirstName: string;
+  receiverLastName: string;
+  email: string;
+  items: Array<{ name: string; quantity: number; weight: number; value: number }>;
+  setIsLoadingQuotes: (isLoading: boolean) => void;
+  setSelectedQuoteId: (quoteId: string) => void;
+  setShippingQuotes: (quotes: ShippingQuote[]) => void;
+}
+
+async function loadShippingQuotes({
+  address,
+  state,
+  city,
+  phone,
+  receiverFirstName,
+  receiverLastName,
+  email,
+  items,
+  setIsLoadingQuotes,
+  setSelectedQuoteId,
+  setShippingQuotes,
+}: LoadShippingQuotesParams): Promise<void> {
+  if (!state || !city || !address) return;
+
+  setIsLoadingQuotes(true);
+  // setShippingQuotes([]); // KPI: Keep previous quotes visible to avoid UI flash (Optimistic UI)
+  setSelectedQuoteId('');
+
+  try {
+    const res = await fetch('/api/shipping/quotes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        receiver: {
+          name: `${receiverFirstName} ${receiverLastName}`.trim() || 'Valued Customer', // Fallback for guest who hasn't typed name yet
+          email: email || 'guest@example.com',
+          phone: phone || '',
+          address,
+          city,
+          state,
+          country: 'Nigeria',
+        },
+        items,
+      }),
+    });
+
+    if (res.ok) {
+      const data: QuoteResponse = await res.json();
+      setShippingQuotes(data.quotes.all);
+
+      // Auto-select the first (cheapest) quote if available
+      if (data.quotes.all.length > 0) {
+        setSelectedQuoteId(data.quotes.all[0].id);
+      }
+    } else {
+      console.warn('Failed to fetch quotes:', await res.text());
+    }
+  } catch (error) {
+    console.error('Error fetching shipping quotes:', error);
+  } finally {
+    setIsLoadingQuotes(false);
+  }
+}
+
+interface LoadWalletBalanceParams {
+  merchantSlug: string;
+  signal: AbortSignal;
+  setWalletLoading: (isLoading: boolean) => void;
+  setWalletBalance: (balance: number) => void;
+  setPayWithWallet: (payWithWallet: boolean) => void;
+}
+
+async function loadWalletBalance({
+  merchantSlug,
+  signal,
+  setWalletLoading,
+  setWalletBalance,
+  setPayWithWallet,
+}: LoadWalletBalanceParams): Promise<void> {
+  setWalletLoading(true);
+  try {
+    const response = await fetch(
+      `/api/storefront/customer/wallet?merchant=${merchantSlug}`,
+      { signal }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      const balance = Number(data.balance) || 0;
+      setWalletBalance(balance);
+      // Auto-apply wallet credit if balance > 0 (Shopify 2025 pattern)
+      if (balance > 0) {
+        setPayWithWallet(true);
+      }
+    }
+  } catch (error) {
+    // Ignore abort errors (component unmounted)
+    if (error instanceof Error && error.name !== 'AbortError') {
+      console.error('Failed to fetch wallet balance:', error);
+    }
+  } finally {
+    if (!signal.aborted) {
+      setWalletLoading(false);
+    }
+  }
+}
+
+interface RequestCryptoPaymentInitializationParams {
+  merchantId: string;
+  pendingOrder: PendingCryptoOrder;
+  chain: CryptoChain;
+  currency: CryptoCurrency;
+}
+
+async function requestCryptoPaymentInitialization({
+  merchantId,
+  pendingOrder,
+  chain,
+  currency,
+}: RequestCryptoPaymentInitializationParams): Promise<CryptoPaymentData> {
+  const paymentResponse = await fetch('/api/payments/initialize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      merchant_id: merchantId,
+      order_id: pendingOrder.orderId,
+      amount: pendingOrder.amount,
+      currency: 'NGN',
+      customer_email: pendingOrder.customerEmail,
+      customer_name: pendingOrder.customerName,
+      customer_phone: pendingOrder.customerPhone,
+      gateway: 'juicyway',
+      billing_address: pendingOrder.billingAddress,
+      items: pendingOrder.items,
+      crypto_chain: chain,
+      crypto_currency: currency,
+    }),
+  });
+
+  if (!paymentResponse.ok) {
+    const errorData = await paymentResponse.json();
+    throw new Error(errorData.details || errorData.error || 'Payment initialization failed');
+  }
+
+  const paymentResult = await paymentResponse.json();
+
+  if (paymentResult.success && paymentResult.crypto_payment) {
+    return {
+      address: paymentResult.crypto_payment.address,
+      chain: paymentResult.crypto_payment.chain,
+      currency: paymentResult.crypto_payment.currency,
+      amount: paymentResult.crypto_payment.amount / 100,
+      confirmation_time: paymentResult.crypto_payment.confirmation_time,
+      orderId: pendingOrder.orderId,
+      trackingToken: pendingOrder.trackingToken,
+      reference: paymentResult.reference,
+      sessionId: paymentResult.session_id || '',
+      paymentId: paymentResult.crypto_payment.payment_id || '', // Payment ID for verification
+      qrcode: paymentResult.crypto_payment.qrcode,
+    };
+  }
+
+  throw new Error('Failed to generate crypto payment address');
+}
+
+interface RequestDvaInitializationParams {
+  merchantId: string;
+  orderId: string;
+  amount: number;
+  customerEmail: string;
+  customerName: string;
+  customerPhone: string;
+}
+
+async function requestDvaInitialization({
+  merchantId,
+  orderId,
+  amount,
+  customerEmail,
+  customerName,
+  customerPhone,
+}: RequestDvaInitializationParams): Promise<{
+  dva: Omit<DvaData, 'amount' | 'reference'>;
+  reference: string;
+}> {
+  const response = await fetch('/api/payments/initialize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      merchant_id: merchantId,
+      order_id: orderId,
+      amount,
+      currency: 'NGN',
+      customer_email: customerEmail,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      gateway: 'paystack',
+      payment_type: 'dva', // Dedicated Virtual Account
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.error || 'Failed to initialize bank transfer');
+  }
+
+  const result = await response.json();
+  if (result.success && result.dva) {
+    return { dva: result.dva, reference: result.reference };
+  }
+  throw new Error('DVA not returned by the gateway');
+}
 
 export const CheckoutPage: React.FC = () => {
   const { cart, clearCart, isHydrated } = useCart();
@@ -440,66 +819,35 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
-  // Initialize crypto payment with selected options
+  // Initialize crypto payment with selected options. The fetch + throw flow
+  // lives in module-scope `requestCryptoPaymentInitialization`; the promise
+  // chain replaces try/catch/finally, which would bail React Compiler.
   const initializeCryptoPayment = async () => {
     if (!pendingCryptoOrder || !merchant) return;
 
     setIsInitializingCrypto(true);
-    try {
-      const paymentResponse = await fetch('/api/payments/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          merchant_id: merchant.id,
-          order_id: pendingCryptoOrder.orderId,
-          amount: pendingCryptoOrder.amount,
-          currency: 'NGN',
-          customer_email: pendingCryptoOrder.customerEmail,
-          customer_name: pendingCryptoOrder.customerName,
-          customer_phone: pendingCryptoOrder.customerPhone,
-          gateway: 'juicyway',
-          billing_address: pendingCryptoOrder.billingAddress,
-          items: pendingCryptoOrder.items,
-          crypto_chain: selectedCryptoChain,
-          crypto_currency: selectedCryptoCurrency,
-        }),
-      });
-
-      if (!paymentResponse.ok) {
-        const errorData = await paymentResponse.json();
-        throw new Error(errorData.details || errorData.error || 'Payment initialization failed');
-      }
-
-      const paymentResult = await paymentResponse.json();
-
-      if (paymentResult.success && paymentResult.crypto_payment) {
+    await requestCryptoPaymentInitialization({
+      merchantId: merchant.id,
+      pendingOrder: pendingCryptoOrder,
+      chain: selectedCryptoChain,
+      currency: selectedCryptoCurrency,
+    })
+      .then((cryptoPayment) => {
         setShowCryptoSelector(false);
-        setCryptoPaymentData({
-          address: paymentResult.crypto_payment.address,
-          chain: paymentResult.crypto_payment.chain,
-          currency: paymentResult.crypto_payment.currency,
-          amount: paymentResult.crypto_payment.amount / 100,
-          confirmation_time: paymentResult.crypto_payment.confirmation_time,
-          orderId: pendingCryptoOrder.orderId,
-          trackingToken: pendingCryptoOrder.trackingToken,
-          reference: paymentResult.reference,
-          sessionId: paymentResult.session_id || '',
-          paymentId: paymentResult.crypto_payment.payment_id || '', // Payment ID for verification
-          qrcode: paymentResult.crypto_payment.qrcode,
+        setCryptoPaymentData(cryptoPayment);
+      })
+      .catch((error: unknown) => {
+        console.error('Crypto payment initialization error:', error);
+        toast({
+          title: 'Crypto Payment Failed',
+          description:
+            error instanceof Error ? error.message : 'Failed to initialize crypto payment',
+          variant: 'destructive',
         });
-      } else {
-        throw new Error('Failed to generate crypto payment address');
-      }
-    } catch (error) {
-      console.error('Crypto payment initialization error:', error);
-      toast({
-        title: 'Crypto Payment Failed',
-        description: error instanceof Error ? error.message : 'Failed to initialize crypto payment',
-        variant: 'destructive',
+      })
+      .finally(() => {
+        setIsInitializingCrypto(false);
       });
-    } finally {
-      setIsInitializingCrypto(false);
-    }
   };
 
   // Verify crypto payment status by polling the API
@@ -687,85 +1035,31 @@ export const CheckoutPage: React.FC = () => {
   // Note: newAddressState, newAddressCity, newAddressStreet are now part of checkoutForm (persisted)
 
 
-  // Fetch resumed order from mobile app when orderId is in URL
+  // Payment State (declared before the resumed-order effect below, which
+  // pre-selects the tab/method for BNPL deep links — React Compiler requires
+  // declaration before first access)
+  const [paymentTab, setPaymentTab] = useState<'full' | 'installments'>('full');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('');
+
+  // Fetch resumed order from mobile app when orderId is in URL.
+  // The async try/catch/finally flow lives in module-scope
+  // `loadResumedCheckoutOrder` so the compiler can memoize this component.
   useEffect(() => {
     if (!resumeOrderId || !resumeMerchantSlug) return;
 
-    const fetchResumedOrder = async () => {
-      setIsLoadingResumedOrder(true);
-      try {
-        const query = new URLSearchParams();
-        query.set('merchant_slug', resumeMerchantSlug);
-        if (resumeTrackingToken) {
-          query.set('token', resumeTrackingToken);
-        }
-        if (resumeLookupEmail) {
-          query.set('email', resumeLookupEmail);
-        }
-
-        const res = await fetch(
-          query.toString()
-            ? `/api/storefront/orders/${resumeOrderId}?${query.toString()}`
-            : `/api/storefront/orders/${resumeOrderId}`
-        );
-        if (res.ok) {
-          const orderData = await res.json();
-          setResumedOrder({
-            id: orderData.id,
-            short_id: orderData.short_id,
-            subtotal: orderData.subtotal,
-            shipping_cost: orderData.shipping_cost || 0,
-            total: orderData.total,
-            customer_name: orderData.customer_name,
-            customer_email: orderData.customer_email,
-            customer_phone: orderData.customer_phone,
-            tracking_token: orderData.tracking_token,
-            shipping_address: orderData.shipping_address || {
-              address: '',
-              city: '',
-              state: '',
-              phone: '',
-            },
-            items: orderData.items || [],
-          });
-
-          // Pre-fill form with order data
-          const [first, ...rest] = (orderData.customer_name || '').split(' ');
-          setCheckoutFields({
-            firstName: first || '',
-            lastName: rest.join(' ') || '',
-            customerEmail: orderData.customer_email || '',
-            customerPhone: orderData.customer_phone || '',
-            newAddressStreet: orderData.shipping_address?.address || '',
-            newAddressState: orderData.shipping_address?.state || '',
-            newAddressCity: orderData.shipping_address?.city || '',
-            // Skip directly to payment step for resumed orders
-            currentStep: 'payment',
-            completedSteps: { contact: true, delivery: true },
-          });
-
-          // 2025 FIX: Sync paymentTab with preferredGateway to prevent UI crash
-          // If a BNPL gateway is selected, we MUST switch to the 'installments' tab
-          if (preferredGateway === 'credit_direct' || preferredGateway === 'credpal') {
-            setPaymentTab('installments');
-            setPaymentMethod(preferredGateway);
-          } else if (preferredGateway) {
-            setPaymentTab('full');
-            setPaymentMethod(preferredGateway);
-          }
-
-        } else {
-          console.error('Failed to fetch resumed order');
-          setResumeOrderError('Order not found. It may have been completed or expired.');
-        }
-      } catch (error) {
-        console.error('Error fetching resumed order:', error);
-        setResumeOrderError('Failed to load order details. Please try again.');
-      } finally {
-        setIsLoadingResumedOrder(false);
-      }
-    };
-    fetchResumedOrder();
+    loadResumedCheckoutOrder({
+      resumeOrderId,
+      resumeMerchantSlug,
+      resumeTrackingToken,
+      resumeLookupEmail,
+      preferredGateway,
+      setIsLoadingResumedOrder,
+      setResumedOrder,
+      setCheckoutFields,
+      setPaymentTab,
+      setPaymentMethod,
+      setResumeOrderError,
+    });
   }, [
     preferredGateway,
     resumeOrderId,
@@ -775,29 +1069,25 @@ export const CheckoutPage: React.FC = () => {
     setCheckoutFields,
   ]);
 
-  // Fetch States on mount
+  // Fetch States on mount (try/finally hoisted to module scope for the compiler)
   useEffect(() => {
-    const fetchLocations = async () => {
-      setIsLoadingLocations(true);
-      try {
-        const res = await fetch('/api/shipping/locations');
-        if (res.ok) {
-          const data = await res.json();
-          setShippingStates(data.states || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch states', error);
-      } finally {
-        setIsLoadingLocations(false);
-      }
-    };
-    fetchLocations();
+    loadShippingStates({ setIsLoadingLocations, setShippingStates });
   }, []);
+
+  // Clear stale city options inline during render when the selected state is
+  // reset (react.dev "adjusting state when a prop changes" pattern — avoids a
+  // synchronous setState-in-effect and the extra commit it forces).
+  const [prevCityFetchState, setPrevCityFetchState] = useState(newAddressState);
+  if (newAddressState !== prevCityFetchState) {
+    setPrevCityFetchState(newAddressState);
+    if (!newAddressState) {
+      setShippingCities([]);
+    }
+  }
 
   // Fetch Cities when State changes
   useEffect(() => {
     if (!newAddressState) {
-      setShippingCities([]);
       return;
     }
     const fetchCities = async () => {
@@ -820,62 +1110,37 @@ export const CheckoutPage: React.FC = () => {
     fetchCities();
   }, [newAddressState]);
 
-  // Function to fetch quotes
-  const fetchShippingQuotes = async (
+  // Function to fetch quotes. The async core (with its try/finally and
+  // synchronous loading-state writes) lives in module-scope
+  // `loadShippingQuotes` so neither the compiler nor the effect below trips
+  // on it; this wrapper only forwards inputs and setters.
+  const fetchShippingQuotes = (
     address: string,
     state: string,
     city: string,
     phone: string,
-    firstName: string,
-    lastName: string,
+    receiverFirstName: string,
+    receiverLastName: string,
     email: string
-  ) => {
-    if (!state || !city || !address) return;
-
-    setIsLoadingQuotes(true);
-    // setShippingQuotes([]); // KPI: Keep previous quotes visible to avoid UI flash (Optimistic UI)
-    setSelectedQuoteId('');
-
-    try {
-      const res = await fetch('/api/shipping/quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          receiver: {
-            name: `${firstName} ${lastName}`.trim() || 'Valued Customer', // Fallback for guest who hasn't typed name yet
-            email: email || 'guest@example.com',
-            phone: phone || '',
-            address,
-            city,
-            state,
-            country: 'Nigeria',
-          },
-          items: checkoutCart.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            weight: 1, // Default weight 1kg if not strictly defined
-            value: item.negotiatedPrice || item.price,
-          })),
-        }),
-      });
-
-      if (res.ok) {
-        const data: QuoteResponse = await res.json();
-        setShippingQuotes(data.quotes.all);
-
-        // Auto-select the first (cheapest) quote if available
-        if (data.quotes.all.length > 0) {
-          setSelectedQuoteId(data.quotes.all[0].id);
-        }
-      } else {
-        console.warn('Failed to fetch quotes:', await res.text());
-      }
-    } catch (error) {
-      console.error('Error fetching shipping quotes:', error);
-    } finally {
-      setIsLoadingQuotes(false);
-    }
-  };
+  ) =>
+    loadShippingQuotes({
+      address,
+      state,
+      city,
+      phone,
+      receiverFirstName,
+      receiverLastName,
+      email,
+      items: checkoutCart.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        weight: 1, // Default weight 1kg if not strictly defined
+        value: item.negotiatedPrice || item.price,
+      })),
+      setIsLoadingQuotes,
+      setSelectedQuoteId,
+      setShippingQuotes,
+    });
 
   // Trigger quote fetch when Door Delivery is selected and we have BOTH state AND city
   useEffect(() => {
@@ -937,10 +1202,6 @@ export const CheckoutPage: React.FC = () => {
   ]);
 
 
-  // Payment State
-  const [paymentTab, setPaymentTab] = useState<'full' | 'installments'>('full');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('');
-
   // Wallet state (2025: auto-apply when balance > 0)
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletLoading, setWalletLoading] = useState(false);
@@ -984,41 +1245,20 @@ export const CheckoutPage: React.FC = () => {
     }
   }, [user, customerEmail, firstName, lastName, customerPhone]);
 
-  // Fetch wallet balance for logged-in customers (2025 best practice: auto-apply at checkout)
+  // Fetch wallet balance for logged-in customers (2025 best practice:
+  // auto-apply at checkout). The async try/finally flow lives in module-scope
+  // `loadWalletBalance` so the compiler can memoize this component.
   useEffect(() => {
+    if (!user || !merchant?.slug) return;
+
     const abortController = new AbortController();
-
-    const fetchWalletBalance = async () => {
-      if (!user || !merchant?.slug) return;
-
-      setWalletLoading(true);
-      try {
-        const response = await fetch(
-          `/api/storefront/customer/wallet?merchant=${merchant.slug}`,
-          { signal: abortController.signal }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          const balance = Number(data.balance) || 0;
-          setWalletBalance(balance);
-          // Auto-apply wallet credit if balance > 0 (Shopify 2025 pattern)
-          if (balance > 0) {
-            setPayWithWallet(true);
-          }
-        }
-      } catch (error) {
-        // Ignore abort errors (component unmounted)
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.error('Failed to fetch wallet balance:', error);
-        }
-      } finally {
-        if (!abortController.signal.aborted) {
-          setWalletLoading(false);
-        }
-      }
-    };
-
-    fetchWalletBalance();
+    loadWalletBalance({
+      merchantSlug: merchant.slug,
+      signal: abortController.signal,
+      setWalletLoading,
+      setWalletBalance,
+      setPayWithWallet,
+    });
 
     return () => abortController.abort();
   }, [user, merchant?.slug]);
@@ -1086,9 +1326,9 @@ export const CheckoutPage: React.FC = () => {
     try {
       const paymentAmount = resumedOrder.total;
 
-      // For CredPal, use the inline checkout widget
+      // For CredPal, use the inline checkout widget (statically imported —
+      // dynamic `import()` expressions bail React Compiler)
       if (preferredGateway === 'credpal') {
-        const { openCredPalCheckout, getCredPalKey } = await import('@/lib/credpal');
         const productNames = resumedOrder.items.map(item => item.product_name).join(', ') || 'Purchase';
 
         await openCredPalCheckout({
@@ -1136,10 +1376,9 @@ export const CheckoutPage: React.FC = () => {
         return;
       }
 
-      // For Credit Direct, use their checkout widget
+      // For Credit Direct, use their checkout widget (statically imported —
+      // dynamic `import()` expressions bail React Compiler)
       if (preferredGateway === 'credit_direct') {
-        const { openCreditDirectCheckout } = await import('@/lib/credit-direct-client');
-
         await openCreditDirectCheckout({
           merchantSlug: merchant?.slug || 'ogabassey',
           orderId: resumedOrder.id,
@@ -1256,11 +1495,11 @@ export const CheckoutPage: React.FC = () => {
     // Handle resumed orders from mobile app (order already exists, just need payment)
     if (resumedOrder && preferredGateway) {
       setIsProcessing(true);
-      try {
-        await executeDirectPayment();
-      } finally {
+      // Promise `.finally()` instead of a try/finally statement, which would
+      // bail React Compiler; semantics are identical.
+      await executeDirectPayment().finally(() => {
         isOrderInFlightRef.current = false;
-      }
+      });
       return;
     }
 
@@ -1589,7 +1828,7 @@ export const CheckoutPage: React.FC = () => {
             details: errorData.details,
             fullResponse: errorData
           });
-          throw new Error(errorData.details || errorData.error || 'Failed to create order');
+          raiseCheckoutError(errorData.details || errorData.error || 'Failed to create order');
         }
 
         const orderData = await orderResponse.json();
@@ -1726,7 +1965,7 @@ export const CheckoutPage: React.FC = () => {
 
         if (!paymentResponse.ok) {
           const errorData = await paymentResponse.json();
-          throw new Error(errorData.error || 'Payment initialization failed');
+          raiseCheckoutError(errorData.error || 'Payment initialization failed');
         }
 
         const paymentResult = await paymentResponse.json();
@@ -1751,14 +1990,15 @@ export const CheckoutPage: React.FC = () => {
         } else if (paymentResult.success && paymentResult.authorization_url) {
           // NOTE: Don't clear cart here - it causes a flash of empty state
           // Cart will be cleared on the payment callback page after successful payment
-          window.location.href = paymentResult.authorization_url;
+          // (location.assign over `href =` — global assignment bails React Compiler)
+          window.location.assign(paymentResult.authorization_url);
           return;
         } else if (paymentResult.success && paymentResult.checkout_url) {
           // Juicyway uses checkout_url
-          window.location.href = paymentResult.checkout_url;
+          window.location.assign(paymentResult.checkout_url);
           return;
         } else {
-          throw new Error('Payment initialization failed: No auth URL returned');
+          raiseCheckoutError('Payment initialization failed: No auth URL returned');
         }
       } else if (paymentMethod === 'credit_direct') {
         // Credit Direct BNPL - Client-side popup checkout
@@ -1944,40 +2184,28 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
-  // Dedicated Virtual Account (DVA) Handler
-  const handleBankTransfer = async (order: any, paymentAmount: number) => {
+  // Dedicated Virtual Account (DVA) Handler. The fetch + throw flow lives in
+  // module-scope `requestDvaInitialization`; the promise chain replaces
+  // try/catch/finally, which would bail React Compiler.
+  const handleBankTransfer = async (
+    order: { id: string },
+    paymentAmount: number
+  ) => {
     if (!merchant) {
       isOrderInFlightRef.current = false;
       return;
     }
 
     setIsInitializingDva(true);
-    try {
-      const response = await fetch('/api/payments/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          merchant_id: merchant.id,
-          order_id: order.id,
-          amount: paymentAmount,
-          currency: 'NGN',
-          customer_email: customerEmail,
-          customer_name: `${firstName} ${lastName}`.trim(),
-          customer_phone: customerPhone,
-          gateway: 'paystack',
-          payment_type: 'dva', // Dedicated Virtual Account
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(
-          errorData?.error || 'Failed to initialize bank transfer'
-        );
-      }
-
-      const result = await response.json();
-      if (result.success && result.dva) {
+    await requestDvaInitialization({
+      merchantId: merchant.id,
+      orderId: order.id,
+      amount: paymentAmount,
+      customerEmail,
+      customerName: `${firstName} ${lastName}`.trim(),
+      customerPhone,
+    })
+      .then((result) => {
         setDvaData({
           ...result.dva,
           amount: paymentAmount,
@@ -1985,21 +2213,21 @@ export const CheckoutPage: React.FC = () => {
         });
         setDvaCountdown(3600);
         isOrderInFlightRef.current = false;
-      } else {
-        throw new Error('DVA not returned by the gateway');
-      }
-    } catch (error) {
-      console.error('DVA initialization error:', error);
-      toast({
-        title: 'Bank Transfer Failed',
-        description: error instanceof Error ? error.message : 'Failed to initialize bank transfer',
-        variant: 'destructive',
+      })
+      .catch((error: unknown) => {
+        console.error('DVA initialization error:', error);
+        toast({
+          title: 'Bank Transfer Failed',
+          description:
+            error instanceof Error ? error.message : 'Failed to initialize bank transfer',
+          variant: 'destructive',
+        });
+        isOrderInFlightRef.current = false;
+      })
+      .finally(() => {
+        setIsProcessing(false);
+        setIsInitializingDva(false);
       });
-      isOrderInFlightRef.current = false;
-    } finally {
-      setIsProcessing(false);
-      setIsInitializingDva(false);
-    }
   };
 
   // Unified Next Step Handler for Mobile Action Bar

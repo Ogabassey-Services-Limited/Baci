@@ -2,7 +2,13 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { SANTA_GREETING } from '@/ai/prompts/santa';
 import { useCart } from '@/hooks/use-cart';
 import type { Product } from '@/lib/products';
@@ -22,6 +28,82 @@ interface Message {
 interface SantaChatDialogProps {
   onClose?: () => void;
   isFullPage?: boolean;
+}
+
+interface StreamSantaReplyOptions {
+  updatedMessages: Message[];
+  abortControllerRef: { current: AbortController | null };
+  processedActionsRef: { current: Set<string> };
+  setMessages: Dispatch<SetStateAction<Message[]>>;
+  onCartAction: (productName: string, price: number) => Promise<void>;
+}
+
+// Module-scope helper: keeps throw-in-try out of the component body so
+// React Compiler can memoize SantaChatDialog.
+async function streamSantaReply({
+  updatedMessages,
+  abortControllerRef,
+  processedActionsRef,
+  setMessages,
+  onCartAction,
+}: StreamSantaReplyOptions): Promise<void> {
+  // Cancel any previous in-flight request
+  abortControllerRef.current?.abort();
+  const controller = new AbortController();
+  abortControllerRef.current = controller;
+
+  const response = await fetch('/api/chat/santa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: controller.signal,
+    body: JSON.stringify({
+      messages: updatedMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        imageUrl: m.imageUrl,
+      })),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to get response from Santa');
+  }
+
+  // Handle streaming response
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let assistantContent = '';
+  const assistantId = `assistant-${Date.now()}`;
+
+  // Add empty assistant message
+  setMessages((prev) => [
+    ...prev,
+    { id: assistantId, role: 'assistant', content: '' },
+  ]);
+
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      // toTextStreamResponse() returns raw UTF-8 text chunks
+      assistantContent += chunk;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, content: assistantContent } : m
+        )
+      );
+    }
+
+    // After streaming completes, check for cart action
+    const action = parseSantaAction(assistantContent);
+    if (action && !processedActionsRef.current.has(assistantId)) {
+      processedActionsRef.current.add(assistantId);
+      await onCartAction(action.productName, action.price);
+    }
+  }
 }
 
 /**
@@ -131,7 +213,7 @@ export function SantaChatDialog({
     ]);
   };
 
-  const sendMessage = async (userMessage: string, imageUrl?: string) => {
+  const sendMessage = (userMessage: string, imageUrl?: string) => {
     if (!userMessage.trim() && !imageUrl) return;
 
     const userMsg: Message = {
@@ -147,72 +229,22 @@ export function SantaChatDialog({
     setIsLoading(true);
     setError(null);
 
-    try {
-      // Cancel any previous in-flight request
-      abortControllerRef.current?.abort();
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      const response = await fetch('/api/chat/santa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          messages: updatedMessages.map((m) => ({
-            role: m.role,
-            content: m.content,
-            imageUrl: m.imageUrl,
-          })),
-        }),
+    streamSantaReply({
+      updatedMessages,
+      abortControllerRef,
+      processedActionsRef,
+      setMessages,
+      onCartAction: handleAddToCart,
+    })
+      .catch((err) => {
+        console.error('Santa chat error:', err);
+        setError(
+          "Oh dear, my elves are telling me there's a bit of a snowstorm interfering with our connection."
+        );
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response from Santa');
-      }
-
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantContent = '';
-      const assistantId = `assistant-${Date.now()}`;
-
-      // Add empty assistant message
-      setMessages((prev) => [
-        ...prev,
-        { id: assistantId, role: 'assistant', content: '' },
-      ]);
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          // toTextStreamResponse() returns raw UTF-8 text chunks
-          assistantContent += chunk;
-
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: assistantContent } : m
-            )
-          );
-        }
-
-        // After streaming completes, check for cart action
-        const action = parseSantaAction(assistantContent);
-        if (action && !processedActionsRef.current.has(assistantId)) {
-          processedActionsRef.current.add(assistantId);
-          await handleAddToCart(action.productName, action.price);
-        }
-      }
-    } catch (err) {
-      console.error('Santa chat error:', err);
-      setError(
-        "Oh dear, my elves are telling me there's a bit of a snowstorm interfering with our connection."
-      );
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleSendMessage = (message: Omit<ChatMessageType, 'role'>) => {

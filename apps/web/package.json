@@ -122,7 +122,7 @@
     "lucide-react": "^0.561.0",
     "marked": "^18.0.4",
     "nanoid": "^5.1.11",
-    "next": "16.2.7",
+    "next": "16.2.9",
     "next-themes": "^0.4.6",
     "novel": "^1.0.2",
     "openai": "^6.42.0",
@@ -151,7 +151,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
-    "@next/bundle-analyzer": "^16.2.7",
+    "@next/bundle-analyzer": "^16.2.9",
     "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/dom": "^10.4.1",

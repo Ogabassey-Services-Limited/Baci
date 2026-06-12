@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { toast } from '@/hooks/use-toast';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -25,6 +25,113 @@ interface UtilityModalProps {
   onClose: () => void;
   initialTab?: 'airtime' | 'data' | 'tv' | 'power' | 'betting';
 }
+
+interface UtilityCheckoutRequest {
+  payload: UtilityCheckoutPayload;
+  merchantSlug: string;
+  customerName: string;
+  customerPhone: string | null | undefined;
+  walletAmount: number;
+  getWalletIdempotencyKey: (payloadSignature: string) => string;
+}
+
+type UtilityCheckoutResult =
+  | { kind: 'redirected' }
+  | {
+      kind: 'wallet-success';
+      reference: string;
+      amount: number;
+      processing: boolean;
+    }
+  | { kind: 'error'; message: string };
+
+// Module-scope helper: keeps try/finally + throw-in-try out of the component
+// body so React Compiler can memoize UtilityModal.
+const submitUtilityCheckout = async ({
+  payload,
+  merchantSlug,
+  customerName,
+  customerPhone,
+  walletAmount,
+  getWalletIdempotencyKey,
+}: UtilityCheckoutRequest): Promise<UtilityCheckoutResult> => {
+  try {
+    const checkoutPayload = {
+      merchantSlug,
+      customerName,
+      ...(customerPhone ? { customerPhone } : {}),
+      ...payload,
+    };
+    const isWalletOnly = walletAmount > 0 && walletAmount >= payload.amount;
+    const walletPayload = {
+      ...checkoutPayload,
+      walletAmount: payload.amount,
+    };
+    const response = await fetchWithCsrf(
+      isWalletOnly
+        ? '/api/vtu/checkout/wallet-only'
+        : '/api/vtu/checkout/initialize',
+      {
+        method: 'POST',
+        headers: isWalletOnly
+          ? {
+              'Idempotency-Key': getWalletIdempotencyKey(
+                JSON.stringify(walletPayload)
+              ),
+            }
+          : undefined,
+        body: JSON.stringify({
+          ...(isWalletOnly ? walletPayload : checkoutPayload),
+          ...(isWalletOnly
+            ? {}
+            : {
+                gateway: 'paystack',
+                ...(walletAmount > 0 ? { walletAmount } : {}),
+              }),
+        }),
+      }
+    );
+
+    const rawResponse = await response.text();
+    let parsedData: unknown;
+    try {
+      parsedData = JSON.parse(rawResponse);
+    } catch {
+      throw new Error(
+        response.ok
+          ? 'Payment checkout returned an invalid response'
+          : `Payment checkout failed (${response.status})`
+      );
+    }
+    if (!response.ok) throw new Error(getCheckoutErrorMessage(parsedData));
+    if (!isUtilityCheckoutResponse(parsedData)) {
+      throw new Error('Payment checkout returned an invalid response');
+    }
+    const data = parsedData;
+
+    if (!isWalletOnly) {
+      const checkoutUrl = data.checkout_url || data.authorization_url;
+      if (!checkoutUrl) {
+        throw new Error('Payment checkout URL was not returned');
+      }
+      redirectToPaymentCheckout(checkoutUrl);
+      return { kind: 'redirected' };
+    }
+
+    return {
+      kind: 'wallet-success',
+      reference: data.reference ?? '',
+      amount: data.amount ?? payload.amount,
+      processing: data.status === 'processing',
+    };
+  } catch (error) {
+    return {
+      kind: 'error',
+      message:
+        error instanceof Error ? error.message : 'Something went wrong',
+    };
+  }
+};
 
 export const UtilityModal = ({
   isOpen,
@@ -63,12 +170,18 @@ export const UtilityModal = ({
   const selectedPaymentMethod: UtilityPaymentMethod =
     canUseWallet && payWithWallet ? 'wallet' : 'card';
 
-  useEffect(() => {
+  // Reset the view when the modal (re)opens or the requested tab changes.
+  // Render-time prev-prop comparison avoids a stale-frame effect round-trip.
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [prevInitialTab, setPrevInitialTab] = useState(initialTab);
+  if (isOpen !== prevIsOpen || initialTab !== prevInitialTab) {
+    setPrevIsOpen(isOpen);
+    setPrevInitialTab(initialTab);
     if (isOpen) {
       setActiveTab(initialTab);
       setStep('details');
     }
-  }, [isOpen, initialTab]);
+  }
 
   const getWalletIdempotencyKey = (payloadSignature: string) => {
     if (walletIdempotencyAttemptRef.current?.payloadSignature !== payloadSignature) {
@@ -99,107 +212,43 @@ export const UtilityModal = ({
     }
 
     setLoading(true);
-    try {
-      const merchantSlug = merchant?.slug || 'ogabassey';
-      const customerName =
-        [customer?.first_name, customer?.last_name]
-          .filter(Boolean)
-          .join(' ')
-          .trim() || customer?.email || user.email || 'Customer';
-      const checkoutPayload = {
-        merchantSlug,
-        customerName,
-        ...(customer?.phone ? { customerPhone: customer.phone } : {}),
-        ...payload,
-      };
-      const requestedWalletAmount =
+    const customerName =
+      [customer?.first_name, customer?.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || customer?.email || user.email || 'Customer';
+    const result = await submitUtilityCheckout({
+      payload,
+      merchantSlug: merchant?.slug || 'ogabassey',
+      customerName,
+      customerPhone: customer?.phone,
+      walletAmount:
         selectedPaymentMethod === 'wallet'
           ? Math.min(walletBalance, payload.amount)
-          : 0;
-      const isWalletOnly =
-        requestedWalletAmount > 0 && requestedWalletAmount >= payload.amount;
-      const walletPayload = {
-        ...checkoutPayload,
-        walletAmount: payload.amount,
-      };
-      const response = await fetchWithCsrf(
-        isWalletOnly
-          ? '/api/vtu/checkout/wallet-only'
-          : '/api/vtu/checkout/initialize',
-        {
-          method: 'POST',
-          headers: isWalletOnly
-            ? {
-                'Idempotency-Key': getWalletIdempotencyKey(
-                  JSON.stringify(walletPayload)
-                ),
-              }
-            : undefined,
-          body: JSON.stringify({
-            ...(isWalletOnly ? walletPayload : checkoutPayload),
-            ...(isWalletOnly
-              ? {}
-              : {
-                  gateway: 'paystack',
-                  ...(requestedWalletAmount > 0
-                    ? { walletAmount: requestedWalletAmount }
-                    : {}),
-                }),
-          }),
-        }
-      );
+          : 0,
+      getWalletIdempotencyKey,
+    });
 
-      const rawResponse = await response.text();
-      let parsedData: unknown;
-      try {
-        parsedData = JSON.parse(rawResponse);
-      } catch {
-        throw new Error(
-          response.ok
-            ? 'Payment checkout returned an invalid response'
-            : `Payment checkout failed (${response.status})`
-        );
-      }
-      if (!response.ok) throw new Error(getCheckoutErrorMessage(parsedData));
-      if (!isUtilityCheckoutResponse(parsedData)) {
-        throw new Error('Payment checkout returned an invalid response');
-      }
-      const data = parsedData;
-
-      if (!isWalletOnly) {
-        const checkoutUrl = data.checkout_url || data.authorization_url;
-        if (!checkoutUrl) {
-          throw new Error('Payment checkout URL was not returned');
-        }
-        redirectToPaymentCheckout(checkoutUrl);
-        return;
-      }
-
+    if (result.kind === 'wallet-success') {
       walletIdempotencyAttemptRef.current = null;
       setWalletBalance((balance) => Math.max(balance - payload.amount, 0));
-      setTransactionRef(data.reference ?? '');
-      setSuccessAmount(data.amount ?? payload.amount);
+      setTransactionRef(result.reference);
+      setSuccessAmount(result.amount);
       setStep('success');
       toast({
-        title:
-          data.status === 'processing'
-            ? 'Purchase Processing'
-            : 'Purchase Successful',
-        description:
-          data.status === 'processing'
-            ? `Your ${activeTab} purchase is processing.`
-            : `Your ${activeTab} purchase was successful!`,
+        title: result.processing ? 'Purchase Processing' : 'Purchase Successful',
+        description: result.processing
+          ? `Your ${activeTab} purchase is processing.`
+          : `Your ${activeTab} purchase was successful!`,
       });
-    } catch (error) {
+    } else if (result.kind === 'error') {
       toast({
         title: 'Transaction Failed',
-        description:
-          error instanceof Error ? error.message : 'Something went wrong',
+        description: result.message,
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const handleAirtimeDataSubmit = (data: {

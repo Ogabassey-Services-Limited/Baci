@@ -894,6 +894,223 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    ['terms-and-conditions', '/terms-and-conditions'],
+    ['terms-of-service', '/terms-of-service'],
+  ])('redirects custom-domain legacy %s URLs to the canonical /terms page before storefront rewrite', async (_label, legacyPathname) => {
+    const req = new NextRequest(
+      `https://ogabassey.com${legacyPathname}?utm_source=email`
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/terms?utm_source=email'
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('redirects custom-domain legacy terms aliases for HEAD requests', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/terms-and-conditions?utm_source=email',
+      { method: 'HEAD' }
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/terms?utm_source=email'
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('does not 301 non-idempotent legacy terms alias requests', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/terms-and-conditions?utm_source=email',
+      { method: 'POST' }
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('does not redirect the canonical custom-domain /terms URL to itself', async () => {
+    const req = new NextRequest('https://ogabassey.com/terms?utm_source=email');
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('location')).toBeNull();
+    expect(rewriteUrl.pathname).toBe('/ogabassey.com/terms');
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe('metadata-blocking');
+  });
+
+  it('redirects merchant subdomain legacy terms aliases to /terms without adding a slug-prefixed duplicate', async () => {
+    const req = new NextRequest(
+      `https://merchant-demo.${ROOT_DOMAIN}/terms-and-conditions?ref=legal`
+    );
+    req.headers.set('host', `merchant-demo.${ROOT_DOMAIN}`);
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      `https://merchant-demo.${ROOT_DOMAIN}/terms?ref=legal`
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('collapses custom-domain slug-prefixed legacy terms aliases directly to /terms', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/terms-and-conditions?utm_source=email'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/terms?utm_source=email'
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('collapses root-domain slug-prefixed legacy terms aliases to one custom-domain canonical hop', async () => {
+    vi.mocked(getCustomDomainForSlug).mockResolvedValueOnce('ogabassey.com');
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/ogabassey/terms-and-conditions?utm_source=email`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/terms?utm_source=email'
+    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it.each([
+    [
+      'custom-domain storefront home',
+      'https://ogabassey.com/',
+      '/ogabassey.com',
+      'metadata-blocking',
+      'Googlebot/2.1',
+    ],
+    [
+      'custom-domain products index',
+      'https://ogabassey.com/products',
+      '/ogabassey.com/products',
+      'metadata-blocking',
+      'Googlebot/2.1',
+    ],
+    [
+      'custom-domain category listing',
+      'https://ogabassey.com/gaming-laptops',
+      '/ogabassey.com/gaming-laptops',
+      'metadata-blocking',
+      'Googlebot/2.1',
+    ],
+    [
+      'custom-domain blog post',
+      'https://ogabassey.com/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
+      '/ogabassey.com/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
+      'metadata-blocking',
+      'Googlebot/2.1',
+    ],
+    [
+      'subdomain category listing',
+      `https://ogabassey.${ROOT_DOMAIN}/gaming-laptops`,
+      '/ogabassey/gaming-laptops',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+    [
+      'subdomain storefront home',
+      `https://ogabassey.${ROOT_DOMAIN}/`,
+      '/ogabassey',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+    [
+      'root-domain slug-prefixed category listing',
+      `https://${ROOT_DOMAIN}/merchant-demo/gaming-laptops`,
+      '/merchant-demo/gaming-laptops',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+    [
+      'root-domain slug-prefixed storefront home',
+      `https://${ROOT_DOMAIN}/merchant-demo`,
+      '/merchant-demo',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+    [
+      'root-domain slug-prefixed blog post',
+      `https://${ROOT_DOMAIN}/merchant-demo/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025`,
+      '/merchant-demo/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
+      'streaming',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+  ])('applies hidden metadata cache partitioning to public %s', async (_label, url, expectedPathname, expectedBucket, userAgent) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+    req.headers.set('user-agent', userAgent);
+
+    const res = await proxy(req);
+    expect(res.headers.get('x-middleware-rewrite')).not.toBeNull();
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
+
+    expect(rewriteUrl.pathname).toBe(expectedPathname);
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe(expectedBucket);
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe(expectedBucket);
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
+  it.each([
+    `https://${ROOT_DOMAIN}/pricing`,
+    `https://${ROOT_DOMAIN}/checkout`,
+    `https://${ROOT_DOMAIN}/blog`,
+    `https://${ROOT_DOMAIN}/terms`,
+  ])('does not add storefront metadata cache partitioning to platform route %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it.each([
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
     'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
     'https://ogabassey.com/steam-deck',
@@ -1542,11 +1759,16 @@ describe('Middleware Proxy', () => {
     req.headers.set('host', 'ogabassey.com');
 
     const res = await proxy(req);
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
 
     expect(res.status).not.toBe(301);
-    expect(res.headers.get('x-middleware-rewrite')).toBe(
-      'https://ogabassey.com/ogabassey.com/products'
-    );
+    expect(rewriteUrl.pathname).toBe('/ogabassey.com/products');
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe('streaming');
+    expect(res.headers.get('x-middleware-rewrite')).toBe(rewriteUrl.toString());
   });
 
   it('does not 410 legitimate blog slugs that merely start with a wp-admin token', async () => {

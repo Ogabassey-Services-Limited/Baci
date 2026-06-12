@@ -9,7 +9,7 @@
 import dynamic from 'next/dynamic';
 import type { Route } from 'next';
 import Link from 'next/link';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { deriveProductImageData } from '@baci/shared/lib';
 import { prioritizeSmartphoneProducts } from '@baci/shared/storefront';
@@ -274,28 +274,34 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     window.history.replaceState(null, '', pathname);
   };
 
-  // Sync category filter from URL ?category= param on mount/navigation
+  // Sync category filter from URL ?category= param during render (mount/navigation)
   // Use case-insensitive match to stay consistent with the product filtering logic
-  // Depend on categoryList (props) instead of derived categories array for stable reference
-  useEffect(() => {
-    const urlCategory = searchParams.get('category');
-    if (!urlCategory) return;
+  // Compare the resolved category (a primitive) so unstable categoryList refs can't loop
+  const urlCategory = searchParams.get('category');
+  let urlSelectedCategory: string | null = null;
+  if (urlCategory) {
     if (urlCategory.toLowerCase() === 'all') {
-      setSelectedCategory('All');
-      return;
+      urlSelectedCategory = 'All';
+    } else {
+      urlSelectedCategory =
+        categoryList.find(
+          (c) => c.name.toLowerCase() === urlCategory.toLowerCase()
+        )?.name ?? null;
     }
-    const match = categoryList.find(
-      (c) => c.name.toLowerCase() === urlCategory.toLowerCase()
-    );
-    if (match) {
-      setSelectedCategory(match.name);
+  }
+  const [prevUrlSelectedCategory, setPrevUrlSelectedCategory] = useState<
+    string | null
+  >(null);
+  if (urlSelectedCategory !== prevUrlSelectedCategory) {
+    setPrevUrlSelectedCategory(urlSelectedCategory);
+    if (urlSelectedCategory !== null) {
+      setSelectedCategory(urlSelectedCategory);
     }
-  }, [searchParams, categoryList]);
+  }
 
-  // Reset pagination when filters change
-  React.useEffect(() => {
-    setDisplayCount(startingDisplayCount);
-  }, [
+  // Reset pagination inline during render when filters change
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevFilters, setPrevFilters] = useState({
     maxPrice,
     minPrice,
     minRating,
@@ -303,7 +309,27 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     selectedCategory,
     selectedCondition,
     startingDisplayCount,
-  ]);
+  });
+  if (
+    prevFilters.maxPrice !== maxPrice ||
+    prevFilters.minPrice !== minPrice ||
+    prevFilters.minRating !== minRating ||
+    prevFilters.selectedBrand !== selectedBrand ||
+    prevFilters.selectedCategory !== selectedCategory ||
+    prevFilters.selectedCondition !== selectedCondition ||
+    prevFilters.startingDisplayCount !== startingDisplayCount
+  ) {
+    setPrevFilters({
+      maxPrice,
+      minPrice,
+      minRating,
+      selectedBrand,
+      selectedCategory,
+      selectedCondition,
+      startingDisplayCount,
+    });
+    setDisplayCount(startingDisplayCount);
+  }
 
   // Slice filtered products for pagination (unless limit is set by parent)
   const visibleProducts = limit ? filteredProducts : filteredProducts.slice(0, displayCount);

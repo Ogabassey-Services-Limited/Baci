@@ -71,14 +71,37 @@ export function BrandProducts({
     enabled: Boolean(merchant?.id && productBrand && productCategory),
   });
 
+  // Adjust loading/list state during render (prev-key comparison) instead of
+  // inside the effect, so the effect only performs the async fetch.
+  const canFetch = Boolean(
+    merchant?.id && productBrand && productCategory && isActive
+  );
+  const fetchKey = canFetch
+    ? JSON.stringify([
+        merchant?.id,
+        product.id,
+        productBrand,
+        categorySlug,
+        productCategory,
+        fetchLimit,
+        maxProducts,
+      ])
+    : `idle:${isActive}`;
+  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
+  if (fetchKey !== prevFetchKey) {
+    setPrevFetchKey(fetchKey);
+    if (canFetch) {
+      setIsLoading(true);
+    } else {
+      setBrandProducts((prev) => (prev.length === 0 ? prev : []));
+      setIsLoading(!isActive);
+    }
+  }
+
   useEffect(() => {
     if (!merchant?.id || !productBrand || !productCategory || !isActive) {
-      setBrandProducts([]);
-      setIsLoading(!isActive);
       return;
     }
-
-    setIsLoading(true);
 
     const params = new URLSearchParams({
       merchant_id: merchant.id,
