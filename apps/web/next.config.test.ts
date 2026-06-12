@@ -115,7 +115,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(ogabasseyLinkHeader).toContain('</auth.md>; rel="service-doc"');
   });
 
-  it('adds host-scoped product image preload headers for OgaBassey gaming laptop PDPs', async () => {
+  it('does not add route-wide API image preload headers for host-scoped OgaBassey gaming laptop PDPs', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     const globalOgaBasseyRuleIndex = headers.findIndex(
@@ -127,38 +127,19 @@ describe('next.config OgaBassey resource headers', () => {
     const pdpRuleIndex = headers.findIndex(
       (entry) => entry.source === '/gaming-laptops/:productSlug'
     );
-    const rule = headers[pdpRuleIndex];
-    const linkHeader = rule?.headers.find((header) => header.key === 'Link');
 
     expect(globalOgaBasseyRuleIndex).toBeGreaterThanOrEqual(0);
-    expect(pdpRuleIndex).toBeGreaterThan(globalOgaBasseyRuleIndex);
-    expect(rule?.has).toEqual([{ type: 'host', value: 'ogabassey.com' }]);
-    expect(linkHeader?.value).toContain(
-      '</.well-known/api-catalog>; rel="api-catalog"'
-    );
-    expect(linkHeader?.value).toContain(
-      '</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767px)"'
-    );
-    expect(linkHeader?.value).toContain(
-      '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"'
-    );
+    expect(pdpRuleIndex).toBe(-1);
   });
 
-  it('adds equivalent path-mode product image preload headers for OgaBassey gaming laptop PDPs', async () => {
+  it('does not add route-wide API image preload headers for path-mode OgaBassey gaming laptop PDPs', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     const rule = headers.find(
       (entry) => entry.source === '/ogabassey/gaming-laptops/:productSlug'
     );
-    const linkHeader = rule?.headers.find((header) => header.key === 'Link');
 
-    expect(rule?.has).toBeUndefined();
-    expect(linkHeader?.value).toContain(
-      '</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767px)"'
-    );
-    expect(linkHeader?.value).toContain(
-      '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"'
-    );
+    expect(rule).toBeUndefined();
   });
 
   it('rewrites agent-readable homepage and robots probes to machine endpoints', async () => {
