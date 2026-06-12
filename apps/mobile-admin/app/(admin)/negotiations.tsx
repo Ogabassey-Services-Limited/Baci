@@ -130,7 +130,6 @@ export default function NegotiationsScreen() {
     };
     // fetchRequests is recreated every render; subscribing on merchant ID is the
     // intended boundary for this realtime channel.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [merchant?.id]);
 
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
