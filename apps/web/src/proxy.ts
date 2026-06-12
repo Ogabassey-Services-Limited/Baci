@@ -136,6 +136,57 @@ const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
 const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
+const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =
+  /\.(?:json|jsonl|md|txt|webmanifest|xml)$/i;
+const STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS = new Set(['_next', 'api']);
+const STOREFRONT_METADATA_CACHE_NON_HTML_ROUTE_SEGMENTS = new Set([
+  'apple-icon',
+  'icon',
+  'opengraph-image',
+  'twitter-image',
+]);
+const STOREFRONT_METADATA_CACHE_NON_SEO_SEGMENTS = new Set([
+  'account',
+  'cart',
+  'checkout',
+  'delete-account',
+  'my-account',
+  'order-success',
+  'receipts',
+  'track-order',
+  'wallet',
+  'wishlist',
+]);
+const PLATFORM_ROOT_ROUTE_SEGMENTS = new Set([
+  '_next',
+  'about',
+  'admin',
+  'api',
+  'auth',
+  'blog',
+  'builder',
+  'cart',
+  'checkout',
+  'contact',
+  'debug-auth',
+  'delete-account',
+  'demo',
+  'features',
+  'favicon.ico',
+  'feeds',
+  'login',
+  'manifest.webmanifest',
+  'onboarding',
+  'pricing',
+  'privacy',
+  'products',
+  'reset-password',
+  'robots.txt',
+  'sitemap.xml',
+  'template-preview',
+  'terms',
+  'track',
+]);
 // Matches blog index/post paths on both the platform root (`/blog`, `/blog/...`)
 // and slug-prefixed storefront variants served from the root domain
 // (`/{slug}/blog`, `/{slug}/blog/...`). Used to canonicalize thumbnail params.
@@ -237,6 +288,29 @@ function shouldPartitionStorefrontMetadataCache(
     return false;
   }
 
+  const lowerPathname = pathname.toLowerCase();
+  if (
+    isPublicMachineReadablePath(pathname) ||
+    STATIC_FILES_REGEX.test(lowerPathname) ||
+    STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX.test(lowerPathname)
+  ) {
+    return false;
+  }
+
+  const pathSegments = pathname.split('/').filter(Boolean);
+  if (isSlugPrefixedStorefrontRequest(hostname)) {
+    const slugSegment = pathSegments[0]?.toLowerCase();
+    if (
+      !slugSegment ||
+      !isValidSubdomain(slugSegment) ||
+      RESERVED_SUBDOMAINS.has(slugSegment) ||
+      RESERVED_STOREFRONT_SEGMENTS.has(slugSegment) ||
+      PLATFORM_ROOT_ROUTE_SEGMENTS.has(slugSegment)
+    ) {
+      return false;
+    }
+  }
+
   const contentSegments = getStorefrontContentSegments(
     pathname,
     hostname,
@@ -246,13 +320,15 @@ function shouldPartitionStorefrontMetadataCache(
 
   if (
     firstSegment &&
-    RESERVED_STOREFRONT_SEGMENTS.has(firstSegment) &&
-    firstSegment !== 'products'
+    (STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS.has(firstSegment) ||
+      STOREFRONT_METADATA_CACHE_NON_SEO_SEGMENTS.has(firstSegment))
   ) {
     return false;
   }
 
-  return isStorefrontProductPagePath(pathname, hostname, routeType);
+  return !contentSegments.some((segment) =>
+    STOREFRONT_METADATA_CACHE_NON_HTML_ROUTE_SEGMENTS.has(segment.toLowerCase())
+  );
 }
 
 // Routes that should not be rewritten (main app routes)
