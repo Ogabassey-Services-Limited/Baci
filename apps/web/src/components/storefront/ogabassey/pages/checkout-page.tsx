@@ -406,7 +406,6 @@ async function requestCryptoPaymentInitialization({
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: pendingOrder.orderId,
-      amount: pendingOrder.amount,
       currency: 'NGN',
       customer_email: pendingOrder.customerEmail,
       customer_name: pendingOrder.customerName,
@@ -448,7 +447,6 @@ async function requestCryptoPaymentInitialization({
 interface RequestDvaInitializationParams {
   merchantId: string;
   orderId: string;
-  amount: number;
   customerEmail: string;
   customerName: string;
   customerPhone: string;
@@ -457,7 +455,6 @@ interface RequestDvaInitializationParams {
 async function requestDvaInitialization({
   merchantId,
   orderId,
-  amount,
   customerEmail,
   customerName,
   customerPhone,
@@ -471,7 +468,6 @@ async function requestDvaInitialization({
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: orderId,
-      amount,
       currency: 'NGN',
       customer_email: customerEmail,
       customer_name: customerName,
@@ -1954,7 +1950,6 @@ export const CheckoutPage: React.FC = () => {
           body: JSON.stringify({
             merchant_id: merchant.id,
             order_id: order.id,
-            amount: paymentAmount,
             currency: 'NGN',
             customer_email: customerEmail,
             customer_name: `${firstName} ${lastName}`.trim(),
@@ -2200,7 +2195,6 @@ export const CheckoutPage: React.FC = () => {
     await requestDvaInitialization({
       merchantId: merchant.id,
       orderId: order.id,
-      amount: paymentAmount,
       customerEmail,
       customerName: `${firstName} ${lastName}`.trim(),
       customerPhone,

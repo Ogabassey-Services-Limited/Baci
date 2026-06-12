@@ -100,10 +100,12 @@ export function useUtilityHistoryActions({
         'Share Failed',
         'Could not generate the receipt PDF. Please try again.'
       );
-    } finally {
-      isSharingRef.current = false;
-      setSharingTransactionId(null);
     }
+
+    // The catch above swallows every failure, so this always runs — a
+    // `finally` block here would make React Compiler bail out of the hook.
+    isSharingRef.current = false;
+    setSharingTransactionId(null);
   };
 
   const handleSyncPayment = async (transaction: VTUHistoryTransaction) => {
@@ -144,10 +146,12 @@ export function useUtilityHistoryActions({
         );
       });
       Alert.alert('Sync Failed', getFriendlySyncErrorMessage(syncError));
-    } finally {
-      isSyncingRef.current = false;
-      setSyncingTransactionId(null);
     }
+
+    // The catch above swallows every failure, so this always runs — a
+    // `finally` block here would make React Compiler bail out of the hook.
+    isSyncingRef.current = false;
+    setSyncingTransactionId(null);
   };
 
   return {

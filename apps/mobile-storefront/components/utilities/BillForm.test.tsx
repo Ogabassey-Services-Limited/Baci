@@ -239,10 +239,13 @@ describe('BillForm', () => {
     );
     fireEvent.press(screen.getByText('Verify'));
 
-    expect(mockVerifyMutate).toHaveBeenCalledWith({
-      billItemIdentifier: 'commercial',
-      customerIdentifier: '1234567890',
-    });
+    expect(mockVerifyMutate).toHaveBeenCalledWith(
+      {
+        billItemIdentifier: 'commercial',
+        customerIdentifier: '1234567890',
+      },
+      { onSuccess: expect.any(Function) }
+    );
   });
 
   it('starts a verified repeat at the payment section for previous bill details', () => {

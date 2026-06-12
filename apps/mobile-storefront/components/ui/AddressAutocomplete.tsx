@@ -2,7 +2,6 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   Keyboard,
   Pressable,
   Text,
@@ -23,6 +22,8 @@ import type {
   PlacePrediction,
 } from './AddressAutocomplete.types';
 import { AddressPredictionsDropdown } from './AddressPredictionsDropdown';
+import { applyPlaceSelection } from './apply-place-selection';
+import { useAddressAutocompleteKeyboard } from './use-address-autocomplete-keyboard';
 
 export type { PlaceDetails } from './AddressAutocomplete.types';
 
@@ -69,7 +70,6 @@ export function AddressAutocomplete({
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const blurCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<View>(null);
-  const keyboardHeightRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -84,44 +84,21 @@ export function AddressAutocomplete({
     };
   }, []);
 
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
-      keyboardHeightRef.current = e.endCoordinates.height;
-    });
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      keyboardHeightRef.current = 0;
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+  useAddressAutocompleteKeyboard({
+    isOpen,
+    predictionCount: predictions.length,
+    scrollOffsetRef,
+    scrollRef,
+    wrapperRef,
+  });
 
-  useEffect(() => {
-    if (!isOpen || predictions.length === 0 || !scrollRef?.current) return;
-    wrapperRef.current?.measureInWindow((_x, screenY, _w, inputHeight) => {
-      if (screenY <= 0 || inputHeight <= 0) return;
-      const DROPDOWN_HEIGHT = 280;
-      const PADDING = 16;
-      const screenHeight = Dimensions.get('window').height;
-      const kbHeight =
-        keyboardHeightRef.current || Keyboard.metrics()?.height || 0;
-      const keyboardTop = screenHeight - kbHeight;
-      const dropdownBottom = screenY + inputHeight + DROPDOWN_HEIGHT + PADDING;
-      if (dropdownBottom > keyboardTop) {
-        const overflow = dropdownBottom - keyboardTop;
-        const currentOffset = scrollOffsetRef?.current ?? 0;
-        scrollRef.current?.scrollTo({
-          y: currentOffset + overflow + PADDING,
-          animated: true,
-        });
-      }
-    });
-  }, [isOpen, predictions.length, scrollRef, scrollOffsetRef]);
-
-  useEffect(() => {
+  // Adjust state inline during render when the controlled value prop changes
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setInternalValue(value);
-  }, [value]);
+  }
 
   const fetchPredictions = async (input: string) => {
     if (input.length < 2) {
@@ -169,19 +146,14 @@ export function AddressAutocomplete({
     }
 
     const details = await fetchPlaceDetails({ prediction, sessionToken });
-    try {
-      if (details && onSelect) {
-        onSelect(details);
-      }
-      if (isMountedRef.current) {
-        setSessionToken(generateSessionToken());
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        setPredictions([]);
-      }
-    }
+    applyPlaceSelection({
+      details,
+      isMountedRef,
+      onSelect,
+      setIsLoading,
+      setPredictions,
+      setSessionToken,
+    });
   };
 
   const handleClear = () => {
@@ -267,7 +239,10 @@ export function AddressAutocomplete({
         ) : internalValue ? (
           <Pressable
             onPress={handleClear}
-            style={styles.clearButton}
+            style={({ pressed }) => [
+              styles.clearButton,
+              pressed && { opacity: 0.7 },
+            ]}
             accessibilityLabel="Clear address"
             accessibilityRole="button"
           >

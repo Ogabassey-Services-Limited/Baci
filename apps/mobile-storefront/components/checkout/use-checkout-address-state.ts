@@ -1,6 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import type { ScrollView } from 'react-native';
 import { deriveCheckoutIdentity } from '@/lib/checkout-identity';
 import type { ShippingAddressInput } from '@/lib/validation';
@@ -55,14 +55,16 @@ export function useCheckoutAddressState({
     },
     mode: 'onBlur',
   });
-  const { getValues, reset, setValue, watch } = form;
-  const watchedState = watch('state');
-  const watchedCity = watch('city');
-  const watchedAddress = watch('address');
-  const watchedPhone = watch('phone');
-  const watchedFirstName = watch('firstName');
-  const watchedLastName = watch('lastName');
-  const watchedEmail = watch('email');
+  const { control, getValues, reset, setValue } = form;
+  // useWatch instead of watch(): watch() returns interior-mutable values that
+  // force React Compiler to skip memoizing this hook (incompatible-library).
+  const watchedState = useWatch({ control, name: 'state' });
+  const watchedCity = useWatch({ control, name: 'city' });
+  const watchedAddress = useWatch({ control, name: 'address' });
+  const watchedPhone = useWatch({ control, name: 'phone' });
+  const watchedFirstName = useWatch({ control, name: 'firstName' });
+  const watchedLastName = useWatch({ control, name: 'lastName' });
+  const watchedEmail = useWatch({ control, name: 'email' });
 
   const shipping = useCheckoutShipping({
     apiBaseUrl: CHECKOUT_API_BASE_URL,
