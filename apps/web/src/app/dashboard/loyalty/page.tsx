@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
 
 interface LoyaltySettings {
@@ -147,7 +148,7 @@ export default function LoyaltyProgramPage() {
   function saveSettings() {
     if (!settings) return;
     setSaving(true);
-    fetch('/api/loyalty/settings', {
+    fetchWithCsrf('/api/loyalty/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),

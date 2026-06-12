@@ -39,7 +39,6 @@ import {
   type SetStateAction,
   Suspense,
   useEffect,
-  useRef,
   useState,
 } from 'react';
 import { BagIcon } from '@/components/bag-icon';
@@ -273,31 +272,21 @@ export default function DashboardClientLayout({
   const [smartNavUsage, setSmartNavUsage] = useState<SmartNavUsage>({});
   useToast(); // Keep toast available for potential future use
 
-  // Track if we've already attempted a redirect to prevent loops.
-  // A ref (not state) because it never drives rendering — it only guards the effect.
-  const hasAttemptedAuthCheckRef = useRef(false);
-
   // Orders count for sidebar badge - fetched lazily to not block initial render
   const [ordersCount, setOrdersCount] = useState(0);
 
-  // NOTE: Auth and onboarding redirects are now handled SERVER-SIDE in layout.tsx
-  // This effect is only for handling edge cases like session expiry during navigation
+  // NOTE: Auth and onboarding redirects are now handled SERVER-SIDE in layout.tsx.
+  // This effect is only for handling edge cases like session expiry during navigation.
   useEffect(() => {
-    // Wait for auth loading to finish
-    if (authLoading) return;
+    if (authLoading || user) return;
 
-    // If session expires during navigation, redirect to login
-    // The server layout handles initial auth, this is a safety net
-    if (!user && !hasAttemptedAuthCheckRef.current) {
-      hasAttemptedAuthCheckRef.current = true;
-      // Wait briefly for potential session hydration
-      const timer = setTimeout(() => {
-        if (!user) {
-          router.push('/login');
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
+    // Wait briefly for potential session hydration, but restart the timer if auth
+    // state changes so the safety net cannot be cancelled permanently.
+    const timer = setTimeout(() => {
+      router.push('/login');
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [user, authLoading, router]);
 
   // Auto-collapse sidebar on main content interaction

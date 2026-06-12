@@ -16,13 +16,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import {
-  type Dispatch,
-  type SetStateAction,
-  useEffect,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { StoreBuildStatusCard } from '@/components/dashboard/store-build-status-card';
 import { BentoCard } from '@/components/ui/bento-card';
@@ -87,14 +81,6 @@ interface DashboardClientPageProps {
   initialChartData?: MonthlyChartData[];
 }
 
-// Hydration guard via useSyncExternalStore: server snapshot is false, client
-// snapshot is true, so we render null on the server without a setState-in-effect.
-const emptySubscribe = () => () => {
-  // Nothing to clean up: the mounted snapshot never changes after hydration.
-};
-const getMountedSnapshot = () => true;
-const getServerMountedSnapshot = () => false;
-
 interface PublishToggleContext {
   isPublished: boolean | undefined | null;
   toast: ReturnType<typeof useToast>['toast'];
@@ -153,11 +139,9 @@ export default function DashboardClientPage({
   const { merchant, reloadMerchant } = useMerchant();
   const router = useRouter();
   const { toast } = useToast();
-  const mounted = useSyncExternalStore(
-    emptySubscribe,
-    getMountedSnapshot,
-    getServerMountedSnapshot
-  );
+  // React hydration requires the first browser render to match the server.
+  // Render the mounted-only dashboard content on the second client pass.
+  const [mounted, setMounted] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   // TODO: These will be used for metric selector dropdown
   // const [heroMetric, setHeroMetric] = useState<'revenue' | 'orders' | 'visitors'>('revenue');
@@ -178,6 +162,10 @@ export default function DashboardClientPage({
   const [monthlyChartData, setMonthlyChartData] = useState<MonthlyChartData[]>(
     initialChartData || []
   );
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     // If we have initial data, don't fetch again on mount

@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import type {
   NotificationPreferences,
   UpdatePreferencesInput,
@@ -82,7 +83,7 @@ export default function NotificationPreferencesPage() {
     if (!preferences) return;
 
     setIsSaving(true);
-    fetch('/api/notifications/preferences', {
+    fetchWithCsrf('/api/notifications/preferences', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
