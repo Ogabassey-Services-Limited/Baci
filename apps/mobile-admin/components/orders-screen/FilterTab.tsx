@@ -43,7 +43,7 @@ export function FilterTab({
       <Text
         style={[
           styles.filterText,
-          { color: isActive ? '#000000' : colors.textSecondary },
+          { color: isActive ? colors.textOnGold : colors.textSecondary },
         ]}
       >
         {label} ({count})

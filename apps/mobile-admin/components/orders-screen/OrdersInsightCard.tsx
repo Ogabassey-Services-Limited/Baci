@@ -120,18 +120,19 @@ function InsightBody({
           <Text style={[styles.todoHeading, { color: colors.gold }]}>
             TODOS FOR TODAY:
           </Text>
-          {insights
-            .map((insight) => insight.action)
-            .filter((todoText): todoText is string => Boolean(todoText))
-            .map((todoText) => (
+          {insights.flatMap((insight) =>
+            insight.action ? (
               <InsightTodo
-                key={todoText}
+                key={insight.action}
                 colors={colors}
-                todoText={todoText}
-                isCompleted={!!completedTodos[todoText]}
+                todoText={insight.action}
+                isCompleted={!!completedTodos[insight.action]}
                 onToggle={onTodoToggle}
               />
-            ))}
+            ) : (
+              []
+            )
+          )}
         </View>
       </View>
     );

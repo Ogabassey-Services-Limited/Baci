@@ -13,6 +13,12 @@ const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
 }));
 
+type MutationOptions = {
+  mutationFn: () => Promise<unknown>;
+  onError?: (error: unknown) => void;
+  onSuccess?: (data: unknown) => void;
+};
+
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
   default: () => null,
@@ -60,7 +66,7 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({
     invalidateQueries: mocks.invalidateQueries,
   }),
-  useMutation: (options: any) => {
+  useMutation: (options: MutationOptions) => {
     mocks.useMutation(options);
     return {
       mutate: async () => {
@@ -185,6 +191,48 @@ describe('SocialMediaScreen', () => {
     expect(instagramInput).toHaveValue('baci_insta');
     expect(twitterInput).toHaveValue('baci_tweets');
     expect(facebookInput).toHaveValue('');
+  });
+
+  it('re-seeds form values when merchant social media changes', () => {
+    let merchantSocial = {
+      instagram: 'initial_insta',
+      twitter: 'initial_tweets',
+    };
+    mocks.useMerchant.mockImplementation(() => ({
+      merchant: {
+        social_media: merchantSocial,
+      },
+      isLoading: false,
+    }));
+
+    const { rerender } = render(<SocialMediaScreen />);
+
+    expect(screen.getByLabelText('Instagram Handle')).toHaveValue(
+      'initial_insta'
+    );
+    expect(screen.getByLabelText('Twitter/X Handle')).toHaveValue(
+      'initial_tweets'
+    );
+
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'draft_insta' },
+    });
+    expect(screen.getByLabelText('Instagram Handle')).toHaveValue(
+      'draft_insta'
+    );
+
+    merchantSocial = {
+      instagram: 'server_insta',
+      twitter: 'server_tweets',
+    };
+    rerender(<SocialMediaScreen />);
+
+    expect(screen.getByLabelText('Instagram Handle')).toHaveValue(
+      'server_insta'
+    );
+    expect(screen.getByLabelText('Twitter/X Handle')).toHaveValue(
+      'server_tweets'
+    );
   });
 
   it('calls save mutation and handles success flow', async () => {

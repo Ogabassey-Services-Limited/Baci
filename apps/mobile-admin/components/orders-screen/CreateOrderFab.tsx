@@ -27,7 +27,7 @@ export function CreateOrderFab({
       accessibilityRole="button"
       accessibilityHint="Opens form to create a new order"
     >
-      <Ionicons name="add" size={28} color="#FFFFFF" />
+      <Ionicons name="add" size={28} color={colors.textOnGold} />
     </Pressable>
   );
 }

@@ -17,6 +17,7 @@ import { OrdersHeader } from './OrdersHeader';
 import { OrdersInsightCard } from './OrdersInsightCard';
 import { OrdersModals } from './OrdersModals';
 import { OrdersScrollSurface } from './OrdersScrollSurface';
+import { OrdersSectionHeader } from './OrdersSectionHeader';
 import { OrdersStatusDropdown } from './OrdersStatusDropdown';
 import { formatDateChipLabel, formatDateRangeLabel } from './order-formatters';
 import {
@@ -29,13 +30,14 @@ import {
   buildOrdersListData,
   dedupeOrdersById,
   getStickyHeaderIndices,
-  OrdersSectionHeader,
 } from './orders-list-data';
 import {
   requiresPaymentPrompt,
   showPaymentRequiredPrompt,
 } from './payment-required-alert';
 import type { OrdersListRow, StatusPressEvent } from './types';
+
+const MODAL_TRANSITION_DELAY_MS = 300;
 
 export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -259,7 +261,7 @@ export default function OrdersScreen() {
 
   function openReportDatePicker() {
     setShowReportModal(false);
-    setTimeout(() => setShowDatePicker(true), 300);
+    setTimeout(() => setShowDatePicker(true), MODAL_TRANSITION_DELAY_MS);
   }
 }
 

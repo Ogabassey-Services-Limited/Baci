@@ -3,13 +3,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const supabaseMock = vi.hoisted(() => {
   type QueryResult = {
     count: number;
-    data: Array<{ id: string; order_items: Array<{ id: string }> }>;
+    data: Array<
+      Record<string, unknown> & {
+        id: string;
+        order_items: Array<{ id: string }>;
+        payment_status: string;
+        shipping_status: string;
+      }
+    >;
     error: { message: string } | null;
   };
   const chainCalls: Array<{ args: unknown[]; method: string }> = [];
   let result: QueryResult = {
     count: 1,
-    data: [{ id: 'order-1', order_items: [{ id: 'item-1' }] }],
+    data: [
+      {
+        id: 'order-1',
+        order_items: [{ id: 'item-1' }],
+        payment_status: 'paid',
+        shipping_status: 'pending',
+      },
+    ],
     error: null,
   };
 
@@ -43,7 +57,10 @@ const supabaseMock = vi.hoisted(() => {
       chain[method] = passthrough(method);
     }
 
-    chain.then = (resolve) => Promise.resolve(result).then(resolve);
+    Object.defineProperty(chain, 'then', {
+      value: (resolve: Parameters<NonNullable<typeof chain.then>>[0]) =>
+        Promise.resolve(result).then(resolve),
+    });
 
     return chain;
   }
@@ -55,7 +72,14 @@ const supabaseMock = vi.hoisted(() => {
       chainCalls.length = 0;
       result = {
         count: 1,
-        data: [{ id: 'order-1', order_items: [{ id: 'item-1' }] }],
+        data: [
+          {
+            id: 'order-1',
+            order_items: [{ id: 'item-1' }],
+            payment_status: 'paid',
+            shipping_status: 'pending',
+          },
+        ],
         error: null,
       };
     },
@@ -106,11 +130,11 @@ vi.mock('@tanstack/react-query', async () => {
   };
 });
 
-import { fetchOrders, useOrders } from './useOrdersList';
 import {
   HIDDEN_CHECKOUT_PAYMENT_STATUSES,
   VISIBLE_PENDING_ORDER_FILTER,
 } from './order-list-visibility';
+import { fetchOrders, useOrders } from './useOrdersList';
 
 describe('fetchOrders', () => {
   beforeEach(() => {
@@ -240,6 +264,35 @@ describe('fetchOrders', () => {
         },
       ])
     );
+  });
+
+  it('normalizes legacy fulfilled shipping statuses at the data boundary', async () => {
+    supabaseMock.setResult({
+      count: 1,
+      data: [
+        {
+          id: 'order-fulfilled',
+          order_items: [],
+          payment_status: 'paid',
+          shipping_status: 'fulfilled',
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      fetchOrders('merchant-1', 0, {}, { type: 'all' })
+    ).resolves.toEqual({
+      nextCursor: null,
+      orders: [
+        expect.objectContaining({
+          id: 'order-fulfilled',
+          item_count: 0,
+          shipping_status: 'delivered',
+        }),
+      ],
+      totalCount: 1,
+    });
   });
 
   it('configures the useOrders infinite query with branch-scope cache keys', async () => {

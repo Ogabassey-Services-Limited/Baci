@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ComponentType, ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Order } from '@/hooks/useOrders';
 import { groupOrdersByRelativeDate } from '@/utils/date-utils';
@@ -245,6 +246,15 @@ vi.mock('@/utils/export-orders', () => ({
 vi.mock('@shopify/flash-list', async () => {
   const React = await import('react');
 
+  type FlashListMockProps = {
+    data?: unknown[];
+    keyExtractor?: (item: unknown, index: number) => number | string;
+    ListEmptyComponent?: ComponentType | ReactNode;
+    ListFooterComponent?: ComponentType | ReactNode;
+    renderItem?: (info: { index: number; item: unknown }) => ReactNode;
+    stickyHeaderIndices?: number[];
+  };
+
   return {
     FlashList: ({
       data = [],
@@ -253,12 +263,14 @@ vi.mock('@shopify/flash-list', async () => {
       ListEmptyComponent,
       ListFooterComponent,
       stickyHeaderIndices,
-    }: any) => {
+    }: FlashListMockProps) => {
       mocks.flashListProps.push({ stickyHeaderIndices });
-      const renderMaybeComponent = (ComponentOrNode: any) => {
+      const renderMaybeComponent = (
+        ComponentOrNode: ComponentType | ReactNode | undefined
+      ) => {
         if (!ComponentOrNode) return null;
         return typeof ComponentOrNode === 'function'
-          ? React.createElement(ComponentOrNode)
+          ? React.createElement(ComponentOrNode as ComponentType)
           : ComponentOrNode;
       };
 
@@ -266,11 +278,11 @@ vi.mock('@shopify/flash-list', async () => {
         'div',
         null,
         data.length > 0
-          ? data.map((item: any, index: number) =>
+          ? data.map((item, index) =>
               React.createElement(
                 React.Fragment,
                 { key: keyExtractor?.(item, index) ?? index },
-                renderItem({ item, index })
+                renderItem?.({ item, index })
               )
             )
           : renderMaybeComponent(ListEmptyComponent),

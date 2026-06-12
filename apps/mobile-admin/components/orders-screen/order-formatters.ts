@@ -8,6 +8,10 @@ export function formatPrice(amount: number, currency = 'NGN') {
 
 export function formatTime(dateString: string) {
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    return 'N/A';
+  }
+
   return date.toLocaleTimeString('en-NG', {
     hour: '2-digit',
     minute: '2-digit',
@@ -16,26 +20,21 @@ export function formatTime(dateString: string) {
 
 export function getPresetDateRange(preset: string) {
   const now = new Date();
-  let start = new Date();
-  let end = new Date();
+  let start = new Date(now);
+  let end = new Date(now);
 
   switch (preset) {
-    case 'Yesterday': {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      start = yesterday;
-      end = yesterday;
+    case 'Yesterday':
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      end = new Date(start);
       break;
-    }
     case 'Last 7 Days':
-      start = new Date();
-      start.setDate(now.getDate() - 6);
-      end = now;
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+      end = new Date(now);
       break;
     case 'Last 30 Days':
-      start = new Date();
-      start.setDate(now.getDate() - 29);
-      end = now;
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+      end = new Date(now);
       break;
     case 'This Month':
       start = new Date(now.getFullYear(), now.getMonth(), 1);

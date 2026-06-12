@@ -41,10 +41,7 @@ export function getStatusActions(
   colors: ThemeColors,
   currentStatus: ShippingStatus
 ): StatusAction[] {
-  const targetStatus = (
-    (currentStatus as string) === 'fulfilled' ? 'pending' : currentStatus
-  ) as ShippingStatus;
-  const actions = SHIPPING_STATUS_ACTIONS[targetStatus] ?? [];
+  const actions = SHIPPING_STATUS_ACTIONS[currentStatus] ?? [];
 
   return actions.map((action) => ({
     status: action.nextStatus,

@@ -116,7 +116,7 @@ function OrdersListEmpty({
           onPress={onRetry}
           accessibilityLabel="Retry"
           accessibilityRole="button"
-          accessibilityHint="Retry the request"
+          accessibilityHint="Attempt to reload orders from the server"
         >
           <Text
             style={[styles.emptyActionText, { color: colors.textOnPrimary }]}
