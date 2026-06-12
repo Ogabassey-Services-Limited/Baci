@@ -28,9 +28,6 @@ export const expenseFormStyles = StyleSheet.create({
     marginBottom: SPACING.xs,
     marginLeft: 4,
   },
-  required: {
-    color: '#ef4444',
-  },
   amountContainer: {
     alignItems: 'center',
     borderBottomWidth: 2,
@@ -95,7 +92,6 @@ export const expenseFormStyles = StyleSheet.create({
     position: 'absolute',
   },
   changeImageText: {
-    color: '#FFF',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -111,7 +107,6 @@ export const expenseFormStyles = StyleSheet.create({
     padding: SPACING.md,
   },
   saveButtonText: {
-    color: '#FFF',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size.lg,
   },
