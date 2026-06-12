@@ -64,6 +64,11 @@ const CACHE_UNSAFE_ENCODED_SPACE_OR_DASH_REGEX =
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
 const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
+const CANONICAL_STOREFRONT_TERMS_PATH = '/terms';
+const LEGACY_STOREFRONT_TERMS_ALIAS_PATHS = new Set([
+  '/terms-and-conditions',
+  '/terms-of-service',
+]);
 const STOREFRONT_ROOT_SITEMAP_PATH = '/sitemap.xml';
 const STOREFRONT_ROOT_SITEMAP_REWRITE_PATH = '/sitemap/root.xml';
 const PUBLIC_MACHINE_READABLE_PATHS = new Set<string>([
@@ -110,6 +115,46 @@ function setStorefrontMetadataCacheBucketSearchParam(
     STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
     getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
   );
+}
+
+function normalizeStorefrontTermsAliasPath(pathname: string): string {
+  const lookupPathname =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname;
+
+  return LEGACY_STOREFRONT_TERMS_ALIAS_PATHS.has(lookupPathname.toLowerCase())
+    ? CANONICAL_STOREFRONT_TERMS_PATH
+    : pathname;
+}
+
+function buildLegacyTermsAliasRedirectResponse(
+  request: NextRequest,
+  pathname: string,
+  targetHostname?: string
+): NextResponse | null {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return null;
+  }
+
+  const normalizedPathname = normalizeStorefrontTermsAliasPath(pathname);
+  if (
+    normalizedPathname === pathname ||
+    normalizedPathname !== CANONICAL_STOREFRONT_TERMS_PATH
+  ) {
+    return null;
+  }
+
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = normalizedPathname;
+
+  if (targetHostname) {
+    redirectUrl.protocol = 'https:';
+    redirectUrl.hostname = targetHostname;
+    redirectUrl.port = '';
+  }
+
+  return NextResponse.redirect(redirectUrl, 301);
 }
 
 function isPublicMachineReadablePath(pathname: string): boolean {
@@ -1659,6 +1704,12 @@ export async function proxy(request: NextRequest) {
         });
       }
 
+      const directLegacyTermsAliasRedirect =
+        buildLegacyTermsAliasRedirectResponse(request, pathname);
+      if (directLegacyTermsAliasRedirect) {
+        return directLegacyTermsAliasRedirect;
+      }
+
       if (
         domainMerchantSlug &&
         domainPathSegments[0]?.toLowerCase() ===
@@ -1676,6 +1727,8 @@ export async function proxy(request: NextRequest) {
           pathname.slice(domainPathSegments[0].length + 1) || '/';
         const strippedSegments = strippedPathname.split('/').filter(Boolean);
         const firstStrippedSegment = strippedSegments[0]?.toLowerCase();
+        const normalizedTermsAliasPathname =
+          normalizeStorefrontTermsAliasPath(strippedPathname);
         // Only collapse `/merchantSlug/{category}/{productSlug}` to
         // `/products/{productSlug}` — i.e. exactly two stripped segments. Longer
         // paths can be legitimate category subroutes such as
@@ -1684,13 +1737,17 @@ export async function proxy(request: NextRequest) {
         // and .../best-under). Collapsing those to `/products/{lastSegment}`
         // would 301 merchants to URLs that don't exist.
         const shouldNormalizeToProductRoute =
+          normalizedTermsAliasPathname === strippedPathname &&
           strippedSegments.length === 2 &&
           !!firstStrippedSegment &&
           !RESERVED_STOREFRONT_SEGMENTS.has(firstStrippedSegment);
 
-        const normalizedPathname = shouldNormalizeToProductRoute
-          ? `/products/${strippedSegments[strippedSegments.length - 1]}`
-          : strippedPathname;
+        const normalizedPathname =
+          normalizedTermsAliasPathname !== strippedPathname
+            ? normalizedTermsAliasPathname
+            : shouldNormalizeToProductRoute
+              ? `/products/${strippedSegments[strippedSegments.length - 1]}`
+              : strippedPathname;
         const normalizedUrl = `https://${domain}${normalizedPathname}${request.nextUrl.search}`;
 
         if (normalizedUrl !== request.nextUrl.href) {
@@ -1940,11 +1997,28 @@ export async function proxy(request: NextRequest) {
     // ==== REDIRECT SUBDOMAIN TO CUSTOM DOMAIN ====
     // If merchant has a custom domain, redirect subdomain URLs to prevent duplicate content
     // Example: ogabassey.usebaci.com -> ogabassey.com
+    let customDomain: string | null = null;
     if (!isLocalhost(hostname)) {
-      const customDomain = await getCustomDomainForSlug(subdomain);
+      customDomain = await getCustomDomainForSlug(subdomain);
+      const legacyTermsAliasRedirect = buildLegacyTermsAliasRedirectResponse(
+        request,
+        pathname,
+        customDomain ?? undefined
+      );
+      if (legacyTermsAliasRedirect) {
+        return legacyTermsAliasRedirect;
+      }
       if (customDomain) {
         const customDomainUrl = `https://${customDomain}${pathname}${request.nextUrl.search}`;
         return NextResponse.redirect(customDomainUrl, 301);
+      }
+    } else {
+      const legacyTermsAliasRedirect = buildLegacyTermsAliasRedirectResponse(
+        request,
+        pathname
+      );
+      if (legacyTermsAliasRedirect) {
+        return legacyTermsAliasRedirect;
       }
     }
 
@@ -2070,7 +2144,9 @@ export async function proxy(request: NextRequest) {
         const customDomain = await getCustomDomainForSlug(potentialSlug);
         if (customDomain) {
           const newPathname = pathname.replace(`/${potentialSlug}`, '') || '/';
-          const customDomainUrl = `https://${customDomain}${newPathname}${request.nextUrl.search}`;
+          const normalizedPathname =
+            normalizeStorefrontTermsAliasPath(newPathname);
+          const customDomainUrl = `https://${customDomain}${normalizedPathname}${request.nextUrl.search}`;
           return NextResponse.redirect(customDomainUrl, 301);
         }
       }
