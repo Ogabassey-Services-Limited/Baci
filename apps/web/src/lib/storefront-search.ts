@@ -88,12 +88,23 @@ export async function searchStorefrontProducts({
   const productIds = extractProductSearchIds(rankedResults);
   const count = getProductSearchTotalCount(rankedResults);
 
-  void supabase.from('search_analytics').insert({
-    merchant_id: merchantId,
-    search_query: sanitizedQuery,
-    results_count: productIds.length,
-    search_method: 'server',
-  });
+  const { error: analyticsError } = await supabase
+    .from('search_analytics')
+    .insert({
+      merchant_id: merchantId,
+      search_query: sanitizedQuery,
+      results_count: productIds.length,
+      search_method: 'server',
+    });
+
+  if (analyticsError) {
+    logger.warn({
+      message: 'Storefront search analytics insert failed',
+      error: analyticsError,
+      merchantId,
+      query: sanitizedQuery,
+    });
+  }
 
   let didYouMean: string | null = null;
 

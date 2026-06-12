@@ -129,6 +129,30 @@ describe('Search API Security', () => {
 
       expect(response.status).toBe(200);
       expect(data.query).toBe(expectedQuery);
+      expect(mockSupabase.from).toHaveBeenCalledWith('search_analytics');
+      expect(sharedChainableMock.insert).toHaveBeenCalledWith({
+        merchant_id: merchantId,
+        search_query: expectedQuery,
+        results_count: 0,
+        search_method: 'server',
+      });
+    });
+
+    it('does not fail product search when analytics insert fails', async () => {
+      const merchantId = '123e4567-e89b-12d3-a456-426614174000';
+      sharedChainableMock.insert.mockResolvedValueOnce({
+        error: { message: 'insert failed' },
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/search?q=iphone&merchant_id=${merchantId}`
+      );
+
+      const response = await searchGET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.query).toBe('iphone');
     });
 
     it('should validate merchant_id UUID', async () => {
