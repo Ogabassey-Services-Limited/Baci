@@ -145,6 +145,23 @@ describe('runSavingsGoalSubmission', () => {
     );
   });
 
+  it('falls through to the generic error for insufficient balance without a funding account', async () => {
+    const error = Object.assign(new Error('Insufficient wallet balance'), {
+      code: 'INSUFFICIENT_WALLET_BALANCE',
+    });
+    mockCreateSavingsGoal.mockRejectedValue(error);
+    const input = createInput({ fundingAccount: null });
+
+    await runSavingsGoalSubmission(input, validation);
+
+    expect(input.setShowTransferModal).not.toHaveBeenCalledWith(true);
+    expect(input.setFormError).toHaveBeenCalledWith('Insufficient wallet balance');
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Unable to create plan',
+      'Insufficient wallet balance'
+    );
+  });
+
   it('keeps success visible when wallet data refresh fails after creation', async () => {
     const input = createInput({
       refetch: jest.fn(() => Promise.reject(new Error('Refresh failed'))),

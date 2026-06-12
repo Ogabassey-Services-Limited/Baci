@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   TRACK_ORDER_API_BASE_URL,
   TRACK_ORDER_MERCHANT_SLUG,
@@ -43,12 +43,17 @@ export function useTrackOrderController() {
   const [state, setState] = useState<TrackOrderState>(() =>
     createInitialTrackOrderState(trackingToken)
   );
+  // Holds the token of the most recent request so a late-resolving fetch for a
+  // previous token can never overwrite the current token's state, even if it
+  // settles before the old effect's cleanup flips `cancelled`.
+  const latestTokenRef = useRef(trackingToken);
 
   // Reset during render (instead of in the effect) so consumers never see a
   // stale frame while the token changes.
   const [prevTrackingToken, setPrevTrackingToken] = useState(trackingToken);
   if (prevTrackingToken !== trackingToken) {
     setPrevTrackingToken(trackingToken);
+    latestTokenRef.current = trackingToken;
     setState(createInitialTrackOrderState(trackingToken));
   }
 
@@ -63,13 +68,16 @@ export function useTrackOrderController() {
       controller.abort();
     }, 20_000);
 
+    const isStale = () =>
+      cancelled || latestTokenRef.current !== trackingToken;
+
     fetchTrackedOrder(trackingToken, controller.signal)
       .then((nextData) => {
-        if (cancelled) return;
+        if (isStale()) return;
         setState({ data: nextData, error: null, isLoading: false });
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (isStale()) return;
         setState({
           data: null,
           error: timedOut

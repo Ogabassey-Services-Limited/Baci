@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { applyWalletRouteAction } from '@/components/wallet/apply-wallet-route-action';
 import { useColorScheme } from '@/components/useColorScheme';
 import { deriveWalletFundingAccountAvailability } from '@/components/wallet/deriveWalletFundingAccountAvailability';
 import { useWalletBalanceContractWarning } from '@/components/wallet/use-wallet-balance-contract-warning';
@@ -115,17 +116,16 @@ export function WalletScreen({
   // Adjust panel state inline during render on route-action changes.
   if (prevRouteActionKey !== routeActionKey) {
     setPrevRouteActionKey(routeActionKey);
-    if (routeAction === 'fund') {
-      setShowFundPanel(true);
-      setShowRedeemPanel(false);
-      setFundAmount(routeRequiredAmount);
-      setFundReturnTo(walletReturnTo);
-    } else if (routeAction === 'redeem') {
-      setShowFundPanel(false);
-      setShowRedeemPanel(true);
-    } else if (routeAction === 'savings') {
-      setShowSavingsProgressModal(true);
-    }
+    applyWalletRouteAction({
+      routeAction,
+      routeRequiredAmount,
+      walletReturnTo,
+      setFundAmount,
+      setFundReturnTo,
+      setShowFundPanel,
+      setShowRedeemPanel,
+      setShowSavingsProgressModal,
+    });
   }
   const handleFundAmountChange = (value: string) =>
     setFundAmount(sanitizeWalletFundAmount(value));

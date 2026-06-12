@@ -8,16 +8,29 @@ export function navigateFromPushScreen(
 ) {
   switch (screen) {
     case 'order-details':
-      router.push(`/orders/${params?.id}`);
+      // Missing id would push to `/orders/undefined`; fall back to the list.
+      if (params?.id) {
+        router.push(`/orders/${params.id}`);
+      } else {
+        router.push('/orders');
+      }
       break;
     case 'orders':
       router.push('/orders');
       break;
     case 'product':
-      router.push(`/product/${params?.slug}`);
+      if (params?.slug) {
+        router.push(`/product/${params.slug}`);
+      } else {
+        router.push('/');
+      }
       break;
     case 'category':
-      router.push(`/category/${params?.slug}` as Href);
+      if (params?.slug) {
+        router.push(`/category/${params.slug}` as Href);
+      } else {
+        router.push('/');
+      }
       break;
     case 'wallet':
       if (params?.action === 'savings') {

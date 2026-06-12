@@ -192,6 +192,9 @@ export function useReviews({
         setStats(result.stats);
       }
       setHasMore(result.hasMore);
+      // Commit the page only after a successful fetch so a failed `loadMore`
+      // does not advance past the page that never loaded.
+      setPage(pageNum);
       setError(null);
     } catch (err) {
       log.error('Error fetching reviews:', err);
@@ -209,8 +212,9 @@ export function useReviews({
     if (!hasMore || isLoading || isLoadingMore) return;
 
     setIsLoadingMore(true);
+    // Page is advanced inside fetchReviews only on success, so a failed page
+    // load is retried (not skipped) by the next loadMore.
     const nextPage = page + 1;
-    setPage(nextPage);
     await fetchReviews(nextPage, true).finally(() => setIsLoadingMore(false));
   };
 

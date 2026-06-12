@@ -65,6 +65,16 @@ async function runOtpVerification({
     } else {
       Alert.alert('Error', result.error || 'Invalid code');
     }
+  } catch (verifyError) {
+    // A rejected verifyOtp() must not escape as an unhandled rejection: the
+    // call sites discard this promise with `void`, so handle it here.
+    if (!isMountedRef.current) return;
+    Alert.alert(
+      'Error',
+      verifyError instanceof Error
+        ? verifyError.message
+        : 'Unable to verify code. Please try again.'
+    );
   } finally {
     isVerifyingRef.current = false;
   }

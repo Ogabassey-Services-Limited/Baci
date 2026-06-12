@@ -38,6 +38,9 @@ export async function loadShippingCities(params: {
     signal,
     state,
   } = params;
+  // Mirror loadShippingStates' self-contained contract: own the loading flag
+  // instead of relying on the caller's render-time pre-set.
+  if (!signal.aborted) setIsLoadingCities(true);
   try {
     const cities = await fetchCheckoutShippingCities(apiBaseUrl, state, signal);
     setShippingCities(cities);

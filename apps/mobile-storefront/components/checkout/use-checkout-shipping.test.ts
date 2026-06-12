@@ -37,9 +37,10 @@ jest.mock('@/components/checkout/checkout-shipping.helpers', () => ({
   fetchShippingQuotes: (args: FetchQuotesArgs) => mockFetchShippingQuotes(args),
 }));
 
-const mockSetValue = jest.fn();
-const setValue =
-  mockSetValue as unknown as UseFormSetValue<ShippingAddressInput>;
+const mockSetValue = jest.fn() as jest.MockedFunction<
+  UseFormSetValue<ShippingAddressInput>
+>;
+const setValue: UseFormSetValue<ShippingAddressInput> = mockSetValue;
 
 const cartItem: CartItem = {
   id: 'line-1',
@@ -192,6 +193,82 @@ describe('useCheckoutShipping', () => {
         state: 'Lagos',
       })
     );
+  });
+
+  it('clears the locations loading flag when the states fetch fails', async () => {
+    mockFetchStates.mockRejectedValue(new Error('states API down'));
+
+    const { result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams() }
+    );
+
+    await waitFor(() =>
+      expect(result.current.isLoadingLocations).toBe(false)
+    );
+    expect(result.current.shippingStates).toEqual([]);
+  });
+
+  it('clears cities and the loading flag when the cities fetch fails', async () => {
+    mockFetchCities.mockRejectedValue(new Error('cities API down'));
+
+    const { rerender, result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams() }
+    );
+
+    rerender(createParams({ watchedState: 'Lagos' }));
+
+    expect(result.current.isLoadingCities).toBe(true);
+    await waitFor(() => expect(result.current.isLoadingCities).toBe(false));
+    expect(result.current.shippingCities).toEqual([]);
+  });
+
+  it('leaves cities untouched when the cities fetch aborts', async () => {
+    const abortError = Object.assign(new Error('Aborted'), {
+      name: 'AbortError',
+    });
+    mockFetchCities.mockImplementation((_apiBaseUrl, _state, signal) => {
+      // Simulate the controller being aborted before the request settles.
+      Object.defineProperty(signal, 'aborted', { value: true });
+      return Promise.reject(abortError);
+    });
+
+    const { rerender, result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams() }
+    );
+
+    rerender(createParams({ watchedState: 'Lagos' }));
+
+    await waitFor(() => expect(mockFetchCities).toHaveBeenCalled());
+    // Aborted requests must not write empty cities over a pending newer load.
+    expect(result.current.shippingCities).toEqual([]);
+  });
+
+  it('keeps quotes empty and the hook stable when the quotes fetch fails', async () => {
+    // fetchShippingQuotes owns its own error handling: a failed request clears
+    // loading and leaves no quotes selected without surfacing quote rows.
+    mockFetchShippingQuotes.mockImplementation((args) => {
+      args.setIsLoadingQuotes(false);
+      args.setShippingQuotes([]);
+      args.setSelectedQuoteId('');
+      return Promise.resolve();
+    });
+
+    const { rerender, result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams() }
+    );
+
+    rerender(createParams({ watchedCity: 'Ikeja', watchedState: 'Lagos' }));
+
+    await waitFor(() =>
+      expect(mockFetchShippingQuotes).toHaveBeenCalledTimes(1)
+    );
+    expect(result.current.shippingQuotes).toEqual([]);
+    expect(result.current.selectedQuoteId).toBe('');
+    expect(result.current.isLoadingQuotes).toBe(false);
   });
 
   it('resets quote state when switching to pickup-station delivery', async () => {

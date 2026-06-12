@@ -57,7 +57,18 @@ const resetSupabaseChainMocks = () => {
   mockQueryBuilder.eq.mockImplementation(() => mockQueryBuilder);
   mockQueryBuilder.insert.mockImplementation(() => mockQueryBuilder);
   mockQueryBuilder.match.mockImplementation(() => mockQueryBuilder);
-  mockQueryBuilder.select.mockImplementation(() => mockQueryBuilder);
+  // The read path chains `.select('saved_addresses').eq().eq().single()`, while
+  // the write path resolves `.update().eq().eq().select('id')` to the matched
+  // rows used for the row-match verification.
+  mockQueryBuilder.select.mockImplementation((...args: unknown[]) => {
+    if (args[0] === 'id') {
+      return Promise.resolve({
+        data: [{ id: 'customer-1' }],
+        error: null,
+      }) as unknown as SupabaseQueryBuilderMock;
+    }
+    return mockQueryBuilder;
+  });
   mockQueryBuilder.update.mockImplementation(() => mockQueryBuilder);
   mockFrom.mockReturnValue(mockQueryBuilder);
 };

@@ -65,6 +65,9 @@ export function useSignInForm({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pendingSocialSignInRef = useRef(false);
+  // State mirror of the ref so the recovery-timeout effect actually re-runs
+  // when a social sign-in starts (mutating a ref alone never reschedules it).
+  const [pendingSocialSignIn, setPendingSocialSignIn] = useState(false);
 
   // Auth store methods
   const user = useAuthStore((state) => state.user);
@@ -93,9 +96,16 @@ export function useSignInForm({
     if (error) setError(null);
   };
 
+  // Keep the synchronous ref (read inside the store subscription) and the
+  // effect-arming state in lock-step.
+  const setPendingSocialSignInBoth = (next: boolean) => {
+    pendingSocialSignInRef.current = next;
+    setPendingSocialSignIn(next);
+  };
+
   // Recover from a stalled social sign-in if auth state never updates.
   useEffect(() => {
-    if (!pendingSocialSignInRef.current || user) {
+    if (!pendingSocialSignIn || user) {
       return;
     }
 
@@ -105,6 +115,7 @@ export function useSignInForm({
       }
 
       pendingSocialSignInRef.current = false;
+      setPendingSocialSignIn(false);
       setIsLoading(false);
       setError('Sign-in timed out. Please try again.');
       triggerHaptic('error');
@@ -113,7 +124,7 @@ export function useSignInForm({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [triggerHaptic, user]);
+  }, [pendingSocialSignIn, triggerHaptic, user]);
 
   // Finalize a pending social sign-in when the auth store reports a user.
   // Subscribing to the external store (instead of mirroring `user` through an
@@ -124,7 +135,7 @@ export function useSignInForm({
         return;
       }
 
-      pendingSocialSignInRef.current = false;
+      setPendingSocialSignInBoth(false);
       setIsLoading(false);
       triggerHaptic('success');
       onSuccess();
@@ -192,13 +203,13 @@ export function useSignInForm({
     triggerHaptic('light');
     setIsLoading(true);
     setError(null);
-    pendingSocialSignInRef.current = true;
+    setPendingSocialSignInBoth(true);
 
     try {
       const result = await signInWithGoogle();
 
       if (!result.success) {
-        pendingSocialSignInRef.current = false;
+        setPendingSocialSignInBoth(false);
         setIsLoading(false);
 
         if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
@@ -208,7 +219,7 @@ export function useSignInForm({
         }
       }
     } catch {
-      pendingSocialSignInRef.current = false;
+      setPendingSocialSignInBoth(false);
       setError(SOCIAL_ERROR_MESSAGES.google);
       triggerHaptic('error');
       AccessibilityInfo.announceForAccessibility(SOCIAL_ERROR_MESSAGES.google);
@@ -223,13 +234,13 @@ export function useSignInForm({
     triggerHaptic('light');
     setIsLoading(true);
     setError(null);
-    pendingSocialSignInRef.current = true;
+    setPendingSocialSignInBoth(true);
 
     try {
       const result = await signInWithApple();
 
       if (!result.success) {
-        pendingSocialSignInRef.current = false;
+        setPendingSocialSignInBoth(false);
         setIsLoading(false);
 
         if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
@@ -239,7 +250,7 @@ export function useSignInForm({
         }
       }
     } catch {
-      pendingSocialSignInRef.current = false;
+      setPendingSocialSignInBoth(false);
       setError(SOCIAL_ERROR_MESSAGES.apple);
       triggerHaptic('error');
       AccessibilityInfo.announceForAccessibility(SOCIAL_ERROR_MESSAGES.apple);

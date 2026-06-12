@@ -97,6 +97,18 @@ export function useOrderDetailsController() {
   // Derived during render instead of mirrored into state via an effect.
   const requiresSignIn = Boolean(id) && (!user?.id || !customer?.id);
 
+  // Reset stale order/policy state during render (instead of inside the fetch
+  // effect, which also runs on user/customer changes) so a new `id` never shows
+  // the previous order — or its insurance card — while the fetch is in flight.
+  const [prevId, setPrevId] = useState(id);
+  if (prevId !== id) {
+    setPrevId(id);
+    setOrder(null);
+    setInsurancePolicy(null);
+    setError(null);
+    setIsLoading(Boolean(id));
+  }
+
   useEffect(() => {
     if (!id) return;
     if (!user?.id || !customer?.id) return;

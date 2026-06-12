@@ -18,6 +18,10 @@ import {
   ADDRESS_LIST_BOTTOM_PADDING,
 } from '@/components/addresses/constants';
 import { loadAddresses } from '@/components/addresses/load-addresses';
+import {
+  deleteAddressRecord,
+  persistDefaultAddress,
+} from '@/components/addresses/mutate-saved-addresses';
 import { styles } from '@/components/addresses/styles';
 import type { Address } from '@/components/addresses/types';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
@@ -25,65 +29,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
-import { createLogger } from '@/lib/logger';
-import { normalizeSavedAddresses } from '@/lib/saved-addresses';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
-
-const log = createLogger('Addresses');
-
-// Hoisted: try/catch with `throw` in a component body blocks React Compiler.
-async function persistDefaultAddress(params: {
-  addressId: string;
-  addresses: Address[];
-  customerId: string;
-  merchantId: string;
-}): Promise<boolean> {
-  try {
-    const updated = params.addresses.map((address) => ({
-      ...address,
-      is_default: address.id === params.addressId,
-    }));
-    const { error: updateError } = await supabase
-      .from('customers')
-      .update({ saved_addresses: updated })
-      .eq('id', params.customerId)
-      .eq('merchant_id', params.merchantId);
-
-    if (updateError) throw updateError;
-    return true;
-  } catch (updateError) {
-    log.error('Error setting default address:', updateError);
-    Alert.alert('Error', 'Failed to set default address');
-    return false;
-  }
-}
-
-async function deleteAddressRecord(params: {
-  addressId: string;
-  addresses: Address[];
-  customerId: string;
-  merchantId: string;
-}): Promise<Address[] | null> {
-  try {
-    const updated = params.addresses.filter(
-      (item) => item.id !== params.addressId
-    );
-    const normalized = normalizeSavedAddresses(updated);
-    const { error: deleteError } = await supabase
-      .from('customers')
-      .update({ saved_addresses: normalized })
-      .eq('id', params.customerId)
-      .eq('merchant_id', params.merchantId);
-
-    if (deleteError) throw deleteError;
-    return normalized;
-  } catch (deleteError) {
-    log.error('Error deleting address:', deleteError);
-    Alert.alert('Error', 'Failed to delete address');
-    return null;
-  }
-}
 
 export default function AddressesScreen() {
   const colorScheme = useColorScheme();
@@ -162,7 +108,6 @@ export default function AddressesScreen() {
 
     const didPersist = await persistDefaultAddress({
       addressId,
-      addresses,
       customerId,
       merchantId,
     });
@@ -197,7 +142,6 @@ export default function AddressesScreen() {
             }
             const normalized = await deleteAddressRecord({
               addressId: address.id,
-              addresses,
               customerId: customer.id,
               merchantId,
             });

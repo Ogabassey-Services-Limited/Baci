@@ -25,7 +25,11 @@ export function applyPlaceSelection({
   setSessionToken,
 }: ApplyPlaceSelectionParams) {
   try {
-    if (details && onSelect) {
+    // Guard the callback with the same mounted check as every other side
+    // effect here: handlePredictionSelect awaits network I/O before calling
+    // this, so a late onSelect could fire navigation/parent updates from a
+    // dead screen.
+    if (details && onSelect && isMountedRef.current) {
       onSelect(details);
     }
     if (isMountedRef.current) {
