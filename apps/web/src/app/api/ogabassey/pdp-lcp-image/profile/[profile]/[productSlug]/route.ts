@@ -1,16 +1,22 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import {
+  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_PRELOAD_WIDTH,
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
+  OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
+} from '@/components/storefront/ogabassey/config/product-media';
 import { buildOgabasseyPdpLcpImageResponse } from '@/lib/ogabassey-pdp-lcp-image-response';
 import { ogabasseyPdpLcpImageProfileSchema } from '@/schemas/ogabassey-pdp-lcp-image';
 
 const PRELOAD_PROFILE_TRANSFORMS = {
   desktop: {
-    quality: 35,
-    width: 640,
+    quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
+    width: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
   },
   mobile: {
-    quality: 30,
-    width: 750,
+    quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
+    width: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_PRELOAD_WIDTH,
   },
 } as const;
 
@@ -22,7 +28,7 @@ type PdpLcpImageProfileRouteContext = {
 };
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: PdpLcpImageProfileRouteContext
 ) {
   const { productSlug, profile } = await context.params;
@@ -41,6 +47,7 @@ export async function GET(
     productSlug,
     quality: transform.quality,
     width: transform.width,
+    accept: request.headers.get('accept'),
   });
 }
 
