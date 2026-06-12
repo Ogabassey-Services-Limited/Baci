@@ -1867,7 +1867,7 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
@@ -1926,7 +1926,7 @@ describe('[category]/[productSlug] page render', () => {
       'product-hints',
       'product-details',
     ]);
-    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
 
     resolveProductDetails?.(categorizedDetailedProduct);
@@ -2001,9 +2001,7 @@ describe('[category]/[productSlug] page render', () => {
     resolveMerchant?.(ogabasseyMerchant);
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
-    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: earlyProductImage,
-    });
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
 
     render(await resolveRsc(resolvedPage));
 
@@ -2274,7 +2272,7 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
     });
-    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -2356,7 +2354,7 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(await resolveRsc(pageUi));
-    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
     });
