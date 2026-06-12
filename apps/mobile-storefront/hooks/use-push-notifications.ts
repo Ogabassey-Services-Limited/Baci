@@ -1,5 +1,4 @@
 import type { EventSubscription } from 'expo-modules-core';
-import { router } from 'expo-router';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
@@ -22,6 +21,7 @@ import {
   savePushTokenToServer,
 } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
+import { navigateFromPushScreen } from './navigate-from-push-screen';
 
 const log = createLogger('PushNotifications');
 
@@ -78,39 +78,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   const navigate = useEffectEvent(
     (screen: string, params?: Record<string, string>) => {
-      switch (screen) {
-        case 'order-details':
-          router.push(`/orders/${params?.id}`);
-          break;
-        case 'orders':
-          router.push('/orders');
-          break;
-        case 'product':
-          router.push(`/product/${params?.slug}`);
-          break;
-        case 'category':
-          router.push(
-            `/category/${params?.slug}` as import('expo-router').Href
-          );
-          break;
-        case 'wallet':
-          if (params?.action === 'savings') {
-            router.push({
-              pathname: '/wallet',
-              params: { action: 'savings' },
-            });
-          } else {
-            router.push('/wallet');
-          }
-          break;
-        case 'utility-history':
-          router.push(
-            `/utilities/history?type=${params?.type ?? 'power'}` as import('expo-router').Href
-          );
-          break;
-        default:
-          router.push('/');
-      }
+      navigateFromPushScreen(screen, params);
     }
   );
 

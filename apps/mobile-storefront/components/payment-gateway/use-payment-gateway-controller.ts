@@ -6,16 +6,12 @@ import type { WebView } from 'react-native-webview';
 import { useToast } from '@/components/ui/Toast';
 import { setClipboardString } from '@/lib/clipboard';
 import { useCartStore } from '@/stores/cart-store';
+import { createPaymentGatewayCompletionHandlers } from './payment-gateway-completion-handlers';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
 import {
   isPaymentGateway,
   PAYMENT_GATEWAY_LABELS,
-  PAYMENT_KINDS,
 } from './payment-gateway.helpers';
-import {
-  beginSavingsAuthorizationCompletion,
-  beginWalletTopUpCompletion,
-} from './payment-gateway-completions';
 import {
   getCloseConfirmationMessage,
   parsePaymentGatewayParams,
@@ -26,7 +22,6 @@ import type {
 } from './payment-gateway-controller.types';
 import { createPaymentGatewayEventHandlers } from './payment-gateway-event-handlers';
 import { createPaymentGatewayTimers } from './payment-gateway-timers';
-import { handleVtuConfirmation } from './use-vtu-payment-completion';
 
 // React Compiler forbids passing refs to plain function calls during render but
 // allows passing them to hooks. These wrappers classify the render-time handler
@@ -47,6 +42,12 @@ function usePaymentGatewayEventHandlers(
   input: Parameters<typeof createPaymentGatewayEventHandlers>[0]
 ) {
   return createPaymentGatewayEventHandlers(input);
+}
+
+function usePaymentGatewayCompletionHandlers(
+  input: Parameters<typeof createPaymentGatewayCompletionHandlers>[0]
+) {
+  return createPaymentGatewayCompletionHandlers(input);
 }
 
 export function usePaymentGatewayController() {
@@ -142,110 +143,28 @@ export function usePaymentGatewayController() {
       ? PAYMENT_GATEWAY_LABELS[gateway]
       : 'Payment';
 
-  const isCurrentVtuConfirmation = (confirmationToken: number) =>
-    isMountedRef.current &&
-    vtuConfirmationTokenRef.current === confirmationToken;
-
-  const beginVtuPaymentCompletion = (input?: {
-    amount?: number;
-    customerIdentifier?: string;
-    reference?: string;
-  }) => {
-    const currentStatus = statusRef.current;
-    if (
-      paymentCompletionStartedRef.current ||
-      currentStatus === 'processing' ||
-      currentStatus === 'success'
-    ) {
-      return;
-    }
-
-    paymentCompletionStartedRef.current = true;
-    clearPendingLoadTimeout();
-    setPaymentStatus('processing');
-    void handleVtuConfirmation({
+  const { beginPaymentCompletion, beginVtuPaymentCompletion } =
+    usePaymentGatewayCompletionHandlers({
       amount,
+      clearCart,
+      clearPendingLoadTimeout,
       customerIdentifier,
-      fallbackAmount: input?.amount,
-      fallbackCustomerIdentifier: input?.customerIdentifier,
       gateway,
-      isMountedRef,
-      isCurrentVtuConfirmation,
-      nextReference: input?.reference ?? reference,
+      merchantId,
+      merchantSlug,
+      orderId,
+      orderNumber,
+      paymentKind,
+      queryClient,
+      reference,
+      refs: gatewayRefs,
+      returnTo,
       scheduleDelayedNavigation,
       setErrorMessage,
-      setStatus: setPaymentStatus,
+      setPaymentStatus,
+      trackingToken,
       utilityType,
-      vtuConfirmationTokenRef,
     });
-  };
-
-  const beginPaymentCompletion = () => {
-    const currentStatus = statusRef.current;
-    if (
-      paymentCompletionStartedRef.current ||
-      currentStatus === 'processing' ||
-      currentStatus === 'success'
-    ) {
-      return;
-    }
-
-    if (paymentKind === PAYMENT_KINDS.VTU) {
-      beginVtuPaymentCompletion();
-      return;
-    }
-
-    if (paymentKind === PAYMENT_KINDS.WALLET) {
-      beginWalletTopUpCompletion({
-        clearPendingLoadTimeout,
-        gateway,
-        merchantId,
-        merchantSlug,
-        queryClient,
-        reference,
-        refs: gatewayRefs,
-        returnTo,
-        scheduleDelayedNavigation,
-        setErrorMessage,
-        setPaymentStatus,
-      });
-      return;
-    }
-
-    if (paymentKind === PAYMENT_KINDS.SAVINGS_AUTH) {
-      beginSavingsAuthorizationCompletion({
-        clearPendingLoadTimeout,
-        gateway,
-        merchantId,
-        merchantSlug,
-        queryClient,
-        reference,
-        refs: gatewayRefs,
-        returnTo,
-        scheduleDelayedNavigation,
-        setErrorMessage,
-        setPaymentStatus,
-      });
-      return;
-    }
-
-    paymentCompletionStartedRef.current = true;
-    clearPendingLoadTimeout();
-    setPaymentStatus('success');
-    clearCart();
-    scheduleDelayedNavigation(() => {
-      router.replace({
-        pathname: '/order-success',
-        params: {
-          orderId: orderId || '',
-          orderNumber: orderNumber || '',
-          paymentMethod: gateway,
-          reference: reference || '',
-          ...(trackingToken && { trackingToken }),
-        },
-      });
-    });
-  };
 
   const copyGatewayText = async (
     text: string,

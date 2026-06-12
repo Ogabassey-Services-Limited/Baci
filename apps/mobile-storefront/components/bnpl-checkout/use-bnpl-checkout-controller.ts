@@ -5,21 +5,19 @@ import type {
   BNPLShouldStartLoadRequest,
   BNPLWebViewHttpErrorEvent,
   BNPLWebViewLoadError,
-  WebViewOpenWindowEventLike,
 } from './BNPLCheckoutWebView';
 import {
   BNPL_UNTRUSTED_POPUP_MESSAGE,
   buildBNPLCheckoutUrl,
-  getBNPLDebugUrlDetails,
   getBNPLGatewayName,
   parseBNPLParams,
   resolveBNPLDocumentNavigation,
 } from './bnpl-checkout.helpers';
 import {
   resolveBNPLNavigationUrlEffect,
-  resolveBNPLPopupTargetAction,
   shouldHandleBNPLNavigationMessage,
 } from './bnpl-checkout-controller-actions';
+import { createBNPLOpenWindowHandler } from './bnpl-open-window-handler';
 import { createBNPLCheckoutAppNavigation } from './bnpl-checkout-app-navigation';
 import {
   type BNPLWebViewMessageEvent,
@@ -211,46 +209,16 @@ export function useBNPLCheckoutController({
     );
   };
 
-  const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
-    const targetDetails = getBNPLDebugUrlDetails(event.nativeEvent.targetUrl);
-    logBNPLCheckoutDebug('auxiliary window requested', {
-      target: targetDetails,
-    });
-
-    const action = resolveBNPLPopupTargetAction({
-      apiBaseUrl,
-      merchantDomain,
-      merchantSlug,
-      targetUrl: event.nativeEvent.targetUrl,
-    });
-    if (action.type === 'ignore') {
-      return;
-    }
-
-    logBNPLCheckoutDebug('auxiliary window decision', {
-      actionType: action.type,
-      target: targetDetails,
-      targetUrl: action.targetUrl,
-    });
-
-    if (action.type === 'untrusted') {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('error');
-      setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
-      if (typeof __DEV__ !== 'undefined' && __DEV__) {
-        console.warn('[BNPLCheckout] Ignored untrusted auxiliary window', {
-          target: targetDetails,
-          targetUrl: action.targetUrl,
-        });
-      }
-      return;
-    }
-
-    setErrorMessage(null);
-    scheduleLoadTimeout();
-    setCheckoutStatus('loading');
-    setCurrentUrl(action.targetUrl);
-  };
+  const handleOpenWindow = createBNPLOpenWindowHandler({
+    apiBaseUrl,
+    merchantDomain,
+    merchantSlug,
+    clearPendingLoadTimeout,
+    scheduleLoadTimeout,
+    setCheckoutStatus,
+    setCurrentUrl,
+    setErrorMessage,
+  });
 
   const handleShouldStartLoadWithRequest = (
     request: BNPLShouldStartLoadRequest

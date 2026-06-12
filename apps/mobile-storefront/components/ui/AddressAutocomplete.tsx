@@ -1,9 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import type { RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   Keyboard,
   Pressable,
   Text,
@@ -21,46 +19,13 @@ import {
 import { addressAutocompleteStyles as styles } from './AddressAutocomplete.styles';
 import type {
   AddressAutocompleteProps,
-  PlaceDetails,
   PlacePrediction,
 } from './AddressAutocomplete.types';
 import { AddressPredictionsDropdown } from './AddressPredictionsDropdown';
+import { applyPlaceSelection } from './apply-place-selection';
+import { useAddressAutocompleteKeyboard } from './use-address-autocomplete-keyboard';
 
 export type { PlaceDetails } from './AddressAutocomplete.types';
-
-interface ApplyPlaceSelectionParams {
-  details: PlaceDetails | null;
-  isMountedRef: RefObject<boolean>;
-  onSelect?: (place: PlaceDetails) => void;
-  setIsLoading: (value: boolean) => void;
-  setPredictions: (value: PlacePrediction[]) => void;
-  setSessionToken: (value: string) => void;
-}
-
-// Module-scope helper: keeping the try/finally statement out of the component
-// body lets React Compiler memoize AddressAutocomplete.
-function applyPlaceSelection({
-  details,
-  isMountedRef,
-  onSelect,
-  setIsLoading,
-  setPredictions,
-  setSessionToken,
-}: ApplyPlaceSelectionParams) {
-  try {
-    if (details && onSelect) {
-      onSelect(details);
-    }
-    if (isMountedRef.current) {
-      setSessionToken(generateSessionToken());
-    }
-  } finally {
-    if (isMountedRef.current) {
-      setIsLoading(false);
-      setPredictions([]);
-    }
-  }
-}
 
 export function AddressAutocomplete({
   value = '',
@@ -105,7 +70,6 @@ export function AddressAutocomplete({
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const blurCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<View>(null);
-  const keyboardHeightRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -120,40 +84,13 @@ export function AddressAutocomplete({
     };
   }, []);
 
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
-      keyboardHeightRef.current = e.endCoordinates.height;
-    });
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      keyboardHeightRef.current = 0;
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen || predictions.length === 0 || !scrollRef?.current) return;
-    wrapperRef.current?.measureInWindow((_x, screenY, _w, inputHeight) => {
-      if (screenY <= 0 || inputHeight <= 0) return;
-      const DROPDOWN_HEIGHT = 280;
-      const PADDING = 16;
-      const screenHeight = Dimensions.get('window').height;
-      const kbHeight =
-        keyboardHeightRef.current || Keyboard.metrics()?.height || 0;
-      const keyboardTop = screenHeight - kbHeight;
-      const dropdownBottom = screenY + inputHeight + DROPDOWN_HEIGHT + PADDING;
-      if (dropdownBottom > keyboardTop) {
-        const overflow = dropdownBottom - keyboardTop;
-        const currentOffset = scrollOffsetRef?.current ?? 0;
-        scrollRef.current?.scrollTo({
-          y: currentOffset + overflow + PADDING,
-          animated: true,
-        });
-      }
-    });
-  }, [isOpen, predictions.length, scrollRef, scrollOffsetRef]);
+  useAddressAutocompleteKeyboard({
+    isOpen,
+    predictionCount: predictions.length,
+    scrollOffsetRef,
+    scrollRef,
+    wrapperRef,
+  });
 
   // Adjust state inline during render when the controlled value prop changes
   // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
