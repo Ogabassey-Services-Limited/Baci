@@ -113,6 +113,7 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_CLI_VERSION: "52.0.0"
       # Fix OOM error on runner
       NODE_OPTIONS: "--max_old_space_size=8192"
     steps:
@@ -123,17 +124,18 @@ jobs:
         run: |
           rm -rf .vercel
       - uses: ./.github/actions/pnpm-install-cached
-      # Pin vercel CLI + allow esbuild postinstall so pnpm 10's strict
-      # ERR_PNPM_IGNORED_BUILDS does not block the dlx tmp install. Bumping
-      # the pin requires re-checking that the new CLI's bundled esbuild
-      # version is still on the allow list.
-      - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 pull --yes --environment=production
+      # Pin Vercel CLI + allow esbuild postinstall in an isolated runner-temp
+      # package so pnpm 10's strict ERR_PNPM_IGNORED_BUILDS does not block
+      # prebuilt deploys and pnpm dlx cache corruption cannot abort the job.
+      # Bumping the pin requires re-checking that the new CLI's bundled
+      # esbuild version is still on the allow list.
+      - run: .github/scripts/run-pinned-vercel.sh pull --yes --environment=production
       - name: Build for Vercel
-        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod
+        run: .github/scripts/run-pinned-vercel.sh build --yes --prod
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
-        run: .github/scripts/deploy-with-retry.sh pnpm dlx --allow-build=esbuild vercel@52.0.0 deploy --yes --prebuilt --prod --archive=tgz
+        run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --archive=tgz
       - name: Prepare storefront blog smoke checker
         run: |
           cat > "${RUNNER_TEMP}/blog-smoke-check.mjs" <<'NODE'
@@ -238,7 +240,7 @@ jobs:
         run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
       - name: Invalidate storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
-        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --yes
+        run: .github/scripts/run-pinned-vercel.sh cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --yes
       - name: Wait for cache invalidation to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
         run: sleep 10
@@ -249,7 +251,7 @@ jobs:
         run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
       - name: Hard purge storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
-        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --yes
+        run: .github/scripts/run-pinned-vercel.sh cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --yes
       - name: Wait for cache purge to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
         run: sleep 10
