@@ -5,21 +5,27 @@ import z from 'zod';
 import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';
 import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
 import { logger } from '@/lib/logger';
+import {
+  ensurePermission,
+  isMerchantPermissionRedirectError,
+} from '@/lib/merchant-server';
+import { createClient } from '@/lib/supabase/server';
+import {
+  type AutofillProductDetailsInput,
+  AutofillProductDetailsInputSchema,
+} from '@/schemas/ai-autofill-product-details';
 
-const _AutofillProductDetailsInputSchema = z.object({
-  productName: z
-    .string()
-    .describe('The name of the product to generate details for.'),
-  businessType: z
-    .string()
-    .describe(
-      "The merchant's business category (e.g., 'fashion', 'electronics')."
-    ),
-});
-
-type AutofillProductDetailsInput = z.infer<
-  typeof _AutofillProductDetailsInputSchema
->;
+async function ensureProductCreatePermission(): Promise<boolean> {
+  try {
+    await ensurePermission('products', 'create');
+    return true;
+  } catch (error) {
+    if (isMerchantPermissionRedirectError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
 
 const VariantSuggestionSchema = z.object({
   attribute: z
@@ -78,9 +84,34 @@ type AutofillProductDetailsOutput = z.infer<
 export async function autofillProductDetails(
   input: AutofillProductDetailsInput
 ): Promise<AutofillProductDetailsOutput> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw new Error('You must be signed in to autofill product details.');
+  }
+
+  const parsedInput = AutofillProductDetailsInputSchema.safeParse(input);
+  if (!parsedInput.success) {
+    throw new Error('Invalid product autofill input.');
+  }
+
+  const hasPermission = await ensureProductCreatePermission();
+  if (!hasPermission) {
+    throw new Error('You do not have permission to autofill product details.');
+  }
+
   // Sanitize inputs and collect truncation metadata
-  const productNameResult = sanitizePromptInput(input.productName, 200);
-  const businessTypeResult = sanitizePromptInput(input.businessType, 100);
+  const productNameResult = sanitizePromptInput(
+    parsedInput.data.productName,
+    200
+  );
+  const businessTypeResult = sanitizePromptInput(
+    parsedInput.data.businessType,
+    100
+  );
 
   const productName = productNameResult.value;
   const businessType = businessTypeResult.value;

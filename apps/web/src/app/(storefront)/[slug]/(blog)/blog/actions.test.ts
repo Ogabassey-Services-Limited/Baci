@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const MERCHANT_ID = '0b9f6b1a-3c2d-4e5f-8a7b-9c0d1e2f3a4b';
+
 const mockNot = vi.fn();
 const mockRange = vi.fn();
 const mockQuery = {
@@ -14,13 +16,22 @@ const mockQuery = {
   textSearch: vi.fn(() => mockQuery),
 };
 
+const mockEnsureActionRateLimit = vi.fn();
+
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({})),
 }));
 
+vi.mock('@/lib/ensure-action-rate-limit', () => ({
+  ensureActionRateLimit: (...args: unknown[]) =>
+    mockEnsureActionRateLimit(...args),
+}));
+
+const mockFrom = vi.fn(() => mockQuery);
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
-    from: vi.fn(() => mockQuery),
+    from: mockFrom,
   })),
 }));
 
@@ -33,13 +44,14 @@ describe('fetchMorePosts', () => {
     mockQuery.error = null;
     mockNot.mockReturnValue(mockQuery);
     mockRange.mockReturnValue(mockQuery);
+    mockEnsureActionRateLimit.mockResolvedValue(true);
   });
 
   it('excludes published posts without a published_at timestamp', async () => {
     const expectedPosts = [{ id: 'post-1', slug: 'post-1', title: 'Post 1' }];
     mockQuery.data = expectedPosts as never[];
 
-    const result = await fetchMorePosts('merchant-1', 1);
+    const result = await fetchMorePosts(MERCHANT_ID, 1);
 
     expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
     expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
@@ -56,7 +68,7 @@ describe('fetchMorePosts', () => {
     ];
     mockQuery.data = expectedPosts as never[];
 
-    const result = await fetchMorePosts('merchant-1', 2);
+    const result = await fetchMorePosts(MERCHANT_ID, 2);
 
     expect(mockNot).toHaveBeenCalledWith('title', 'is', null);
     expect(mockNot).toHaveBeenCalledWith('slug', 'is', null);
@@ -86,16 +98,48 @@ describe('fetchMorePosts', () => {
     const rangeError = { message: 'range failed' };
     mockQuery.error = rangeError as never;
 
-    await expect(fetchMorePosts('merchant-1', 1)).rejects.toBe(rangeError);
+    await expect(fetchMorePosts(MERCHANT_ID, 1)).rejects.toBe(rangeError);
 
     expect(consoleError).toHaveBeenCalledWith(
       'Failed to fetch more blog posts',
       expect.objectContaining({
-        merchantId: 'merchant-1',
+        merchantId: MERCHANT_ID,
         page: 1,
         error: rangeError,
       })
     );
     consoleError.mockRestore();
+  });
+
+  it('returns an empty page without querying when rate limited', async () => {
+    mockEnsureActionRateLimit.mockResolvedValue(false);
+
+    const result = await fetchMorePosts(MERCHANT_ID, 1);
+
+    expect(result).toEqual([]);
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockEnsureActionRateLimit).toHaveBeenCalledWith(
+      'storefront-blog-list',
+      { requests: 60, windowMs: 60_000 }
+    );
+  });
+
+  it('rejects invalid merchant ids before querying', async () => {
+    await expect(fetchMorePosts('merchant-1', 1)).rejects.toThrow(
+      'Invalid blog post request'
+    );
+
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('rejects out-of-range pages before querying', async () => {
+    await expect(fetchMorePosts(MERCHANT_ID, 0)).rejects.toThrow(
+      'Invalid blog post request'
+    );
+    await expect(fetchMorePosts(MERCHANT_ID, 201)).rejects.toThrow(
+      'Invalid blog post request'
+    );
+
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 });
