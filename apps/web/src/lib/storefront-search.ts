@@ -49,7 +49,27 @@ export interface StorefrontSearchProductsPage extends StorefrontSearchResult {
   products: NormalizedProduct[];
 }
 
-function scheduleSearchAnalyticsInsert({
+function isAfterOutsideRequestScopeError(error: unknown) {
+  return (
+    error instanceof Error && error.message.includes('outside a request scope')
+  );
+}
+
+function runSearchAnalyticsAfterResponse(callback: () => Promise<void>) {
+  try {
+    after(callback);
+  } catch (error) {
+    if (!isAfterOutsideRequestScopeError(error)) {
+      throw error;
+    }
+
+    // `after()` is available only inside a Next request/render lifecycle. Keep
+    // analytics non-blocking for plain unit tests and non-request callers.
+    void callback();
+  }
+}
+
+async function insertSearchAnalytics({
   supabase,
   merchantId,
   query,
@@ -60,26 +80,17 @@ function scheduleSearchAnalyticsInsert({
   query: string;
   resultsCount: number;
 }) {
-  after(async () => {
-    try {
-      const { error: analyticsError } = await supabase
-        .from('search_analytics')
-        .insert({
-          merchant_id: merchantId,
-          search_query: query,
-          results_count: resultsCount,
-          search_method: 'server',
-        });
+  try {
+    const { error: analyticsError } = await supabase
+      .from('search_analytics')
+      .insert({
+        merchant_id: merchantId,
+        search_query: query,
+        results_count: resultsCount,
+        search_method: 'server',
+      });
 
-      if (analyticsError) {
-        logger.warn({
-          message: 'Storefront search analytics insert failed',
-          error: analyticsError,
-          merchantId,
-          query,
-        });
-      }
-    } catch (analyticsError) {
+    if (analyticsError) {
       logger.warn({
         message: 'Storefront search analytics insert failed',
         error: analyticsError,
@@ -87,7 +98,23 @@ function scheduleSearchAnalyticsInsert({
         query,
       });
     }
-  });
+  } catch (analyticsError) {
+    logger.warn({
+      message: 'Storefront search analytics insert failed',
+      error: analyticsError,
+      merchantId,
+      query,
+    });
+  }
+}
+
+function scheduleSearchAnalyticsInsert(args: {
+  supabase: SearchStorefrontProductsArgs['supabase'];
+  merchantId: string;
+  query: string;
+  resultsCount: number;
+}) {
+  runSearchAnalyticsAfterResponse(() => insertSearchAnalytics(args));
 }
 
 export async function searchStorefrontProducts({
