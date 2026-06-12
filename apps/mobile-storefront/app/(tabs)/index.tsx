@@ -42,11 +42,8 @@ export default function HomeScreen() {
   );
   const [productGridLoadMoreSignal, setProductGridLoadMoreSignal] = useState(0);
 
-  const {
-    handlePermissionDeny,
-    handlePermissionGrant,
-    showPermissionModal,
-  } = useHomePermissionPrompt();
+  const { handlePermissionDeny, handlePermissionGrant, showPermissionModal } =
+    useHomePermissionPrompt();
   const shouldRenderDecorations = useDeferredFocusRender(isFocused);
 
   const {
@@ -78,7 +75,7 @@ export default function HomeScreen() {
 
   const handleSearch = () => {
     searchVisibleShared.set(true);
-    headerVisibility.value = withTiming(1, { duration: 180 });
+    headerVisibility.set(withTiming(1, { duration: 180 }));
     setSearchVisible(true);
   };
 
@@ -92,16 +89,12 @@ export default function HomeScreen() {
     Keyboard.dismiss();
   };
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setRefreshing(true);
-    try {
-      lastLoadMoreContentHeight.value = 0;
-      hasExitedLoadMoreZone.value = true;
-      previousOffsetY.value = 0;
-      await refetch();
-    } finally {
-      setRefreshing(false);
-    }
+    lastLoadMoreContentHeight.set(0);
+    hasExitedLoadMoreZone.set(true);
+    previousOffsetY.set(0);
+    return Promise.resolve(refetch()).finally(() => setRefreshing(false));
   };
 
   const handleHeaderLayout = ({
@@ -127,29 +120,29 @@ export default function HomeScreen() {
   const handleListScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
       'worklet';
-      if (searchVisibleShared.value) return;
+      if (searchVisibleShared.get()) return;
 
       const currentOffsetY = event.contentOffset.y;
       const normalizedOffsetY = Math.max(0, currentOffsetY);
-      const prevOffsetY = previousOffsetY.value;
-      previousOffsetY.value = currentOffsetY;
+      const prevOffsetY = previousOffsetY.get();
+      previousOffsetY.set(currentOffsetY);
 
       // Toggle solid background header state dynamically
       const nextScrolled =
         normalizedOffsetY > HEADER_SOLID_BACKGROUND_OFFSET_PX;
-      if (nextScrolled !== isScrolledShared.value) {
-        isScrolledShared.value = nextScrolled;
+      if (nextScrolled !== isScrolledShared.get()) {
+        isScrolledShared.set(nextScrolled);
         runOnJS(setIsScrolledJS)(nextScrolled);
       }
 
       // Sliding header collapse transitions
       if (currentOffsetY <= 0) {
-        headerVisibility.value = withTiming(1, { duration: 180 });
+        headerVisibility.set(withTiming(1, { duration: 180 }));
       } else if (currentOffsetY > prevOffsetY) {
-        headerVisibility.value = withTiming(0, { duration: 180 });
+        headerVisibility.set(withTiming(0, { duration: 180 }));
       } else if (prevOffsetY - currentOffsetY > 15) {
         // scroll tolerance/hysteresis
-        headerVisibility.value = withTiming(1, { duration: 180 });
+        headerVisibility.set(withTiming(1, { duration: 180 }));
       }
 
       // Infinite scroll load more detection at screen boundaries
@@ -158,15 +151,15 @@ export default function HomeScreen() {
         (event.contentOffset.y + event.layoutMeasurement.height);
       const isInLoadMoreZone = distance <= HOME_LOAD_MORE_THRESHOLD_PX;
       if (!isInLoadMoreZone) {
-        hasExitedLoadMoreZone.value = true;
+        hasExitedLoadMoreZone.set(true);
       } else if (
         (currentOffsetY > prevOffsetY &&
-          (hasExitedLoadMoreZone.value ||
-            event.contentSize.height > lastLoadMoreContentHeight.value + 1)) ||
-        event.contentSize.height < lastLoadMoreContentHeight.value - 1
+          (hasExitedLoadMoreZone.get() ||
+            event.contentSize.height > lastLoadMoreContentHeight.get() + 1)) ||
+        event.contentSize.height < lastLoadMoreContentHeight.get() - 1
       ) {
-        hasExitedLoadMoreZone.value = false;
-        lastLoadMoreContentHeight.value = event.contentSize.height;
+        hasExitedLoadMoreZone.set(false);
+        lastLoadMoreContentHeight.set(event.contentSize.height);
         runOnJS(triggerLoadMoreJS)();
       }
     },
@@ -197,9 +190,9 @@ export default function HomeScreen() {
 
   useEffect(() => {
     void productGridDatasetKey;
-    lastLoadMoreContentHeight.value = 0;
-    hasExitedLoadMoreZone.value = true;
-    previousOffsetY.value = 0;
+    lastLoadMoreContentHeight.set(0);
+    hasExitedLoadMoreZone.set(true);
+    previousOffsetY.set(0);
   }, [
     hasExitedLoadMoreZone,
     lastLoadMoreContentHeight,

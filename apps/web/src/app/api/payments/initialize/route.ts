@@ -103,7 +103,6 @@ const OrderItemSchema = z.object({
 const PaymentInitRequestSchema = z.object({
   merchant_id: z.uuid(),
   order_id: z.uuid(),
-  amount: z.number().positive(),
   currency: z.string().default('NGN'),
   customer_email: z.email(),
   customer_name: z.string().min(1),
@@ -120,6 +119,7 @@ const PaymentInitRequestSchema = z.object({
 });
 
 type PaymentInitRequest = z.infer<typeof PaymentInitRequestSchema>;
+type AuthorizedPaymentInitRequest = PaymentInitRequest & { amount: number };
 
 // =============================================================================
 // Helper Functions
@@ -136,10 +136,6 @@ function createErrorResponse(
 function numberOrDefault(value: unknown, fallback: number): number {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : fallback;
-}
-
-function amountsMatch(a: number, b: number): boolean {
-  return Math.abs(a - b) < 0.01;
 }
 
 function normalizeHostname(value: string) {
@@ -355,7 +351,7 @@ interface PaymentResult {
 
 async function initializeJuicyway(
   request: NextRequest,
-  data: PaymentInitRequest,
+  data: AuthorizedPaymentInitRequest,
   merchant: { business_name: string },
   redirectUrl: string,
   reference: string,
@@ -750,7 +746,7 @@ async function initializeJuicyway(
 }
 
 async function initializePaystack(
-  data: PaymentInitRequest,
+  data: AuthorizedPaymentInitRequest,
   merchant: { paystack_subaccount_code: string | null },
   redirectUrl: string,
   reference: string,
@@ -837,7 +833,7 @@ async function initializePaystack(
 }
 
 async function initializeKorapay(
-  data: PaymentInitRequest,
+  data: AuthorizedPaymentInitRequest,
   merchant: { business_name: string },
   redirectUrl: string,
   reference: string,
@@ -967,17 +963,55 @@ export async function POST(request: NextRequest) {
         400
       );
     }
-    const hasToleratedKlumpAmount =
-      data.gateway === 'klump' && amountsMatch(data.amount, snapshotTotal);
-    if (data.amount > snapshotTotal && !hasToleratedKlumpAmount) {
+    const merchantId = orderSnapshot.merchant_id;
+
+    const { data: orderPaymentRow, error: orderPaymentError } = await supabase
+      .from('orders')
+      .select('wallet_amount_used')
+      .eq('id', data.order_id)
+      .eq('merchant_id', merchantId)
+      .single();
+
+    if (orderPaymentError || !orderPaymentRow) {
       return createErrorResponse(
-        'Amount exceeds order total',
-        'AMOUNT_EXCEEDS_TOTAL',
-        400
+        'Unable to verify order payment amount',
+        'ORDER_AMOUNT_LOOKUP_FAILED',
+        500
       );
     }
 
-    const merchantId = orderSnapshot.merchant_id;
+    const walletAmountUsed = Math.max(
+      numberOrDefault(
+        (orderPaymentRow as { wallet_amount_used?: unknown })
+          .wallet_amount_used,
+        0
+      ),
+      0
+    );
+
+    const { data: savingsRows, error: savingsError } = await supabase
+      .from('customer_savings_redemptions')
+      .select('amount')
+      .eq('order_id', data.order_id)
+      .eq('merchant_id', merchantId);
+
+    if (savingsError) {
+      return createErrorResponse(
+        'Unable to verify order savings amount',
+        'ORDER_SAVINGS_LOOKUP_FAILED',
+        500
+      );
+    }
+
+    const savingsAmountUsed = Array.isArray(savingsRows)
+      ? savingsRows.reduce((sum, row) => {
+          const amount =
+            row && typeof row === 'object'
+              ? (row as { amount?: unknown }).amount
+              : 0;
+          return sum + Math.max(numberOrDefault(amount, 0), 0);
+        }, 0)
+      : 0;
 
     // Fetch merchant
     const { data: merchant, error: merchantError } = await supabase
@@ -1041,6 +1075,25 @@ export async function POST(request: NextRequest) {
         ? data.gateway
         : selectGateway(validCurrency, gatewaySettings, hasPaystackSubaccount);
 
+    const payableAmount =
+      gateway === 'klump'
+        ? snapshotTotal
+        : Math.max(snapshotTotal - walletAmountUsed - savingsAmountUsed, 0);
+
+    if (payableAmount <= 0) {
+      return createErrorResponse(
+        'No payable amount remains for this order',
+        'NO_PAYABLE_AMOUNT',
+        400
+      );
+    }
+
+    const paymentData: AuthorizedPaymentInitRequest = {
+      ...data,
+      amount: payableAmount,
+      currency: validCurrency,
+    };
+
     if (gateway === 'korapay' && !gatewaySettings.korapay_enabled) {
       return createErrorResponse(
         'Korapay is not enabled for this merchant',
@@ -1068,7 +1121,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (!amountsMatch(data.amount, snapshotTotal)) {
+      if (walletAmountUsed > 0 || savingsAmountUsed > 0) {
         return createErrorResponse(
           'Klump requires the full order total; wallet-composed Klump payments are not supported',
           'AMOUNT_COMPOSITION_UNSUPPORTED',
@@ -1115,7 +1168,7 @@ export async function POST(request: NextRequest) {
           }
           paymentResult = await initializeJuicyway(
             request,
-            data,
+            paymentData,
             merchant,
             redirectUrl,
             reference,
@@ -1138,20 +1191,22 @@ export async function POST(request: NextRequest) {
               '@/lib/agentic/paystack'
             );
             const { firstName, lastName } = parseCustomerName(
-              data.customer_name
+              paymentData.customer_name
             );
 
             const dvaResult = await createDedicatedVirtualAccount(
               {
-                email: data.customer_email,
+                email: paymentData.customer_email,
                 first_name: firstName,
                 last_name: lastName,
-                phone: data.customer_phone || '',
+                phone: paymentData.customer_phone || '',
               },
               { subaccount: merchant.paystack_subaccount_code }
             );
 
-            const fees = calculatePaystackFee(Math.round(data.amount * 100));
+            const fees = calculatePaystackFee(
+              Math.round(paymentData.amount * 100)
+            );
 
             // B1 (Δ-10): persist the DVA assignment so the webhook can
             // look up the order by `account_number` when Paystack sends
@@ -1170,7 +1225,7 @@ export async function POST(request: NextRequest) {
               .from('order_payment_accounts')
               .upsert(
                 {
-                  order_id: data.order_id,
+                  order_id: paymentData.order_id,
                   account_number: dvaResult.account_number,
                   bank_name: dvaResult.bank_name,
                   account_name: dvaResult.account_name,
@@ -1186,7 +1241,7 @@ export async function POST(request: NextRequest) {
               // B4 cron + reconciliation_review will surface the gap.
               logger.warn({
                 message: 'Failed to persist Paystack DVA assignment',
-                orderId: data.order_id,
+                orderId: paymentData.order_id,
                 error: dvaPersistError,
               });
             }
@@ -1204,7 +1259,7 @@ export async function POST(request: NextRequest) {
             };
           } else {
             paymentResult = await initializePaystack(
-              data,
+              paymentData,
               merchant,
               redirectUrl,
               reference,
@@ -1217,7 +1272,7 @@ export async function POST(request: NextRequest) {
           // For client-side BNPL gateways, we redirect to the specialized launcher page
           // This page handles the client-side SDK loading and prevents checkout crashes
           const bnplQuery = new URLSearchParams({
-            orderId: data.order_id,
+            orderId: paymentData.order_id,
             gateway,
           });
           if (trackingToken) {
@@ -1234,7 +1289,7 @@ export async function POST(request: NextRequest) {
             checkout_url: launcherUrl,
             reference, // Use the generated reference
             platformFee: 0, // Fees calculated client-side or by gateway
-            merchantAmount: data.amount, // Full amount (fees handled separately)
+            merchantAmount: paymentData.amount, // Full amount (fees handled separately)
           };
           break;
         }
@@ -1244,7 +1299,7 @@ export async function POST(request: NextRequest) {
           // before any success page is shown.
           const bnplQuery = new URLSearchParams({
             gateway,
-            orderId: data.order_id,
+            orderId: paymentData.order_id,
             reference,
           });
           if (trackingToken) {
@@ -1268,7 +1323,7 @@ export async function POST(request: NextRequest) {
 
         default:
           paymentResult = await initializeKorapay(
-            data,
+            paymentData,
             merchant,
             redirectUrl,
             reference,
@@ -1297,15 +1352,15 @@ export async function POST(request: NextRequest) {
       'create_payment_transaction',
       {
         p_merchant_id: merchantId,
-        p_order_id: data.order_id,
-        p_amount: gateway === 'klump' ? snapshotTotal : data.amount, // Klump keeps decimal total; p_merchant_amount stores rounded integer.
-        p_currency: validCurrency,
+        p_order_id: paymentData.order_id,
+        p_amount: gateway === 'klump' ? snapshotTotal : paymentData.amount, // Klump keeps decimal total; p_merchant_amount stores rounded integer.
+        p_currency: paymentData.currency,
         p_gateway: gateway,
         p_reference: paymentResult.reference,
         p_platform_fee: paymentResult.platformFee,
         p_merchant_amount: paymentResult.merchantAmount,
-        p_customer_email: data.customer_email,
-        p_customer_name: data.customer_name,
+        p_customer_email: paymentData.customer_email,
+        p_customer_name: paymentData.customer_name,
         p_session_id: paymentResult.sessionId || null,
       }
     );
