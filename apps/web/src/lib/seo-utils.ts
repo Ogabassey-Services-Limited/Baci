@@ -798,7 +798,8 @@ function hasValidAggregateRatingSchema(value: unknown): boolean {
     ratingValue === undefined ||
     bestRating === undefined ||
     worstRating === undefined ||
-    worstRating >= bestRating
+    worstRating !== 1 ||
+    bestRating !== 5
   ) {
     return false;
   }

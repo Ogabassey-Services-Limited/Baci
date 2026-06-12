@@ -947,6 +947,29 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.aggregateRating).toBeUndefined();
   });
 
+  it('removes custom aggregate ratings that use a non-storefront rating scale', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            bestRating: 100,
+            worstRating: 0,
+            ratingValue: 87,
+            ratingCount: 12,
+          },
+        },
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
   it('ignores non-object custom schema markup without throwing', () => {
     expect(() =>
       generateProductSchema(

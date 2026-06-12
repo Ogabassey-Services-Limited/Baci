@@ -71,6 +71,27 @@ describe('buildOgabasseyPdpCriticalProduct', () => {
     expect(product.ratingCount).toBe(12);
   });
 
+  it('ignores aggregate ratings that use a non-storefront rating scale', () => {
+    const product = buildOgabasseyPdpCriticalProduct({
+      category: 'Smartphones',
+      id: 'product-3',
+      name: 'Hundred Point Rating Product',
+      price: 100,
+      schema_markup: {
+        aggregateRating: {
+          bestRating: 100,
+          worstRating: 0,
+          ratingValue: 87,
+          ratingCount: 12,
+        },
+      },
+    });
+
+    expect(product.rating).toBe(0);
+    expect(product.reviewCount).toBe(0);
+    expect(product.ratingCount).toBe(0);
+  });
+
   it('uses safe defaults for legacy rows without schema markup or condition', () => {
     const product = buildOgabasseyPdpCriticalProduct({
       category: null,
