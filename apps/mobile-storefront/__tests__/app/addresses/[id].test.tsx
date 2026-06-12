@@ -42,13 +42,13 @@ type SupabaseQueryBuilderMock = {
   update: jest.MockedFunction<SupabaseChainMethod>;
 };
 
-const mockSingle = jest.fn<Promise<SupabaseAddressResult>, []>(async () => ({
+const mockSingle = jest.fn<() => Promise<SupabaseAddressResult>>(async () => ({
   data: { saved_addresses: [] },
   error: null,
 }));
 const mockQueryBuilder = {} as SupabaseQueryBuilderMock;
 const createChainMock = () =>
-  jest.fn<SupabaseQueryBuilderMock, unknown[]>(() => mockQueryBuilder);
+  jest.fn<SupabaseChainMethod>(() => mockQueryBuilder);
 
 Object.assign(mockQueryBuilder, {
   eq: createChainMock(),
@@ -59,7 +59,7 @@ Object.assign(mockQueryBuilder, {
   single: mockSingle,
   update: createChainMock(),
 });
-const mockFrom = jest.fn<SupabaseQueryBuilderMock, [string]>(
+const mockFrom = jest.fn<(table: string) => SupabaseQueryBuilderMock>(
   () => mockQueryBuilder
 );
 
