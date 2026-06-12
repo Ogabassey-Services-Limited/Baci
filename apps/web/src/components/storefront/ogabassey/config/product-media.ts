@@ -1,4 +1,4 @@
-export const OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA = '(max-width: 767px)';
+export const OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA = '(max-width: 767.98px)';
 
 export const OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA = '(min-width: 768px)';
 

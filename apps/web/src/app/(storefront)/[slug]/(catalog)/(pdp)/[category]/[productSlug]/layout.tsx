@@ -99,7 +99,10 @@ async function preloadOgabasseyPdpEarlyProductResources({
     );
 
     if (primaryImage) {
-      preloadOgabasseyPdpProductResources({ src: primaryImage });
+      preloadOgabasseyPdpProductResources({
+        productSlug,
+        src: primaryImage,
+      });
     }
   } catch (error) {
     console.warn(
