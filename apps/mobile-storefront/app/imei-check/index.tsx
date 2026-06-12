@@ -192,7 +192,6 @@ export default function ImeiCheckerScreen() {
           signal: controller.signal,
         }
       );
-      clearTimeout(timeoutId);
 
       const rawData = await response.json();
       if (!response.ok || rawData?.error) {
@@ -240,11 +239,13 @@ export default function ImeiCheckerScreen() {
 
     await performCheck()
       .catch((err: unknown) => {
-        clearTimeout(timeoutId);
         log.error('IMEI check failed:', err);
         setError(getImeiCheckNetworkErrorMessage(err));
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        clearTimeout(timeoutId);
+        setIsLoading(false);
+      });
   };
 
   const handleReset = () => {
