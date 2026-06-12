@@ -70,7 +70,17 @@ export function useWallet(options: UseWalletOptions = {}) {
         })
       : (['wallet', 'disabled'] as const);
 
-  const query = useQuery({
+  // Destructure so TanStack Query's tracked-property optimization only
+  // subscribes to the fields consumers actually use.
+  const {
+    data,
+    error,
+    fetchStatus,
+    isError,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery({
     queryKey: walletQueryKey,
     queryFn: () =>
       fetchWalletData(customer?.id ?? null, activeMerchantId, user?.id ?? null),
@@ -185,7 +195,15 @@ export function useWallet(options: UseWalletOptions = {}) {
     };
   }, [activeMerchantId, customer?.id, queryClient]);
 
-  return query;
+  return {
+    data,
+    error,
+    fetchStatus,
+    isError,
+    isLoading,
+    isRefetching,
+    refetch,
+  };
 }
 
 export function useCreateWalletFundingAccount() {

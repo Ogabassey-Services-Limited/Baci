@@ -627,7 +627,6 @@ describe('handlePlaceOrder', () => {
           gateway: 'klump',
           merchant_id: 'merchant-1',
           order_id: 'order-klump',
-          amount: 12000,
         }),
       );
     });

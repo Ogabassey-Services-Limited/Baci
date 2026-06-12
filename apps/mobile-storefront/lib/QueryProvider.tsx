@@ -34,48 +34,49 @@ interface QueryProviderProps {
 
 const PERSIST_MAX_AGE_MS = 1000 * 60 * 60 * 24;
 
+const persistOptions = {
+  queryClient,
+  persister: queryPersister,
+  maxAge: PERSIST_MAX_AGE_MS,
+  dehydrateOptions: {
+    shouldDehydrateQuery: (query: Query) => {
+      // Don't persist failed or pending queries
+      return query.state.status === 'success';
+    },
+  },
+};
+
+async function restorePersistedQueryCache(onSettled: () => void) {
+  try {
+    await persistQueryClientRestore(persistOptions);
+    log.debug('Cache hydrated from persisted storage');
+  } catch (error) {
+    log.warn('Cache hydration failed, continuing without restore', error);
+  } finally {
+    onSettled();
+  }
+}
+
 export function QueryProvider({
   children,
   persistenceEnabled = true,
 }: QueryProviderProps) {
-  const [isRestoring, setIsRestoring] = useState(false);
-  const hasRestoredRef = useRef(false);
+  const [hasRestoreSettled, setHasRestoreSettled] = useState(false);
+  const hasRestoreStartedRef = useRef(false);
+  const isRestoring = persistenceEnabled && !hasRestoreSettled;
 
   useEffect(() => {
     if (!persistenceEnabled) {
-      setIsRestoring(false);
       return;
     }
 
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
 
-    const persistOptions = {
-      queryClient,
-      persister: queryPersister,
-      maxAge: PERSIST_MAX_AGE_MS,
-      dehydrateOptions: {
-        shouldDehydrateQuery: (query: Query) => {
-          // Don't persist failed or pending queries
-          return query.state.status === 'success';
-        },
-      },
-    };
-
     const startPersistence = async () => {
-      if (!hasRestoredRef.current) {
-        hasRestoredRef.current = true;
-        setIsRestoring(true);
-        try {
-          await persistQueryClientRestore(persistOptions);
-          log.debug('Cache hydrated from persisted storage');
-        } catch (error) {
-          log.warn('Cache hydration failed, continuing without restore', error);
-        } finally {
-          if (!cancelled) {
-            setIsRestoring(false);
-          }
-        }
+      if (!hasRestoreStartedRef.current) {
+        hasRestoreStartedRef.current = true;
+        await restorePersistedQueryCache(() => setHasRestoreSettled(true));
       }
 
       if (cancelled) return;

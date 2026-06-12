@@ -25,6 +25,30 @@ interface UseSignInFormOptions {
 }
 
 /**
+ * Run the email/password sign-in request and translate failures into a
+ * user-friendly error message. Lives at module scope so the hook body stays
+ * free of try/finally + throw statements, which React Compiler cannot lower.
+ */
+async function signInWithEmailPassword(
+  data: SignInFormData
+): Promise<string | null> {
+  try {
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+    });
+
+    if (loginError) {
+      return getUserFriendlyError(loginError);
+    }
+
+    return null;
+  } catch (err) {
+    return getUserFriendlyError(err);
+  }
+}
+
+/**
  * Custom hook for sign-in form logic
  *
  * Handles:
@@ -41,6 +65,9 @@ export function useSignInForm({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pendingSocialSignInRef = useRef(false);
+  // State mirror of the ref so the recovery-timeout effect actually re-runs
+  // when a social sign-in starts (mutating a ref alone never reschedules it).
+  const [pendingSocialSignIn, setPendingSocialSignIn] = useState(false);
 
   // Auth store methods
   const user = useAuthStore((state) => state.user);
@@ -69,45 +96,54 @@ export function useSignInForm({
     if (error) setError(null);
   };
 
+  // Keep the synchronous ref (read inside the store subscription) and the
+  // effect-arming state in lock-step.
+  const setPendingSocialSignInBoth = (next: boolean) => {
+    pendingSocialSignInRef.current = next;
+    setPendingSocialSignIn(next);
+  };
+
+  // Recover from a stalled social sign-in if auth state never updates.
   useEffect(() => {
-    let isMounted = true;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-    if (pendingSocialSignInRef.current && !user) {
-      timeoutId = setTimeout(() => {
-        if (!isMounted || !pendingSocialSignInRef.current) {
-          return;
-        }
-
-        pendingSocialSignInRef.current = false;
-        setIsLoading(false);
-        setError('Sign-in timed out. Please try again.');
-        triggerHaptic('error');
-      }, 30000);
+    if (!pendingSocialSignIn || user) {
+      return;
     }
 
-    if (!pendingSocialSignInRef.current || !user) {
-      return () => {
-        isMounted = false;
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-      };
-    }
+    const timeoutId = setTimeout(() => {
+      if (!pendingSocialSignInRef.current) {
+        return;
+      }
 
-    pendingSocialSignInRef.current = false;
-    setIsLoading(false);
-    triggerHaptic('success');
-    onSuccess();
-    router.replace('/checkout');
+      pendingSocialSignInRef.current = false;
+      setPendingSocialSignIn(false);
+      setIsLoading(false);
+      setError('Sign-in timed out. Please try again.');
+      triggerHaptic('error');
+    }, 30000);
 
     return () => {
-      isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      clearTimeout(timeoutId);
     };
-  }, [onSuccess, triggerHaptic, user]);
+  }, [pendingSocialSignIn, triggerHaptic, user]);
+
+  // Finalize a pending social sign-in when the auth store reports a user.
+  // Subscribing to the external store (instead of mirroring `user` through an
+  // effect dependency) keeps setState inside a subscription callback.
+  useEffect(() => {
+    const unsubscribe = useAuthStore.subscribe((state) => {
+      if (!state.user || !pendingSocialSignInRef.current) {
+        return;
+      }
+
+      setPendingSocialSignInBoth(false);
+      setIsLoading(false);
+      triggerHaptic('success');
+      onSuccess();
+      router.replace('/checkout');
+    });
+
+    return unsubscribe;
+  }, [onSuccess, triggerHaptic]);
 
   /**
    * Validate form data with Zod and set field errors
@@ -143,27 +179,21 @@ export function useSignInForm({
     setIsLoading(true);
     setError(null);
 
-    try {
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email: data.email.trim().toLowerCase(),
-        password: data.password,
-      });
+    const friendlyError = await signInWithEmailPassword(data);
 
-      if (loginError) throw loginError;
-
-      triggerHaptic('success');
-      onSuccess();
-      router.replace('/checkout');
-    } catch (err) {
-      const friendlyError = getUserFriendlyError(err);
+    if (friendlyError) {
       setError(friendlyError);
       triggerHaptic('error');
 
       // Announce error to screen readers
       AccessibilityInfo.announceForAccessibility(friendlyError);
-    } finally {
-      setIsLoading(false);
+    } else {
+      triggerHaptic('success');
+      onSuccess();
+      router.replace('/checkout');
     }
+
+    setIsLoading(false);
   });
 
   /**
@@ -173,13 +203,13 @@ export function useSignInForm({
     triggerHaptic('light');
     setIsLoading(true);
     setError(null);
-    pendingSocialSignInRef.current = true;
+    setPendingSocialSignInBoth(true);
 
     try {
       const result = await signInWithGoogle();
 
       if (!result.success) {
-        pendingSocialSignInRef.current = false;
+        setPendingSocialSignInBoth(false);
         setIsLoading(false);
 
         if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
@@ -189,7 +219,7 @@ export function useSignInForm({
         }
       }
     } catch {
-      pendingSocialSignInRef.current = false;
+      setPendingSocialSignInBoth(false);
       setError(SOCIAL_ERROR_MESSAGES.google);
       triggerHaptic('error');
       AccessibilityInfo.announceForAccessibility(SOCIAL_ERROR_MESSAGES.google);
@@ -204,13 +234,13 @@ export function useSignInForm({
     triggerHaptic('light');
     setIsLoading(true);
     setError(null);
-    pendingSocialSignInRef.current = true;
+    setPendingSocialSignInBoth(true);
 
     try {
       const result = await signInWithApple();
 
       if (!result.success) {
-        pendingSocialSignInRef.current = false;
+        setPendingSocialSignInBoth(false);
         setIsLoading(false);
 
         if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
@@ -220,7 +250,7 @@ export function useSignInForm({
         }
       }
     } catch {
-      pendingSocialSignInRef.current = false;
+      setPendingSocialSignInBoth(false);
       setError(SOCIAL_ERROR_MESSAGES.apple);
       triggerHaptic('error');
       AccessibilityInfo.announceForAccessibility(SOCIAL_ERROR_MESSAGES.apple);

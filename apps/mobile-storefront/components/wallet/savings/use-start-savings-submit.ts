@@ -1,30 +1,16 @@
-import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { showAppAlert } from '@/components/ui/show-app-alert';
 import { setClipboardString } from '@/lib/clipboard';
-import {
-  createSavingsGoal,
-  initializeSavingsAuthorization,
-} from '@/lib/customer-savings';
+import { initializeSavingsAuthorization } from '@/lib/customer-savings';
 import { WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
-import {
-  cancelSavingsReminderNotification,
-  scheduleSavingsReminderNotification,
-} from '@/services/savings-reminder-notifications';
-import {
-  formatDateInput,
-  getSavingsReminderScheduledAt,
-  type SavingsFrequency,
-} from './start-savings.helpers';
+import { runSavingsGoalSubmission } from './run-savings-goal-submission';
+import { formatDateInput, type SavingsFrequency } from './start-savings.helpers';
 import type {
   SavingsProductChoice,
   SavingsSourceMode,
 } from './start-savings.types';
-import {
-  getErrorMessage,
-  isInsufficientWalletError,
-} from './start-savings-controller.utils';
+import { getErrorMessage } from './start-savings-controller.utils';
 
 type FundingAccount = {
   account_number: string;
@@ -33,7 +19,7 @@ type FundingAccount = {
 // Standard authorization amount used for card verification.
 const CARD_AUTHORIZATION_AMOUNT = 100;
 
-type UseStartSavingsSubmitInput = {
+export type UseStartSavingsSubmitInput = {
   activeMerchantId?: string;
   activeMerchantSlug?: string;
   contributionValue: number;
@@ -90,6 +76,45 @@ function validateSavingsInput(
   };
 }
 
+/**
+ * Starts the Paystack card authorization flow. Lives at module scope (outside
+ * the hook render) so its try/catch does not block React Compiler memoization
+ * of the hook.
+ */
+async function runSavingsCardAuthorization(
+  input: UseStartSavingsSubmitInput
+): Promise<void> {
+  try {
+    const result = await initializeSavingsAuthorization({
+      amount: CARD_AUTHORIZATION_AMOUNT,
+      merchantId: input.activeMerchantId,
+      merchantSlug: input.activeMerchantSlug,
+    });
+    input.setShowFundingModal(false);
+    router.push({
+      pathname: '/payment-gateway',
+      params: {
+        authorizationUrl: result.authorization_url,
+        gateway: result.gateway,
+        merchantId: input.activeMerchantId,
+        merchantSlug: input.activeMerchantSlug,
+        paymentKind: 'savings_auth',
+        reference: result.reference,
+        returnTo: '/wallet/savings/start',
+      },
+    });
+  } catch (error) {
+    showAppAlert({
+      title: 'Unable to authorize card',
+      message: getErrorMessage(
+        error,
+        'Unable to start Paystack card authorization.'
+      ),
+      variant: 'error',
+    });
+  }
+}
+
 export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthorizingCard, setIsAuthorizingCard] = useState(false);
@@ -109,95 +134,10 @@ export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
 
     submitInFlightRef.current = true;
     setIsSubmitting(true);
-    try {
-      const requestInitialContribution =
-        input.sourceMode === 'auto_debit'
-          ? 0
-          : input.effectiveInitialContribution;
-      // Auto-debit savings starts with requestInitialContribution = 0, so no
-      // requestIdempotencyKey is needed. Manual contributions reuse
-      // input.initialContributionIdempotencyKey; only a missing key is created
-      // with Crypto.randomUUID and persisted through input.setInitialContributionIdempotencyKey.
-      const requestIdempotencyKey =
-        requestInitialContribution > 0
-          ? (input.initialContributionIdempotencyKey ?? Crypto.randomUUID())
-          : undefined;
-      if (requestIdempotencyKey && !input.initialContributionIdempotencyKey) {
-        input.setInitialContributionIdempotencyKey(requestIdempotencyKey);
-      }
-      const result = await createSavingsGoal({
-        autoDebitAuthorized:
-          input.sourceMode === 'auto_debit' ? true : undefined,
-        contributionAmount: input.contributionValue,
-        contributionFrequency: input.frequency,
-        initialContributionAmount: requestInitialContribution,
-        initialContributionIdempotencyKey: requestIdempotencyKey,
-        maturityDate: input.maturityDate,
-        merchantId: input.activeMerchantId,
-        merchantSlug: input.activeMerchantSlug,
-        nonWithdrawableAccepted: true,
-        productId: validation.selectedProduct.id,
-        savedPaymentMethodId:
-          input.sourceMode === 'auto_debit'
-            ? input.selectedPaymentMethodId
-            : null,
-        sourceMode: input.sourceMode,
-        startDate: validation.formattedStartDate,
-        targetAmount: input.targetValue,
-        termsAccepted: true,
-        title: validation.selectedProduct.name,
-        variantId: input.normalizedVariantId ?? null,
-      });
-      if (!result.success) {
-        throw new Error('Unable to create savings plan.');
-      }
-      if (input.sourceMode === 'manual') {
-        try {
-          if (input.targetValue > requestInitialContribution) {
-            await scheduleSavingsReminderNotification({
-              contributionAmount: input.contributionValue,
-              frequency: input.frequency,
-              goalId: result.goalId,
-              goalTitle: validation.selectedProduct.name,
-              scheduledAt: getSavingsReminderScheduledAt({
-                preferredDebitTime: input.preferredDebitTime,
-                startDate: validation.formattedStartDate,
-              }),
-            });
-          } else {
-            await cancelSavingsReminderNotification(result.goalId);
-          }
-        } catch {
-          // Reminder scheduling is best effort and must not block goal creation.
-        }
-      }
-      input.setShowFundingModal(false);
-      input.setShowPreviewModal(false);
-      input.setShowTransferModal(false);
-      input.setFormError(null);
-      input.setInitialContributionIdempotencyKey(null);
-      input.setShowSuccessModal(true);
-      try {
-        await input.refetch();
-      } catch {
-        input.setFormError('Plan created but unable to refresh wallet data.');
-      }
-    } catch (error) {
-      if (isInsufficientWalletError(error) && input.fundingAccount) {
-        input.setShowTransferModal(true);
-        return;
-      }
-      const message = getErrorMessage(error, 'Unable to create savings plan.');
-      input.setFormError(message);
-      showAppAlert({
-        title: 'Unable to create plan',
-        message,
-        variant: 'error',
-      });
-    } finally {
+    await runSavingsGoalSubmission(input, validation).finally(() => {
       submitInFlightRef.current = false;
       setIsSubmitting(false);
-    }
+    });
   };
 
   const handleAuthorizeSavingsCard = async () => {
@@ -207,38 +147,10 @@ export function useStartSavingsSubmit(input: UseStartSavingsSubmitInput) {
 
     authorizationInFlightRef.current = true;
     setIsAuthorizingCard(true);
-    try {
-      const result = await initializeSavingsAuthorization({
-        amount: CARD_AUTHORIZATION_AMOUNT,
-        merchantId: input.activeMerchantId,
-        merchantSlug: input.activeMerchantSlug,
-      });
-      input.setShowFundingModal(false);
-      router.push({
-        pathname: '/payment-gateway',
-        params: {
-          authorizationUrl: result.authorization_url,
-          gateway: result.gateway,
-          merchantId: input.activeMerchantId,
-          merchantSlug: input.activeMerchantSlug,
-          paymentKind: 'savings_auth',
-          reference: result.reference,
-          returnTo: '/wallet/savings/start',
-        },
-      });
-    } catch (error) {
-      showAppAlert({
-        title: 'Unable to authorize card',
-        message: getErrorMessage(
-          error,
-          'Unable to start Paystack card authorization.'
-        ),
-        variant: 'error',
-      });
-    } finally {
+    await runSavingsCardAuthorization(input).finally(() => {
       authorizationInFlightRef.current = false;
       setIsAuthorizingCard(false);
-    }
+    });
   };
 
   const handleCopyFundingAccount = async () => {

@@ -13,6 +13,10 @@ import {
   type PendingCryptoOrder,
 } from './checkout-screen.constants';
 import { startWalletFundedBankTransferCheckout } from './checkout-wallet-funded-bank-transfer';
+import {
+  type PaymentInitializeData,
+  toPaymentInitializeData,
+} from './payment-initialize-data';
 
 const PAYMENT_INIT_TIMEOUT_MS = 10_000;
 
@@ -206,7 +210,6 @@ async function initializeGatewayAndRoute({
         body: JSON.stringify({
           merchant_id: CHECKOUT_MERCHANT_ID,
           order_id: orderId,
-          amount: orderResponse.amountDueToGateway,
           currency: 'NGN',
           customer_email: customerEmail,
           customer_name: customerName,
@@ -228,9 +231,9 @@ async function initializeGatewayAndRoute({
     clearTimeout(timeout);
   }
 
-  let initData;
+  let initData: PaymentInitializeData;
   try {
-    initData = await initResponse.json();
+    initData = toPaymentInitializeData(await initResponse.json());
   } catch (error) {
     throw new OrderError(
       'Failed to parse payment initialization response',

@@ -8,7 +8,7 @@
  * - Syncs across instances via storage events (if needed)
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { syncStorage as storage } from '@/lib/storage'; // Assuming this is the correct import based on search.tsx analysis
 
 const SEARCH_HISTORY_KEY = 'search_history';
@@ -22,28 +22,35 @@ const DEFAULT_SEARCHES = [
   'Apple Watch',
 ];
 
-export function useSearchStorage() {
-  const [recentSearches, setRecentSearches] =
-    useState<string[]>(DEFAULT_SEARCHES);
-
-  // Load initial history
-  useEffect(() => {
-    try {
-      const saved = storage.getItem(SEARCH_HISTORY_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (
-          Array.isArray(parsed) &&
-          parsed.every((item): item is string => typeof item === 'string')
-        ) {
-          setRecentSearches(parsed);
-        }
+/**
+ * Read persisted search history synchronously. Used as a lazy useState
+ * initializer so the saved history is available on the first render instead
+ * of being patched in by an effect.
+ */
+function loadInitialSearchHistory(): string[] {
+  try {
+    const saved = storage.getItem(SEARCH_HISTORY_KEY);
+    if (saved) {
+      const parsed: unknown = JSON.parse(saved);
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((item): item is string => typeof item === 'string')
+      ) {
+        return parsed;
       }
-    } catch (e) {
-      // Fail silently, use defaults
-      console.warn('Failed to load search history', e);
     }
-  }, []);
+  } catch (e) {
+    // Fail silently, use defaults
+    console.warn('Failed to load search history', e);
+  }
+
+  return DEFAULT_SEARCHES;
+}
+
+export function useSearchStorage() {
+  const [recentSearches, setRecentSearches] = useState<string[]>(
+    loadInitialSearchHistory
+  );
 
   const saveSearch = (searchTerm: string) => {
     if (!searchTerm.trim() || searchTerm.length < 2) return;

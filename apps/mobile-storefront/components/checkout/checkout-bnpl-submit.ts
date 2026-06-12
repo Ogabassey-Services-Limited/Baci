@@ -223,7 +223,6 @@ async function initializeKlumpAndRoute({
             customerPhone,
             merchantId: CHECKOUT_MERCHANT_ID,
             orderId,
-            orderTotal,
           })
         ),
       }

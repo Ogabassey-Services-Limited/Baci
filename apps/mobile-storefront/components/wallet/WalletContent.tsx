@@ -148,9 +148,8 @@ export function WalletContent({
       }
     } catch {
       Alert.alert('Unable to change device', 'Please try again in a moment.');
-    } finally {
-      setIsChangingSavingsDevice(false);
     }
+    setIsChangingSavingsDevice(false);
   };
 
   return (

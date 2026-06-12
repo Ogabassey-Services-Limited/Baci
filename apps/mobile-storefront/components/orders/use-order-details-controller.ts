@@ -16,6 +16,72 @@ import { getOrderTrackingUrl, mapOrderDetails } from './order-details.helpers';
 
 const log = createLogger('OrderDetails');
 
+async function fetchOrderRecord(
+  orderId: string,
+  customerId: string
+): Promise<OrderDetails> {
+  const { data, error: fetchError } = await supabase
+    .from('orders')
+    .select(`
+      id,
+      order_number,
+      shipping_status,
+      subtotal,
+      shipping_fee,
+      tax_amount,
+      discount_amount,
+      total,
+      payment_method,
+      payment_status,
+      created_at,
+      updated_at,
+      shipping_address,
+      tracking_number,
+      shipping_provider,
+      notes,
+      order_items (
+        id,
+        product_id,
+        name,
+        quantity,
+        price,
+        has_assurance,
+        assurance_fee,
+        products (
+          slug,
+          images
+        )
+      )
+    `)
+    .eq('id', orderId)
+    .eq('customer_id', customerId)
+    .single();
+
+  if (fetchError) throw fetchError;
+  return mapOrderDetails(data as RawOrderDetails);
+}
+
+async function fetchLatestInsurancePolicy(
+  orderId: string
+): Promise<OrderDetailsInsurancePolicy | null> {
+  const { data: policies, error: policyError } = await supabase
+    .from('order_insurance_policies')
+    .select(
+      'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date, certificate_url, provider_name, policy_type, created_at'
+    )
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (policyError) {
+    log.warn('Error fetching order insurance policy:', policyError);
+    return null;
+  }
+  return policies && policies.length > 0
+    ? (policies[0] as OrderDetailsInsurancePolicy)
+    : null;
+}
+
 export function useOrderDetailsController() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const user = useAuthStore((state) => state.user);
@@ -28,88 +94,51 @@ export function useOrderDetailsController() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  // Derived during render instead of mirrored into state via an effect.
+  const requiresSignIn = Boolean(id) && (!user?.id || !customer?.id);
+
+  // Reset stale order/policy state during render (instead of inside the fetch
+  // effect) so neither a new `id` nor a different signed-in identity ever shows
+  // the previous order — or its insurance card — while the fetch is in flight.
+  const resetKey = `${id ?? ''}|${user?.id ?? ''}|${customer?.id ?? ''}`;
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey);
+    setOrder(null);
+    setInsurancePolicy(null);
+    setError(null);
+    setIsLoading(Boolean(id) && Boolean(user?.id) && Boolean(customer?.id));
+  }
 
   useEffect(() => {
     if (!id) return;
-    if (!user?.id || !customer?.id) {
-      setError('Please sign in to view order details');
-      setIsLoading(false);
-      return;
-    }
+    if (!user?.id || !customer?.id) return;
 
     let ignore = false;
-    const fetchOrder = async () => {
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('orders')
-          .select(`
-            id,
-            order_number,
-            shipping_status,
-            subtotal,
-            shipping_fee,
-            tax_amount,
-            discount_amount,
-            total,
-            payment_method,
-            payment_status,
-            created_at,
-            updated_at,
-            shipping_address,
-            tracking_number,
-            shipping_provider,
-            notes,
-            order_items (
-              id,
-              product_id,
-              name,
-              quantity,
-              price,
-              has_assurance,
-              assurance_fee,
-              products (
-                slug,
-                images
-              )
-            )
-          `)
-          .eq('id', id)
-          .eq('customer_id', customer.id)
-          .single();
-
-        if (fetchError) throw fetchError;
+    fetchOrderRecord(id, customer.id)
+      .then((orderDetails) => {
+        if (ignore) return null;
+        setOrder(orderDetails);
+        return fetchLatestInsurancePolicy(id);
+      })
+      .then((policy) => {
         if (ignore) return;
-        setOrder(mapOrderDetails(data as RawOrderDetails));
-
-        const { data: policies, error: policyError } = await supabase
-          .from('order_insurance_policies')
-          .select(
-            'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date, certificate_url, provider_name, policy_type, created_at'
-          )
-          .eq('order_id', id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (ignore) return;
-        if (policyError) {
-          log.warn('Error fetching order insurance policy:', policyError);
-        } else if (policies && policies.length > 0) {
-          setInsurancePolicy(policies[0] as OrderDetailsInsurancePolicy);
+        if (policy) {
+          setInsurancePolicy(policy);
         }
-
         setError(null);
-      } catch (err) {
+      })
+      .catch((err) => {
         if (ignore) return;
         log.error('Error fetching order:', err);
         setError('Failed to load order details');
-      } finally {
+      })
+      .finally(() => {
         if (!ignore) {
           setIsLoading(false);
         }
-      }
-    };
+      });
 
-    fetchOrder();
     return () => {
       ignore = true;
     };
@@ -206,7 +235,7 @@ export function useOrderDetailsController() {
   };
 
   return {
-    error,
+    error: requiresSignIn ? 'Please sign in to view order details' : error,
     handleCallRider: () => {
       const riderPhone = merchantInfo?.rider_phone_number?.trim();
       if (!riderPhone) {
@@ -236,7 +265,7 @@ export function useOrderDetailsController() {
     },
     handleTrackOrder,
     insurancePolicy,
-    isLoading,
+    isLoading: requiresSignIn ? false : isLoading,
     merchantInfo,
     order,
     receiptPreview,
