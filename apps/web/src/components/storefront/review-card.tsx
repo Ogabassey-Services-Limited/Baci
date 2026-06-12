@@ -26,6 +26,43 @@ interface ReviewCardProps {
   className?: string;
 }
 
+type HelpfulVoteResult =
+  | { status: 'voted'; helpfulCount: number }
+  | { status: 'already-voted' }
+  | { status: 'error' };
+
+/**
+ * Module-scope vote helper so the component body stays free of
+ * try/catch/finally statements, which block React Compiler memoization.
+ */
+async function submitHelpfulVote(reviewId: string): Promise<HelpfulVoteResult> {
+  try {
+    // Use email from localStorage or generate session ID
+    const voterIdentifier =
+      localStorage.getItem('customerEmail') || `session_${crypto.randomUUID()}`;
+
+    const response = await fetch(`/api/reviews/${reviewId}/helpful`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voter_identifier: voterIdentifier }),
+    });
+
+    const data: { helpful_count?: number } = await response.json();
+
+    if (response.status === 409) {
+      return { status: 'already-voted' };
+    }
+
+    if (!response.ok) {
+      return { status: 'error' };
+    }
+
+    return { status: 'voted', helpfulCount: data.helpful_count ?? 0 };
+  } catch (_error) {
+    return { status: 'error' };
+  }
+}
+
 export function ReviewCard({ review, className }: ReviewCardProps) {
   const { toast } = useToast();
   const [helpfulCount, setHelpfulCount] = useState(review.helpful_count);
@@ -50,48 +87,34 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
 
     setIsVoting(true);
 
-    try {
-      // Use email from localStorage or generate session ID
-      const voterIdentifier =
-        localStorage.getItem('customerEmail') ||
-        `session_${crypto.randomUUID()}`;
+    const result = await submitHelpfulVote(review.id);
 
-      const response = await fetch(`/api/reviews/${review.id}/helpful`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voter_identifier: voterIdentifier }),
-      });
+    setIsVoting(false);
 
-      const data = await response.json();
-
-      if (response.status === 409) {
-        setHasVoted(true);
-        toast({
-          title: 'Already Voted',
-          description: 'You have already marked this review as helpful.',
-        });
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to vote');
-      }
-
-      setHelpfulCount(data.helpful_count);
+    if (result.status === 'already-voted') {
       setHasVoted(true);
       toast({
-        title: 'Thanks!',
-        description: 'Your feedback helps others.',
+        title: 'Already Voted',
+        description: 'You have already marked this review as helpful.',
       });
-    } catch (_error) {
+      return;
+    }
+
+    if (result.status === 'error') {
       toast({
         title: 'Error',
         description: 'Failed to submit vote. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsVoting(false);
+      return;
     }
+
+    setHelpfulCount(result.helpfulCount);
+    setHasVoted(true);
+    toast({
+      title: 'Thanks!',
+      description: 'Your feedback helps others.',
+    });
   };
 
   return (

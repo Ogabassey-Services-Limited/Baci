@@ -37,6 +37,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
   bootDelayMs = 0,
 }) => {
   const config = AD_CONFIG[placementKey];
+  const configId = config?.id;
   const containerRef = useRef<HTMLDivElement>(null);
   const adRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<googletag.Slot | null>(null);
@@ -51,22 +52,34 @@ export const AdUnit: React.FC<AdUnitProps> = ({
     bootDelayMs <= 0
   );
 
+  // Reset slot/boot state during render when the placement or strategy props
+  // change (render-phase prev-compare instead of a setState-in-effect).
+  const [prevConfigId, setPrevConfigId] = useState(configId);
+  const [prevLoadStrategy, setPrevLoadStrategy] = useState(loadStrategy);
+  const [prevBootDelayMs, setPrevBootDelayMs] = useState(bootDelayMs);
+  const configChanged = prevConfigId !== configId;
+  if (configChanged) {
+    setPrevConfigId(configId);
+  }
+  if (configChanged || prevLoadStrategy !== loadStrategy) {
+    setPrevLoadStrategy(loadStrategy);
+    setShouldLoadSlot(loadStrategy === 'immediate');
+    setIsAdLoaded(false);
+  }
+  if (configChanged || prevBootDelayMs !== bootDelayMs) {
+    setPrevBootDelayMs(bootDelayMs);
+    setHasBootDelayElapsed(bootDelayMs <= 0);
+  }
+
   useEffect(() => {
     isActiveRef.current = isActive;
   }, [isActive]);
 
   useEffect(() => {
-    setShouldLoadSlot(loadStrategy === 'immediate');
-    setIsAdLoaded(false);
-  }, [config?.id, loadStrategy]);
-
-  useEffect(() => {
     if (bootDelayMs <= 0) {
-      setHasBootDelayElapsed(true);
       return;
     }
 
-    setHasBootDelayElapsed(false);
     const timeoutId = window.setTimeout(() => {
       setHasBootDelayElapsed(true);
     }, bootDelayMs);
@@ -74,13 +87,12 @@ export const AdUnit: React.FC<AdUnitProps> = ({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [bootDelayMs, config?.id]);
+  }, [bootDelayMs, configId]);
 
   useEffect(() => {
+    // `shouldLoadSlot` is already true whenever loadStrategy is 'immediate'
+    // (initializer + render-phase reset above), so no setState is needed here.
     if (!config || loadStrategy === 'immediate' || !isActive || shouldLoadSlot) {
-      if (loadStrategy === 'immediate') {
-        setShouldLoadSlot(true);
-      }
       return;
     }
 

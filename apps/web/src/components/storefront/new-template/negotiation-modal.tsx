@@ -1,6 +1,6 @@
 import { AlertCircle, CheckCircle2, HandCoins, Loader2, X } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 interface NegotiationModalProps {
   isOpen: boolean;
@@ -22,15 +22,18 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationState>('input');
   const [message, setMessage] = useState('');
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
 
-  // Reset state when opened
-  useEffect(() => {
+  // Reset state when opened (render-time prev-prop comparison instead of an
+  // effect, so users never see one frame of stale values between commits)
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setOffer('');
       setStatus('input');
       setMessage('');
     }
-  }, [isOpen]);
+  }
 
   if (!isOpen) return null;
 

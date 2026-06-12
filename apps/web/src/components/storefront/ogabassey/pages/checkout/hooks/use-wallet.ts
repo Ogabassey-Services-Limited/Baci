@@ -23,32 +23,32 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
   useEffect(() => {
     const abortController = new AbortController();
 
-    const fetchWalletBalance = async () => {
+    const fetchWalletBalance = () => {
       if (!userId || !merchantSlug) return;
 
       setWalletLoading(true);
-      try {
-        const response = await fetch(
-          `/api/storefront/customer/wallet?merchant=${merchantSlug}`,
-          { signal: abortController.signal },
-        );
-        if (response.ok) {
+      fetch(`/api/storefront/customer/wallet?merchant=${merchantSlug}`, {
+        signal: abortController.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) return;
           const data = await response.json();
           const balance = Number(data.balance) || 0;
           setWalletBalance(balance);
           if (balance > 0) {
             setPayWithWallet(true);
           }
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.error('Failed to fetch wallet balance:', error);
-        }
-      } finally {
-        if (!abortController.signal.aborted) {
-          setWalletLoading(false);
-        }
-      }
+        })
+        .catch((error) => {
+          if (error instanceof Error && error.name !== 'AbortError') {
+            console.error('Failed to fetch wallet balance:', error);
+          }
+        })
+        .finally(() => {
+          if (!abortController.signal.aborted) {
+            setWalletLoading(false);
+          }
+        });
     };
 
     fetchWalletBalance();

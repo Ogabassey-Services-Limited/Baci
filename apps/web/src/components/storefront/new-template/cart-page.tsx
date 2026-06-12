@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -19,16 +19,27 @@ import { asRoute } from '@/lib/routes';
 import { Footer } from './footer';
 import { Navbar } from './navbar';
 
+// Module-scope subscribe helper for useSyncExternalStore — stable identity so
+// React never tears down / re-attaches the (no-op) listener between renders.
+function subscribeToNothing(): () => void {
+  return () => {
+    // Intentionally empty: nothing to unsubscribe from.
+  };
+}
+
 export const CartPage: React.FC = () => {
   const { cart, updateQuantity, removeFromCart, cartTotal } = useCart();
-  const [isClient, setIsClient] = useState(false);
+  // Hydration gate read via an external-store subscription instead of a
+  // setState inside a mount effect: false on the server and during hydration
+  // (matching the previous null first paint), true right after.
+  const isClient = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false
+  );
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
   const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   if (!isClient) {
     return null; // Prevent hydration mismatch

@@ -11,7 +11,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
@@ -41,10 +41,13 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   const currentImage =
     product.images?.[activeColorIndex] || product.image || '/placeholder.png';
 
-  // Reset loading state when image source changes
-  useEffect(() => {
+  // Reset loading state when image source changes — render-time prev-compare
+  // instead of an effect, so the skeleton shows without a stale-frame commit.
+  const [prevImage, setPrevImage] = useState(currentImage);
+  if (currentImage !== prevImage) {
+    setPrevImage(currentImage);
     setIsImageLoaded(false);
-  }, [currentImage]);
+  }
 
   const conditionBadgeStyle =
     product.condition === 'New'

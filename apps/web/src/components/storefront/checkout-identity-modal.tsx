@@ -26,6 +26,27 @@ interface CheckoutIdentityModalProps {
   checkoutUrl: string;
 }
 
+// Module-scope helper: throw inside try/catch is not yet supported by React
+// Compiler within component bodies. Returns an error message, or null on success.
+async function signInWithPasswordForCheckout(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+  password: string
+): Promise<string | null> {
+  try {
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (loginError) throw loginError;
+
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : 'Failed to sign in';
+  }
+}
+
 export function CheckoutIdentityModal({
   isOpen,
   onOpenChange,
@@ -49,21 +70,21 @@ export function CheckoutIdentityModal({
     setIsLoading(true);
     setError(null);
 
-    try {
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const errorMessage = await signInWithPasswordForCheckout(
+      supabase,
+      email,
+      password
+    );
 
-      if (loginError) throw loginError;
-
-      // Successful login - proceed to checkout
-      router.push(normalizedCheckoutUrl);
-      onOpenChange(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
+    if (errorMessage) {
+      setError(errorMessage);
       setIsLoading(false);
+      return;
     }
+
+    // Successful login - proceed to checkout
+    router.push(normalizedCheckoutUrl);
+    onOpenChange(false);
   };
 
   const handleGuestCheckout = () => {

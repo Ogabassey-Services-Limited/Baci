@@ -107,6 +107,7 @@ vi.mock('@/components/address-autocomplete', () => ({
 }));
 
 vi.mock('@/lib/credpal', () => ({
+  getCredPalKey: vi.fn(() => 'pk_test_credpal'),
   openCredPalCheckout: vi.fn(),
 }));
 

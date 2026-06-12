@@ -19,28 +19,36 @@ function getBillersPayload(value: unknown): BillersPayload {
   return value as BillersPayload;
 }
 
+function getBillType(type: string): string | undefined {
+  return BILL_PAYMENT_COPY.tabToBillType[
+    type as keyof typeof BILL_PAYMENT_COPY.tabToBillType
+  ];
+}
+
 export function useBillPaymentBillers(type: string) {
   const [billers, setBillers] = useState<Biller[]>([]);
-  const [billersLoading, setBillersLoading] = useState(true);
-  const [billersError, setBillersError] = useState<string | null>(null);
+  const [billersLoading, setBillersLoading] = useState(() =>
+    Boolean(getBillType(type))
+  );
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [prevType, setPrevType] = useState(type);
+
+  // Reset fetch state inline during render when the tab changes
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  if (type !== prevType) {
+    setPrevType(type);
+    setBillers([]);
+    setBillersLoading(Boolean(getBillType(type)));
+    setFetchError(null);
+  }
 
   useEffect(() => {
-    setBillers([]);
-    setBillersLoading(true);
-    setBillersError(null);
+    const billType = getBillType(type);
+    if (!billType) {
+      return;
+    }
 
     const controller = new AbortController();
-    const billType =
-      BILL_PAYMENT_COPY.tabToBillType[
-        type as keyof typeof BILL_PAYMENT_COPY.tabToBillType
-      ];
-    if (!billType) {
-      setBillersLoading(false);
-      setBillersError('Unsupported bill type');
-      return () => {
-        controller.abort();
-      };
-    }
 
     fetch(
       `/api/vtu/billers?type=${encodeURIComponent(billType)}&includeMonnify=true`,
@@ -59,7 +67,7 @@ export function useBillPaymentBillers(type: string) {
       })
       .then((data) => {
         setBillers(data.billers || []);
-        setBillersError(data.monnifyError ?? data.kudaError ?? null);
+        setFetchError(data.monnifyError ?? data.kudaError ?? null);
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -68,7 +76,7 @@ export function useBillPaymentBillers(type: string) {
         const message =
           error instanceof Error ? error.message : 'Failed to load billers';
         setBillers([]);
-        setBillersError(message);
+        setFetchError(message);
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -80,6 +88,10 @@ export function useBillPaymentBillers(type: string) {
       controller.abort();
     };
   }, [type]);
+
+  const billersError = getBillType(type)
+    ? fetchError
+    : 'Unsupported bill type';
 
   return { billers, billersError, billersLoading };
 }

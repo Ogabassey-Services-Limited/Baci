@@ -34,6 +34,109 @@ interface ReceiptListItem {
   rawOrder: ReceiptOrder;
 }
 
+interface ReceiptCustomerInfo {
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+
+// Module-scope helper keeps async fetch/mapping logic out of the component
+// body so React Compiler can memoize the component.
+async function fetchReceiptListItems(
+  merchantSlug: string,
+  customer: ReceiptCustomerInfo | null
+): Promise<ReceiptListItem[] | null> {
+  const res = await fetch(
+    `/api/storefront/orders?merchantSlug=${encodeURIComponent(merchantSlug)}`
+  );
+  const data = await res.json();
+
+  if (!data.orders) {
+    return null;
+  }
+
+  const customerName = customer
+    ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() ||
+      'Customer'
+    : 'Customer';
+
+  return data.orders.map((order: Record<string, unknown>) => {
+    const items = (order.items as Array<Record<string, unknown>>) ?? [];
+    const currency = (order.currency as string) || 'NGN';
+    const total = Number(order.total) || 0;
+    const amountPaid = Number(order.amount_paid ?? total);
+    const paymentStatus = (order.payment_status as string) || 'unpaid';
+
+    const formatCurrency = (val: number) =>
+      new Intl.NumberFormat('en-NG', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 0,
+      }).format(val);
+
+    const rawOrder: ReceiptOrder = {
+      order_number:
+        (order.order_number as string) ||
+        String(order.id).slice(0, 8).toUpperCase(),
+      created_at: order.created_at as string,
+      currency,
+      total,
+      subtotal: Number(order.subtotal ?? total),
+      shipping_fee: Number(order.shipping_fee ?? 0),
+      tax_amount: Number(order.tax_amount ?? 0),
+      discount_amount: Number(order.discount_amount ?? 0),
+      amount_paid: amountPaid,
+      balance: Number(order.balance ?? total - amountPaid),
+      payment_status: paymentStatus,
+      payment_method: (order.payment_method as string) ?? null,
+      is_credit_order: (order.is_credit_order as boolean) ?? false,
+      customer_name: customerName,
+      customer_email: customer?.email || '',
+      customer_phone: customer?.phone ?? null,
+      shipping_address:
+        (order.shipping_address as ReceiptOrder['shipping_address']) ?? null,
+      virtual_account:
+        (order.virtual_account as ReceiptOrder['virtual_account']) ?? null,
+      fulfillment_details:
+        (order.fulfillment_details as ReceiptOrder['fulfillment_details']) ??
+        null,
+      items: items.map((item) => ({
+        product_name:
+          (item.product_name as string) || (item.name as string) || 'Product',
+        quantity: Number(item.quantity) || 1,
+        price: Number(item.price) || 0,
+      })),
+    };
+
+    const statusLabel =
+      paymentStatus === 'paid'
+        ? 'Paid'
+        : paymentStatus === 'partially_paid'
+          ? 'Partially Paid'
+          : 'Unpaid';
+
+    return {
+      id: order.id as string,
+      order_number: rawOrder.order_number,
+      date: new Date(order.created_at as string).toLocaleDateString(),
+      total: formatCurrency(total),
+      status: statusLabel,
+      paymentStatus: paymentStatus as ReceiptListItem['paymentStatus'],
+      balance: formatCurrency(Math.max(0, total - amountPaid)),
+      firstProductName:
+        (items[0]?.product_name as string) ||
+        (items[0]?.name as string) ||
+        'Unknown item',
+      firstProductImage:
+        (items[0]?.product_image as string) ||
+        (items[0]?.image as string) ||
+        '/placeholder.png',
+      rawOrder,
+    } satisfies ReceiptListItem;
+  });
+}
+
 export const OgabasseyV2Receipts: React.FC = () => {
   const { customer, isAuthenticated } = useCustomerAuth();
   const merchantContext = useMerchantSafe();
@@ -42,147 +145,58 @@ export const OgabasseyV2Receipts: React.FC = () => {
   const [receipts, setReceipts] = useState<ReceiptListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<ReceiptOrder | null>(null);
-  const [merchantReceiptData, setMerchantReceiptData] =
-    useState<ReceiptMerchant | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch orders
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchOrders = () => {
       if (!isAuthenticated || !merchantContext?.merchant?.slug) {
         setIsLoading(false);
         return;
       }
 
-      try {
-        const res = await fetch(
-          `/api/storefront/orders?merchantSlug=${encodeURIComponent(merchantContext.merchant.slug)}`
-        );
-        const data = await res.json();
-
-        if (data.orders) {
-          const customerName = customer
-            ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() ||
-              'Customer'
-            : 'Customer';
-
-          const mapped: ReceiptListItem[] = data.orders.map(
-            (order: Record<string, unknown>) => {
-              const items = (order.items as Array<Record<string, unknown>>) ?? [];
-              const currency = (order.currency as string) || 'NGN';
-              const total = Number(order.total) || 0;
-              const amountPaid = Number(order.amount_paid ?? total);
-              const paymentStatus =
-                (order.payment_status as string) || 'unpaid';
-
-              const formatCurrency = (val: number) =>
-                new Intl.NumberFormat('en-NG', {
-                  style: 'currency',
-                  currency,
-                  minimumFractionDigits: 0,
-                }).format(val);
-
-              const rawOrder: ReceiptOrder = {
-                order_number:
-                  (order.order_number as string) ||
-                  String(order.id).slice(0, 8).toUpperCase(),
-                created_at: order.created_at as string,
-                currency,
-                total,
-                subtotal: Number(order.subtotal ?? total),
-                shipping_fee: Number(order.shipping_fee ?? 0),
-                tax_amount: Number(order.tax_amount ?? 0),
-                discount_amount: Number(order.discount_amount ?? 0),
-                amount_paid: amountPaid,
-                balance: Number(order.balance ?? total - amountPaid),
-                payment_status: paymentStatus,
-                payment_method: (order.payment_method as string) ?? null,
-                is_credit_order: (order.is_credit_order as boolean) ?? false,
-                customer_name: customerName,
-                customer_email: customer?.email || '',
-                customer_phone: (customer?.phone as string) ?? null,
-                shipping_address:
-                  (order.shipping_address as ReceiptOrder['shipping_address']) ??
-                  null,
-                virtual_account: (order.virtual_account as ReceiptOrder['virtual_account']) ?? null,
-                fulfillment_details: (order.fulfillment_details as ReceiptOrder['fulfillment_details']) ?? null,
-                items: items.map((item) => ({
-                  product_name:
-                    (item.product_name as string) ||
-                    (item.name as string) ||
-                    'Product',
-                  quantity: Number(item.quantity) || 1,
-                  price: Number(item.price) || 0,
-                })),
-              };
-
-              const statusLabel =
-                paymentStatus === 'paid'
-                  ? 'Paid'
-                  : paymentStatus === 'partially_paid'
-                    ? 'Partially Paid'
-                    : 'Unpaid';
-
-              return {
-                id: order.id as string,
-                order_number: rawOrder.order_number,
-                date: new Date(order.created_at as string).toLocaleDateString(),
-                total: formatCurrency(total),
-                status: statusLabel,
-                paymentStatus: paymentStatus as ReceiptListItem['paymentStatus'],
-                balance: formatCurrency(Math.max(0, total - amountPaid)),
-                firstProductName:
-                  (items[0]?.product_name as string) ||
-                  (items[0]?.name as string) ||
-                  'Unknown item',
-                firstProductImage:
-                  (items[0]?.product_image as string) ||
-                  (items[0]?.image as string) ||
-                  '/placeholder.png',
-                rawOrder,
-              } satisfies ReceiptListItem;
-            }
-          );
-
-          setReceipts(mapped);
-        }
-      } catch (err) {
-        console.error('Failed to fetch receipts', err);
-      } finally {
-        setIsLoading(false);
-      }
+      fetchReceiptListItems(merchantContext.merchant.slug, customer)
+        .then((mapped) => {
+          if (mapped) {
+            setReceipts(mapped);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch receipts', err);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
     };
 
     fetchOrders();
   }, [isAuthenticated, merchantContext?.merchant?.slug, customer]);
 
-  // Build merchant receipt data from context
-  useEffect(() => {
-    const m = merchantContext?.merchant;
-    if (!m) return;
-
-    setMerchantReceiptData({
-      business_name: m.business_name || null,
-      logo_url: m.logo_url || null,
-      email: m.email || '',
-      phone: m.phone || null,
-      support_email: m.support_email || null,
-      support_phone: m.support_phone || null,
-      business_address: m.business_address || null,
-      cac_rc_number: null,
-      tax_identification_number: null,
-      legal_entity_name: null,
-      brand_colors: m.brand_colors,
-      vat_registration_status: m.vat_registration_status || null,
-      vat_rate: m.vat_rate ?? null,
-      bank_code: null,
-      bank_account_number: null,
-      bank_name: null,
-      bank_account_name: null,
-      social_media: m.social_media,
-      pages: m.pages,
-    });
-  }, [merchantContext?.merchant]);
+  // Derive merchant receipt data from context during render
+  const m = merchantContext?.merchant;
+  const merchantReceiptData: ReceiptMerchant | null = m
+    ? {
+        business_name: m.business_name || null,
+        logo_url: m.logo_url || null,
+        email: m.email || '',
+        phone: m.phone || null,
+        support_email: m.support_email || null,
+        support_phone: m.support_phone || null,
+        business_address: m.business_address || null,
+        cac_rc_number: null,
+        tax_identification_number: null,
+        legal_entity_name: null,
+        brand_colors: m.brand_colors,
+        vat_registration_status: m.vat_registration_status || null,
+        vat_rate: m.vat_rate ?? null,
+        bank_code: null,
+        bank_account_number: null,
+        bank_name: null,
+        bank_account_name: null,
+        social_media: m.social_media,
+        pages: m.pages,
+      }
+    : null;
 
   const filteredReceipts = receipts.filter((receipt) => {
     const query = searchQuery.toLowerCase();

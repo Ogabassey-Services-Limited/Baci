@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
+import { type ComponentType, Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { getTemplate } from '@/templates/registry';
+import { getTemplate, type TemplatePageProps } from '@/templates/registry';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -98,21 +98,15 @@ async function DeleteAccountContent({ params }: PageProps) {
 
   // Resolve template component server-side for SEO (H1 in SSR HTML)
   const templateId = merchant.template_id;
+  let DeleteAccountComponent: ComponentType<TemplatePageProps> | null = null;
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
     if (template) {
+      // try/catch only guards the async component load; the JSX itself is
+      // constructed outside so render errors flow to the route error boundary.
       try {
         const components = await template.getComponents();
-        if (components.DeleteAccount) {
-          const DeleteAccountComponent = components.DeleteAccount;
-          return (
-            <DeleteAccountComponent
-              merchant={toTemplateMerchantData(merchant)}
-              storeSlug={merchant.slug}
-              isPreview={false}
-            />
-          );
-        }
+        DeleteAccountComponent = components.DeleteAccount ?? null;
       } catch (error) {
         console.error(
           'Failed to load DeleteAccount component for template',
@@ -122,6 +116,16 @@ async function DeleteAccountContent({ params }: PageProps) {
         );
       }
     }
+  }
+
+  if (DeleteAccountComponent) {
+    return (
+      <DeleteAccountComponent
+        merchant={toTemplateMerchantData(merchant)}
+        storeSlug={merchant.slug}
+        isPreview={false}
+      />
+    );
   }
 
   // Fallback: inline content

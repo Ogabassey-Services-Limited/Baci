@@ -22,9 +22,19 @@ export function useDeferredActivation({
 }: Omit<DeferredShellFeatureProps, 'children'>) {
   const [isActivated, setIsActivated] = useState(false);
 
-  useEffect(() => {
+  // Reset activation inline during render when the feature gets disabled, so
+  // a disabled feature never paints a stale activated frame.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevEnabled, setPrevEnabled] = useState(enabled);
+  if (enabled !== prevEnabled) {
+    setPrevEnabled(enabled);
     if (!enabled) {
       setIsActivated(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!enabled) {
       return;
     }
 

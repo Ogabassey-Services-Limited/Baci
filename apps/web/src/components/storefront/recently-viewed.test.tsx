@@ -86,6 +86,8 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 }));
 
 vi.mock('@/hooks/use-recently-viewed', () => ({
+  // Mirrors the hook state: both read the same localStorage in production.
+  getRecentlyViewedIds: () => recentlyViewedIdsState.value,
   useRecentlyViewed: () => ({
     recentlyViewedIds: recentlyViewedIdsState.value,
   }),
