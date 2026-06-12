@@ -769,6 +769,9 @@ export default function OrdersScreen() {
       });
     });
   });
+  const stickyHeaderIndices = flatListData
+    .map((item, index) => (item.type === 'header' ? index : null))
+    .filter((index): index is number => index !== null);
 
   const renderFlatListItem = ({ item }: { item: OrdersListRow }) => {
     if (item.type === 'header') {
@@ -1164,6 +1167,7 @@ export default function OrdersScreen() {
         data={flatListData}
         renderItem={renderFlatListItem}
         getItemType={(item) => item.type}
+        stickyHeaderIndices={stickyHeaderIndices}
         ItemSeparatorComponent={() => <View style={{ height: SPACING.md }} />}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}

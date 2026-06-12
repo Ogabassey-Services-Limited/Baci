@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { groupOrdersByRelativeDate } from '@/utils/date-utils';
 import type { Order } from '@/hooks/useOrders';
+import { groupOrdersByRelativeDate } from '@/utils/date-utils';
 
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   useAiInsights: vi.fn(),
   mutateAsync: vi.fn(),
   push: vi.fn(),
+  flashListProps: [] as Array<{ stickyHeaderIndices?: number[] }>,
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -215,7 +216,9 @@ vi.mock('@shopify/flash-list', async () => {
       keyExtractor,
       ListEmptyComponent,
       ListFooterComponent,
+      stickyHeaderIndices,
     }: any) => {
+      mocks.flashListProps.push({ stickyHeaderIndices });
       const renderMaybeComponent = (ComponentOrNode: any) => {
         if (!ComponentOrNode) return null;
         return typeof ComponentOrNode === 'function'
@@ -246,6 +249,7 @@ import OrdersScreen from '../../../app/(admin)/(tabs)/orders';
 describe('OrdersScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.flashListProps.length = 0;
     mocks.useMerchant.mockReturnValue({
       storeUrl: 'ogabassey.com',
       merchant: {
@@ -473,6 +477,9 @@ describe('OrdersScreen', () => {
     expect(screen.getByText('ORD-1002')).toBeTruthy();
     expect(screen.getByText('John Doe')).toBeTruthy();
     expect(screen.getByText('Jane Smith')).toBeTruthy();
+    expect(
+      mocks.flashListProps[mocks.flashListProps.length - 1]?.stickyHeaderIndices
+    ).toEqual([0, 2]);
   });
 
   it('renders pagination footer when isFetchingNextPage is true', () => {
