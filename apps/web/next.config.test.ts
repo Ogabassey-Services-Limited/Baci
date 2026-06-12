@@ -115,16 +115,54 @@ describe('next.config OgaBassey resource headers', () => {
     expect(ogabasseyLinkHeader).toContain('</auth.md>; rel="service-doc"');
   });
 
-  it('does not add static same-origin product image preload headers from next.config', async () => {
+  it('adds parameterized early PDP LCP image preload headers on canonical OgaBassey product paths', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     expect(headers).toBeDefined();
 
-    expect(
-      headers.some((entry) =>
-        entry.headers.some((header) => header.value.includes('pdp-lcp-image'))
-      )
-    ).toBe(false);
+    const pdpHeaderRule = headers.find(
+      (entry) =>
+        entry.source.includes('gaming-laptops') &&
+        entry.source.endsWith('/:productSlug') &&
+        JSON.stringify(entry.has) ===
+          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+    );
+    expect(pdpHeaderRule).toBeDefined();
+    const linkHeader = pdpHeaderRule?.headers.find(
+      (header) => header.key === 'Link'
+    )?.value;
+
+    expect(linkHeader).toContain(
+      '</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767px)"'
+    );
+    expect(linkHeader).toContain(
+      '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"'
+    );
+    expect(linkHeader).toContain(
+      '</.well-known/api-catalog>; rel="api-catalog"'
+    );
+  });
+
+  it('keeps PDP LCP image preload headers off generic OgaBassey routes', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
+
+    const ogabasseyGenericHeaderRule = headers.find(
+      (entry) =>
+        entry.source === '/(.*)' &&
+        JSON.stringify(entry.has) ===
+          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+    );
+    expect(ogabasseyGenericHeaderRule).toBeDefined();
+    const linkHeader = ogabasseyGenericHeaderRule?.headers.find(
+      (header) => header.key === 'Link'
+    )?.value;
+
+    expect(linkHeader).toContain(
+      '</.well-known/api-catalog>; rel="api-catalog"'
+    );
+    expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
   });
 
   it('rewrites agent-readable homepage and robots probes to machine endpoints', async () => {
