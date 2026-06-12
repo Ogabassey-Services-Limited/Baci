@@ -22,6 +22,33 @@ interface ReceiptPreviewModalProps {
   isPaid: boolean;
 }
 
+// Module-scope helper: dynamic import expressions and try/catch are not yet
+// supported by React Compiler inside component bodies. Never rejects.
+const shareReceiptPdf = async (html: string, isPaid: boolean) => {
+  try {
+    // Dynamic import: avoids crash if native modules aren't linked yet
+    // (requires dev client rebuild after adding expo-print/expo-sharing)
+    const Print = await import('expo-print');
+    const Sharing = await import('expo-sharing');
+
+    const { uri } = await Print.printToFileAsync({ html });
+    await Sharing.shareAsync(uri, {
+      mimeType: 'application/pdf',
+      dialogTitle: isPaid ? 'Share Receipt' : 'Share Invoice',
+      UTI: 'com.adobe.pdf',
+    });
+  } catch (err) {
+    // User cancelled the share dialog — not an error
+    if (
+      err instanceof Error &&
+      !err.message.includes('cancelled') &&
+      !err.message.includes('canceled')
+    ) {
+      Alert.alert('Share Failed', 'Could not generate PDF. Please try again.');
+    }
+  }
+};
+
 export function ReceiptPreviewModal({
   visible,
   html,
@@ -36,34 +63,8 @@ export function ReceiptPreviewModal({
   const handleShare = async () => {
     if (!html || isSharing) return;
     setIsSharing(true);
-
-    try {
-      // Dynamic import: avoids crash if native modules aren't linked yet
-      // (requires dev client rebuild after adding expo-print/expo-sharing)
-      const Print = await import('expo-print');
-      const Sharing = await import('expo-sharing');
-
-      const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, {
-        mimeType: 'application/pdf',
-        dialogTitle: isPaid ? 'Share Receipt' : 'Share Invoice',
-        UTI: 'com.adobe.pdf',
-      });
-    } catch (err) {
-      // User cancelled the share dialog — not an error
-      if (
-        err instanceof Error &&
-        !err.message.includes('cancelled') &&
-        !err.message.includes('canceled')
-      ) {
-        Alert.alert(
-          'Share Failed',
-          'Could not generate PDF. Please try again.'
-        );
-      }
-    } finally {
-      setIsSharing(false);
-    }
+    await shareReceiptPdf(html, isPaid);
+    setIsSharing(false);
   };
 
   return (

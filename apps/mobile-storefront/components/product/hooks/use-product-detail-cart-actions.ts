@@ -1,12 +1,12 @@
+import { useEffect, useRef, useState } from 'react';
 import type { GestureResponderEvent } from 'react-native';
 import { Alert, Dimensions } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useHaptics } from '@/hooks/use-haptics';
 import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import { trackProductRouteAddToCart } from '@/services/tiktok-product-route-tracking';
 import type { useProductDetailCartState } from './use-product-detail-cart-state';
 import type { useProductDetailPurchaseState } from './use-product-detail-purchase-state';
 import type { useProductDetailRouteData } from './use-product-detail-route-data';
-import { useHaptics } from '@/hooks/use-haptics';
 
 type CartState = ReturnType<typeof useProductDetailCartState>;
 type PurchaseState = ReturnType<typeof useProductDetailPurchaseState>;
@@ -29,9 +29,15 @@ export function useProductDetailCartActions(
     new Map()
   );
 
-  useEffect(() => {
+  // Sync the editable quantity field during render when the cart quantity
+  // changes (prev-compare pattern; avoids a stale frame from an effect).
+  const [prevQuantityInCart, setPrevQuantityInCart] = useState(
+    cartState.quantityInCart
+  );
+  if (cartState.quantityInCart !== prevQuantityInCart) {
+    setPrevQuantityInCart(cartState.quantityInCart);
     setLocalQty(cartState.quantityInCart.toString());
-  }, [cartState.quantityInCart]);
+  }
 
   useEffect(
     () => () => {

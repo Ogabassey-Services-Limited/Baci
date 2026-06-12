@@ -1,5 +1,5 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Redirect, router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { type Resolver, useForm } from 'react-hook-form';
@@ -40,26 +40,29 @@ export default function ProfileEditScreen() {
     },
   });
 
-  const onSubmit = async (data: ProfileFormData) => {
+  // Promise chain instead of try/finally: a `finally` clause in the component
+  // body makes React Compiler bail out of memoizing this screen.
+  const onSubmit = (data: ProfileFormData) => {
     setIsSubmitting(true);
-    try {
-      const result = await updateProfile({
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone: data.phone || undefined,
+    return updateProfile({
+      first_name: data.first_name,
+      last_name: data.last_name,
+      phone: data.phone || undefined,
+    })
+      .then((result) => {
+        if (result.success) {
+          toast.success('Profile updated successfully');
+          router.back();
+        } else {
+          toast.error(result.error || 'Failed to update profile');
+        }
+      })
+      .catch(() => {
+        toast.error('Something went wrong. Please try again.');
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
-
-      if (result.success) {
-        toast.success('Profile updated successfully');
-        router.back();
-      } else {
-        toast.error(result.error || 'Failed to update profile');
-      }
-    } catch (_error) {
-      toast.error('Something went wrong. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   if (redirectTo) {

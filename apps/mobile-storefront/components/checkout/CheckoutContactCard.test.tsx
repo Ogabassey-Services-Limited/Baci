@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { type FieldErrors, useForm } from 'react-hook-form';
+import { type FieldErrors, useForm, useWatch } from 'react-hook-form';
 import { Text as MockText, TextInput as MockTextInput } from 'react-native';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { CheckoutContactCard } from './CheckoutContactCard';
@@ -74,6 +74,10 @@ function CheckoutContactCardHarness({
   const form = useForm<ShippingAddressInput>({
     defaultValues: defaultAddress,
   });
+  // useWatch instead of watch(): watch() is incompatible with React Compiler
+  // memoization (interior mutability).
+  const email = useWatch({ control: form.control, name: 'email' });
+  const phone = useWatch({ control: form.control, name: 'phone' });
 
   return (
     <CheckoutContactCard
@@ -81,7 +85,7 @@ function CheckoutContactCardHarness({
       colors={mockColors}
       contactSummary={contactSummary}
       control={form.control}
-      email={form.watch('email')}
+      email={email}
       errors={errors}
       hasContactIdentity={hasContactIdentity}
       isAuthenticated={isAuthenticated}
@@ -90,7 +94,7 @@ function CheckoutContactCardHarness({
       onChangeAccountPassword={onChangeAccountPassword}
       onToggleCollapsed={onToggleCollapsed}
       onToggleSaveDetails={onToggleSaveDetails}
-      phone={form.watch('phone')}
+      phone={phone}
       saveDetails={saveDetails}
     />
   );

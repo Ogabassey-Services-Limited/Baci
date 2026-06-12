@@ -3,7 +3,23 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import type { BillFormProps } from './bill-form.types';
 
-const mockVerifyMutate = jest.fn();
+type VerifySuccessData = {
+  verified: boolean;
+  customerName?: string;
+  message: string;
+};
+type VerifyMutateOptions = {
+  onSuccess?: (data: VerifySuccessData) => void;
+};
+
+// The controller reacts to verification via the mutation's per-call
+// onSuccess callback, so the mock captures it for tests to invoke.
+let lastVerifyMutateOptions: VerifyMutateOptions | undefined;
+const mockVerifyMutate = jest.fn(
+  (_variables: unknown, options?: VerifyMutateOptions) => {
+    lastVerifyMutateOptions = options;
+  }
+);
 const mockVerifyReset = jest.fn();
 
 let mockVerifyData:
@@ -123,9 +139,16 @@ async function importController() {
   return useBillFormController;
 }
 
+function triggerVerifySuccess(data: VerifySuccessData) {
+  act(() => {
+    lastVerifyMutateOptions?.onSuccess?.(data);
+  });
+}
+
 describe('useBillFormController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    lastVerifyMutateOptions = undefined;
     mockVerifyData = undefined;
     mockVerifyIsPending = false;
     mockAuthCustomer = null;
@@ -159,7 +182,7 @@ describe('useBillFormController', () => {
   it('sets verifiedCustomerName from live verify response when customerName is provided', async () => {
     const useBillFormController = await importController();
 
-    const { result, rerender } = renderHook(() =>
+    const { result } = renderHook(() =>
       useBillFormController(
         makeProps({
           initialBillerName: 'EKEDC NG',
@@ -179,9 +202,12 @@ describe('useBillFormController', () => {
       result.current.handleVerify();
     });
 
-    // Simulate the verify mutation returning a successful result with a name
-    mockVerifyData = { verified: true, customerName: 'LIVE METER OWNER' };
-    rerender({});
+    // Simulate the verify mutation resolving successfully with a name
+    triggerVerifySuccess({
+      customerName: 'LIVE METER OWNER',
+      message: 'ok',
+      verified: true,
+    });
 
     expect(result.current.verifiedCustomerName).toBe('LIVE METER OWNER');
   });
@@ -189,7 +215,7 @@ describe('useBillFormController', () => {
   it('clears verifiedCustomerName when live verify returns verified=true but no customerName', async () => {
     const useBillFormController = await importController();
 
-    const { result, rerender } = renderHook(() =>
+    const { result } = renderHook(() =>
       useBillFormController(
         makeProps({
           initialBillerName: 'EKEDC NG',
@@ -212,8 +238,7 @@ describe('useBillFormController', () => {
     });
 
     // Verify succeeds but returns no name — stale name should be cleared
-    mockVerifyData = { verified: true, customerName: '' };
-    rerender({});
+    triggerVerifySuccess({ customerName: '', message: 'ok', verified: true });
 
     expect(result.current.verifiedCustomerName).toBeNull();
   });
@@ -295,7 +320,7 @@ describe('useBillFormController', () => {
   it('calls saveBeneficiary after successful verification with customerName', async () => {
     const useBillFormController = await importController();
 
-    const { result, rerender } = renderHook(() =>
+    const { result } = renderHook(() =>
       useBillFormController(
         makeProps({
           initialBillerName: 'EKEDC NG',
@@ -316,8 +341,11 @@ describe('useBillFormController', () => {
     });
 
     // Simulate verify returning a successful result
-    mockVerifyData = { verified: true, customerName: 'VERIFIED OWNER' };
-    rerender({});
+    triggerVerifySuccess({
+      customerName: 'VERIFIED OWNER',
+      message: 'ok',
+      verified: true,
+    });
 
     await waitFor(() => {
       // Signature: saveBeneficiary(authenticatedCustomerId, input)

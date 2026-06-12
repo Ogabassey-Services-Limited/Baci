@@ -35,7 +35,21 @@ jest.mock('react-native-reanimated', () => {
     View,
     cancelAnimation: jest.fn(),
     useAnimatedStyle: (updater: () => object) => updater(),
-    useSharedValue: (value: number) => ({ value }),
+    useSharedValue: (initialValue: number) => {
+      let value = initialValue;
+      return {
+        get value() {
+          return value;
+        },
+        set value(nextValue: number) {
+          value = nextValue;
+        },
+        get: () => value,
+        set: (nextValue: number) => {
+          value = nextValue;
+        },
+      };
+    },
     withRepeat: (value: number) => value,
     withTiming: (value: number) => value,
   };

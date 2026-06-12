@@ -143,7 +143,6 @@ describe('useDvaPayment', () => {
         body: JSON.stringify({
           merchant_id: 'merchant-123',
           order_id: 'order-123',
-          amount: 50000,
           currency: 'NGN',
           customer_email: 'test@example.com',
           customer_name: 'John Doe',

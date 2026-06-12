@@ -77,6 +77,15 @@ export default function UtilityPurchaseScreen() {
   const [selectedType, setSelectedType] = useState<ValidUtilityType | null>(
     routeType
   );
+  const [prevRouteType, setPrevRouteType] = useState(routeType);
+  if (routeType !== prevRouteType) {
+    // Adjust state inline during render with a prev-prop comparison instead
+    // of an effect, so users never see a stale-type frame between commits.
+    setPrevRouteType(routeType);
+    if (routeType) {
+      setSelectedType(routeType);
+    }
+  }
   const [visitedTypes, setVisitedTypes] = useState<
     Record<ValidUtilityType, boolean>
   >(() => ({
@@ -87,6 +96,13 @@ export default function UtilityPurchaseScreen() {
     gaming: routeType === 'gaming',
   }));
   const currentType = selectedType ?? routeType;
+  if (currentType && !visitedTypes[currentType]) {
+    // Guarded render-time adjustment (converges in one extra render pass);
+    // an effect here would commit a frame before the visited tab mounts.
+    setVisitedTypes((prev) =>
+      prev[currentType] ? prev : { ...prev, [currentType]: true }
+    );
+  }
   const historyFilter = currentType ?? 'airtime';
   const title = currentType ? UTILITY_TYPE_TITLES[currentType] : 'Utility';
   const quickRepeat = useQuickRepeat({
@@ -108,7 +124,7 @@ export default function UtilityPurchaseScreen() {
   const pageScrollHandler = useEvent(
     (event: { position: number; offset: number }) => {
       'worklet';
-      activeIndex.value = event.position + event.offset;
+      activeIndex.set(event.position + event.offset);
     },
     ['onPageScroll']
   );
@@ -121,19 +137,11 @@ export default function UtilityPurchaseScreen() {
     }
   };
 
-  useEffect(() => {
-    if (currentType) {
-      setVisitedTypes((prev) =>
-        prev[currentType] ? prev : { ...prev, [currentType]: true }
-      );
-    }
-  }, [currentType]);
-
+  // State syncing happens during render above; this effect only keeps the
+  // imperative pager position in step with the route param.
   useEffect(() => {
     if (routeType) {
-      setSelectedType(routeType);
-      const nextIndex = UTILITY_TYPE_INDEXES[routeType];
-      pagerRef.current?.setPage(nextIndex);
+      pagerRef.current?.setPage(UTILITY_TYPE_INDEXES[routeType]);
     }
   }, [routeType]);
 

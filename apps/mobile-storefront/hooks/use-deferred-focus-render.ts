@@ -15,10 +15,18 @@ export function useDeferredFocusRender(
   delayMs = DEFAULT_FOCUS_RENDER_DELAY_MS
 ) {
   const [shouldRender, setShouldRender] = useState(false);
+  const [prevIsFocused, setPrevIsFocused] = useState(isFocused);
+  const [prevDelayMs, setPrevDelayMs] = useState(delayMs);
+
+  // Reset inline during render when the inputs change so consumers never see
+  // one stale frame (react.dev: "Adjusting some state when a prop changes").
+  if (isFocused !== prevIsFocused || delayMs !== prevDelayMs) {
+    setPrevIsFocused(isFocused);
+    setPrevDelayMs(delayMs);
+    setShouldRender(false);
+  }
 
   useEffect(() => {
-    setShouldRender(false);
-
     if (!isFocused) {
       return;
     }

@@ -64,13 +64,25 @@ export function UtilityPanel({
   });
   const promoWordProgress = useSharedValue(1);
 
-  useEffect(() => {
-    if (!isFocused) return;
-
-    setIsManualUtility(
-      selectedCategoryId ? selectedCategoryId !== defaultCategoryId : false
-    );
-  }, [isFocused, selectedCategoryId, defaultCategoryId]);
+  // Re-sync manual mode during render (instead of an effect) so users never
+  // see a stale frame between the prop change and the adjustment.
+  const [prevSync, setPrevSync] = useState({
+    defaultCategoryId,
+    isFocused,
+    selectedCategoryId,
+  });
+  if (
+    prevSync.isFocused !== isFocused ||
+    prevSync.selectedCategoryId !== selectedCategoryId ||
+    prevSync.defaultCategoryId !== defaultCategoryId
+  ) {
+    setPrevSync({ defaultCategoryId, isFocused, selectedCategoryId });
+    if (isFocused) {
+      setIsManualUtility(
+        selectedCategoryId ? selectedCategoryId !== defaultCategoryId : false
+      );
+    }
+  }
 
   const animatedPromoStyle = useAnimatedStyle(() => {
     const translateY = (1 - promoWordProgress.value) * 4;
@@ -99,7 +111,7 @@ export function UtilityPanel({
     if (selectedCategoryId) {
       const idx = CATEGORY_IDS.indexOf(selectedCategoryId);
       if (idx !== -1) {
-        activeIndexVal.value = withSpring(idx, { damping: 16, stiffness: 150 });
+        activeIndexVal.set(withSpring(idx, { damping: 16, stiffness: 150 }));
       }
     }
   }, [selectedCategoryId, activeIndexVal]);
@@ -111,12 +123,12 @@ export function UtilityPanel({
     if (isManualUtility) return;
 
     const interval = setInterval(() => {
-      const currentVal = Math.round(activeIndexVal.value);
+      const currentVal = Math.round(activeIndexVal.get());
       const next = (currentVal + 1) % UTILITY_WORDS.length;
       if (next === 0) {
-        activeIndexVal.value = 0; // Instant jump back to 0, no backward sweep!
+        activeIndexVal.set(0); // Instant jump back to 0, no backward sweep!
       } else {
-        activeIndexVal.value = withTiming(next, { duration: 300 });
+        activeIndexVal.set(withTiming(next, { duration: 300 }));
       }
     }, 2800); // Slightly slower for better readability
 
@@ -125,16 +137,18 @@ export function UtilityPanel({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeUtilityIndex intentionally restarts the promo text transition when the selected utility changes.
   useEffect(() => {
-    promoWordProgress.value = 0;
-    promoWordProgress.value = withTiming(1, {
-      duration: 260,
-    });
+    promoWordProgress.set(0);
+    promoWordProgress.set(
+      withTiming(1, {
+        duration: 260,
+      })
+    );
   }, [activeUtilityIndex, promoWordProgress]);
 
   const handlePress = (id: string, index: number) => {
     setIsManualUtility(true);
     setActiveUtilityIndex(index);
-    activeIndexVal.value = withSpring(index, { damping: 16, stiffness: 150 });
+    activeIndexVal.set(withSpring(index, { damping: 16, stiffness: 150 }));
     onCategorySelect(id);
   };
 
