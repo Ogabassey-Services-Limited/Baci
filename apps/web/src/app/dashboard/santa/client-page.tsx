@@ -25,19 +25,21 @@ export default function SantaClientPage() {
 
     const merchantId = merchant.id; // Capture for closure
 
-    async function fetchData() {
-      try {
-        const [fetchedStats, fetchedInteractions] = await Promise.all([
-          getSantaStats(merchantId),
-          getRecentInteractions(merchantId),
-        ]);
-        setStats(fetchedStats);
-        setInteractions(fetchedInteractions);
-      } catch (error) {
-        console.error('Failed to load Santa data', error);
-      } finally {
-        setLoading(false);
-      }
+    function fetchData() {
+      Promise.all([
+        getSantaStats(merchantId),
+        getRecentInteractions(merchantId),
+      ])
+        .then(([fetchedStats, fetchedInteractions]) => {
+          setStats(fetchedStats);
+          setInteractions(fetchedInteractions);
+        })
+        .catch((error: unknown) => {
+          console.error('Failed to load Santa data', error);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
 
     fetchData();

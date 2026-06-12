@@ -26,32 +26,33 @@ export function ApplyTemplateButton({
     e.stopPropagation();
     setIsActivating(true);
 
-    try {
-      await updateMerchant({ template_id: templateId });
+    await updateMerchant({ template_id: templateId })
+      .then(async () => {
+        router.refresh(); // Invalidate server cache to ensure storefront updates
 
-      router.refresh(); // Invalidate server cache to ensure storefront updates
+        toast({
+          title: 'Template Applied!',
+          description: 'Your store is now using this new template.',
+        });
 
-      toast({
-        title: 'Template Applied!',
-        description: 'Your store is now using this new template.',
+        // Brief delay to ensure toast is visible before navigation
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        router.push('/dashboard/settings');
+      })
+      .catch((error) => {
+        console.error('Template apply error:', error);
+        toast({
+          title: 'Failed to Apply',
+          description:
+            error instanceof Error
+              ? error.message
+              : 'Could not apply template. Please try again.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsActivating(false);
       });
-
-      // Brief delay to ensure toast is visible before navigation
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      router.push('/dashboard/settings');
-    } catch (error) {
-      console.error('Template apply error:', error);
-      toast({
-        title: 'Failed to Apply',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Could not apply template. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsActivating(false);
-    }
   };
 
   return (

@@ -49,6 +49,30 @@ const DEFAULT_SETTINGS: VTUSettings = {
   vtu_merchant_commission_rate: 0.5,
 };
 
+async function fetchVtuSettings(): Promise<VTUSettings | null> {
+  try {
+    const response = await fetch('/api/merchant/features');
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    return {
+      vtu_enabled: data.vtu_enabled ?? false,
+      vtu_airtime_enabled: data.vtu_airtime_enabled ?? true,
+      vtu_data_enabled: data.vtu_data_enabled ?? true,
+      vtu_checkout_addon_enabled: data.vtu_checkout_addon_enabled ?? false,
+      vtu_checkout_addon_amounts: data.vtu_checkout_addon_amounts || [
+        100, 200, 500, 1000,
+      ],
+      vtu_loyalty_reward_enabled: data.vtu_loyalty_reward_enabled ?? false,
+      vtu_merchant_commission_rate: data.vtu_merchant_commission_rate ?? 0.5,
+    };
+  } catch (error) {
+    console.error('Failed to fetch VTU settings:', error);
+    return null;
+  }
+}
+
 export default function VTUSettingsPage() {
   const { toast } = useToast();
   const [settings, setSettings] = useState<VTUSettings>(DEFAULT_SETTINGS);
@@ -57,62 +81,43 @@ export default function VTUSettingsPage() {
   const [newAmount, setNewAmount] = useState('');
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await fetch('/api/merchant/features');
-        if (response.ok) {
-          const data = await response.json();
-          setSettings({
-            vtu_enabled: data.vtu_enabled ?? false,
-            vtu_airtime_enabled: data.vtu_airtime_enabled ?? true,
-            vtu_data_enabled: data.vtu_data_enabled ?? true,
-            vtu_checkout_addon_enabled:
-              data.vtu_checkout_addon_enabled ?? false,
-            vtu_checkout_addon_amounts: data.vtu_checkout_addon_amounts || [
-              100, 200, 500, 1000,
-            ],
-            vtu_loyalty_reward_enabled:
-              data.vtu_loyalty_reward_enabled ?? false,
-            vtu_merchant_commission_rate:
-              data.vtu_merchant_commission_rate ?? 0.5,
-          });
+    fetchVtuSettings()
+      .then((fetchedSettings) => {
+        if (fetchedSettings) {
+          setSettings(fetchedSettings);
         }
-      } catch (error) {
-        console.error('Failed to fetch VTU settings:', error);
-      } finally {
+      })
+      .finally(() => {
         setLoading(false);
-      }
-    };
-
-    fetchSettings();
+      });
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setSaving(true);
-    try {
-      const response = await fetch('/api/merchant/features', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-
-      if (response.ok) {
+    fetch('/api/merchant/features', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to save settings');
+        }
         toast({
           title: 'Settings Saved',
           description: 'VTU settings have been updated.',
         });
-      } else {
-        throw new Error('Failed to save settings');
-      }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to save VTU settings.',
+      })
+      .catch(() => {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to save VTU settings.',
+        });
+      })
+      .finally(() => {
+        setSaving(false);
       });
-    } finally {
-      setSaving(false);
-    }
   };
 
   const addAmount = () => {

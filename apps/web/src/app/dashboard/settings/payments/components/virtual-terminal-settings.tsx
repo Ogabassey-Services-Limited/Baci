@@ -11,7 +11,7 @@ import {
   User,
   Wallet,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -82,6 +82,144 @@ interface StaffAccountSettingsProps {
   staffMembers?: StaffMember[];
 }
 
+type ToastFn = ReturnType<typeof useToast>['toast'];
+
+// Module-scope helpers keep try/finally and throw-in-try out of the component
+// body so React Compiler can memoize the component.
+async function loadVirtualTerminalData(options: {
+  setAccounts: Dispatch<SetStateAction<StaffAccount[]>>;
+  setBranches: Dispatch<SetStateAction<Branch[]>>;
+  setLoading: Dispatch<SetStateAction<boolean>>;
+  toast: ToastFn;
+}): Promise<void> {
+  const { setAccounts, setBranches, setLoading, toast } = options;
+  try {
+    const [accountsRes, branchesRes] = await Promise.all([
+      fetch('/api/paystack/virtual-terminal'),
+      fetch('/api/branches'),
+    ]);
+
+    // Handle accounts response with user-facing error
+    if (accountsRes.ok) {
+      const data = await accountsRes.json();
+      setAccounts(data.terminals || []);
+    } else {
+      console.error('Failed to fetch accounts:', accountsRes.status);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to load accounts',
+        description: 'Unable to fetch staff accounts. Please refresh the page.',
+      });
+    }
+
+    // Handle branches response with user-facing error
+    if (branchesRes.ok) {
+      const data = await branchesRes.json();
+      setBranches(data.branches || []);
+    } else {
+      console.error('Failed to fetch branches:', branchesRes.status);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to load branches',
+        description: 'Unable to fetch branch data. Please refresh the page.',
+      });
+    }
+  } catch (error) {
+    console.error('Failed to fetch data:', error);
+    toast({
+      variant: 'destructive',
+      title: 'Connection error',
+      description:
+        'Unable to connect to the server. Please check your connection.',
+    });
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function submitNewAccount(options: {
+  body: {
+    name: string;
+    staffId?: string;
+    branchId?: string;
+    destinations: never[];
+  };
+  refresh: () => Promise<void>;
+  onSuccess: () => void;
+  setCreating: Dispatch<SetStateAction<boolean>>;
+  toast: ToastFn;
+}): Promise<void> {
+  const { body, refresh, onSuccess, setCreating, toast } = options;
+  setCreating(true);
+  try {
+    const response = await fetch('/api/paystack/virtual-terminal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (response.ok) {
+      await refresh();
+      onSuccess();
+      toast({
+        title: 'Staff Account Created',
+        description: 'New payment account is ready to receive payments.',
+      });
+    } else {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create account');
+    }
+  } catch (error: unknown) {
+    toast({
+      variant: 'destructive',
+      title: 'Error',
+      description:
+        error instanceof Error ? error.message : 'Failed to create account',
+    });
+  } finally {
+    setCreating(false);
+  }
+}
+
+async function submitNewBranch(options: {
+  body: { name: string; address?: string; city?: string; isDefault: boolean };
+  refresh: () => Promise<void>;
+  onSuccess: () => void;
+  setCreating: Dispatch<SetStateAction<boolean>>;
+  toast: ToastFn;
+}): Promise<void> {
+  const { body, refresh, onSuccess, setCreating, toast } = options;
+  setCreating(true);
+  try {
+    const response = await fetch('/api/branches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (response.ok) {
+      await refresh();
+      onSuccess();
+      toast({
+        title: 'Branch Created',
+        description: `${body.name} has been added.`,
+      });
+    } else {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create branch');
+    }
+  } catch (error: unknown) {
+    toast({
+      variant: 'destructive',
+      title: 'Error',
+      description:
+        error instanceof Error ? error.message : 'Failed to create branch',
+    });
+  } finally {
+    setCreating(false);
+  }
+}
+
 export function VirtualTerminalSettings({
   businessName,
   staffMembers = [],
@@ -104,51 +242,8 @@ export function VirtualTerminalSettings({
     city: '',
   });
 
-  const fetchData = async () => {
-    try {
-      const [accountsRes, branchesRes] = await Promise.all([
-        fetch('/api/paystack/virtual-terminal'),
-        fetch('/api/branches'),
-      ]);
-
-      // Handle accounts response with user-facing error
-      if (accountsRes.ok) {
-        const data = await accountsRes.json();
-        setAccounts(data.terminals || []);
-      } else {
-        console.error('Failed to fetch accounts:', accountsRes.status);
-        toast({
-          variant: 'destructive',
-          title: 'Failed to load accounts',
-          description:
-            'Unable to fetch staff accounts. Please refresh the page.',
-        });
-      }
-
-      // Handle branches response with user-facing error
-      if (branchesRes.ok) {
-        const data = await branchesRes.json();
-        setBranches(data.branches || []);
-      } else {
-        console.error('Failed to fetch branches:', branchesRes.status);
-        toast({
-          variant: 'destructive',
-          title: 'Failed to load branches',
-          description: 'Unable to fetch branch data. Please refresh the page.',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Connection error',
-        description:
-          'Unable to connect to the server. Please check your connection.',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchData = () =>
+    loadVirtualTerminalData({ setAccounts, setBranches, setLoading, toast });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
@@ -165,41 +260,21 @@ export function VirtualTerminalSettings({
       return;
     }
 
-    setCreating(true);
-    try {
-      const response = await fetch('/api/paystack/virtual-terminal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newAccount.name || `${businessName} Account`,
-          staffId: newAccount.staffId || undefined,
-          branchId: newAccount.branchId || undefined,
-          destinations: [],
-        }),
-      });
-
-      if (response.ok) {
-        await fetchData();
+    await submitNewAccount({
+      body: {
+        name: newAccount.name || `${businessName} Account`,
+        staffId: newAccount.staffId || undefined,
+        branchId: newAccount.branchId || undefined,
+        destinations: [],
+      },
+      refresh: fetchData,
+      onSuccess: () => {
         setDialogOpen(false);
         setNewAccount({ name: '', staffId: '', branchId: '' });
-        toast({
-          title: 'Staff Account Created',
-          description: 'New payment account is ready to receive payments.',
-        });
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create account');
-      }
-    } catch (error: unknown) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to create account',
-      });
-    } finally {
-      setCreating(false);
-    }
+      },
+      setCreating,
+      toast,
+    });
   };
 
   const handleCreateBranch = async () => {
@@ -212,42 +287,21 @@ export function VirtualTerminalSettings({
       return;
     }
 
-    setCreating(true);
-    try {
-      const response = await fetch('/api/branches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newBranch.name,
-          address: newBranch.address || undefined,
-          city: newBranch.city || undefined,
-          isDefault: branches.length === 0,
-        }),
-      });
-
-      if (response.ok) {
-        const createdBranchName = newBranch.name;
-        await fetchData();
+    await submitNewBranch({
+      body: {
+        name: newBranch.name,
+        address: newBranch.address || undefined,
+        city: newBranch.city || undefined,
+        isDefault: branches.length === 0,
+      },
+      refresh: fetchData,
+      onSuccess: () => {
         setBranchDialogOpen(false);
         setNewBranch({ name: '', address: '', city: '' });
-        toast({
-          title: 'Branch Created',
-          description: `${createdBranchName} has been added.`,
-        });
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create branch');
-      }
-    } catch (error: unknown) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to create branch',
-      });
-    } finally {
-      setCreating(false);
-    }
+      },
+      setCreating,
+      toast,
+    });
   };
 
   const copyToClipboard = async (text: string, label: string) => {

@@ -30,27 +30,27 @@ export default function NotificationPreferencesPage() {
     useState<NotificationPreferences | null>(null);
 
   useEffect(() => {
-    async function fetchPreferences() {
-      try {
-        const response = await fetch('/api/notifications/preferences');
+    fetch('/api/notifications/preferences')
+      .then((response) => {
         if (!response.ok) {
           throw new Error('Failed to fetch preferences');
         }
-        const data = await response.json();
+        return response.json() as Promise<NotificationPreferences>;
+      })
+      .then((data) => {
         setPreferences(data);
-      } catch (error) {
+      })
+      .catch((error: unknown) => {
         console.error('Error fetching preferences:', error);
         toast({
           title: 'Error',
           description: 'Failed to load notification preferences',
           variant: 'destructive',
         });
-      } finally {
+      })
+      .finally(() => {
         setIsLoading(false);
-      }
-    }
-
-    fetchPreferences();
+      });
   }, [toast]);
 
   const updatePreference = (updates: UpdatePreferencesInput) => {
@@ -58,40 +58,41 @@ export default function NotificationPreferencesPage() {
     setPreferences({ ...preferences, ...updates });
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!preferences) return;
 
     setIsSaving(true);
-    try {
-      const response = await fetch('/api/notifications/preferences', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          in_app_enabled: preferences.in_app_enabled,
-          banner_enabled: preferences.banner_enabled,
-          quiet_hours_start: preferences.quiet_hours_start,
-          quiet_hours_end: preferences.quiet_hours_end,
-        }),
-      });
+    fetch('/api/notifications/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        in_app_enabled: preferences.in_app_enabled,
+        banner_enabled: preferences.banner_enabled,
+        quiet_hours_start: preferences.quiet_hours_start,
+        quiet_hours_end: preferences.quiet_hours_end,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to save preferences');
+        }
 
-      if (!response.ok) {
-        throw new Error('Failed to save preferences');
-      }
-
-      toast({
-        title: 'Saved',
-        description: 'Your notification preferences have been updated',
+        toast({
+          title: 'Saved',
+          description: 'Your notification preferences have been updated',
+        });
+      })
+      .catch((error: unknown) => {
+        console.error('Error saving preferences:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to save notification preferences',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
-    } catch (error) {
-      console.error('Error saving preferences:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save notification preferences',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   if (isLoading) {

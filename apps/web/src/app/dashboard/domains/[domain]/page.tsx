@@ -12,7 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -75,6 +75,96 @@ interface Nameservers {
   ns2?: string;
 }
 
+type ToastFn = ReturnType<typeof useToast>['toast'];
+
+// Module-scope loaders: try/finally inside the component body bails React
+// Compiler out of memoizing the whole page.
+async function loadDnsRecords(
+  domain: string,
+  setDnsRecords: Dispatch<SetStateAction<DNSRecord[]>>,
+  setLoadingDns: Dispatch<SetStateAction<boolean>>
+) {
+  try {
+    setLoadingDns(true);
+    const res = await fetch(`/api/domains/${domain}/dns`);
+    const data = await res.json();
+    if (res.ok) setDnsRecords(data.records || []);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setLoadingDns(false);
+  }
+}
+
+async function loadEmailForwards(
+  domain: string,
+  setForwards: Dispatch<SetStateAction<EmailForward[]>>
+) {
+  try {
+    const res = await fetch(`/api/domains/${domain}/email-forwarding`);
+    const data = await res.json();
+    if (res.ok) setForwards(data.forwards || []);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadIdProtection(
+  domain: string,
+  setIdProtection: Dispatch<SetStateAction<boolean>>
+) {
+  try {
+    const res = await fetch(`/api/domains/${domain}/id-protection`);
+    const data = await res.json();
+    if (res.ok) setIdProtection(data.enabled);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+interface DomainDetailsContext {
+  domain: string;
+  toast: ToastFn;
+  setLoading: Dispatch<SetStateAction<boolean>>;
+  setDomainInfo: Dispatch<SetStateAction<DomainInfo | null>>;
+  setNameservers: Dispatch<SetStateAction<Nameservers | null>>;
+  setLockStatus: Dispatch<SetStateAction<boolean>>;
+  setDnsRecords: Dispatch<SetStateAction<DNSRecord[]>>;
+  setLoadingDns: Dispatch<SetStateAction<boolean>>;
+  setForwards: Dispatch<SetStateAction<EmailForward[]>>;
+  setIdProtection: Dispatch<SetStateAction<boolean>>;
+}
+
+async function loadDomainDetails(context: DomainDetailsContext) {
+  const { domain, toast, setLoading, setDomainInfo, setNameservers } = context;
+  try {
+    setLoading(true);
+    const response = await fetch(`/api/domains/${domain}`);
+    const data = await response.json();
+
+    if (response.ok) {
+      setDomainInfo(data.info);
+      setNameservers(data.nameservers);
+      context.setLockStatus(data.lock?.status === 'active');
+
+      // Also fetch initial tab data
+      loadDnsRecords(domain, context.setDnsRecords, context.setLoadingDns);
+      loadEmailForwards(domain, context.setForwards);
+      loadIdProtection(domain, context.setIdProtection);
+    } else {
+      toast({
+        title: 'Error',
+        description: data.error || 'Failed to load domain details',
+        variant: 'destructive',
+      });
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
+    setLoading(false);
+  }
+}
+
 export default function DomainDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -106,67 +196,19 @@ export default function DomainDetailsPage() {
   // ID Protection State
   const [idProtection, setIdProtection] = useState<boolean>(false);
 
-  const fetchDnsRecords = async () => {
-    try {
-      setLoadingDns(true);
-      const res = await fetch(`/api/domains/${domain}/dns`);
-      const data = await res.json();
-      if (res.ok) setDnsRecords(data.records || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingDns(false);
-    }
-  };
-
-  const fetchEmailForwards = async () => {
-    try {
-      const res = await fetch(`/api/domains/${domain}/email-forwarding`);
-      const data = await res.json();
-      if (res.ok) setForwards(data.forwards || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchIdProtection = async () => {
-    try {
-      const res = await fetch(`/api/domains/${domain}/id-protection`);
-      const data = await res.json();
-      if (res.ok) setIdProtection(data.enabled);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchDomainDetails = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/domains/${domain}`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setDomainInfo(data.info);
-        setNameservers(data.nameservers);
-        setLockStatus(data.lock?.status === 'active');
-
-        // Also fetch initial tab data
-        fetchDnsRecords();
-        fetchEmailForwards();
-        fetchIdProtection();
-      } else {
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to load domain details',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchDomainDetails = () =>
+    loadDomainDetails({
+      domain,
+      toast,
+      setLoading,
+      setDomainInfo,
+      setNameservers,
+      setLockStatus,
+      setDnsRecords,
+      setLoadingDns,
+      setForwards,
+      setIdProtection,
+    });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
@@ -176,26 +218,28 @@ export default function DomainDetailsPage() {
   // --- Actions ---
 
   const handleAddDnsRecord = async () => {
+    const updatedRecords = [...dnsRecords, newRecord];
+    let succeeded = false;
     try {
-      const updatedRecords = [...dnsRecords, newRecord];
       const res = await fetch(`/api/domains/${domain}/dns`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ records: updatedRecords }),
       });
-
-      if (res.ok) {
-        setDnsRecords(updatedRecords);
-        setIsAddRecordOpen(false);
-        setNewRecord({ type: 'A', name: '', value: '' });
-        toast({
-          title: 'Success',
-          description: 'DNS record added successfully',
-        });
-      } else {
-        throw new Error('Failed to add record');
-      }
+      succeeded = res.ok;
     } catch (_) {
+      succeeded = false;
+    }
+
+    if (succeeded) {
+      setDnsRecords(updatedRecords);
+      setIsAddRecordOpen(false);
+      setNewRecord({ type: 'A', name: '', value: '' });
+      toast({
+        title: 'Success',
+        description: 'DNS record added successfully',
+      });
+    } else {
       toast({
         title: 'Error',
         description: 'Failed to add DNS record',

@@ -47,7 +47,7 @@ export function FeedUrlSection({
   const { toast } = useToast();
   const [validating, setValidating] = useState(false);
 
-  const validateFeed = async () => {
+  const validateFeed = () => {
     // Security: Validate URL before fetching to prevent SSRF
     if (!isValidFeedUrl(feedUrl)) {
       toast({
@@ -59,34 +59,36 @@ export function FeedUrlSection({
     }
 
     setValidating(true);
-    try {
-      // nosemgrep: typescript.react.security.audit.react-ssrf.react-ssrf
-      // Safe: URL validated via isValidFeedUrl() - only allows same-origin or trusted domain (usebaci.com)
-      const response = await fetch(feedUrl);
-      if (response.ok) {
-        toast({
-          title: 'Feed is valid!',
-          description: `Your ${platform} product feed is working correctly`,
-        });
-      } else {
+    // nosemgrep: typescript.react.security.audit.react-ssrf.react-ssrf
+    // Safe: URL validated via isValidFeedUrl() - only allows same-origin or trusted domain (usebaci.com)
+    fetch(feedUrl)
+      .then((response) => {
+        if (response.ok) {
+          toast({
+            title: 'Feed is valid!',
+            description: `Your ${platform} product feed is working correctly`,
+          });
+        } else {
+          toast({
+            title: 'Feed validation failed',
+            description: 'There was an error fetching your product feed',
+            variant: 'destructive',
+          });
+        }
+      })
+      .catch((error: unknown) => {
         toast({
           title: 'Feed validation failed',
-          description: 'There was an error fetching your product feed',
+          description:
+            error instanceof Error
+              ? error.message
+              : 'Could not connect to your product feed',
           variant: 'destructive',
         });
-      }
-    } catch (error) {
-      toast({
-        title: 'Feed validation failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Could not connect to your product feed',
-        variant: 'destructive',
+      })
+      .finally(() => {
+        setValidating(false);
       });
-    } finally {
-      setValidating(false);
-    }
   };
 
   return (

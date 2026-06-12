@@ -27,6 +27,8 @@ import {
 
 const MAX_ROWS_CACHE_ENTRIES = 50;
 
+type RowsCache = Map<string, ImportJobRowsResponse>;
+
 interface UseMigrationJobRefreshInput {
   activeFilter: MigrationPreviewFilter;
   selectedJobIdRef: MutableRefObject<string | null>;
@@ -37,6 +39,228 @@ interface UseMigrationJobRefreshInput {
   setRowsLoading: Dispatch<SetStateAction<boolean>>;
   setRowsResponse: Dispatch<SetStateAction<ImportJobRowsResponse | null>>;
   setSelectedJob: Dispatch<SetStateAction<ImportJobDetail | null>>;
+}
+
+interface RefreshJobOptions {
+  background?: boolean;
+  filter?: MigrationPreviewFilter;
+  includeJob?: boolean;
+  includeRows?: boolean;
+  page?: number;
+}
+
+interface RunRefreshJobContext extends UseMigrationJobRefreshInput {
+  loadingRequestIdRef: MutableRefObject<number | null>;
+  refreshInFlightCountRef: MutableRefObject<number>;
+  refreshRequestIdRef: MutableRefObject<number>;
+  rowsCache: RowsCache;
+  rowsLoadingRequestIdRef: MutableRefObject<number | null>;
+}
+
+function getCachedRowsEntry(rowsCache: RowsCache, cacheKey: string) {
+  const cachedRows = rowsCache.get(cacheKey);
+  if (!cachedRows) {
+    return null;
+  }
+
+  rowsCache.delete(cacheKey);
+  rowsCache.set(cacheKey, cachedRows);
+  return cachedRows;
+}
+
+function setCachedRowsEntry(
+  rowsCache: RowsCache,
+  cacheKey: string,
+  rowsPayload: ImportJobRowsResponse
+) {
+  if (rowsCache.has(cacheKey)) {
+    rowsCache.delete(cacheKey);
+  }
+
+  rowsCache.set(cacheKey, rowsPayload);
+
+  while (rowsCache.size > MAX_ROWS_CACHE_ENTRIES) {
+    const oldestKey = rowsCache.keys().next().value;
+    if (!oldestKey) {
+      break;
+    }
+
+    rowsCache.delete(oldestKey);
+  }
+}
+
+async function prefetchRowsPage(
+  rowsCache: RowsCache,
+  jobId: string,
+  status: ImportJobDetail['status'],
+  filter: MigrationPreviewFilter,
+  page: number,
+  pageSize: number,
+  total: number
+) {
+  if (isMigrationStatusActive(status) || total <= page * pageSize) {
+    return;
+  }
+
+  const nextPage = page + 1;
+  const cacheKey = getMigrationRowsCacheKey(jobId, filter, nextPage);
+  if (rowsCache.has(cacheKey)) {
+    return;
+  }
+
+  try {
+    const rowsPayload = await fetchImportJobRows(jobId, nextPage, filter);
+    setCachedRowsEntry(rowsCache, cacheKey, rowsPayload);
+  } catch {
+    return;
+  }
+}
+
+async function runRefreshJob(
+  context: RunRefreshJobContext,
+  jobId: string,
+  options?: RefreshJobOptions
+): Promise<boolean> {
+  const {
+    activeFilter,
+    loadingRequestIdRef,
+    refreshInFlightCountRef,
+    refreshRequestIdRef,
+    rowsCache,
+    rowsLoadingRequestIdRef,
+    selectedJobIdRef,
+    selectedJobRef,
+    setError,
+    setJobs,
+    setLoading,
+    setRowsLoading,
+    setRowsResponse,
+    setSelectedJob,
+  } = context;
+
+  const page = options?.page || 1;
+  const background = options?.background ?? false;
+  const includeJob = options?.includeJob ?? true;
+  const includeRows = options?.includeRows ?? true;
+  const filter = options?.filter ?? activeFilter;
+  const requestId = ++refreshRequestIdRef.current;
+
+  if (!background && includeJob) {
+    loadingRequestIdRef.current = requestId;
+    setLoading(true);
+  }
+  if (!background && includeRows) {
+    rowsLoadingRequestIdRef.current = requestId;
+    setRowsLoading(true);
+  }
+  if (!background) {
+    setError(null);
+  }
+  refreshInFlightCountRef.current++;
+
+  try {
+    let nextJob =
+      selectedJobIdRef.current === jobId ? selectedJobRef.current : null;
+
+    if (includeJob) {
+      nextJob = await fetchImportJob(jobId);
+      if (requestId !== refreshRequestIdRef.current) {
+        return false;
+      }
+      setJobs((currentJobs) =>
+        mergeJobs(currentJobs, nextJob as ImportJobListItem)
+      );
+      if (selectedJobIdRef.current === jobId) {
+        setSelectedJob(nextJob);
+      }
+    }
+
+    if (
+      !nextJob ||
+      !canLoadMigrationRows(nextJob.status, nextJob.processed_rows)
+    ) {
+      if (
+        requestId === refreshRequestIdRef.current &&
+        selectedJobIdRef.current === jobId
+      ) {
+        setRowsResponse(null);
+      }
+      return true;
+    }
+
+    if (includeRows) {
+      const cacheKey = getMigrationRowsCacheKey(jobId, filter, page);
+      const canUseCache =
+        !background && !isMigrationStatusActive(nextJob.status);
+      const cachedRows = canUseCache
+        ? getCachedRowsEntry(rowsCache, cacheKey)
+        : null;
+
+      if (cachedRows) {
+        if (selectedJobIdRef.current === jobId) {
+          setRowsResponse(cachedRows);
+        }
+        return true;
+      }
+
+      const rowsPayload = await fetchImportJobRows(jobId, page, filter);
+      if (requestId !== refreshRequestIdRef.current) {
+        return false;
+      }
+      setCachedRowsEntry(rowsCache, cacheKey, rowsPayload);
+      if (selectedJobIdRef.current === jobId) {
+        setRowsResponse(rowsPayload);
+      }
+      void prefetchRowsPage(
+        rowsCache,
+        jobId,
+        nextJob.status,
+        filter,
+        page,
+        rowsPayload.pagination.pageSize,
+        rowsPayload.pagination.total
+      );
+    }
+    return true;
+  } catch (jobError) {
+    if (requestId !== refreshRequestIdRef.current) {
+      return false;
+    }
+
+    if (background) {
+      return false;
+    }
+
+    if (selectedJobIdRef.current === jobId || !selectedJobIdRef.current) {
+      setError(
+        jobError instanceof Error
+          ? jobError.message
+          : 'Failed to load import job'
+      );
+    }
+    return false;
+  } finally {
+    refreshInFlightCountRef.current = Math.max(
+      0,
+      refreshInFlightCountRef.current - 1
+    );
+    if (
+      !background &&
+      includeJob &&
+      loadingRequestIdRef.current === requestId
+    ) {
+      loadingRequestIdRef.current = null;
+      setLoading(false);
+    }
+    if (
+      !background &&
+      includeRows &&
+      rowsLoadingRequestIdRef.current === requestId
+    ) {
+      rowsLoadingRequestIdRef.current = null;
+      setRowsLoading(false);
+    }
+  }
 }
 
 export function useMigrationJobRefresh({
@@ -54,37 +278,7 @@ export function useMigrationJobRefresh({
   const refreshRequestIdRef = useRef(0);
   const refreshInFlightCountRef = useRef(0);
   const rowsLoadingRequestIdRef = useRef<number | null>(null);
-  const rowsCacheRef = useRef(new Map<string, ImportJobRowsResponse>());
-
-  const getCachedRowsEntry = useEffectEvent((cacheKey: string) => {
-    const cachedRows = rowsCacheRef.current.get(cacheKey);
-    if (!cachedRows) {
-      return null;
-    }
-
-    rowsCacheRef.current.delete(cacheKey);
-    rowsCacheRef.current.set(cacheKey, cachedRows);
-    return cachedRows;
-  });
-
-  const setCachedRowsEntry = useEffectEvent(
-    (cacheKey: string, rowsPayload: ImportJobRowsResponse) => {
-      if (rowsCacheRef.current.has(cacheKey)) {
-        rowsCacheRef.current.delete(cacheKey);
-      }
-
-      rowsCacheRef.current.set(cacheKey, rowsPayload);
-
-      while (rowsCacheRef.current.size > MAX_ROWS_CACHE_ENTRIES) {
-        const oldestKey = rowsCacheRef.current.keys().next().value;
-        if (!oldestKey) {
-          break;
-        }
-
-        rowsCacheRef.current.delete(oldestKey);
-      }
-    }
-  );
+  const rowsCacheRef = useRef<RowsCache>(new Map());
 
   const clearRowsCacheForJob = useEffectEvent((jobId: string) => {
     const cacheKeyPrefix = getMigrationRowsCacheKeyPrefix(jobId);
@@ -107,166 +301,28 @@ export function useMigrationJobRefresh({
     }
   });
 
-  const prefetchRowsPage = useEffectEvent(
-    async (
-      jobId: string,
-      status: ImportJobDetail['status'],
-      filter: MigrationPreviewFilter,
-      page: number,
-      pageSize: number,
-      total: number
-    ) => {
-      if (isMigrationStatusActive(status) || total <= page * pageSize) {
-        return;
-      }
-
-      const nextPage = page + 1;
-      const cacheKey = getMigrationRowsCacheKey(jobId, filter, nextPage);
-      if (rowsCacheRef.current.has(cacheKey)) {
-        return;
-      }
-
-      try {
-        const rowsPayload = await fetchImportJobRows(jobId, nextPage, filter);
-        setCachedRowsEntry(cacheKey, rowsPayload);
-      } catch {
-        return;
-      }
-    }
-  );
-
   const refreshJob = useEffectEvent(
-    async (
-      jobId: string,
-      options?: {
-        background?: boolean;
-        filter?: MigrationPreviewFilter;
-        includeJob?: boolean;
-        includeRows?: boolean;
-        page?: number;
-      }
-    ) => {
-      const page = options?.page || 1;
-      const background = options?.background ?? false;
-      const includeJob = options?.includeJob ?? true;
-      const includeRows = options?.includeRows ?? true;
-      const filter = options?.filter ?? activeFilter;
-      const requestId = ++refreshRequestIdRef.current;
-
-      if (!background && includeJob) {
-        loadingRequestIdRef.current = requestId;
-        setLoading(true);
-      }
-      if (!background && includeRows) {
-        rowsLoadingRequestIdRef.current = requestId;
-        setRowsLoading(true);
-      }
-      if (!background) {
-        setError(null);
-      }
-      refreshInFlightCountRef.current++;
-
-      try {
-        let nextJob =
-          selectedJobIdRef.current === jobId ? selectedJobRef.current : null;
-
-        if (includeJob) {
-          nextJob = await fetchImportJob(jobId);
-          if (requestId !== refreshRequestIdRef.current) {
-            return false;
-          }
-          setJobs((currentJobs) =>
-            mergeJobs(currentJobs, nextJob as ImportJobListItem)
-          );
-          if (selectedJobIdRef.current === jobId) {
-            setSelectedJob(nextJob);
-          }
-        }
-
-        if (
-          !nextJob ||
-          !canLoadMigrationRows(nextJob.status, nextJob.processed_rows)
-        ) {
-          if (
-            requestId === refreshRequestIdRef.current &&
-            selectedJobIdRef.current === jobId
-          ) {
-            setRowsResponse(null);
-          }
-          return true;
-        }
-
-        if (includeRows) {
-          const cacheKey = getMigrationRowsCacheKey(jobId, filter, page);
-          const canUseCache =
-            !background && !isMigrationStatusActive(nextJob.status);
-          const cachedRows = canUseCache ? getCachedRowsEntry(cacheKey) : null;
-
-          if (cachedRows) {
-            if (selectedJobIdRef.current === jobId) {
-              setRowsResponse(cachedRows);
-            }
-            return true;
-          }
-
-          const rowsPayload = await fetchImportJobRows(jobId, page, filter);
-          if (requestId !== refreshRequestIdRef.current) {
-            return false;
-          }
-          setCachedRowsEntry(cacheKey, rowsPayload);
-          if (selectedJobIdRef.current === jobId) {
-            setRowsResponse(rowsPayload);
-          }
-          void prefetchRowsPage(
-            jobId,
-            nextJob.status,
-            filter,
-            page,
-            rowsPayload.pagination.pageSize,
-            rowsPayload.pagination.total
-          );
-        }
-        return true;
-      } catch (jobError) {
-        if (requestId !== refreshRequestIdRef.current) {
-          return false;
-        }
-
-        if (background) {
-          return false;
-        }
-
-        if (selectedJobIdRef.current === jobId || !selectedJobIdRef.current) {
-          setError(
-            jobError instanceof Error
-              ? jobError.message
-              : 'Failed to load import job'
-          );
-        }
-        return false;
-      } finally {
-        refreshInFlightCountRef.current = Math.max(
-          0,
-          refreshInFlightCountRef.current - 1
-        );
-        if (
-          !background &&
-          includeJob &&
-          loadingRequestIdRef.current === requestId
-        ) {
-          loadingRequestIdRef.current = null;
-          setLoading(false);
-        }
-        if (
-          !background &&
-          includeRows &&
-          rowsLoadingRequestIdRef.current === requestId
-        ) {
-          rowsLoadingRequestIdRef.current = null;
-          setRowsLoading(false);
-        }
-      }
-    }
+    (jobId: string, options?: RefreshJobOptions) =>
+      runRefreshJob(
+        {
+          activeFilter,
+          loadingRequestIdRef,
+          refreshInFlightCountRef,
+          refreshRequestIdRef,
+          rowsCache: rowsCacheRef.current,
+          rowsLoadingRequestIdRef,
+          selectedJobIdRef,
+          selectedJobRef,
+          setError,
+          setJobs,
+          setLoading,
+          setRowsLoading,
+          setRowsResponse,
+          setSelectedJob,
+        },
+        jobId,
+        options
+      )
   );
 
   const invalidateRefreshRequests = useEffectEvent(() => {

@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Image as ImageIcon, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import z from 'zod';
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
@@ -126,6 +126,35 @@ interface AddProductFormProps {
   initialData?: Product | null;
 }
 
+// Module-scope helpers keep impure calls and syntax React Compiler cannot
+// lower (dynamic import) out of the component body.
+function createFallbackProductId(): string {
+  return `prod_${Date.now()}`;
+}
+
+function buildInitialColorImages(
+  initialData?: Product | null
+): Record<string, string> {
+  // This is a simplification. In reality we'd need a map of color -> image
+  // For now, if there's a color, we assume the main image belongs to it
+  if (!initialData?.image || !initialData?.color) {
+    return {};
+  }
+
+  const colors = initialData.color.split(',').map((s) => s.trim());
+  if (colors.length === 0) {
+    return {};
+  }
+
+  return { [colors[0]]: initialData.image };
+}
+
+// @imgly/background-removal is dynamically imported at point of use to avoid bundling 2MB ONNX runtime
+async function removeImageBackground(imageDataUri: string): Promise<Blob> {
+  const { removeBackground } = await import('@imgly/background-removal');
+  return removeBackground(imageDataUri);
+}
+
 export default function AddProductForm({
   onProductAdded,
   onCancel,
@@ -142,7 +171,7 @@ export default function AddProductForm({
   const [variants, setVariants] = useState<ProductVariant[]>(
     initialData?.variants || []
   );
-  const [variantBuilderKey, setVariantBuilderKey] = useState(Date.now());
+  const [variantBuilderKey, setVariantBuilderKey] = useState(() => Date.now());
   const [colorTags, setColorTags] = useState<string[]>(
     initialData?.color
       ? initialData.color
@@ -151,7 +180,9 @@ export default function AddProductForm({
           .filter(Boolean)
       : []
   );
-  const [colorImages, setColorImages] = useState<Record<string, string>>({});
+  const [colorImages, setColorImages] = useState<Record<string, string>>(() =>
+    buildInitialColorImages(initialData)
+  );
   const [enhancingImages, setEnhancingImages] = useState<
     Record<string, boolean>
   >({});
@@ -211,10 +242,33 @@ export default function AddProductForm({
     name: 'fulfillment_details',
   });
 
-  const watchInfiniteStock = form.watch('infinite_stock');
-  const watchStock = form.watch('stock');
-  const watchName = form.watch('name');
-  const watchCondition = form.watch('condition');
+  // useWatch instead of form.watch(): watch() is incompatible with React
+  // Compiler memoization (interior mutability), useWatch subscribes per-field.
+  const watchInfiniteStock = useWatch({
+    control: form.control,
+    name: 'infinite_stock',
+  });
+  const watchStock = useWatch({ control: form.control, name: 'stock' });
+  const watchName = useWatch({ control: form.control, name: 'name' });
+  const watchCondition = useWatch({ control: form.control, name: 'condition' });
+  const watchPrice = useWatch({ control: form.control, name: 'price' });
+  const watchWeightUnit = useWatch({
+    control: form.control,
+    name: 'weight_unit',
+  });
+  const watchMetaTitle = useWatch({
+    control: form.control,
+    name: 'meta_title',
+  });
+  const watchMetaDescription = useWatch({
+    control: form.control,
+    name: 'meta_description',
+  });
+  const watchDescription = useWatch({
+    control: form.control,
+    name: 'description',
+  });
+  const watchSlug = useWatch({ control: form.control, name: 'slug' });
 
   // Keep generated slugs in sync until the merchant edits the slug manually.
   useEffect(() => {
@@ -250,18 +304,6 @@ export default function AddProductForm({
       }
     }
   }, [watchStock, watchInfiniteStock, append, remove, fields.length]);
-
-  // Initialize color images from initialData
-  useEffect(() => {
-    if (initialData?.image && initialData?.color) {
-      // This is a simplification. In reality we'd need a map of color -> image
-      // For now, if there's a color, we assume the main image belongs to it
-      const colors = initialData.color.split(',').map((s) => s.trim());
-      if (colors.length > 0) {
-        setColorImages({ [colors[0]]: initialData.image });
-      }
-    }
-  }, [initialData]);
 
   const categoryConfig = !merchant?.business_type
     ? getCategoryConfigFromBusinessType('general')
@@ -391,9 +433,10 @@ export default function AddProductForm({
         description: 'Could not generate product details. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsAutofilling(false);
     }
+    // Runs on success and failure (the catch never rethrows) — kept out of a
+    // `finally` clause because React Compiler cannot lower try/finally.
+    setIsAutofilling(false);
   };
 
   const handleGenerateDescription = async () => {
@@ -417,9 +460,9 @@ export default function AddProductForm({
         description: 'Could not generate a description. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsGenerating(false);
     }
+    // Runs on success and failure (the catch never rethrows).
+    setIsGenerating(false);
   };
 
   // Quick background removal (client-side, fast)
@@ -440,8 +483,7 @@ export default function AddProductForm({
         title: 'Removing Background',
         description: 'This may take a moment...',
       });
-      const { removeBackground } = await import('@imgly/background-removal');
-      const blob = await removeBackground(imageToEnhance);
+      const blob = await removeImageBackground(imageToEnhance);
       const noBgUrl = URL.createObjectURL(blob);
 
       // Convert blob URL to data URL for storage
@@ -482,9 +524,10 @@ export default function AddProductForm({
         description: 'Could not remove background.',
         variant: 'destructive',
       });
-    } finally {
-      setEnhancingImages((prev) => ({ ...prev, [color]: false }));
     }
+    // Runs on success and failure (the catch never rethrows); the early
+    // `return` above already resets the flag itself.
+    setEnhancingImages((prev) => ({ ...prev, [color]: false }));
   };
 
   // AI-powered professional product image enhancement
@@ -529,9 +572,9 @@ export default function AddProductForm({
           'Could not enhance image. Try again or use background removal.',
         variant: 'destructive',
       });
-    } finally {
-      setEnhancingImages((prev) => ({ ...prev, [color]: false }));
     }
+    // Runs on success and failure (the catch never rethrows).
+    setEnhancingImages((prev) => ({ ...prev, [color]: false }));
   };
 
   async function onSubmit(data: AddProductFormValues) {
@@ -588,7 +631,7 @@ export default function AddProductForm({
     const primaryImage = enhancedImage ?? '';
 
     const productData: Product = {
-      id: initialData?.id || `prod_${Date.now()}`,
+      id: initialData?.id || createFallbackProductId(),
       name: data.name,
       description: data.description || '',
       category: data.category,
@@ -1145,7 +1188,7 @@ export default function AddProductForm({
                   <VariantBuilder
                     key={variantBuilderKey}
                     categoryConfig={categoryConfig}
-                    basePrice={Number(form.watch('price')) || 0}
+                    basePrice={Number(watchPrice) || 0}
                     initialVariants={variants}
                     onVariantsChange={setVariants}
                     stockTrackingEnabled={!watchInfiniteStock}
@@ -1384,7 +1427,7 @@ export default function AddProductForm({
                           />
                         </FormControl>
                         <Select
-                          value={form.watch('weight_unit')}
+                          value={watchWeightUnit}
                           onValueChange={(val) =>
                             form.setValue(
                               'weight_unit',
@@ -1563,13 +1606,9 @@ export default function AddProductForm({
                 </div>
                 <div className="space-y-4">
                   <SeoPreview
-                    title={form.watch('meta_title') || form.watch('name') || ''}
-                    description={
-                      form.watch('meta_description') ||
-                      form.watch('description') ||
-                      ''
-                    }
-                    slug={form.watch('slug') || ''}
+                    title={watchMetaTitle || watchName || ''}
+                    description={watchMetaDescription || watchDescription || ''}
+                    slug={watchSlug || ''}
                     merchantUrl={
                       merchant?.slug
                         ? `${merchant.slug}.${getRootDomain()}`

@@ -74,34 +74,35 @@ export default function WalletClient({
     });
   };
 
-  const updateSettings = async (updates: {
+  const updateSettings = (updates: {
     autoPayoutEnabled?: boolean;
     autoPayoutDay?: string;
     minPayoutAmount?: number;
   }) => {
     setSavingSettings(true);
-    try {
-      const result = await updateWalletSettings(merchantId, updates);
+    updateWalletSettings(merchantId, updates)
+      .then((result) => {
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to update settings');
+        }
 
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update settings');
-      }
+        toast({ title: 'Success', description: 'Settings updated' });
 
-      toast({ title: 'Success', description: 'Settings updated' });
-
-      startTransition(() => {
-        router.refresh();
+        startTransition(() => {
+          router.refresh();
+        });
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to update wallet settings:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to update settings',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setSavingSettings(false);
       });
-    } catch (error) {
-      console.error('Failed to update wallet settings:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update settings',
-        variant: 'destructive',
-      });
-    } finally {
-      setSavingSettings(false);
-    }
   };
 
   const formatDate = (dateString: string) => {

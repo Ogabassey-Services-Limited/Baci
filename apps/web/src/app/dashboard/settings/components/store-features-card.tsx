@@ -19,6 +19,56 @@ interface StoreFeaturesCardProps {
   initialBlogEnabled: boolean;
 }
 
+type ToastFn = ReturnType<typeof useToast>['toast'];
+
+// Module-scope helper keeps the try/finally out of the component body
+// (React Compiler cannot lower try/finally inside components yet).
+async function persistBlogEnabled({
+  merchantId,
+  enabled,
+  toast,
+  setBlogEnabled,
+  setFeaturesLoading,
+}: {
+  merchantId: string;
+  enabled: boolean;
+  toast: ToastFn;
+  setBlogEnabled: (enabled: boolean) => void;
+  setFeaturesLoading: (loading: boolean) => void;
+}): Promise<void> {
+  try {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('merchant_feature_settings')
+      .upsert(
+        { merchant_id: merchantId, blog_enabled: enabled },
+        { onConflict: 'merchant_id' }
+      );
+
+    if (error) throw error;
+
+    toast({
+      title: enabled ? 'Blog Enabled' : 'Blog Disabled',
+      description: enabled
+        ? 'Your blog is now public. Add posts to populate it.'
+        : 'Your blog is now hidden from the storefront.',
+    });
+  } catch (error) {
+    setBlogEnabled(!enabled);
+    logger.error({
+      error: error instanceof Error ? error : new Error(String(error)),
+      message: 'Failed to update blog setting',
+    });
+    toast({
+      title: 'Update Failed',
+      description: 'Could not update blog settings.',
+      variant: 'destructive',
+    });
+  } finally {
+    setFeaturesLoading(false);
+  }
+}
+
 export function StoreFeaturesCard({
   merchantId,
   initialBlogEnabled,
@@ -27,43 +77,19 @@ export function StoreFeaturesCard({
   const [blogEnabled, setBlogEnabled] = useState(initialBlogEnabled);
   const [featuresLoading, setFeaturesLoading] = useState(false);
 
-  const handleBlogToggle = async (enabled: boolean) => {
+  const handleBlogToggle = (enabled: boolean) => {
     if (!merchantId) return;
 
     setBlogEnabled(enabled);
     setFeaturesLoading(true);
 
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('merchant_feature_settings')
-        .upsert(
-          { merchant_id: merchantId, blog_enabled: enabled },
-          { onConflict: 'merchant_id' }
-        );
-
-      if (error) throw error;
-
-      toast({
-        title: enabled ? 'Blog Enabled' : 'Blog Disabled',
-        description: enabled
-          ? 'Your blog is now public. Add posts to populate it.'
-          : 'Your blog is now hidden from the storefront.',
-      });
-    } catch (error) {
-      setBlogEnabled(!enabled);
-      logger.error({
-        error: error instanceof Error ? error : new Error(String(error)),
-        message: 'Failed to update blog setting',
-      });
-      toast({
-        title: 'Update Failed',
-        description: 'Could not update blog settings.',
-        variant: 'destructive',
-      });
-    } finally {
-      setFeaturesLoading(false);
-    }
+    return persistBlogEnabled({
+      merchantId,
+      enabled,
+      toast,
+      setBlogEnabled,
+      setFeaturesLoading,
+    });
   };
 
   return (

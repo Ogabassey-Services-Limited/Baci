@@ -39,23 +39,25 @@ export function TrackingPixelSection({
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setIsSaving(true);
-    try {
-      await onSave(localPixelId, localToken);
-      toast({
-        title: 'Settings Saved',
-        description: `${platform} tracking settings have been updated.`,
+    onSave(localPixelId, localToken)
+      .then(() => {
+        toast({
+          title: 'Settings Saved',
+          description: `${platform} tracking settings have been updated.`,
+        });
+      })
+      .catch(() => {
+        toast({
+          title: 'Error',
+          description: 'Failed to save settings.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to save settings.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   return (

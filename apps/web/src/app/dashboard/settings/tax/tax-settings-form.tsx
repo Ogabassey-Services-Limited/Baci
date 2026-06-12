@@ -92,9 +92,9 @@ export function TaxSettingsForm({
         description: 'Could not update VAT settings. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
   };
 
   const handleSaveTaxId = async () => {
@@ -120,22 +120,21 @@ export function TaxSettingsForm({
           title: 'Tax ID Saved',
           description: 'Your Tax Identification Number has been cleared.',
         });
-        return;
+      } else {
+        const verification = await apiPost<VerifyTaxIdResponse>(
+          '/api/merchant/verify-tax-id',
+          {
+            taxIdentificationNumber: normalizedTaxId,
+            legalEntityName: legalEntityName.trim() || undefined,
+          }
+        );
+
+        setTaxId(verification.taxIdentificationNumber ?? normalizedTaxId);
+        toast({
+          title: 'Tax ID Verified',
+          description: 'Your Tax Identification Number matches the CAC record.',
+        });
       }
-
-      const verification = await apiPost<VerifyTaxIdResponse>(
-        '/api/merchant/verify-tax-id',
-        {
-          taxIdentificationNumber: normalizedTaxId,
-          legalEntityName: legalEntityName.trim() || undefined,
-        }
-      );
-
-      setTaxId(verification.taxIdentificationNumber ?? normalizedTaxId);
-      toast({
-        title: 'Tax ID Verified',
-        description: 'Your Tax Identification Number matches the CAC record.',
-      });
     } catch (error) {
       toast({
         title: 'Tax ID Verification Failed',
@@ -145,9 +144,9 @@ export function TaxSettingsForm({
             : 'Could not verify Tax ID. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
   };
 
   const handleSaveLegalEntity = async () => {
@@ -167,9 +166,9 @@ export function TaxSettingsForm({
         description: 'Could not save legal entity name. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSavingEntity(false);
     }
+
+    setIsSavingEntity(false);
   };
 
   const handleStreetChange = (
@@ -225,9 +224,9 @@ export function TaxSettingsForm({
         description: 'Could not save address. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSavingAddress(false);
     }
+
+    setIsSavingAddress(false);
   };
 
   return (

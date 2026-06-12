@@ -122,66 +122,66 @@ export default function SEOClient({
     setOptimizing(true);
     setShowOptimized(true);
 
-    try {
-      const results = await generateSEOSuggestions(
-        merchantId,
-        selectedProducts
-      );
-      setOptimizations(results);
-    } catch (error) {
-      console.error('Optimization error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to generate SEO suggestions.',
-        variant: 'destructive',
+    await generateSEOSuggestions(merchantId, selectedProducts)
+      .then((results) => {
+        setOptimizations(results);
+      })
+      .catch((error) => {
+        console.error('Optimization error:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to generate SEO suggestions.',
+          variant: 'destructive',
+        });
+        setShowOptimized(false);
+      })
+      .finally(() => {
+        setOptimizing(false);
       });
-      setShowOptimized(false);
-    } finally {
-      setOptimizing(false);
-    }
   };
 
   const handleApply = async () => {
     if (optimizations.length === 0) return;
     setOptimizing(true); // Re-use optimizing state for "saving"
 
-    try {
-      // Map optimizations to the format expected by saveSEOSettings
-      const updates = optimizations.map((opt) => ({
-        productId: opt.productId,
-        meta_title: opt.optimized.meta_title,
-        meta_description: opt.optimized.meta_description,
-        keywords: opt.optimized.keywords,
-      }));
+    // Map optimizations to the format expected by saveSEOSettings
+    const updates = optimizations.map((opt) => ({
+      productId: opt.productId,
+      meta_title: opt.optimized.meta_title,
+      meta_description: opt.optimized.meta_description,
+      keywords: opt.optimized.keywords,
+    }));
 
-      const result = await saveSEOSettings(merchantId, updates);
-
-      if (result.success) {
-        toast({
-          title: 'Success',
-          description: `Applied SEO optimizations to ${updates.length} products`,
-        });
-        setOptimizations([]);
-        setShowOptimized(false);
-        setSelectedProducts([]);
-        router.refresh();
-      } else {
+    await saveSEOSettings(merchantId, updates)
+      .then((result) => {
+        if (result.success) {
+          toast({
+            title: 'Success',
+            description: `Applied SEO optimizations to ${updates.length} products`,
+          });
+          setOptimizations([]);
+          setShowOptimized(false);
+          setSelectedProducts([]);
+          router.refresh();
+        } else {
+          toast({
+            title: 'Error',
+            description: 'Failed to save changes.',
+            variant: 'destructive',
+          });
+        }
+      })
+      .catch((error) => {
+        console.error('Save error:', error);
         toast({
           title: 'Error',
           description: 'Failed to save changes.',
           variant: 'destructive',
         });
-      }
-    } catch (error) {
-      console.error('Save error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save changes.',
-        variant: 'destructive',
+      })
+      .finally(() => {
+        setOptimizing(false);
       });
-    } finally {
-      setOptimizing(false);
-    }
   };
 
   return (

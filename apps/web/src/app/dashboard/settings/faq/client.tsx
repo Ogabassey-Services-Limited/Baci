@@ -41,6 +41,44 @@ const FAQ_CATEGORIES = [
   'General',
 ] as const;
 
+async function generateFaqsRequest(
+  merchant: CachedMerchant,
+  sampleProducts: FAQSettingsClientProps['sampleProducts']
+): Promise<FAQItem[]> {
+  const response = await fetch('/api/ai/generate-faq', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      businessName: merchant.business_name,
+      businessType: merchant.business_type,
+      country: merchant.country,
+      description: merchant.site_description,
+      products: sampleProducts,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to generate FAQs');
+  }
+
+  const data = await response.json();
+  return data.faqs;
+}
+
+async function saveFaqsRequest(
+  merchantId: string,
+  faqs: FAQItem[]
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('merchants')
+    .update({ faq_items: faqs })
+    .eq('id', merchantId);
+
+  if (error) throw error;
+}
+
 export function FAQSettingsClient({
   merchant,
   sampleProducts,
@@ -52,68 +90,48 @@ export function FAQSettingsClient({
   const [isSaving, setIsSaving] = useState(false);
   const [_editingId, setEditingId] = useState<string | null>(null);
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     setIsGenerating(true);
-    try {
-      const response = await fetch('/api/ai/generate-faq', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessName: merchant.business_name,
-          businessType: merchant.business_type,
-          country: merchant.country,
-          description: merchant.site_description,
-          products: sampleProducts,
-        }),
+    generateFaqsRequest(merchant, sampleProducts)
+      .then((generatedFaqs) => {
+        setFaqs(generatedFaqs);
+        toast({
+          title: 'FAQs Generated',
+          description: `Generated ${generatedFaqs.length} FAQs. Review and save when ready.`,
+        });
+      })
+      .catch((error: unknown) => {
+        toast({
+          title: 'Generation Failed',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsGenerating(false);
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate FAQs');
-      }
-
-      const data = await response.json();
-      setFaqs(data.faqs);
-      toast({
-        title: 'FAQs Generated',
-        description: `Generated ${data.faqs.length} FAQs. Review and save when ready.`,
-      });
-    } catch (error) {
-      toast({
-        title: 'Generation Failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setIsSaving(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('merchants')
-        .update({ faq_items: faqs })
-        .eq('id', merchant.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'FAQs Saved',
-        description:
-          'Your FAQ content has been saved and will appear on your store.',
+    saveFaqsRequest(merchant.id, faqs)
+      .then(() => {
+        toast({
+          title: 'FAQs Saved',
+          description:
+            'Your FAQ content has been saved and will appear on your store.',
+        });
+      })
+      .catch((error: unknown) => {
+        toast({
+          title: 'Save Failed',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
-    } catch (error) {
-      toast({
-        title: 'Save Failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handleAddFAQ = () => {

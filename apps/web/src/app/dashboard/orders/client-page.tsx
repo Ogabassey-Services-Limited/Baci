@@ -88,18 +88,26 @@ export default function OrdersClientPage({
     searchParams.get('source')
   );
   const isHydrated = useRef(false);
+  const merchantId = merchant?.id ?? null;
+  const [prevMerchantId, setPrevMerchantId] = useState<
+    string | null | undefined
+  >(undefined);
+
+  // Reset Jumia connection state whenever the merchant identity changes.
+  // Adjusting state during render (with a prev-compare guard) avoids the
+  // extra stale-UI commit an effect-based reset would cause.
+  if (prevMerchantId !== merchantId) {
+    setPrevMerchantId(merchantId);
+    setJumiaIntegrations([]);
+    setJumiaConnectError(null);
+    setJumiaConnectLoading(Boolean(merchantId));
+  }
 
   // Fetch active Jumia integrations for order management
   useEffect(() => {
-    if (!merchant?.id) {
-      setJumiaIntegrations([]);
-      setJumiaConnectError(null);
-      setJumiaConnectLoading(false);
+    if (!merchantId) {
       return;
     }
-    setJumiaIntegrations([]);
-    setJumiaConnectLoading(true);
-    setJumiaConnectError(null);
     const controller = new AbortController();
     fetch('/api/marketplace/jumia/connect', { signal: controller.signal })
       .then((res) => {
@@ -137,7 +145,7 @@ export default function OrdersClientPage({
         }
       });
     return () => controller.abort();
-  }, [merchant?.id]);
+  }, [merchantId]);
 
   /** Resolve the correct integration ID for a given order.
    *  With a single integration, return it directly.
@@ -166,37 +174,39 @@ export default function OrdersClientPage({
 
     isHydrated.current = true;
 
-    if (!merchant?.id) {
+    if (!merchantId) {
       return;
     }
 
-    const fetchOrders = async () => {
+    const fetchOrders = () => {
       setOrdersLoading(true);
       setOrdersError(null);
 
-      try {
-        const fetchedOrders = await getOrders(merchant.id, {
-          paymentStatus: paymentFilter,
-          shippingStatus: shippingFilter,
-          search: searchTerm,
-          ...(sourceFilter ? { source: sourceFilter } : {}),
+      getOrders(merchantId, {
+        paymentStatus: paymentFilter,
+        shippingStatus: shippingFilter,
+        search: searchTerm,
+        ...(sourceFilter ? { source: sourceFilter } : {}),
+      })
+        .then((fetchedOrders) => {
+          setOrders(fetchedOrders);
+        })
+        .catch(() => {
+          setOrdersError('Could not load orders.');
+          toast({
+            title: 'Error Fetching Orders',
+            description: 'Could not load orders. Please try again.',
+            variant: 'destructive',
+          });
+        })
+        .finally(() => {
+          setOrdersLoading(false);
         });
-        setOrders(fetchedOrders);
-      } catch (_error) {
-        setOrdersError('Could not load orders.');
-        toast({
-          title: 'Error Fetching Orders',
-          description: 'Could not load orders. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setOrdersLoading(false);
-      }
     };
 
     const timer = window.setTimeout(
       () => {
-        void fetchOrders();
+        fetchOrders();
       },
       searchTerm ? 500 : 0
     );
@@ -204,7 +214,7 @@ export default function OrdersClientPage({
     return () => window.clearTimeout(timer);
   }, [
     initialOrders.length,
-    merchant?.id,
+    merchantId,
     paymentFilter,
     searchTerm,
     shippingFilter,

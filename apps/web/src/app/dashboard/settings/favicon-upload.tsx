@@ -6,7 +6,62 @@ import { useState } from 'react';
 import { uploadFavicon } from '@/app/dashboard/settings/actions';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+
 // import { createClient } from '@/lib/supabase/client'; // Not needed anymore
+
+interface SubmitFaviconContext {
+  file: File;
+  merchantId: string;
+  toast: ReturnType<typeof useToast>['toast'];
+  reloadMerchant: ReturnType<typeof useMerchant>['reloadMerchant'];
+  setPreview: (preview: string | null) => void;
+  setUploading: (uploading: boolean) => void;
+}
+
+// Module-scope helper: try/finally inside the component body bails React
+// Compiler out of memoizing the component.
+async function submitFavicon({
+  file,
+  merchantId,
+  toast,
+  reloadMerchant,
+  setPreview,
+  setUploading,
+}: SubmitFaviconContext) {
+  setUploading(true);
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await uploadFavicon(formData, merchantId);
+
+    if (!response.success || !response.result) {
+      throw new Error(response.error || 'Upload failed');
+    }
+
+    toast({
+      title: 'Favicon updated',
+      description: 'Your store favicon has been updated successfully',
+    });
+
+    setPreview(response.result.png_32_url);
+
+    // Refresh merchant data
+    reloadMerchant();
+  } catch (error) {
+    console.error('Favicon upload failed:', error);
+    toast({
+      title: 'Upload failed',
+      description:
+        error instanceof Error
+          ? error.message
+          : 'Could not update favicon. Please try again.',
+      variant: 'destructive',
+    });
+  } finally {
+    setUploading(false);
+  }
+}
 
 export function FaviconUpload() {
   const [uploading, setUploading] = useState(false);
@@ -48,40 +103,14 @@ export function FaviconUpload() {
       return;
     }
 
-    setUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await uploadFavicon(formData, merchant.id);
-
-      if (!response.success || !response.result) {
-        throw new Error(response.error || 'Upload failed');
-      }
-
-      toast({
-        title: 'Favicon updated',
-        description: 'Your store favicon has been updated successfully',
-      });
-
-      setPreview(response.result.png_32_url);
-
-      // Refresh merchant data
-      reloadMerchant();
-    } catch (error) {
-      console.error('Favicon upload failed:', error);
-      toast({
-        title: 'Upload failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Could not update favicon. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploading(false);
-    }
+    await submitFavicon({
+      file,
+      merchantId: merchant.id,
+      toast,
+      reloadMerchant,
+      setPreview,
+      setUploading,
+    });
   };
 
   return (

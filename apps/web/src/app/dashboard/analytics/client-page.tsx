@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import {
   type AnalyticsCategory,
   AnalyticsCategoryNav,
@@ -15,6 +15,55 @@ import {
 import { BagLoader } from '@/components/ui/bag-loader';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+
+// Module-scope helper keeps the try/finally out of the component body
+// (React Compiler cannot lower try/finally inside components yet).
+async function fetchBaseAnalytics({
+  from,
+  to,
+  signal,
+  setBaseAnalytics,
+  setLoadingAnalytics,
+}: {
+  from: Date;
+  to: Date;
+  signal: AbortSignal;
+  setBaseAnalytics: Dispatch<SetStateAction<AnalyticsData | null>>;
+  setLoadingAnalytics: Dispatch<SetStateAction<boolean>>;
+}): Promise<void> {
+  setLoadingAnalytics(true);
+  try {
+    const queryParams = new URLSearchParams({
+      startDate: from.toISOString(),
+      endDate: to.toISOString(),
+    });
+    const response = await fetch(`/api/analytics?${queryParams.toString()}`, {
+      signal,
+    });
+    if (response.ok) {
+      const data = await response.json();
+      setBaseAnalytics(data);
+    } else {
+      console.error(
+        'Failed to fetch analytics:',
+        response.status,
+        response.statusText
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') return;
+    console.error('Error fetching analytics:', error);
+  } finally {
+    setLoadingAnalytics(false);
+  }
+}
+
+// Module-scope wrapper keeps the dynamic import() expression out of the
+// component body (React Compiler cannot lower import expressions yet).
+function loadAnalyticsExport() {
+  return import('@/lib/analytics-export');
+}
+
 export default function AnalyticsClientPage() {
   const { toast } = useToast();
   const { merchant, loading: merchantLoading } = useMerchant();
@@ -65,40 +114,17 @@ export default function AnalyticsClientPage() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: using merchant?.id instead of merchant object avoids infinite loop without React Compiler
   useEffect(() => {
+    if (!merchant || !date.from || !date.to) return;
+
     const controller = new AbortController();
 
-    async function fetchAnalytics() {
-      if (!merchant || !date.from || !date.to) return;
-
-      setLoadingAnalytics(true);
-      try {
-        const queryParams = new URLSearchParams({
-          startDate: date.from.toISOString(),
-          endDate: date.to.toISOString(),
-        });
-        const response = await fetch(
-          `/api/analytics?${queryParams.toString()}`,
-          { signal: controller.signal }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setBaseAnalytics(data);
-        } else {
-          console.error(
-            'Failed to fetch analytics:',
-            response.status,
-            response.statusText
-          );
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        console.error('Error fetching analytics:', error);
-      } finally {
-        setLoadingAnalytics(false);
-      }
-    }
-
-    fetchAnalytics();
+    fetchBaseAnalytics({
+      from: date.from,
+      to: date.to,
+      signal: controller.signal,
+      setBaseAnalytics,
+      setLoadingAnalytics,
+    });
 
     return () => controller.abort();
   }, [merchant?.id, date]);
@@ -149,14 +175,14 @@ export default function AnalyticsClientPage() {
 
     try {
       if (format === 'csv') {
-        const { exportAnalyticsAsCSV } = await import('@/lib/analytics-export');
+        const { exportAnalyticsAsCSV } = await loadAnalyticsExport();
         exportAnalyticsAsCSV(analyticsData, date, merchant?.business_name);
         toast({
           title: 'CSV Exported',
           description: 'Your analytics report has been downloaded as CSV.',
         });
       } else {
-        const { exportAnalyticsAsPDF } = await import('@/lib/analytics-export');
+        const { exportAnalyticsAsPDF } = await loadAnalyticsExport();
         exportAnalyticsAsPDF(analyticsData, date, merchant?.business_name);
         toast({
           title: 'PDF Exported',

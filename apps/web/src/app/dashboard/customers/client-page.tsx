@@ -95,20 +95,22 @@ export default function CustomersClientPage({
       return;
     }
 
-    const fetchCustomers = async () => {
+    const fetchCustomers = () => {
       setLoading(true);
-      try {
-        const data = await getCustomers(merchant.id, searchTerm);
-        setCustomers(data);
-      } catch (_error) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load customers',
-          variant: 'destructive',
+      getCustomers(merchant.id, searchTerm)
+        .then((data) => {
+          setCustomers(data);
+        })
+        .catch(() => {
+          toast({
+            title: 'Error',
+            description: 'Failed to load customers',
+            variant: 'destructive',
+          });
+        })
+        .finally(() => {
+          setLoading(false);
         });
-      } finally {
-        setLoading(false);
-      }
     };
 
     // Debounce search

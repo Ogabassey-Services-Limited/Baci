@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, Search, ShoppingCart } from 'lucide-react';
-import { useState } from 'react';
+import { type Dispatch, type SetStateAction, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +34,97 @@ interface SearchResult {
 
 interface DomainSearchPanelProps {
   merchant: CachedMerchant;
+}
+
+type ToastFn = ReturnType<typeof useToast>['toast'];
+
+// Module-scope helpers keep try/finally and throw-in-try out of the component
+// body so React Compiler can memoize the component.
+async function runDomainSearch(options: {
+  term: string;
+  setResults: Dispatch<SetStateAction<SearchResult[]>>;
+  setSearchWarning: Dispatch<SetStateAction<string | null>>;
+  setIsSearching: Dispatch<SetStateAction<boolean>>;
+  toast: ToastFn;
+}): Promise<void> {
+  const { term, setResults, setSearchWarning, setIsSearching, toast } = options;
+  try {
+    const response = await fetch('/api/domains/check-availability', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ searchTerm: term }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to search domains');
+    }
+
+    const data = await response.json();
+    setResults(data.results || []);
+    if (data.warning) {
+      setSearchWarning(data.warning);
+    }
+  } catch (error) {
+    console.error('Domain search error:', error);
+    toast({
+      title: 'Search failed',
+      description:
+        error instanceof Error ? error.message : 'Failed to search domains',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsSearching(false);
+  }
+}
+
+async function startDomainPurchase(options: {
+  domain: string;
+  setPurchasingDomain: Dispatch<SetStateAction<string | null>>;
+  toast: ToastFn;
+}): Promise<void> {
+  const { domain, setPurchasingDomain, toast } = options;
+  try {
+    // Initialize payment for domain purchase
+    const response = await fetch('/api/domains/initialize-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain, years: 1 }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to initialize payment');
+    }
+
+    const data = await response.json();
+
+    // Redirect to Paystack checkout
+    if (data.authorization_url) {
+      toast({
+        title: 'Redirecting to payment...',
+        description: 'You will be redirected to complete your payment.',
+      });
+
+      // Small delay to show toast before redirect
+      setTimeout(() => {
+        window.location.href = data.authorization_url;
+      }, 500);
+    } else {
+      throw new Error('No payment URL returned');
+    }
+  } catch (error) {
+    console.error('Payment initialization error:', error);
+    toast({
+      title: 'Payment Failed',
+      description:
+        error instanceof Error
+          ? error.message
+          : 'Please try again or contact support',
+      variant: 'destructive',
+    });
+    setPurchasingDomain(null);
+  }
 }
 
 export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
@@ -93,34 +184,13 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
     setResults([]);
     setSearchWarning(null);
 
-    try {
-      const response = await fetch('/api/domains/check-availability', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ searchTerm: term }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to search domains');
-      }
-
-      const data = await response.json();
-      setResults(data.results || []);
-      if (data.warning) {
-        setSearchWarning(data.warning);
-      }
-    } catch (error) {
-      console.error('Domain search error:', error);
-      toast({
-        title: 'Search failed',
-        description:
-          error instanceof Error ? error.message : 'Failed to search domains',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSearching(false);
-    }
+    await runDomainSearch({
+      term,
+      setResults,
+      setSearchWarning,
+      setIsSearching,
+      toast,
+    });
   };
 
   const confirmPurchase = async () => {
@@ -130,47 +200,7 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
     setDomainToPurchase(null);
     setPurchasingDomain(domain);
 
-    try {
-      // Initialize payment for domain purchase
-      const response = await fetch('/api/domains/initialize-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, years: 1 }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to initialize payment');
-      }
-
-      const data = await response.json();
-
-      // Redirect to Paystack checkout
-      if (data.authorization_url) {
-        toast({
-          title: 'Redirecting to payment...',
-          description: 'You will be redirected to complete your payment.',
-        });
-
-        // Small delay to show toast before redirect
-        setTimeout(() => {
-          window.location.href = data.authorization_url;
-        }, 500);
-      } else {
-        throw new Error('No payment URL returned');
-      }
-    } catch (error) {
-      console.error('Payment initialization error:', error);
-      toast({
-        title: 'Payment Failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Please try again or contact support',
-        variant: 'destructive',
-      });
-      setPurchasingDomain(null);
-    }
+    await startDomainPurchase({ domain, setPurchasingDomain, toast });
   };
 
   return (

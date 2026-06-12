@@ -49,37 +49,36 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
   useEffect(() => {
     let active = true;
 
-    const loadStatus = async () => {
-      try {
-        const response = await fetch('/api/merchant/readiness', {
-          credentials: 'include',
-        });
-
+    fetch('/api/merchant/readiness', {
+      credentials: 'include',
+    })
+      .then((response) => {
         if (!response.ok) {
           throw new Error('Failed to load store build status');
         }
 
-        const payload: unknown = await response.json();
+        return response.json() as Promise<unknown>;
+      })
+      .then((payload) => {
         if (active && isReadinessPayload(payload)) {
           setStatus(payload.storeBuild ?? null);
         }
-      } catch (error) {
+      })
+      .catch((error: unknown) => {
         console.error('Failed to load store build status:', error);
-      } finally {
+      })
+      .finally(() => {
         if (active) {
           setLoading(false);
         }
-      }
-    };
-
-    loadStatus();
+      });
 
     return () => {
       active = false;
     };
   }, []);
 
-  const applyDraft = async (force = false) => {
+  const applyDraft = (force = false) => {
     if (!status?.latestJobId || !status.canApplyAiDraft) {
       toast({
         title: 'Cannot apply this AI design',
@@ -90,57 +89,56 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
     }
 
     setApplying(true);
-    try {
-      const response = await fetchWithCsrf(
-        `/api/ai-jobs/${status.latestJobId}/apply`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(force ? { force: true } : {}),
+    fetchWithCsrf(`/api/ai-jobs/${status.latestJobId}/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(force ? { force: true } : {}),
+    })
+      .then(async (response) => {
+        const payload = await readApplyResponse(response);
+
+        if (
+          !force &&
+          response.status === 409 &&
+          payload.code === 'ai_draft_stale'
+        ) {
+          setShowStaleDialog(true);
+          return;
         }
-      );
-      const payload = await readApplyResponse(response);
 
-      if (
-        !force &&
-        response.status === 409 &&
-        payload.code === 'ai_draft_stale'
-      ) {
-        setShowStaleDialog(true);
-        return;
-      }
+        if (!response.ok) {
+          throw new Error(
+            payload.error || payload.message || 'Failed to apply AI design'
+          );
+        }
 
-      if (!response.ok) {
-        throw new Error(
-          payload.error || payload.message || 'Failed to apply AI design'
+        setStatus((current) =>
+          current
+            ? {
+                ...current,
+                aiStatus: 'applied',
+                message: 'Your generated storefront is now editable.',
+              }
+            : current
         );
-      }
-
-      setStatus((current) =>
-        current
-          ? {
-              ...current,
-              aiStatus: 'applied',
-              message: 'Your generated storefront is now editable.',
-            }
-          : current
-      );
-      toast({
-        title: 'AI design applied',
-        description: 'The generated storefront is now your editable draft.',
+        toast({
+          title: 'AI design applied',
+          description: 'The generated storefront is now your editable draft.',
+        });
+        onApplied?.();
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to apply AI storefront draft:', error);
+        toast({
+          title: 'Failed to apply AI design',
+          description:
+            error instanceof Error ? error.message : 'Please try again later.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setApplying(false);
       });
-      onApplied?.();
-    } catch (error) {
-      console.error('Failed to apply AI storefront draft:', error);
-      toast({
-        title: 'Failed to apply AI design',
-        description:
-          error instanceof Error ? error.message : 'Please try again later.',
-        variant: 'destructive',
-      });
-    } finally {
-      setApplying(false);
-    }
   };
 
   if (loading) {

@@ -73,6 +73,44 @@ interface DiscountClientProps {
   currencySymbol: string;
 }
 
+type ToastFn = ReturnType<typeof useToast>['toast'];
+
+// Module-scope helper keeps the try/finally out of the component body
+// (React Compiler cannot lower try/finally inside components yet).
+async function performDeleteDiscountCode({
+  codeToDelete,
+  toast,
+  router,
+  setDeleteDialogOpen,
+  setCodeToDelete,
+}: {
+  codeToDelete: { id: string; code: string };
+  toast: ToastFn;
+  router: ReturnType<typeof useRouter>;
+  setDeleteDialogOpen: (open: boolean) => void;
+  setCodeToDelete: (value: { id: string; code: string } | null) => void;
+}): Promise<void> {
+  try {
+    await deleteDiscountCode(codeToDelete.id);
+
+    toast({
+      title: 'Deleted',
+      description: `Discount code ${codeToDelete.code} has been deleted.`,
+    });
+
+    router.refresh();
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: (error as Error).message,
+      variant: 'destructive',
+    });
+  } finally {
+    setDeleteDialogOpen(false);
+    setCodeToDelete(null);
+  }
+}
+
 export function DiscountClient({
   initialDiscountCodes,
   currencySymbol,
@@ -187,25 +225,13 @@ export function DiscountClient({
     if (!codeToDelete) return;
 
     startTransition(async () => {
-      try {
-        await deleteDiscountCode(codeToDelete.id);
-
-        toast({
-          title: 'Deleted',
-          description: `Discount code ${codeToDelete.code} has been deleted.`,
-        });
-
-        router.refresh();
-      } catch (error) {
-        toast({
-          title: 'Error',
-          description: (error as Error).message,
-          variant: 'destructive',
-        });
-      } finally {
-        setDeleteDialogOpen(false);
-        setCodeToDelete(null);
-      }
+      await performDeleteDiscountCode({
+        codeToDelete,
+        toast,
+        router,
+        setDeleteDialogOpen,
+        setCodeToDelete,
+      });
     });
   };
 

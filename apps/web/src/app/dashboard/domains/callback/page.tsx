@@ -6,6 +6,93 @@ import { Suspense, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+type PurchaseStatus = 'processing' | 'success' | 'error';
+
+interface CompletePurchaseContext {
+  reference: string | null;
+  domain: string | null;
+  years: string;
+  setStatus: (status: PurchaseStatus) => void;
+  setMessage: (message: string) => void;
+  setErrorDetails: (details: string | null) => void;
+}
+
+// Module-scope helper so the effect depends on primitive search params instead
+// of a function rebuilt on every render.
+async function completePurchase({
+  reference,
+  domain,
+  years,
+  setStatus,
+  setMessage,
+  setErrorDetails,
+}: CompletePurchaseContext) {
+  if (!reference || !domain) {
+    setStatus('error');
+    setMessage('Missing payment information');
+    setErrorDetails('Reference or domain parameter is missing from the URL.');
+    return;
+  }
+
+  try {
+    // First verify the payment status via Paystack
+    setMessage('Verifying payment...');
+
+    const verifyResponse = await fetch(
+      `/api/payments/status?gateway=paystack&reference=${encodeURIComponent(reference)}`
+    );
+    const verifyData = await verifyResponse.json();
+
+    if (!verifyResponse.ok || !verifyData.is_confirmed) {
+      setStatus('error');
+      setMessage('Payment not completed');
+      setErrorDetails(
+        verifyData.is_pending
+          ? 'Your payment is still being processed. Please wait and refresh this page.'
+          : verifyData.error ||
+              'Your payment was not successful. Please try again.'
+      );
+      return;
+    }
+
+    // Payment verified, now complete the domain purchase
+    setMessage('Registering your domain...');
+
+    const purchaseResponse = await fetch('/api/domains/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        domain,
+        years: Number.parseInt(years, 10),
+        paymentReference: reference,
+      }),
+    });
+
+    const purchaseData = await purchaseResponse.json();
+
+    if (!purchaseResponse.ok) {
+      setStatus('error');
+      setMessage('Domain registration failed');
+      setErrorDetails(
+        purchaseData.error ||
+          'Failed to register domain. Please contact support.'
+      );
+      return;
+    }
+
+    // Success!
+    setStatus('success');
+    setMessage(`Successfully registered ${domain}!`);
+  } catch (error) {
+    console.error('Domain purchase callback error:', error);
+    setStatus('error');
+    setMessage('An error occurred');
+    setErrorDetails(
+      'Please contact support if you were charged but the domain was not registered.'
+    );
+  }
+}
+
 function DomainPaymentCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -14,83 +101,20 @@ function DomainPaymentCallbackContent() {
   const domain = searchParams.get('domain');
   const years = searchParams.get('years') || '1';
 
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>(
-    'processing'
-  );
+  const [status, setStatus] = useState<PurchaseStatus>('processing');
   const [message, setMessage] = useState('Processing your payment...');
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
-  const completePurchase = async () => {
-    if (!reference || !domain) {
-      setStatus('error');
-      setMessage('Missing payment information');
-      setErrorDetails('Reference or domain parameter is missing from the URL.');
-      return;
-    }
-
-    try {
-      // First verify the payment status via Paystack
-      setMessage('Verifying payment...');
-
-      const verifyResponse = await fetch(
-        `/api/payments/status?gateway=paystack&reference=${encodeURIComponent(reference)}`
-      );
-      const verifyData = await verifyResponse.json();
-
-      if (!verifyResponse.ok || !verifyData.is_confirmed) {
-        setStatus('error');
-        setMessage('Payment not completed');
-        setErrorDetails(
-          verifyData.is_pending
-            ? 'Your payment is still being processed. Please wait and refresh this page.'
-            : verifyData.error ||
-                'Your payment was not successful. Please try again.'
-        );
-        return;
-      }
-
-      // Payment verified, now complete the domain purchase
-      setMessage('Registering your domain...');
-
-      const purchaseResponse = await fetch('/api/domains/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          domain,
-          years: Number.parseInt(years, 10),
-          paymentReference: reference,
-        }),
-      });
-
-      const purchaseData = await purchaseResponse.json();
-
-      if (!purchaseResponse.ok) {
-        setStatus('error');
-        setMessage('Domain registration failed');
-        setErrorDetails(
-          purchaseData.error ||
-            'Failed to register domain. Please contact support.'
-        );
-        return;
-      }
-
-      // Success!
-      setStatus('success');
-      setMessage(`Successfully registered ${domain}!`);
-    } catch (error) {
-      console.error('Domain purchase callback error:', error);
-      setStatus('error');
-      setMessage('An error occurred');
-      setErrorDetails(
-        'Please contact support if you were charged but the domain was not registered.'
-      );
-    }
-  };
-
   useEffect(() => {
-    completePurchase();
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes completePurchase
-  }, [completePurchase]);
+    void completePurchase({
+      reference,
+      domain,
+      years,
+      setStatus,
+      setMessage,
+      setErrorDetails,
+    });
+  }, [reference, domain, years]);
 
   return (
     <div className="container mx-auto p-6 flex items-center justify-center min-h-[60vh]">

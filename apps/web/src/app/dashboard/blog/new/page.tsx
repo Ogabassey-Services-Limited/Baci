@@ -4,7 +4,7 @@ import { ArrowLeft, Eye, Loader2, Save, Send, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { BlogEditor } from '@/components/blog/blog-editor';
 import { ProductGrid } from '@/components/blog/product-embed';
 import {
@@ -187,12 +187,15 @@ function getFeaturedImagePreviewUrl(data: PostFormData): string {
   return data.featured_image_variants.landscape_16x9 || data.featured_image_url;
 }
 
-export default function NewBlogPostPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const { merchant } = useMerchant();
+type ToastFn = ReturnType<typeof useToast>['toast'];
 
-  const [formData, setFormData] = useState<PostFormData>({
+interface SavedBlogPost {
+  id: string;
+  slug: string;
+}
+
+function createEmptyPostFormData(authorName: string): PostFormData {
+  return {
     title: '',
     slug: '',
     content: '',
@@ -204,24 +207,235 @@ export default function NewBlogPostPage() {
     featured_image_variants: {},
     category: '',
     tags: '',
-    author_name: merchant?.business_name || '',
+    author_name: authorName,
     author_title: '',
     author_bio: '',
     seo_title: '',
     seo_description: '',
+  };
+}
+
+async function deleteUploadedFeaturedImage(
+  imageToDelete: UploadedFeaturedImage
+): Promise<void> {
+  const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'DELETE',
+    body: JSON.stringify({
+      path: imageToDelete.path,
+      variantPaths: imageToDelete.variantPaths,
+    }),
   });
 
-  // Update author name when merchant loads
-  useEffect(() => {
-    if (merchant?.business_name) {
-      setFormData((prev) => {
-        if (!prev.author_name) {
-          return { ...prev, author_name: merchant.business_name };
-        }
-        return prev;
-      });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete image');
+  }
+}
+
+interface FeaturedImageUploadContext {
+  previousImage: UploadedFeaturedImage | null;
+  setFormData: Dispatch<SetStateAction<PostFormData>>;
+  setUploadedFeaturedImage: Dispatch<
+    SetStateAction<UploadedFeaturedImage | null>
+  >;
+  setIsUploading: Dispatch<SetStateAction<boolean>>;
+  toast: ToastFn;
+}
+
+// Module-scope helper so the try/finally stays out of the component body
+// (React Compiler cannot lower try/finally inside components yet).
+async function runFeaturedImageUpload(
+  file: File,
+  {
+    previousImage,
+    setFormData,
+    setUploadedFeaturedImage,
+    setIsUploading,
+    toast,
+  }: FeaturedImageUploadContext
+): Promise<void> {
+  const formDataUpload = new FormData();
+  formDataUpload.append('file', file);
+  formDataUpload.append('purpose', 'featured');
+
+  try {
+    const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+      method: 'POST',
+      body: formDataUpload,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload image');
     }
-  }, [merchant?.business_name]);
+
+    const data = parseFeaturedImageUploadResponse(await response.json());
+    const featuredImageVariants = normalizeFeaturedImageVariantMap(
+      data.variants
+    );
+    const variantPaths = normalizeFeaturedImageVariantPaths(data.variantPaths);
+
+    if (previousImage) {
+      try {
+        await deleteUploadedFeaturedImage(previousImage);
+      } catch (deleteError) {
+        console.error(
+          'Error deleting previously uploaded featured image:',
+          deleteError
+        );
+      }
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      featured_image_url: data.url,
+      featured_image_width: data.width,
+      featured_image_height: data.height,
+      featured_image_variants: featuredImageVariants,
+    }));
+    setUploadedFeaturedImage({
+      path: data.path,
+      variantPaths,
+    });
+    toast({
+      title: 'Success',
+      description: 'Featured image uploaded successfully.',
+    });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    toast({
+      title: 'Error',
+      description:
+        error instanceof Error ? error.message : 'Failed to upload image',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsUploading(false);
+  }
+}
+
+interface SavePostContext {
+  formData: PostFormData;
+  embeddedProducts: Product[];
+  toast: ToastFn;
+  clearSavedData: () => void;
+  setIsSaving: Dispatch<SetStateAction<boolean>>;
+  router: ReturnType<typeof useRouter>;
+}
+
+// Module-scope helper so the try/finally stays out of the component body
+// (React Compiler cannot lower try/finally inside components yet).
+async function performSavePost(
+  status: 'draft' | 'published',
+  shouldRedirect: boolean,
+  {
+    formData,
+    embeddedProducts,
+    toast,
+    clearSavedData,
+    setIsSaving,
+    router,
+  }: SavePostContext
+): Promise<SavedBlogPost | null> {
+  try {
+    const postData = {
+      title: formData.title.trim(),
+      slug: formData.slug || undefined,
+      content: formData.content,
+      excerpt: formData.excerpt || undefined,
+      featured_image_url: formData.featured_image_url || null,
+      featured_image_alt: formData.featured_image_alt || undefined,
+      featured_image_width: formData.featured_image_url
+        ? formData.featured_image_width
+        : null,
+      featured_image_height: formData.featured_image_url
+        ? formData.featured_image_height
+        : null,
+      featured_image_variants: formData.featured_image_url
+        ? formData.featured_image_variants
+        : {},
+      category: formData.category || undefined,
+      tags: formData.tags
+        ? formData.tags
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [],
+      author_name: formData.author_name,
+      author_title: formData.author_title || undefined,
+      author_bio: formData.author_bio || undefined,
+      seo_title: formData.seo_title || undefined,
+      seo_description: formData.seo_description || undefined,
+      embedded_products: embeddedProducts.map((p) => p.id),
+      status,
+    };
+
+    const response = await fetchWithCsrf('/api/merchant/blog/posts', {
+      method: 'POST',
+      body: JSON.stringify(postData),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to create post');
+    }
+
+    const savedPost: SavedBlogPost = await response.json();
+
+    toast({
+      title: status === 'published' ? 'Post Published!' : 'Draft Saved',
+      description:
+        status === 'published'
+          ? 'Your blog post is now live.'
+          : 'Your draft has been saved.',
+    });
+
+    // Clear auto-saved draft on successful server save
+    clearSavedData();
+
+    if (shouldRedirect) {
+      router.push(asRoute('/dashboard/blog'));
+    }
+
+    return savedPost;
+  } catch (error) {
+    console.error('Error saving post:', error);
+    toast({
+      title: 'Error',
+      description:
+        error instanceof Error ? error.message : 'Failed to save blog post.',
+      variant: 'destructive',
+    });
+    return null;
+  } finally {
+    setIsSaving(false);
+  }
+}
+
+export default function NewBlogPostPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { merchant } = useMerchant();
+
+  const [formData, setFormData] = useState<PostFormData>(() =>
+    createEmptyPostFormData(merchant?.business_name || '')
+  );
+
+  // Fill in the author name during render when the merchant profile loads
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const businessName = merchant?.business_name || '';
+  const [prevBusinessName, setPrevBusinessName] = useState(businessName);
+  if (businessName !== prevBusinessName) {
+    setPrevBusinessName(businessName);
+    if (businessName && !formData.author_name) {
+      setFormData((prev) =>
+        prev.author_name ? prev : { ...prev, author_name: businessName }
+      );
+    }
+  }
   const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
@@ -236,53 +450,43 @@ export default function NewBlogPostPage() {
     data: formData,
   });
 
-  // Silent auto-recovery on mount (no blocking dialog)
+  // Silent auto-recovery on mount (no blocking dialog). The recovered draft is
+  // applied from a timeout callback so the initial render can paint before the
+  // saved state lands (avoids a synchronous setState inside the effect body).
   useEffect(() => {
-    if (!hasAutoRecovered && hasSavedData()) {
-      const saved = getSavedData();
-      if (saved) {
-        setFormData(withFeaturedImageDefaults(saved.data));
-        setHasAutoRecovered(true);
-        toast({
-          title: 'Draft Recovered',
-          description: 'Your previous work has been restored.',
-          action: (
-            <button
-              type="button"
-              onClick={() => {
-                setFormData({
-                  title: '',
-                  slug: '',
-                  content: '',
-                  excerpt: '',
-                  featured_image_url: '',
-                  featured_image_alt: '',
-                  featured_image_width: null,
-                  featured_image_height: null,
-                  featured_image_variants: {},
-                  category: '',
-                  tags: '',
-                  author_name: merchant?.business_name || '',
-                  author_title: '',
-                  author_bio: '',
-                  seo_title: '',
-                  seo_description: '',
-                });
-                clearSavedData();
-                toast({
-                  title: 'Recovery Undone',
-                  description: 'Started with a fresh post.',
-                });
-              }}
-              className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
-            >
-              Undo
-            </button>
-          ),
-          duration: 8000,
-        });
-      }
-    }
+    if (hasAutoRecovered || !hasSavedData()) return;
+    const saved = getSavedData();
+    if (!saved) return;
+
+    const timer = window.setTimeout(() => {
+      setFormData(withFeaturedImageDefaults(saved.data));
+      setHasAutoRecovered(true);
+      toast({
+        title: 'Draft Recovered',
+        description: 'Your previous work has been restored.',
+        action: (
+          <button
+            type="button"
+            onClick={() => {
+              setFormData(
+                createEmptyPostFormData(merchant?.business_name || '')
+              );
+              clearSavedData();
+              toast({
+                title: 'Recovery Undone',
+                description: 'Started with a fresh post.',
+              });
+            }}
+            className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
+          >
+            Undo
+          </button>
+        ),
+        duration: 8000,
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [
     hasAutoRecovered,
     hasSavedData,
@@ -329,92 +533,18 @@ export default function NewBlogPostPage() {
 
   const [isUploading, setIsUploading] = useState(false);
 
-  const deleteUploadedFeaturedImage = async (
-    imageToDelete: UploadedFeaturedImage
-  ) => {
-    const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'DELETE',
-      body: JSON.stringify({
-        path: imageToDelete.path,
-        variantPaths: imageToDelete.variantPaths,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete image');
-    }
-  };
-
   // Handle featured image selection and upload
   const handleFeaturedImageUpload = async (files: File[]) => {
     if (files.length === 0) return;
 
     setIsUploading(true);
-    const file = files[0];
-    const formDataUpload = new FormData();
-    formDataUpload.append('file', file);
-    formDataUpload.append('purpose', 'featured');
-
-    try {
-      const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-        method: 'POST',
-        body: formDataUpload,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload image');
-      }
-
-      const data = parseFeaturedImageUploadResponse(await response.json());
-      const featuredImageVariants = normalizeFeaturedImageVariantMap(
-        data.variants
-      );
-      const variantPaths = normalizeFeaturedImageVariantPaths(
-        data.variantPaths
-      );
-
-      if (uploadedFeaturedImage) {
-        try {
-          await deleteUploadedFeaturedImage(uploadedFeaturedImage);
-        } catch (deleteError) {
-          console.error(
-            'Error deleting previously uploaded featured image:',
-            deleteError
-          );
-        }
-      }
-
-      setFormData((prev) => ({
-        ...prev,
-        featured_image_url: data.url,
-        featured_image_width: data.width,
-        featured_image_height: data.height,
-        featured_image_variants: featuredImageVariants,
-      }));
-      setUploadedFeaturedImage({
-        path: data.path,
-        variantPaths,
-      });
-      toast({
-        title: 'Success',
-        description: 'Featured image uploaded successfully.',
-      });
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to upload image',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
-    }
+    await runFeaturedImageUpload(files[0], {
+      previousImage: uploadedFeaturedImage,
+      setFormData,
+      setUploadedFeaturedImage,
+      setIsUploading,
+      toast,
+    });
   };
 
   // Image upload handler for the editor
@@ -480,10 +610,7 @@ export default function NewBlogPostPage() {
     return null;
   };
 
-  const savePost = async (
-    status: 'draft' | 'published',
-    shouldRedirect = true
-  ) => {
+  const savePost = (status: 'draft' | 'published', shouldRedirect = true) => {
     const error = validateForm();
     if (error) {
       toast({
@@ -495,79 +622,14 @@ export default function NewBlogPostPage() {
     }
 
     setIsSaving(true);
-    try {
-      const postData = {
-        title: formData.title.trim(),
-        slug: formData.slug || undefined,
-        content: formData.content,
-        excerpt: formData.excerpt || undefined,
-        featured_image_url: formData.featured_image_url || null,
-        featured_image_alt: formData.featured_image_alt || undefined,
-        featured_image_width: formData.featured_image_url
-          ? formData.featured_image_width
-          : null,
-        featured_image_height: formData.featured_image_url
-          ? formData.featured_image_height
-          : null,
-        featured_image_variants: formData.featured_image_url
-          ? formData.featured_image_variants
-          : {},
-        category: formData.category || undefined,
-        tags: formData.tags
-          ? formData.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
-          : [],
-        author_name: formData.author_name,
-        author_title: formData.author_title || undefined,
-        author_bio: formData.author_bio || undefined,
-        seo_title: formData.seo_title || undefined,
-        seo_description: formData.seo_description || undefined,
-        embedded_products: embeddedProducts.map((p) => p.id),
-        status,
-      };
-
-      const response = await fetchWithCsrf('/api/merchant/blog/posts', {
-        method: 'POST',
-        body: JSON.stringify(postData),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create post');
-      }
-
-      const savedPost = await response.json();
-
-      toast({
-        title: status === 'published' ? 'Post Published!' : 'Draft Saved',
-        description:
-          status === 'published'
-            ? 'Your blog post is now live.'
-            : 'Your draft has been saved.',
-      });
-
-      // Clear auto-saved draft on successful server save
-      clearSavedData();
-
-      if (shouldRedirect) {
-        router.push(asRoute('/dashboard/blog'));
-      }
-
-      return savedPost;
-    } catch (error) {
-      console.error('Error saving post:', error);
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to save blog post.',
-        variant: 'destructive',
-      });
-      return null;
-    } finally {
-      setIsSaving(false);
-    }
+    return performSavePost(status, shouldRedirect, {
+      formData,
+      embeddedProducts,
+      toast,
+      clearSavedData,
+      setIsSaving,
+      router,
+    });
   };
 
   const handlePreview = async () => {

@@ -72,6 +72,63 @@ interface Review {
   };
 }
 
+async function fetchReviewsRequest(
+  statusFilter: string,
+  search: string
+): Promise<Review[]> {
+  // Fetch reviews for this merchant's products
+  const response = await fetch(
+    `/api/dashboard/reviews?status=${statusFilter}&search=${search}`
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch reviews');
+  }
+
+  const data = await response.json();
+  return data.reviews || [];
+}
+
+async function updateReviewStatusRequest(
+  reviewId: string,
+  status: 'approved' | 'rejected'
+): Promise<void> {
+  const response = await fetch(`/api/reviews/${reviewId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update review');
+  }
+}
+
+async function submitReviewResponseRequest(
+  reviewId: string,
+  merchantResponse: string
+): Promise<void> {
+  const response = await fetch(`/api/reviews/${reviewId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ merchant_response: merchantResponse }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to submit response');
+  }
+}
+
+async function deleteReviewRequest(reviewId: string): Promise<void> {
+  const response = await fetch(`/api/reviews/${reviewId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete review');
+  }
+}
+
 export default function ReviewsPage() {
   const { toast } = useToast();
   const { merchant } = useMerchant();
@@ -85,149 +142,131 @@ export default function ReviewsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showResponseDialog, setShowResponseDialog] = useState(false);
 
-  const fetchReviews = async () => {
-    if (!merchant?.id) return;
-
+  // Show the loader again when the active filters change (render-time
+  // adjustment per react.dev "Adjusting some state when a prop changes").
+  const [prevReviewFilters, setPrevReviewFilters] = useState({
+    statusFilter,
+    debouncedSearch,
+  });
+  if (
+    prevReviewFilters.statusFilter !== statusFilter ||
+    prevReviewFilters.debouncedSearch !== debouncedSearch
+  ) {
+    setPrevReviewFilters({ statusFilter, debouncedSearch });
     setIsLoading(true);
-    try {
-      // Fetch reviews for this merchant's products
-      const response = await fetch(
-        `/api/dashboard/reviews?status=${statusFilter}&search=${debouncedSearch}`
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch reviews');
-      }
-
-      const data = await response.json();
-      setReviews(data.reviews || []);
-    } catch (error) {
-      console.error('Error fetching reviews:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load reviews.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }
 
   useEffect(() => {
-    fetchReviews();
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes fetchReviews
-  }, [fetchReviews]);
+    if (!merchant?.id) return;
 
-  const updateReviewStatus = async (
+    fetchReviewsRequest(statusFilter, debouncedSearch)
+      .then((fetchedReviews) => {
+        setReviews(fetchedReviews);
+      })
+      .catch((error: unknown) => {
+        console.error('Error fetching reviews:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load reviews.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [merchant?.id, statusFilter, debouncedSearch, toast]);
+
+  const updateReviewStatus = (
     reviewId: string,
     status: 'approved' | 'rejected'
   ) => {
     setIsUpdating(true);
-    try {
-      const response = await fetch(`/api/reviews/${reviewId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
+    updateReviewStatusRequest(reviewId, status)
+      .then(() => {
+        setReviews((prev) =>
+          prev.map((r) => (r.id === reviewId ? { ...r, status } : r))
+        );
 
-      if (!response.ok) {
-        throw new Error('Failed to update review');
-      }
-
-      setReviews((prev) =>
-        prev.map((r) => (r.id === reviewId ? { ...r, status } : r))
-      );
-
-      toast({
-        title: status === 'approved' ? 'Review Approved' : 'Review Rejected',
-        description: `The review has been ${status}.`,
+        toast({
+          title: status === 'approved' ? 'Review Approved' : 'Review Rejected',
+          description: `The review has been ${status}.`,
+        });
+      })
+      .catch(() => {
+        toast({
+          title: 'Error',
+          description: 'Failed to update review status.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsUpdating(false);
       });
-    } catch (_error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update review status.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUpdating(false);
-    }
   };
 
-  const submitResponse = async () => {
+  const submitResponse = () => {
     if (!selectedReview) return;
 
+    const reviewId = selectedReview.id;
     setIsUpdating(true);
-    try {
-      const response = await fetch(`/api/reviews/${selectedReview.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ merchant_response: responseText }),
+    submitReviewResponseRequest(reviewId, responseText)
+      .then(() => {
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.id === reviewId
+              ? {
+                  ...r,
+                  merchant_response: responseText,
+                  merchant_response_at: new Date().toISOString(),
+                }
+              : r
+          )
+        );
+
+        setShowResponseDialog(false);
+        setSelectedReview(null);
+        setResponseText('');
+
+        toast({
+          title: 'Response Submitted',
+          description: 'Your response has been added to the review.',
+        });
+      })
+      .catch(() => {
+        toast({
+          title: 'Error',
+          description: 'Failed to submit response.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsUpdating(false);
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit response');
-      }
-
-      setReviews((prev) =>
-        prev.map((r) =>
-          r.id === selectedReview.id
-            ? {
-                ...r,
-                merchant_response: responseText,
-                merchant_response_at: new Date().toISOString(),
-              }
-            : r
-        )
-      );
-
-      setShowResponseDialog(false);
-      setSelectedReview(null);
-      setResponseText('');
-
-      toast({
-        title: 'Response Submitted',
-        description: 'Your response has been added to the review.',
-      });
-    } catch (_error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to submit response.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUpdating(false);
-    }
   };
 
-  const deleteReview = async (reviewId: string) => {
+  const deleteReview = (reviewId: string) => {
     // In a real app, use a custom dialog instead of confirm
     // if (!confirm('Are you sure you want to delete this review?')) return;
 
     // For now, we'll proceed but this should be replaced with a proper UI dialog
     // to avoid blocking the thread and for better accessibility
 
-    try {
-      const response = await fetch(`/api/reviews/${reviewId}`, {
-        method: 'DELETE',
-      });
+    deleteReviewRequest(reviewId)
+      .then(() => {
+        setReviews((prev) => prev.filter((r) => r.id !== reviewId));
 
-      if (!response.ok) {
-        throw new Error('Failed to delete review');
-      }
-
-      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
-
-      toast({
-        title: 'Review Deleted',
-        description: 'The review has been permanently deleted.',
+        toast({
+          title: 'Review Deleted',
+          description: 'The review has been permanently deleted.',
+        });
+      })
+      .catch(() => {
+        toast({
+          title: 'Error',
+          description: 'Failed to delete review.',
+          variant: 'destructive',
+        });
       });
-    } catch (_error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete review.',
-        variant: 'destructive',
-      });
-    }
   };
 
   const getStatusBadge = (status: string) => {

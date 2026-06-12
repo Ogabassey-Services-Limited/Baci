@@ -76,6 +76,31 @@ function fromDbShippingStatus(status: string): ShippingStatus {
     .join(' ') as ShippingStatus;
 }
 
+interface ConfirmOrderResponse {
+  error?: string;
+  insurance?: {
+    success?: boolean;
+    results: Array<{ policyNumber: string }>;
+  };
+}
+
+async function confirmOrderRequest(
+  orderId: string,
+  data: ConfirmInsurancePayload
+): Promise<ConfirmOrderResponse> {
+  const response = await fetch(`/api/orders/${orderId}/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  const result: ConfirmOrderResponse = await response.json();
+
+  if (!response.ok) throw new Error(result.error || 'Confirmation failed');
+
+  return result;
+}
+
 // Placeholder FulfillmentDialog - replace with actual import when available
 function FulfillmentDialog({
   isOpen,
@@ -158,15 +183,7 @@ export default function OrderDetailsClientPage({
 
   const handleConfirmationSubmit = async (data: ConfirmInsurancePayload) => {
     try {
-      const response = await fetch(`/api/orders/${order.id}/confirm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) throw new Error(result.error || 'Confirmation failed');
+      const result = await confirmOrderRequest(order.id, data);
 
       toast({
         title: 'Order Confirmed',

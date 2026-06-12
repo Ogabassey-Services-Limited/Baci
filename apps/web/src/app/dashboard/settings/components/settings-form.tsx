@@ -4,7 +4,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
 import { Loader2 } from 'lucide-react';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  type TransitionStartFunction,
+  useRef,
+  useState,
+  useTransition,
+} from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { FaviconUpload } from '@/app/dashboard/settings/favicon-upload';
@@ -41,6 +48,124 @@ interface SettingsFormProps {
   initialBlogEnabled: boolean;
 }
 
+type UpdateMerchantFn = ReturnType<typeof useMerchant>['updateMerchant'];
+type ToastFn = ReturnType<typeof useToast>['toast'];
+
+interface LogoUploadContext {
+  dataUri: string;
+  previousState: CachedMerchant;
+  updateMerchant: UpdateMerchantFn;
+  toast: ToastFn;
+  setMerchantState: Dispatch<SetStateAction<CachedMerchant>>;
+  setIsUploading: Dispatch<SetStateAction<boolean>>;
+  startTransition: TransitionStartFunction;
+}
+
+// Module-scope helper: try/finally and dynamic import() bail React Compiler out
+// when they live inside the component body.
+async function uploadLogoWithColors({
+  dataUri,
+  previousState,
+  updateMerchant,
+  toast,
+  setMerchantState,
+  setIsUploading,
+  startTransition,
+}: LogoUploadContext) {
+  setIsUploading(true);
+  try {
+    startTransition(() => {
+      setMerchantState((prev) =>
+        prev ? { ...prev, logo_url: dataUri } : prev
+      );
+    });
+
+    const newColors = await extractColorsFromImage(dataUri);
+
+    // Upload to storage instead of storing data URI in DB
+    const { uploadImage } = await import('@/lib/storage');
+    const uploadedUrl = await uploadImage(dataUri);
+
+    if (!uploadedUrl) throw new Error('Failed to upload logo to storage.');
+
+    await updateMerchant({
+      logo_url: uploadedUrl,
+      brand_colors: newColors,
+    });
+
+    // Update local state with the final public URL
+    startTransition(() => {
+      setMerchantState((prev) =>
+        prev
+          ? {
+              ...prev,
+              logo_url: uploadedUrl,
+              brand_colors: newColors,
+            }
+          : prev
+      );
+    });
+
+    toast({
+      title: 'Logo and Colors Updated!',
+      description: 'Your new brand identity is saved.',
+    });
+  } catch (e) {
+    setMerchantState(previousState);
+    logger.error({
+      error: e as Error,
+      message: 'Logo upload and color extraction failed.',
+    });
+    toast({
+      title: 'Update Failed',
+      description: (e as Error).message,
+      variant: 'destructive',
+    });
+  } finally {
+    setIsUploading(false);
+  }
+}
+
+interface SaveSettingsContext {
+  data: SettingsFormValues;
+  heroSlides: HeroSlide[];
+  socialMedia: Record<string, string>;
+  updateMerchant: UpdateMerchantFn;
+  toast: ToastFn;
+  setIsSaving: Dispatch<SetStateAction<boolean>>;
+}
+
+// Module-scope helper: keeps the try/finally out of the component body.
+async function saveSettings({
+  data,
+  heroSlides,
+  socialMedia,
+  updateMerchant,
+  toast,
+  setIsSaving,
+}: SaveSettingsContext) {
+  setIsSaving(true);
+  try {
+    await updateMerchant({
+      ...data,
+      hero_slides: heroSlides,
+      social_media: sanitizeSocialMedia(socialMedia),
+    } as Parameters<UpdateMerchantFn>[0]);
+    toast({
+      title: 'Settings Saved!',
+      description: 'Your store settings have been updated.',
+    });
+  } catch (e) {
+    toast({
+      title: 'Error Saving Settings',
+      description: (e as Error).message,
+      variant: 'destructive',
+    });
+  } finally {
+    setIsSaving(false);
+  }
+}
+
 export function SettingsForm({
   initialMerchant,
   initialBlogEnabled,
@@ -69,12 +194,15 @@ export function SettingsForm({
     snapchat: initialMerchant?.social_media?.snapchat || '',
   });
 
-  // Sync internal state if prop changes significantly (only if not dirty to prevent data loss)
-  useEffect(() => {
-    if (initialMerchant && !isDirty) {
-      setMerchantState(initialMerchant);
-    }
-  }, [initialMerchant, isDirty]);
+  // Sync internal state if prop changes significantly (only if not dirty to
+  // prevent data loss). Render-time prev-compare instead of an effect, per
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevInitialMerchant, setPrevInitialMerchant] =
+    useState(initialMerchant);
+  if (initialMerchant && initialMerchant !== prevInitialMerchant && !isDirty) {
+    setPrevInitialMerchant(initialMerchant);
+    setMerchantState(initialMerchant);
+  }
 
   const form = useForm<
     z.input<typeof settingsSchema>,
@@ -92,62 +220,16 @@ export function SettingsForm({
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = async () => {
-        const dataUri = reader.result as string;
-        setIsUploading(true);
-        const previousState = merchantState;
-        try {
-          startTransition(() => {
-            setMerchantState((prev) =>
-              prev ? { ...prev, logo_url: dataUri } : prev
-            );
-          });
-
-          const newColors = await extractColorsFromImage(dataUri);
-
-          // Upload to storage instead of storing data URI in DB
-          const { uploadImage } = await import('@/lib/storage');
-          const uploadedUrl = await uploadImage(dataUri);
-
-          if (!uploadedUrl)
-            throw new Error('Failed to upload logo to storage.');
-
-          await updateMerchant({
-            logo_url: uploadedUrl,
-            brand_colors: newColors,
-          });
-
-          // Update local state with the final public URL
-          startTransition(() => {
-            setMerchantState((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    logo_url: uploadedUrl,
-                    brand_colors: newColors,
-                  }
-                : prev
-            );
-          });
-
-          toast({
-            title: 'Logo and Colors Updated!',
-            description: 'Your new brand identity is saved.',
-          });
-        } catch (e) {
-          setMerchantState(previousState);
-          logger.error({
-            error: e as Error,
-            message: 'Logo upload and color extraction failed.',
-          });
-          toast({
-            title: 'Update Failed',
-            description: (e as Error).message,
-            variant: 'destructive',
-          });
-        } finally {
-          setIsUploading(false);
-        }
+      reader.onloadend = () => {
+        void uploadLogoWithColors({
+          dataUri: reader.result as string,
+          previousState: merchantState,
+          updateMerchant,
+          toast,
+          setMerchantState,
+          setIsUploading,
+          startTransition,
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -219,33 +301,29 @@ export function SettingsForm({
   };
 
   async function _onSubmit(data: SettingsFormValues) {
-    setIsSaving(true);
-    try {
-      await updateMerchant({
-        ...data,
-        hero_slides: heroSlides,
-        social_media: sanitizeSocialMedia(socialMediaRef.current),
-      } as Parameters<typeof updateMerchant>[0]);
-      toast({
-        title: 'Settings Saved!',
-        description: 'Your store settings have been updated.',
-      });
-    } catch (e) {
-      toast({
-        title: 'Error Saving Settings',
-        description: (e as Error).message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
+    await saveSettings({
+      data,
+      heroSlides,
+      socialMedia: socialMediaRef.current,
+      updateMerchant,
+      toast,
+      setIsSaving,
+    });
   }
 
   const brandColors = merchantState?.brand_colors ?? undefined;
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(_onSubmit)} className="grid gap-6">
+      <form
+        onSubmit={(event) => {
+          // Defer the handleSubmit call to event time: building it during
+          // render passes a ref-reading callback into a render-phase call,
+          // which blocks React Compiler memoization.
+          void form.handleSubmit(_onSubmit)(event);
+        }}
+        className="grid gap-6"
+      >
         <BrandingCard
           merchantState={merchantState}
           brandColors={brandColors}

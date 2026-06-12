@@ -102,6 +102,79 @@ export interface BlogClientPageProps {
   };
 }
 
+const ITEMS_PER_PAGE = 20;
+
+interface BlogPostsResponse {
+  posts?: BlogPost[];
+  hasMore: boolean;
+  counts?: {
+    total: number;
+    published: number;
+    draft: number;
+    archived: number;
+  };
+}
+
+function buildPostsQuery(
+  statusFilter: string,
+  search: string,
+  page: number
+): URLSearchParams {
+  const params = new URLSearchParams();
+  if (statusFilter !== 'all') {
+    params.set('status', statusFilter);
+  }
+  if (search) {
+    params.set('search', search);
+  }
+
+  const offset = (page - 1) * ITEMS_PER_PAGE;
+  params.set('limit', ITEMS_PER_PAGE.toString());
+  params.set('offset', offset.toString());
+  return params;
+}
+
+async function requestPosts(
+  params: URLSearchParams
+): Promise<BlogPostsResponse> {
+  const response = await fetch(`/api/merchant/blog/posts?${params}`);
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.error || `Failed to fetch posts (${response.status})`
+    );
+  }
+
+  return response.json();
+}
+
+async function requestDeletePost(postId: string): Promise<void> {
+  const response = await fetchWithCsrf(`/api/merchant/blog/posts/${postId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete post');
+  }
+}
+
+async function requestUpdatePostStatus(
+  postId: string,
+  status: 'draft' | 'published' | 'archived'
+): Promise<Partial<BlogPost>> {
+  const response = await fetchWithCsrf(`/api/merchant/blog/posts/${postId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update post');
+  }
+
+  return response.json();
+}
+
 function getDiscoverReadinessLabel(state: BlogDiscoverImageReadinessState) {
   switch (state) {
     case 'missing_featured_image':
@@ -134,7 +207,6 @@ export function BlogClientPage({
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const ITEMS_PER_PAGE = 20;
 
   const [statsData, setStatsData] = useState<
     | {
@@ -147,50 +219,16 @@ export function BlogClientPage({
     | undefined
   >(initialCounts);
 
-  const fetchPosts = async () => {
-    if (!merchant?.id) return;
-
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') {
-        params.set('status', statusFilter);
-      }
-      if (debouncedSearch) {
-        params.set('search', debouncedSearch);
-      }
-
-      const offset = (page - 1) * ITEMS_PER_PAGE;
-      params.set('limit', ITEMS_PER_PAGE.toString());
-      params.set('offset', offset.toString());
-
-      const response = await fetch(`/api/merchant/blog/posts?${params}`);
-
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        throw new Error(
-          errorBody?.error || `Failed to fetch posts (${response.status})`
-        );
-      }
-
-      const data = await response.json();
-      setPosts(data.posts || []);
-      setHasMore(data.hasMore);
-
-      if (data.counts) {
-        setStatsData(data.counts);
-      }
-    } catch (error) {
-      console.error('Error fetching blog posts:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load blog posts.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+  // Adjust the loading flag during render when the query inputs change
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const queryKey = `${merchant?.id ?? ''}|${statusFilter}|${debouncedSearch}|${page}`;
+  const [prevQueryKey, setPrevQueryKey] = useState(queryKey);
+  if (queryKey !== prevQueryKey) {
+    setPrevQueryKey(queryKey);
+    if (merchant?.id) {
+      setIsLoading(true);
     }
-  };
+  }
 
   const handlePreview = async (post: BlogPost) => {
     if (!merchant?.slug) {
@@ -215,9 +253,30 @@ export function BlogClientPage({
     }
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: listing actual deps instead of fetchPosts avoids infinite loop without React Compiler (e.g. in tests)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: toast from useToast is stable; the effect re-runs only when the query inputs change
   useEffect(() => {
-    fetchPosts();
+    if (!merchant?.id) return;
+
+    requestPosts(buildPostsQuery(statusFilter, debouncedSearch, page))
+      .then((data) => {
+        setPosts(data.posts || []);
+        setHasMore(data.hasMore);
+
+        if (data.counts) {
+          setStatsData(data.counts);
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching blog posts:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load blog posts.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, [merchant?.id, statusFilter, debouncedSearch, page]);
 
   const handleDelete = async () => {
@@ -231,16 +290,7 @@ export function BlogClientPage({
     setDeletePostId(null);
 
     try {
-      const response = await fetchWithCsrf(
-        `/api/merchant/blog/posts/${idToDelete}`,
-        {
-          method: 'DELETE',
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to delete post');
-      }
+      await requestDeletePost(idToDelete);
 
       toast({
         title: 'Post Deleted',
@@ -263,19 +313,7 @@ export function BlogClientPage({
     status: 'draft' | 'published' | 'archived'
   ) => {
     try {
-      const response = await fetchWithCsrf(
-        `/api/merchant/blog/posts/${postId}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ status }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update post');
-      }
-
-      const updatedPost = await response.json();
+      const updatedPost = await requestUpdatePostStatus(postId, status);
       setPosts((prev) =>
         prev.map((p) => (p.id === postId ? { ...p, ...updatedPost } : p))
       );

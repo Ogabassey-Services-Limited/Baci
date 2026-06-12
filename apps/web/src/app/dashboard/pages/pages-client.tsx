@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
 import {
@@ -110,20 +110,26 @@ export default function PagesClient() {
   });
 
   // Track initialization to prevent overwriting user input
-  const [initialized, setInitialized] = useState(false);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (!initialized && merchant?.pages) {
+    if (!initializedRef.current && merchant?.pages) {
       form.reset(merchant.pages);
-      setInitialized(true);
+      initializedRef.current = true;
     }
-    if (merchant?.feature_settings?.pages_completed) {
-      const pagesCompleted = merchant.feature_settings.pages_completed;
-      if (pagesCompleted && typeof pagesCompleted === 'object') {
-        setCompletedPages(pagesCompleted as Record<string, boolean>);
-      }
+  }, [merchant, form]);
+
+  // Sync completion status from merchant during render
+  // (react.dev: adjusting some state when a prop changes)
+  const pagesCompleted = merchant?.feature_settings?.pages_completed;
+  const [prevPagesCompleted, setPrevPagesCompleted] =
+    useState<unknown>(undefined);
+  if (pagesCompleted !== prevPagesCompleted) {
+    setPrevPagesCompleted(pagesCompleted);
+    if (pagesCompleted && typeof pagesCompleted === 'object') {
+      setCompletedPages(pagesCompleted as Record<string, boolean>);
     }
-  }, [merchant, form, initialized]);
+  }
 
   const handleStatusChange = async (pageName: string, checked: boolean) => {
     if (togglingPage) return; // Prevent concurrent updates
@@ -139,42 +145,44 @@ export default function PagesClient() {
       pages_completed: newStatus,
     };
 
-    try {
-      await updateMerchant(
-        { feature_settings: newFeatureSettings },
-        { skipReload: true }
-      );
-    } catch (_error) {
-      // Revert on error using functional update to avoid stale closure
-      setCompletedPages((prev) => ({ ...prev, [pageName]: previousStatus }));
-      toast({
-        title: 'Error',
-        description: 'Failed to update page status.',
-        variant: 'destructive',
+    await updateMerchant(
+      { feature_settings: newFeatureSettings },
+      { skipReload: true }
+    )
+      .catch(() => {
+        // Revert on error using functional update to avoid stale closure
+        setCompletedPages((prev) => ({ ...prev, [pageName]: previousStatus }));
+        toast({
+          title: 'Error',
+          description: 'Failed to update page status.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setTogglingPage(null);
       });
-    } finally {
-      setTogglingPage(null);
-    }
   };
 
   async function onSubmit(data: PagesFormValues) {
     setIsSaving(true);
-    try {
-      await updateMerchant({ pages: data });
-      toast({
-        title: 'Pages Saved!',
-        description: 'Your informational pages have been updated.',
+    await updateMerchant({ pages: data })
+      .then(() => {
+        toast({
+          title: 'Pages Saved!',
+          description: 'Your informational pages have been updated.',
+        });
+      })
+      .catch((error) => {
+        console.error('Failed to save pages:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to save page content.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
-    } catch (error) {
-      console.error('Failed to save pages:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save page content.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
   }
 
   if (loading) {

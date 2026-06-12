@@ -321,21 +321,23 @@ export function TrustSettingsClient({
     }
 
     setIsSaving(true);
-    try {
-      await updateMerchant({ trust_profile: parsed.data });
-      toast({
-        title: 'Trust settings saved',
-        description: 'Your trust and policy details have been updated.',
+    await updateMerchant({ trust_profile: parsed.data })
+      .then(() => {
+        toast({
+          title: 'Trust settings saved',
+          description: 'Your trust and policy details have been updated.',
+        });
+      })
+      .catch(() => {
+        toast({
+          title: 'Error',
+          description: 'Failed to save trust settings.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to save trust settings.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   return (

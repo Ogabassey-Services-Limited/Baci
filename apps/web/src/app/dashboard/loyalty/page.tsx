@@ -62,6 +62,44 @@ const tierColors: Record<string, string> = {
   Platinum: 'bg-purple-600 text-white',
 };
 
+async function fetchLoyaltySettings(): Promise<LoyaltySettings | null> {
+  try {
+    const res = await fetch('/api/loyalty/settings');
+    if (res.ok) {
+      return (await res.json()) as LoyaltySettings;
+    }
+  } catch (error) {
+    console.error('Failed to fetch loyalty settings:', error);
+  }
+  return null;
+}
+
+interface LoyaltyCustomersData {
+  customers: CustomerLoyalty[];
+  tierDistribution: Record<string, number>;
+}
+
+async function fetchLoyaltyCustomers(
+  tier?: string | null
+): Promise<LoyaltyCustomersData | null> {
+  try {
+    const params = new URLSearchParams();
+    if (tier) params.set('tier', tier);
+
+    const res = await fetch(`/api/loyalty/customers?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        customers: data.customers || [],
+        tierDistribution: data.stats?.tierDistribution || {},
+      };
+    }
+  } catch (error) {
+    console.error('Failed to fetch customers:', error);
+  }
+  return null;
+}
+
 export default function LoyaltyProgramPage() {
   const [settings, setSettings] = useState<LoyaltySettings | null>(null);
   const [_customers, setCustomers] = useState<CustomerLoyalty[]>([]);
@@ -71,59 +109,43 @@ export default function LoyaltyProgramPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const fetchSettings = async () => {
-    try {
-      const res = await fetch('/api/loyalty/settings');
-      if (res.ok) {
-        const data = await res.json();
+  useEffect(() => {
+    fetchLoyaltySettings().then((data) => {
+      if (data) {
         setSettings(data);
       }
-    } catch (error) {
-      console.error('Failed to fetch loyalty settings:', error);
-    }
-  };
+    });
+    fetchLoyaltyCustomers()
+      .then((data) => {
+        if (data) {
+          setCustomers(data.customers);
+          setTierDistribution(data.tierDistribution);
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
-  const fetchCustomers = async (tier?: string | null) => {
-    try {
-      const params = new URLSearchParams();
-      if (tier) params.set('tier', tier);
-
-      const res = await fetch(`/api/loyalty/customers?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCustomers(data.customers || []);
-        setTierDistribution(data.stats?.tierDistribution || {});
-      }
-    } catch (error) {
-      console.error('Failed to fetch customers:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSettings();
-    fetchCustomers();
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes these functions
-  }, [fetchCustomers, fetchSettings]);
-
-  async function saveSettings() {
+  function saveSettings() {
     if (!settings) return;
     setSaving(true);
-    try {
-      const res = await fetch('/api/loyalty/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+    fetch('/api/loyalty/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    })
+      .then((res) => {
+        if (res.ok) {
+          // Show success message
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to save settings:', error);
+      })
+      .finally(() => {
+        setSaving(false);
       });
-      if (res.ok) {
-        // Show success message
-      }
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-    } finally {
-      setSaving(false);
-    }
   }
 
   if (loading) {

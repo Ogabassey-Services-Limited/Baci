@@ -62,6 +62,163 @@ interface DomainCardProps {
   domain: Domain;
 }
 
+const DOMAIN_REQUEST_TIMEOUT_MS = 10_000;
+
+type ToastFn = ReturnType<typeof useToast>['toast'];
+type AppRouter = ReturnType<typeof useRouter>;
+
+interface DomainActionContext {
+  domainName: string;
+  toast: ToastFn;
+  router: AppRouter;
+}
+
+// Module-scope helpers keep try/finally out of the component body
+// (React Compiler cannot lower try/finally inside components yet).
+async function runVerifyDomain({
+  domainName,
+  toast,
+  router,
+  setIsVerifying,
+}: DomainActionContext & {
+  setIsVerifying: (verifying: boolean) => void;
+}): Promise<void> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    DOMAIN_REQUEST_TIMEOUT_MS
+  );
+
+  try {
+    const response = await fetch(
+      `/api/domains/${encodeURIComponent(domainName)}/verify`,
+      {
+        method: 'POST',
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeoutId);
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      toast({
+        title: 'Domain Verified! ✅',
+        description: `${domainName} has been verified and is now active.`,
+      });
+      router.refresh();
+    } else {
+      toast({
+        title: 'Verification Failed',
+        description:
+          data.error ||
+          'Could not verify domain. Please check your DNS records.',
+        variant: 'destructive',
+      });
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error('Error verifying domain', error);
+    toast({
+      title: 'Verification Error',
+      description:
+        error instanceof Error && error.name === 'AbortError'
+          ? 'Request timed out. Please try again.'
+          : 'An error occurred while verifying the domain. Please try again.',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsVerifying(false);
+  }
+}
+
+async function runDeleteDomain({
+  domainName,
+  toast,
+  router,
+  setIsDeleting,
+  setShowDeleteDialog,
+}: DomainActionContext & {
+  setIsDeleting: (deleting: boolean) => void;
+  setShowDeleteDialog: (open: boolean) => void;
+}): Promise<void> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    DOMAIN_REQUEST_TIMEOUT_MS
+  );
+
+  try {
+    const response = await fetch(
+      `/api/domains/${encodeURIComponent(domainName)}`,
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      toast({
+        title: 'Domain Deleted',
+        description: 'The domain has been successfully removed.',
+      });
+      router.refresh();
+    } else {
+      const data = await response.json();
+      toast({
+        title: 'Error',
+        description: data.error || 'Failed to delete domain',
+        variant: 'destructive',
+      });
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error('Error deleting domain', error);
+    toast({
+      title: 'Error',
+      description:
+        error instanceof Error && error.name === 'AbortError'
+          ? 'Request timed out. Please try again.'
+          : 'An error occurred while deleting the domain',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsDeleting(false);
+    setShowDeleteDialog(false);
+  }
+}
+
+async function runSetPrimaryDomain({
+  domainName,
+  toast,
+  router,
+  setIsSettingPrimary,
+}: DomainActionContext & {
+  setIsSettingPrimary: (saving: boolean) => void;
+}): Promise<void> {
+  try {
+    const result = await setPrimaryDomain(domainName);
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    toast({
+      title: 'Success',
+      description: 'Domain set as primary',
+    });
+    // revalidatePath in action should trigger update, but router.refresh() ensures client sees it
+    router.refresh();
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description:
+        error instanceof Error ? error.message : 'Failed to set primary domain',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsSettingPrimary(false);
+  }
+}
+
 export function DomainCard({ domain }: DomainCardProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -115,124 +272,35 @@ export function DomainCard({ domain }: DomainCardProps) {
     return <Badge variant="outline">{labels[type]}</Badge>;
   };
 
-  const handleVerify = async () => {
+  const handleVerify = () => {
     setIsVerifying(true);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-    try {
-      const response = await fetch(
-        `/api/domains/${encodeURIComponent(domain.domain)}/verify`,
-        {
-          method: 'POST',
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeoutId);
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        toast({
-          title: 'Domain Verified! ✅',
-          description: `${domain.domain} has been verified and is now active.`,
-        });
-        router.refresh();
-      } else {
-        toast({
-          title: 'Verification Failed',
-          description:
-            data.error ||
-            'Could not verify domain. Please check your DNS records.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      clearTimeout(timeoutId);
-      console.error('Error verifying domain', error);
-      toast({
-        title: 'Verification Error',
-        description:
-          error instanceof Error && error.name === 'AbortError'
-            ? 'Request timed out. Please try again.'
-            : 'An error occurred while verifying the domain. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsVerifying(false);
-    }
+    return runVerifyDomain({
+      domainName: domain.domain,
+      toast,
+      router,
+      setIsVerifying,
+    });
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     setIsDeleting(true);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-    try {
-      const response = await fetch(
-        `/api/domains/${encodeURIComponent(domain.domain)}`,
-        {
-          method: 'DELETE',
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        toast({
-          title: 'Domain Deleted',
-          description: 'The domain has been successfully removed.',
-        });
-        router.refresh();
-      } else {
-        const data = await response.json();
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to delete domain',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      clearTimeout(timeoutId);
-      console.error('Error deleting domain', error);
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error && error.name === 'AbortError'
-            ? 'Request timed out. Please try again.'
-            : 'An error occurred while deleting the domain',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteDialog(false);
-    }
+    return runDeleteDomain({
+      domainName: domain.domain,
+      toast,
+      router,
+      setIsDeleting,
+      setShowDeleteDialog,
+    });
   };
 
-  const handleSetPrimary = async () => {
+  const handleSetPrimary = () => {
     setIsSettingPrimary(true);
-    try {
-      const result = await setPrimaryDomain(domain.domain);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      toast({
-        title: 'Success',
-        description: 'Domain set as primary',
-      });
-      // revalidatePath in action should trigger update, but router.refresh() ensures client sees it
-      router.refresh();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to set primary domain',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSettingPrimary(false);
-    }
+    return runSetPrimaryDomain({
+      domainName: domain.domain,
+      toast,
+      router,
+      setIsSettingPrimary,
+    });
   };
 
   const isVerifyActionAvailable =
