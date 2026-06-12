@@ -279,11 +279,20 @@ export function useMigrationJobRefresh({
   const refreshRequestIdRef = useRef(0);
   const refreshInFlightCountRef = useRef(0);
   const rowsLoadingRequestIdRef = useRef<number | null>(null);
-  // Lazy state init keeps a stable Map without allocating a discarded
-  // instance on every render (useRef(new Map()) re-evaluates its argument).
-  const [rowsCache] = useState<RowsCache>(() => new Map());
+  // Mutable cache that never drives rendering: a guarded lazy ref (the
+  // react.dev-documented "avoid recreating the ref contents" pattern) keeps a
+  // stable Map without per-render allocation and without parking a mutated
+  // value in useState. The getter only runs inside event callbacks.
+  const rowsCacheRef = useRef<RowsCache | null>(null);
+  const getRowsCache = (): RowsCache => {
+    if (rowsCacheRef.current === null) {
+      rowsCacheRef.current = new Map();
+    }
+    return rowsCacheRef.current;
+  };
 
   const clearRowsCacheForJob = useEffectEvent((jobId: string) => {
+    const rowsCache = getRowsCache();
     const cacheKeyPrefix = getMigrationRowsCacheKeyPrefix(jobId);
     for (const key of Array.from(rowsCache.keys())) {
       if (key.startsWith(cacheKeyPrefix)) {
@@ -293,6 +302,7 @@ export function useMigrationJobRefresh({
   });
 
   const pruneRowsCacheForJobs = useEffectEvent((jobIds: string[]) => {
+    const rowsCache = getRowsCache();
     const activeJobPrefixes = jobIds.map((jobId) =>
       getMigrationRowsCacheKeyPrefix(jobId)
     );
@@ -312,7 +322,7 @@ export function useMigrationJobRefresh({
           loadingRequestIdRef,
           refreshInFlightCountRef,
           refreshRequestIdRef,
-          rowsCache: rowsCache,
+          rowsCache: getRowsCache(),
           rowsLoadingRequestIdRef,
           selectedJobIdRef,
           selectedJobRef,
