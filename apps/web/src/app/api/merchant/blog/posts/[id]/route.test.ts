@@ -50,6 +50,7 @@ vi.mock('@/lib/api-auth', () => ({
 const mockRevalidateBlogPosts = vi.fn();
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
 const mockDispatchZohoBlogCampaign = vi.fn();
+const mockSubmitIndexNowUrls = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
@@ -64,6 +65,15 @@ vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
   dispatchZohoBlogCampaign: (...args: unknown[]) =>
     mockDispatchZohoBlogCampaign(...args),
 }));
+
+vi.mock('@/lib/indexnow', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/indexnow')>();
+
+  return {
+    ...actual,
+    submitIndexNowUrls: (...args: unknown[]) => mockSubmitIndexNowUrls(...args),
+  };
+});
 
 vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => mockServiceSupabase.client,
@@ -387,6 +397,12 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       postId: POST_ID,
       reason: 'Zoho Campaigns disabled',
       status: 'skipped',
+    });
+    mockSubmitIndexNowUrls.mockResolvedValue({
+      endpoint: 'https://api.indexnow.org/indexnow',
+      responseStatus: 202,
+      status: 'submitted',
+      submitted: 1,
     });
     mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
       identifiers: ['test-store', 'ogabassey.com'],
@@ -862,6 +878,44 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
         }),
         supabase: mockServiceSupabase.client,
       });
+      expect(mockSubmitIndexNowUrls).toHaveBeenCalledWith({
+        host: 'ogabassey.com',
+        urls: ['https://ogabassey.com/blog/original-slug'],
+      });
+    });
+
+    it('keeps publishing successful when IndexNow submission fails', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const indexNowError = new Error('IndexNow unavailable');
+      mockSubmitIndexNowUrls.mockRejectedValueOnce(indexNowError);
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: existingPost,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { ...existingPost, status: 'published' },
+          error: null,
+        });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          status: 'published',
+          title: 'Updated Title',
+        }),
+        makeParams(POST_ID)
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(res.status).toBe(200);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'IndexNow blog submit failed',
+        indexNowError
+      );
+      consoleErrorSpy.mockRestore();
     });
 
     it('preserves explicit published_at when publishing a draft', async () => {
