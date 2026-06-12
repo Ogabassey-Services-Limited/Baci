@@ -4,6 +4,15 @@ import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { GET as autocompleteGET } from './autocomplete/route';
 import { GET as searchGET } from './route';
 
+const afterCallbacks = vi.hoisted(
+  () => [] as Array<() => Promise<void> | void>
+);
+
+async function flushAfterCallbacks() {
+  const callbacks = afterCallbacks.splice(0);
+  await Promise.all(callbacks.map((callback) => callback()));
+}
+
 let mockProductsQueryData: unknown[] = [];
 let mockProductsQueryError: { code?: string; message: string } | null = null;
 
@@ -105,9 +114,20 @@ vi.mock('next/headers', () => ({
   }),
 }));
 
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>();
+  return {
+    ...actual,
+    after: vi.fn((callback: () => Promise<void> | void) => {
+      afterCallbacks.push(callback);
+    }),
+  };
+});
+
 describe('Search API Security', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    afterCallbacks.length = 0;
     mockProductsQueryData = [];
     mockProductsQueryError = null;
   });
@@ -126,6 +146,7 @@ describe('Search API Security', () => {
 
       const response = await searchGET(request);
       const data = await response.json();
+      await flushAfterCallbacks();
 
       expect(response.status).toBe(200);
       expect(data.query).toBe(expectedQuery);
@@ -150,9 +171,45 @@ describe('Search API Security', () => {
 
       const response = await searchGET(request);
       const data = await response.json();
+      await flushAfterCallbacks();
 
       expect(response.status).toBe(200);
       expect(data.query).toBe('iphone');
+    });
+
+    it('schedules analytics after the search response instead of blocking it', async () => {
+      const merchantId = '123e4567-e89b-12d3-a456-426614174000';
+      let resolveAnalyticsInsert:
+        | ((result: { error: { message: string } | null }) => void)
+        | undefined;
+      sharedChainableMock.insert.mockImplementationOnce(
+        () =>
+          new Promise<{ error: { message: string } | null }>((resolve) => {
+            resolveAnalyticsInsert = resolve;
+          })
+      );
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/search?q=iphone&merchant_id=${merchantId}`
+      );
+
+      const response = await searchGET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.query).toBe('iphone');
+      expect(sharedChainableMock.insert).not.toHaveBeenCalled();
+
+      const afterFlush = flushAfterCallbacks();
+      expect(sharedChainableMock.insert).toHaveBeenCalledWith({
+        merchant_id: merchantId,
+        search_query: 'iphone',
+        results_count: 0,
+        search_method: 'server',
+      });
+
+      resolveAnalyticsInsert?.({ error: null });
+      await afterFlush;
     });
 
     it('should validate merchant_id UUID', async () => {

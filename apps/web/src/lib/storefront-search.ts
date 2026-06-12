@@ -3,6 +3,7 @@ import {
   getProductSearchTotalCount,
 } from '@baci/shared';
 import { cookies } from 'next/headers';
+import { after } from 'next/server';
 import { logger } from './logger';
 import { type NormalizedProduct, normalizeProduct } from './normalize-product';
 import { isValidUuid, sanitizeSearchQuery } from './sanitize-core';
@@ -48,6 +49,47 @@ export interface StorefrontSearchProductsPage extends StorefrontSearchResult {
   products: NormalizedProduct[];
 }
 
+function scheduleSearchAnalyticsInsert({
+  supabase,
+  merchantId,
+  query,
+  resultsCount,
+}: {
+  supabase: SearchStorefrontProductsArgs['supabase'];
+  merchantId: string;
+  query: string;
+  resultsCount: number;
+}) {
+  after(async () => {
+    try {
+      const { error: analyticsError } = await supabase
+        .from('search_analytics')
+        .insert({
+          merchant_id: merchantId,
+          search_query: query,
+          results_count: resultsCount,
+          search_method: 'server',
+        });
+
+      if (analyticsError) {
+        logger.warn({
+          message: 'Storefront search analytics insert failed',
+          error: analyticsError,
+          merchantId,
+          query,
+        });
+      }
+    } catch (analyticsError) {
+      logger.warn({
+        message: 'Storefront search analytics insert failed',
+        error: analyticsError,
+        merchantId,
+        query,
+      });
+    }
+  });
+}
+
 export async function searchStorefrontProducts({
   supabase,
   merchantId,
@@ -88,23 +130,12 @@ export async function searchStorefrontProducts({
   const productIds = extractProductSearchIds(rankedResults);
   const count = getProductSearchTotalCount(rankedResults);
 
-  const { error: analyticsError } = await supabase
-    .from('search_analytics')
-    .insert({
-      merchant_id: merchantId,
-      search_query: sanitizedQuery,
-      results_count: productIds.length,
-      search_method: 'server',
-    });
-
-  if (analyticsError) {
-    logger.warn({
-      message: 'Storefront search analytics insert failed',
-      error: analyticsError,
-      merchantId,
-      query: sanitizedQuery,
-    });
-  }
+  scheduleSearchAnalyticsInsert({
+    supabase,
+    merchantId,
+    query: sanitizedQuery,
+    resultsCount: productIds.length,
+  });
 
   let didYouMean: string | null = null;
 
