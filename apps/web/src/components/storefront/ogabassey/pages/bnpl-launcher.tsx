@@ -1,5 +1,6 @@
 'use client';
 
+import type { Route } from 'next';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
@@ -200,7 +201,7 @@ interface BnplLaunchParams {
     pendingOrderSnapshot: ReturnType<typeof readPendingOrderSnapshot>;
     paymentLaunchKeyRef: { current: string | null };
     klumpSuccessRedirectRef: { current: boolean };
-    router: { push: (href: string) => void };
+    router: ReturnType<typeof useRouter>;
     setStatus: (status: 'loading' | 'processing' | 'error') => void;
     setErrorMessage: (message: string | null) => void;
 }
@@ -280,7 +281,7 @@ async function launchBnplPayment({
                 type: 'klump',
             });
             successQuery.set('trackingToken', trackingToken);
-            router.push(`/order-success?${successQuery.toString()}`);
+            router.push(`/order-success?${successQuery.toString()}` as Route);
             return;
         }
 
@@ -380,7 +381,7 @@ async function launchBnplPayment({
                     if (order.tracking_token) {
                         successQuery.set('trackingToken', order.tracking_token);
                     }
-                    router.push(`/order-success?${successQuery.toString()}`);
+                    router.push(`/order-success?${successQuery.toString()}` as Route);
                 },
                 onPopup: async (transactionId) => {
                     try {
@@ -457,7 +458,7 @@ async function launchBnplPayment({
                     if (order.tracking_token) {
                         successQuery.set('trackingToken', order.tracking_token);
                     }
-                    router.push(`/order-success?${successQuery.toString()}`);
+                    router.push(`/order-success?${successQuery.toString()}` as Route);
                 },
                 onClose: () => {
                     if (notifyNativeBnplClose('credpal')) {
