@@ -96,8 +96,20 @@ const mockSupabase = {
   rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
 };
 
+const mockAnalyticsChainable = {
+  insert: vi.fn().mockResolvedValue({ error: null }),
+};
+
+const mockAnalyticsSupabase = {
+  from: vi.fn(() => mockAnalyticsChainable),
+};
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
+}));
+
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: vi.fn(() => mockAnalyticsSupabase),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -130,6 +142,9 @@ describe('Search API Security', () => {
     afterCallbacks.length = 0;
     mockProductsQueryData = [];
     mockProductsQueryError = null;
+    mockAnalyticsSupabase.from.mockClear();
+    mockAnalyticsChainable.insert.mockReset();
+    mockAnalyticsChainable.insert.mockResolvedValue({ error: null });
   });
 
   describe('GET /api/search', () => {
@@ -150,8 +165,10 @@ describe('Search API Security', () => {
 
       expect(response.status).toBe(200);
       expect(data.query).toBe(expectedQuery);
-      expect(mockSupabase.from).toHaveBeenCalledWith('search_analytics');
-      expect(sharedChainableMock.insert).toHaveBeenCalledWith({
+      expect(mockAnalyticsSupabase.from).toHaveBeenCalledWith(
+        'search_analytics'
+      );
+      expect(mockAnalyticsChainable.insert).toHaveBeenCalledWith({
         merchant_id: merchantId,
         search_query: expectedQuery,
         results_count: 0,
@@ -161,7 +178,7 @@ describe('Search API Security', () => {
 
     it('does not fail product search when analytics insert fails', async () => {
       const merchantId = '123e4567-e89b-12d3-a456-426614174000';
-      sharedChainableMock.insert.mockResolvedValueOnce({
+      mockAnalyticsChainable.insert.mockResolvedValueOnce({
         error: { message: 'insert failed' },
       });
 
@@ -182,7 +199,7 @@ describe('Search API Security', () => {
       let resolveAnalyticsInsert:
         | ((result: { error: { message: string } | null }) => void)
         | undefined;
-      sharedChainableMock.insert.mockImplementationOnce(
+      mockAnalyticsChainable.insert.mockImplementationOnce(
         () =>
           new Promise<{ error: { message: string } | null }>((resolve) => {
             resolveAnalyticsInsert = resolve;
@@ -198,10 +215,10 @@ describe('Search API Security', () => {
 
       expect(response.status).toBe(200);
       expect(data.query).toBe('iphone');
-      expect(sharedChainableMock.insert).not.toHaveBeenCalled();
+      expect(mockAnalyticsChainable.insert).not.toHaveBeenCalled();
 
       const afterFlush = flushAfterCallbacks();
-      expect(sharedChainableMock.insert).toHaveBeenCalledWith({
+      expect(mockAnalyticsChainable.insert).toHaveBeenCalledWith({
         merchant_id: merchantId,
         search_query: 'iphone',
         results_count: 0,

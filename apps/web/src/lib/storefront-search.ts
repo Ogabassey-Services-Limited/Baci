@@ -18,21 +18,25 @@ export class InvalidMerchantIdError extends Error {
   }
 }
 
-interface SearchStorefrontProductsArgs {
-  supabase: {
-    rpc: (
-      fn: string,
-      args: Record<string, unknown>
-    ) => PromiseLike<{
-      data: unknown;
-      error: { message: string } | null;
-    }>;
-    from: (table: string) => {
-      insert: (
-        value: Record<string, unknown>
-      ) => PromiseLike<{ error: unknown }>;
-    };
+interface StorefrontSearchSupabase {
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>
+  ) => PromiseLike<{
+    data: unknown;
+    error: { message: string } | null;
+  }>;
+}
+
+interface StorefrontSearchAnalyticsSupabase {
+  from: (table: string) => {
+    insert: (value: Record<string, unknown>) => PromiseLike<{ error: unknown }>;
   };
+}
+
+interface SearchStorefrontProductsArgs {
+  supabase: StorefrontSearchSupabase;
+  analyticsSupabase?: StorefrontSearchAnalyticsSupabase;
   merchantId: string;
   query: string;
   limit: number;
@@ -55,6 +59,12 @@ function isAfterOutsideRequestScopeError(error: unknown) {
   );
 }
 
+function createSearchAnalyticsClient() {
+  return createPublicClient({
+    clientInfo: 'baci-storefront-search-analytics',
+  });
+}
+
 function runSearchAnalyticsAfterResponse(callback: () => Promise<void>) {
   try {
     after(callback);
@@ -75,7 +85,7 @@ async function insertSearchAnalytics({
   query,
   resultsCount,
 }: {
-  supabase: SearchStorefrontProductsArgs['supabase'];
+  supabase: StorefrontSearchAnalyticsSupabase;
   merchantId: string;
   query: string;
   resultsCount: number;
@@ -109,16 +119,24 @@ async function insertSearchAnalytics({
 }
 
 function scheduleSearchAnalyticsInsert(args: {
-  supabase: SearchStorefrontProductsArgs['supabase'];
+  supabase?: StorefrontSearchAnalyticsSupabase;
   merchantId: string;
   query: string;
   resultsCount: number;
 }) {
-  runSearchAnalyticsAfterResponse(() => insertSearchAnalytics(args));
+  const supabase = args.supabase ?? createSearchAnalyticsClient();
+
+  runSearchAnalyticsAfterResponse(() =>
+    insertSearchAnalytics({
+      ...args,
+      supabase,
+    })
+  );
 }
 
 export async function searchStorefrontProducts({
   supabase,
+  analyticsSupabase,
   merchantId,
   query,
   limit,
@@ -158,10 +176,10 @@ export async function searchStorefrontProducts({
   const count = getProductSearchTotalCount(rankedResults);
 
   scheduleSearchAnalyticsInsert({
-    supabase,
+    supabase: analyticsSupabase,
     merchantId,
     query: sanitizedQuery,
-    resultsCount: productIds.length,
+    resultsCount: count,
   });
 
   let didYouMean: string | null = null;
