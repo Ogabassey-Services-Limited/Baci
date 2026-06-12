@@ -83,7 +83,7 @@ export async function fetchOrderById(
     supabase
       .from('order_items')
       .select(
-        'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition, category, category_id, categories:category_id(name, slug))'
+        'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition, category, category_id, categories(name, slug))'
       )
       .eq('order_id', orderId),
     supabase

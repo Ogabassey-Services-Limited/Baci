@@ -75,10 +75,12 @@ describe('ShipmentFlowDetailsStep', () => {
     expect(
       screen.queryByPlaceholderText('Optional serial number')
     ).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText('e.g. C02ZK0ABC123')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('e.g. C02ZK0ABC123')
+    ).toBeInTheDocument();
   });
 
-  it('normalizes IMEI digits and trims serial number input', () => {
+  it('normalizes IMEI digits and preserves serial number typing', () => {
     const onFulfillmentDetailsChange = vi.fn();
 
     render(
@@ -102,7 +104,7 @@ describe('ShipmentFlowDetailsStep', () => {
     );
     expect(onFulfillmentDetailsChange).toHaveBeenCalledWith(
       'serialNumber',
-      'SN-123'
+      ' SN-123 '
     );
   });
 });

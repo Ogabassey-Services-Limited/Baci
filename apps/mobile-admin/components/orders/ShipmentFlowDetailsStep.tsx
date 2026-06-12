@@ -64,7 +64,7 @@ export function ShipmentFlowDetailsStep({
       >
         <TextInput
           onChangeText={(value) =>
-            onFulfillmentDetailsChange('serialNumber', value.trim())
+            onFulfillmentDetailsChange('serialNumber', value)
           }
           placeholder="e.g. C02ZK0ABC123"
           placeholderTextColor={colors.textSecondary}
