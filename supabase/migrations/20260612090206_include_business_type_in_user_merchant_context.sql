@@ -7,6 +7,7 @@ AS $$
 DECLARE
   v_merchant_id uuid;
   v_user_id uuid := auth.uid();
+  v_is_owner boolean := false;
   v_merchant_data jsonb;
   v_domain_data jsonb;
 BEGIN
@@ -16,6 +17,10 @@ BEGIN
     AND (business_name IS NOT NULL OR slug IS NOT NULL)
   ORDER BY id ASC
   LIMIT 1;
+
+  IF v_merchant_id IS NOT NULL THEN
+    v_is_owner := true;
+  END IF;
 
   IF v_merchant_id IS NULL THEN
     SELECT merchant_id INTO v_merchant_id
@@ -32,13 +37,20 @@ BEGIN
       SELECT
         id, user_id, email, business_name, business_type, slug, logo_url,
         favicon_png_192_url, is_published, phone, vat_registration_status,
-        vat_rate, payout_currency, brand_colors, country, bank_code,
-        bank_account_number, bank_name, bank_account_name,
-        paystack_subaccount_code, nin, bvn, cac_rc_number,
-        tax_identification_number, legal_entity_name, support_email,
-        support_phone, business_address, social_media, google_analytics_id,
-        facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id,
-        twitter_pixel_id, hero_slides
+        vat_rate, payout_currency, brand_colors, country,
+        CASE WHEN v_is_owner THEN bank_code ELSE NULL END AS bank_code,
+        CASE WHEN v_is_owner THEN bank_account_number ELSE NULL END AS bank_account_number,
+        CASE WHEN v_is_owner THEN bank_name ELSE NULL END AS bank_name,
+        CASE WHEN v_is_owner THEN bank_account_name ELSE NULL END AS bank_account_name,
+        CASE WHEN v_is_owner THEN paystack_subaccount_code ELSE NULL END AS paystack_subaccount_code,
+        CASE WHEN v_is_owner THEN nin ELSE NULL END AS nin,
+        CASE WHEN v_is_owner THEN bvn ELSE NULL END AS bvn,
+        CASE WHEN v_is_owner THEN cac_rc_number ELSE NULL END AS cac_rc_number,
+        CASE WHEN v_is_owner THEN tax_identification_number ELSE NULL END AS tax_identification_number,
+        CASE WHEN v_is_owner THEN legal_entity_name ELSE NULL END AS legal_entity_name,
+        support_email, support_phone, business_address, social_media,
+        google_analytics_id, facebook_pixel_id, tiktok_pixel_id,
+        snapchat_pixel_id, twitter_pixel_id, hero_slides
       FROM merchants
       WHERE id = v_merchant_id
     ) AS m;
