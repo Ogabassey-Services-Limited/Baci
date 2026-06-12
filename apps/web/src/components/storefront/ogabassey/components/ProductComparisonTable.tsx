@@ -12,8 +12,8 @@ import {
 } from '@/lib/storefront-specs/spec-matrix';
 import { normalizeProductCondition, type Product } from '../types';
 import { ComparisonSlotCell } from './ComparisonSlotCell';
-import { fetchComparisonProductSearchResults } from './comparison-product-search';
 import type { SearchResultProduct } from './comparison-search-types';
+import { useComparisonProductSearch } from './use-comparison-product-search';
 
 interface ProductComparisonTableProps {
     mainProduct: Product;
@@ -21,7 +21,6 @@ interface ProductComparisonTableProps {
 }
 
 const FALLBACK_PRICE_CURRENCY = 'NGN';
-const SEARCH_ERROR_MESSAGE = 'Could not load products. Try again.';
 const SUPPORTED_CURRENCY_CODES = typeof Intl.supportedValuesOf === 'function' ? new Set(Intl.supportedValuesOf('currency')) : null;
 function getSafeCurrencyCode(currency?: string | null) {
     const code = currency?.trim().toUpperCase();
@@ -34,10 +33,15 @@ export function ProductComparisonTable({
 }: ProductComparisonTableProps) {
     const [comparisonProducts, setComparisonProducts] = useState<Product[]>([]);
     const [isSearching, setIsSearching] = useState<number | null>(null);
-    const [query, setQuery] = useState('');
-    const [results, setResults] = useState<SearchResultProduct[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [searchError, setSearchError] = useState<string | null>(null);
+    const {
+        query,
+        results,
+        loading,
+        searchError,
+        handleQueryChange,
+        resetSearch,
+        clearSearchError,
+    } = useComparisonProductSearch({ mainProduct, comparisonProducts });
     const searchInputRef = useRef<HTMLInputElement>(null);
     const merchantContext = useMerchantSafe();
     const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
@@ -54,59 +58,6 @@ export function ProductComparisonTable({
             searchInputRef.current?.focus();
         }
     }, [isSearching]);
-
-    useEffect(() => {
-        const trimmedQuery = query.trim();
-
-        if (!trimmedQuery || trimmedQuery.length < 2) {
-            setResults([]);
-            setSearchError(null);
-            setLoading(false);
-            return;
-        }
-
-        const controller = new AbortController();
-        let isCurrentSearch = true;
-
-        const searchProducts = async () => {
-            setLoading(true);
-            setSearchError(null);
-            try {
-                const filtered = await fetchComparisonProductSearchResults({
-                    query: trimmedQuery,
-                    mainProduct,
-                    comparisonProducts,
-                    signal: controller.signal,
-                });
-
-                if (!isCurrentSearch) {
-                    return;
-                }
-
-                setResults(filtered);
-                setSearchError(null);
-            } catch (err) {
-                if (!isCurrentSearch || (err instanceof Error && err.name === 'AbortError')) {
-                    return;
-                }
-
-                console.error('Search failed', err);
-                setResults([]);
-                setSearchError(SEARCH_ERROR_MESSAGE);
-            } finally {
-                if (isCurrentSearch) {
-                    setLoading(false);
-                }
-            }
-        };
-
-        const timeout = setTimeout(searchProducts, 300);
-        return () => {
-            isCurrentSearch = false;
-            clearTimeout(timeout);
-            controller.abort();
-        };
-    }, [query, mainProduct.id, mainProduct.merchantId, mainProduct.category, mainProduct.categorySlug, comparisonProducts]);
 
     const addProduct = (rawProduct: SearchResultProduct) => {
         const heroImage = rawProduct.imageLarge || rawProduct.image || '';
@@ -140,9 +91,7 @@ export function ProductComparisonTable({
 
         setComparisonProducts(prev => [...prev, product]);
         setIsSearching(null);
-        setQuery('');
-        setResults([]);
-        setSearchError(null);
+        resetSearch();
     };
 
     const removeProduct = (index: number) => {
@@ -226,16 +175,14 @@ export function ProductComparisonTable({
                                 onRemoveProduct={removeProduct}
                                 onStartSearch={(nextSlotIdx) => {
                                     setIsSearching(nextSlotIdx);
-                                    setQuery('');
-                                    setResults([]);
-                                    setSearchError(null);
+                                    resetSearch();
                                 }}
                                 onCancelSearch={() => {
                                     setIsSearching(null);
-                                    setSearchError(null);
+                                    clearSearchError();
                                 }}
                                 query={query}
-                                setQuery={setQuery}
+                                setQuery={handleQueryChange}
                                 results={results}
                                 loading={loading}
                                 searchError={searchError}

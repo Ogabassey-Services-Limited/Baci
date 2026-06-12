@@ -35,6 +35,7 @@ vi.mock(
   '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints',
   () => ({
     preloadOgabasseyPdpProductResources: (props: {
+      productSlug?: string | null | undefined;
       src: string | null | undefined;
     }) => mockPreloadOgabasseyPdpProductResources(props),
   })
@@ -195,6 +196,7 @@ describe('CategoryProductLayout', () => {
 
     expectRenderedPage();
     expect(mockPreloadOgabasseyPdpProductResources).toHaveBeenCalledWith({
+      productSlug: PRODUCT_SLUG,
       src: 'https://cdn.ogabassey.com/products/alienware.avif',
     });
   });
@@ -250,6 +252,7 @@ describe('CategoryProductLayout', () => {
     expectRenderedPage();
     expectLcpHintLookup();
     expect(mockPreloadOgabasseyPdpProductResources).toHaveBeenCalledWith({
+      productSlug: PRODUCT_SLUG,
       src: 'https://cdn.ogabassey.com/products/alienware.avif',
     });
   });

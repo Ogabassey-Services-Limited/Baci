@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { BILL_PAYMENT_COPY } from './bill-payment-form-copy';
 import {
   type BillItem,
@@ -43,6 +43,25 @@ export function BillPaymentForm({
   loading,
   onSubmit,
 }: BillPaymentFormProps) {
+  // Remount the fields when the bill type tab changes so every piece of form
+  // state (selection, identifiers, amount, in-flight verification) resets
+  // without an effect round-trip.
+  // https://react.dev/learn/you-might-not-need-an-effect#resetting-all-state-when-a-prop-changes
+  return (
+    <BillPaymentFormFields
+      key={type}
+      type={type}
+      loading={loading}
+      onSubmit={onSubmit}
+    />
+  );
+}
+
+function BillPaymentFormFields({
+  type,
+  loading,
+  onSubmit,
+}: BillPaymentFormProps) {
   const { billers, billersError, billersLoading } =
     useBillPaymentBillers(type);
   const { setVerification, verification, verify, verifying } =
@@ -53,14 +72,6 @@ export function BillPaymentForm({
   );
   const [customerId, setCustomerId] = useState('');
   const [amount, setAmount] = useState('');
-
-  useEffect(() => {
-    setSelectedBiller(null);
-    setSelectedBillItemCodes([]);
-    setCustomerId('');
-    setAmount('');
-    setVerification(null);
-  }, [type]);
 
   const billItemSelection = resolveBillItemSelection(
     selectedBiller?.billItems,

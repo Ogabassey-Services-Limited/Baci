@@ -127,6 +127,73 @@ describe('OgabasseyPdpProductResourceHints', () => {
     ]);
   });
 
+  it('emits exactly one preload per responsive PDP product image profile', () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/z-fold-7-jet-black.avif';
+
+    renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: productImage })
+    );
+
+    const calls = mockPreload.mock.calls.map(([href, options]) => ({
+      href,
+      imageSizes: (options as Record<string, unknown>).imageSizes,
+      imageSrcSet: (options as Record<string, unknown>).imageSrcSet,
+      media: (options as Record<string, unknown>).media,
+    }));
+
+    expect(calls).toHaveLength(2);
+    expect(new Set(calls.map((call) => call.media))).toEqual(
+      new Set([
+        OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+        OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+      ])
+    );
+    expect(
+      new Set(calls.map((call) => `${call.media}:${call.href}`)).size
+    ).toBe(calls.length);
+  });
+
+  it('uses same-origin PDP image URLs when a product slug is provided', () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/z-fold-7-jet-black.avif';
+
+    renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, {
+        productSlug: 'z-fold-7-jet-black',
+        src: productImage,
+      })
+    );
+
+    const mobilePreload = mockPreload.mock.calls.find(
+      ([, options]) =>
+        (options as Record<string, unknown>).media ===
+        OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA
+    );
+    const desktopPreload = mockPreload.mock.calls.find(
+      ([, options]) =>
+        (options as Record<string, unknown>).media ===
+        OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA
+    );
+
+    expect(mobilePreload?.[0]).toBe(
+      '/api/ogabassey/pdp-lcp-image/profile/mobile/z-fold-7-jet-black'
+    );
+    expect(
+      (mobilePreload?.[1] as { imageSrcSet: string }).imageSrcSet
+    ).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/mobile/z-fold-7-jet-black 750w'
+    );
+    expect(desktopPreload?.[0]).toBe(
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black'
+    );
+    expect(
+      (desktopPreload?.[1] as { imageSrcSet: string }).imageSrcSet
+    ).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black 640w'
+    );
+  });
+
   it('uses the fallback URL extension when the image is not CDN transformed', () => {
     const productImage =
       'https://assets.example.com/products/lenovo-legion.png';

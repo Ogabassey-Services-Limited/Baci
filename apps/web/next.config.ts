@@ -25,9 +25,11 @@ const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
 ].join(', ');
 const OGABASSEY_DOMAIN = 'ogabassey.com';
 const OGABASSEY_PDP_LCP_IMAGE_PRELOAD_LINK_HEADER = [
-  // Next.js headers() substitutes matched path params in header values at
-  // request time. Keep the dynamic token in the path, not before a `?`, because
-  // `:productSlug?` is parsed as an optional param marker by path-to-regexp.
+  // This points at the same-origin PDP image byte endpoint. The visible PDP
+  // image uses the same URL family on known OgaBassey routes, so the header
+  // preload is reused instead of competing with a later direct-CDN preload.
+  // Profile routes intentionally omit query-string sizing: the profile segment
+  // maps to the shared PDP media constants in the API route.
   '</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767px)"',
   '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"',
 ].join(', ');

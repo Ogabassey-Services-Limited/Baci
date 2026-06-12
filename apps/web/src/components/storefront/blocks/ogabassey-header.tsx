@@ -43,7 +43,7 @@ export function OgabasseyHeader({
   const searchRef = useRef<HTMLDivElement>(null);
   const { cartCount } = useCart();
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
 
@@ -51,14 +51,18 @@ export function OgabasseyHeader({
     setShowResults(true);
     setResults(null); // Clear previous
 
-    try {
-      const recommendations = await searchProductsWithGemini(query);
-      setResults(recommendations);
-    } catch (error) {
-      console.error('Search failed', error);
-    } finally {
-      setIsSearching(false);
-    }
+    // Promise chain instead of try/finally: a try statement with a finalizer
+    // in the component body blocks React Compiler optimization.
+    searchProductsWithGemini(query)
+      .then((recommendations) => {
+        setResults(recommendations);
+      })
+      .catch((error) => {
+        console.error('Search failed', error);
+      })
+      .finally(() => {
+        setIsSearching(false);
+      });
   };
 
   // Close dropdown when clicking outside

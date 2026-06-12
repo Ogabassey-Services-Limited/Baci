@@ -1,8 +1,8 @@
 import z from 'zod';
 
 export const loginSchema = z.object({
-  email: z.email({ error: 'Please enter a valid email address' }),
-  password: z.string().min(1, 'Password is required'),
+  email: z.email({ error: 'Please enter a valid email address.' }),
+  password: z.string().min(1, 'Please enter your password.'),
 });
 
 export const signupSchema = z
@@ -17,7 +17,7 @@ export const signupSchema = z
   });
 
 export const forgotPasswordSchema = z.object({
-  email: z.email({ error: 'Please enter a valid email address' }),
+  email: z.email({ error: 'Please enter a valid email address.' }),
 });
 
 export type SignupValues = z.infer<typeof signupSchema>;

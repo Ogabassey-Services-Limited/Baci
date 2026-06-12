@@ -38,6 +38,43 @@ interface Policy {
   customer_email?: string; // Added for SDK
 }
 
+interface PolicyFetchResult {
+  policy: Policy | null;
+  error: string;
+}
+
+// Module-scope helper: try/finally and throw-inside-try are not yet supported
+// by React Compiler inside component bodies, so the fetch lives here.
+async function fetchPolicyForOrder(
+  orderId: string
+): Promise<PolicyFetchResult> {
+  try {
+    const res = await fetch(`/api/insurance/policy/${orderId}`);
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || 'Failed to load policy');
+    if (!data.found) {
+      return {
+        policy: null,
+        error: 'No active insurance policy found for this order.',
+      };
+    }
+    const policy = data.policies?.[0] ?? null;
+    if (!policy) {
+      return {
+        policy: null,
+        error: 'No active insurance policy found for this order.',
+      };
+    }
+    return { policy, error: '' };
+  } catch (err: unknown) {
+    return {
+      policy: null,
+      error: err instanceof Error ? err.message : 'An unknown error occurred',
+    };
+  }
+}
+
 export default function InsurancePolicyPage() {
   const params = useParams();
   const router = useRouter();
@@ -48,34 +85,16 @@ export default function InsurancePolicyPage() {
   const orderId = params.orderId as string;
 
   useEffect(() => {
-    const fetchPolicy = async () => {
-      try {
-        const res = await fetch(`/api/insurance/policy/${orderId}`);
-        const data = await res.json();
+    if (!orderId) return;
 
-        if (!res.ok) throw new Error(data.error || 'Failed to load policy');
-        if (!data.found) {
-          setError('No active insurance policy found for this order.');
-        } else {
-          const policy = data.policies?.[0] ?? null;
-          if (!policy) {
-            setError('No active insurance policy found for this order.');
-          } else {
-            setPolicy(policy);
-          }
-        }
-      } catch (err: unknown) {
-        setError(
-          err instanceof Error ? err.message : 'An unknown error occurred'
-        );
-      } finally {
-        setLoading(false);
+    fetchPolicyForOrder(orderId).then((result) => {
+      if (result.policy) {
+        setPolicy(result.policy);
+      } else {
+        setError(result.error);
       }
-    };
-
-    if (orderId) {
-      fetchPolicy();
-    }
+      setLoading(false);
+    });
   }, [orderId]);
 
   const handleFileClaim = () => {

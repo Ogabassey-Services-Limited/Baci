@@ -87,58 +87,80 @@ export function SearchAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  // Immediately clear suggestions when value becomes too short
-  useEffect(() => {
+  // Immediately clear suggestions when value becomes too short.
+  // Adjusted inline during render with a prev-prop comparison so users never
+  // see a stale committed frame between the prop change and the reset.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     if (value.length < 2) {
       setLoading(false);
       setSuggestions([]);
       setPopularSearches([]);
       setIsOpen(false);
     }
-  }, [value]);
+  }
 
-  // Debounced search with autocomplete suggestions
-  useEffect(() => {
+  // Clear stale results once the debounced query becomes too short, using the
+  // same render-time prev-comparison pattern instead of an effect.
+  const [prevDebouncedValue, setPrevDebouncedValue] = useState(debouncedValue);
+  if (debouncedValue !== prevDebouncedValue) {
+    setPrevDebouncedValue(debouncedValue);
     if (debouncedValue.length < 2) {
       setLoading(false);
       setSuggestions([]);
       setPopularSearches([]);
       setIsOpen(false);
+    }
+  }
+
+  // Debounced search with autocomplete suggestions
+  useEffect(() => {
+    if (debouncedValue.length < 2) {
       return;
     }
 
     let isMounted = true;
-    const fetchAutocomplete = async () => {
+    const fetchAutocomplete = () => {
       setLoading(true);
-      try {
-        const response = await fetch(
-          `/api/search/autocomplete?q=${encodeURIComponent(debouncedValue)}&merchant_id=${merchantId}&limit=10`
-        );
-        const data = await response.json();
+      fetch(
+        `/api/search/autocomplete?q=${encodeURIComponent(debouncedValue)}&merchant_id=${merchantId}&limit=10`
+      )
+        .then((response) => response.json())
+        .then(
+          (data: {
+            suggestions?: Product[];
+            popularSearches?: PopularSearch[];
+          }) => {
+            if (!isMounted) {
+              return;
+            }
+            setSuggestions(data.suggestions || []);
+            setPopularSearches(data.popularSearches || []);
+            setIsOpen(true);
+            setHighlightedIndex(-1);
 
-        if (isMounted) {
-          setSuggestions(data.suggestions || []);
-          setPopularSearches(data.popularSearches || []);
-          setIsOpen(true);
-          setHighlightedIndex(-1);
-
-          // Track search event for merchant analytics
-          const resultsCount =
-            (data.suggestions?.length || 0) +
-            (data.popularSearches?.length || 0);
-          trackEvent.search(merchantId, debouncedValue, resultsCount);
-        }
-      } catch (error) {
-        if (isMounted) {
+            // Track search event for merchant analytics
+            const resultsCount =
+              (data.suggestions?.length || 0) +
+              (data.popularSearches?.length || 0);
+            trackEvent.search(merchantId, debouncedValue, resultsCount);
+          }
+        )
+        .catch((error: unknown) => {
+          if (!isMounted) {
+            return;
+          }
           console.error('Autocomplete error:', error);
           setSuggestions([]);
           setPopularSearches([]);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
+        })
+        .finally(() => {
+          if (isMounted) {
+            setLoading(false);
+          }
+        });
     };
 
     fetchAutocomplete();

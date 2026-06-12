@@ -48,6 +48,38 @@ const DEMO_SLUGS = new Set([
     'premium-default',
 ]);
 
+/**
+ * Fetches live products for a store, falling back to mock data when the API
+ * returns nothing or fails. Module-scope so the try/catch with throw stays
+ * outside the component body (React Compiler cannot lower it yet).
+ */
+async function fetchEngineProducts(
+    storeSlug: string,
+    limit: number
+): Promise<Product[]> {
+    try {
+        const params = new URLSearchParams({
+            limit: String(limit),
+            compact: 'true',
+            has_images: 'true',
+        });
+        const response = await fetch(`/api/storefront/${storeSlug}/products?${params}`);
+
+        if (!response.ok) throw new Error('Failed to fetch products');
+
+        const data = await response.json();
+        if (data.products && Array.isArray(data.products)) {
+            return toTemplateProducts(data.products);
+        }
+        // Fallback to mock data if no products returned
+        return mockProducts;
+    } catch (err) {
+        console.error('Error fetching products:', err);
+        // Fallback to mock data on error
+        return mockProducts;
+    }
+}
+
 interface EngineProductGridProps {
     storeSlug?: string;
     /** Use mock data instead of fetching from API */
@@ -62,49 +94,45 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     title = 'Featured Products',
     limit = 8,
 }) => {
-    const [products, setProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Mock mode, missing slug, or demo slug renders static mock products —
+    // derived during render instead of mirrored into state via an effect.
+    const useStaticProducts =
+        useMockData || !storeSlug || DEMO_SLUGS.has(storeSlug);
+    const fetchKey = useStaticProducts ? null : `${storeSlug}:${limit}`;
+
+    const [fetchedProducts, setFetchedProducts] = useState<Product[] | null>(
+        null
+    );
+    const [prevFetchKey, setPrevFetchKey] = useState(fetchKey);
+
+    // Drop stale results inline when the fetch inputs change (prev-prop
+    // comparison during render, before return) so users never see a frame of
+    // the previous store's products.
+    if (fetchKey !== prevFetchKey) {
+        setPrevFetchKey(fetchKey);
+        setFetchedProducts(null);
+    }
 
     useEffect(() => {
-        async function fetchProducts() {
-            // If using mock data, no storeSlug, or demo slug, use static mock products
-            if (useMockData || !storeSlug || DEMO_SLUGS.has(storeSlug)) {
-                setProducts(mockProducts);
-                setLoading(false);
-                return;
-            }
-
-            try {
-                setLoading(true);
-                const params = new URLSearchParams({
-                    limit: String(limit),
-                    compact: 'true',
-                    has_images: 'true',
-                });
-                const response = await fetch(`/api/storefront/${storeSlug}/products?${params}`);
-
-                if (!response.ok) throw new Error('Failed to fetch products');
-
-                const data = await response.json();
-                if (data.products && Array.isArray(data.products)) {
-                    setProducts(toTemplateProducts(data.products));
-                } else {
-                    // Fallback to mock data if no products returned
-                    setProducts(mockProducts);
-                }
-            } catch (err) {
-                console.error('Error fetching products:', err);
-                // Fallback to mock data on error
-                setProducts(mockProducts);
-            } finally {
-                setLoading(false);
-            }
+        if (useStaticProducts || !storeSlug) {
+            return;
         }
 
-        fetchProducts();
-    }, [storeSlug, limit]);
+        let cancelled = false;
+        fetchEngineProducts(storeSlug, limit).then((products) => {
+            if (!cancelled) {
+                setFetchedProducts(products);
+            }
+        });
 
-    if (loading) {
+        return () => {
+            cancelled = true;
+        };
+    }, [useStaticProducts, storeSlug, limit]);
+
+    const products = useStaticProducts ? mockProducts : fetchedProducts;
+
+    if (products === null) {
         return (
             <div className="max-w-[1400px] mx-auto px-4 py-12 text-center text-gray-400">
                 Loading products…

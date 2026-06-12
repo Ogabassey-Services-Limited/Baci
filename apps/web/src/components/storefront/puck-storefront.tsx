@@ -69,65 +69,84 @@ function normalizeThemeConfiguration(
   ) as unknown as ThemeConfiguration;
 }
 
+interface LoadPuckConfigParams {
+  merchantId: string;
+  onNoConfig?: () => void;
+  setPuckData: (data: Data) => void;
+  setLoading: (loading: boolean) => void;
+}
+
+// Module-scope helper so the try/finally, throw, and dynamic import() stay
+// outside the component body (React Compiler cannot lower those constructs).
+async function loadPuckConfig({
+  merchantId,
+  onNoConfig,
+  setPuckData,
+  setLoading,
+}: LoadPuckConfigParams): Promise<void> {
+  try {
+    const supabase = createClient();
+
+    // Fetch published Puck config
+    const { data: pageConfig, error: fetchError } = await supabase
+      .from('page_configs')
+      .select('published_config')
+      .eq('merchant_id', merchantId)
+      .eq('page_slug', 'home')
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        // No config found - trigger fallback
+        onNoConfig?.();
+      } else {
+        throw fetchError;
+      }
+    } else if (pageConfig?.published_config) {
+      setPuckData(pageConfig.published_config as Data);
+
+      // Apply theme if it exists
+      const configWithTheme = pageConfig.published_config as {
+        theme?: Partial<ThemeConfiguration>;
+      };
+      if (configWithTheme.theme) {
+        const { applyTheme, validateTheme } = await import(
+          '@/lib/theme-manager'
+        );
+        const normalizedTheme = normalizeThemeConfiguration(
+          defaultTheme,
+          configWithTheme.theme
+        );
+        if (validateTheme(normalizedTheme)) {
+          applyTheme(normalizedTheme);
+        }
+      }
+    } else {
+      // Config exists but is empty
+      onNoConfig?.();
+    }
+  } catch (err) {
+    console.error('Failed to load Puck config:', err);
+    onNoConfig?.();
+  } finally {
+    setLoading(false);
+  }
+}
+
 export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
   const { merchant } = useMerchant();
   const [puckData, setPuckData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadPuckConfig() {
-      if (!merchant?.id) return;
+    if (!merchant?.id) return;
 
-      try {
-        const supabase = createClient();
-
-        // Fetch published Puck config
-        const { data: pageConfig, error: fetchError } = await supabase
-          .from('page_configs')
-          .select('published_config')
-          .eq('merchant_id', merchant.id)
-          .eq('page_slug', 'home')
-          .single();
-
-        if (fetchError) {
-          if (fetchError.code === 'PGRST116') {
-            // No config found - trigger fallback
-            onNoConfig?.();
-          } else {
-            throw fetchError;
-          }
-        } else if (pageConfig?.published_config) {
-          setPuckData(pageConfig.published_config as Data);
-
-          // Apply theme if it exists
-          const configWithTheme = pageConfig.published_config as {
-            theme?: Partial<ThemeConfiguration>;
-          };
-          if (configWithTheme.theme) {
-            const { applyTheme, validateTheme } = await import(
-              '@/lib/theme-manager'
-            );
-            const normalizedTheme = normalizeThemeConfiguration(
-              defaultTheme,
-              configWithTheme.theme
-            );
-            if (validateTheme(normalizedTheme)) {
-              applyTheme(normalizedTheme);
-            }
-          }
-        } else {
-          // Config exists but is empty
-          onNoConfig?.();
-        }
-      } catch (err) {
-        console.error('Failed to load Puck config:', err);
-        onNoConfig?.();
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadPuckConfig();
+    loadPuckConfig({
+      merchantId: merchant.id,
+      onNoConfig,
+      setPuckData,
+      setLoading,
+    });
   }, [merchant?.id, onNoConfig]);
 
   if (loading) {

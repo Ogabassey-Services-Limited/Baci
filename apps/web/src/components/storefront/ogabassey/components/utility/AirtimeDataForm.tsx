@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, Smartphone } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { detectNetworkProvider } from '@/lib/detect-network-provider';
 import { cn } from '@/lib/utils';
 
@@ -38,15 +38,20 @@ export function AirtimeDataForm({
   const [amount, setAmount] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
 
-  // Auto-detect network from phone number
-  useEffect(() => {
-    if (phoneNumber.length >= 4) {
-      const detected = detectNetworkProvider(phoneNumber);
+  const handlePhoneNumberChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const nextPhoneNumber = e.target.value;
+    setPhoneNumber(nextPhoneNumber);
+    // Auto-detect network from phone number in the event handler instead of
+    // an effect, so the update happens in a single render pass.
+    if (nextPhoneNumber.length >= 4) {
+      const detected = detectNetworkProvider(nextPhoneNumber);
       if (detected) {
         setSelectedProvider(detected);
       }
     }
-  }, [phoneNumber]);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +78,7 @@ export function AirtimeDataForm({
             id="phone-number"
             type="tel"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
+            onChange={handlePhoneNumberChange}
             placeholder="08012345678"
             className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-hidden transition-all"
             required

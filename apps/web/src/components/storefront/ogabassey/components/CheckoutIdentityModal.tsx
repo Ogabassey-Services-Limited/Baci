@@ -14,6 +14,34 @@ interface CheckoutIdentityModalProps {
   checkoutUrl: string;
 }
 
+type BrowserSupabaseClient = ReturnType<typeof createClient>;
+
+/**
+ * Module-scope sign-in helper that returns an error message (or null on
+ * success). Throw-inside-try/catch in the component body is a React Compiler
+ * bailout, so the error flow lives outside the component.
+ */
+async function signInForCheckout(
+  supabase: BrowserSupabaseClient,
+  email: string,
+  password: string
+): Promise<string | null> {
+  try {
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (loginError) {
+      return loginError.message || 'Failed to sign in';
+    }
+
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : 'Failed to sign in';
+  }
+}
+
 /**
  * Ogabassey-styled Checkout Identity Modal
  * 2026 Best Practice: Native modal with brand-consistent design
@@ -68,21 +96,17 @@ export function CheckoutIdentityModal({
     setIsLoading(true);
     setError(null);
 
-    try {
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const errorMessage = await signInForCheckout(supabase, email, password);
 
-      if (loginError) throw loginError;
-
-      // Successful login - proceed to checkout
-      router.push(normalizedCheckoutUrl);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
+    if (errorMessage) {
+      setError(errorMessage);
       setIsLoading(false);
+      return;
     }
+
+    // Successful login - proceed to checkout
+    router.push(normalizedCheckoutUrl);
+    onClose();
   };
 
   const handleGuestCheckout = () => {

@@ -70,18 +70,25 @@ export function RelatedProducts({
   const { addToCart } = useCart();
   const { toast } = useToast();
 
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    products: Product[];
+  } | null>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
 
+  // Loading and the empty bail-out are derived from the request key instead of
+  // mirrored into state, so the effect only sets state from async results.
+  const requestKey =
+    merchant?.id && product
+      ? `${merchant.id}|${product.id}|${maxProducts}`
+      : null;
+
   useEffect(() => {
-    if (!merchant?.id || !product) {
-      setRelatedProducts([]);
-      setIsLoading(false);
+    if (!requestKey || !merchant?.id || !product) {
       return;
     }
 
-    setIsLoading(true);
+    let cancelled = false;
 
     const params = new URLSearchParams({
       merchant_id: merchant.id,
@@ -96,22 +103,28 @@ export function RelatedProducts({
 
     apiGet<{ products: Product[] }>(`/api/storefront/products?${params}`)
       .then((data) => {
-        if (data.products) {
-          const related = findRelatedProducts(
-            product,
-            data.products,
-            maxProducts
-          );
-          setRelatedProducts(related);
-        }
-        setIsLoading(false);
+        if (cancelled) return;
+        setLoaded({
+          key: requestKey,
+          products: data.products
+            ? findRelatedProducts(product, data.products, maxProducts)
+            : [],
+        });
       })
       .catch((err) => {
         console.error('Failed to fetch related products:', err);
-        setRelatedProducts([]);
-        setIsLoading(false);
+        if (cancelled) return;
+        setLoaded({ key: requestKey, products: [] });
       });
-  }, [merchant?.id, product, maxProducts]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, merchant?.id, product, maxProducts]);
+
+  const hasFreshResult = loaded !== null && loaded.key === requestKey;
+  const relatedProducts = hasFreshResult ? loaded.products : [];
+  const isLoading = requestKey !== null && !hasFreshResult;
 
   const handleAddToCart = (p: Product) => {
     addToCart(p);

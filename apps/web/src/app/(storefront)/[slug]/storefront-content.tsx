@@ -120,30 +120,9 @@ async function loadOgabasseyHomeTemplateModules() {
   };
 }
 
-function renderOgabasseyHomeTemplate({
-  basePath,
-  categories,
-  merchantProducts,
-  modules,
-  storeSlug,
-}: {
-  basePath: string;
-  categories: { name: string; slug: string }[];
-  merchantProducts: Product[];
-  modules: Awaited<ReturnType<typeof loadOgabasseyHomeTemplateModules>>;
-  storeSlug: string;
-}) {
-  const { createOgabasseyHomeProductFeed, OgabasseyHomePage } = modules;
-
-  return (
-    <OgabasseyHomePage
-      basePath={basePath}
-      storeSlug={storeSlug}
-      products={createOgabasseyHomeProductFeed(merchantProducts)}
-      categories={categories}
-    />
-  );
-}
+type OgabasseyHomeTemplateModules = Awaited<
+  ReturnType<typeof loadOgabasseyHomeTemplateModules>
+>;
 
 async function renderDefaultStorefrontWrapper({
   categories,
@@ -358,24 +337,25 @@ export async function StorefrontContent({
 
   if (templateId) {
     if (templateId === OGABASSEY_TEMPLATE_ID) {
+      // Only data work happens inside try/catch: errors thrown while React
+      // renders the JSX would never be caught here anyway, so the JSX is
+      // constructed outside the try block.
+      let ogabasseyHomeProducts: ReturnType<
+        OgabasseyHomeTemplateModules['createOgabasseyHomeProductFeed']
+      > | null = null;
+      let OgabasseyHome:
+        | OgabasseyHomeTemplateModules['OgabasseyHomePage']
+        | null = null;
+
       try {
         const ogabasseyHomeTemplateModules = await ogabasseyHomeTemplatePromise;
 
         if (ogabasseyHomeTemplateModules) {
-          return (
-            <>
-              {homepageSchema}
-              <AnalyticsProvider />
-              {renderOgabasseyHomeTemplate({
-                basePath: pathPrefix,
-                storeSlug: merchant.slug,
-                merchantProducts,
-                categories: categories || [],
-                modules: ogabasseyHomeTemplateModules,
-              })}
-              {discoveryLinksSection}
-            </>
-          );
+          ogabasseyHomeProducts =
+            ogabasseyHomeTemplateModules.createOgabasseyHomeProductFeed(
+              merchantProducts
+            );
+          OgabasseyHome = ogabasseyHomeTemplateModules.OgabasseyHomePage;
         }
       } catch (error) {
         reportTemplateRenderFailure({
@@ -388,38 +368,44 @@ export async function StorefrontContent({
           templateId,
           error,
         });
+        ogabasseyHomeProducts = null;
+        OgabasseyHome = null;
+      }
+
+      if (OgabasseyHome && ogabasseyHomeProducts) {
+        return (
+          <>
+            {homepageSchema}
+            <AnalyticsProvider />
+            <OgabasseyHome
+              basePath={pathPrefix}
+              storeSlug={merchant.slug}
+              products={ogabasseyHomeProducts}
+              categories={categories || []}
+            />
+            {discoveryLinksSection}
+          </>
+        );
       }
     } else if (genericComponentsPromise) {
+      let TemplateHome: TemplateComponents['Home'] | null = null;
+      let templateMerchant: ReturnType<typeof toTemplateMerchantData> | null =
+        null;
+
       try {
         const components: TemplateComponents | null =
           await genericComponentsPromise;
 
         if (components) {
-          const TemplateHome = components.Home;
-          const templateMerchant = toTemplateMerchantData(merchant);
-
-          return (
-            <>
-              {homepageSchema}
-              <AnalyticsProvider />
-              <TemplateHome
-                storeSlug={merchant.slug}
-                merchant={templateMerchant}
-                products={merchantProducts}
-                categories={categories || []}
-                isPreview={false}
-                initialTheme={initialTheme}
-              />
-              {discoveryLinksSection}
-            </>
-          );
+          TemplateHome = components.Home;
+          templateMerchant = toTemplateMerchantData(merchant);
+        } else {
+          warnMissingTemplate({
+            merchantId: merchant.id,
+            merchantTemplateId: merchant.template_id,
+            resolvedTemplateId: templateId,
+          });
         }
-
-        warnMissingTemplate({
-          merchantId: merchant.id,
-          merchantTemplateId: merchant.template_id,
-          resolvedTemplateId: templateId,
-        });
       } catch (error) {
         reportTemplateRenderFailure({
           error,
@@ -431,6 +417,26 @@ export async function StorefrontContent({
           templateId,
           error,
         });
+        TemplateHome = null;
+        templateMerchant = null;
+      }
+
+      if (TemplateHome && templateMerchant) {
+        return (
+          <>
+            {homepageSchema}
+            <AnalyticsProvider />
+            <TemplateHome
+              storeSlug={merchant.slug}
+              merchant={templateMerchant}
+              products={merchantProducts}
+              categories={categories || []}
+              isPreview={false}
+              initialTheme={initialTheme}
+            />
+            {discoveryLinksSection}
+          </>
+        );
       }
     } else {
       warnMissingTemplate({

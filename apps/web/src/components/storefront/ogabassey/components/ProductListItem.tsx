@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { getProductImageAlt } from '@baci/shared/lib';
 import type { Product } from '../types';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -54,7 +54,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   basePath = '',
 }) => {
   const [activeColorIndex, setActiveColorIndex] = useState(0);
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  // Remember which src finished loading; the visible loading flag derives
+  // from it during render, so swapping the active image resets the skeleton
+  // without adjusting state from an effect.
+  const [loadedImageSrc, setLoadedImageSrc] = useState<string | null>(null);
 
   // Fallback placeholder for products without images
   const PLACEHOLDER_IMAGE =
@@ -74,11 +77,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
     `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
   );
   const requiresSelection = requiresOgabasseyProductSelection(product);
-
-  // Reset loading state when image source changes
-  useEffect(() => {
-    setIsImageLoaded(false);
-  }, [currentImage.src]);
+  const isImageLoaded = loadedImageSrc === currentImage.src;
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -150,7 +149,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
             alt={currentImageAlt}
             fill
             sizes="(max-width: 768px) 100px, 200px"
-            onLoad={() => setIsImageLoaded(true)}
+            onLoad={() => setLoadedImageSrc(currentImage.src)}
             className={`object-contain mix-blend-multiply ${isImageLoaded ? 'opacity-100' : 'opacity-0'}`}
           />
         </div>

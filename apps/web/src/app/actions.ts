@@ -1,4 +1,10 @@
-'use server';
+// Server-only module (NOT a server action): the sole consumer is the
+// server-rendered landing page (`src/app/page.tsx`). Dropping 'use server'
+// removes the public, unauthenticated RPC endpoint entirely, and avoids
+// request APIs (cookies/headers) during render — the homepage must stay
+// statically prerenderable under `cacheComponents` (see the service-client
+// comment in fetchMetricsInternal).
+import 'server-only';
 
 import { unstable_cache } from 'next/cache';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -9,6 +15,13 @@ interface LandingMetrics {
   sales: string | number;
   rating: number;
 }
+
+const FALLBACK_METRICS: LandingMetrics = {
+  merchants: 0,
+  orders: 0,
+  sales: '0',
+  rating: 4.9,
+};
 
 // Internal function to fetch metrics - serializable and cacheable
 async function fetchMetricsInternal(): Promise<LandingMetrics> {
@@ -59,12 +72,7 @@ async function fetchMetricsInternal(): Promise<LandingMetrics> {
     };
   } catch (error) {
     console.error('Failed to fetch metrics:', error);
-    return {
-      merchants: 0,
-      orders: 0,
-      sales: '0',
-      rating: 4.9,
-    };
+    return { ...FALLBACK_METRICS };
   }
 }
 
