@@ -95,13 +95,17 @@ export default function CustomersClientPage({
       return;
     }
 
+    let isStale = false;
+
     const fetchCustomers = () => {
       setLoading(true);
       getCustomers(merchant.id, searchTerm)
         .then((data) => {
+          if (isStale) return;
           setCustomers(data);
         })
         .catch(() => {
+          if (isStale) return;
           toast({
             title: 'Error',
             description: 'Failed to load customers',
@@ -109,6 +113,7 @@ export default function CustomersClientPage({
           });
         })
         .finally(() => {
+          if (isStale) return;
           setLoading(false);
         });
     };
@@ -121,7 +126,10 @@ export default function CustomersClientPage({
       searchTerm ? 500 : 0
     );
 
-    return () => clearTimeout(timer);
+    return () => {
+      isStale = true;
+      clearTimeout(timer);
+    };
   }, [searchTerm, authLoading, user, merchant?.id, toast, initialCustomers]);
 
   const handleAddCustomer = async () => {

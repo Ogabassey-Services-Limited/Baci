@@ -2,11 +2,13 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
   Check,
   Gift,
   Loader2,
   Phone,
   Plus,
+  RefreshCw,
   Settings,
   ShoppingCart,
   TrendingUp,
@@ -27,6 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 interface VTUSettings {
@@ -77,26 +80,44 @@ export default function VTUSettingsPage() {
   const { toast } = useToast();
   const [settings, setSettings] = useState<VTUSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [saving, setSaving] = useState(false);
   const [newAmount, setNewAmount] = useState('');
 
   useEffect(() => {
+    let isStale = false;
+
     fetchVtuSettings()
       .then((fetchedSettings) => {
+        if (isStale) return;
         if (fetchedSettings) {
           setSettings(fetchedSettings);
+          setLoadError(null);
+        } else {
+          setLoadError('Failed to load VTU settings.');
         }
       })
       .finally(() => {
+        if (isStale) return;
         setLoading(false);
       });
-  }, []);
+
+    return () => {
+      isStale = true;
+    };
+  }, [reloadToken]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
 
   const handleSave = () => {
     setSaving(true);
-    fetch('/api/merchant/features', {
+    fetchWithCsrf('/api/merchant/features', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     })
       .then((response) => {
@@ -151,6 +172,37 @@ export default function VTUSettingsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="size-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">VTU Services</h1>
+          <p className="text-muted-foreground">
+            Enable airtime and data purchases for your customers. Earn
+            commission on every sale.
+          </p>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={retryLoad}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

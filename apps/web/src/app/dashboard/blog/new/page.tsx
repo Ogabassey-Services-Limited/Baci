@@ -37,6 +37,7 @@ import { fetchWithCsrf } from '@/lib/api-client';
 import {
   BLOG_FEATURED_VARIANT_KEYS,
   type BlogFeaturedVariantKey,
+  extractManagedBlogStoragePath,
 } from '@/lib/blog-managed-storage-paths';
 import { asRoute } from '@/lib/routes';
 import { getPreviewUrl } from '../actions';
@@ -185,6 +186,41 @@ function withFeaturedImageDefaults(data: PostFormData): PostFormData {
 
 function getFeaturedImagePreviewUrl(data: PostFormData): string {
   return data.featured_image_variants.landscape_16x9 || data.featured_image_url;
+}
+
+// Rebuild the managed storage paths for a recovered draft's featured image so
+// replace/remove actions can still clean up the previously uploaded files
+// (mirrors buildFeaturedImageDeletePayload on the edit page).
+function reconstructUploadedFeaturedImage(
+  data: PostFormData,
+  merchantId: string | undefined
+): UploadedFeaturedImage | null {
+  if (!merchantId || !data.featured_image_url) {
+    return null;
+  }
+
+  const path = extractManagedBlogStoragePath(
+    data.featured_image_url,
+    merchantId
+  );
+  if (!path) {
+    return null;
+  }
+
+  const variantPaths: FeaturedImageVariantPaths = {};
+  for (const key of BLOG_FEATURED_VARIANT_KEYS) {
+    const variantUrl = data.featured_image_variants[key];
+    if (!variantUrl) {
+      continue;
+    }
+
+    const variantPath = extractManagedBlogStoragePath(variantUrl, merchantId);
+    if (variantPath) {
+      variantPaths[key] = variantPath;
+    }
+  }
+
+  return { path, variantPaths };
 }
 
 type ToastFn = ReturnType<typeof useToast>['toast'];
@@ -459,7 +495,11 @@ export default function NewBlogPostPage() {
     if (!saved) return;
 
     const timer = window.setTimeout(() => {
-      setFormData(withFeaturedImageDefaults(saved.data));
+      const recoveredData = withFeaturedImageDefaults(saved.data);
+      setFormData(recoveredData);
+      setUploadedFeaturedImage(
+        reconstructUploadedFeaturedImage(recoveredData, merchant?.id)
+      );
       setHasAutoRecovered(true);
       toast({
         title: 'Draft Recovered',
@@ -471,6 +511,7 @@ export default function NewBlogPostPage() {
               setFormData(
                 createEmptyPostFormData(merchant?.business_name || '')
               );
+              setUploadedFeaturedImage(null);
               clearSavedData();
               toast({
                 title: 'Recovery Undone',
@@ -493,13 +534,18 @@ export default function NewBlogPostPage() {
     getSavedData,
     toast,
     merchant?.business_name,
+    merchant?.id,
     clearSavedData,
   ]); // Only run once on mount
 
   const recoverDraft = () => {
     const saved = getSavedData();
     if (saved) {
-      setFormData(withFeaturedImageDefaults(saved.data));
+      const recoveredData = withFeaturedImageDefaults(saved.data);
+      setFormData(recoveredData);
+      setUploadedFeaturedImage(
+        reconstructUploadedFeaturedImage(recoveredData, merchant?.id)
+      );
       toast({
         title: 'Draft Recovered',
         description: 'Your previous work has been restored.',

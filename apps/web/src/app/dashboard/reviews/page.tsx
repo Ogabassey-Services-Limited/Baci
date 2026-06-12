@@ -77,9 +77,8 @@ async function fetchReviewsRequest(
   search: string
 ): Promise<Review[]> {
   // Fetch reviews for this merchant's products
-  const response = await fetch(
-    `/api/dashboard/reviews?status=${statusFilter}&search=${search}`
-  );
+  const params = new URLSearchParams({ status: statusFilter, search });
+  const response = await fetch(`/api/dashboard/reviews?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error('Failed to fetch reviews');
@@ -159,11 +158,15 @@ export default function ReviewsPage() {
   useEffect(() => {
     if (!merchant?.id) return;
 
+    let isStale = false;
+
     fetchReviewsRequest(statusFilter, debouncedSearch)
       .then((fetchedReviews) => {
+        if (isStale) return;
         setReviews(fetchedReviews);
       })
       .catch((error: unknown) => {
+        if (isStale) return;
         console.error('Error fetching reviews:', error);
         toast({
           title: 'Error',
@@ -172,8 +175,13 @@ export default function ReviewsPage() {
         });
       })
       .finally(() => {
+        if (isStale) return;
         setIsLoading(false);
       });
+
+    return () => {
+      isStale = true;
+    };
   }, [merchant?.id, statusFilter, debouncedSearch, toast]);
 
   const updateReviewStatus = (

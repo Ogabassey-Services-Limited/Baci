@@ -34,6 +34,18 @@ async function completePurchase({
     return;
   }
 
+  const parsedYears = /^\d+$/.test(years)
+    ? Number.parseInt(years, 10)
+    : Number.NaN;
+  if (!Number.isInteger(parsedYears) || parsedYears < 1 || parsedYears > 10) {
+    setStatus('error');
+    setMessage('Invalid registration term');
+    setErrorDetails(
+      'The registration term in the URL is invalid. It must be between 1 and 10 years.'
+    );
+    return;
+  }
+
   try {
     // First verify the payment status via Paystack
     setMessage('Verifying payment...');
@@ -63,7 +75,7 @@ async function completePurchase({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         domain,
-        years: Number.parseInt(years, 10),
+        years: parsedYears,
         paymentReference: reference,
       }),
     });

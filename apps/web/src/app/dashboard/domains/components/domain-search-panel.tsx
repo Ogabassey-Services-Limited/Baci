@@ -38,6 +38,31 @@ interface DomainSearchPanelProps {
 
 type ToastFn = ReturnType<typeof useToast>['toast'];
 
+// Only redirect to Paystack-hosted checkout pages over https (mirrors the
+// trusted-host allowlist used by the storefront utility checkout).
+const TRUSTED_PAYSTACK_CHECKOUT_HOSTS = new Set([
+  'checkout.paystack.com',
+  'paystack.com',
+]);
+
+function parseTrustedCheckoutUrl(rawUrl: string): URL | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+
+  if (
+    parsed.protocol !== 'https:' ||
+    !TRUSTED_PAYSTACK_CHECKOUT_HOSTS.has(parsed.hostname)
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
 // Module-scope helpers keep try/finally and throw-in-try out of the component
 // body so React Compiler can memoize the component.
 async function runDomainSearch(options: {
@@ -101,6 +126,11 @@ async function startDomainPurchase(options: {
 
     // Redirect to Paystack checkout
     if (data.authorization_url) {
+      const checkoutUrl = parseTrustedCheckoutUrl(data.authorization_url);
+      if (!checkoutUrl) {
+        throw new Error('Received an invalid payment URL');
+      }
+
       toast({
         title: 'Redirecting to payment...',
         description: 'You will be redirected to complete your payment.',
@@ -108,7 +138,7 @@ async function startDomainPurchase(options: {
 
       // Small delay to show toast before redirect
       setTimeout(() => {
-        window.location.href = data.authorization_url;
+        window.location.assign(checkoutUrl.toString());
       }, 500);
     } else {
       throw new Error('No payment URL returned');

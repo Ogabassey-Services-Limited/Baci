@@ -1,6 +1,14 @@
 'use client';
 
-import { CheckCircle2, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Pencil,
+  RefreshCw,
+  Sparkles,
+  Wand2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
@@ -42,6 +50,8 @@ interface StoreBuildStatusCardProps {
 export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
   const [status, setStatus] = useState<StoreBuildStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [applying, setApplying] = useState(false);
   const [showStaleDialog, setShowStaleDialog] = useState(false);
   const { toast } = useToast();
@@ -62,10 +72,14 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
       .then((payload) => {
         if (active && isReadinessPayload(payload)) {
           setStatus(payload.storeBuild ?? null);
+          setLoadError(null);
         }
       })
       .catch((error: unknown) => {
         console.error('Failed to load store build status:', error);
+        if (active) {
+          setLoadError('Failed to load store build status.');
+        }
       })
       .finally(() => {
         if (active) {
@@ -76,7 +90,13 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadToken]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
 
   const applyDraft = (force = false) => {
     if (!status?.latestJobId || !status.canApplyAiDraft) {
@@ -147,6 +167,28 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
         <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
           Checking store build status…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card className="border-destructive">
+        <CardContent className="pt-6">
+          <p className="text-sm text-destructive flex items-center gap-2">
+            <AlertTriangle className="size-4" />
+            {loadError}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={retryLoad}
+          >
+            <RefreshCw className="size-4 mr-1.5" />
+            Retry
+          </Button>
         </CardContent>
       </Card>
     );

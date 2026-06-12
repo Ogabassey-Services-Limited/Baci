@@ -257,8 +257,11 @@ export function BlogClientPage({
   useEffect(() => {
     if (!merchant?.id) return;
 
+    let isStale = false;
+
     requestPosts(buildPostsQuery(statusFilter, debouncedSearch, page))
       .then((data) => {
+        if (isStale) return;
         setPosts(data.posts || []);
         setHasMore(data.hasMore);
 
@@ -267,6 +270,7 @@ export function BlogClientPage({
         }
       })
       .catch((error) => {
+        if (isStale) return;
         console.error('Error fetching blog posts:', error);
         toast({
           title: 'Error',
@@ -275,8 +279,13 @@ export function BlogClientPage({
         });
       })
       .finally(() => {
+        if (isStale) return;
         setIsLoading(false);
       });
+
+    return () => {
+      isStale = true;
+    };
   }, [merchant?.id, statusFilter, debouncedSearch, page]);
 
   const handleDelete = async () => {

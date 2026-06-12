@@ -87,9 +87,11 @@ export default function AnnouncementBarPage() {
     useState(announcementBar);
   if (announcementBar !== prevAnnouncementBar) {
     setPrevAnnouncementBar(announcementBar);
-    if (announcementBar) {
-      setConfig({ ...DEFAULT_CONFIG, ...announcementBar });
-    }
+    setConfig(
+      announcementBar
+        ? { ...DEFAULT_CONFIG, ...announcementBar }
+        : DEFAULT_CONFIG
+    );
   }
 
   const handleSave = () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   Globe,
@@ -75,8 +76,6 @@ interface Nameservers {
   ns2?: string;
 }
 
-type ToastFn = ReturnType<typeof useToast>['toast'];
-
 // Module-scope loaders: try/finally inside the component body bails React
 // Compiler out of memoizing the whole page.
 async function loadDnsRecords(
@@ -124,8 +123,8 @@ async function loadIdProtection(
 
 interface DomainDetailsContext {
   domain: string;
-  toast: ToastFn;
   setLoading: Dispatch<SetStateAction<boolean>>;
+  setLoadError: Dispatch<SetStateAction<string | null>>;
   setDomainInfo: Dispatch<SetStateAction<DomainInfo | null>>;
   setNameservers: Dispatch<SetStateAction<Nameservers | null>>;
   setLockStatus: Dispatch<SetStateAction<boolean>>;
@@ -136,9 +135,11 @@ interface DomainDetailsContext {
 }
 
 async function loadDomainDetails(context: DomainDetailsContext) {
-  const { domain, toast, setLoading, setDomainInfo, setNameservers } = context;
+  const { domain, setLoading, setLoadError, setDomainInfo, setNameservers } =
+    context;
   try {
     setLoading(true);
+    setLoadError(null);
     const response = await fetch(`/api/domains/${domain}`);
     const data = await response.json();
 
@@ -152,14 +153,11 @@ async function loadDomainDetails(context: DomainDetailsContext) {
       loadEmailForwards(domain, context.setForwards);
       loadIdProtection(domain, context.setIdProtection);
     } else {
-      toast({
-        title: 'Error',
-        description: data.error || 'Failed to load domain details',
-        variant: 'destructive',
-      });
+      setLoadError(data.error || 'Failed to load domain details');
     }
   } catch (error) {
     console.error('Error:', error);
+    setLoadError('Failed to load domain details. Please try again.');
   } finally {
     setLoading(false);
   }
@@ -172,6 +170,7 @@ export default function DomainDetailsPage() {
   const domain = params.domain as string;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [domainInfo, setDomainInfo] = useState<DomainInfo | null>(null);
   const [nameservers, setNameservers] = useState<Nameservers | null>(null);
   const [lockStatus, setLockStatus] = useState<boolean>(false);
@@ -199,8 +198,8 @@ export default function DomainDetailsPage() {
   const fetchDomainDetails = () =>
     loadDomainDetails({
       domain,
-      toast,
       setLoading,
+      setLoadError,
       setDomainInfo,
       setNameservers,
       setLockStatus,
@@ -213,7 +212,7 @@ export default function DomainDetailsPage() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     fetchDomainDetails();
-  }, [domain, toast]);
+  }, [domain]);
 
   // --- Actions ---
 
@@ -346,6 +345,41 @@ export default function DomainDetailsPage() {
 
   if (loading) {
     return <div className="p-8 text-center">Loading domain details…</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">{domain}</h1>
+            <p className="text-muted-foreground">
+              Manage domain settings and configuration
+            </p>
+          </div>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={fetchDomainDetails}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

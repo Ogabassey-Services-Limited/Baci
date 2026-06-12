@@ -24,6 +24,7 @@ export default function SantaClientPage() {
     if (!merchant?.id) return;
 
     const merchantId = merchant.id; // Capture for closure
+    let isStale = false;
 
     function fetchData() {
       Promise.all([
@@ -31,6 +32,7 @@ export default function SantaClientPage() {
         getRecentInteractions(merchantId),
       ])
         .then(([fetchedStats, fetchedInteractions]) => {
+          if (isStale) return;
           setStats(fetchedStats);
           setInteractions(fetchedInteractions);
         })
@@ -38,6 +40,7 @@ export default function SantaClientPage() {
           console.error('Failed to load Santa data', error);
         })
         .finally(() => {
+          if (isStale) return;
           setLoading(false);
         });
     }
@@ -46,7 +49,10 @@ export default function SantaClientPage() {
 
     // Optional: Poll for updates every 30s for a "live" feel during the campaign
     const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      isStale = true;
+      clearInterval(interval);
+    };
   }, [merchant?.id]);
 
   if (merchantLoading || loading) {

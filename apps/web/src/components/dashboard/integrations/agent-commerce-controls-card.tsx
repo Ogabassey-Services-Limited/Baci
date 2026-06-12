@@ -81,7 +81,8 @@ export function AgentCommerceControlsCard({
       Partial<Pick<MerchantFeatureSettingsInput, 'agentic_checkout_enabled'>>
     >(FEATURES_ENDPOINT, { agentic_checkout_enabled: nextEnabled })
       .then((updated) => {
-        setEnabled(updated.agentic_checkout_enabled ?? true);
+        // Preserve the user's intended value when the response omits the flag.
+        setEnabled(updated.agentic_checkout_enabled ?? nextEnabled);
       })
       .catch((saveError: unknown) => {
         setEnabled(previousEnabled);

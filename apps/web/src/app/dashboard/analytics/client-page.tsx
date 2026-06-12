@@ -42,19 +42,29 @@ async function fetchBaseAnalytics({
     });
     if (response.ok) {
       const data = await response.json();
-      setBaseAnalytics(data);
+      if (!signal.aborted) {
+        setBaseAnalytics(data);
+      }
     } else {
       console.error(
         'Failed to fetch analytics:',
         response.status,
         response.statusText
       );
+      if (!signal.aborted) {
+        setBaseAnalytics(null);
+      }
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') return;
     console.error('Error fetching analytics:', error);
+    if (!signal.aborted) {
+      setBaseAnalytics(null);
+    }
   } finally {
-    setLoadingAnalytics(false);
+    if (!signal.aborted) {
+      setLoadingAnalytics(false);
+    }
   }
 }
 

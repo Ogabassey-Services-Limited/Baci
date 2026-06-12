@@ -162,6 +162,7 @@ async function runDeleteDomain({
         title: 'Domain Deleted',
         description: 'The domain has been successfully removed.',
       });
+      setShowDeleteDialog(false);
       router.refresh();
     } else {
       const data = await response.json();
@@ -183,8 +184,9 @@ async function runDeleteDomain({
       variant: 'destructive',
     });
   } finally {
+    // Keep the dialog open on failure so the user can retry without
+    // reopening it; it is closed explicitly on success above.
     setIsDeleting(false);
-    setShowDeleteDialog(false);
   }
 }
 

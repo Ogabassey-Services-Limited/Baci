@@ -806,7 +806,7 @@ export default function EditBlogPostPage() {
 
   const savePost = async (
     newStatus?: 'draft' | 'published' | 'archived' | 'scheduled'
-  ) => {
+  ): Promise<boolean> => {
     const normalizedFormData = normalizeFormData(formData);
     const error = validateForm(normalizedFormData);
     if (error) {
@@ -815,11 +815,11 @@ export default function EditBlogPostPage() {
         description: error,
         variant: 'destructive',
       });
-      return;
+      return false;
     }
 
     setIsSaving(true);
-    await submitBlogPostUpdate({
+    return await submitBlogPostUpdate({
       postId,
       formData: normalizedFormData,
       originalSlug: originalPost?.slug,
@@ -829,7 +829,11 @@ export default function EditBlogPostPage() {
     })
       .then((updatedPost) => {
         setOriginalPost(updatedPost);
-        setFormData((prev) => ({ ...prev, status: updatedPost.status }));
+        setFormData((prev) => ({
+          ...prev,
+          status: updatedPost.status,
+          published_at: updatedPost.published_at ?? null,
+        }));
 
         const statusMessages: Record<string, string> = {
           published: 'Your blog post is now live.',
@@ -848,6 +852,7 @@ export default function EditBlogPostPage() {
 
         // Clear auto-saved draft on successful server save
         clearSavedData();
+        return true;
       })
       .catch((saveError) => {
         console.error('Error saving post:', saveError);
@@ -859,6 +864,7 @@ export default function EditBlogPostPage() {
               : 'Failed to save blog post.',
           variant: 'destructive',
         });
+        return false;
       })
       .finally(() => {
         setIsSaving(false);
@@ -876,7 +882,10 @@ export default function EditBlogPostPage() {
     }
 
     // Always save as draft first to ensure the latest content is available in preview
-    await savePost('draft');
+    const saved = await savePost('draft');
+    if (!saved) {
+      return;
+    }
 
     try {
       const previewUrl = await getPreviewUrl(merchant.slug, formData.slug);

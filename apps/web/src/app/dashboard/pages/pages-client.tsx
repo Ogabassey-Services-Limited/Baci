@@ -126,9 +126,11 @@ export default function PagesClient() {
     useState<unknown>(undefined);
   if (pagesCompleted !== prevPagesCompleted) {
     setPrevPagesCompleted(pagesCompleted);
-    if (pagesCompleted && typeof pagesCompleted === 'object') {
-      setCompletedPages(pagesCompleted as Record<string, boolean>);
-    }
+    setCompletedPages(
+      pagesCompleted && typeof pagesCompleted === 'object'
+        ? (pagesCompleted as Record<string, boolean>)
+        : {}
+    );
   }
 
   const handleStatusChange = async (pageName: string, checked: boolean) => {

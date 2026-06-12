@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Bell, Save } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bell, RefreshCw, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -26,10 +26,14 @@ export default function NotificationPreferencesPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [preferences, setPreferences] =
     useState<NotificationPreferences | null>(null);
 
   useEffect(() => {
+    let isStale = false;
+
     fetch('/api/notifications/preferences')
       .then((response) => {
         if (!response.ok) {
@@ -38,10 +42,14 @@ export default function NotificationPreferencesPage() {
         return response.json() as Promise<NotificationPreferences>;
       })
       .then((data) => {
+        if (isStale) return;
         setPreferences(data);
+        setLoadError(null);
       })
       .catch((error: unknown) => {
+        if (isStale) return;
         console.error('Error fetching preferences:', error);
+        setLoadError('Failed to load notification preferences.');
         toast({
           title: 'Error',
           description: 'Failed to load notification preferences',
@@ -49,9 +57,20 @@ export default function NotificationPreferencesPage() {
         });
       })
       .finally(() => {
+        if (isStale) return;
         setIsLoading(false);
       });
-  }, [toast]);
+
+    return () => {
+      isStale = true;
+    };
+  }, [toast, reloadToken]);
+
+  const retryLoad = () => {
+    setIsLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
 
   const updatePreference = (updates: UpdatePreferencesInput) => {
     if (!preferences) return;
@@ -99,6 +118,45 @@ export default function NotificationPreferencesPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <BagLoader size={32} />
+      </div>
+    );
+  }
+
+  if (loadError || !preferences) {
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/dashboard/notifications">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Notification Preferences
+            </h1>
+            <p className="text-muted-foreground">
+              Manage how you receive notifications
+            </p>
+          </div>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError || 'Failed to load notification preferences.'}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={retryLoad}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

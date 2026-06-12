@@ -8,7 +8,6 @@ import {
   type Dispatch,
   type SetStateAction,
   type TransitionStartFunction,
-  useRef,
   useState,
   useTransition,
 } from 'react';
@@ -46,6 +45,21 @@ extend([a11yPlugin]);
 interface SettingsFormProps {
   initialMerchant: CachedMerchant;
   initialBlogEnabled: boolean;
+}
+
+function buildSocialMediaDraft(
+  merchant: CachedMerchant | null | undefined
+): Record<string, string> {
+  return {
+    twitter: merchant?.social_media?.twitter || '',
+    facebook: merchant?.social_media?.facebook || '',
+    instagram: merchant?.social_media?.instagram || '',
+    tiktok: merchant?.social_media?.tiktok || '',
+    youtube: merchant?.social_media?.youtube || '',
+    pinterest: merchant?.social_media?.pinterest || '',
+    linkedin: merchant?.social_media?.linkedin || '',
+    snapchat: merchant?.social_media?.snapchat || '',
+  };
 }
 
 type UpdateMerchantFn = ReturnType<typeof useMerchant>['updateMerchant'];
@@ -182,27 +196,14 @@ export function SettingsForm({
     initialMerchant?.hero_slides || []
   );
 
-  // Ref to capture latest social media values for form submit
-  const socialMediaRef = useRef<Record<string, string>>({
-    twitter: initialMerchant?.social_media?.twitter || '',
-    facebook: initialMerchant?.social_media?.facebook || '',
-    instagram: initialMerchant?.social_media?.instagram || '',
-    tiktok: initialMerchant?.social_media?.tiktok || '',
-    youtube: initialMerchant?.social_media?.youtube || '',
-    pinterest: initialMerchant?.social_media?.pinterest || '',
-    linkedin: initialMerchant?.social_media?.linkedin || '',
-    snapchat: initialMerchant?.social_media?.snapchat || '',
-  });
-
-  // Sync internal state if prop changes significantly (only if not dirty to
-  // prevent data loss). Render-time prev-compare instead of an effect, per
-  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-  const [prevInitialMerchant, setPrevInitialMerchant] =
-    useState(initialMerchant);
-  if (initialMerchant && initialMerchant !== prevInitialMerchant && !isDirty) {
-    setPrevInitialMerchant(initialMerchant);
-    setMerchantState(initialMerchant);
-  }
+  // Latest social media values the user typed since the last merchant
+  // refresh; null means "no edits yet" so submits fall back to the freshest
+  // prop-derived values. (State instead of a ref: refs cannot be written
+  // during the render-time sync below without bailing React Compiler out.)
+  const [socialMediaEdits, setSocialMediaEdits] = useState<Record<
+    string,
+    string
+  > | null>(null);
 
   const form = useForm<
     z.input<typeof settingsSchema>,
@@ -215,6 +216,23 @@ export function SettingsForm({
       country: initialMerchant?.country || 'NG',
     },
   });
+
+  // Sync every prop-derived draft if the prop changes significantly (only if
+  // not dirty to prevent data loss). Render-time prev-compare instead of an
+  // effect, per
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevInitialMerchant, setPrevInitialMerchant] =
+    useState(initialMerchant);
+  if (initialMerchant && initialMerchant !== prevInitialMerchant && !isDirty) {
+    setPrevInitialMerchant(initialMerchant);
+    setMerchantState(initialMerchant);
+    setHeroSlides(initialMerchant.hero_slides || []);
+    setSocialMediaEdits(null);
+    form.reset({
+      business_name: initialMerchant.business_name || '',
+      country: initialMerchant.country || 'NG',
+    });
+  }
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -304,7 +322,7 @@ export function SettingsForm({
     await saveSettings({
       data,
       heroSlides,
-      socialMedia: socialMediaRef.current,
+      socialMedia: socialMediaEdits ?? buildSocialMediaDraft(initialMerchant),
       updateMerchant,
       toast,
       setIsSaving,
@@ -356,20 +374,9 @@ export function SettingsForm({
         <HeroCarouselCard slides={heroSlides} onSlidesChange={setHeroSlides} />
 
         <SocialMediaCard
-          initialSocialMedia={{
-            twitter: initialMerchant?.social_media?.twitter || '',
-            facebook: initialMerchant?.social_media?.facebook || '',
-            instagram: initialMerchant?.social_media?.instagram || '',
-            tiktok: initialMerchant?.social_media?.tiktok || '',
-            youtube: initialMerchant?.social_media?.youtube || '',
-            pinterest: initialMerchant?.social_media?.pinterest || '',
-            linkedin: initialMerchant?.social_media?.linkedin || '',
-            snapchat: initialMerchant?.social_media?.snapchat || '',
-          }}
+          initialSocialMedia={buildSocialMediaDraft(initialMerchant)}
           updateMerchant={updateMerchant}
-          onSocialMediaChange={(sm) => {
-            socialMediaRef.current = sm;
-          }}
+          onSocialMediaChange={setSocialMediaEdits}
         />
 
         <div className="flex justify-end">

@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   ChevronRight,
@@ -10,6 +11,7 @@ import {
   FileText,
   Megaphone,
   Package,
+  RefreshCw,
   Rocket,
   Store,
   X,
@@ -299,6 +301,8 @@ export function SetupChecklist({
   const { toast } = useToast();
   const [readiness, setReadiness] = useState<StoreReadiness | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [publishing, setPublishing] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -325,20 +329,41 @@ export function SetupChecklist({
   }, [toast]);
 
   useEffect(() => {
+    let active = true;
+
     fetch('/api/merchant/readiness')
       .then(async (response) => {
-        if (response.ok) {
-          const data = await response.json();
+        if (!response.ok) {
+          throw new Error('Failed to fetch readiness');
+        }
+        const data = await response.json();
+        if (active) {
           setReadiness(data);
+          setLoadError(null);
         }
       })
       .catch((error: unknown) => {
         console.error('Failed to fetch readiness:', error);
+        if (active) {
+          setLoadError('Failed to load your setup checklist.');
+        }
       })
       .finally(() => {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       });
-  }, []);
+
+    return () => {
+      active = false;
+    };
+  }, [reloadToken]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
 
   const handlePublish = () => {
     if (!readiness?.isReady) {
@@ -383,6 +408,30 @@ export function SetupChecklist({
           <div className="flex items-center justify-center">
             <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card
+        className={cn('border-destructive', compact && 'border shadow-none')}
+      >
+        <CardContent className="pt-6">
+          <p className="text-sm text-destructive flex items-center gap-2">
+            <AlertTriangle className="size-4" />
+            {loadError}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={retryLoad}
+          >
+            <RefreshCw className="size-4 mr-1.5" />
+            Retry
+          </Button>
         </CardContent>
       </Card>
     );

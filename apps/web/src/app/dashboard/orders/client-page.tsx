@@ -178,6 +178,8 @@ export default function OrdersClientPage({
       return;
     }
 
+    let isStale = false;
+
     const fetchOrders = () => {
       setOrdersLoading(true);
       setOrdersError(null);
@@ -189,9 +191,11 @@ export default function OrdersClientPage({
         ...(sourceFilter ? { source: sourceFilter } : {}),
       })
         .then((fetchedOrders) => {
+          if (isStale) return;
           setOrders(fetchedOrders);
         })
         .catch(() => {
+          if (isStale) return;
           setOrdersError('Could not load orders.');
           toast({
             title: 'Error Fetching Orders',
@@ -200,6 +204,7 @@ export default function OrdersClientPage({
           });
         })
         .finally(() => {
+          if (isStale) return;
           setOrdersLoading(false);
         });
     };
@@ -211,7 +216,10 @@ export default function OrdersClientPage({
       searchTerm ? 500 : 0
     );
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      isStale = true;
+      window.clearTimeout(timer);
+    };
   }, [
     initialOrders.length,
     merchantId,

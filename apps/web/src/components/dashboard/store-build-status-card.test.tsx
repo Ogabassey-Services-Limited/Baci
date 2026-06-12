@@ -109,17 +109,35 @@ describe('StoreBuildStatusCard', () => {
     );
   });
 
-  it('renders nothing when the readiness fetch fails', async () => {
+  it('renders an error state with retry when the readiness fetch fails', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: false,
       json: async () => ({}),
     } as Response);
 
-    const { container } = render(<StoreBuildStatusCard />);
+    render(<StoreBuildStatusCard />);
 
-    await waitFor(() => {
-      expect(container.firstChild).toBeNull();
-    });
+    expect(
+      await screen.findByText('Failed to load store build status.')
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+
+  it('reloads the readiness payload when retry is clicked after a failure', async () => {
+    // First load fails; the beforeEach mock serves the retry successfully.
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({}),
+    } as Response);
+
+    render(<StoreBuildStatusCard />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /retry/i }));
+
+    expect(await screen.findByText('AI design ready')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Failed to load store build status.')
+    ).not.toBeInTheDocument();
   });
 
   it.each([

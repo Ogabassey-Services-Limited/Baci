@@ -1,6 +1,6 @@
 'use client';
 
-import { Award, Gift } from 'lucide-react';
+import { AlertTriangle, Award, Gift, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/currency';
 
 interface LoyaltySettings {
@@ -101,31 +102,46 @@ async function fetchLoyaltyCustomers(
 }
 
 export default function LoyaltyProgramPage() {
+  const { toast } = useToast();
   const [settings, setSettings] = useState<LoyaltySettings | null>(null);
   const [_customers, setCustomers] = useState<CustomerLoyalty[]>([]);
   const [_tierDistribution, setTierDistribution] = useState<
     Record<string, number>
   >({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchLoyaltySettings().then((data) => {
-      if (data) {
-        setSettings(data);
-      }
-    });
-    fetchLoyaltyCustomers()
-      .then((data) => {
-        if (data) {
-          setCustomers(data.customers);
-          setTierDistribution(data.tierDistribution);
+    let isStale = false;
+
+    Promise.all([fetchLoyaltySettings(), fetchLoyaltyCustomers()]).then(
+      ([settingsData, customersData]) => {
+        if (isStale) return;
+
+        if (!settingsData || !customersData) {
+          setLoadError('Failed to load loyalty program data.');
+        } else {
+          setSettings(settingsData);
+          setCustomers(customersData.customers);
+          setTierDistribution(customersData.tierDistribution);
+          setLoadError(null);
         }
-      })
-      .finally(() => {
         setLoading(false);
-      });
-  }, []);
+      }
+    );
+
+    return () => {
+      isStale = true;
+    };
+  }, [reloadToken]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
 
   function saveSettings() {
     if (!settings) return;
@@ -136,12 +152,21 @@ export default function LoyaltyProgramPage() {
       body: JSON.stringify(settings),
     })
       .then((res) => {
-        if (res.ok) {
-          // Show success message
+        if (!res.ok) {
+          throw new Error(`Failed to save settings (${res.status})`);
         }
+        toast({
+          title: 'Settings Saved',
+          description: 'Your loyalty program settings have been updated.',
+        });
       })
       .catch((error: unknown) => {
         console.error('Failed to save settings:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to save loyalty settings. Please try again.',
+          variant: 'destructive',
+        });
       })
       .finally(() => {
         setSaving(false);
@@ -152,6 +177,36 @@ export default function LoyaltyProgramPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <BagLoader size={32} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Loyalty Program</h1>
+          <p className="text-muted-foreground">
+            Reward your customers and build lasting relationships
+          </p>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={retryLoad}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

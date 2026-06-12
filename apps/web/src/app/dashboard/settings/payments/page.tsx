@@ -2,11 +2,13 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
   Building2,
   Check,
   CreditCard,
   Globe,
   Loader2,
+  RefreshCw,
   Truck,
   Wallet,
 } from 'lucide-react';
@@ -118,6 +120,8 @@ export default function PaymentSettingsPage() {
   const [settings, setSettings] =
     useState<PaymentGatewaySettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [saving, setSaving] = useState(false);
   const merchantData = merchant as unknown as Record<string, unknown> | null;
   const countryCode =
@@ -131,19 +135,38 @@ export default function PaymentSettingsPage() {
   const paystackFixedFee = formatCurrencyCompact(100, 'NG');
 
   useEffect(() => {
+    let isStale = false;
+
     fetchPaymentSettings()
       .then((fetchedSettings) => {
+        if (isStale) return;
         if (fetchedSettings) {
           setSettings(fetchedSettings);
+          setLoadError(null);
+        } else {
+          setLoadError('Failed to load payment settings.');
         }
       })
       .catch((error: unknown) => {
+        if (isStale) return;
         console.error('Failed to fetch payment settings:', error);
+        setLoadError('Failed to load payment settings.');
       })
       .finally(() => {
+        if (isStale) return;
         setLoading(false);
       });
-  }, []);
+
+    return () => {
+      isStale = true;
+    };
+  }, [reloadToken]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
 
   const handleSave = () => {
     setSaving(true);
@@ -172,6 +195,39 @@ export default function PaymentSettingsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="size-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Payment Settings
+          </h1>
+          <p className="text-muted-foreground">
+            Configure payment gateways, delivery payments, and settlement
+            details
+          </p>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={retryLoad}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

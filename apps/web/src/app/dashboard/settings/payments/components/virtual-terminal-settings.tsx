@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 interface StaffAccount {
   id: string;
@@ -152,9 +153,8 @@ async function submitNewAccount(options: {
   const { body, refresh, onSuccess, setCreating, toast } = options;
   setCreating(true);
   try {
-    const response = await fetch('/api/paystack/virtual-terminal', {
+    const response = await fetchWithCsrf('/api/paystack/virtual-terminal', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
@@ -191,9 +191,8 @@ async function submitNewBranch(options: {
   const { body, refresh, onSuccess, setCreating, toast } = options;
   setCreating(true);
   try {
-    const response = await fetch('/api/branches', {
+    const response = await fetchWithCsrf('/api/branches', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
