@@ -1277,7 +1277,7 @@ export default async function CategoryProductPage({
           <OgabasseyPdpCriticalShell
             basePath={getCategoryProductBasePath(slug)}
             basePathPromise={criticalBasePathPromise}
-            imageDelivery={knownOgaBasseyMerchantId ? 'same-origin' : 'direct'}
+            imageDelivery="direct"
             product={criticalProduct}
           >
             <Suspense fallback={null}>

@@ -24,23 +24,6 @@ const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
   'next-router-segment-prefetch',
 ].join(', ');
 const OGABASSEY_DOMAIN = 'ogabassey.com';
-const OGABASSEY_PDP_LCP_IMAGE_PRELOAD_LINK_HEADER = [
-  // This points at the same-origin PDP image byte endpoint. The visible PDP
-  // image uses the same URL family on known OgaBassey routes, so the header
-  // preload is reused instead of competing with a later direct-CDN preload.
-  // Profile routes intentionally omit query-string sizing: the profile segment
-  // maps to the shared PDP media constants in the API route.
-  '</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767px)"',
-  '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"',
-].join(', ');
-const OGABASSEY_PDP_AGENT_AND_IMAGE_LINK_HEADER = [
-  // Same-key matching headers use last-match-wins semantics. The PDP-specific
-  // rule appears after the global OgaBassey rule, so it must include discovery
-  // links once while adding PDP image preloads.
-  OGABASSEY_AGENT_DISCOVERY_LINK_HEADER,
-  OGABASSEY_PDP_LCP_IMAGE_PRELOAD_LINK_HEADER,
-].join(', ');
-
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // jsPDF stays external here so server PDF generators can use the package
@@ -526,25 +509,6 @@ const nextConfig: NextConfig = {
           {
             key: 'Link',
             value: OGABASSEY_AGENT_DISCOVERY_LINK_HEADER,
-          },
-        ],
-      },
-      {
-        source: '/gaming-laptops/:productSlug',
-        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
-        headers: [
-          {
-            key: 'Link',
-            value: OGABASSEY_PDP_AGENT_AND_IMAGE_LINK_HEADER,
-          },
-        ],
-      },
-      {
-        source: '/ogabassey/gaming-laptops/:productSlug',
-        headers: [
-          {
-            key: 'Link',
-            value: OGABASSEY_PDP_LCP_IMAGE_PRELOAD_LINK_HEADER,
           },
         ],
       },
