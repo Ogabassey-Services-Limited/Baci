@@ -176,7 +176,6 @@ describe('useCryptoPayment', () => {
         body: JSON.stringify({
           merchant_id: mockMerchantId,
           order_id: mockPendingOrder.orderId,
-          amount: mockPendingOrder.amount,
           currency: 'NGN',
           customer_email: mockPendingOrder.customerEmail,
           customer_name: mockPendingOrder.customerName,

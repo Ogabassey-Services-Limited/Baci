@@ -90,25 +90,23 @@ export function useCheckoutPaymentController({
     if (tabMethods.length > 0) setSelectedPayment(tabMethods[0]);
   };
 
-  useEffect(() => {
-    const currentTabMethods = availablePaymentMethods.filter(
-      (method) => getPaymentTabForMethod(method) === paymentTab
-    );
-    if (!availablePaymentMethods.includes(selectedPayment)) {
-      const fallbackMethod =
-        currentTabMethods[0] ?? availablePaymentMethods[0] ?? 'paystack';
+  // Render-phase adjustment (react.dev "adjusting state when a prop
+  // changes"): every branch converges, so React settles on a valid
+  // payment selection before commit instead of flashing a stale frame
+  // through an effect.
+  const currentTabMethods = availablePaymentMethods.filter(
+    (method) => getPaymentTabForMethod(method) === paymentTab
+  );
+  if (!availablePaymentMethods.includes(selectedPayment)) {
+    const fallbackMethod =
+      currentTabMethods[0] ?? availablePaymentMethods[0] ?? 'paystack';
+    setSelectedPayment(fallbackMethod);
+    setPaymentTab(getPaymentTabForMethod(fallbackMethod));
+  } else if (!currentTabMethods.includes(selectedPayment)) {
+    const fallbackMethod = currentTabMethods[0];
+    if (fallbackMethod) {
       setSelectedPayment(fallbackMethod);
-      setPaymentTab(getPaymentTabForMethod(fallbackMethod));
-      return;
-    }
-
-    if (!currentTabMethods.includes(selectedPayment)) {
-      const fallbackMethod = currentTabMethods[0];
-      if (fallbackMethod) {
-        setSelectedPayment(fallbackMethod);
-        return;
-      }
-
+    } else {
       const fallbackTab =
         (['full', 'installments', 'pay_later'] as const).find((tab) =>
           availablePaymentMethods.some(
@@ -121,7 +119,7 @@ export function useCheckoutPaymentController({
       );
       if (nextMethod) setSelectedPayment(nextMethod);
     }
-  }, [availablePaymentMethods, selectedPayment, paymentTab]);
+  }
 
   useEffect(() => {
     const fetchTotals = async () => {

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { listSavedVtuCards, type VTUPaymentGateway } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import {
@@ -46,7 +46,11 @@ export function useUtilityPayment(amount = 0) {
           amount: Math.min(walletBalance, amount),
         }
       : undefined;
-  const savedCardsQuery = useQuery({
+  const {
+    data: savedCards,
+    isLoading: isLoadingCards,
+    refetch: refetchCards,
+  } = useQuery({
     enabled: isAuthenticated,
     queryKey: ['vtu-saved-cards'],
     queryFn: listSavedVtuCards,
@@ -63,33 +67,27 @@ export function useUtilityPayment(amount = 0) {
     return filtered.length > 0 ? filtered : ['paystack'];
   })();
 
-  useEffect(() => {
-    if (!supportedGateways.includes(selectedGateway)) {
-      setSelectedGateway(supportedGateways[0] ?? 'paystack');
-    }
-  }, [selectedGateway, supportedGateways]);
+  // Render-phase adjustments (react.dev "adjusting state when a prop
+  // changes"): both guards converge, so React settles before commit
+  // instead of flashing a stale frame through an effect.
+  if (!supportedGateways.includes(selectedGateway)) {
+    setSelectedGateway(supportedGateways[0] ?? 'paystack');
+  }
 
-  useEffect(() => {
-    const defaultCard = savedCardsQuery.data?.find((card) => card.is_default);
-    if (
-      shouldAutoSelectDefaultCard &&
-      !selectedSavedCardId &&
-      selectedGateway === 'paystack' &&
-      defaultCard?.id
-    ) {
-      setSelectedSavedCardId(defaultCard.id);
-    }
-  }, [
-    savedCardsQuery.data,
-    selectedGateway,
-    selectedSavedCardId,
-    shouldAutoSelectDefaultCard,
-  ]);
+  const defaultCard = savedCards?.find((card) => card.is_default);
+  if (
+    shouldAutoSelectDefaultCard &&
+    !selectedSavedCardId &&
+    selectedGateway === 'paystack' &&
+    defaultCard?.id
+  ) {
+    setSelectedSavedCardId(defaultCard.id);
+  }
 
   return {
-    cards: savedCardsQuery.data ?? [],
-    isLoadingCards: savedCardsQuery.isLoading,
-    refetchCards: savedCardsQuery.refetch,
+    cards: savedCards ?? [],
+    isLoadingCards,
+    refetchCards,
     selectedGateway,
     selectedSavedCardId,
     selectGateway: (gateway: UtilityPaymentGateway) => {

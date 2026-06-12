@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import type { ImpactFeedbackStyle } from 'expo-haptics';
 import type { NegotiationStatus } from './NegotiationModalView';
@@ -53,19 +53,19 @@ export function useNegotiationModalController({
   const [uploadFile, setUploadFile] = useState<string | null>(null);
   const [uploadLink, setUploadLink] = useState('');
 
-  useEffect(() => {
-    if (!visible) {
-      return;
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (visible) {
+      setOffer('');
+      setStatus('input');
+      setMessage('');
+      setAttemptCount(0);
+      setCounterOffer(null);
+      setUploadFile(null);
+      setUploadLink('');
     }
-
-    setOffer('');
-    setStatus('input');
-    setMessage('');
-    setAttemptCount(0);
-    setCounterOffer(null);
-    setUploadFile(null);
-    setUploadLink('');
-  }, [visible]);
+  }
 
   const triggerHaptic = (style?: ImpactFeedbackStyle) => {
     const hapticsModule = getNegotiationHapticsModule();
@@ -188,6 +188,12 @@ export function useNegotiationModalController({
     const offerAmount =
       Number.parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
+    const handleSubmitFailure = (error: unknown) => {
+      log.error('Failed to submit request:', error);
+      Alert.alert('Error', 'Failed to submit request. Please try again.');
+      setStatus('upload');
+    };
+
     try {
       const {
         data: { user },
@@ -212,7 +218,8 @@ export function useNegotiationModalController({
       });
 
       if (error) {
-        throw error;
+        handleSubmitFailure(error);
+        return;
       }
 
       setStatus('submitted');
@@ -221,9 +228,7 @@ export function useNegotiationModalController({
       );
       triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Heavy);
     } catch (error) {
-      log.error('Failed to submit request:', error);
-      Alert.alert('Error', 'Failed to submit request. Please try again.');
-      setStatus('upload');
+      handleSubmitFailure(error);
     }
   };
 

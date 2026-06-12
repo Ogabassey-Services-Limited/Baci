@@ -13,6 +13,17 @@ interface LoginHardwareBackHandlerOptions {
   step: AuthStep;
 }
 
+// Module-scope so the dynamic import() expression stays out of the hook body,
+// which React Compiler cannot lower yet.
+async function checkAppleAvailability(): Promise<boolean> {
+  try {
+    const appleAuth = await import('expo-apple-authentication');
+    return await appleAuth.isAvailableAsync();
+  } catch (_e) {
+    return false;
+  }
+}
+
 export function useLoginHardwareBackHandler({
   setIsAppleAvailable,
   setOtp,
@@ -21,16 +32,9 @@ export function useLoginHardwareBackHandler({
   step,
 }: LoginHardwareBackHandlerOptions) {
   useEffect(() => {
-    const checkAppleAvailability = async () => {
-      try {
-        const appleAuth = await import('expo-apple-authentication');
-        const available = await appleAuth.isAvailableAsync();
-        setIsAppleAvailable(available);
-      } catch (_e) {
-        setIsAppleAvailable(false);
-      }
-    };
-    checkAppleAvailability();
+    checkAppleAvailability().then((available) =>
+      setIsAppleAvailable(available)
+    );
 
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',

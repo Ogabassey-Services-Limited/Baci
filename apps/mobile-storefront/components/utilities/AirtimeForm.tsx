@@ -22,32 +22,56 @@ export function AirtimeForm(props: AirtimeFormProps) {
   const { onSelectRecentRecipient, recentRecipients = [] } = props;
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const form = useAirtimeFormController(props);
+  // Destructure the controller result: keeping the whole object makes the
+  // compiler treat every property read as a ref access (it bundles scrollViewRef).
+  const {
+    footerBottomOffset,
+    footerSpacerHeight,
+    formattedAmount,
+    handlePaymentLayout,
+    handlePhoneChange,
+    handleProviderSelect,
+    handlePurchase,
+    insets,
+    isBeneficiarySelected,
+    isKeyboardVisible,
+    isNetworkPickerExpanded,
+    isSubmitting,
+    numericAmount,
+    payment,
+    phoneNumber,
+    scrollViewRef,
+    selectedProvider,
+    selectedProviderConfig,
+    setAmount,
+    setIsBeneficiarySelected,
+    setIsNetworkPickerExpanded,
+  } = useAirtimeFormController(props);
 
   const activeRecipients = recentRecipients;
   const matchingRecipients = activeRecipients.filter((recipient) => {
-    if (!form.phoneNumber) return true;
-    const cleanPhone = form.phoneNumber.replace(/\D/g, '');
+    if (!phoneNumber) return true;
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
     const cleanRecip = (recipient.identifier ?? '').replace(/\D/g, '');
     return (
       cleanRecip.includes(cleanPhone) ||
-      recipient.title.toLowerCase().includes(form.phoneNumber.toLowerCase())
+      recipient.title.toLowerCase().includes(phoneNumber.toLowerCase())
     );
   });
 
   const handleSelectRecentRecipient = (
     recipient: (typeof recentRecipients)[0]
   ) => {
-    form.handlePhoneChange(recipient.defaults.phoneNumber ?? '');
-    form.setIsBeneficiarySelected(true);
+    handlePhoneChange(recipient.defaults.phoneNumber ?? '');
+    setIsBeneficiarySelected(true);
     if (onSelectRecentRecipient) {
       onSelectRecentRecipient(recipient);
     }
   };
 
   const shouldShowBeneficiaryList =
-    !form.isBeneficiarySelected &&
-    (form.phoneNumber.length < 5 || matchingRecipients.length > 0);
+    !isBeneficiarySelected &&
+    (phoneNumber.length < 5 || matchingRecipients.length > 0);
 
   const canShowBeneficiaries =
     recentRecipients.length > 0 &&
@@ -55,24 +79,23 @@ export function AirtimeForm(props: AirtimeFormProps) {
     shouldShowBeneficiaryList;
 
   const shouldShowNetworkSection =
-    form.isBeneficiarySelected ||
-    (form.phoneNumber.length >= 5 && matchingRecipients.length === 0);
+    isBeneficiarySelected ||
+    (phoneNumber.length >= 5 && matchingRecipients.length === 0);
 
   const shouldShowSelectedNetwork =
-    Boolean(form.selectedProvider) && !form.isNetworkPickerExpanded;
+    Boolean(selectedProvider) && !isNetworkPickerExpanded;
 
   const shouldShowManualNetworkPicker =
-    form.isNetworkPickerExpanded ||
-    (form.phoneNumber.length >= 4 && !form.selectedProvider);
+    isNetworkPickerExpanded || (phoneNumber.length >= 4 && !selectedProvider);
 
   return (
     <>
       <ScrollView
-        ref={form.scrollViewRef}
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: form.footerSpacerHeight },
+          { paddingBottom: footerSpacerHeight },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -94,8 +117,8 @@ export function AirtimeForm(props: AirtimeFormProps) {
           placeholder="08012345678"
           placeholderTextColor={colors.placeholder}
           keyboardType="phone-pad"
-          value={form.phoneNumber}
-          onChangeText={form.handlePhoneChange}
+          value={phoneNumber}
+          onChangeText={handlePhoneChange}
         />
 
         {canShowBeneficiaries ? (
@@ -116,12 +139,12 @@ export function AirtimeForm(props: AirtimeFormProps) {
               },
             ]}
           >
-            {form.selectedProviderConfig ? (
+            {selectedProviderConfig ? (
               <Image
-                source={form.selectedProviderConfig.image}
+                source={selectedProviderConfig.image}
                 style={styles.selectedNetworkLogo}
                 resizeMode="contain"
-                accessibilityLabel={`${form.selectedProviderConfig.name} logo`}
+                accessibilityLabel={`${selectedProviderConfig.name} logo`}
               />
             ) : null}
             <View style={styles.selectedNetworkCopy}>
@@ -136,13 +159,13 @@ export function AirtimeForm(props: AirtimeFormProps) {
               <Text
                 style={[styles.selectedNetworkName, { color: colors.text }]}
               >
-                {form.selectedProviderConfig?.name ?? form.selectedProvider}
+                {selectedProviderConfig?.name ?? selectedProvider}
               </Text>
             </View>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Change selected network"
-              onPress={() => form.setIsNetworkPickerExpanded(true)}
+              onPress={() => setIsNetworkPickerExpanded(true)}
               style={[styles.changeButton, { borderColor: BRAND.primary }]}
             >
               <Text style={styles.changeButtonText}>Change</Text>
@@ -153,8 +176,8 @@ export function AirtimeForm(props: AirtimeFormProps) {
         {shouldShowNetworkSection && shouldShowManualNetworkPicker ? (
           <View style={styles.networkPicker}>
             <ProviderGrid
-              selectedProvider={form.selectedProvider}
-              onSelect={form.handleProviderSelect}
+              selectedProvider={selectedProvider}
+              onSelect={handleProviderSelect}
             />
           </View>
         ) : null}
@@ -175,12 +198,12 @@ export function AirtimeForm(props: AirtimeFormProps) {
             placeholder="1,000"
             placeholderTextColor={colors.placeholder}
             keyboardType="number-pad"
-            value={form.formattedAmount}
-            onChangeText={(text) => form.setAmount(text.replace(/\D/g, ''))}
+            value={formattedAmount}
+            onChangeText={(text) => setAmount(text.replace(/\D/g, ''))}
           />
           <View style={styles.quickAmounts}>
             {QUICK_AMOUNTS.map((amount) => {
-              const isSelectedAmount = form.numericAmount === amount;
+              const isSelectedAmount = numericAmount === amount;
 
               return (
                 <Pressable
@@ -198,7 +221,7 @@ export function AirtimeForm(props: AirtimeFormProps) {
                         : colors.border,
                     },
                   ]}
-                  onPress={() => form.setAmount(String(amount))}
+                  onPress={() => setAmount(String(amount))}
                 >
                   <Text
                     style={[
@@ -216,21 +239,21 @@ export function AirtimeForm(props: AirtimeFormProps) {
           </View>
         </View>
 
-        <View onLayout={form.handlePaymentLayout}>
+        <View onLayout={handlePaymentLayout}>
           <UtilityPaymentOptions
-            amount={form.numericAmount}
-            cards={form.payment.cards}
-            isLoadingCards={form.payment.isLoadingCards}
-            onSelectGateway={form.payment.selectGateway}
-            onSelectSavedCard={form.payment.selectSavedCard}
-            selectedGateway={form.payment.selectedGateway}
-            selectedSavedCardId={form.payment.selectedSavedCardId}
-            supportedGateways={form.payment.supportedGateways}
-            walletBalance={form.payment.walletBalance}
-            walletError={form.payment.walletError}
-            walletIsLoading={form.payment.walletIsLoading}
-            walletSelection={form.payment.walletSelection}
-            onWalletToggle={form.payment.setWalletSelection}
+            amount={numericAmount}
+            cards={payment.cards}
+            isLoadingCards={payment.isLoadingCards}
+            onSelectGateway={payment.selectGateway}
+            onSelectSavedCard={payment.selectSavedCard}
+            selectedGateway={payment.selectedGateway}
+            selectedSavedCardId={payment.selectedSavedCardId}
+            supportedGateways={payment.supportedGateways}
+            walletBalance={payment.walletBalance}
+            walletError={payment.walletError}
+            walletIsLoading={payment.walletIsLoading}
+            walletSelection={payment.walletSelection}
+            onWalletToggle={payment.setWalletSelection}
           />
         </View>
       </ScrollView>
@@ -241,10 +264,10 @@ export function AirtimeForm(props: AirtimeFormProps) {
           {
             borderTopColor: colors.border,
             backgroundColor: colors.muted,
-            bottom: form.footerBottomOffset,
-            paddingBottom: form.isKeyboardVisible
+            bottom: footerBottomOffset,
+            paddingBottom: isKeyboardVisible
               ? SPACING.sm
-              : Math.max(form.insets.bottom, SPACING.md),
+              : Math.max(insets.bottom, SPACING.md),
           },
         ]}
       >
@@ -253,18 +276,18 @@ export function AirtimeForm(props: AirtimeFormProps) {
             styles.payButton,
             {
               backgroundColor: BRAND.primary,
-              opacity: form.isSubmitting ? 0.7 : 1,
+              opacity: isSubmitting ? 0.7 : 1,
             },
           ]}
-          onPress={form.handlePurchase}
-          disabled={form.isSubmitting}
+          onPress={handlePurchase}
+          disabled={isSubmitting}
         >
-          {form.isSubmitting ? (
+          {isSubmitting ? (
             <ActivityIndicator color={BRAND.onPrimary} />
           ) : (
             <Text style={styles.payButtonText}>
-              {form.payment.selectedSavedCardId
-                ? `Pay ₦${form.numericAmount ? form.numericAmount.toLocaleString() : '0'}`
+              {payment.selectedSavedCardId
+                ? `Pay ₦${numericAmount ? numericAmount.toLocaleString() : '0'}`
                 : 'Continue to Payment'}
             </Text>
           )}

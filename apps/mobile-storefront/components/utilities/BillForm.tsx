@@ -12,93 +12,128 @@ import { useBillFormController } from './use-bill-form-controller';
 export function BillForm(props: BillFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const form = useBillFormController(props);
+  const {
+    beneficiaries,
+    billersQuery,
+    billItemSelection,
+    canShowPayment,
+    customerId,
+    footerBottomOffset,
+    footerSpacerHeight,
+    formattedAmount,
+    handleBillItemSelect,
+    handleBillerSelect,
+    handlePaymentLayout,
+    handlePurchase,
+    handleSelectBeneficiary,
+    handleVerify,
+    insets,
+    isBillItemSelectionComplete,
+    isBusy,
+    isFixedAmount,
+    isKeyboardVisible,
+    isProviderPickerExpanded,
+    isRepeatPaymentActive,
+    numericAmount,
+    payment,
+    scheduleNextStepScroll,
+    scrollViewRef,
+    selectedBiller,
+    selectedBillItemIdentifier,
+    setProviderPickerExpanded,
+    setRepeatPaymentActive,
+    shouldScrollToNextStep,
+    updateAmount,
+    updateCustomerId,
+    verifiedCustomerName,
+    verify,
+  } = useBillFormController(props);
 
   return (
     <>
       <ScrollView
-        ref={form.scrollViewRef}
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: form.footerSpacerHeight },
+          { paddingBottom: footerSpacerHeight },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
         <BillerList
-          billers={form.billersQuery.data ?? []}
-          selectedBillerId={form.selectedBiller?.billerId ?? null}
-          onSelect={form.handleBillerSelect}
-          isLoading={form.billersQuery.isLoading}
-          isCollapsed={!!form.selectedBiller && !form.isProviderPickerExpanded}
+          billers={billersQuery.data ?? []}
+          selectedBillerId={selectedBiller?.billerId ?? null}
+          onSelect={handleBillerSelect}
+          isLoading={billersQuery.isLoading}
+          isCollapsed={!!selectedBiller && !isProviderPickerExpanded}
           onChangeSelection={() => {
-            form.setRepeatPaymentActive(false);
-            form.setProviderPickerExpanded(true);
+            setRepeatPaymentActive(false);
+            setProviderPickerExpanded(true);
           }}
           errorMessage={
-            form.billersQuery.isError
-              ? form.billersQuery.error instanceof Error
-                ? form.billersQuery.error.message
+            billersQuery.isError
+              ? billersQuery.error instanceof Error
+                ? billersQuery.error.message
                 : 'Failed to load providers. Please try again.'
               : undefined
           }
         />
 
-        {form.selectedBiller ? (
+        {selectedBiller ? (
           <View
             onLayout={(event) => {
-              if (form.shouldScrollToNextStep) {
-                form.scheduleNextStepScroll(event.nativeEvent.layout.y);
+              if (shouldScrollToNextStep) {
+                scheduleNextStepScroll(event.nativeEvent.layout.y);
               }
             }}
           >
             <BillItemSelectionSection
-              beneficiaries={form.beneficiaries}
-              billItemSelection={form.billItemSelection}
+              beneficiaries={beneficiaries}
+              billItemSelection={billItemSelection}
               colors={colors}
-              customerId={form.customerId}
-              handleBillItemSelect={form.handleBillItemSelect}
-              handleSelectBeneficiary={form.handleSelectBeneficiary}
-              handleVerify={form.handleVerify}
-              isBillItemSelectionComplete={form.isBillItemSelectionComplete}
-              isRepeatPaymentActive={form.isRepeatPaymentActive}
+              customerId={customerId}
+              handleBillItemSelect={handleBillItemSelect}
+              handleSelectBeneficiary={handleSelectBeneficiary}
+              handleVerify={handleVerify}
+              isBillItemSelectionComplete={isBillItemSelectionComplete}
+              isRepeatPaymentActive={isRepeatPaymentActive}
               recentRecipients={props.recentRecipients}
               onSelectRecentRecipient={props.onSelectRecentRecipient}
-              verifiedCustomerName={form.verifiedCustomerName}
-              selectedBillItemIdentifier={form.selectedBillItemIdentifier}
-              selectedBillerId={form.selectedBiller.billerId}
-              setCustomerId={form.updateCustomerId}
-              setIsRepeatPaymentActive={form.setRepeatPaymentActive}
+              verifiedCustomerName={verifiedCustomerName}
+              selectedBillItemIdentifier={selectedBillItemIdentifier}
+              selectedBillerId={selectedBiller.billerId}
+              setCustomerId={updateCustomerId}
+              setIsRepeatPaymentActive={setRepeatPaymentActive}
               type={props.type}
-              verify={form.verify}
+              verify={verify}
             />
           </View>
         ) : null}
 
-        {form.canShowPayment ? (
+        {canShowPayment ? (
           <BillPaymentSection
             colors={colors}
-            formattedAmount={form.formattedAmount}
-            handlePaymentLayout={form.handlePaymentLayout}
-            isFixedAmount={form.isFixedAmount}
-            numericAmount={form.numericAmount}
-            payment={form.payment}
-            setAmount={form.updateAmount}
+            formattedAmount={formattedAmount}
+            handlePaymentLayout={handlePaymentLayout}
+            isFixedAmount={isFixedAmount}
+            numericAmount={numericAmount}
+            payment={payment}
+            setAmount={updateAmount}
           />
         ) : null}
       </ScrollView>
 
-      {form.canShowPayment ? (
+      {canShowPayment ? (
         <BillPaymentFooter
           colors={colors}
-          footerBottomOffset={form.footerBottomOffset}
-          insetsBottom={form.insets.bottom}
-          isBusy={form.isBusy}
-          isKeyboardVisible={form.isKeyboardVisible}
-          numericAmount={form.numericAmount}
-          onPurchase={form.handlePurchase}
-          selectedSavedCardId={form.payment.selectedSavedCardId}
+          footerBottomOffset={footerBottomOffset}
+          insetsBottom={insets.bottom}
+          isBusy={isBusy}
+          isKeyboardVisible={isKeyboardVisible}
+          numericAmount={numericAmount}
+          onPurchase={handlePurchase}
+          selectedSavedCardId={payment.selectedSavedCardId}
         />
       ) : null}
     </>

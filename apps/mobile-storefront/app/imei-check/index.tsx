@@ -36,6 +36,11 @@ const API_BASE_URL = resolveStorefrontApiBaseUrl(
   process.env.EXPO_PUBLIC_API_URL
 );
 
+const getImeiCheckNetworkErrorMessage = (err: unknown) =>
+  err instanceof Error && err.name === 'AbortError'
+    ? 'Request timed out. Please check your connection and try again.'
+    : 'Network error. Please check your connection and try again.';
+
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -171,7 +176,7 @@ export default function ImeiCheckerScreen() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
-    try {
+    const performCheck = async () => {
       const response = await fetch(
         `${API_BASE_URL}/api/storefront/imei-check`,
         {
@@ -187,7 +192,6 @@ export default function ImeiCheckerScreen() {
           signal: controller.signal,
         }
       );
-      clearTimeout(timeoutId);
 
       const rawData = await response.json();
       if (!response.ok || rawData?.error) {
@@ -231,19 +235,17 @@ export default function ImeiCheckerScreen() {
 
       clearIdempotencyKey();
       setResult(validated.data);
-    } catch (err) {
-      clearTimeout(timeoutId);
-      log.error('IMEI check failed:', err);
-      if (err instanceof Error && err.name === 'AbortError') {
-        setError(
-          'Request timed out. Please check your connection and try again.'
-        );
-      } else {
-        setError('Network error. Please check your connection and try again.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    await performCheck()
+      .catch((err: unknown) => {
+        log.error('IMEI check failed:', err);
+        setError(getImeiCheckNetworkErrorMessage(err));
+      })
+      .finally(() => {
+        clearTimeout(timeoutId);
+        setIsLoading(false);
+      });
   };
 
   const handleReset = () => {

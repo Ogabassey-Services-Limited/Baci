@@ -26,6 +26,9 @@ const HAS_EXPO_BLUR = UIManager.hasViewManagerConfig('ExpoBlurView');
 const BlurContainer = HAS_EXPO_BLUR ? BlurView : View;
 const CAPSULE_WIDTH = 36;
 const CAPSULE_HEIGHT = 36;
+const MOVE_SPRING = { damping: 11, stiffness: 145, mass: 0.8 };
+const SCALE_REST_SPRING = { damping: 12, stiffness: 140 };
+const SCALE_PULSE_SPRING = { damping: 9, stiffness: 220 };
 
 export function CustomTabBarChrome({
   state,
@@ -57,25 +60,28 @@ export function CustomTabBarChrome({
   const pressInHandledRouteKeyRef = useRef<string | null>(null);
   const [optimisticRouteName, setOptimisticRouteName] =
     useState(activeRouteName);
+  const [prevActiveRouteName, setPrevActiveRouteName] =
+    useState(activeRouteName);
   const animIndex = useSharedValue(safeActiveIdx);
   const targetIndex = useSharedValue(safeActiveIdx);
   const capsuleScale = useSharedValue(1);
 
-  useEffect(() => {
+  // Sync the optimistic selection back to the real route during render
+  // (guarded prev-prop compare) instead of via a setState-in-effect.
+  if (activeRouteName !== prevActiveRouteName) {
+    setPrevActiveRouteName(activeRouteName);
     setOptimisticRouteName(activeRouteName);
+  }
 
-    if (safeActiveIdx === targetIndex.value) {
+  useEffect(() => {
+    if (safeActiveIdx === targetIndex.get()) {
       return;
     }
 
-    targetIndex.value = safeActiveIdx;
-    animIndex.value = withSpring(safeActiveIdx, {
-      damping: 11,
-      stiffness: 145,
-      mass: 0.8,
-    });
-    capsuleScale.value = withSpring(1, { damping: 12, stiffness: 140 });
-  }, [activeRouteName, animIndex, capsuleScale, safeActiveIdx, targetIndex]);
+    targetIndex.set(safeActiveIdx);
+    animIndex.set(withSpring(safeActiveIdx, MOVE_SPRING));
+    capsuleScale.set(withSpring(1, SCALE_REST_SPRING));
+  }, [animIndex, capsuleScale, safeActiveIdx, targetIndex]);
 
   useWarmTabScreens({
     activeRouteName,
@@ -85,8 +91,8 @@ export function CustomTabBarChrome({
   });
 
   const capsuleStyle = useAnimatedStyle(() => {
-    const currentPos = animIndex.value;
-    const target = targetIndex.value;
+    const currentPos = animIndex.get();
+    const target = targetIndex.get();
     const distance = Math.abs(target - currentPos);
     const isAtRest = distance < 0.005;
     const stretchX = isAtRest ? 1 : 1 + Math.min(distance * 0.38, 0.3);
@@ -114,8 +120,8 @@ export function CustomTabBarChrome({
       elevation: 2,
       transform: [
         { translateX },
-        { scaleX: stretchX * capsuleScale.value },
-        { scaleY: shrinkY * capsuleScale.value },
+        { scaleX: stretchX * capsuleScale.get() },
+        { scaleY: shrinkY * capsuleScale.get() },
       ] as ViewStyle['transform'],
       zIndex: 1,
     };
@@ -152,39 +158,27 @@ export function CustomTabBarChrome({
           const isFocused = optimisticRouteName === route.name;
 
           const moveCapsule = (shouldPulse: boolean) => {
-            targetIndex.value = index;
-            animIndex.value = withSpring(index, {
-              damping: 11,
-              stiffness: 145,
-              mass: 0.8,
-            });
+            targetIndex.set(index);
+            animIndex.set(withSpring(index, MOVE_SPRING));
 
-            capsuleScale.value = withSpring(
-              shouldPulse ? 1.15 : 1,
-              { damping: 9, stiffness: 220 },
-              (finished) => {
-                if (finished && shouldPulse) {
-                  capsuleScale.value = withSpring(1, {
-                    damping: 12,
-                    stiffness: 140,
-                  });
+            capsuleScale.set(
+              withSpring(
+                shouldPulse ? 1.15 : 1,
+                SCALE_PULSE_SPRING,
+                (finished) => {
+                  if (finished && shouldPulse) {
+                    capsuleScale.set(withSpring(1, SCALE_REST_SPRING));
+                  }
                 }
-              }
+              )
             );
           };
 
           const resetSelection = () => {
             setOptimisticRouteName(activeRouteName);
-            targetIndex.value = safeActiveIdx;
-            animIndex.value = withSpring(safeActiveIdx, {
-              damping: 11,
-              stiffness: 145,
-              mass: 0.8,
-            });
-            capsuleScale.value = withSpring(1, {
-              damping: 12,
-              stiffness: 140,
-            });
+            targetIndex.set(safeActiveIdx);
+            animIndex.set(withSpring(safeActiveIdx, MOVE_SPRING));
+            capsuleScale.set(withSpring(1, SCALE_REST_SPRING));
           };
 
           const commitTabSelection = (shouldTriggerFeedback: boolean) => {

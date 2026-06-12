@@ -17,16 +17,26 @@ export function useCameraPermission(enabled: boolean) {
   const [status, setStatus] = useState<CameraPermissionStatus>(
     enabled ? 'checking' : 'granted'
   );
+  const [prevEnabled, setPrevEnabled] = useState(enabled);
+
+  // Adjust permission state inline during render when `enabled` changes so the
+  // UI never commits a stale frame (https://react.dev/learn/you-might-not-need-an-effect).
+  if (enabled !== prevEnabled) {
+    setPrevEnabled(enabled);
+    if (enabled) {
+      setStatus('checking');
+    } else {
+      setCanAskAgain(true);
+      setStatus('granted');
+    }
+  }
 
   useEffect(() => {
     if (!enabled) {
-      setCanAskAgain(true);
-      setStatus('granted');
       return;
     }
 
     let isActive = true;
-    setStatus('checking');
     Camera.requestCameraPermissionsAsync()
       .then((permission) => {
         if (isActive) {
