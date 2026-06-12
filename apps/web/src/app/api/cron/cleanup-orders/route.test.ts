@@ -144,11 +144,12 @@ describe('mark_abandoned_orders migration contract', () => {
     expect(sql).toMatch(/payment_method\s*=\s*'credit_direct'/i);
     expect(sql).toMatch(/payment_status\s*=\s*'bnpl_pending'/i);
     expect(sql).toMatch(/created_at\s*</i);
-    expect(sql).not.toMatch(
-      /REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.mark_abandoned_orders\(integer\)/i
-    );
-
+    expect(sql).toMatch(/hours_threshold\s*\*\s*interval\s+'1 hour'/i);
+    expect(sql).not.toMatch(/hours_threshold\s*\|\|\s*' hours'/i);
     const appliedSql = readAppliedMarkAbandonedOrdersSql();
+    expect(appliedSql).toMatch(
+      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.mark_abandoned_orders\(\)/i
+    );
     expect(appliedSql).toMatch(
       /REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.mark_abandoned_orders\(integer\)\s+FROM\s+PUBLIC,\s+anon,\s+authenticated/i
     );
