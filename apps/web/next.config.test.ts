@@ -115,31 +115,12 @@ describe('next.config OgaBassey resource headers', () => {
     expect(ogabasseyLinkHeader).toContain('</auth.md>; rel="service-doc"');
   });
 
-  it('adds parameterized early PDP LCP image preload headers on canonical OgaBassey product paths', async () => {
+  it('keeps PDP LCP image preload hints out of static next.config headers', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
-    expect(headers).toBeDefined();
 
-    const pdpHeaderRule = headers.find(
-      (entry) =>
-        entry.source.includes('gaming-laptops') &&
-        entry.source.endsWith('/:productSlug') &&
-        JSON.stringify(entry.has) ===
-          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
-    );
-    expect(pdpHeaderRule).toBeDefined();
-    const linkHeader = pdpHeaderRule?.headers.find(
-      (header) => header.key === 'Link'
-    )?.value;
-
-    expect(linkHeader).toContain(
-      '</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767px)"'
-    );
-    expect(linkHeader).toContain(
-      '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"'
-    );
-    expect(linkHeader).toContain(
-      '</.well-known/api-catalog>; rel="api-catalog"'
+    expect(JSON.stringify(headers)).not.toContain(
+      '/api/ogabassey/pdp-lcp-image/'
     );
   });
 

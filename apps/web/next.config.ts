@@ -24,39 +24,6 @@ const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
   'next-router-segment-prefetch',
 ].join(', ');
 const OGABASSEY_DOMAIN = 'ogabassey.com';
-const OGABASSEY_PDP_CATEGORY_SLUG_PATTERN = [
-  'accessories',
-  'audio',
-  'childrens-tablets',
-  'desktops',
-  'earbuds',
-  'gaming',
-  'gaming-accessories',
-  'gaming-laptops',
-  'gift-cards',
-  'laptops',
-  'lg-tvs',
-  'monitors',
-  'nintendo-switch',
-  'nintendo-switch-2',
-  'playstation-4',
-  'playstation-5',
-  'portable-gaming',
-  'printers',
-  'samsung-tvs',
-  'smartphones',
-  'smartwatches',
-  'soundbars',
-  'tablets',
-  'vr-headsets',
-  'wearables',
-  'xbox',
-].join('|');
-const OGABASSEY_PDP_LCP_IMAGE_LINK_HEADER = [
-  '</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767px)"',
-  '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"',
-].join(', ');
-const OGABASSEY_PDP_LINK_HEADER = `${OGABASSEY_AGENT_DISCOVERY_LINK_HEADER}, ${OGABASSEY_PDP_LCP_IMAGE_LINK_HEADER}`;
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // jsPDF stays external here so server PDF generators can use the package
@@ -542,18 +509,6 @@ const nextConfig: NextConfig = {
           {
             key: 'Link',
             value: OGABASSEY_AGENT_DISCOVERY_LINK_HEADER,
-          },
-        ],
-      },
-      {
-        source: `/:category(${OGABASSEY_PDP_CATEGORY_SLUG_PATTERN})/:productSlug`,
-        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
-        headers: [
-          {
-            key: 'Link',
-            // Keep the agent discovery links on matching PDPs: Next applies the
-            // last matching Link header value for the same path.
-            value: OGABASSEY_PDP_LINK_HEADER,
           },
         ],
       },
