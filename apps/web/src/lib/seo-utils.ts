@@ -22,6 +22,7 @@ import { escapeHtml, stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaMarkup, sanitizeSchemaUrl } from './sanitize-json-ld';
 import { normalizeSocialUrl } from './social';
 import { normalizeStorefrontCanonicalUrl } from './storefront-canonical-url';
+import { stripVolatileProductPriceSentences } from './storefront-product-description';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileReturnFee,
@@ -753,6 +754,95 @@ function buildStructuredDataVariantUrl(
   return url.toString();
 }
 
+function parseSchemaNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/,/g, '').trim());
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+function hasValidAggregateRatingSchema(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const aggregateRating = value as {
+    bestRating?: unknown;
+    ratingCount?: unknown;
+    ratingValue?: unknown;
+    reviewCount?: unknown;
+    worstRating?: unknown;
+  };
+
+  const ratingValue = parseSchemaNumber(aggregateRating.ratingValue);
+  const bestRating =
+    aggregateRating.bestRating === undefined ||
+    aggregateRating.bestRating === null
+      ? 5
+      : parseSchemaNumber(aggregateRating.bestRating);
+  const worstRating =
+    aggregateRating.worstRating === undefined ||
+    aggregateRating.worstRating === null
+      ? 1
+      : parseSchemaNumber(aggregateRating.worstRating);
+  const reviewCount = parseSchemaNumber(aggregateRating.reviewCount) ?? 0;
+  const ratingCount = parseSchemaNumber(aggregateRating.ratingCount) ?? 0;
+
+  if (
+    ratingValue === undefined ||
+    bestRating === undefined ||
+    worstRating === undefined ||
+    worstRating !== 1 ||
+    bestRating !== 5
+  ) {
+    return false;
+  }
+
+  return (
+    ratingValue >= worstRating &&
+    ratingValue <= bestRating &&
+    (reviewCount > 0 || ratingCount > 0)
+  );
+}
+
+function sanitizeCustomProductSchemaMarkup(
+  schemaMarkup: Product['schema_markup']
+): Record<string, unknown> {
+  const sanitized = sanitizeSchemaMarkup(schemaMarkup);
+  if (!sanitized || typeof sanitized !== 'object' || Array.isArray(sanitized)) {
+    return {};
+  }
+
+  const sanitizedSchema = { ...sanitized } as Record<string, unknown>;
+
+  if (typeof sanitizedSchema.description === 'string') {
+    const description = stripVolatileProductPriceSentences(
+      sanitizedSchema.description
+    );
+
+    if (description) {
+      sanitizedSchema.description = description;
+    } else {
+      delete sanitizedSchema.description;
+    }
+  }
+
+  if (
+    'aggregateRating' in sanitizedSchema &&
+    !hasValidAggregateRatingSchema(sanitizedSchema.aggregateRating)
+  ) {
+    delete sanitizedSchema.aggregateRating;
+  }
+
+  return sanitizedSchema;
+}
+
 /**
  * Generates JSON-LD structured data for a product (2025 Google best practices)
  * For products with variants, outputs @type ProductGroup with hasVariant (each variant has its own Offer).
@@ -1190,7 +1280,9 @@ export function generateProductSchema(
   // Merge custom schema markup if provided (e.g. aggregateRating)
   // This allows merchants to extend the auto-generated schema with their own data
   if (product.schema_markup) {
-    const sanitizedCustomSchema = sanitizeSchemaMarkup(product.schema_markup);
+    const sanitizedCustomSchema = sanitizeCustomProductSchemaMarkup(
+      product.schema_markup
+    );
     // We merge sanitizedCustomSchema into schema
     // Using Object.assign to override/extend existing fields
     Object.assign(schema, sanitizedCustomSchema);
@@ -1845,12 +1937,14 @@ export function generateMetaDescription(
   const minLength = Math.max(DEFAULT_MIN_LENGTH, options?.minLength ?? 0);
 
   const fallbackPlainText = options?.fallback
-    ? normalizePlainText(options.fallback)
+    ? stripVolatileProductPriceSentences(normalizePlainText(options.fallback))
     : '';
 
   // Strip HTML tags using iterative sanitization to prevent incomplete removal
   // of nested patterns like <scr<script>ipt>
-  const plainText = normalizePlainText(description);
+  const plainText = stripVolatileProductPriceSentences(
+    normalizePlainText(description)
+  );
 
   const baseDescription = plainText || fallbackPlainText;
   if (!baseDescription) {

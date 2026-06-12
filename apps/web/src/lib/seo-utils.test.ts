@@ -858,6 +858,186 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.description).toBe('The best gaming laptop for creators.');
   });
 
+  it('removes stale absolute listed-price sentences from structured product descriptions', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        description:
+          'Premium foldable phone. Current listed price is NGN 2,500,000. Confirm selected variant price before checkout.',
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe(
+      'Premium foldable phone. Confirm selected variant price before checkout.'
+    );
+  });
+
+  it('does not let custom schema markup reintroduce stale listed prices or empty aggregate ratings', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        description: 'Premium foldable phone.',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          description:
+            'Premium foldable phone. Current listed price is NGN 2,500,000.',
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: 5,
+            reviewCount: 0,
+          },
+        },
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe('Premium foldable phone.');
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
+  it('keeps custom aggregate ratings when ratingCount is positive and reviewCount is zero', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: 4.5,
+            reviewCount: 0,
+            ratingCount: 12,
+          },
+        },
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toEqual({
+      '@type': 'AggregateRating',
+      ratingValue: 4.5,
+      reviewCount: 0,
+      ratingCount: 12,
+    });
+  });
+
+  it('removes custom aggregate ratings with rating values outside the declared scale', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: 7,
+            reviewCount: 2,
+          },
+        },
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
+  it('removes custom aggregate ratings that use a non-storefront rating scale', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            bestRating: 100,
+            worstRating: 0,
+            ratingValue: 87,
+            ratingCount: 12,
+          },
+        },
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
+  it('ignores non-object custom schema markup without throwing', () => {
+    expect(() =>
+      generateProductSchema(
+        makeProduct({
+          schema_markup:
+            'invalid schema markup' as unknown as Product['schema_markup'],
+        }),
+        'TestStore',
+        'NGN',
+        'NG'
+      )
+    ).not.toThrow();
+
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: [
+          {
+            '@type': 'Product',
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: 5,
+              reviewCount: 2,
+            },
+          },
+        ] as unknown as Product['schema_markup'],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.aggregateRating).toBeUndefined();
+  });
+
+  it('does not mutate merchant-provided custom schema markup while sanitizing', () => {
+    const schemaMarkup = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      description:
+        'Premium foldable phone. Current listed price is NGN 2,500,000.',
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: 5,
+        reviewCount: 0,
+      },
+    };
+
+    const schema = generateProductSchema(
+      makeProduct({
+        schema_markup: schemaMarkup as Product['schema_markup'],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe('Premium foldable phone.');
+    expect(schema.aggregateRating).toBeUndefined();
+    expect(schemaMarkup.description).toBe(
+      'Premium foldable phone. Current listed price is NGN 2,500,000.'
+    );
+    expect(schemaMarkup.aggregateRating).toEqual({
+      '@type': 'AggregateRating',
+      ratingValue: 5,
+      reviewCount: 0,
+    });
+  });
+
   it('serializes product schema without double-escaping text or URL data', () => {
     const imageUrl =
       'https://cdn.example.com/products/pro.png?fit=cover&width=600';
@@ -1093,6 +1273,16 @@ describe('generateMetaDescription', () => {
         '<p>Shop <strong>phones</strong>, laptops and consoles.</p>'
       )
     ).toBe('Shop phones, laptops and consoles.');
+  });
+
+  it('removes stale absolute listed-price sentences', () => {
+    expect(
+      generateMetaDescription(
+        'Premium foldable phone. Current listed price is NGN 2,500,000. Confirm selected variant price before checkout.'
+      )
+    ).toBe(
+      'Premium foldable phone. Confirm selected variant price before checkout.'
+    );
   });
 
   it('extends short descriptions when minLength fallback options are provided', () => {
