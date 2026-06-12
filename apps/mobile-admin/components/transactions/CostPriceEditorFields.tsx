@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 import { styles } from '@/components/transactions/transactions.styles';
 import {
@@ -51,6 +51,13 @@ export function CostPriceEditorFields({
   visible,
 }: CostPriceEditorFieldsProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (!visible) {
+      setShowDatePicker(false);
+    }
+  }
   const isAndroid = isRuntimePlatform('android');
   const pickerDisplay =
     selectRuntimePlatform<DatePickerDisplay>({
@@ -69,12 +76,6 @@ export function CostPriceEditorFields({
         })
         .slice(0, 5)
     : [];
-
-  useEffect(() => {
-    if (!visible) {
-      setShowDatePicker(false);
-    }
-  }, [visible]);
 
   return (
     <View style={styles.modalFields}>

@@ -13,7 +13,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
-import { RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import {
+  RADIUS,
+  SHADOWS,
+  SPACING,
+  type ThemeColors,
+  TYPOGRAPHY,
+} from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -30,7 +36,7 @@ interface BlogPost {
 
 interface AgentStatus {
   status: 'active' | 'paused';
-  last_run_at: string | null;
+  last_run_at: string;
 }
 
 async function fetchBlogPosts(merchantId: string): Promise<BlogPost[]> {
@@ -54,7 +60,153 @@ async function fetchMerchantAgentStatus(
     .maybeSingle();
 
   if (error) throw error;
-  return data;
+  if (!data) return null;
+  return {
+    status: data.status,
+    // Resolve the "never ran" fallback at fetch time so render stays pure.
+    last_run_at: data.last_run_at ?? new Date().toISOString(),
+  };
+}
+
+async function loadBlogData(
+  merchantId: string,
+  isActive: () => boolean,
+  onLoaded: (posts: BlogPost[], agentStatus: AgentStatus | null) => void,
+  onSettled: () => void
+): Promise<void> {
+  try {
+    const [posts, agentStatus] = await Promise.all([
+      fetchBlogPosts(merchantId),
+      fetchMerchantAgentStatus(merchantId),
+    ]);
+    if (isActive()) {
+      onLoaded(posts, agentStatus);
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    if (isActive()) {
+      onSettled();
+    }
+  }
+}
+
+function StatusBadge({
+  status,
+  colors,
+}: {
+  status: string;
+  colors: ThemeColors;
+}) {
+  const isPublished = status === 'published';
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: isPublished
+            ? colors.successLight
+            : colors.warningLight,
+        },
+      ]}
+    >
+      <Text
+        style={[
+          styles.badgeText,
+          { color: isPublished ? colors.success : colors.warning },
+        ]}
+      >
+        {status === 'published' ? 'Published' : 'Draft'}
+      </Text>
+    </View>
+  );
+}
+
+function AgentCard({
+  agent,
+  agentLoading,
+  colors,
+}: {
+  agent: AgentStatus | null;
+  agentLoading: boolean;
+  colors: ThemeColors;
+}) {
+  if (agentLoading) return null;
+  if (!agent)
+    return (
+      <View
+        style={[
+          styles.agentCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.agentIconPlaceholder}>
+          <Ionicons
+            name="hardware-chip-outline"
+            size={24}
+            color={colors.textMuted}
+          />
+        </View>
+        <View>
+          <Text style={[styles.agentTitle, { color: colors.text }]}>
+            No AI Agent Active
+          </Text>
+          <Text style={[styles.agentSubtitle, { color: colors.textMuted }]}>
+            Contact support to enable autopilot.
+          </Text>
+        </View>
+      </View>
+    );
+
+  const isActive = agent.status === 'active';
+  return (
+    <View
+      style={[
+        styles.agentCard,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <View
+        style={[
+          styles.agentIcon,
+          {
+            backgroundColor: isActive ? colors.successLight : colors.errorLight,
+          },
+        ]}
+      >
+        <Ionicons
+          name="sparkles"
+          size={20}
+          color={isActive ? colors.success : colors.error}
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={[styles.agentTitle, { color: colors.text }]}>
+            {isActive ? 'Agent Active' : 'Agent Paused'}
+          </Text>
+          <View
+            style={[
+              styles.dot,
+              { backgroundColor: isActive ? colors.success : colors.error },
+            ]}
+          />
+        </View>
+        <Text style={[styles.agentSubtitle, { color: colors.textSecondary }]}>
+          Autopilot ON • Last checked{' '}
+          {formatDistanceToNow(new Date(agent.last_run_at), {
+            addSuffix: true,
+          })}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 export default function BlogListScreen() {
@@ -79,41 +231,33 @@ export default function BlogListScreen() {
   useEffect(() => {
     let isMounted = true;
 
-    const loadInitialData = async () => {
+    const loadInitialData = () => {
       if (!merchant?.id) {
-        if (isMounted) {
-          setAllPosts([]);
-          setAgent(null);
-          setIsLoading(false);
-          setAgentLoading(false);
-        }
+        setAllPosts([]);
+        setAgent(null);
+        setIsLoading(false);
+        setAgentLoading(false);
         return;
       }
 
-      if (isMounted) {
-        setIsLoading(true);
-        setAgentLoading(true);
-      }
+      setIsLoading(true);
+      setAgentLoading(true);
 
-      try {
-        const [posts, agentStatus] = await Promise.all([
-          fetchBlogPosts(merchant.id),
-          fetchMerchantAgentStatus(merchant.id),
-        ]);
-        if (!isMounted) return;
-        setAllPosts(posts);
-        setAgent(agentStatus);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        if (isMounted) {
+      void loadBlogData(
+        merchant.id,
+        () => isMounted,
+        (posts, agentStatus) => {
+          setAllPosts(posts);
+          setAgent(agentStatus);
+        },
+        () => {
           setIsLoading(false);
           setAgentLoading(false);
         }
-      }
+      );
     };
 
-    void loadInitialData();
+    loadInitialData();
 
     return () => {
       isMounted = false;
@@ -128,25 +272,15 @@ export default function BlogListScreen() {
 
     setIsRefreshing(true);
 
-    const refreshData = async () => {
-      try {
-        const [posts, agentStatus] = await Promise.all([
-          fetchBlogPosts(merchant.id),
-          fetchMerchantAgentStatus(merchant.id),
-        ]);
-        if (!isMountedRef.current) return;
+    void loadBlogData(
+      merchant.id,
+      () => isMountedRef.current,
+      (posts, agentStatus) => {
         setAllPosts(posts);
         setAgent(agentStatus);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        if (isMountedRef.current) {
-          setIsRefreshing(false);
-        }
-      }
-    };
-
-    void refreshData();
+      },
+      () => setIsRefreshing(false)
+    );
   };
 
   // Optimistic Client-Side Filtering
@@ -154,112 +288,6 @@ export default function BlogListScreen() {
     activeTab === 'all'
       ? allPosts
       : allPosts.filter((post) => post.status === activeTab);
-
-  const StatusBadge = ({ status }: { status: string }) => {
-    const isPublished = status === 'published';
-    return (
-      <View
-        style={[
-          styles.badge,
-          {
-            backgroundColor: isPublished
-              ? colors.successLight
-              : colors.warningLight,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.badgeText,
-            { color: isPublished ? colors.success : colors.warning },
-          ]}
-        >
-          {status === 'published' ? 'Published' : 'Draft'}
-        </Text>
-      </View>
-    );
-  };
-
-  const AgentCard = () => {
-    if (agentLoading) return null;
-    if (!agent)
-      return (
-        <View
-          style={[
-            styles.agentCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.agentIconPlaceholder}>
-            <Ionicons
-              name="hardware-chip-outline"
-              size={24}
-              color={colors.textMuted}
-            />
-          </View>
-          <View>
-            <Text style={[styles.agentTitle, { color: colors.text }]}>
-              No AI Agent Active
-            </Text>
-            <Text style={[styles.agentSubtitle, { color: colors.textMuted }]}>
-              Contact support to enable autopilot.
-            </Text>
-          </View>
-        </View>
-      );
-
-    const isActive = agent.status === 'active';
-    return (
-      <View
-        style={[
-          styles.agentCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <View
-          style={[
-            styles.agentIcon,
-            {
-              backgroundColor: isActive
-                ? colors.successLight
-                : colors.errorLight,
-            },
-          ]}
-        >
-          <Ionicons
-            name="sparkles"
-            size={20}
-            color={isActive ? colors.success : colors.error}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={[styles.agentTitle, { color: colors.text }]}>
-              {isActive ? 'Agent Active' : 'Agent Paused'}
-            </Text>
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: isActive ? colors.success : colors.error },
-              ]}
-            />
-          </View>
-          <Text style={[styles.agentSubtitle, { color: colors.textSecondary }]}>
-            Autopilot ON • Last checked{' '}
-            {formatDistanceToNow(new Date(agent.last_run_at || Date.now()), {
-              addSuffix: true,
-            })}
-          </Text>
-        </View>
-      </View>
-    );
-  };
 
   const renderItem = ({ item }: { item: BlogPost }) => (
     <Pressable
@@ -295,7 +323,7 @@ export default function BlogListScreen() {
           </Text>
 
           <View style={styles.metaRow}>
-            <StatusBadge status={item.status} />
+            <StatusBadge status={item.status} colors={colors} />
             <Text style={[styles.dateText, { color: colors.textMuted }]}>
               {formatDistanceToNow(new Date(item.created_at), {
                 addSuffix: true,
@@ -333,7 +361,7 @@ export default function BlogListScreen() {
       </View>
 
       <View style={styles.content}>
-        <AgentCard />
+        <AgentCard agent={agent} agentLoading={agentLoading} colors={colors} />
 
         {/* Tabs */}
         <View

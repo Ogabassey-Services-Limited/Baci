@@ -587,12 +587,20 @@ export function MerchantBankForm({
           type="submit"
           className="w-full"
           disabled={isSubmitting || isVerifying || !verifiedName}
+          aria-busy={isSubmitting || isVerifying}
         >
           {isSubmitting && (
             <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
           )}
           {isSubmitting ? 'Saving...' : 'Save Bank Details'}
         </Button>
+        <p className="sr-only" role="status" aria-live="polite">
+          {isSubmitting
+            ? 'Saving bank details.'
+            : isVerifying
+              ? 'Verifying bank account details.'
+              : ''}
+        </p>
       </form>
     </Form>
   );

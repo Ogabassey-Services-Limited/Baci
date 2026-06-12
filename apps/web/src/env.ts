@@ -162,6 +162,8 @@ const serverSchema = z
 
     // Blog
     BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
+    INDEXNOW_KEY: optionalTrimmedStringSchema,
+    INDEXNOW_ENDPOINT: optionalTrimmedUrlSchema,
 
     // Payments (Server keys)
     KLUMP_SECRET_KEY: optionalTrimmedStringSchema,
@@ -472,6 +474,8 @@ const getEnv = () => {
         SUPABASE_AGENTIC_JWT_PRIVATE_JWK:
           process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK,
         BLOG_PREVIEW_SECRET: process.env.BLOG_PREVIEW_SECRET,
+        INDEXNOW_KEY: process.env.INDEXNOW_KEY,
+        INDEXNOW_ENDPOINT: process.env.INDEXNOW_ENDPOINT,
         KLUMP_SECRET_KEY: process.env.KLUMP_SECRET_KEY,
         KLUMP_WEBHOOK_SECRET: process.env.KLUMP_WEBHOOK_SECRET,
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,

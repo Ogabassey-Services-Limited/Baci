@@ -57,9 +57,7 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
           aria-label={closeLabel ?? 'Close sheet'}
           onClick={onClose}
           type="button"
-        >
-          close
-        </button>
+        />
         <h1>{title}</h1>
         {children}
       </section>
@@ -89,7 +87,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Pressable: ({
     accessibilityLabel,
     children,

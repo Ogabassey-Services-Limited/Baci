@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -70,9 +70,19 @@ export default function PayoutSettingsScreen() {
       isAuthenticated: !!session?.access_token,
     });
 
-  // Initialize state from saved merchant settings
-  useEffect(() => {
-    if (merchant) {
+  // Initialize state from saved merchant settings. Adjusting state during
+  // render (guarded by a prev-value compare) avoids the extra post-commit
+  // re-render an effect would cause and keeps React Compiler memoization.
+  const [prevSeedKey, setPrevSeedKey] = useState<string | null>(null);
+  if (merchant) {
+    const seedKey = [
+      merchant.bank_account_number ?? '',
+      merchant.bank_code ?? '',
+      merchant.bank_name ?? '',
+      banks ? 'banks-loaded' : 'banks-pending',
+    ].join('|');
+    if (seedKey !== prevSeedKey) {
+      setPrevSeedKey(seedKey);
       setAccountNumber(merchant.bank_account_number || '');
       if (merchant.bank_code && banks) {
         const bank = banks.find((b) => b.code === merchant.bank_code);
@@ -88,7 +98,7 @@ export default function PayoutSettingsScreen() {
         }
       }
     }
-  }, [merchant, banks]);
+  }
 
   // Filter banks for the picker modal
   const filteredBanks =

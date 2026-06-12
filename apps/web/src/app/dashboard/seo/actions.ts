@@ -4,7 +4,17 @@ import { generateText } from 'ai';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { geminiFlash } from '@/ai/provider';
+import {
+  ensurePermission,
+  isMerchantPermissionRedirectError,
+  MerchantAuthenticationRequiredError,
+} from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  generateSEOSuggestionsInputSchema,
+  saveSEOSettingsInputSchema,
+  seoMerchantIdSchema,
+} from '@/schemas/dashboard-seo-actions';
 
 export interface ProductSEO {
   productId: string;
@@ -151,13 +161,31 @@ export async function getSEOStatus(merchantId: string): Promise<{
 }> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw new MerchantAuthenticationRequiredError();
+  }
+
+  const parsedMerchantId = seoMerchantIdSchema.safeParse(merchantId);
+  if (!parsedMerchantId.success) {
+    throw new Error('Invalid merchant id');
+  }
+
+  // Authorize via the session merchant — never trust the caller-supplied id.
+  const { merchant } = await ensurePermission('products', 'view');
+  if (parsedMerchantId.data !== merchant.id) {
+    throw new Error('Merchant mismatch');
+  }
 
   const { data: products, error } = await supabase
     .from('products')
     .select(
       'id, name, description, meta_title, meta_description, keywords, category, brand, price'
     )
-    .eq('merchant_id', merchantId)
+    .eq('merchant_id', merchant.id)
     .eq('status', 'active');
 
   if (error) {
@@ -229,9 +257,28 @@ export async function generateSEOSuggestions(
 ) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw new MerchantAuthenticationRequiredError();
+  }
 
-  if (productIds.length > 20) {
-    throw new Error('Maximum 20 products per batch');
+  const parsed = generateSEOSuggestionsInputSchema.safeParse({
+    merchantId,
+    productIds,
+  });
+  if (!parsed.success) {
+    throw new Error(
+      parsed.error.issues[0]?.message ?? 'Invalid SEO suggestion request'
+    );
+  }
+
+  // Authorize via the session merchant — never trust the caller-supplied id.
+  const { merchant } = await ensurePermission('products', 'view');
+  if (parsed.data.merchantId !== merchant.id) {
+    throw new Error('Merchant mismatch');
   }
 
   const { data: products, error } = await supabase
@@ -239,8 +286,8 @@ export async function generateSEOSuggestions(
     .select(
       'id, name, description, category, brand, price, meta_title, meta_description, keywords'
     )
-    .eq('merchant_id', merchantId)
-    .in('id', productIds);
+    .eq('merchant_id', merchant.id)
+    .in('id', parsed.data.productIds);
 
   if (error) {
     console.error('Error fetching products for SEO generation:', error);
@@ -343,6 +390,23 @@ Return ONLY valid JSON, no markdown or explanation.`;
   return optimizations;
 }
 
+/**
+ * Resolve the session merchant with `products.edit` access. Returns null for
+ * expected permission failures and rethrows unexpected errors so incidents
+ * (DB outages, bugs) are never masked as permission denials.
+ */
+async function getSEOEditMerchant(): Promise<{ id: string } | null> {
+  try {
+    const { merchant } = await ensurePermission('products', 'edit');
+    return merchant;
+  } catch (error) {
+    if (isMerchantPermissionRedirectError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function saveSEOSettings(
   merchantId: string,
   optimizations: {
@@ -354,11 +418,55 @@ export async function saveSEOSettings(
 ) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return {
+      success: false,
+      updated: 0,
+      failed: optimizations?.length ?? 0,
+      message: 'Authentication required',
+    };
+  }
 
-  // Validate ownership first (though RLS should handle it, explicit check is good)
-  // For batch updates, execute all and check for errors
+  const parsed = saveSEOSettingsInputSchema.safeParse({
+    merchantId,
+    optimizations,
+  });
+  if (!parsed.success) {
+    return {
+      success: false,
+      updated: 0,
+      failed: optimizations?.length ?? 0,
+      message: 'Invalid SEO settings payload',
+    };
+  }
+
+  // Authorize via the session merchant — never trust the caller-supplied id.
+  const merchant = await getSEOEditMerchant();
+  if (!merchant) {
+    return {
+      success: false,
+      updated: 0,
+      failed: parsed.data.optimizations.length,
+      message: 'Permission denied',
+    };
+  }
+  if (parsed.data.merchantId !== merchant.id) {
+    return {
+      success: false,
+      updated: 0,
+      failed: parsed.data.optimizations.length,
+      message: 'Merchant mismatch',
+    };
+  }
+
+  // Batch updates are scoped to the session merchant id (RLS is the second
+  // layer); execute all and check for errors.
   const results = await Promise.allSettled(
-    optimizations.map(
+    parsed.data.optimizations.map(
       (opt) =>
         supabase
           .from('products')
@@ -368,24 +476,12 @@ export async function saveSEOSettings(
             keywords: opt.keywords,
           })
           .eq('id', opt.productId)
-          .eq('merchant_id', merchantId) // Safety check
+          .eq('merchant_id', merchant.id) // Safety check
     )
   );
 
-  // Check for errors in batch updates
-  // Check for errors in batch updates
-  // const rejected = results.filter((r) => r.status === 'rejected');
-  // const fulfilled = results.filter((r) => r.status === 'fulfilled');
-
-  // Also check for Supabase errors in the fulfilled results if they return { error }
-  // But supabase.update returns a wrapper. update() ... then ...
-  // Wait, if I await the query, it returns { data, error }.
-  // But Promise.allSettled wraps that.
-  // Actually, supabase query execution: await query -> { data, error }.
-  // So fulfilled result.value will be { data, error }.
-  // We need to check result.value.error!
-
-  // Let's refine the logic to check inside fulfilled.
+  // Supabase responses resolve to { data, error }, and Promise.allSettled
+  // wraps them — check rejected promises AND fulfilled-with-error results.
   const errors = results.filter(
     (r) =>
       r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error)
@@ -393,13 +489,7 @@ export async function saveSEOSettings(
 
   if (errors.length > 0) {
     console.error('Failed to update some products:', errors);
-    // Partial success is better than failure, but we should notify
-    // Changing return type signature requires updating call sites?
-    // The previous code verified call sites: seo-client.tsx expects { success: boolean }?
-    // seo-client checks: `await saveSEOSettings(...)`. It doesn't check return value structure deeply?
-    // Let's check seo-client usage in grep results: `const result = await saveSEOSettings(merchantId, updates);`
-    // It implies we should return something useful.
-
+    // Partial success is better than failure, but we should notify.
     return {
       success: errors.length < results.length,
       updated: results.length - errors.length,

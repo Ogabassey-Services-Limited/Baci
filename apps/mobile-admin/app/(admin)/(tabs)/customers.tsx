@@ -381,7 +381,9 @@ export default function CustomersScreen() {
 
   // Collapsible search bar animation
   // Using opacity and translateY for native driver support (better performance)
-  const searchBarAnim = useRef(new Animated.Value(1)).current;
+  // Held in state (lazy initializer) so render never reads a ref; the stable
+  // Animated.Value is only mutated by Animated.timing inside the scroll handler.
+  const [searchBarAnim] = React.useState(() => new Animated.Value(1));
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 

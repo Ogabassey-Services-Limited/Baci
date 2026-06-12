@@ -27,6 +27,51 @@ interface LogoPickerProps {
   }) => void;
 }
 
+async function uploadLogoToStorage(
+  uri: string,
+  merchantId: string
+): Promise<void> {
+  const formData = new FormData() as RNFormData;
+  const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+  const fileName = `${Date.now()}.${fileExt}`;
+  const filePath = `${merchantId}/${fileName}`;
+
+  let mimeType = 'image/jpeg';
+  if (fileExt === 'png') mimeType = 'image/png';
+  else if (fileExt === 'svg') mimeType = 'image/svg+xml';
+  else if (fileExt === 'webp') mimeType = 'image/webp';
+  else if (fileExt === 'gif') mimeType = 'image/gif';
+
+  formData.append(
+    'file',
+    createUploadFile({
+      uri,
+      name: fileName,
+      type: mimeType,
+    })
+  );
+
+  const { error: uploadError } = await supabase.storage
+    .from('media')
+    .upload(filePath, formData, {
+      contentType: mimeType,
+      upsert: true,
+    });
+
+  if (uploadError) throw uploadError;
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('media').getPublicUrl(filePath);
+
+  const { error: updateError } = await supabase
+    .from('merchants')
+    .update({ logo_url: publicUrl })
+    .eq('id', merchantId);
+
+  if (updateError) throw updateError;
+}
+
 export function LogoPicker({
   merchantId,
   cachedLogoUri,
@@ -66,46 +111,7 @@ export function LogoPicker({
     setIsUploading(true);
 
     try {
-      const formData = new FormData() as RNFormData;
-      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${merchantId}/${fileName}`;
-
-      let mimeType = 'image/jpeg';
-      if (fileExt === 'png') mimeType = 'image/png';
-      else if (fileExt === 'svg') mimeType = 'image/svg+xml';
-      else if (fileExt === 'webp') mimeType = 'image/webp';
-      else if (fileExt === 'gif') mimeType = 'image/gif';
-
-      formData.append(
-        'file',
-        createUploadFile({
-          uri,
-          name: fileName,
-          type: mimeType,
-        })
-      );
-
-      const { error: uploadError } = await supabase.storage
-        .from('media')
-        .upload(filePath, formData, {
-          contentType: mimeType,
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('media').getPublicUrl(filePath);
-
-      const { error: updateError } = await supabase
-        .from('merchants')
-        .update({ logo_url: publicUrl })
-        .eq('id', merchantId);
-
-      if (updateError) throw updateError;
-
+      await uploadLogoToStorage(uri, merchantId);
       onUploadSuccess();
       onStatusChange({
         visible: true,
@@ -122,9 +128,8 @@ export function LogoPicker({
         title: 'Upload Failed',
         message: err.message || 'Failed to upload logo',
       });
-    } finally {
-      setIsUploading(false);
     }
+    setIsUploading(false);
   };
 
   return (

@@ -8,6 +8,7 @@ import {
   type ImportJobRecord,
   mergeImportJobSummary,
 } from '@/lib/import-jobs/import-job-service';
+import { MIGRATION_IMPORT_BUCKET } from '@/lib/import-jobs/import-job-storage';
 import { sendImportNotificationCampaign } from '@/lib/import-notifications/send-import-notification-campaign';
 import type {
   ImportPreviewSummary,
@@ -71,6 +72,43 @@ async function updateJobFailure(
       message: 'Failed to persist import job failure state',
       jobId,
       error: updateError,
+    });
+  }
+}
+
+async function cleanupImportSourceFile(
+  supabase: SupabaseClient,
+  job: ImportJobRecord
+) {
+  if (!job.storage_path) {
+    return;
+  }
+
+  const storage = (
+    supabase as {
+      storage?: Pick<SupabaseClient['storage'], 'from'>;
+    }
+  ).storage;
+
+  if (!storage) {
+    logger.error({
+      message: 'Skipped import source file cleanup; storage client unavailable',
+      jobId: job.id,
+      storagePath: job.storage_path,
+    });
+    return;
+  }
+
+  const { error } = await storage
+    .from(MIGRATION_IMPORT_BUCKET)
+    .remove([job.storage_path]);
+
+  if (error) {
+    logger.error({
+      message: 'Failed to clean import source file',
+      jobId: job.id,
+      storagePath: job.storage_path,
+      error,
     });
   }
 }
@@ -167,6 +205,8 @@ async function processValidatingJob(
       `Failed to finalize import preview: ${updateError.message}`
     );
   }
+
+  await cleanupImportSourceFile(supabase, job);
 
   return {
     id: job.id,
@@ -352,6 +392,7 @@ export async function runClaimedImportJob(
       error,
     });
     await updateJobFailure(supabase, job.id, error);
+    await cleanupImportSourceFile(supabase, job);
     return {
       id: job.id,
       status: 'failed',

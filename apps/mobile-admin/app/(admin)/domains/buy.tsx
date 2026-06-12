@@ -15,12 +15,57 @@ import { DomainSearchResultCard } from '@/components/domains/DomainSearchResultC
 import {
   API_URL,
   getPaymentInitializationErrorMessage,
-  normalizeDomainSearchResults,
 } from '@/components/domains/domain-api-helpers';
 import type { DomainSearchResult } from '@/components/domains/domain-search-result';
+import { performDomainSearch } from '@/components/domains/perform-domain-search';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+
+async function openDomainPurchase(
+  domain: string,
+  browserColors: { controlsColor: string; toolbarColor: string }
+): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error('You must be signed in to buy domains');
+  }
+
+  const response = await fetch(`${API_URL}/domains/initialize-payment`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      domain,
+      years: 1,
+      callback_url: 'baciadmin://domains',
+    }),
+  });
+
+  if (!response.ok) {
+    const rawErrorBody = await response.text().catch(() => '');
+    throw new Error(
+      getPaymentInitializationErrorMessage(response, rawErrorBody)
+    );
+  }
+
+  const data = (await response.json()) as {
+    authorization_url?: string;
+  };
+  if (!data.authorization_url) {
+    throw new Error('Payment initialization failed');
+  }
+
+  await WebBrowser.openBrowserAsync(data.authorization_url, {
+    presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+    controlsColor: browserColors.controlsColor,
+    toolbarColor: browserColors.toolbarColor,
+  });
+}
 
 export default function BuyDomainScreen() {
   const { colors } = useTheme();
@@ -56,9 +101,6 @@ export default function BuyDomainScreen() {
 
   const handleSearch = async () => {
     const cleanQuery = (latestQueryRef.current || query).trim().toLowerCase();
-    let controller: AbortController | null = null;
-    let didTimeout = false;
-    let requestId = 0;
 
     if (__DEV__) {
       console.log(`[Diagnostic] User search query: "${cleanQuery}"`);
@@ -78,137 +120,21 @@ export default function BuyDomainScreen() {
     setResults([]);
     setLastLookupSucceeded(null);
 
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) throw new Error('You must be signed in to search domains');
-
-      activeSearchControllerRef.current?.abort();
-      const nextController = new AbortController();
-      controller = nextController;
-      requestId = activeSearchRequestIdRef.current + 1;
-      activeSearchControllerRef.current = nextController;
-      activeSearchRequestIdRef.current = requestId;
-      const timeoutId = setTimeout(() => {
-        didTimeout = true;
-        nextController.abort();
-      }, 20000);
-
-      const response = await fetch(`${API_URL}/domains/check-availability`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ searchTerm: cleanQuery }),
-        signal: nextController.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const err = await response
-          .json()
-          .catch(() => ({ error: 'Search failed' }));
-        throw new Error(err.error || `Server error (${response.status})`);
-      }
-
-      const data = await response.json();
-      const nextResults = normalizeDomainSearchResults(
-        data.results || [],
-        'NGN'
-      );
-
-      if (
-        activeSearchRequestIdRef.current !== requestId ||
-        latestQueryRef.current.trim().toLowerCase() !== cleanQuery
-      ) {
-        return;
-      }
-
-      setResults(nextResults);
-      setLastLookupSucceeded(true);
-    } catch (error: unknown) {
-      console.error('[Diagnostic] Full search error:', error);
-      const isCurrentRequest =
-        requestId > 0 &&
-        activeSearchRequestIdRef.current === requestId &&
-        latestQueryRef.current.trim().toLowerCase() === cleanQuery;
-
-      if (error instanceof Error && error.name === 'AbortError') {
-        if (didTimeout) {
-          setLastLookupSucceeded(false);
-          Alert.alert(
-            'Timeout',
-            'Domain search took too long. Please try again.'
-          );
-        }
-      } else {
-        if (!isCurrentRequest) {
-          return;
-        }
-        const rawMessage =
-          error instanceof Error
-            ? error.message
-            : 'An unexpected error occurred';
-        setLastLookupSucceeded(false);
-        Alert.alert(
-          'Search Failed',
-          __DEV__ ? rawMessage : 'Please try again in a moment.'
-        );
-      }
-    } finally {
-      if (activeSearchControllerRef.current?.signal === controller?.signal) {
-        activeSearchControllerRef.current = null;
-      }
-      if (requestId > 0 && activeSearchRequestIdRef.current === requestId) {
-        setLoading(false);
-      }
-    }
+    await performDomainSearch(cleanQuery, {
+      activeSearchControllerRef,
+      activeSearchRequestIdRef,
+      latestQueryRef,
+      setLastLookupSucceeded,
+      setLoading,
+      setResults,
+    });
   };
 
   const handleBuy = async (domain: string, _price: number) => {
     setPurchasing(domain);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('You must be signed in to buy domains');
-      }
-
-      const response = await fetch(`${API_URL}/domains/initialize-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          domain,
-          years: 1,
-          callback_url: 'baciadmin://domains',
-        }),
-      });
-
-      if (!response.ok) {
-        const rawErrorBody = await response.text().catch(() => '');
-        throw new Error(
-          getPaymentInitializationErrorMessage(response, rawErrorBody)
-        );
-      }
-
-      const data = (await response.json()) as {
-        authorization_url?: string;
-      };
-      if (!data.authorization_url) {
-        throw new Error('Payment initialization failed');
-      }
-
-      await WebBrowser.openBrowserAsync(data.authorization_url, {
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+      await openDomainPurchase(domain, {
         controlsColor: colors.primary,
         toolbarColor: colors.card,
       });
@@ -217,9 +143,8 @@ export default function BuyDomainScreen() {
         'Purchase Failed',
         error instanceof Error ? error.message : 'An unexpected error occurred'
       );
-    } finally {
-      setPurchasing(null);
     }
+    setPurchasing(null);
   };
 
   return (

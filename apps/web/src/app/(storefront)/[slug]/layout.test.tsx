@@ -10,6 +10,9 @@ import {
 const providerSnapshots: unknown[] = [];
 let themeProviderRenders = 0;
 const mockConnection = vi.hoisted(() => vi.fn());
+const mockIsValidMerchantIdentifier = vi.hoisted(() =>
+  vi.fn<(value: string) => boolean>(() => true)
+);
 const mockWebMcp = vi.hoisted(() => vi.fn(() => null));
 const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
   vi.fn(
@@ -106,7 +109,8 @@ vi.mock('@/lib/store-url', () => ({
 
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
-  isValidMerchantIdentifier: () => true,
+  isValidMerchantIdentifier: (value: string) =>
+    mockIsValidMerchantIdentifier(value),
 }));
 
 function createDeferred<T>() {
@@ -182,6 +186,8 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshot).mockReset();
     notFound.mockClear();
     mockConnection.mockClear();
+    mockIsValidMerchantIdentifier.mockReset();
+    mockIsValidMerchantIdentifier.mockReturnValue(true);
     mockWebMcp.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
@@ -371,6 +377,31 @@ describe('storefront layout metadata', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
     mockConnection.mockClear();
+  });
+
+  it('returns noindex metadata without inherited canonicals when the storefront slug is invalid', async () => {
+    mockIsValidMerchantIdentifier.mockReturnValueOnce(false);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'invalid@slug!' }),
+    });
+
+    expect(metadata.title).toBe('Store Not Found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
+    expect(getRequestScopedMerchant).not.toHaveBeenCalled();
+  });
+
+  it('returns noindex metadata without inherited canonicals when the storefront slug is missing', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(null);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'products' }),
+    });
+
+    expect(metadata.title).toBe('Store Not Found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
   });
 
   it('uses the merchant domain as metadataBase for custom domains without request-binding metadata', async () => {

@@ -163,7 +163,8 @@
   .ogabassey-navbar__top {
     background: var(--ogabassey-shell-background);
     color: var(--ogabassey-shell-text);
-    overflow: hidden;
+    /* Keep autocomplete suggestions visible above the secondary nav. */
+    overflow: visible;
     position: relative;
     z-index: 20;
   }
@@ -240,6 +241,8 @@
   .ogabassey-navbar__search-wrap {
     position: relative;
     width: 100%;
+    /* Sit above the secondary nav while preserving normal document flow. */
+    z-index: 30;
   }
 
   .ogabassey-navbar-search {

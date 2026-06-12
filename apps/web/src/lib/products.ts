@@ -65,7 +65,8 @@ export interface ProductSchemaMarkup {
   aggregateRating?: {
     '@type': 'AggregateRating';
     ratingValue: number;
-    reviewCount: number;
+    reviewCount?: number;
+    ratingCount?: number;
     bestRating?: number;
     worstRating?: number;
   };

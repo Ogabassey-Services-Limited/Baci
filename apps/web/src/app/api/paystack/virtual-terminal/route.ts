@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
         payment_link: `https://paystack.com/vt/${result.data.code}`,
         active: true,
       })
-      .select()
+      .select('id')
       .single();
 
     if (insertError) {

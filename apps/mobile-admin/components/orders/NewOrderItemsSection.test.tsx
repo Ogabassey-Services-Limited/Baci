@@ -10,13 +10,19 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('@/components/ui/SafeImage', () => ({
-  default: () => <span>image</span>,
-}));
+vi.mock('@/components/ui/SafeImage', async () => {
+  const { Text } = await import('react-native');
+  return {
+    default: () => <Text>image</Text>,
+  };
+});
 
-vi.mock('./NewOrderSummarySection', () => ({
-  NewOrderSummarySection: () => <div>summary-section</div>,
-}));
+vi.mock('./NewOrderSummarySection', async () => {
+  const { Text } = await import('react-native');
+  return {
+    NewOrderSummarySection: () => <Text>summary-section</Text>,
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');

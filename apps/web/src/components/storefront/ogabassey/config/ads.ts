@@ -102,7 +102,21 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     type: 'sidebar',
   },
 
-  // 7. FOOTER (Billboard/Leaderboard)
+  // 7. QUIZ QUESTION (Medium Rectangle)
+  // Location: Between the active quiz question and answer options.
+  // Standard: 300x250 (Desktop & Mobile)
+  QUIZ_QUESTION_MPU: {
+    id: 'div-gpt-ad-quiz-question',
+    name: 'quiz_question_mpu',
+    description: 'Question-level ad refreshed as shoppers advance in quizzes.',
+    width: 300,
+    height: 250,
+    mobileWidth: 300,
+    mobileHeight: 250,
+    type: 'in-feed',
+  },
+
+  // 8. FOOTER (Billboard/Leaderboard)
   // Location: Just above footer.
   // Standard: 970x250 (Billboard) or 728x90
   FOOTER_BANNER: {
@@ -116,7 +130,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     type: 'banner',
   },
 
-  // 8. ORDER SUCCESS (High Engagement)
+  // 9. ORDER SUCCESS (High Engagement)
   // Location: On the Thank You page.
   // Standard: 728x90 (Desktop) | 320x100 (Mobile)
   ORDER_SUCCESS_BANNER: {
@@ -130,7 +144,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     type: 'banner',
   },
 
-  // 9. BLOG SIDEBAR (Standard MPU)
+  // 10. BLOG SIDEBAR (Standard MPU)
   // Location: Sidebar of the Blog Index.
   // Standard: 300x250
   BLOG_SIDEBAR: {
@@ -144,7 +158,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     type: 'sidebar',
   },
 
-  // 10. NATIVE PRODUCT CARD (In-Feed Native)
+  // 11. NATIVE PRODUCT CARD (In-Feed Native)
   // Location: Inside product grids, styled to look like products
   // Type: Native (fluid size, custom template)
   NATIVE_PRODUCT_CARD: {

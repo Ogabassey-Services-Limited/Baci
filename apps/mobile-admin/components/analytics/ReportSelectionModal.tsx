@@ -11,54 +11,8 @@ import {
 } from 'react-native';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
-import {
-  generateReport,
-  type ReportType,
-  type Transaction,
-} from './ReportsGenerator';
-
-interface TaxLedgerOrderRow {
-  id: string;
-  created_at: string;
-  total: number | null;
-  tax_amount: number | null;
-  customer:
-    | { first_name: string | null; last_name: string | null }
-    | Array<{ first_name: string | null; last_name: string | null }>
-    | null;
-}
-
-type JoinedCustomer = Extract<
-  TaxLedgerOrderRow['customer'],
-  { first_name: string | null; last_name: string | null }
->;
-
-function mapRowToTransaction(row: TaxLedgerOrderRow): Transaction {
-  let joinedCustomer: JoinedCustomer | null;
-  if (Array.isArray(row.customer)) {
-    if (row.customer.length > 1) {
-      console.warn(
-        `[ReportSelectionModal] Order ${row.id} returned ${row.customer.length} joined customers; using the first`
-      );
-    }
-    joinedCustomer = row.customer[0] ?? null;
-  } else {
-    joinedCustomer = row.customer;
-  }
-  return {
-    id: row.id,
-    created_at: row.created_at,
-    total: Number(row.total ?? 0),
-    tax_amount: Number(row.tax_amount ?? 0),
-    customer: joinedCustomer
-      ? {
-          first_name: joinedCustomer.first_name ?? undefined,
-          last_name: joinedCustomer.last_name ?? undefined,
-        }
-      : undefined,
-  };
-}
+import { generateReport, type ReportType } from './ReportsGenerator';
+import { fetchTaxLedgerTransactions } from './tax-ledger-transactions';
 
 interface ReportSelectionModalProps {
   visible: boolean;
@@ -88,27 +42,10 @@ export default function ReportSelectionModal({
   const handleGenerate = async (type: ReportType) => {
     setLoading(true);
     try {
-      let transactions: Transaction[] = [];
-
-      if (type === 'tax_ledger') {
-        const { data, error } = await supabase
-          .from('orders')
-          .select(`
-                        id,
-                        created_at,
-                        total,
-                        tax_amount,
-                        customer:customers(first_name, last_name)
-                    `)
-          .eq('merchant_id', merchantId)
-          .gte('created_at', startDate.toISOString())
-          .lte('created_at', endDate.toISOString())
-          .eq('payment_status', 'paid')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        transactions = (data ?? []).map(mapRowToTransaction);
-      }
+      const transactions =
+        type === 'tax_ledger'
+          ? await fetchTaxLedgerTransactions(merchantId, startDate, endDate)
+          : [];
 
       await generateReport(type, {
         title: type === 'executive' ? 'Executive Summary' : 'Sales Tax Ledger',
@@ -123,9 +60,10 @@ export default function ReportSelectionModal({
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Failed to generate report');
-    } finally {
-      setLoading(false);
     }
+    // Runs unconditionally: the catch above swallows every failure path, so
+    // this is equivalent to a `finally` (which would block React Compiler).
+    setLoading(false);
   };
 
   return (

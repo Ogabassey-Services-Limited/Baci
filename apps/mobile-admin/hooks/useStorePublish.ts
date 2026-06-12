@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiClient, NetworkError } from '@/lib/api-client';
 
@@ -37,6 +37,53 @@ function buildPublishErrorMessage(error: NetworkError): string {
   return error.message || 'Failed to publish store.';
 }
 
+interface ExecutePublishOptions {
+  onPublished?: () => Promise<unknown>;
+  queryClient: QueryClient;
+  setIsPublishing: (publishing: boolean) => void;
+}
+
+// Module-scope helper: the try/finally (and throws inside try/catch) cannot
+// live in the hook body because React Compiler does not lower that syntax yet.
+async function executePublish({
+  onPublished,
+  queryClient,
+  setIsPublishing,
+}: ExecutePublishOptions): Promise<void> {
+  setIsPublishing(true);
+
+  try {
+    try {
+      await apiClient<PublishStoreResponse>('/api/merchant/publish', {
+        method: 'POST',
+      });
+    } catch (error) {
+      // apiClient throws NetworkError on any non-2xx. The publish route
+      // returns 400 with { error, message, missingItems } for validation
+      // failures — surface those details so the caller can show the user
+      // which setup steps are still blocking publication.
+      if (error instanceof NetworkError) {
+        throw new Error(buildPublishErrorMessage(error));
+      }
+      throw error;
+    }
+
+    // Refresh the merchant cache FIRST so derived queries (store readiness,
+    // payout status) recompute against the newly-published merchant row.
+    // Running these in parallel can race and cache stale readiness data
+    // right after a successful publish.
+    await queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['store-readiness'] }),
+      queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
+    ]);
+
+    await onPublished?.();
+  } finally {
+    setIsPublishing(false);
+  }
+}
+
 export function useStorePublish({
   merchantId,
   onPublished,
@@ -49,38 +96,7 @@ export function useStorePublish({
       throw new Error('Merchant not loaded. Please try again.');
     }
 
-    setIsPublishing(true);
-
-    try {
-      try {
-        await apiClient<PublishStoreResponse>('/api/merchant/publish', {
-          method: 'POST',
-        });
-      } catch (error) {
-        // apiClient throws NetworkError on any non-2xx. The publish route
-        // returns 400 with { error, message, missingItems } for validation
-        // failures — surface those details so the caller can show the user
-        // which setup steps are still blocking publication.
-        if (error instanceof NetworkError) {
-          throw new Error(buildPublishErrorMessage(error));
-        }
-        throw error;
-      }
-
-      // Refresh the merchant cache FIRST so derived queries (store readiness,
-      // payout status) recompute against the newly-published merchant row.
-      // Running these in parallel can race and cache stale readiness data
-      // right after a successful publish.
-      await queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['store-readiness'] }),
-        queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
-      ]);
-
-      await onPublished?.();
-    } finally {
-      setIsPublishing(false);
-    }
+    await executePublish({ onPublished, queryClient, setIsPublishing });
   }
 
   return {

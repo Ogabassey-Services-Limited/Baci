@@ -130,66 +130,73 @@ vi.mock('@/components/ui/AppSheetModal', () => ({
     ) : null,
 }));
 
-vi.mock('react-native', () => ({
+vi.mock('react-native', () => {
+  const MockText = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  );
+  return {
     StatusBar: () => null,
-  ActivityIndicator: () => <span>loading</span>,
-  Alert: {
-    alert: (...args: unknown[]) => mocks.alert(...args),
-  },
-  Pressable: ({
-    accessibilityLabel,
-    accessibilityRole,
-    accessibilityState,
-    children,
-    disabled,
-    onPress,
-  }: {
-    accessibilityLabel?: string;
-    accessibilityRole?: string;
-    accessibilityState?: { disabled?: boolean; selected?: boolean };
-    children?: ReactNode;
-    disabled?: boolean;
-    onPress?: () => void;
-  }) => (
-    <button
-      aria-disabled={accessibilityState?.disabled}
-      aria-label={accessibilityLabel}
-      aria-pressed={accessibilityState?.selected}
-      disabled={disabled}
-      onClick={() => onPress?.()}
-      role={
-        accessibilityRole === 'button' || accessibilityRole === 'tab'
-          ? accessibilityRole
-          : undefined
-      }
-      type="button"
-    >
-      {children}
-    </button>
-  ),
-  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  StyleSheet: { create: (styles: Record<string, unknown>) => styles },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  TextInput: ({
-    accessibilityLabel,
-    onChangeText,
-    placeholder,
-    value,
-  }: {
-    accessibilityLabel?: string;
-    onChangeText?: (text: string) => void;
-    placeholder?: string;
-    value?: string;
-  }) => (
-    <input
-      aria-label={accessibilityLabel}
-      onChange={(event) => onChangeText?.(event.target.value)}
-      placeholder={placeholder}
-      value={value ?? ''}
-    />
-  ),
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+    ActivityIndicator: () => <MockText>loading</MockText>,
+    Alert: {
+      alert: (...args: unknown[]) => mocks.alert(...args),
+    },
+    Pressable: ({
+      accessibilityLabel,
+      accessibilityRole,
+      accessibilityState,
+      children,
+      disabled,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      accessibilityRole?: string;
+      accessibilityState?: { disabled?: boolean; selected?: boolean };
+      children?: ReactNode;
+      disabled?: boolean;
+      onPress?: () => void;
+    }) => (
+      <button
+        aria-disabled={accessibilityState?.disabled}
+        aria-label={accessibilityLabel}
+        aria-pressed={accessibilityState?.selected}
+        disabled={disabled}
+        onClick={() => onPress?.()}
+        role={
+          accessibilityRole === 'button' || accessibilityRole === 'tab'
+            ? accessibilityRole
+            : undefined
+        }
+        type="button"
+      >
+        {children}
+      </button>
+    ),
+    ScrollView: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    StyleSheet: { create: (styles: Record<string, unknown>) => styles },
+    Text: MockText,
+    TextInput: ({
+      accessibilityLabel,
+      onChangeText,
+      placeholder,
+      value,
+    }: {
+      accessibilityLabel?: string;
+      onChangeText?: (text: string) => void;
+      placeholder?: string;
+      value?: string;
+    }) => (
+      <input
+        aria-label={accessibilityLabel}
+        onChange={(event) => onChangeText?.(event.target.value)}
+        placeholder={placeholder}
+        value={value ?? ''}
+      />
+    ),
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
 
 import StaffAccountsScreen from './staff-accounts';
 

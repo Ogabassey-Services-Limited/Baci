@@ -1,7 +1,7 @@
 // A simple logger to help with debugging.
 // In a real production app, you would use a more robust logging service.
 
-type LogLevel = 'info' | 'warn' | 'error';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface LogPayload {
   message: string;
@@ -195,6 +195,7 @@ const log = (level: LogLevel, payload: LogPayload | Error) => {
 };
 
 export const logger = {
+  debug: (payload: LogPayload) => log('debug', payload),
   info: (payload: LogPayload) => log('info', payload),
   warn: (payload: LogPayload) => log('warn', payload),
   error: (payload: LogPayload | Error) => log('error', payload),

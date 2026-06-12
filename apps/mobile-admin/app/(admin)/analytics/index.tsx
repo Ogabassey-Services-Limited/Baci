@@ -1,19 +1,27 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Modal,
   Pressable,
   RefreshControl,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import ReportSelectionModal from '@/components/analytics/ReportSelectionModal';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import {
+  RADIUS,
+  SPACING,
+  type ThemeColors,
+  TYPOGRAPHY,
+} from '@/constants/theme';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -70,6 +78,114 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   );
 }
 
+function MetricRow({
+  label,
+  value,
+  subtitle,
+  sparklineData,
+  showCircle = false,
+  circlePercentage = 0,
+  onPress,
+  colors,
+  accentColor,
+}: {
+  label: string;
+  value: string;
+  subtitle: string;
+  sparklineData?: number[];
+  isPercentage?: boolean;
+  showCircle?: boolean;
+  circlePercentage?: number;
+  onPress?: () => void;
+  colors: ThemeColors;
+  accentColor: string;
+}) {
+  return (
+    <Pressable
+      style={[styles.metricRow, { borderBottomColor: colors.border }]}
+      onPress={onPress}
+    >
+      <View style={styles.metricLeft}>
+        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+          {label}
+        </Text>
+        <Text style={[styles.metricValue, { color: accentColor }]}>
+          {value}
+        </Text>
+        <Text style={[styles.metricSubtitle, { color: colors.textMuted }]}>
+          {subtitle}
+        </Text>
+      </View>
+      <View style={styles.metricRight}>
+        {sparklineData && (
+          <Sparkline data={sparklineData} color={accentColor} />
+        )}
+        {showCircle && (
+          <View style={styles.circleContainer}>
+            <Svg width={50} height={50}>
+              <Path
+                d="M 25 5 A 20 20 0 1 1 24.99 5"
+                stroke={colors.border}
+                strokeWidth={4}
+                fill="none"
+              />
+              <Path
+                d="M 25 5 A 20 20 0 1 1 24.99 5"
+                stroke={accentColor}
+                strokeWidth={4}
+                fill="none"
+                strokeDasharray={`${circlePercentage * 1.26} 126`}
+              />
+            </Svg>
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+      </View>
+    </Pressable>
+  );
+}
+
+function TopItemRow({
+  label,
+  name,
+  subtitle,
+  onPress,
+  colors,
+  accentColor,
+}: {
+  label: string;
+  name: string;
+  subtitle: string;
+  onPress?: () => void;
+  colors: ThemeColors;
+  accentColor: string;
+}) {
+  return (
+    <Pressable
+      style={[styles.metricRow, { borderBottomColor: colors.border }]}
+      onPress={onPress}
+    >
+      <View style={styles.metricLeft}>
+        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+          {label}
+        </Text>
+        <Text
+          style={[styles.topItemName, { color: accentColor }]}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+        <Text style={[styles.metricSubtitle, { color: colors.textMuted }]}>
+          {subtitle}
+        </Text>
+      </View>
+      <View style={styles.metricRight}>
+        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+      </View>
+    </Pressable>
+  );
+}
+
 export default function AnalyticsScreen() {
   const { colors, isDark } = useTheme();
   const { merchant } = useMerchant();
@@ -114,11 +230,9 @@ export default function AnalyticsScreen() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    try {
-      await refetchAnalytics();
-    } finally {
+    await refetchAnalytics().finally(() => {
       setIsRefreshing(false);
-    }
+    });
   };
 
   const chartRevenue = analytics?.chartData.map((point) => point.revenue) ?? [];
@@ -174,102 +288,6 @@ export default function AnalyticsScreen() {
       params: buildAnalyticsParams(),
     });
   };
-
-  const MetricRow = ({
-    label,
-    value,
-    subtitle,
-    sparklineData,
-    showCircle = false,
-    circlePercentage = 0,
-    onPress,
-  }: {
-    label: string;
-    value: string;
-    subtitle: string;
-    sparklineData?: number[];
-    isPercentage?: boolean;
-    showCircle?: boolean;
-    circlePercentage?: number;
-    onPress?: () => void;
-  }) => (
-    <Pressable
-      style={[styles.metricRow, { borderBottomColor: colors.border }]}
-      onPress={onPress}
-    >
-      <View style={styles.metricLeft}>
-        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-          {label}
-        </Text>
-        <Text style={[styles.metricValue, { color: ACCENT_COLOR }]}>
-          {value}
-        </Text>
-        <Text style={[styles.metricSubtitle, { color: colors.textMuted }]}>
-          {subtitle}
-        </Text>
-      </View>
-      <View style={styles.metricRight}>
-        {sparklineData && (
-          <Sparkline data={sparklineData} color={ACCENT_COLOR} />
-        )}
-        {showCircle && (
-          <View style={styles.circleContainer}>
-            <Svg width={50} height={50}>
-              <Path
-                d="M 25 5 A 20 20 0 1 1 24.99 5"
-                stroke={colors.border}
-                strokeWidth={4}
-                fill="none"
-              />
-              <Path
-                d="M 25 5 A 20 20 0 1 1 24.99 5"
-                stroke={ACCENT_COLOR}
-                strokeWidth={4}
-                fill="none"
-                strokeDasharray={`${circlePercentage * 1.26} 126`}
-              />
-            </Svg>
-          </View>
-        )}
-        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-      </View>
-    </Pressable>
-  );
-
-  const TopItemRow = ({
-    label,
-    name,
-    subtitle,
-    onPress,
-  }: {
-    label: string;
-    name: string;
-    subtitle: string;
-    onPress?: () => void;
-  }) => (
-    <Pressable
-      style={[styles.metricRow, { borderBottomColor: colors.border }]}
-      onPress={onPress}
-    >
-      <View style={styles.metricLeft}>
-        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-          {label}
-        </Text>
-        <Text
-          style={[styles.topItemName, { color: ACCENT_COLOR }]}
-          numberOfLines={1}
-        >
-          {name}
-        </Text>
-        <Text style={[styles.metricSubtitle, { color: colors.textMuted }]}>
-          {subtitle}
-        </Text>
-      </View>
-      <View style={styles.metricRight}>
-        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-      </View>
-    </Pressable>
-  );
 
   return (
     <>
@@ -483,6 +501,8 @@ export default function AnalyticsScreen() {
                 subtitle={`${analytics.summary.sales.value} paid orders`}
                 sparklineData={chartRevenue}
                 onPress={() => pushMetricDetail('revenue')}
+                colors={colors}
+                accentColor={ACCENT_COLOR}
               />
 
               <MetricRow
@@ -491,6 +511,8 @@ export default function AnalyticsScreen() {
                 subtitle={`${analytics.summary.totalUnitsSold} units sold`}
                 sparklineData={chartOrders}
                 onPress={() => pushMetricDetail('sales')}
+                colors={colors}
+                accentColor={ACCENT_COLOR}
               />
 
               <MetricRow
@@ -499,6 +521,8 @@ export default function AnalyticsScreen() {
                 subtitle={`${analytics.summary.customers.value} buying customers`}
                 sparklineData={chartAov}
                 onPress={() => pushMetricDetail('aov')}
+                colors={colors}
+                accentColor={ACCENT_COLOR}
               />
 
               <MetricRow
@@ -507,6 +531,8 @@ export default function AnalyticsScreen() {
                 subtitle={`${analytics.summary.grossMargin.value.toFixed(1)}% gross margin`}
                 sparklineData={chartProfit}
                 onPress={() => pushMetricDetail('profits')}
+                colors={colors}
+                accentColor={ACCENT_COLOR}
               />
 
               <MetricRow
@@ -515,6 +541,8 @@ export default function AnalyticsScreen() {
                 subtitle="Calculated VAT"
                 sparklineData={chartTax}
                 onPress={() => pushMetricDetail('vat')}
+                colors={colors}
+                accentColor={ACCENT_COLOR}
               />
 
               <MetricRow
@@ -524,6 +552,8 @@ export default function AnalyticsScreen() {
                 showCircle
                 circlePercentage={analytics.summary.grossMargin.value}
                 onPress={() => pushMetricDetail('profits')}
+                colors={colors}
+                accentColor={ACCENT_COLOR}
               />
 
               <MetricRow
@@ -533,6 +563,8 @@ export default function AnalyticsScreen() {
                 showCircle
                 circlePercentage={analytics.topPaymentMethod?.value ?? 0}
                 onPress={() => pushInsightDetail('payment-methods')}
+                colors={colors}
+                accentColor={ACCENT_COLOR}
               />
 
               <MetricRow
@@ -540,6 +572,8 @@ export default function AnalyticsScreen() {
                 value={analytics.blog.totalViews.toLocaleString()}
                 subtitle={`${analytics.blog.publishedPosts} published posts`}
                 onPress={() => pushInsightDetail('blog')}
+                colors={colors}
+                accentColor={ACCENT_COLOR}
               />
 
               {/* Top Items */}
@@ -549,6 +583,8 @@ export default function AnalyticsScreen() {
                   name={analytics.topBrand.name}
                   subtitle={`#1 in Sales: ${formatCompact(analytics.topBrand.revenue ?? 0)}`}
                   onPress={() => pushInsightDetail('brands')}
+                  colors={colors}
+                  accentColor={ACCENT_COLOR}
                 />
               )}
 
@@ -558,6 +594,8 @@ export default function AnalyticsScreen() {
                   name={analytics.topProducts[0].name}
                   subtitle={`#1 in Sales: ${formatCompact(analytics.topProducts[0].revenue)}`}
                   onPress={pushProducts}
+                  colors={colors}
+                  accentColor={ACCENT_COLOR}
                 />
               )}
 
@@ -567,6 +605,8 @@ export default function AnalyticsScreen() {
                   name={analytics.topCustomer.name}
                   subtitle={`#1 in Purchases: ${analytics.topCustomer.value} orders`}
                   onPress={() => pushInsightDetail('customers')}
+                  colors={colors}
+                  accentColor={ACCENT_COLOR}
                 />
               )}
             </>

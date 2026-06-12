@@ -30,6 +30,14 @@ declare namespace googletag {
     setTargeting(key: string, value: string | string[]): PubAdsService;
   }
 
+  type CollapseDivBehavior = 'DISABLED' | 'BEFORE_FETCH' | 'ON_NO_FILL' | null;
+
+  interface PageSettingsConfig {
+    collapseDiv?: CollapseDivBehavior;
+    singleRequest?: boolean | null;
+    targeting?: Record<string, string | string[] | null> | null;
+  }
+
   interface CommandArray {
     push(fn: () => void): number;
   }
@@ -44,6 +52,7 @@ declare namespace googletag {
   function display(id: string): void;
   function destroySlots(slots: Slot[]): boolean;
   function sizeMapping(): SizeMappingBuilder;
+  function setConfig(config: PageSettingsConfig): void;
   function enableServices(): void;
 }
 

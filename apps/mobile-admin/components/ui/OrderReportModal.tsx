@@ -67,9 +67,8 @@ export default function OrderReportModal({
       onClose();
     } catch (error) {
       console.error(error);
-    } finally {
-      setIsExporting(false);
     }
+    setIsExporting(false);
   };
 
   const handleExportPDF = async () => {
@@ -84,9 +83,8 @@ export default function OrderReportModal({
       onClose();
     } catch (error) {
       console.error(error);
-    } finally {
-      setIsExportingPDF(false);
     }
+    setIsExportingPDF(false);
   };
 
   return (

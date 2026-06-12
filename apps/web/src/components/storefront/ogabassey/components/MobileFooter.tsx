@@ -26,9 +26,10 @@ interface MobileFooterProps {
  * - Higher z-index (z-50) for proper layering
  */
 export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) => {
-  const { totalItems } = useCart();
+  const { totalItems, isHydrated } = useCart();
   const pathname = usePathname();
   const isVisible = useOgabasseyScrollVisibility();
+  const visibleCartItems = isHydrated ? totalItems : 0;
 
   // Build store-relative path - handle both with and without leading slash
   const normalizedSlug = storeSlug.startsWith('/')
@@ -54,7 +55,12 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/wishlist', icon: Heart, label: 'Saved' },
-    { path: '/cart', icon: ShoppingCart, label: 'Cart', badge: totalItems },
+    {
+      path: '/cart',
+      icon: ShoppingCart,
+      label: 'Cart',
+      badge: visibleCartItems,
+    },
     { path: '/wallet', icon: Wallet, label: 'Wallet' },
     { path: '/account', icon: User, label: 'Account' },
   ];

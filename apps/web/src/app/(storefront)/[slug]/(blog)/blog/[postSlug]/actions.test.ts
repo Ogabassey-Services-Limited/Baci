@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCookies, mockCreateClient, mockRpc } = vi.hoisted(() => ({
-  mockCookies: vi.fn(async () => ({})),
-  mockCreateClient: vi.fn(),
-  mockRpc: vi.fn(),
-}));
+const { mockCookies, mockCreateClient, mockEnsureActionRateLimit, mockRpc } =
+  vi.hoisted(() => ({
+    mockCookies: vi.fn(async () => ({})),
+    mockCreateClient: vi.fn(),
+    mockEnsureActionRateLimit: vi.fn(),
+    mockRpc: vi.fn(),
+  }));
 
 vi.mock('next/headers', () => ({
   cookies: mockCookies,
+}));
+
+vi.mock('@/lib/ensure-action-rate-limit', () => ({
+  ensureActionRateLimit: mockEnsureActionRateLimit,
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -19,6 +25,7 @@ import { incrementViewCount } from './actions';
 describe('incrementViewCount', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnsureActionRateLimit.mockResolvedValue(true);
   });
 
   it('calls the increment_blog_post_views rpc with the post id', async () => {
@@ -83,6 +90,20 @@ describe('incrementViewCount', () => {
   it('does not call supabase when the post id is invalid', async () => {
     await incrementViewCount('   ');
 
+    expect(mockCookies).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('skips the rpc entirely when the rate limit is exhausted', async () => {
+    mockEnsureActionRateLimit.mockResolvedValueOnce(false);
+
+    await expect(incrementViewCount('post-123')).resolves.toBeUndefined();
+
+    expect(mockEnsureActionRateLimit).toHaveBeenCalledWith('blog-view-count', {
+      requests: 30,
+      windowMs: 60_000,
+    });
     expect(mockCookies).not.toHaveBeenCalled();
     expect(mockCreateClient).not.toHaveBeenCalled();
     expect(mockRpc).not.toHaveBeenCalled();

@@ -12,8 +12,8 @@ import {
   View,
 } from 'react-native';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
-import { apiClient } from '@/lib/api-client';
 import { useMerchant } from '@/hooks/useMerchant';
+import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency as formatPrice } from '@/utils/format';
 
@@ -33,6 +33,37 @@ interface NegotiationRequest {
   evidence_url?: string;
 }
 
+// Module-scope helpers keep try/throw out of the component body so React
+// Compiler can memoize the screen (try/finally + throw-in-try are bailouts).
+async function loadNegotiationRequests(
+  merchantId: string
+): Promise<NegotiationRequest[]> {
+  const { data, error } = await supabase
+    .from('negotiation_requests')
+    .select(
+      'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
+    )
+    .eq('merchant_id', merchantId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function updateNegotiationStatus(
+  id: string,
+  status: 'accepted' | 'rejected',
+  merchantId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('negotiation_requests')
+    .update({ status })
+    .eq('id', id)
+    .eq('merchant_id', merchantId);
+
+  if (error) throw error;
+}
+
 export default function NegotiationsScreen() {
   const { merchant } = useMerchant();
   const [requests, setRequests] = useState<NegotiationRequest[]>([]);
@@ -42,36 +73,54 @@ export default function NegotiationsScreen() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // 2026 Best Practice: Removed useCallback wrapper as React Compiler handles memoization (ADR-004)
-  const fetchRequests = async () => {
-    setFetchError(null);
-    try {
-      const { data, error } = await supabase
-        .from('negotiation_requests')
-        .select(
-          'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
-        )
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setRequests(data || []);
-    } catch (err) {
-      console.error('Error fetching negotiations:', err);
-      setFetchError('Failed to load negotiations');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  // setState happens only inside promise callbacks (never synchronously), so
+  // calling this from the mount effect cannot trigger cascading renders.
+  const fetchRequests = () => {
+    const merchantId = merchant?.id;
+    if (!merchantId) {
+      return Promise.resolve().then(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
     }
+    return loadNegotiationRequests(merchantId)
+      .then((data) => {
+        setRequests(data);
+        setFetchError(null);
+      })
+      .catch((err: unknown) => {
+        console.error('Error fetching negotiations:', err);
+        setFetchError('Failed to load negotiations');
+      })
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect is intentionally keyed by merchant ID; fetchRequests is recreated each render and would resubscribe continuously.
   useEffect(() => {
+    const merchantId = merchant?.id;
+    if (!merchantId) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     fetchRequests();
 
-    // Subscribe to real-time updates
+    // Supabase Realtime supports Postgres change filters; scope by merchant to
+    // avoid refetching every connected merchant on unrelated inserts.
     const channel = supabase
-      .channel('negotiation_updates')
+      .channel(`negotiation_updates:${merchantId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'negotiation_requests' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'negotiation_requests',
+          filter: `merchant_id=eq.${merchantId}`,
+        },
         () => fetchRequests()
       )
       .subscribe();
@@ -79,7 +128,10 @@ export default function NegotiationsScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+    // fetchRequests is recreated every render; subscribing on merchant ID is the
+    // intended boundary for this realtime channel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [merchant?.id]);
 
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
     if (actionLoadingId) return; // Prevent double-submit
@@ -91,13 +143,7 @@ export default function NegotiationsScreen() {
     // Capture before state update to avoid stale closure after fetchRequests()
     const negotiation = requests.find((r) => r.id === id);
     try {
-      const { error } = await supabase
-        .from('negotiation_requests')
-        .update({ status })
-        .eq('id', id)
-        .eq('merchant_id', merchant.id);
-
-      if (error) throw error;
+      await updateNegotiationStatus(id, status, merchant.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await fetchRequests();
 
@@ -118,9 +164,8 @@ export default function NegotiationsScreen() {
       const message =
         error instanceof Error ? error.message : `Failed to ${status} request`;
       Alert.alert('Error', message);
-    } finally {
-      setActionLoadingId(null);
     }
+    setActionLoadingId(null);
   };
 
   const renderItem = ({ item }: { item: NegotiationRequest }) => (
