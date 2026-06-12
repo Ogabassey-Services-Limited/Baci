@@ -51,6 +51,125 @@ function toCryptoInitializeResponse(value: unknown): CryptoInitializeResponse {
     : {};
 }
 
+interface RunCryptoPaymentInitializationParams {
+  chain: string;
+  currency: string;
+  isOrderInFlight: MutableRefObject<boolean>;
+  pendingOrder: PendingCryptoOrder;
+  setCryptoPayment: (value: CryptoPaymentState | null) => void;
+  setIsProcessing: (value: boolean) => void;
+  setPendingOrder: (value: PendingCryptoOrder | null) => void;
+  setShowCryptoSelection: (value: boolean) => void;
+}
+
+// Module-scope helper: keeping the try/finally and throw-in-try statements out
+// of the hook body lets React Compiler memoize useCheckoutCryptoPayment.
+async function runCryptoPaymentInitialization({
+  chain,
+  currency,
+  isOrderInFlight,
+  pendingOrder,
+  setCryptoPayment,
+  setIsProcessing,
+  setPendingOrder,
+  setShowCryptoSelection,
+}: RunCryptoPaymentInitializationParams): Promise<void> {
+  try {
+    const {
+      order,
+      orderResponse,
+      customerEmail,
+      customerName,
+      customerPhone,
+      trackingToken,
+    } = pendingOrder;
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      CRYPTO_PAYMENT_INIT_TIMEOUT_MS
+    );
+    let initResponse: Response;
+    try {
+      initResponse = await fetch(
+        `${CHECKOUT_API_BASE_URL}/api/payments/initialize`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': `crypto-init-${order.id}-${chain}-${currency}`,
+          },
+          body: JSON.stringify({
+            merchant_id: CHECKOUT_MERCHANT_ID,
+            order_id: order.id,
+            currency: 'NGN',
+            customer_email: customerEmail,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            gateway: 'juicyway',
+            crypto_chain: chain,
+            crypto_currency: currency,
+          }),
+        }
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new OrderError(
+          'Payment initialization timed out',
+          'PAYMENT_INIT_TIMEOUT'
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+    const initData = toCryptoInitializeResponse(await initResponse.json());
+
+    if (!initResponse.ok || !initData.success) {
+      throw new OrderError(
+        initData.error || 'Failed to initialize crypto payment',
+        'PAYMENT_INIT_ERROR'
+      );
+    }
+    const payment = initData.crypto_payment;
+    if (!payment?.address) {
+      throw new OrderError(
+        'Failed to generate crypto wallet address. Please try again.',
+        'PAYMENT_INIT_ERROR'
+      );
+    }
+
+    setIsProcessing(false);
+    setShowCryptoSelection(false);
+    isOrderInFlight.current = false;
+    setCryptoPayment({
+      orderId: order.id,
+      orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
+      address: payment.address,
+      chain: payment.chain || chain,
+      currency: payment.currency || currency,
+      amount: payment.amount || orderResponse.amountDueToGateway,
+      cryptoAmount: payment.crypto_amount || '',
+      confirmationTime: payment.confirmation_time || '',
+      reference: initData.reference || '',
+      paymentId: payment.payment_id || '',
+      trackingToken,
+    });
+  } catch (error) {
+    setIsProcessing(false);
+    setShowCryptoSelection(false);
+    isOrderInFlight.current = false;
+    Alert.alert(
+      error instanceof OrderError ? 'Payment Error' : 'Error',
+      error instanceof OrderError
+        ? error.message
+        : 'Failed to initialize payment'
+    );
+  } finally {
+    setPendingOrder(null);
+  }
+}
+
 export function useCheckoutCryptoPayment({
   isOrderInFlight,
   setIsProcessing,
@@ -80,101 +199,16 @@ export function useCheckoutCryptoPayment({
     }
 
     setIsProcessing(true);
-    try {
-      const {
-        order,
-        orderResponse,
-        customerEmail,
-        customerName,
-        customerPhone,
-        trackingToken,
-      } = pendingOrder;
-      const controller = new AbortController();
-      const timeout = setTimeout(
-        () => controller.abort(),
-        CRYPTO_PAYMENT_INIT_TIMEOUT_MS
-      );
-      let initResponse: Response;
-      try {
-        initResponse = await fetch(
-          `${CHECKOUT_API_BASE_URL}/api/payments/initialize`,
-          {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-              'Content-Type': 'application/json',
-              'Idempotency-Key': `crypto-init-${order.id}-${chain}-${currency}`,
-            },
-            body: JSON.stringify({
-              merchant_id: CHECKOUT_MERCHANT_ID,
-              order_id: order.id,
-              amount: orderResponse.amountDueToGateway,
-              currency: 'NGN',
-              customer_email: customerEmail,
-              customer_name: customerName,
-              customer_phone: customerPhone,
-              gateway: 'juicyway',
-              crypto_chain: chain,
-              crypto_currency: currency,
-            }),
-          }
-        );
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new OrderError(
-            'Payment initialization timed out',
-            'PAYMENT_INIT_TIMEOUT'
-          );
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeout);
-      }
-      const initData = toCryptoInitializeResponse(await initResponse.json());
-
-      if (!initResponse.ok || !initData.success) {
-        throw new OrderError(
-          initData.error || 'Failed to initialize crypto payment',
-          'PAYMENT_INIT_ERROR'
-        );
-      }
-      const payment = initData.crypto_payment;
-      if (!payment?.address) {
-        throw new OrderError(
-          'Failed to generate crypto wallet address. Please try again.',
-          'PAYMENT_INIT_ERROR'
-        );
-      }
-
-      setIsProcessing(false);
-      setShowCryptoSelection(false);
-      isOrderInFlight.current = false;
-      setCryptoPayment({
-        orderId: order.id,
-        orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
-        address: payment.address,
-        chain: payment.chain || chain,
-        currency: payment.currency || currency,
-        amount: payment.amount || orderResponse.amountDueToGateway,
-        cryptoAmount: payment.crypto_amount || '',
-        confirmationTime: payment.confirmation_time || '',
-        reference: initData.reference || '',
-        paymentId: payment.payment_id || '',
-        trackingToken,
-      });
-    } catch (error) {
-      setIsProcessing(false);
-      setShowCryptoSelection(false);
-      isOrderInFlight.current = false;
-      Alert.alert(
-        error instanceof OrderError ? 'Payment Error' : 'Error',
-        error instanceof OrderError
-          ? error.message
-          : 'Failed to initialize payment'
-      );
-    } finally {
-      setPendingOrder(null);
-    }
+    await runCryptoPaymentInitialization({
+      chain,
+      currency,
+      isOrderInFlight,
+      pendingOrder,
+      setCryptoPayment,
+      setIsProcessing,
+      setPendingOrder,
+      setShowCryptoSelection,
+    });
   };
 
   return {

@@ -38,22 +38,25 @@ export function Skeleton({
 
   useEffect(() => {
     // Pure Reanimated infinite loop driving opacity pulses natively on C++ thread
-    opacityValue.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: 1000 }),
-        withTiming(0.3, { duration: 1000 })
-      ),
-      -1, // Infinitely loop
-      false // Handle sequences within repeating structure
+    // .set()/.get() are the React Compiler-compatible shared value accessors.
+    opacityValue.set(
+      withRepeat(
+        withSequence(
+          withTiming(0.7, { duration: 1000 }),
+          withTiming(0.3, { duration: 1000 })
+        ),
+        -1, // Infinitely loop
+        false // Handle sequences within repeating structure
+      )
     );
     return () => {
       cancelAnimation(opacityValue);
-      opacityValue.value = 0.3;
+      opacityValue.set(0.3);
     };
   }, [opacityValue]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacityValue.value,
+    opacity: opacityValue.get(),
   }));
 
   return (

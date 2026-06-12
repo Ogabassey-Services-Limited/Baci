@@ -14,6 +14,32 @@ interface PaymentErrorViewProps {
   onRetry: (signal: AbortSignal) => Promise<void> | void;
 }
 
+interface RunPaymentRetryParams {
+  onRetry: (signal: AbortSignal) => Promise<void> | void;
+  setIsRetrying: (value: boolean) => void;
+  signal: AbortSignal;
+}
+
+// Module-scope helper: keeping the try/catch/finally statement out of the
+// component body lets React Compiler memoize PaymentErrorView.
+async function runPaymentRetry({
+  onRetry,
+  setIsRetrying,
+  signal,
+}: RunPaymentRetryParams) {
+  try {
+    await onRetry(signal);
+  } catch (error) {
+    if (!signal.aborted) {
+      console.error('Payment retry failed:', error);
+    }
+  } finally {
+    if (!signal.aborted) {
+      setIsRetrying(false);
+    }
+  }
+}
+
 export function PaymentErrorView({
   colors,
   errorMessage,
@@ -47,17 +73,7 @@ export function PaymentErrorView({
 
     setIsRetrying(true);
     const signal = getRetryController().signal;
-    try {
-      await onRetry(signal);
-    } catch (error) {
-      if (!signal.aborted) {
-        console.error('Payment retry failed:', error);
-      }
-    } finally {
-      if (!signal.aborted) {
-        setIsRetrying(false);
-      }
-    }
+    await runPaymentRetry({ onRetry, setIsRetrying, signal });
   };
 
   return (

@@ -37,6 +37,77 @@ async function fetchIntent({
   return intent;
 }
 
+interface DeliverIntentContext {
+  completedRef: { current: boolean };
+  mountedRef: { current: boolean };
+  onCompletedRef: { current: (intent: WalletOrderFundingIntent) => void };
+  setIntent: (intent: WalletOrderFundingIntent) => void;
+}
+
+function deliverIntent(
+  nextIntent: WalletOrderFundingIntent,
+  { completedRef, mountedRef, onCompletedRef, setIntent }: DeliverIntentContext
+) {
+  if (!mountedRef.current) {
+    return;
+  }
+  setIntent(nextIntent);
+  if (nextIntent.status !== 'completed' || completedRef.current) {
+    return;
+  }
+  completedRef.current = true;
+  onCompletedRef.current(nextIntent);
+}
+
+interface PollAttemptContext {
+  fetchArgs: { intentId: string; merchantId?: string; merchantSlug?: string };
+  inFlightRef: { current: boolean };
+  isActive: () => boolean;
+  logMessage: string;
+  onFetchError?: (error: unknown) => void;
+  onIntent: (intent: WalletOrderFundingIntent) => void;
+  requestVersionRef: { current: number };
+  setIsPolling: (value: boolean) => void;
+  setTimedOut: (value: boolean) => void;
+}
+
+// Module-scope helper so the try/finally stays outside component scope, where
+// it would otherwise block React Compiler memoization of the hook.
+async function runPollAttempt({
+  fetchArgs,
+  inFlightRef,
+  isActive,
+  logMessage,
+  onFetchError,
+  onIntent,
+  requestVersionRef,
+  setIsPolling,
+  setTimedOut,
+}: PollAttemptContext) {
+  const requestVersion = requestVersionRef.current;
+  inFlightRef.current = true;
+  setIsPolling(true);
+  setTimedOut(false);
+  try {
+    const nextIntent = await fetchIntent(fetchArgs);
+    if (!isActive() || requestVersion !== requestVersionRef.current) {
+      return;
+    }
+    onIntent(nextIntent);
+  } catch (error) {
+    logger.warn(logMessage, { error, ...fetchArgs });
+    if (isActive() && requestVersion === requestVersionRef.current) {
+      setTimedOut(true);
+      onFetchError?.(error);
+    }
+  } finally {
+    if (requestVersion === requestVersionRef.current) {
+      inFlightRef.current = false;
+      if (isActive()) setIsPolling(false);
+    }
+  }
+}
+
 export function useWalletFundingPolling({
   enabled,
   intentId,
@@ -56,9 +127,25 @@ export function useWalletFundingPolling({
   const onCompletedRef = useRef(onCompleted);
   const onErrorRef = useRef(onError);
   const requestVersionRef = useRef(0);
-  const handleIntentRef = useRef<(intent: WalletOrderFundingIntent) => void>(
-    () => undefined
-  );
+  const [prevRequestKey, setPrevRequestKey] = useState({
+    enabled,
+    intentId,
+    merchantId,
+    merchantSlug,
+  });
+
+  // Reset visible polling state inline (pre-commit) when the request identity
+  // changes, so consumers never see one frame of the previous intent.
+  if (
+    prevRequestKey.enabled !== enabled ||
+    prevRequestKey.intentId !== intentId ||
+    prevRequestKey.merchantId !== merchantId ||
+    prevRequestKey.merchantSlug !== merchantSlug
+  ) {
+    setPrevRequestKey({ enabled, intentId, merchantId, merchantSlug });
+    setIntent(null);
+    setTimedOut(false);
+  }
 
   useEffect(() => {
     onCompletedRef.current = onCompleted;
@@ -72,63 +159,36 @@ export function useWalletFundingPolling({
     };
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset polling state whenever the request identity changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset polling bookkeeping whenever the request identity changes.
   useEffect(() => {
     completedRef.current = false;
     inFlightRef.current = false;
     requestVersionRef.current += 1;
-    setIntent(null);
-    setTimedOut(false);
   }, [enabled, intentId, merchantId, merchantSlug]);
-
-  handleIntentRef.current = (nextIntent: WalletOrderFundingIntent) => {
-    if (!mountedRef.current) {
-      return;
-    }
-    setIntent(nextIntent);
-    if (nextIntent.status !== 'completed' || completedRef.current) {
-      return;
-    }
-    completedRef.current = true;
-    onCompletedRef.current(nextIntent);
-  };
 
   const checkNow = async ({ notifyOnError = false }: CheckOptions = {}) => {
     if (!enabled || !intentId || completedRef.current || inFlightRef.current) {
       return;
     }
-    const requestVersion = requestVersionRef.current;
-    inFlightRef.current = true;
-    setIsPolling(true);
-    setTimedOut(false);
-    try {
-      const nextIntent = await fetchIntent({
-        intentId,
-        merchantId,
-        merchantSlug,
-      });
-      if (!mountedRef.current || requestVersion !== requestVersionRef.current) {
-        return;
-      }
-      handleIntentRef.current(nextIntent);
-    } catch (error) {
-      logger.warn('Failed to check wallet-funded order status', {
-        error,
-        intentId,
-        merchantId,
-        merchantSlug,
-      });
-      if (!mountedRef.current || requestVersion !== requestVersionRef.current) {
-        return;
-      }
-      setTimedOut(true);
-      if (notifyOnError) onErrorRef.current?.(error);
-    } finally {
-      if (requestVersion === requestVersionRef.current) {
-        inFlightRef.current = false;
-        if (mountedRef.current) setIsPolling(false);
-      }
-    }
+    await runPollAttempt({
+      fetchArgs: { intentId, merchantId, merchantSlug },
+      inFlightRef,
+      isActive: () => mountedRef.current,
+      logMessage: 'Failed to check wallet-funded order status',
+      onFetchError: notifyOnError
+        ? (error) => onErrorRef.current?.(error)
+        : undefined,
+      onIntent: (nextIntent) =>
+        deliverIntent(nextIntent, {
+          completedRef,
+          mountedRef,
+          onCompletedRef,
+          setIntent,
+        }),
+      requestVersionRef,
+      setIsPolling,
+      setTimedOut,
+    });
   };
 
   useEffect(() => {
@@ -144,44 +204,22 @@ export function useWalletFundingPolling({
       ) {
         return;
       }
-      const requestVersion = requestVersionRef.current;
-      inFlightRef.current = true;
-      setIsPolling(true);
-      setTimedOut(false);
-      try {
-        const nextIntent = await fetchIntent({
-          intentId,
-          merchantId,
-          merchantSlug,
-        });
-        if (
-          stopped ||
-          !mountedRef.current ||
-          requestVersion !== requestVersionRef.current
-        ) {
-          return;
-        }
-        handleIntentRef.current(nextIntent);
-      } catch (error) {
-        logger.warn('Failed to poll wallet-funded order status', {
-          error,
-          intentId,
-          merchantId,
-          merchantSlug,
-        });
-        if (
-          !stopped &&
-          mountedRef.current &&
-          requestVersion === requestVersionRef.current
-        ) {
-          setTimedOut(true);
-        }
-      } finally {
-        if (requestVersion === requestVersionRef.current) {
-          inFlightRef.current = false;
-          if (!stopped && mountedRef.current) setIsPolling(false);
-        }
-      }
+      await runPollAttempt({
+        fetchArgs: { intentId, merchantId, merchantSlug },
+        inFlightRef,
+        isActive: () => !stopped && mountedRef.current,
+        logMessage: 'Failed to poll wallet-funded order status',
+        onIntent: (nextIntent) =>
+          deliverIntent(nextIntent, {
+            completedRef,
+            mountedRef,
+            onCompletedRef,
+            setIntent,
+          }),
+        requestVersionRef,
+        setIsPolling,
+        setTimedOut,
+      });
     };
 
     void poll();

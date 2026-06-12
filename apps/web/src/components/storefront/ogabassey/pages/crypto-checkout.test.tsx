@@ -186,7 +186,6 @@ describe('CryptoCheckoutPage', () => {
       body: JSON.stringify({
         merchant_id: 'merchant-123',
         order_id: 'test-order-123',
-        amount: 5000,
         currency: 'NGN',
         customer_email: 'test@example.com',
         customer_name: 'Test Customer',

@@ -36,6 +36,12 @@ const triggerHaptic = (style: Haptics.ImpactFeedbackStyle) => {
 
 const noop = () => undefined;
 
+// Resolve the optional gesture-handler hooks once at module scope. The
+// runtime is a cached singleton, so the hook identities are static across
+// renders — required by the Rules of Hooks and React Compiler memoization.
+const { usePanGesture, useSimultaneousGestures, useTapGesture } =
+  getOptionalGestureHandlerRuntime();
+
 export function useDraggableFab(
   bottomOffset: number,
   onDismiss?: () => void,
@@ -46,8 +52,6 @@ export function useDraggableFab(
   const [isOnRight, setIsOnRight] = useState(true);
   const handleDismissJS = onDismiss ?? noop;
   const handlePressJS = onPress ?? noop;
-  const { usePanGesture, useSimultaneousGestures, useTapGesture } =
-    getOptionalGestureHandlerRuntime();
 
   // Translation values relative to starting styled location
   const translateX = useSharedValue(0);

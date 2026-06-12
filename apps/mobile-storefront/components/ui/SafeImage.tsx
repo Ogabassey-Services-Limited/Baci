@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image, type ImageProps } from 'expo-image';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
 // Default blurhash for smooth loading placeholder
@@ -51,15 +51,9 @@ export function SafeImage({
   const [hasError, setHasError] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
 
-  // Refs to avoid stale closures — React Compiler handles memoization,
-  // so we don't use manual useCallback. Refs ensure the error handler
-  // always reads the current prop values.
-  const onLoadErrorRef = useRef(onLoadError);
-  onLoadErrorRef.current = onLoadError;
-  const sourceRef = useRef(source);
-  sourceRef.current = source;
-
-  // Handle image load errors gracefully
+  // Handle image load errors gracefully. React Compiler keeps this handler
+  // in sync with the latest props, so no ref-based stale-closure guard is
+  // needed (and writing refs during render blocks compilation).
   const handleError = (error: { error: string }) => {
     // Prevent infinite error loops
     if (errorCount >= 2) return;
@@ -73,13 +67,13 @@ export function SafeImage({
         '[SafeImage] Image load failed:',
         error.error,
         '\nSource:',
-        sourceRef.current
+        source
       );
     }
 
-    // Call optional error callback using ref to avoid stale closure
-    if (onLoadErrorRef.current) {
-      onLoadErrorRef.current(new Error(error.error));
+    // Call optional error callback
+    if (onLoadError) {
+      onLoadError(new Error(error.error));
     }
   };
 
