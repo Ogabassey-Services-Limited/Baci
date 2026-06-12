@@ -717,6 +717,45 @@ describe('Middleware Proxy', () => {
     expect(res.status).toBe(200);
   });
 
+  it('passes custom-domain IndexNow key files through to the public key file', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/0751d5c882ab3d7c013ecbfe9e624d71.txt'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+    expect(res.headers.get('x-middleware-request-x-custom-domain')).toBe(
+      'ogabassey.com'
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-domain')).toBe(
+      'ogabassey.com'
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'ogabassey'
+    );
+  });
+
+  it('does not pass through IndexNow key files for unregistered custom domains', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest(
+      'https://unregistered.example/0751d5c882ab3d7c013ecbfe9e624d71.txt'
+    );
+    req.headers.set('host', 'unregistered.example');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('unregistered.example');
+    expect(res.headers.get('x-middleware-next')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://unregistered.example/unregistered.example/0751d5c882ab3d7c013ecbfe9e624d71.txt'
+    );
+  });
+
   it('keeps normal custom-domain browsers in the streaming metadata bucket', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'

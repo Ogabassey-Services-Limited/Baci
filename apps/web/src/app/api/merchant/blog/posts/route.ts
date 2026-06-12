@@ -21,6 +21,11 @@ import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
+import {
+  buildIndexNowBlogPostUrl,
+  getIndexNowHostFromIdentifiers,
+  submitIndexNowUrls,
+} from '@/lib/indexnow';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
@@ -418,15 +423,49 @@ export async function POST(request: NextRequest) {
 
     if (newPost?.status === 'published') {
       after(async () => {
+        const indexNowHost = getIndexNowHostFromIdentifiers(
+          blogRevalidation?.identifiers
+        );
+        const indexNowUrl = indexNowHost
+          ? buildIndexNowBlogPostUrl(indexNowHost, newPost.slug)
+          : null;
+        const indexNowPromise =
+          indexNowHost && indexNowUrl
+            ? submitIndexNowUrls({
+                host: indexNowHost,
+                urls: [indexNowUrl],
+              })
+            : undefined;
+        let zohoDispatchPromise:
+          | ReturnType<typeof dispatchZohoBlogCampaign>
+          | undefined;
+
         try {
-          const result = await dispatchZohoBlogCampaign({
+          zohoDispatchPromise = dispatchZohoBlogCampaign({
             ...(blogRevalidation ? { context: blogRevalidation } : {}),
             post: newPost,
             supabase: createServiceClient(),
           });
-          console.log('Zoho Campaigns blog dispatch result', result);
         } catch (error) {
           console.error('Zoho Campaigns blog dispatch failed', error);
+        }
+
+        if (indexNowPromise) {
+          try {
+            const result = await indexNowPromise;
+            console.log('IndexNow blog submit result', result);
+          } catch (error) {
+            console.error('IndexNow blog submit failed', error);
+          }
+        }
+
+        if (zohoDispatchPromise) {
+          try {
+            const result = await zohoDispatchPromise;
+            console.log('Zoho Campaigns blog dispatch result', result);
+          } catch (error) {
+            console.error('Zoho Campaigns blog dispatch failed', error);
+          }
         }
       });
     }
