@@ -1279,12 +1279,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // ==== INDEXNOW KEY FILE PASSTHROUGH ====
-  // IndexNow validates ownership via a root-level `/<key>.txt` file. We only
-  // bypass storefront rewrites for Baci's own platform key AND only on the
-  // platform host (or a Vercel preview of it). Exposing the platform key at
-  // every tenant/custom-domain root would let third parties submit IndexNow
-  // URLs for merchants they don't own — scope it to the host we actually own.
-  // Merchants serve their own IndexNow key via storefront rewrites.
+  // IndexNow validates ownership via a root-level `/<key>.txt` file. Keep the
+  // platform key available on Baci-owned hosts here; registered custom domains
+  // are handled after their merchant slug lookup so arbitrary hosts cannot
+  // reuse the key.
   if (
     pathname === INDEXNOW_KEY_PATH &&
     (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname))
@@ -1540,6 +1538,19 @@ export async function proxy(request: NextRequest) {
           routeIdentifier: domainMerchantSlug ?? domain,
           customDomain: domain,
           merchantSlug: domainMerchantSlug,
+        });
+      }
+
+      if (pathname === INDEXNOW_KEY_PATH && domainMerchantSlug) {
+        const requestHeaders = buildProxyRequestHeaders(request);
+        requestHeaders.set('x-custom-domain', domain);
+        requestHeaders.set('x-merchant-domain', domain);
+        requestHeaders.set('x-merchant-slug', domainMerchantSlug);
+
+        return NextResponse.next({
+          request: {
+            headers: requestHeaders,
+          },
         });
       }
 
