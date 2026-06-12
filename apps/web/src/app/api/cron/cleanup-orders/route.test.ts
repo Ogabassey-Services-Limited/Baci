@@ -42,18 +42,35 @@ function createCronRequest(auth = 'Bearer cron-secret') {
   });
 }
 
-function readLatestMarkAbandonedOrdersMigrationSql() {
-  for (const fileName of readdirSync(migrationsDirectory)
+function readMigrationSqlFiles() {
+  return readdirSync(migrationsDirectory)
     .filter((file) => migrationFilePattern.test(file))
     .sort()
-    .reverse()) {
-    const sql = readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
+    .map((fileName) => ({
+      fileName,
+      sql: readFileSync(resolve(migrationsDirectory, fileName), 'utf8'),
+    }));
+}
+
+function readLatestMarkAbandonedOrdersMigrationSql() {
+  for (const { sql } of readMigrationSqlFiles().toReversed()) {
     if (markAbandonedOrdersDefinitionPattern.test(sql)) {
       return sql;
     }
   }
 
   throw new Error('No mark_abandoned_orders migration found');
+}
+
+function readAppliedMarkAbandonedOrdersSql() {
+  return readMigrationSqlFiles()
+    .filter(
+      ({ sql }) =>
+        markAbandonedOrdersDefinitionPattern.test(sql) ||
+        /ON\s+FUNCTION\s+public\.mark_abandoned_orders\(integer\)/i.test(sql)
+    )
+    .map(({ sql }) => sql)
+    .join('\n');
 }
 
 describe('GET /api/cron/cleanup-orders', () => {
@@ -127,10 +144,15 @@ describe('mark_abandoned_orders migration contract', () => {
     expect(sql).toMatch(/payment_method\s*=\s*'credit_direct'/i);
     expect(sql).toMatch(/payment_status\s*=\s*'bnpl_pending'/i);
     expect(sql).toMatch(/created_at\s*</i);
-    expect(sql).toMatch(
+    expect(sql).not.toMatch(
+      /REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.mark_abandoned_orders\(integer\)/i
+    );
+
+    const appliedSql = readAppliedMarkAbandonedOrdersSql();
+    expect(appliedSql).toMatch(
       /REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.mark_abandoned_orders\(integer\)\s+FROM\s+PUBLIC,\s+anon,\s+authenticated/i
     );
-    expect(sql).toMatch(
+    expect(appliedSql).toMatch(
       /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.mark_abandoned_orders\(integer\)\s+TO\s+service_role/i
     );
   });
