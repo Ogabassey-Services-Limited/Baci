@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let mockHost = 'ogabassey.com';
 let mockBlogEnabled = true;
+const CONTENT_SIGNAL_DIRECTIVE =
+  'Content-Signal: ai-train=no, search=yes, ai-input=yes';
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() =>
@@ -27,6 +29,10 @@ vi.mock('@/lib/storefront-route-identifier', () => ({
   resolveRouteIdentifier: vi.fn(() => 'ogabassey'),
 }));
 
+function expectContentSignalAfterUserAgent(body: string): void {
+  expect(body).toContain(`User-Agent: *\n${CONTENT_SIGNAL_DIRECTIVE}`);
+}
+
 describe('GET /api/robots', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -36,7 +42,7 @@ describe('GET /api/robots', () => {
     mockBlogEnabled = true;
   });
 
-  it('serializes standards-compliant robots.txt without non-standard directives', async () => {
+  it('serializes robots.txt with AI content usage preferences', async () => {
     const { GET } = await import('./route');
     const response = await GET();
     const body = await response.text();
@@ -47,9 +53,9 @@ describe('GET /api/robots', () => {
       'public, max-age=300, s-maxage=300'
     );
     expect(body).toContain('User-Agent: *');
+    expectContentSignalAfterUserAgent(body);
     expect(body).toContain('Disallow: /api/');
     expect(body).toContain('Sitemap: https://ogabassey.com/sitemap/static.xml');
-    expect(body).not.toContain('Content-Signal:');
   });
 
   it('returns a safe fallback when the robots provider fails', async () => {
@@ -71,7 +77,7 @@ describe('GET /api/robots', () => {
         'public, max-age=300, s-maxage=300'
       );
       expect(body).toContain('User-Agent: *');
-      expect(body).not.toContain('Content-Signal:');
+      expectContentSignalAfterUserAgent(body);
     } finally {
       consoleError.mockRestore();
     }
@@ -94,6 +100,7 @@ describe('GET /api/robots', () => {
 
     expect(response.status).toBe(200);
     expect(body).toContain('User-Agent: *');
+    expectContentSignalAfterUserAgent(body);
     expect(body).toContain('Allow: /');
     expect(body).toContain('Disallow: /private/');
     expect(body).not.toContain('Sitemap:');
