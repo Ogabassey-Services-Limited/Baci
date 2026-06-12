@@ -15,17 +15,14 @@ import {
 import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListProps } from '@shopify/flash-list';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { type ComponentType, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -35,6 +32,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import { triggerLightHaptic } from '@/components/ui/haptics';
@@ -53,6 +57,10 @@ import { orderExportTools } from '@/utils/export-orders';
 type OrdersListRow =
   | { type: 'header'; id: string; title: string }
   | { type: 'item'; id: string; order: Order };
+
+const AnimatedFlashList = Animated.createAnimatedComponent(
+  FlashList as ComponentType<FlashListProps<OrdersListRow>>
+);
 
 // Helper functions moved outside component
 const formatPrice = (amount: number, currency: string = 'NGN') => {
@@ -322,38 +330,47 @@ export default function OrdersScreen() {
   // Status update mutation
   const updateStatus = useUpdateOrderStatus();
 
-  // Collapsible search bar animation
-  const headerVisibilityAnim = useRef(new Animated.Value(1)).current;
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-  const lastScrollY = useRef(0);
-  const isSearchVisible = useRef(true);
+  // Collapsible search bar animation runs on Reanimated's UI thread so
+  // FlashList scrolling does not trigger React state updates.
+  const headerVisibility = useSharedValue(1);
+  const isSearchVisible = useSharedValue(true);
+  const lastScrollY = useSharedValue(0);
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const diff = currentScrollY - lastScrollY.current;
+  const handleScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      const currentScrollY = event.contentOffset.y;
+      const diff = currentScrollY - lastScrollY.value;
 
-    if (Math.abs(diff) > 10) {
-      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
-        isSearchVisible.current = false;
-        setIsHeaderCollapsed(true);
-        Animated.timing(headerVisibilityAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-      } else if (diff < 0 && !isSearchVisible.current) {
-        isSearchVisible.current = true;
-        setIsHeaderCollapsed(false);
-        Animated.timing(headerVisibilityAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
+      if (Math.abs(diff) > 10) {
+        if (diff > 0 && isSearchVisible.value && currentScrollY > 50) {
+          isSearchVisible.value = false;
+          headerVisibility.value = withTiming(0, { duration: 200 });
+        } else if (diff < 0 && !isSearchVisible.value) {
+          isSearchVisible.value = true;
+          headerVisibility.value = withTiming(1, { duration: 200 });
+        }
       }
-    }
 
-    lastScrollY.current = currentScrollY;
-  };
+      lastScrollY.value = currentScrollY;
+    },
+  });
+
+  const searchHeaderStyle = useAnimatedStyle(() => {
+    const collapsed = !isSearchVisible.value;
+
+    return {
+      height: collapsed ? 0 : undefined,
+      marginBottom: collapsed ? 0 : SPACING.md,
+      opacity: headerVisibility.value,
+      overflow: collapsed ? 'hidden' : 'visible',
+      transform: [
+        {
+          translateY: interpolate(headerVisibility.value, [0, 1], [-24, 0]),
+        },
+      ],
+    };
+  });
 
   // Fetch orders with filter
   const {
@@ -1020,23 +1037,7 @@ export default function OrdersScreen() {
       ) : null}
 
       {/* Collapsible Search + Filter Header */}
-      <Animated.View
-        style={[
-          styles.searchContainer,
-          isHeaderCollapsed && styles.searchContainerCollapsed,
-          {
-            opacity: headerVisibilityAnim,
-            transform: [
-              {
-                translateY: headerVisibilityAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-24, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
+      <Animated.View style={[styles.searchContainer, searchHeaderStyle]}>
         <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
           <Ionicons name="search" size={20} color={colors.textMuted} />
           <TextInput
@@ -1163,7 +1164,7 @@ export default function OrdersScreen() {
         </View>
       ) : null}
 
-      <FlashList
+      <AnimatedFlashList
         data={flatListData}
         renderItem={renderFlatListItem}
         getItemType={(item) => item.type}
@@ -1413,11 +1414,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
-  },
-  searchContainerCollapsed: {
-    height: 0,
-    marginBottom: 0,
-    overflow: 'hidden',
   },
   searchBar: {
     flexDirection: 'row',

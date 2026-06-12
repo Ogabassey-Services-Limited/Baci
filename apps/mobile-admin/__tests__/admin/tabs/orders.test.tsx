@@ -20,6 +20,42 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }));
 
+vi.mock('react-native-reanimated', async () => {
+  const React = await import('react');
+
+  const makeSharedValue = (initial: unknown) => {
+    const shared = { value: initial };
+
+    return {
+      get value() {
+        return shared.value;
+      },
+      set value(nextValue: unknown) {
+        shared.value = nextValue;
+      },
+      get() {
+        return shared.value;
+      },
+      set(nextValue: unknown) {
+        shared.value = nextValue;
+      },
+    };
+  };
+
+  return {
+    default: {
+      View: ({ children }: { children?: React.ReactNode }) =>
+        React.createElement('div', null, children),
+      createAnimatedComponent: vi.fn((Component: unknown) => Component),
+    },
+    interpolate: (value: number) => value,
+    useAnimatedScrollHandler: (handler: unknown) => handler,
+    useAnimatedStyle: (callback: () => object) => callback(),
+    useSharedValue: makeSharedValue,
+    withTiming: (value: unknown) => value,
+  };
+});
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 
