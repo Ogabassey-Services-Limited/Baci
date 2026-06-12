@@ -35,7 +35,7 @@ vi.mock('react-native', async () => {
     Animated: {
       Value: AnimatedValue,
       timing: () => ({ start: () => undefined }),
-      createAnimatedComponent: (c: any) => c,
+      createAnimatedComponent: vi.fn((c) => c),
       View: ({ children }: { children?: React.ReactNode }) =>
         React.createElement('div', null, children),
     },
@@ -205,8 +205,8 @@ vi.mock('@/utils/export-orders', () => ({
   },
 }));
 
-vi.mock('@shopify/flash-list', () => {
-  const React = require('react');
+vi.mock('@shopify/flash-list', async () => {
+  const React = await import('react');
 
   return {
     FlashList: ({
