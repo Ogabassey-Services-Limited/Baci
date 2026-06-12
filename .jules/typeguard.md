@@ -25,3 +25,6 @@
 ## 2025-02-24 - Typed Confirm Insurance Dialog Payload
 **Learning:** Replaced `any` with proper domain types `Partial<DeviceInsuranceDetails>` and `OrderDetailsItem[]` in `ConfirmInsuranceDialog`, matching the backend payload used for purchasing insurance and enabling better downstream type inferences in `client-page.tsx`. Used type-only imports and replaced type assumptions with `as const` assertion on deviceType literals where required by the interface.
 **Action:** Always search for the destination interface where the data will be used (e.g. `DeviceInsuranceDetails` used by the backend service) and apply it to the component firing the data event instead of using `any` or `Record<string, unknown>`.
+## 2025-06-12 - [Strict typing for dynamic Expo module imports]
+**Learning:** [When using dynamic imports for native Expo modules (like `expo-device` and `expo-notifications`) to prevent evaluation-time crashes in web or specific environments, variables storing the modules should not be typed as `any`. They can be strictly typed using `typeof import('module') | null`.]
+**Action:** [Use `typeof import('expo-module-name') | null` for dynamically loaded native modules, and ensure subsequent module method calls use `if (!Module) return;` to prevent runtime `TypeError` crashes.]
