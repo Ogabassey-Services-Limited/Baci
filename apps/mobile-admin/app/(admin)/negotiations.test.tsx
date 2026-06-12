@@ -181,9 +181,9 @@ describe('NegotiationsScreen', () => {
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenCalledWith('Error', 'Merchant not found');
     });
-    expect(
-      mocks.queryCalls.some(({ method }) => method === 'update')
-    ).toBe(false);
+    expect(mocks.queryCalls.some(({ method }) => method === 'update')).toBe(
+      false
+    );
   });
 
   it('shows an error when the scoped Supabase update fails', async () => {

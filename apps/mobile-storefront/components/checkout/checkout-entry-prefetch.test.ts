@@ -47,7 +47,9 @@ describe('warmCheckoutEntry', () => {
 
   it('swallows payment settings prefetch failures without blocking shipping warmup', async () => {
     const queryClient = {
-      prefetchQuery: jest.fn(() => Promise.reject(new Error('settings failed'))),
+      prefetchQuery: jest.fn(() =>
+        Promise.reject(new Error('settings failed'))
+      ),
     } as unknown as Pick<QueryClient, 'prefetchQuery'>;
     mockFetchCheckoutShippingStates.mockResolvedValue(['Lagos'] as never);
 

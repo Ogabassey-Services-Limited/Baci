@@ -33,7 +33,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   ActivityIndicator: () => <span>loading</span>,
   FlatList: ({
     data,
@@ -199,7 +199,7 @@ describe('CustomizeChatPanel', () => {
     expect(mocks.listProps.removeClippedSubviews).toBe(false);
   });
 
-  it('applies Android-specific virtualization optimizations', () => {
+  it('applies safe layout settings without clipping on Android', () => {
     mocks.platform.OS = 'android';
 
     render(
@@ -223,6 +223,6 @@ describe('CustomizeChatPanel', () => {
       />
     );
 
-    expect(mocks.listProps.removeClippedSubviews).toBe(true);
+    expect(mocks.listProps.removeClippedSubviews).toBe(false);
   });
 });

@@ -7,7 +7,7 @@ describe('getVirtualizedListProps', () => {
     expect(getVirtualizedListProps('android')).toEqual({
       initialNumToRender: 15,
       maxToRenderPerBatch: 10,
-      removeClippedSubviews: true,
+      removeClippedSubviews: false,
       windowSize: 5,
     });
   });

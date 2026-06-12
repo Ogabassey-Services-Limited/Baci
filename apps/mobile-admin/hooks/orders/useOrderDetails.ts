@@ -16,11 +16,35 @@ interface OrderItemRow {
   product_id: string | null;
   products:
     | {
+        categories:
+          | {
+              name: string | null;
+              slug: string | null;
+            }
+          | Array<{
+              name: string | null;
+              slug: string | null;
+            }>
+          | null;
+        category: string | null;
+        category_id: string | null;
         condition: string | null;
         images: string[] | null;
         name: string;
       }
     | Array<{
+        categories:
+          | {
+              name: string | null;
+              slug: string | null;
+            }
+          | Array<{
+              name: string | null;
+              slug: string | null;
+            }>
+          | null;
+        category: string | null;
+        category_id: string | null;
         condition: string | null;
         images: string[] | null;
         name: string;
@@ -59,7 +83,7 @@ export async function fetchOrderById(
     supabase
       .from('order_items')
       .select(
-        'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition)'
+        'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition, category, category_id, categories:category_id(name, slug))'
       )
       .eq('order_id', orderId),
     supabase
@@ -94,28 +118,11 @@ export async function fetchOrderById(
   } | null = null;
 
   if (order.recorded_by_user_id) {
-    const { data: recUser, error: recUserError } = await supabase
-      .from('profiles')
-      .select('display_name, full_name')
-      .eq('id', order.recorded_by_user_id)
-      .maybeSingle();
-
-    if (recUserError) {
-      // Auxiliary lookup; log and skip instead of failing the whole fetch.
-      console.error('useOrderDetails profiles lookup error:', recUserError);
-    }
-
-    const fullName = recUser?.display_name || recUser?.full_name;
-    if (fullName) {
-      recordedByName = fullName.split(' ')[0];
-    }
-
     const { data: staffMember, error: staffMemberError } = await supabase
       .from('staff_members')
-      .select('id')
+      .select('id, name, status')
       .eq('user_id', order.recorded_by_user_id)
       .eq('merchant_id', merchantId)
-      .eq('status', 'active')
       .maybeSingle();
 
     if (staffMemberError) {
@@ -126,26 +133,32 @@ export async function fetchOrderById(
     }
 
     if (staffMember) {
-      const { data: terminal, error: terminalError } = await supabase
-        .from('virtual_terminals')
-        .select('account_number, account_name, bank')
-        .eq('staff_id', staffMember.id)
-        .eq('active', true)
-        .maybeSingle();
-
-      if (terminalError) {
-        console.error(
-          'useOrderDetails virtual_terminals lookup error:',
-          terminalError
-        );
+      if (staffMember.name) {
+        recordedByName = staffMember.name.split(' ')[0];
       }
 
-      if (terminal?.account_number) {
-        staffTerminal = {
-          account_name: terminal.account_name,
-          account_number: terminal.account_number,
-          bank_name: terminal.bank,
-        };
+      if (staffMember.status === 'active') {
+        const { data: terminal, error: terminalError } = await supabase
+          .from('virtual_terminals')
+          .select('account_number, account_name, bank')
+          .eq('staff_id', staffMember.id)
+          .eq('active', true)
+          .maybeSingle();
+
+        if (terminalError) {
+          console.error(
+            'useOrderDetails virtual_terminals lookup error:',
+            terminalError
+          );
+        }
+
+        if (terminal?.account_number) {
+          staffTerminal = {
+            account_name: terminal.account_name,
+            account_number: terminal.account_number,
+            bank_name: terminal.bank,
+          };
+        }
       }
     }
   }
@@ -167,9 +180,12 @@ export async function fetchOrderById(
     fulfillment_details: orderWithMeta.fulfillment_details ?? null,
     items: ((items as OrderItemRow[] | null) ?? []).map((item) => {
       const product = getJoinedRecord(item.products);
+      const productCategory = getJoinedRecord(product?.categories);
       const itemName = item.name ?? product?.name ?? 'Unnamed item';
 
       return {
+        category: product?.category ?? productCategory?.name ?? undefined,
+        category_slug: productCategory?.slug ?? undefined,
         condition: product?.condition ?? undefined,
         has_assurance: item.has_assurance ?? undefined,
         id: item.id,
@@ -177,6 +193,8 @@ export async function fetchOrderById(
         name: itemName,
         price: item.price,
         product_id: item.product_id ?? `custom-${item.id}`,
+        product_category: product?.category ?? productCategory?.name ?? undefined,
+        product_category_slug: productCategory?.slug ?? undefined,
         product_name: itemName,
         quantity: item.quantity,
         variant_name: item.variant_name ?? undefined,

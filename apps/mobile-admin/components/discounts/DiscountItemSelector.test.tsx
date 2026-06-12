@@ -84,7 +84,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   ActivityIndicator: () => <span>loading</span>,
   FlatList: ({
     data,
@@ -236,7 +236,7 @@ describe('DiscountItemSelector', () => {
     ).toBeInTheDocument();
   });
 
-  it('enables clipped subviews for Android via shared list props', () => {
+  it('uses safe layout settings without clipping on Android via shared list props', () => {
     mocks.platform.OS = 'android';
 
     render(
@@ -249,7 +249,7 @@ describe('DiscountItemSelector', () => {
       />
     );
 
-    expect(mocks.listProps.removeClippedSubviews).toBe(true);
+    expect(mocks.listProps.removeClippedSubviews).toBe(false);
   });
 
   it('renders error feedback when selectable items fetch fails', async () => {

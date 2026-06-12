@@ -186,9 +186,7 @@ describe('withAndroidGradleFixes Kotlin compilation guard', () => {
       'apply plugin: "org.jetbrains.kotlin.android"'
     );
     expect(appBuildGradle).toContain('proguard-android-optimize.txt');
-    expect(appBuildGradle).toContain(
-      "pickFirsts += ['**/libworklets.so']"
-    );
+    expect(appBuildGradle).toContain("pickFirsts += ['**/libworklets.so']");
     expect(gradleProperties).toContain('android.builtInKotlin=false');
     expect(gradleProperties).toContain('-XX:MaxMetaspaceSize=1024m');
   });

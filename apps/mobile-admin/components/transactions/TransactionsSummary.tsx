@@ -1,6 +1,11 @@
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import { styles } from '@/components/transactions/transactions.styles';
 import type { ThemeColors } from '@/constants/theme';
+import {
+  type AnalyticsDateFilter,
+  getAnalyticsFilterLabel,
+} from '@/lib/analytics-period';
 
 export type TransactionReviewTab = 'missing-costs' | 'paid';
 
@@ -9,6 +14,8 @@ interface TransactionsSummaryProps {
   colors: ThemeColors;
   estimatedProfitLabel: string;
   onTabChange: (tab: TransactionReviewTab) => void;
+  onPeriodPress: () => void;
+  selectedPeriod: AnalyticsDateFilter;
   summary: {
     missingCosts: number;
     transactions: number;
@@ -20,8 +27,12 @@ export function TransactionsSummary({
   colors,
   estimatedProfitLabel,
   onTabChange,
+  onPeriodPress,
+  selectedPeriod,
   summary,
 }: TransactionsSummaryProps) {
+  const periodLabel = getAnalyticsFilterLabel(selectedPeriod);
+
   return (
     <>
       <View style={styles.summaryRow}>
@@ -73,15 +84,36 @@ export function TransactionsSummary({
 
       <View
         accessible
-        accessibilityLabel={`Estimated profit this month: ${estimatedProfitLabel}. Update product cost prices so analytics profit stays grounded in actual margins.`}
+        accessibilityLabel={`Estimated profit (${periodLabel}): ${estimatedProfitLabel}. Update product cost prices so analytics profit stays grounded in actual margins.`}
         style={[
           styles.heroCard,
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
-        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-          Estimated profit this month
-        </Text>
+        <View style={styles.heroHeader}>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            Estimated profit
+          </Text>
+          <Pressable
+            accessibilityLabel={`Change period: currently showing ${periodLabel}`}
+            accessibilityRole="button"
+            onPress={onPeriodPress}
+            style={({ pressed }) => [
+              styles.periodDropdownButton,
+              {
+                backgroundColor: colors.primaryLight,
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.periodDropdownText, { color: colors.primary }]}
+            >
+              {periodLabel}
+            </Text>
+            <Ionicons name="chevron-down" size={12} color={colors.primary} />
+          </Pressable>
+        </View>
         <Text style={[styles.heroValue, { color: colors.text }]}>
           {estimatedProfitLabel}
         </Text>

@@ -77,7 +77,7 @@ describe('OrderDetailsItemsAndPaymentSection', () => {
         onRequestPayment={vi.fn()}
         onSelectItem={onSelectItem}
         paymentColor="#ca8a04"
-        paymentLabel="Awaiting Payment"
+        paymentLabel="Unpaid"
         paymentMethod="bank_transfer"
         paymentStatus="pending"
         shippingFee={5000}
@@ -112,7 +112,7 @@ describe('OrderDetailsItemsAndPaymentSection', () => {
         onRequestPayment={onRequestPayment}
         onSelectItem={vi.fn()}
         paymentColor="#ca8a04"
-        paymentLabel="Awaiting Payment"
+        paymentLabel="Unpaid"
         paymentMethod="bank_transfer"
         paymentStatus="pending"
         shippingFee={5000}
@@ -131,7 +131,7 @@ describe('OrderDetailsItemsAndPaymentSection', () => {
       onRecordPayment,
       onRequestPayment,
       paymentColor: '#ca8a04',
-      paymentLabel: 'Awaiting Payment',
+      paymentLabel: 'Unpaid',
       paymentMethod: 'bank_transfer',
       paymentStatus: 'pending',
       shippingFee: 5000,

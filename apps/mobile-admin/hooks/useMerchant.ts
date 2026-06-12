@@ -35,6 +35,7 @@ export const MerchantSchema = z.object({
   user_id: z.string(),
   email: z.email(),
   business_name: z.string().nullable(),
+  business_type: z.string().nullable().optional(),
   slug: z.string().nullable(),
   logo_url: z.string().nullable(),
   favicon_png_192_url: z.string().nullable(),

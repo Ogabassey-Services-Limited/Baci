@@ -30,10 +30,10 @@ export function ShipmentFlowDetailsStep({
         icon="barcode-outline"
         subtitle={
           hasExistingFulfillment
-            ? 'Review the device identifiers before this order is marked shipped.'
-            : 'Enter the device identifiers before this order is marked shipped.'
+            ? 'Review the device IMEI/SN before this order is marked shipped.'
+            : 'Enter the device IMEI/SN before this order is marked shipped.'
         }
-        title="IMEI details are required for this order. Serial number is optional."
+        title="IMEI/SN is required for this order."
       />
 
       <ShipmentField

@@ -53,7 +53,9 @@ function createRouteData(overrides: Record<string, unknown> = {}) {
 }
 
 function resolveAttributeUpdate(
-  updater: Record<string, string> | ((current: Record<string, string>) => Record<string, string>)
+  updater:
+    | Record<string, string>
+    | ((current: Record<string, string>) => Record<string, string>)
 ) {
   return typeof updater === 'function' ? updater({ ram: '6GB' }) : updater;
 }

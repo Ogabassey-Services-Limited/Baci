@@ -10,7 +10,8 @@ import { FlashList } from '@shopify/flash-list';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React, { useRef } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Animated,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -19,7 +20,9 @@ import { ActivityIndicator,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -673,6 +676,9 @@ export default function CustomersScreen() {
             data={customers}
             renderItem={renderCustomer}
             keyExtractor={customerKeyExtractor}
+            ItemSeparatorComponent={() => (
+              <View style={{ height: SPACING.md }} />
+            )}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl
@@ -721,6 +727,7 @@ export default function CustomersScreen() {
           data={filteredFailedOrders}
           renderItem={renderFailedOrder}
           keyExtractor={failedOrderKeyExtractor}
+          ItemSeparatorComponent={() => <View style={{ height: SPACING.md }} />}
           onScroll={handleScroll}
           scrollEventThrottle={16}
           contentContainerStyle={styles.listContent}
@@ -824,16 +831,17 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'center',
   },
   summaryLabel: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginTop: 2,
+    textAlign: 'center',
   },
   listContent: {
     padding: SPACING.lg,
     paddingTop: 0,
-    gap: SPACING.md,
   },
   customerCard: {
     borderRadius: RADIUS.lg,

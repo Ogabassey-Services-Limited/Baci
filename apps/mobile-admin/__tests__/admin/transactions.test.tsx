@@ -6,10 +6,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
   routerPush: vi.fn(),
+  routerSetParams: vi.fn(),
+  showChoiceSheet: vi.fn(),
   useAnalyticsOverview: vi.fn(),
   useTransactionReview: vi.fn(),
   useUpdateTransactionCostPrice: vi.fn(),
 }));
+
+let mockSearchParams: Record<string, string | string[]> = {};
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -87,12 +91,20 @@ vi.mock('expo-router', async () => {
     Stack: {
       Screen: () => React.createElement('div'),
     },
-    useLocalSearchParams: () => ({}),
+    useLocalSearchParams: () => mockSearchParams,
     useRouter: () => ({
       push: mocks.routerPush,
+      setParams: (newParams: Record<string, string>) => {
+        mockSearchParams = { ...mockSearchParams, ...newParams };
+        mocks.routerSetParams(newParams);
+      },
     }),
   };
 });
+
+vi.mock('@/components/ui/showChoiceSheet', () => ({
+  showChoiceSheet: mocks.showChoiceSheet,
+}));
 
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
@@ -140,11 +152,15 @@ vi.mock('@/components/transactions/TransactionsSummary', () => ({
     activeTab,
     estimatedProfitLabel,
     onTabChange,
+    onPeriodPress,
+    selectedPeriod,
     summary,
   }: {
     activeTab?: 'paid' | 'missing-costs';
     estimatedProfitLabel: string;
     onTabChange?: (tab: 'paid' | 'missing-costs') => void;
+    onPeriodPress?: () => void;
+    selectedPeriod?: string;
     summary: { missingCosts: number; transactions: number };
   }) => (
     <div>
@@ -161,6 +177,9 @@ vi.mock('@/components/transactions/TransactionsSummary', () => ({
         onClick={() => onTabChange?.('missing-costs')}
       >
         <Text>Missing costs tab</Text>
+      </button>
+      <button type="button" onClick={onPeriodPress}>
+        <Text>{`Change period button: ${selectedPeriod}`}</Text>
       </button>
       <Text>{estimatedProfitLabel}</Text>
       <Text>{`${summary.transactions} transactions`}</Text>
@@ -354,6 +373,8 @@ const sampleOrders = [
 describe('TransactionsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams = {};
+    mocks.showChoiceSheet.mockResolvedValue(undefined);
     mocks.mutateAsync.mockResolvedValue(undefined);
     mocks.useAnalyticsOverview.mockReturnValue({
       data: {
@@ -889,5 +910,56 @@ describe('TransactionsScreen', () => {
 
     expect(await screen.findByText('save failed')).toBeInTheDocument();
     expect(screen.getByText('Save cost price')).toBeInTheDocument();
+  });
+
+  it('loads the analytics overview using the profitPeriod from search parameters', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-10T12:00:00.000Z'));
+    mockSearchParams = { profitPeriod: 'last_month' };
+
+    try {
+      render(<TransactionsScreen />);
+
+      expect(mocks.useAnalyticsOverview).toHaveBeenCalledTimes(1);
+      const [{ endDate, startDate }] = mocks.useAnalyticsOverview.mock.calls[0];
+      // Since it's last_month: May 1 to May 31, 2026
+      expect(startDate.getFullYear()).toBe(2026);
+      expect(startDate.getMonth()).toBe(4); // May
+      expect(startDate.getDate()).toBe(1);
+      expect(endDate.getFullYear()).toBe(2026);
+      expect(endDate.getMonth()).toBe(4); // May
+      expect(endDate.getDate()).toBe(31);
+      expect(
+        screen.getByText('Change period button: last_month')
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows choice sheet and calls setParams when tapping change period button', async () => {
+    mocks.showChoiceSheet.mockResolvedValue('last_3_months');
+    render(<TransactionsScreen />);
+
+    const changePeriodButton = screen.getByRole('button', {
+      name: /change period button: this_month/i,
+    });
+
+    fireEvent.click(changePeriodButton);
+
+    expect(mocks.showChoiceSheet).toHaveBeenCalledWith({
+      title: 'Select Period',
+      options: [
+        { label: 'This month', value: 'this_month' },
+        { label: 'Last month', value: 'last_month' },
+        { label: 'Last 3 months', value: 'last_3_months' },
+      ],
+    });
+
+    await waitFor(() => {
+      expect(mocks.routerSetParams).toHaveBeenCalledWith({
+        profitPeriod: 'last_3_months',
+      });
+    });
   });
 });

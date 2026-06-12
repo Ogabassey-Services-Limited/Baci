@@ -1,7 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View, StatusBar } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CostPriceEditorModal } from '@/components/transactions/CostPriceEditorModal';
 import { TransactionListState } from '@/components/transactions/TransactionListState';
@@ -17,7 +24,11 @@ import {
   useTransactionReview,
 } from '@/hooks/useTransactionReview';
 import { useUpdateTransactionCostPrice } from '@/hooks/useUpdateTransactionCostPrice';
-import { resolveAnalyticsDateRange } from '@/lib/analytics-period';
+import { showChoiceSheet } from '@/components/ui/showChoiceSheet';
+import {
+  type AnalyticsDateFilter,
+  resolveAnalyticsDateRange,
+} from '@/lib/analytics-period';
 import {
   buildTransactionDateIso,
   filterOrdersForTransactionTab,
@@ -39,6 +50,7 @@ export default function TransactionsScreen() {
   const params = useLocalSearchParams<{
     endDate?: string | string[];
     startDate?: string | string[];
+    profitPeriod?: string | string[];
   }>();
   const startDateParam = Array.isArray(params.startDate)
     ? params.startDate[0]
@@ -59,9 +71,18 @@ export default function TransactionsScreen() {
           startDate: parsedStartDate,
         }
       : undefined;
+
+  const profitPeriodParam = Array.isArray(params.profitPeriod)
+    ? params.profitPeriod[0]
+    : params.profitPeriod;
+  const profitPeriod: AnalyticsDateFilter =
+    profitPeriodParam === 'last_month' || profitPeriodParam === 'last_3_months'
+      ? profitPeriodParam
+      : 'this_month';
+
   const currentMonthAnchor = new Date();
   const profitRange = resolveAnalyticsDateRange(
-    'this_month',
+    profitPeriod,
     currentMonthAnchor.getFullYear(),
     currentMonthAnchor,
     currentMonthAnchor,
@@ -102,6 +123,20 @@ export default function TransactionsScreen() {
     : profitAnalytics
       ? formatCurrency(profitAnalytics.summary.profit.value)
       : '--';
+
+  const handlePeriodPress = async () => {
+    const choice = await showChoiceSheet<AnalyticsDateFilter>({
+      title: 'Select Period',
+      options: [
+        { label: 'This month', value: 'this_month' },
+        { label: 'Last month', value: 'last_month' },
+        { label: 'Last 3 months', value: 'last_3_months' },
+      ],
+    });
+    if (choice) {
+      router.setParams({ profitPeriod: choice });
+    }
+  };
 
   const tabFilteredOrders = filterOrdersForTransactionTab(orders, activeTab);
   const visibleOrders = filterTransactionOrders(tabFilteredOrders, searchQuery);
@@ -212,6 +247,8 @@ export default function TransactionsScreen() {
             colors={colors}
             estimatedProfitLabel={estimatedProfitThisMonthLabel}
             onTabChange={setActiveTab}
+            onPeriodPress={handlePeriodPress}
+            selectedPeriod={profitPeriod}
             summary={summary}
           />
 

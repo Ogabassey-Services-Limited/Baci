@@ -567,10 +567,12 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginBottom: 2,
+    textAlign: 'center',
   },
   statLabel: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textAlign: 'center',
   },
   sectionTitle: {
     fontSize: TYPOGRAPHY.size.lg,

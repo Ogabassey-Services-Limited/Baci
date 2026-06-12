@@ -54,7 +54,7 @@ vi.mock('@/utils/format', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   ActivityIndicator: () => <output aria-label="loading" />,
   Dimensions: {
     get: () => ({ height: 800, width: 400 }),

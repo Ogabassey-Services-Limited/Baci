@@ -54,7 +54,7 @@ export function OrderDetailsStatusCard({
       ]}
     >
       <View style={styles.statusHeader}>
-        <View>
+        <View style={{ flex: 1, marginRight: 8 }}>
           <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
             Placed on {createdAtLabel}
           </Text>

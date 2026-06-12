@@ -141,7 +141,7 @@ function createController() {
     },
     paymentAmount: '',
     paymentColor: '#ca8a04',
-    paymentConfig: { label: 'Awaiting Payment' },
+    paymentConfig: { label: 'Unpaid' },
     paymentMethod: '',
     paymentNotes: '',
     pendingShipmentMode: 'self_fulfillment',

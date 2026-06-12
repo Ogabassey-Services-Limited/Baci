@@ -49,7 +49,7 @@ export const PAYMENT_STATUS_CONFIG: Record<
 > = {
   paid: { label: 'Paid', colorKey: 'success' },
   unpaid: { label: 'Unpaid', colorKey: 'error' },
-  pending: { label: 'Awaiting Payment', colorKey: 'pending' },
+  pending: { label: 'Unpaid', colorKey: 'pending' },
   failed: { label: 'Failed', colorKey: 'error' },
   refunded: { label: 'Refunded', colorKey: 'textMuted' },
   partially_paid: { label: 'Partial', colorKey: 'warning' },

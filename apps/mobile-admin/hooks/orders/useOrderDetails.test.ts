@@ -181,6 +181,12 @@ describe('fetchOrderById', () => {
           quantity: 2,
           price: 25,
           products: {
+            categories: {
+              name: 'Smartphones',
+              slug: 'smartphones',
+            },
+            category: 'Phones',
+            category_id: 'category-1',
             condition: 'new',
             images: ['https://example.test/image.jpg'],
             name: 'Phone',
@@ -214,9 +220,13 @@ describe('fetchOrderById', () => {
         items: [
           expect.objectContaining({
             id: 'item-1',
+            category: 'Phones',
+            category_slug: 'smartphones',
             condition: 'new',
             image_url: 'https://example.test/image.jpg',
             name: 'Phone',
+            product_category: 'Phones',
+            product_category_slug: 'smartphones',
             product_name: 'Phone',
             quantity: 2,
             variant_name: 'Blue',

@@ -62,6 +62,24 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     padding: SPACING.lg,
   },
+  heroHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  periodDropdownButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.md,
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+  },
+  periodDropdownText: {
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.xs,
+  },
   heroSubtitle: {
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.sm,

@@ -1,0 +1,7 @@
+name = "baci-event-ingest-worker"
+main = "src/index.js"
+compatibility_date = "2026-06-12"
+account_id = "17f9bcc57406cccc35f867a0545fa5ed"
+
+[vars]
+ORIGIN_EVENTS_URL = "https://usebaci.com/api/events"

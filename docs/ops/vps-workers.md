@@ -60,15 +60,15 @@ Do not install this checkout with `--prod`; `tsx` and the workspace development 
 
 Some cron work intentionally remains in the web app because it needs web-only runtime integrations. The VPS schedule calls these CRON_SECRET-gated routes through `node jobs/run-web-cron.mjs <path>`:
 
-- `/api/cron/cleanup-orders`, scheduled daily at 01:00.
 - `/api/ai-jobs/worker`, scheduled daily at 02:00.
 - `supabase-retention-cleanup`, scheduled daily at 03:20.
 - `/api/cron/process-settlements`, scheduled daily at 05:00.
-- `/api/cron/reconcile-vtu-processing`, scheduled every 5 minutes.
 - `/api/cron/wallet-payouts`, scheduled daily at 06:00.
 - `/api/cron/vtu-cashback-summaries`, scheduled monthly on the 1st at 08:30.
-- `/api/cron/publish-scheduled-posts`, scheduled every 15 minutes.
-- `/api/inventory/push-alerts`, scheduled every 6 hours.
+- `jobs/publish-scheduled-posts-if-due.mjs`, scheduled every 15 minutes. It
+  checks Supabase locally and calls `/api/cron/publish-scheduled-posts` only
+  when posts are actually due, preserving web-runtime cache revalidation and
+  Zoho dispatch without charging Vercel for empty polling cycles.
 - `storefront_layout_generation` storefront worker, started immediately by
   `baci-ai-storefront-trigger.service` and swept every 10 minutes as a fallback:
   `*/10 * * * * flock -n /home/bassey/baci-workers/locks/ollama-workload.lock flock -n /home/bassey/baci-workers/locks/ai-storefront-jobs.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=ai-storefront-jobs && cd /home/bassey/baci-workers && /home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh' >> /home/bassey/baci-workers/logs/ai-storefront-jobs.log 2>&1`
@@ -77,6 +77,17 @@ The VPS also runs `jobs/cleanup-agentic-request-records.mjs` directly against
 Supabase at minute 10 of every hour. It deletes `agentic_request_records` only
 after `expires_at` is at least one hour old, preserving the request replay and
 order-read health observation window while bounding telemetry retention.
+
+The VPS runs `jobs/cleanup-orders.mjs` daily at 01:00. It calls
+`mark_abandoned_orders` directly with the service-role key and defaults to the
+same 72-hour threshold as the manual web fallback route.
+
+The five-minute VTU reconciliation and fifteen-minute agentic commerce health
+monitor run as direct VPS scripts, not through Vercel Functions:
+
+- `bin/reconcile-vtu-processing.sh` runs `apps/web/src/scripts/reconcile-vtu-processing.ts`.
+- `bin/agentic-commerce-health.sh` runs `apps/web/src/scripts/agentic-commerce-health.ts` with Node's `react-server` condition enabled. It skips the synthetic support-chat probe by default so the monitor does not create `/api/chat` web invocations.
+- `bin/inventory-push-alerts.sh` runs `apps/web/src/scripts/inventory-push-alerts.ts`, preserving Expo push delivery and ticket storage without creating `/api/inventory/push-alerts` web invocations.
 
 `/api/ai-jobs/worker` must remain limited to short web-safe jobs such as price
 list processing. It must not claim `storefront_layout_generation`; those jobs
@@ -119,7 +130,7 @@ Then verify the reverse proxy reaches `127.0.0.1:3917`, the web deployment and
 VPS worker share the same `AI_STOREFRONT_TRIGGER_SECRET`, and the worker lock
 files do not correspond to an actively running process.
 
-If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/reconcile-vtu-processing.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment. For request-retention cleanup failures, inspect `/home/bassey/baci-workers/logs/cleanup-agentic-request-records.log` and confirm the server-only Supabase worker credentials are current.
+If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, or `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment. For direct-script failures, inspect `/home/bassey/baci-workers/logs/cleanup-orders.log`, `/home/bassey/baci-workers/logs/reconcile-vtu-processing.log`, `/home/bassey/baci-workers/logs/agentic-commerce-health.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. For request-retention cleanup failures, inspect `/home/bassey/baci-workers/logs/cleanup-agentic-request-records.log` and confirm the server-only Supabase worker credentials are current.
 
 If Supabase storage or database usage starts rising unexpectedly, inspect
 `/home/bassey/baci-workers/logs/cleanup-import-uploads.log` and

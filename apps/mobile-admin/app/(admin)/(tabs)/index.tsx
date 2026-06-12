@@ -165,15 +165,30 @@ export default function HomeScreen() {
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
 
   const formatCurrency = (amount: number) => {
+    if (amount >= 1000000000) {
+      const formatted = (amount / 1000000000).toFixed(2);
+      return `${currencySymbol}${Number(formatted)}B`;
+    }
     if (amount >= 1000000) {
-      return `${currencySymbol}${(amount / 1000000).toFixed(1)}M`;
+      const formatted = (amount / 1000000).toFixed(2);
+      return `${currencySymbol}${Number(formatted)}M`;
     }
     return `${currencySymbol}${amount.toLocaleString()}`;
   };
 
   const formatMetric = (value: number) => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+    if (value >= 1000000000) {
+      const formatted = (value / 1000000000).toFixed(2);
+      return `${Number(formatted)}B`;
+    }
+    if (value >= 1000000) {
+      const formatted = (value / 1000000).toFixed(2);
+      return `${Number(formatted)}M`;
+    }
+    if (value >= 1000) {
+      const formatted = (value / 1000).toFixed(2);
+      return `${Number(formatted)}k`;
+    }
     return value.toString();
   };
 

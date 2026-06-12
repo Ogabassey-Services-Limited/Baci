@@ -56,10 +56,12 @@ export function usePaymentMethodAvailability(
     (method) => !enabledMethods || enabledMethods.includes(method.id)
   ).filter((method) => !hiddenMethods.includes(method.id));
 
-  const hasBNPLMethods =
-    candidateMethods.some((method) => method.tab === 'installments');
-  const hasPayLaterMethods =
-    candidateMethods.some((method) => method.tab === 'pay_later');
+  const hasBNPLMethods = candidateMethods.some(
+    (method) => method.tab === 'installments'
+  );
+  const hasPayLaterMethods = candidateMethods.some(
+    (method) => method.tab === 'pay_later'
+  );
 
   const filteredMethods = candidateMethods
     .filter((method) => method.tab === selectedTab)

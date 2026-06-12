@@ -5,7 +5,7 @@ import z from 'zod';
 import {
   AI_RATE_LIMITS,
   checkRateLimit,
-  geminiFlash,
+  getGemmaModel,
   withRetry,
 } from '@/ai/provider';
 import { hasPermission } from '@/lib/api-auth';
@@ -32,7 +32,9 @@ const InsightSchema = z.object({
   ),
 });
 
-const AI_INSIGHTS_TIMEOUT_MS = 10_000;
+export const maxDuration = 60;
+
+const AI_INSIGHTS_TIMEOUT_MS = 45_000;
 const AI_INSIGHTS_RETRY_CONFIG = {
   maxRetries: 0,
   initialDelayMs: 0,
@@ -127,7 +129,7 @@ async function generateInsights(
   try {
     const { object } = await withRetry(async () => {
       return await generateObject({
-        model: geminiFlash,
+        model: getGemmaModel(),
         schema: InsightSchema,
         maxRetries: 0,
         timeout: AI_INSIGHTS_TIMEOUT_MS,

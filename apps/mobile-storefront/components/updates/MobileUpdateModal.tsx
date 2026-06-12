@@ -82,7 +82,12 @@ export function MobileUpdateModal({
               onPress={onDismiss}
               style={styles.secondaryButton}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.secondaryButtonText,
+                  { color: colors.textSecondary },
+                ]}
+              >
                 Later
               </Text>
             </Pressable>

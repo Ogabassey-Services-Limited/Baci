@@ -7,13 +7,13 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SocialMediaInput from '@/components/settings/SocialMediaInput';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
@@ -206,9 +206,10 @@ export default function SocialMediaScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <ScrollView
-          style={styles.scrollView}
+        <AppKeyboardContainer
+          align="start"
           contentContainerStyle={styles.scrollContent}
+          offsetPreset="compactHeader"
         >
           <View
             style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
@@ -244,7 +245,7 @@ export default function SocialMediaScreen() {
               )
             )}
           </View>
-        </ScrollView>
+        </AppKeyboardContainer>
       </SafeAreaView>
     </>
   );
@@ -252,7 +253,6 @@ export default function SocialMediaScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollView: { flex: 1 },
   scrollContent: { padding: SPACING.lg },
   backButton: {}, // Native handles padding
   saveButton: {},

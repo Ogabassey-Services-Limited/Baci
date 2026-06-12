@@ -157,6 +157,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     textTransform: 'capitalize',
+    textAlign: 'center',
   },
   value: {
     fontSize: TYPOGRAPHY.size.xl,

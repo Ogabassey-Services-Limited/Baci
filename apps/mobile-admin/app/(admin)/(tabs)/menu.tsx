@@ -3,12 +3,15 @@ import Ionicons, {
 } from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert,
+import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SubscriptionStatusCard } from '@/components/settings/SubscriptionStatusCard';
 import { APP_VERSION_LABEL } from '@/constants/app-info';

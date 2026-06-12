@@ -170,7 +170,13 @@ function SafeImage({
   if (isSvg && !hasError) {
     if (isLoadingXml) {
       return (
-        <View style={[styles.loadingContainer, { backgroundColor: colors.background }, style]}>
+        <View
+          style={[
+            styles.loadingContainer,
+            { backgroundColor: colors.background },
+            style,
+          ]}
+        >
           <ActivityIndicator size="small" color={colors.textSecondary} />
         </View>
       );

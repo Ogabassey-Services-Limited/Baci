@@ -1,6 +1,4 @@
-const {
-  applyAndroidSystemBarStyles,
-} = require('./androidSystemBars');
+const { applyAndroidSystemBarStyles } = require('./androidSystemBars');
 
 function buildAndroidStyles(parent = 'Theme.ReactNative.AppCompat.Light') {
   return {

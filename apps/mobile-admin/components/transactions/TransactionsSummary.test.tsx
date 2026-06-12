@@ -59,9 +59,16 @@ vi.mock('@/components/transactions/transactions.styles', () => ({
   ),
 }));
 
+vi.mock('@react-native-vector-icons/ionicons', () => ({
+  Ionicons: () => null,
+  default: () => null,
+  __esModule: true,
+}));
+
 describe('TransactionsSummary', () => {
   it('renders paid and missing-cost summary cards as selectable tabs', () => {
     const onTabChange = vi.fn();
+    const onPeriodPress = vi.fn();
 
     render(
       <TransactionsSummary
@@ -69,6 +76,8 @@ describe('TransactionsSummary', () => {
         colors={LIGHT_COLORS}
         estimatedProfitLabel="NGN 1500"
         onTabChange={onTabChange}
+        onPeriodPress={onPeriodPress}
+        selectedPeriod="this_month"
         summary={{ missingCosts: 2, transactions: 5 }}
       />
     );
@@ -82,13 +91,39 @@ describe('TransactionsSummary', () => {
 
     expect(paidTab).toHaveAttribute('aria-pressed', 'true');
     expect(missingCostsTab).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByText('Estimated profit this month')).toBeInTheDocument();
+    expect(screen.getByText('Estimated profit')).toBeInTheDocument();
     expect(
-      screen.getByLabelText(/Estimated profit this month: NGN 1500/i)
+      screen.getByLabelText(/Estimated profit \(This month\): NGN 1500/i)
     ).toBeInTheDocument();
 
     fireEvent.click(missingCostsTab);
 
     expect(onTabChange).toHaveBeenCalledWith('missing-costs');
+  });
+
+  it('triggers onPeriodPress when the period selector dropdown is tapped', () => {
+    const onTabChange = vi.fn();
+    const onPeriodPress = vi.fn();
+
+    render(
+      <TransactionsSummary
+        activeTab="paid"
+        colors={LIGHT_COLORS}
+        estimatedProfitLabel="NGN 1500"
+        onTabChange={onTabChange}
+        onPeriodPress={onPeriodPress}
+        selectedPeriod="last_month"
+        summary={{ missingCosts: 2, transactions: 5 }}
+      />
+    );
+
+    const periodSelector = screen.getByRole('button', {
+      name: /change period: currently showing last month/i,
+    });
+
+    expect(screen.getByText('Last month')).toBeInTheDocument();
+    fireEvent.click(periodSelector);
+
+    expect(onPeriodPress).toHaveBeenCalledTimes(1);
   });
 });

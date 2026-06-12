@@ -1,4 +1,5 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 
 // Configure Google AI provider with API key from environment
 const google = createGoogleGenerativeAI({
@@ -33,6 +34,31 @@ export const activeImageModel = google('gemini-2.5-flash-image'); // Fast, cost-
 // Legacy / Specific Aliases (Prefer activeTextModel where possible)
 export const geminiFlash = gemini20Flash; // Alias for backwards compatibility
 export const geminiPro = gemini20Flash; // Alias for pro-level tasks
+
+export function getGemmaModel() {
+  const llmServerUrl = process.env.LLM_SERVER_URL;
+  if (llmServerUrl) {
+    const openaiCompatible = createOpenAI({
+      baseURL: `${llmServerUrl.replace(/\/+$/, '')}/v1`,
+      apiKey: process.env.LLM_SERVER_BEARER || 'none',
+    });
+    return openaiCompatible(process.env.LLM_CHAT_MODEL || 'gemma4:e4b');
+  }
+
+  const ollamaUrl = process.env.OLLAMA_BASE_URL;
+  if (ollamaUrl) {
+    const ollamaCompatible = createOpenAI({
+      baseURL: `${ollamaUrl.replace(/\/+$/, '')}/v1`,
+      apiKey: process.env.OLLAMA_BASIC_AUTH || 'none',
+    });
+    return ollamaCompatible(
+      process.env.OLLAMA_STOREFRONT_MODEL || 'gemma4:e4b'
+    );
+  }
+
+  // Fallback to geminiFlash if neither LLM_SERVER_URL nor OLLAMA_BASE_URL is configured
+  return geminiFlash;
+}
 
 // Legacy models (kept for fallback)
 export const gemini25Flash = google('gemini-2.5-flash'); // Legacy Gemini 2.5 Flash

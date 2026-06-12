@@ -42,11 +42,8 @@ export default function HomeScreen() {
   );
   const [productGridLoadMoreSignal, setProductGridLoadMoreSignal] = useState(0);
 
-  const {
-    handlePermissionDeny,
-    handlePermissionGrant,
-    showPermissionModal,
-  } = useHomePermissionPrompt();
+  const { handlePermissionDeny, handlePermissionGrant, showPermissionModal } =
+    useHomePermissionPrompt();
   const shouldRenderDecorations = useDeferredFocusRender(isFocused);
 
   const {

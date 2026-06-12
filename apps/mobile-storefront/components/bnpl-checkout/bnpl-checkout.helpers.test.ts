@@ -245,9 +245,7 @@ describe('BNPL_INJECTED_JAVASCRIPT', () => {
   });
 
   it('captures window.open calls before native popup handling', () => {
-    expect(BNPL_INJECTED_JAVASCRIPT).toContain(
-      "message: 'window.open called'"
-    );
+    expect(BNPL_INJECTED_JAVASCRIPT).toContain("message: 'window.open called'");
   });
 });
 

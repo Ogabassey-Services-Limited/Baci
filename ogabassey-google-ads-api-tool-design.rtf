@@ -1,0 +1,117 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Arial;}{\f1 Courier New;}}
+\fs28\b Ogabassey Google Ads API Keyword Research Tool - Design Documentation\b0\par
+\fs20 Version: 1.0\par
+Date: June 12, 2026\par
+\par
+\b 1. Company and Product Overview\b0\par
+Ogabassey is a Nigerian ecommerce and technology retail business focused on consumer electronics, including smartphones, laptops, gaming devices, wearables, audio products, accessories, and repair-related buying guidance. Customers use Ogabassey to browse product categories, compare devices, read buying guides, understand repair/support issues, and purchase available products through the online storefront.\par
+\par
+The proposed Google Ads API integration is an internal, server-side keyword research and editorial planning tool. It is not an advertising automation product and does not create, edit, or manage Google Ads campaigns.\par
+\par
+\b 2. Business Need\b0\par
+Ogabassey publishes product pages, product comparisons, buying guides, repair explainers, and technology news for Nigerian consumers. The editorial team needs a reliable way to understand aggregate search demand before creating or updating content.\par
+\par
+The tool will use Google Ads API keyword planning data to identify relevant search terms, search-volume ranges, and competition signals for technology topics such as phone prices, laptop comparisons, gaming devices, repairs, accessories, and product launches in Nigeria.\par
+\par
+\b 3. Intended Google Ads API Use\b0\par
+The integration will use the Google Ads API in a read-only keyword research workflow. The primary service is:\par
+\par
+\f1 KeywordPlanIdeaService.GenerateKeywordIdeas\f0\par
+\par
+The tool will submit seed keywords and, where appropriate, seed URLs related to Ogabassey categories and products. Requests will be targeted to Nigeria, English language, and Google Search network where applicable. Returned keyword ideas and historical metrics will be used only for internal topic planning and content prioritization.\par
+\par
+The tool will not use the Google Ads API to:\par
+- create campaigns\par
+- modify campaigns\par
+- change bids or budgets\par
+- create or modify ads\par
+- upload customer data\par
+- run Customer Match\par
+- manage audiences\par
+- collect or profile individual users\par
+\par
+\b 4. High-Level Architecture\b0\par
+The integration runs server-side within Ogabassey's private content operations environment. Credentials are stored only on the server in private environment variables. No Google Ads API credentials are exposed to browsers, public pages, mobile apps, or client-side JavaScript.\par
+\par
+Workflow:\par
+1. Internal scheduler or authorized operator selects seed topics from the product catalog, blog backlog, Search Console query data, or editorial desk configuration.\par
+2. The keyword research module sends read-only keyword idea requests to the Google Ads API.\par
+3. The API returns aggregate keyword ideas and historical metrics such as average monthly searches and competition level.\par
+4. Results are normalized and cached internally with timestamps, source metadata, target country, language, and seed topic.\par
+5. The editorial scoring system combines Google Ads keyword data with Search Console performance, product availability, category priorities, and content-quality rules.\par
+6. The system recommends topics for human review or for internal drafting workflows.\par
+7. Drafts are still subject to internal quality checks before publication.\par
+\par
+\b 5. Data Flow\b0\par
+Input data:\par
+- Seed keywords such as "iphone price in nigeria", "samsung charging port repair", "infinix hot 70", or "best gaming laptop in nigeria"\par
+- Product/category names from the Ogabassey catalog\par
+- Public Ogabassey product/category URLs where relevant\par
+- Targeting settings such as country Nigeria and language English\par
+\par
+Google Ads API output used:\par
+- Keyword idea text\par
+- Average monthly searches or available historical search-volume metrics\par
+- Competition level\par
+- Related keyword ideas\par
+\par
+Internal derived data:\par
+- Topic demand score\par
+- Question/search-intent clusters\par
+- Draft priority ranking\par
+- Content refresh recommendations\par
+\par
+No personal user data is sent to Google Ads API as part of this workflow. No customer email addresses, phone numbers, purchase histories, or user identifiers are uploaded.\par
+\par
+\b 6. Security and Credential Handling\b0\par
+The integration uses OAuth 2.0 credentials and a Google Ads developer token. Credentials are stored server-side only in a private environment file with restricted file permissions. Access is limited to trusted operations tooling.\par
+\par
+Security controls:\par
+- Server-side execution only\par
+- No credentials in source code\par
+- No credentials in frontend bundles\par
+- No credentials exposed to browsers or public APIs\par
+- Environment file permissions restricted to the deployment user\par
+- Logs must not print tokens, refresh tokens, client secrets, or access tokens\par
+- API responses are cached as aggregate keyword research data only\par
+- Credentials can be rotated if exposed or no longer needed\par
+\par
+\b 7. Privacy and Data Protection\b0\par
+The tool processes aggregate keyword planning data. It does not process personal data from Google Ads users or Ogabassey customers. The integration does not upload user lists, emails, phone numbers, order histories, or audience data to Google Ads.\par
+\par
+The purpose is limited to aggregate market research, content planning, and improving the relevance of public ecommerce and editorial pages.\par
+\par
+\b 8. Compliance Boundaries\b0\par
+The tool is designed to comply with Google Ads API policies by limiting use to approved API access, authorized accounts, and read-only keyword planning. It does not automate ad creation or campaign management. It does not scrape Google services. It does not attempt to circumvent quota, access-level, or policy restrictions.\par
+\par
+If expanded in the future to manage campaigns, the design will be updated and the access request will be revised accordingly.\par
+\par
+\b 9. Operational Controls\b0\par
+The integration will include basic operational safeguards:\par
+- Request throttling to avoid unnecessary API usage\par
+- Caching of keyword results to reduce repeated calls\par
+- Clear timestamps for stored keyword data\par
+- Error handling for quota, permission, and token errors\par
+- Manual review before publishing generated content\par
+- Monitoring for failed API calls\par
+\par
+\b 10. Example Use Cases\b0\par
+Example 1: Smartphone launch research\par
+Seed: "Infinix Hot 70"\par
+Output: related keyword ideas and demand signals used to decide whether to create a launch article, comparison against prior generation, or buying guide.\par
+\par
+Example 2: Repair content planning\par
+Seed: "Samsung charging port repair"\par
+Output: related repair queries used to decide if an article should cover causes, diagnosis steps, pricing guidance, and when to seek professional repair.\par
+\par
+Example 3: Product comparison planning\par
+Seed: "iPhone 16 price in Nigeria" and related catalog URLs\par
+Output: demand signals used to prioritize comparison guides and product pages.\par
+\par
+\b 11. Current Scope\b0\par
+Current scope is limited to read-only keyword research using Google Ads API keyword planning services. The integration will support Ogabassey's internal SEO, editorial, and ecommerce product discovery workflows.\par
+\par
+\b 12. Future Scope\b0\par
+Possible future improvements include dashboards showing category demand, alerts for rising product searches, and better integration with Search Console data. Any future advertising campaign management functionality would require separate design review and policy evaluation.\par
+}

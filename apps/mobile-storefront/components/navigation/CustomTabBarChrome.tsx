@@ -22,7 +22,10 @@ import Colors, { BRAND } from '@/constants/Colors';
 import { CustomTabBarItem, type CustomTabOptions } from './CustomTabBarItem';
 import { useWarmTabScreens } from './useWarmTabScreens';
 
-const HAS_EXPO_BLUR = UIManager.hasViewManagerConfig('ExpoBlurView');
+const HAS_EXPO_BLUR =
+  typeof UIManager?.hasViewManagerConfig === 'function'
+    ? UIManager.hasViewManagerConfig('ExpoBlurView')
+    : false;
 const BlurContainer = HAS_EXPO_BLUR ? BlurView : View;
 const CAPSULE_WIDTH = 36;
 const CAPSULE_HEIGHT = 36;

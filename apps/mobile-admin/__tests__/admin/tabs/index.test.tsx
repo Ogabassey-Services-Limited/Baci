@@ -70,7 +70,11 @@ vi.mock('@/components/dashboard', () => ({
   ProgressCard: () => <div>progress-card</div>,
   QuickActionButton: ({ label }: { label: string }) => <div>{label}</div>,
   RevenueChart: () => <div>revenue-chart</div>,
-  StatCard: ({ label }: { label: string }) => <div>{label}</div>,
+  StatCard: ({ label, value }: { label: string; value: string | number }) => (
+    <div>
+      {label}: {value}
+    </div>
+  ),
   WelcomeHeader: () => <div>welcome-header</div>,
 }));
 
@@ -197,8 +201,8 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
 
     screen.getByText('welcome-header');
-    screen.getByText('Visits');
-    screen.getByText('New');
+    screen.getByText(/Visits/);
+    screen.getByText(/New/);
     expect(mocks.safeAreaEdges).toEqual(['top']);
   });
 
@@ -207,9 +211,15 @@ describe('HomeScreen', () => {
 
     render(<HomeScreen />);
 
-    screen.getByText('Visits');
-    screen.getByText('New');
-    expect(screen.queryByText('Visits (all stores)')).toBeNull();
-    expect(screen.queryByText('New (all stores)')).toBeNull();
+    screen.getByText('Visits: 5.7k');
+    screen.getByText('New: 0');
+    expect(screen.queryByText(/Visits \(all stores\)/)).toBeNull();
+    expect(screen.queryByText(/New \(all stores\)/)).toBeNull();
+  });
+
+  it('formats metrics with 2 decimal places and strips trailing zeros', () => {
+    render(<HomeScreen />);
+
+    screen.getByText('Visits: 5.7k');
   });
 });

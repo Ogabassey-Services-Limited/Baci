@@ -42,8 +42,12 @@ export interface OrderItem {
   product_id: string;
   name: string;
   product_name: string;
+  category?: string | null;
+  category_slug?: string | null;
   condition?: string;
   has_assurance?: boolean;
+  product_category?: string | null;
+  product_category_slug?: string | null;
   variant_name?: string;
   quantity: number;
   price: number;

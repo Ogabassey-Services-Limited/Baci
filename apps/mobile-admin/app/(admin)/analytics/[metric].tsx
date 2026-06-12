@@ -1,13 +1,16 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { G, Rect, Text as SvgText } from 'react-native-svg';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';

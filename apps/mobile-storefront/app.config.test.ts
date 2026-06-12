@@ -120,19 +120,19 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
     expect(config.extra?.merchantDomain).toBe('shop.example.com');
   });
 
-  it.each(['', '   '])(
-    'falls back to the default merchant domain when the configured value is %p',
-    (merchantDomain) => {
-      const appConfig = loadAppConfigWithEnv({
-        EXPO_PUBLIC_MERCHANT_DOMAIN: merchantDomain,
-        STOREFRONT_FACEBOOK_APP_ID: '123456789',
-        STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
-      });
-      const config = renderConfig(appConfig);
+  it.each([
+    '',
+    '   ',
+  ])('falls back to the default merchant domain when the configured value is %p', (merchantDomain) => {
+    const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_MERCHANT_DOMAIN: merchantDomain,
+      STOREFRONT_FACEBOOK_APP_ID: '123456789',
+      STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+    });
+    const config = renderConfig(appConfig);
 
-      expect(config.extra?.merchantDomain).toBe('ogabassey.com');
-    }
-  );
+    expect(config.extra?.merchantDomain).toBe('ogabassey.com');
+  });
 
   it('fails fast when Facebook SDK credentials are only partially configured', () => {
     expect(() =>

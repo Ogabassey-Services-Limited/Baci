@@ -2,11 +2,14 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+  StatusBar,
+} from 'react-native';
 import { StoreSettingsDetailsCard } from '@/components/store-settings/StoreSettingsDetailsCard';
 import { StoreSubscriptionCard } from '@/components/store-settings/StoreSubscriptionCard';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';

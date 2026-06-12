@@ -168,7 +168,7 @@ vi.mock('@/components/ui/ScreenSkeleton', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Pressable: ({
     children,
     onPress,

@@ -2,12 +2,15 @@ import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
-import { Linking,
+import {
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';

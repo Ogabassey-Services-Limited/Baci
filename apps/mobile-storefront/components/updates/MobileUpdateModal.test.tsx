@@ -61,7 +61,9 @@ describe('MobileUpdateModal', () => {
       />
     );
 
-    expect(screen.getByText('Install the latest app to continue.')).toBeTruthy();
+    expect(
+      screen.getByText('Install the latest app to continue.')
+    ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Open store' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Later' })).toBeNull();
   });

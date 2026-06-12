@@ -115,12 +115,8 @@ describe('fetchOrderById staff metadata', () => {
   });
 
   it('resolves staff-created order metadata when staff records exist', async () => {
-    supabaseMock.setTableResult('profiles', {
-      data: { display_name: 'Ada Merchant', full_name: null },
-      error: null,
-    });
     supabaseMock.setTableResult('staff_members', {
-      data: { id: 'staff-1' },
+      data: { id: 'staff-1', name: 'Ada Merchant', status: 'active' },
       error: null,
     });
     supabaseMock.setTableResult('virtual_terminals', {
@@ -151,32 +147,6 @@ describe('fetchOrderById staff metadata', () => {
         staff_terminal: null,
       })
     );
-  });
-
-  it('logs profile lookup errors but still resolves the order', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {
-        // Silence expected log-and-skip auxiliary lookup errors.
-      });
-
-    try {
-      supabaseMock.setTableResult('profiles', {
-        data: null,
-        error: { message: 'Profile lookup failed' },
-      });
-
-      await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
-        expect.objectContaining({ recorded_by_name: null })
-      );
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'useOrderDetails profiles lookup error:',
-        expect.objectContaining({ message: 'Profile lookup failed' })
-      );
-    } finally {
-      consoleErrorSpy.mockRestore();
-    }
   });
 
   it('logs staff member lookup errors but still resolves the order', async () => {
@@ -214,7 +184,7 @@ describe('fetchOrderById staff metadata', () => {
 
     try {
       supabaseMock.setTableResult('staff_members', {
-        data: { id: 'staff-1' },
+        data: { id: 'staff-1', status: 'active' },
         error: null,
       });
       supabaseMock.setTableResult('virtual_terminals', {

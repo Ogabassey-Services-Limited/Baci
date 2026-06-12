@@ -24,7 +24,7 @@ describe('deploy crontab', () => {
     );
   });
 
-  it('schedules the agentic commerce health cron through run-web-cron', () => {
+  it('schedules the agentic commerce health cron as a direct VPS script', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 
     assert.match(
@@ -33,7 +33,7 @@ describe('deploy crontab', () => {
     );
     assert.match(
       deployScript,
-      /\$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/agentic-commerce-health/
+      /export NODE_ENV=production && cd \$REMOTE_DIR && \$REMOTE_DIR\/bin\/agentic-commerce-health\.sh/
     );
     assert.match(
       deployScript,
@@ -85,6 +85,69 @@ describe('deploy crontab', () => {
     assert.match(
       deployScript,
       />> \$REMOTE_DIR\/logs\/cleanup-agentic-request-records\.log 2>&1/
+    );
+  });
+
+  it('schedules abandoned order cleanup as a direct VPS worker', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /0 1\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/cleanup-orders\.lock/
+    );
+    assert.match(
+      deployScript,
+      /\$NODE_BIN \$REMOTE_DIR\/jobs\/cleanup-orders\.mjs/
+    );
+    assert.doesNotMatch(
+      deployScript,
+      /jobs\/run-web-cron\.mjs \/api\/cron\/cleanup-orders/
+    );
+    assert.match(
+      deployScript,
+      />> \$REMOTE_DIR\/logs\/cleanup-orders\.log 2>&1/
+    );
+  });
+
+  it('schedules inventory push alerts as a direct repo-backed VPS script', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /0 \*\/6\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/inventory-push-alerts\.lock/
+    );
+    assert.match(
+      deployScript,
+      /export NODE_ENV=production && cd \$REMOTE_DIR && \$REMOTE_DIR\/bin\/inventory-push-alerts\.sh/
+    );
+    assert.doesNotMatch(
+      deployScript,
+      /jobs\/run-web-cron\.mjs \/api\/inventory\/push-alerts/
+    );
+    assert.match(
+      deployScript,
+      />> \$REMOTE_DIR\/logs\/inventory-push-alerts\.log 2>&1/
+    );
+  });
+
+  it('gates scheduled blog publishing before invoking the web cron', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /\*\/15 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/publish-scheduled-posts\.lock/
+    );
+    assert.match(
+      deployScript,
+      /\$NODE_BIN \$REMOTE_DIR\/jobs\/publish-scheduled-posts-if-due\.mjs/
+    );
+    assert.doesNotMatch(
+      deployScript,
+      /jobs\/run-web-cron\.mjs \/api\/cron\/publish-scheduled-posts/
+    );
+    assert.match(
+      deployScript,
+      />> \$REMOTE_DIR\/logs\/publish-scheduled-posts\.log 2>&1/
     );
   });
 });

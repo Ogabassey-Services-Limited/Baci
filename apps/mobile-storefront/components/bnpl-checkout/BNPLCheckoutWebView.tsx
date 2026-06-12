@@ -129,11 +129,11 @@ export function BNPLCheckoutWebView({
         mixedContentMode="never"
         allowsInlineMediaPlayback={true}
         /*
-         * RATIONALE: Credit Direct / Mono checkout runs cross-origin identity verification (facial recognition) 
+         * RATIONALE: Credit Direct / Mono checkout runs cross-origin identity verification (facial recognition)
          * on domains like 'connect.mono.co' or 'checkout.creditdirect.ng'.
          *
-         * Since the initial loaded URL is on the Baci domain (e.g. 'usebaci.com'), 'grantIfSameHostElsePrompt' 
-         * falls back to 'prompt'. On Android WebView, the prompt is silently rejected/ignored because the native 
+         * Since the initial loaded URL is on the Baci domain (e.g. 'usebaci.com'), 'grantIfSameHostElsePrompt'
+         * falls back to 'prompt'. On Android WebView, the prompt is silently rejected/ignored because the native
          * client does not render standard browser permission prompt popups.
          *
          * SECURITY CONTROL & LIMITATIONS: 'grant' is safe here because we enforce strict defense-in-depth:
@@ -141,10 +141,10 @@ export function BNPLCheckoutWebView({
          * 2. The WebView itself is restricted via 'onShouldStartLoadWithRequest' and 'onOpenWindow',
          *    which abort navigation/load for any domains outside the whitelist in 'isAllowedBnplPopupUrl'.
          *
-         * NOTE ON ANDROID IFRAMES: On Android, react-native-webview does not trigger onShouldStartLoadWithRequest 
-         * for iframe navigations. This means sub-frames within whitelisted domains are not filtered by our local 
-         * whitelist checks and will automatically inherit camera access. To mitigate this risk, the whitelisted 
-         * providers (connect.mono.co, checkout.creditdirect.ng) must enforce strict Content Security Policies (CSP) 
+         * NOTE ON ANDROID IFRAMES: On Android, react-native-webview does not trigger onShouldStartLoadWithRequest
+         * for iframe navigations. This means sub-frames within whitelisted domains are not filtered by our local
+         * whitelist checks and will automatically inherit camera access. To mitigate this risk, the whitelisted
+         * providers (connect.mono.co, checkout.creditdirect.ng) must enforce strict Content Security Policies (CSP)
          * to prevent embedding untrusted third-party frames.
          */
         mediaCapturePermissionGrantType={

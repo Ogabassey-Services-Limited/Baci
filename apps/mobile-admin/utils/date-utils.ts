@@ -24,20 +24,13 @@ export function getRelativeDateLabel(
     return 'Yesterday';
   }
 
-  // Calculate the most recent Sunday (start of current week)
-  const refDay = referenceDate.getDay(); // 0 = Sunday, 6 = Saturday
-  const daysSinceSunday = refDay; // How many days since last Sunday
-  const lastSunday = new Date(referenceDate);
-  lastSunday.setDate(referenceDate.getDate() - daysSinceSunday);
-  lastSunday.setHours(0, 0, 0, 0);
-
-  // If the date is on or after last Sunday, show day name
-  if (date >= lastSunday) {
-    return format(date, 'EEEE'); // Full day name: "Thursday", "Wednesday"
+  // Check if year is different from reference year
+  if (date.getFullYear() !== referenceDate.getFullYear()) {
+    return format(date, 'MMM d, yyyy');
   }
 
-  // For older dates, show abbreviated date format
-  return format(date, 'EEE, MMM d'); // "Mon, Jan 26"
+  // Show date format without day name (e.g. "Jun 2")
+  return format(date, 'MMM d');
 }
 
 /**

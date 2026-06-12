@@ -56,7 +56,9 @@ export function CheckoutLocationPickers({
   const typedCity = citySearch.trim();
   const typedCityLower = typedCity.toLowerCase();
   const filteredCities = typedCity
-    ? shippingCities.filter((city) => city.toLowerCase().includes(typedCityLower))
+    ? shippingCities.filter((city) =>
+        city.toLowerCase().includes(typedCityLower)
+      )
     : shippingCities;
   const exactCityMatch =
     typedCity.length > 0

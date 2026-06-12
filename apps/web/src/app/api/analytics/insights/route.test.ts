@@ -24,7 +24,7 @@ vi.mock('@/ai/provider', () => ({
     insights: { requests: 5, windowMs: 60_000 },
   },
   checkRateLimit: vi.fn(),
-  geminiFlash: { modelId: 'gemini-2.0-flash' },
+  getGemmaModel: vi.fn(() => ({ modelId: 'gemma4:e4b' })),
   withRetry: vi.fn((operation: () => Promise<unknown>) => operation()),
 }));
 
@@ -165,7 +165,7 @@ describe('GET /api/analytics/insights', () => {
     expect(generateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         maxRetries: 0,
-        timeout: 10_000,
+        timeout: 45_000,
       })
     );
   });

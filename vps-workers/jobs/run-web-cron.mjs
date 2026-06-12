@@ -24,14 +24,6 @@ const WEB_CRON_CONFIG = new Map([
     '/api/cron/merchant-sales-summaries',
     { method: 'GET', timeoutMs: 5 * 60_000 },
   ],
-  [
-    '/api/cron/reconcile-vtu-processing',
-    { method: 'GET', timeoutMs: 6 * 60_000 },
-  ],
-  [
-    '/api/cron/agentic-commerce-health',
-    { method: 'GET', timeoutMs: 5 * 60_000 },
-  ],
   ['/api/cron/wallet-payouts', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/inventory/push-alerts', { method: 'GET', timeoutMs: 10 * 60_000 }],
 ]);

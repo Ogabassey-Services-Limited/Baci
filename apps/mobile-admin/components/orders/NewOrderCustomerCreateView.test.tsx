@@ -346,10 +346,7 @@ describe('NewOrderCustomerCreateView', () => {
     expect(emailInput).toHaveFocus();
 
     expect(emailInput).toHaveAttribute('data-return-key-type', 'done');
-    expect(emailInput).toHaveAttribute(
-      'data-submit-behavior',
-      'blurAndSubmit'
-    );
+    expect(emailInput).toHaveAttribute('data-submit-behavior', 'blurAndSubmit');
     fireEvent.keyDown(emailInput, { key: 'Enter' });
     expect(keyboardState.dismiss).toHaveBeenCalledTimes(1);
   });

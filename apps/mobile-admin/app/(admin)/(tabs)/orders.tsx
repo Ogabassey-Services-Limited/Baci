@@ -18,8 +18,10 @@ import Ionicons, {
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
-import { ActivityIndicator,
+import { FlashList } from '@shopify/flash-list';
+import { useRef, useState, useMemo } from 'react';
+import {
+  ActivityIndicator,
   Alert,
   Animated,
   type NativeScrollEvent,
@@ -27,13 +29,12 @@ import { ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
-  SectionList,
-  type SectionListData,
-  type SectionListRenderItemInfo,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import OrderReportModal from '@/components/ui/OrderReportModal';
@@ -43,12 +44,15 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderCounts } from '@/hooks/useOrderCounts';
 import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
+import { useAiInsights } from '@/hooks/useAiInsights';
+import { triggerLightHaptic } from '@/components/ui/haptics';
 import { getOrdersViewState } from '@/lib/orders-view-state';
-import {
-  groupOrdersByRelativeDate,
-  type OrderSection,
-} from '@/utils/date-utils';
+import { groupOrdersByRelativeDate } from '@/utils/date-utils';
 import { orderExportTools } from '@/utils/export-orders';
+
+type OrdersListRow =
+  | { type: 'header'; id: string; title: string }
+  | { type: 'item'; id: string; order: Order };
 
 // Helper functions moved outside component
 const formatPrice = (amount: number, currency: string = 'NGN') => {
@@ -149,7 +153,11 @@ function OrderItem({
               color={sourceConfig.color}
             />
           </View>
-          <Text style={[styles.customerName, { color: colors.text }]}>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.customerName, { color: colors.text }]}
+          >
             {item.customer_name}
           </Text>
         </View>
@@ -225,7 +233,6 @@ export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
   const queryClient = useQueryClient();
   const {
-    storeUrl,
     merchant,
     isLoading: isMerchantLoading,
     error: merchantError,
@@ -244,6 +251,16 @@ export default function OrdersScreen() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
+  const [completedTodos, setCompletedTodos] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  // AI Insights hook
+  const {
+    data: aiInsightsData,
+    isLoading: isAiInsightsLoading,
+    refetch: refetchAiInsights,
+  } = useAiInsights();
 
   // Status update mutation
   const updateStatus = useUpdateOrderStatus();
@@ -627,6 +644,7 @@ export default function OrdersScreen() {
 
   const handleRetry = () => {
     void queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    void refetchAiInsights();
 
     if (!merchant?.id) {
       return;
@@ -663,9 +681,7 @@ export default function OrdersScreen() {
 
   const merchantCurrency = merchant?.payout_currency || 'NGN';
 
-  const renderOrder = ({
-    item,
-  }: SectionListRenderItemInfo<Order, OrderSection>) => (
+  const renderOrder = ({ item }: { item: Order }) => (
     <OrderItem
       item={item}
       currency={merchantCurrency}
@@ -677,25 +693,46 @@ export default function OrdersScreen() {
     />
   );
 
-  const orderKeyExtractor = (item: Order) => item.id;
+  // Flatten orders sections into a flat list array.
+  // Memoized using useMemo to ensure referential stability and prevent layout/rendering churn.
+  const flatListData = useMemo(() => {
+    const sections = groupOrdersByRelativeDate(allOrders);
+    const flatListData: OrdersListRow[] = [];
+    sections.forEach((section, sectionIndex) => {
+      if (section.data.length === 0) return;
 
-  // Group orders by relative date for section list
-  const sections = groupOrdersByRelativeDate(allOrders);
+      flatListData.push({
+        type: 'header',
+        id: `header-${section.title}-${sectionIndex}`,
+        title: section.title,
+      });
+      section.data.forEach((order) => {
+        flatListData.push({
+          type: 'item',
+          id: order.id,
+          order,
+        });
+      });
+    });
+    return flatListData;
+  }, [allOrders]);
 
-  // Section header renderer
-  const renderSectionHeader = ({
-    section,
-  }: {
-    section: SectionListData<Order, OrderSection>;
-  }) => (
-    <View
-      style={[styles.sectionHeader, { backgroundColor: colors.background }]}
-    >
-      <Text style={[styles.sectionHeaderText, { color: colors.textSecondary }]}>
-        {section.title}
-      </Text>
-    </View>
-  );
+  const renderFlatListItem = ({ item }: { item: OrdersListRow }) => {
+    if (item.type === 'header') {
+      return (
+        <View
+          style={[styles.sectionHeader, { backgroundColor: colors.background }]}
+        >
+          <Text
+            style={[styles.sectionHeaderText, { color: colors.textSecondary }]}
+          >
+            {item.title}
+          </Text>
+        </View>
+      );
+    }
+    return renderOrder({ item: item.order });
+  };
 
   const FilterTab = ({
     status,
@@ -783,7 +820,7 @@ export default function OrdersScreen() {
       </View>
 
       {/* Insight Card */}
-      {showInsight && pendingCount > 0 ? (
+      {showInsight ? (
         <View
           style={[
             styles.insightCard,
@@ -794,19 +831,19 @@ export default function OrdersScreen() {
           <View style={styles.insightHeader}>
             <View
               style={{
-                width: 32,
-                height: 32,
+                width: 24,
+                height: 24,
                 borderRadius: RADIUS.sm,
                 backgroundColor: colors.goldLight,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Ionicons name="sparkles" size={20} color={colors.gold} />
+              <Ionicons name="sparkles" size={14} color={colors.gold} />
             </View>
             <View style={styles.storeInfo}>
               <Text style={[styles.storeName, { color: colors.gold }]}>
-                {storeUrl}
+                AI INSIGHTS
               </Text>
             </View>
             <Pressable
@@ -827,31 +864,147 @@ export default function OrdersScreen() {
                   { backgroundColor: colors.backgroundLight },
                 ]}
               >
-                <Ionicons name="close" size={16} color={colors.textMuted} />
+                <Ionicons name="close" size={12} color={colors.textMuted} />
               </View>
             </Pressable>
           </View>
-          <Text
-            style={[styles.insightMessage, { color: colors.textSecondary }]}
-          >
-            You have {pendingCount} pending orders awaiting confirmation.
-            Process them to keep customers happy!
-          </Text>
-          <Pressable
-            style={[styles.insightLink, { minHeight: 44 }]}
-            onPress={() => {
-              setStatusFilter('pending');
-              setShowInsight(false);
-            }}
-            accessibilityLabel={`View ${pendingCount} pending orders`}
-            accessibilityRole="button"
-            accessibilityHint="Filters orders to show only pending orders"
-          >
-            <Text style={[styles.insightLinkText, { color: colors.gold }]}>
-              View pending
-            </Text>
-            <Ionicons name="arrow-forward" size={14} color={colors.gold} />
-          </Pressable>
+
+          {isAiInsightsLoading ? (
+            <View style={{ paddingVertical: SPACING.md, alignItems: 'center' }}>
+              <ActivityIndicator color={colors.gold} size="small" />
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontSize: TYPOGRAPHY.size.xs,
+                  marginTop: SPACING.sm,
+                  fontFamily: TYPOGRAPHY.fontFamily.medium,
+                }}
+              >
+                Analyzing sales context...
+              </Text>
+            </View>
+          ) : aiInsightsData?.insights && aiInsightsData.insights.length > 0 ? (
+            <View>
+              {/* Main Insight Title & Description */}
+              <View style={{ marginBottom: SPACING.sm }}>
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontSize: TYPOGRAPHY.size.sm,
+                    fontFamily: TYPOGRAPHY.fontFamily.bold,
+                    marginBottom: 4,
+                  }}
+                >
+                  {aiInsightsData.insights[0].title}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: TYPOGRAPHY.size.xs,
+                    fontFamily: TYPOGRAPHY.fontFamily.regular,
+                    lineHeight: 18,
+                  }}
+                >
+                  {aiInsightsData.insights[0].description}
+                </Text>
+              </View>
+
+              {/* Actionable TODOs Checklist */}
+              <View
+                style={{
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border,
+                  paddingTop: SPACING.sm,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.gold,
+                    fontSize: TYPOGRAPHY.size.xs,
+                    fontFamily: TYPOGRAPHY.fontFamily.bold,
+                    marginBottom: 4,
+                  }}
+                >
+                  TODOS FOR TODAY:
+                </Text>
+                {aiInsightsData.insights
+                  .map((insight) => insight.action)
+                  .filter(Boolean)
+                  .map((todoText, idx) => {
+                    const isCompleted = !!completedTodos[todoText!];
+                    return (
+                      <Pressable
+                        key={idx}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingVertical: 4,
+                          gap: SPACING.sm,
+                        }}
+                        onPress={() => {
+                          triggerLightHaptic();
+                          setCompletedTodos((prev) => ({
+                            ...prev,
+                            [todoText!]: !isCompleted,
+                          }));
+                        }}
+                        accessibilityLabel={`Todo item: ${todoText}. ${isCompleted ? 'Completed' : 'Not completed'}`}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: isCompleted }}
+                      >
+                        <Ionicons
+                          name={isCompleted ? 'checkbox' : 'square-outline'}
+                          size={18}
+                          color={
+                            isCompleted ? colors.success : colors.textMuted
+                          }
+                        />
+                        <Text
+                          style={{
+                            flex: 1,
+                            fontSize: TYPOGRAPHY.size.xs,
+                            fontFamily: TYPOGRAPHY.fontFamily.medium,
+                            color: isCompleted
+                              ? colors.textMuted
+                              : colors.textSecondary,
+                            textDecorationLine: isCompleted
+                              ? 'line-through'
+                              : 'none',
+                          }}
+                        >
+                          {todoText}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+              </View>
+            </View>
+          ) : (
+            /* Fallback to static count banner if no AI insights or error */
+            <View>
+              <Text
+                style={[styles.insightMessage, { color: colors.textSecondary }]}
+              >
+                You have {pendingCount} pending orders awaiting confirmation.
+                Process them to keep customers happy!
+              </Text>
+              <Pressable
+                style={[styles.insightLink, { minHeight: 44 }]}
+                onPress={() => {
+                  setStatusFilter('pending');
+                  setShowInsight(false);
+                }}
+                accessibilityLabel={`View ${pendingCount} pending orders`}
+                accessibilityRole="button"
+                accessibilityHint="Filters orders to show only pending orders"
+              >
+                <Text style={[styles.insightLinkText, { color: colors.gold }]}>
+                  View pending
+                </Text>
+                <Ionicons name="arrow-forward" size={14} color={colors.gold} />
+              </Pressable>
+            </View>
+          )}
         </View>
       ) : null}
 
@@ -950,16 +1103,13 @@ export default function OrdersScreen() {
         </View>
       ) : null}
 
-      <SectionList
-        sections={sections}
-        renderItem={renderOrder}
-        renderSectionHeader={renderSectionHeader}
-        keyExtractor={orderKeyExtractor}
-        stickySectionHeadersEnabled={true}
+      <FlashList
+        data={flatListData}
+        renderItem={renderFlatListItem}
+        getItemType={(item) => item.type}
+        ItemSeparatorComponent={() => <View style={{ height: SPACING.md }} />}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={5}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
@@ -1326,13 +1476,14 @@ const styles = StyleSheet.create({
   insightCard: {
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
   insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.xs,
   },
   storeInfo: {
     flex: 1,
@@ -1343,8 +1494,8 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   dismissButton: {
-    width: 28,
-    height: 28,
+    width: 20,
+    height: 20,
     borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1389,7 +1540,6 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     paddingTop: SPACING.sm,
     paddingBottom: 80,
-    gap: SPACING.md,
   },
   orderCard: {
     borderRadius: RADIUS.lg,
@@ -1405,6 +1555,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
+    flex: 1,
+    marginRight: SPACING.sm,
   },
   sourceIcon: {
     width: 28,
@@ -1452,6 +1604,7 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    flex: 1,
   },
   orderFooter: {
     flexDirection: 'row',
@@ -1514,6 +1667,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: 2,
     paddingTop: SPACING.xs,
+    zIndex: 10,
   },
   sectionHeaderText: {
     fontSize: TYPOGRAPHY.size.sm,

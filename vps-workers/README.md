@@ -53,9 +53,43 @@ Scheduled processing is owned by the VPS cron entry for
 `bin/process-import-jobs.sh`; do not add a Vercel Function or Vercel Cron for
 `/api/import-jobs/worker`.
 
+Abandoned order cleanup is owned by `jobs/cleanup-orders.mjs`. It calls the
+`mark_abandoned_orders` RPC directly from the VPS service-role worker, so the
+daily cleanup no longer invokes `/api/cron/cleanup-orders` on Vercel.
+
 Import processing can run longer and use more CPU or memory than a web request
 should. Keeping it on the VPS isolates Bumpa imports from storefront traffic and
 avoids Vercel Function execution limits.
+
+VTU processing reconciliation is also owned by the VPS cron entry for
+`bin/reconcile-vtu-processing.sh`. It runs
+`apps/web/src/scripts/reconcile-vtu-processing.ts` directly from the full Baci
+checkout so the five-minute reconciliation sweep does not invoke a Vercel
+Function.
+
+Agentic commerce health monitoring is owned by the VPS cron entry for
+`bin/agentic-commerce-health.sh`. It runs
+`apps/web/src/scripts/agentic-commerce-health.ts` directly from the full Baci
+checkout so the 15-minute agent-readiness monitor does not invoke a Vercel
+Function. The wrapper sets Node's `react-server` condition so Next's
+server-only modules resolve to their server-side marker export under `tsx`.
+The direct VPS script skips the synthetic support-chat HTTP probe by default so
+the monitor does not create Vercel `/api/chat` invocations; set
+`AGENTIC_HEALTH_INCLUDE_SUPPORT_CHAT=true` only after `/api/chat` is also served
+outside Vercel or you explicitly want that probe.
+
+Inventory low-stock push alerts are owned by the VPS cron entry for
+`bin/inventory-push-alerts.sh`. It runs
+`apps/web/src/scripts/inventory-push-alerts.ts` directly from the full Baci
+checkout, preserving the app's Expo push notification and ticket-recording
+logic without invoking `/api/inventory/push-alerts` on Vercel.
+
+Scheduled blog publishing is gated by
+`jobs/publish-scheduled-posts-if-due.mjs`. The worker checks Supabase for
+`status = scheduled` posts whose `published_at` is due. Empty 15-minute checks
+exit on the VPS without invoking a Vercel Function. When posts are due, it calls
+the retained `/api/cron/publish-scheduled-posts` route so Next cache
+revalidation and Zoho Campaigns dispatch still run in the web runtime.
 
 `tsx` intentionally remains an `apps/web` production dependency while these
 cron entrypoints execute TypeScript in production. Move it back to a
@@ -117,6 +151,7 @@ Variable purposes:
 - `EXPO_ACCESS_TOKEN`: Expo token used for push notification delivery and related mobile app operations.
 - `JUMIA_CLIENT_ID`: Jumia application/client identifier used when refreshing integration credentials.
 - `BACI_WEB_BASE_URL`: HTTPS base URL for web cron endpoint calls, for example `https://ogabassey.com`.
+- `CLEANUP_ORDERS_HOURS_THRESHOLD`: Optional abandoned-order threshold for `jobs/cleanup-orders.mjs`. Defaults to `72`.
 - `CRON_SECRET`: Shared secret that must match the web deployment and protect cron endpoints.
 - `OLLAMA_STOREFRONT_BASE_URL`: Local/private Ollama base URL for async storefront generation. Use `http://localhost:11434` when Ollama runs on the same VPS.
 - `OLLAMA_STOREFRONT_MODEL`: Gemma model used for storefront layout generation.
@@ -162,13 +197,9 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 `GET`:
 
 - `/api/ai-jobs/worker`
-- `/api/cron/agentic-commerce-health`
-- `/api/cron/cleanup-orders`
 - `/api/cron/process-settlements`
-- `/api/cron/publish-scheduled-posts`
 - `/api/cron/vtu-cashback-summaries`
 - `/api/cron/wallet-payouts`
-- `/api/inventory/push-alerts`
 
 `jobs/cleanup-agentic-request-records.mjs` is a direct database maintenance
 worker scheduled hourly at minute 10. It uses `SUPABASE_SERVICE_ROLE_KEY` only

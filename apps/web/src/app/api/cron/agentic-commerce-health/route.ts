@@ -81,6 +81,31 @@ interface AgenticCommerceHealthMerchantResult {
   universal_cart?: UniversalCartReadinessResult;
 }
 
+interface AgenticCommerceHealthSummary {
+  checked_at: string;
+  merchant_count: number;
+  merchants: AgenticCommerceHealthMerchantResult[];
+  status: AgenticCommerceHealthStatus;
+  support_chat:
+    | Awaited<ReturnType<typeof checkAgentCommerceSupportChatHealth>>
+    | AgenticCommerceSupportChatSkippedResult;
+}
+
+interface RunAgenticCommerceHealthMonitorOptions {
+  includeSupportChat?: boolean;
+  slugs?: string[];
+  supabase?: SupabaseClient;
+}
+
+interface AgenticCommerceSupportChatSkippedResult {
+  issue_count: 0;
+  issues: [];
+  response_time_ms: 0;
+  skipped: true;
+  status: 'ok';
+  url: null;
+}
+
 function normalizeMerchantSlug(value: string) {
   return value.trim().toLowerCase();
 }
@@ -280,6 +305,75 @@ async function buildMerchantHealthResult({
   }
 }
 
+export async function runAgenticCommerceHealthMonitor({
+  includeSupportChat = true,
+  slugs = getMonitorSlugsFromEnv(),
+  supabase = createAdminClient(),
+}: RunAgenticCommerceHealthMonitorOptions = {}): Promise<AgenticCommerceHealthSummary> {
+  const merchantsBySlug = await fetchMonitoredMerchants(supabase, slugs);
+  const primaryDomainsByMerchantId = await fetchPrimaryAgenticMerchantDomains(
+    supabase,
+    Array.from(merchantsBySlug.values(), (merchant) => merchant.id)
+  );
+  const [merchants, supportChat] = await Promise.all([
+    Promise.all(
+      slugs.map((slug) => {
+        const merchant = merchantsBySlug.get(slug);
+        return buildMerchantHealthResult({
+          merchant: merchant
+            ? {
+                ...merchant,
+                custom_domain:
+                  primaryDomainsByMerchantId.get(merchant.id) ?? null,
+              }
+            : undefined,
+          slug,
+          supabase,
+        });
+      })
+    ),
+    includeSupportChat
+      ? checkAgentCommerceSupportChatHealth()
+      : Promise.resolve({
+          issue_count: 0,
+          issues: [],
+          response_time_ms: 0,
+          skipped: true,
+          status: 'ok' as const,
+          url: null,
+        }),
+  ]);
+  const status = getOverallStatus(merchants);
+  const summary = {
+    checked_at: new Date().toISOString(),
+    merchant_count: merchants.length,
+    merchants,
+    status,
+    support_chat: supportChat,
+  };
+
+  if (supportChat.status === 'attention') {
+    logger.warn({
+      message: 'Support chat health monitor needs attention',
+      support_chat: supportChat,
+    });
+  }
+
+  if (status === 'attention') {
+    logger.warn({
+      message: 'Agentic commerce health monitor needs attention',
+      summary,
+    });
+  } else {
+    logger.info({
+      message: 'Agentic commerce health monitor completed',
+      summary,
+    });
+  }
+
+  return summary;
+}
+
 export async function GET(request: NextRequest) {
   const cronSecret = getCronSecret();
   if (!cronSecret) {
@@ -301,67 +395,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const supabase = createAdminClient();
-
   try {
-    const merchantsBySlug = await fetchMonitoredMerchants(
-      supabase,
-      monitorRequest.slugs
-    );
-    const primaryDomainsByMerchantId = await fetchPrimaryAgenticMerchantDomains(
-      supabase,
-      Array.from(merchantsBySlug.values(), (merchant) => merchant.id)
-    );
-    const [merchants, supportChat] = await Promise.all([
-      Promise.all(
-        monitorRequest.slugs.map((slug) => {
-          const merchant = merchantsBySlug.get(slug);
-          return buildMerchantHealthResult({
-            merchant: merchant
-              ? {
-                  ...merchant,
-                  custom_domain:
-                    primaryDomainsByMerchantId.get(merchant.id) ?? null,
-                }
-              : undefined,
-            slug,
-            supabase,
-          });
-        })
-      ),
-      checkAgentCommerceSupportChatHealth(),
-    ]);
-    const status = getOverallStatus(merchants);
-    const summary = {
-      checked_at: new Date().toISOString(),
-      merchant_count: merchants.length,
-      merchants,
-      status,
-      support_chat: supportChat,
-    };
-
-    if (supportChat.status === 'attention') {
-      logger.warn({
-        message: 'Support chat health monitor needs attention',
-        support_chat: supportChat,
-      });
-    }
-
-    if (status === 'attention') {
-      logger.warn({
-        message: 'Agentic commerce health monitor needs attention',
-        summary,
-      });
-    } else {
-      logger.info({
-        message: 'Agentic commerce health monitor completed',
-        summary,
-      });
-    }
+    const summary = await runAgenticCommerceHealthMonitor({
+      slugs: monitorRequest.slugs,
+    });
 
     return NextResponse.json(summary, {
       status:
-        status === 'attention' && monitorRequest.failOnAttention ? 503 : 200,
+        summary.status === 'attention' && monitorRequest.failOnAttention
+          ? 503
+          : 200,
     });
   } catch (error) {
     logger.error({

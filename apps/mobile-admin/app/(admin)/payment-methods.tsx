@@ -1,12 +1,15 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
-import { Alert,
+import {
+  Alert,
   Linking,
   Pressable,
   ScrollView,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PaymentMethodsSection } from '@/components/payment-methods/PaymentMethodsSection';
 import {

@@ -180,8 +180,23 @@ describe('analytics-period', () => {
     expect(getAnalyticsFilterLabel('last_week')).toBe('Last week');
     expect(getAnalyticsFilterLabel('this_month')).toBe('This month');
     expect(getAnalyticsFilterLabel('last_month')).toBe('Last month');
+    expect(getAnalyticsFilterLabel('last_3_months')).toBe('Last 3 months');
     expect(getAnalyticsFilterLabel('this_year')).toBe('This year');
     expect(getAnalyticsFilterLabel('last_year')).toBe('Last year');
     expect(getAnalyticsFilterLabel('custom')).toBe('Custom range');
+  });
+
+  it('resolves last 3 months relative to the anchor date', () => {
+    const range = resolveAnalyticsDateRange(
+      'last_3_months',
+      2026,
+      new Date(0),
+      new Date(0),
+      new Date('2026-06-10T12:00:00.000Z')
+    );
+
+    // Anchor is June 10, so start should be March 1, 2026
+    expect(range.startDate.toISOString()).toBe('2026-03-01T00:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2026-06-10T23:59:59.999Z');
   });
 });

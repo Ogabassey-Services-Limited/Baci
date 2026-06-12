@@ -101,7 +101,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   ActivityIndicator: () => <span>loading</span>,
   Pressable: ({
     children,

@@ -59,7 +59,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   FlatList: ({
     data,
     initialNumToRender,
@@ -184,7 +184,7 @@ describe('StatePickerModal', () => {
     expect(mocks.listProps.removeClippedSubviews).toBe(false);
   });
 
-  it('applies Android clipping optimization through shared list props', () => {
+  it('applies Android safe layout settings through shared list props', () => {
     mocks.platform.OS = 'android';
 
     render(
@@ -200,6 +200,6 @@ describe('StatePickerModal', () => {
     expect(mocks.listProps.initialNumToRender).toBe(15);
     expect(mocks.listProps.maxToRenderPerBatch).toBe(10);
     expect(mocks.listProps.windowSize).toBe(5);
-    expect(mocks.listProps.removeClippedSubviews).toBe(true);
+    expect(mocks.listProps.removeClippedSubviews).toBe(false);
   });
 });

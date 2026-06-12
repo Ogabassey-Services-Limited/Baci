@@ -5,6 +5,7 @@ export type AnalyticsDateFilter =
   | 'last_week'
   | 'this_month'
   | 'last_month'
+  | 'last_3_months'
   | 'this_year'
   | 'last_year'
   | 'custom';
@@ -16,6 +17,7 @@ export interface AnalyticsDateRange {
 
 const FILTER_LABELS: Record<AnalyticsDateFilter, string> = {
   custom: 'Custom range',
+  last_3_months: 'Last 3 months',
   last_month: 'Last month',
   last_week: 'Last week',
   last_year: 'Last year',
@@ -80,6 +82,10 @@ export function resolveAnalyticsDateRange(
         59,
         999
       );
+      break;
+    case 'last_3_months':
+      startDate = new Date(anchor.getFullYear(), anchor.getMonth() - 3, 1);
+      endDate.setHours(23, 59, 59, 999);
       break;
     // `this_year` and `last_year` intentionally use the caller-supplied
     // `selectedYear` (not derived from `now`) because the analytics UI has

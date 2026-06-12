@@ -84,15 +84,18 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     flex: 1,
     padding: SPACING.md,
+    alignItems: 'center',
   },
   statLabel: {
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: 11,
     marginBottom: 4,
+    textAlign: 'center',
   },
   statValue: {
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size.lg,
+    textAlign: 'center',
   },
   statsRow: {
     borderRadius: RADIUS.md,

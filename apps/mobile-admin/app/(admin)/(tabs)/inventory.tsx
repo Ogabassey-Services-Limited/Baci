@@ -345,6 +345,7 @@ export default function InventoryScreen() {
         data={products}
         renderItem={renderProduct}
         keyExtractor={productKeyExtractor}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
@@ -424,15 +425,16 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '800',
+    textAlign: 'center',
   },
   statLabel: {
     fontSize: 11,
     marginTop: 4,
+    textAlign: 'center',
   },
   listContent: {
     padding: 16,
     paddingTop: 0,
-    gap: 12,
   },
   productCard: {
     flexDirection: 'row',

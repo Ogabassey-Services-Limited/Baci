@@ -1,11 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Pressable,
   Text,
   type TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+  StatusBar,
+} from 'react-native';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { LoginSecondaryActions } from '@/components/auth/LoginSecondaryActions';
 import { styles } from '@/components/auth/login.styles';

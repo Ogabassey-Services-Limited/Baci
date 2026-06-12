@@ -2,7 +2,8 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Alert,
   Animated,
   Modal,
@@ -14,7 +15,9 @@ import { ActivityIndicator,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
@@ -54,13 +57,41 @@ const getCurrencySymbol = (currencyCode: string | null | undefined) => {
   return symbols[currencyCode || 'NGN'] || '\u20A6';
 };
 
-// Helper functions moved outside component to prevent recreation
-const formatPrice = (amount: number, currencySymbol: string) =>
-  `${currencySymbol}${amount.toLocaleString()}`;
+const formatPrice = (
+  amount: number,
+  currencySymbol: string,
+  useMetric = false
+) => {
+  if (useMetric) {
+    if (amount >= 1000000000) {
+      const formatted = (amount / 1000000000).toFixed(3);
+      return `${currencySymbol}${Number(formatted)}B`;
+    }
+    if (amount >= 1000000) {
+      const formatted = (amount / 1000000).toFixed(3);
+      return `${currencySymbol}${Number(formatted)}M`;
+    }
+    if (amount >= 1000) {
+      const formatted = (amount / 1000).toFixed(3);
+      return `${currencySymbol}${Number(formatted)}k`;
+    }
+  }
+  return `${currencySymbol}${amount.toLocaleString()}`;
+};
 
 const formatMetric = (value: number) => {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  if (value >= 1000000000) {
+    const formatted = (value / 1000000000).toFixed(3);
+    return `${Number(formatted)}B`;
+  }
+  if (value >= 1000000) {
+    const formatted = (value / 1000000).toFixed(3);
+    return `${Number(formatted)}M`;
+  }
+  if (value >= 1000) {
+    const formatted = (value / 1000).toFixed(3);
+    return `${Number(formatted)}k`;
+  }
   return value.toString();
 };
 
@@ -562,7 +593,7 @@ export default function ProductsScreen() {
               {`Total Value${inventoryScopeLabel}`}
             </Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {formatPrice(inventoryStats.inventoryValue, currencySymbol)}
+              {formatPrice(inventoryStats.inventoryValue, currencySymbol, true)}
             </Text>
           </View>
 
@@ -577,7 +608,7 @@ export default function ProductsScreen() {
               {`Stock Cost${inventoryScopeLabel}`}
             </Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {formatPrice(inventoryStats.inventoryCost, currencySymbol)}
+              {formatPrice(inventoryStats.inventoryCost, currencySymbol, true)}
             </Text>
           </View>
 
@@ -715,6 +746,7 @@ export default function ProductsScreen() {
           data={categories}
           renderItem={renderCategory}
           keyExtractor={categoryKeyExtractor}
+          ItemSeparatorComponent={() => <View style={{ height: SPACING.md }} />}
           contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
           refreshControl={
             <RefreshControl
@@ -770,6 +802,7 @@ export default function ProductsScreen() {
           data={topSellingProducts}
           renderItem={renderTopSellingProduct}
           keyExtractor={topSellingKeyExtractor}
+          ItemSeparatorComponent={() => <View style={{ height: SPACING.md }} />}
           contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
           refreshControl={
             <RefreshControl
@@ -812,6 +845,7 @@ export default function ProductsScreen() {
           data={displayData}
           renderItem={renderProduct}
           keyExtractor={productKeyExtractor}
+          ItemSeparatorComponent={() => <View style={{ height: SPACING.md }} />}
           contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
           refreshControl={
             <RefreshControl
@@ -1089,11 +1123,13 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: TYPOGRAPHY.size.xl,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'center',
   },
   statLabel: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginTop: 2,
+    textAlign: 'center',
   },
   tabsContainer: {
     marginBottom: SPACING.lg,
@@ -1138,7 +1174,6 @@ const styles = StyleSheet.create({
   listContent: {
     padding: SPACING.lg,
     paddingTop: 0,
-    gap: SPACING.md,
   },
   productCard: {
     borderRadius: RADIUS.lg,
@@ -1264,7 +1299,7 @@ const styles = StyleSheet.create({
   },
   summaryBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: RADIUS.xl,
@@ -1274,6 +1309,7 @@ const styles = StyleSheet.create({
   summaryItem: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   summaryLabel: {
     fontSize: 10,
@@ -1281,14 +1317,17 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
+    textAlign: 'center',
   },
   summaryValue: {
     fontSize: 14,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'center',
   },
   summaryDivider: {
     width: 1,
     height: 24,
     marginHorizontal: 8,
+    alignSelf: 'center',
   },
 });
