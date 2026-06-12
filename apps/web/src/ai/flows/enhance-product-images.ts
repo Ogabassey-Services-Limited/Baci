@@ -1,7 +1,14 @@
 'use server';
 
 import { generateText } from 'ai';
+import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
+import {
+  ensurePermission,
+  isMerchantPermissionRedirectError,
+} from '@/lib/merchant-server';
+import { createClient } from '@/lib/supabase/server';
+import { enhanceProductImageInputSchema } from '@/schemas/ai-enhance-product-image';
 import { gemini25FlashImage, withRetry } from '../provider';
 
 interface EnhanceProductImageInput {
@@ -10,6 +17,19 @@ interface EnhanceProductImageInput {
 
 interface EnhanceProductImageOutput {
   enhancedPhotoDataUri: string;
+}
+
+async function ensureProductImagePermission(): Promise<void> {
+  try {
+    await ensurePermission('products', 'create');
+  } catch (error) {
+    if (isMerchantPermissionRedirectError(error)) {
+      throw new Error('You do not have permission to enhance product images.');
+    }
+    // Unexpected failures (DB outages, bugs) must surface, not be masked as
+    // permission denials.
+    throw error;
+  }
 }
 
 /**
@@ -22,11 +42,25 @@ interface EnhanceProductImageOutput {
 export async function enhanceProductImage(
   input: EnhanceProductImageInput
 ): Promise<EnhanceProductImageOutput> {
-  logger.info({ message: 'AI product image enhancement requested.' });
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  if (!input.photoDataUri) {
-    throw new Error('No image provided for enhancement.');
+  if (authError || !user) {
+    throw new Error('You must be signed in to enhance product images.');
   }
+
+  const parsedInput = enhanceProductImageInputSchema.safeParse(input);
+  if (!parsedInput.success) {
+    throw new Error('Invalid product image provided for enhancement.');
+  }
+
+  await ensureProductImagePermission();
+
+  logger.info({ message: 'AI product image enhancement requested.' });
 
   try {
     const result = await withRetry(async () => {
@@ -51,7 +85,7 @@ Generate the enhanced product image.`,
               },
               {
                 type: 'image',
-                image: input.photoDataUri,
+                image: parsedInput.data.photoDataUri,
               },
             ],
           },

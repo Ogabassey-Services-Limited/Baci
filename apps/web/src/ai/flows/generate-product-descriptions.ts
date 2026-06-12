@@ -1,37 +1,65 @@
 'use server';
 
 import { generateText } from 'ai';
-import z from 'zod';
+import { cookies } from 'next/headers';
 import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';
 import { logger } from '@/lib/logger';
+import {
+  ensurePermission,
+  isMerchantPermissionRedirectError,
+} from '@/lib/merchant-server';
+import { createClient } from '@/lib/supabase/server';
+import {
+  type GenerateProductDescriptionInput,
+  generateProductDescriptionInputSchema,
+} from '@/schemas/ai-generate-product-description';
 
-const GenerateProductDescriptionInputSchema = z.object({
-  productName: z.string().min(1).max(200),
-  keywords: z.array(z.string().max(50)).max(10).optional(),
-  brandVoice: z.string().max(200).optional(),
-  targetAudience: z.string().max(200).optional(),
-  businessType: z.string().max(100).optional(),
-});
+type GenerateProductDescriptionOutput = {
+  description: string;
+};
 
-type GenerateProductDescriptionInput = z.infer<
-  typeof GenerateProductDescriptionInputSchema
->;
-
-const _GenerateProductDescriptionOutputSchema = z.object({
-  description: z.string(),
-});
-
-type GenerateProductDescriptionOutput = z.infer<
-  typeof _GenerateProductDescriptionOutputSchema
->;
+/**
+ * Require `products.create` access for the session merchant. Expected
+ * permission failures become a stable, user-safe error; unexpected errors
+ * (DB outages, bugs) are rethrown so incidents are never masked.
+ */
+async function ensureProductCreatePermission(): Promise<void> {
+  try {
+    await ensurePermission('products', 'create');
+  } catch (error) {
+    if (isMerchantPermissionRedirectError(error)) {
+      throw new Error(
+        'You do not have permission to generate product descriptions.'
+      );
+    }
+    throw error;
+  }
+}
 
 export async function generateProductDescription(
   input: GenerateProductDescriptionInput
 ): Promise<GenerateProductDescriptionOutput> {
-  try {
-    // Validate and parse input with Zod
-    const validatedInput = GenerateProductDescriptionInputSchema.parse(input);
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw new Error('You must be signed in to generate product descriptions.');
+  }
 
+  // Validate and parse input with Zod
+  const parsed = generateProductDescriptionInputSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error('Invalid product description request.');
+  }
+
+  await ensureProductCreatePermission();
+
+  const validatedInput = parsed.data;
+
+  try {
     // Sanitize all user-provided inputs using centralized sanitizer
     const productName = sanitizePromptInput(
       validatedInput.productName,

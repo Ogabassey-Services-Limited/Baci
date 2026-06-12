@@ -2,12 +2,17 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { topshipProvider } from '@/lib/shipping/providers/topship';
 import { createClient } from '@/lib/supabase/server';
 import {
   type RepairBookingInput,
   repairBookingSchema,
 } from '@/lib/validations/repair';
+import {
+  repairMerchantIdSchema,
+  repairPlaceDetailsSchema,
+} from '@/schemas/repair-actions';
 
 interface PlaceDetails {
   streetNumber: string;
@@ -31,14 +36,30 @@ export type CreateRepairResult =
   | { success: true; id: string }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous repair booking; Zod-validated + identity/IP rate limited
 export async function createRepair(
   data: RepairBookingInput,
   merchantId: string
 ): Promise<CreateRepairResult> {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  // 1. Rate limit first — anonymous customers book repairs, so this action
+  // cannot require a login; abuse control happens per user/IP instead.
+  const allowed = await ensureActionRateLimit('repair-create', {
+    requests: 5,
+    windowMs: 60_000,
+  });
+  if (!allowed) {
+    return {
+      success: false,
+      error: 'Too many repair requests. Please try again in a minute.',
+    };
+  }
 
-  // 1. Validate input
+  // 2. Validate inputs
+  const parsedMerchantId = repairMerchantIdSchema.safeParse(merchantId);
+  if (!parsedMerchantId.success) {
+    return { success: false, error: 'Invalid store reference.' };
+  }
+
   const validationResult = repairBookingSchema.safeParse(data);
   if (!validationResult.success) {
     return {
@@ -47,6 +68,9 @@ export async function createRepair(
       fieldErrors: validationResult.error.flatten().fieldErrors,
     };
   }
+
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
 
   const {
     customerName,
@@ -61,12 +85,24 @@ export async function createRepair(
   } = validationResult.data;
 
   try {
+    // 3. Verify the target store exists so anonymous submissions stay
+    // scoped to a real merchant.
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('id', parsedMerchantId.data)
+      .maybeSingle();
+
+    if (merchantError || !merchant) {
+      return { success: false, error: 'Store not found.' };
+    }
+
     const repairId = globalThis.crypto.randomUUID();
 
-    // 2. Insert into database
+    // 4. Insert into database
     const { error } = await supabase.from('repairs').insert({
       id: repairId,
-      merchant_id: merchantId,
+      merchant_id: merchant.id,
       customer_name: customerName,
       customer_email: customerEmail,
       customer_phone: customerPhone,
@@ -89,7 +125,7 @@ export async function createRepair(
       };
     }
 
-    // 3. Revalidate paths (optional, if we show recent requests somewhere)
+    // 5. Revalidate paths (optional, if we show recent requests somewhere)
     revalidatePath('/dashboard/repairs');
 
     return { success: true, id: repairId };
@@ -99,15 +135,43 @@ export async function createRepair(
   }
 }
 
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous shipping quote; address completeness enforced by Zod + identity/IP rate limited
 export async function calculateRepairShipping(
   place: PlaceDetails
 ): Promise<ShippingCalculationResult> {
+  // Rate limit first — this fans out to the paid Topship quoting API and is
+  // callable by anonymous storefront customers.
+  const allowed = await ensureActionRateLimit('repair-shipping', {
+    requests: 10,
+    windowMs: 60_000,
+  });
+  if (!allowed) {
+    return {
+      isFree: false,
+      price: 0,
+      formattedPrice: 'Calculated at confirmation',
+      error: 'Too many shipping estimates. Please try again shortly.',
+    };
+  }
+
+  const parsedPlace = repairPlaceDetailsSchema.safeParse(place);
+  if (!parsedPlace.success) {
+    return {
+      isFree: false,
+      price: 0,
+      formattedPrice: 'Calculated at confirmation',
+      error: 'Invalid address details',
+    };
+  }
+
+  const placeDetails = parsedPlace.data;
+
   try {
     // 1. Check if Lagos (Free Pickup)
     const isLagos =
-      place.state?.toLowerCase().includes('lagos') ||
-      place.city?.toLowerCase().includes('lagos') ||
-      place.formattedAddress?.toLowerCase().includes('lagos');
+      placeDetails.state.toLowerCase().includes('lagos') ||
+      placeDetails.city.toLowerCase().includes('lagos') ||
+      placeDetails.formattedAddress.toLowerCase().includes('lagos');
 
     if (isLagos) {
       return {
@@ -146,10 +210,10 @@ export async function calculateRepairShipping(
       sender: {
         name: 'Customer',
         phone: '0000000000',
-        address: place.formattedAddress,
-        city: place.city || place.state,
-        state: place.state,
-        country: place.country || 'Nigeria',
+        address: placeDetails.formattedAddress,
+        city: placeDetails.city || placeDetails.state,
+        state: placeDetails.state,
+        country: placeDetails.country || 'Nigeria',
         countryCode: 'NG',
       },
     });
