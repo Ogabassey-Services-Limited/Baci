@@ -57,7 +57,7 @@ const OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN = [
   'wallet',
   'warranty',
 ].join('|');
-const OGABASSEY_PDP_DOCUMENT_ROUTE_SOURCE = `/:category((?!(?:${OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN})$).*)/:productSlug`;
+const OGABASSEY_PDP_DOCUMENT_ROUTE_SOURCE = `/:category((?!(?:${OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN})(?:/|$))[^/]+)/:productSlug`;
 const OGABASSEY_PDP_LCP_IMAGE_PRELOAD_LINK_HEADER = [
   `</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`,
   `</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA}"`,

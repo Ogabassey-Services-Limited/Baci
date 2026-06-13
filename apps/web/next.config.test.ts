@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import nextConfig from './next.config';
 import {
@@ -5,6 +6,11 @@ import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
 } from './src/config/storefront-metadata-cache-bots';
+
+const require = createRequire(import.meta.url);
+const { pathToRegexp } = require('next/dist/compiled/path-to-regexp') as {
+  pathToRegexp: (path: string) => RegExp;
+};
 
 function expectStructuredRewrites(
   rewrites: unknown
@@ -183,6 +189,32 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).toContain(
       '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"'
     );
+  });
+
+  it('limits route-scoped OgaBassey PDP preload headers to two-segment PDP paths', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
+
+    const ogabasseyPdpHeaderRule = headers.find(
+      (entry) =>
+        entry.source.includes(':productSlug') &&
+        JSON.stringify(entry.has) ===
+          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+    );
+
+    expect(ogabasseyPdpHeaderRule).toBeDefined();
+    expect(ogabasseyPdpHeaderRule?.source).toContain('[^/]+');
+    expect(ogabasseyPdpHeaderRule?.source).not.toContain('.*');
+
+    const pdpHeaderMatcher = pathToRegexp(ogabasseyPdpHeaderRule?.source ?? '');
+    expect(
+      pdpHeaderMatcher.test(
+        '/gaming-laptops/lenovo-legion-pro-9-16irx9-rtx-4090'
+      )
+    ).toBe(true);
+    expect(pdpHeaderMatcher.test('/about/company')).toBe(false);
+    expect(pdpHeaderMatcher.test('/about/nested/route')).toBe(false);
   });
 
   it('rewrites agent-readable homepage and robots probes to machine endpoints', async () => {
