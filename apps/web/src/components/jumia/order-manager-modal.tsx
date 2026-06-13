@@ -75,21 +75,29 @@ interface FetchItemsCallbacks {
 async function loadOrderItems(
   orderId: string,
   integrationId: string,
-  { setLoading, setError, setItems }: FetchItemsCallbacks
+  { setLoading, setError, setItems }: FetchItemsCallbacks,
+  signal?: AbortSignal
 ): Promise<void> {
   setLoading(true);
   setError(null);
   try {
     const res = await fetch(
-      `/api/marketplace/jumia/orders/${encodeURIComponent(orderId)}/items?integrationId=${encodeURIComponent(integrationId)}`
+      `/api/marketplace/jumia/orders/${encodeURIComponent(orderId)}/items?integrationId=${encodeURIComponent(integrationId)}`,
+      { signal }
     );
+    if (signal?.aborted) return;
     if (!res.ok) throw new Error('Failed to fetch items');
     const data = await res.json();
+    if (signal?.aborted) return;
     setItems(data && Array.isArray(data.items) ? data.items : []);
-  } catch (_err) {
+  } catch (err) {
+    if (signal?.aborted) return;
+    if (err instanceof DOMException && err.name === 'AbortError') return;
     setError('Could not load order items.');
   } finally {
-    setLoading(false);
+    if (!signal?.aborted) {
+      setLoading(false);
+    }
   }
 }
 
@@ -238,11 +246,18 @@ export function OrderManagerModal({
 
   useEffect(() => {
     if (isOpen && orderId) {
-      void loadOrderItems(orderId, integrationId, {
-        setLoading,
-        setError,
-        setItems,
-      });
+      const controller = new AbortController();
+      void loadOrderItems(
+        orderId,
+        integrationId,
+        {
+          setLoading,
+          setError,
+          setItems,
+        },
+        controller.signal
+      );
+      return () => controller.abort();
     }
   }, [isOpen, orderId, integrationId]);
 

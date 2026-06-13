@@ -72,8 +72,7 @@ function blobToDataUri(blob: Blob): Promise<string> {
 async function uploadLogoToStorage(
   dataUri: string,
   setValue: SetBrandingValue,
-  toast: ToastFn,
-  setIsUploading: (uploading: boolean) => void
+  toast: ToastFn
 ): Promise<void> {
   try {
     const uploadedUrl = await uploadImage(dataUri);
@@ -91,8 +90,6 @@ async function uploadLogoToStorage(
     });
     // Keep local URI even if upload fails so user can see it
     setValue('logoUrl', dataUri, { shouldValidate: true });
-  } finally {
-    setIsUploading(false);
   }
 }
 
@@ -247,17 +244,21 @@ export default function Step2_Branding() {
     setIsExtracting(true);
     setIsUploading(true);
 
-    await Promise.all([
-      uploadLogoToStorage(dataUri, setValue, toast, setIsUploading),
-      extractLogoColors(
-        dataUri,
-        preserveColors,
-        suppressExtractionToast,
-        setValue,
-        toast,
-        setIsExtracting
-      ),
-    ]);
+    try {
+      await Promise.all([
+        uploadLogoToStorage(dataUri, setValue, toast),
+        extractLogoColors(
+          dataUri,
+          preserveColors,
+          suppressExtractionToast,
+          setValue,
+          toast,
+          setIsExtracting
+        ),
+      ]);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const [progress, setProgress] = useState(0);

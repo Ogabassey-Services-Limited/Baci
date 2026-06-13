@@ -96,19 +96,28 @@ describe('loadBuilderData', () => {
   });
 
   it('adds aiDraftJobId from the current URL when present', async () => {
-    window.history.pushState(null, '', '/builder?aiDraftJobId=job-123');
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(jsonResponse(builderResponse()))
-    );
-    const params = createParams();
+    const originalHref = window.location.href;
+    try {
+      window.history.pushState(null, '', '/builder?aiDraftJobId=job-123');
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(jsonResponse(builderResponse()))
+      );
+      const params = createParams();
 
-    await loadBuilderData(params);
+      await loadBuilderData(params);
 
-    expect(fetch).toHaveBeenCalledWith(
-      'http://localhost:3000/api/builder?slug=home&aiDraftJobId=job-123',
-      expect.objectContaining({ signal: expect.any(AbortSignal) })
-    );
+      const [requestedUrl, requestInit] = vi.mocked(fetch).mock.calls[0];
+      const url = new URL(String(requestedUrl));
+      expect(url.pathname).toBe('/api/builder');
+      expect(url.searchParams.get('slug')).toBe('home');
+      expect(url.searchParams.get('aiDraftJobId')).toBe('job-123');
+      expect(requestInit).toEqual(
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    } finally {
+      window.history.replaceState(null, '', originalHref);
+    }
   });
 
   it('shows degraded and AI preview toasts', async () => {

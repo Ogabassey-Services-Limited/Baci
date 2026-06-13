@@ -35,6 +35,16 @@ interface JumiaOverridesState {
   syncPrice: boolean;
 }
 
+const DEFAULT_JUMIA_OVERRIDES: JumiaOverridesState = {
+  price: '',
+  salePrice: '',
+  saleStart: '',
+  saleEnd: '',
+  isActive: true,
+  syncInventory: true,
+  syncPrice: false,
+};
+
 // Module-scope helper so the component body stays free of try/finally and
 // throw-inside-try statements that block React Compiler memoization.
 async function loadJumiaMapping(
@@ -42,8 +52,9 @@ async function loadJumiaMapping(
   integrationId: string
 ): Promise<JumiaMapping | null> {
   try {
+    const params = new URLSearchParams({ productId, integrationId });
     const response = await fetch(
-      `/api/marketplace/jumia/products?productId=${productId}&integrationId=${integrationId}`
+      `/api/marketplace/jumia/products?${params.toString()}`
     );
     if (!response.ok) {
       return null;
@@ -117,18 +128,13 @@ export function JumiaProductOverrides({
   const [saving, setSaving] = useState(false);
   const [mapping, setMapping] = useState<JumiaMapping | null>(null);
 
-  const [overrides, setOverrides] = useState({
-    price: '',
-    salePrice: '',
-    saleStart: '',
-    saleEnd: '',
-    isActive: true,
-    syncInventory: true,
-    syncPrice: false,
-  });
+  const [overrides, setOverrides] = useState(DEFAULT_JUMIA_OVERRIDES);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setMapping(null);
+    setOverrides(DEFAULT_JUMIA_OVERRIDES);
     loadJumiaMapping(productId, integrationId)
       .then((loadedMapping) => {
         if (cancelled || !loadedMapping) {

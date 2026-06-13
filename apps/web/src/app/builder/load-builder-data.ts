@@ -128,7 +128,26 @@ function getBuilderBootstrapSignal(signal?: AbortSignal) {
     return signal;
   }
 
-  return AbortSignal.any([signal, timeoutSignal]);
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([signal, timeoutSignal]);
+  }
+
+  const controller = new AbortController();
+  const abortFrom = (source: AbortSignal) => {
+    if (!controller.signal.aborted) {
+      controller.abort(source.reason);
+    }
+  };
+
+  for (const source of [signal, timeoutSignal]) {
+    if (source.aborted) {
+      abortFrom(source);
+      break;
+    }
+    source.addEventListener('abort', () => abortFrom(source), { once: true });
+  }
+
+  return controller.signal;
 }
 
 export async function loadBuilderData(params: LoadBuilderDataParams) {

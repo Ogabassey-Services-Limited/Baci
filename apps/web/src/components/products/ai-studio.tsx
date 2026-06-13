@@ -32,25 +32,29 @@ interface AIStudioProps {
 // so React Compiler can memoize the component.
 async function compositeOnStudioBackground(blob: Blob): Promise<string> {
   const imageBitmap = await createImageBitmap(blob);
-  const canvas = document.createElement('canvas');
-  // Set canvas size (square for e-commerce)
-  const size = Math.max(imageBitmap.width, imageBitmap.height);
-  canvas.width = size;
-  canvas.height = size;
+  try {
+    const canvas = document.createElement('canvas');
+    // Set canvas size (square for e-commerce)
+    const size = Math.max(imageBitmap.width, imageBitmap.height);
+    canvas.width = size;
+    canvas.height = size;
 
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Could not get canvas context');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get canvas context');
 
-  // Fill white background
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, size, size);
+    // Fill white background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, size, size);
 
-  // Center image
-  const x = (size - imageBitmap.width) / 2;
-  const y = (size - imageBitmap.height) / 2;
-  ctx.drawImage(imageBitmap, x, y);
+    // Center image
+    const x = (size - imageBitmap.width) / 2;
+    const y = (size - imageBitmap.height) / 2;
+    ctx.drawImage(imageBitmap, x, y);
 
-  return canvas.toDataURL('image/jpeg', 0.9);
+    return canvas.toDataURL('image/jpeg', 0.9);
+  } finally {
+    imageBitmap.close();
+  }
 }
 
 async function uploadStudioImage(

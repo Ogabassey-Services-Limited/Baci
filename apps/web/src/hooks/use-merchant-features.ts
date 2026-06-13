@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 /**
  * Storefront Feature Settings (Public)
@@ -282,7 +283,7 @@ async function patchMerchantSettings(
   updates: Partial<MerchantFeatureSettings>
 ): Promise<MerchantSettingsResult> {
   try {
-    const response = await fetch('/api/merchant/features', {
+    const response = await fetchWithCsrf('/api/merchant/features', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),

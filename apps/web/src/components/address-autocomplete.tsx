@@ -47,15 +47,20 @@ async function loadPredictions(
   sessionToken: string,
   country: string | undefined,
   setPredictions: (predictions: PlacePrediction[]) => void,
-  setIsLoading: (loading: boolean) => void
+  setIsLoading: (loading: boolean) => void,
+  shouldApplyResult: () => boolean
 ): Promise<void> {
   try {
     const results = await getPlacePredictions(query, sessionToken, country);
+    if (!shouldApplyResult()) return;
     setPredictions(results);
   } catch (error) {
+    if (!shouldApplyResult()) return;
     console.error('Error fetching predictions:', error);
   } finally {
-    setIsLoading(false);
+    if (shouldApplyResult()) {
+      setIsLoading(false);
+    }
   }
 }
 
@@ -68,10 +73,12 @@ interface SelectPredictionCallbacks {
 async function loadPlaceDetails(
   placeId: string,
   sessionToken: string,
-  { onSelect, setSessionToken, setIsLoading }: SelectPredictionCallbacks
+  { onSelect, setSessionToken, setIsLoading }: SelectPredictionCallbacks,
+  shouldApplyResult: () => boolean
 ): Promise<void> {
   try {
     const details = await getPlaceDetails(placeId, sessionToken);
+    if (!shouldApplyResult()) return;
 
     if (details && onSelect) {
       onSelect({
@@ -88,9 +95,12 @@ async function loadPlaceDetails(
     // Refresh session token
     setSessionToken(generateSessionToken());
   } catch (error) {
+    if (!shouldApplyResult()) return;
     console.error('Error fetching place details:', error);
   } finally {
-    setIsLoading(false);
+    if (shouldApplyResult()) {
+      setIsLoading(false);
+    }
   }
 }
 
@@ -127,6 +137,8 @@ export function AddressAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const predictionRequestId = useRef(0);
+  const placeDetailsRequestId = useRef(0);
 
   // Initialize session token and mark as mounted
   useEffect(() => {
@@ -164,12 +176,17 @@ export function AddressAutocomplete({
 
     // Debounce API call
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    placeDetailsRequestId.current += 1;
 
     if (newValue.length < 2) {
+      predictionRequestId.current += 1;
       setPredictions([]);
+      setIsLoading(false);
       return;
     }
 
+    const currentRequestId = predictionRequestId.current + 1;
+    predictionRequestId.current = currentRequestId;
     setIsLoading(true);
     debounceTimer.current = setTimeout(() => {
       void loadPredictions(
@@ -177,15 +194,19 @@ export function AddressAutocomplete({
         sessionToken,
         country,
         setPredictions,
-        setIsLoading
+        setIsLoading,
+        () => predictionRequestId.current === currentRequestId
       );
     }, 300);
   };
 
   const handleClear = () => {
+    predictionRequestId.current += 1;
+    placeDetailsRequestId.current += 1;
     setInternalValue('');
     setPredictions([]);
     setIsOpen(false);
+    setIsLoading(false);
     if (onChange) {
       // Create a synthetic event to clear the parent form
       const event = {
@@ -207,12 +228,20 @@ export function AddressAutocomplete({
 
     setIsOpen(false);
     setIsLoading(true);
+    predictionRequestId.current += 1;
+    const currentRequestId = placeDetailsRequestId.current + 1;
+    placeDetailsRequestId.current = currentRequestId;
 
-    void loadPlaceDetails(prediction.placeId, sessionToken, {
-      onSelect,
-      setSessionToken,
-      setIsLoading,
-    });
+    void loadPlaceDetails(
+      prediction.placeId,
+      sessionToken,
+      {
+        onSelect,
+        setSessionToken,
+        setIsLoading,
+      },
+      () => placeDetailsRequestId.current === currentRequestId
+    );
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

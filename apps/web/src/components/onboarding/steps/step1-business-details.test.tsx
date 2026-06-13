@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { type Control, FormProvider, useForm, useWatch } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OnboardingFormValues } from '@/schemas/onboarding';
 
@@ -191,21 +191,6 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
   return <FormProvider {...methods}>{children}</FormProvider>;
 }
 
-// Renders a watched form field for assertions. Uses `useWatch` (compiler-safe)
-// instead of `methods.watch()` (interior-mutable / incompatible-library).
-function WatchedValue({
-  control,
-  name,
-  testId,
-}: {
-  control: Control<OnboardingFormValues>;
-  name: keyof OnboardingFormValues;
-  testId: string;
-}) {
-  const value = useWatch({ control, name });
-  return <div data-testid={testId}>{value}</div>;
-}
-
 describe('Step1_BusinessDetails', () => {
   const mockOnKeyDown = vi.fn();
 
@@ -360,11 +345,6 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <WatchedValue
-            control={methods.control}
-            name="businessType"
-            testId="debug-bt"
-          />
         </FormProvider>
       );
     };
@@ -376,11 +356,7 @@ describe('Step1_BusinessDetails', () => {
     });
     fireEvent.change(select, { target: { value: 'other' } });
 
-    await waitFor(() => {
-      expect(screen.getByTestId('debug-bt').textContent).toBe('other');
-    });
-
-    expect(screen.getByTestId('otherBusinessType')).toBeInTheDocument();
+    expect(await screen.findByTestId('otherBusinessType')).toBeInTheDocument();
   });
 
   it('does not show "other" input field when regular business type is selected', () => {
@@ -409,7 +385,7 @@ describe('Step1_BusinessDetails', () => {
     expect(select).toBeInTheDocument();
   });
 
-  it('updates country when India is selected', async () => {
+  it('updates country when India is selected', () => {
     const TestForm = () => {
       const methods = useForm<OnboardingFormValues>({
         defaultValues: {
@@ -422,11 +398,6 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <WatchedValue
-            control={methods.control}
-            name="country"
-            testId="country-value"
-          />
         </FormProvider>
       );
     };
@@ -442,9 +413,11 @@ describe('Step1_BusinessDetails', () => {
       }
     );
 
-    await waitFor(() => {
-      expect(screen.getByTestId('country-value')).toHaveTextContent('IN');
-    });
+    expect(
+      screen.getByRole('combobox', {
+        name: /where is your business registered/i,
+      })
+    ).toHaveValue('IN');
   });
 
   it('renders "Generate Business Name" button', () => {
@@ -489,11 +462,6 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <WatchedValue
-            control={methods.control}
-            name="businessName"
-            testId="current-value"
-          />
         </FormProvider>
       );
     };
@@ -504,8 +472,7 @@ describe('Step1_BusinessDetails', () => {
     await user.type(input, 'my awesome STORE');
 
     await waitFor(() => {
-      const currentValue = screen.getByTestId('current-value');
-      expect(currentValue.textContent).toBe('My Awesome Store');
+      expect(input).toHaveValue('My Awesome Store');
     });
   });
 
@@ -582,11 +549,6 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <WatchedValue
-            control={methods.control}
-            name="businessName"
-            testId="current-value"
-          />
         </FormProvider>
       );
     };
@@ -602,8 +564,9 @@ describe('Step1_BusinessDetails', () => {
     await user.click(selectButton);
 
     await waitFor(() => {
-      const currentValue = screen.getByTestId('current-value');
-      expect(currentValue.textContent).toBe('Generated Store Name');
+      expect(screen.getByTestId('businessName')).toHaveValue(
+        'Generated Store Name'
+      );
     });
   });
 

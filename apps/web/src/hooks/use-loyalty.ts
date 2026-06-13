@@ -112,8 +112,11 @@ function buildPreviewLoyaltyData(): LoyaltyData {
 async function loadLoyaltyData(
   merchantId: string | undefined,
   customerId: string | undefined,
-  { setData, setLoading, setError }: LoyaltyStateHandlers
+  { setData, setLoading, setError }: LoyaltyStateHandlers,
+  signal?: AbortSignal
 ): Promise<void> {
+  if (signal?.aborted) return;
+
   if (!merchantId || !customerId) {
     setData(null);
     setError(null);
@@ -135,7 +138,10 @@ async function loadLoyaltyData(
       customer_id: customerId,
     });
 
-    const response = await fetch(`/api/storefront/loyalty?${params}`);
+    const response = await fetch(`/api/storefront/loyalty?${params}`, {
+      signal,
+    });
+    if (signal?.aborted) return;
     if (!response.ok) {
       if (response.status === 404) {
         // Loyalty program not available or customer not enrolled
@@ -147,14 +153,18 @@ async function loadLoyaltyData(
     }
 
     const loyaltyData = await response.json();
+    if (signal?.aborted) return;
     setData(loyaltyData);
     setError(null);
   } catch (err) {
+    if (signal?.aborted) return;
     console.error('Error fetching loyalty data:', err);
     setError(err instanceof Error ? err.message : 'Unknown error');
     setData(null);
   } finally {
-    setLoading(false);
+    if (!signal?.aborted) {
+      setLoading(false);
+    }
   }
 }
 
@@ -166,9 +176,15 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
   const fetchLoyaltyData = () =>
     loadLoyaltyData(merchantId, customerId, { setData, setLoading, setError });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: listing actual deps instead of fetchLoyaltyData avoids infinite loop without React Compiler
   useEffect(() => {
-    fetchLoyaltyData();
+    const controller = new AbortController();
+    void loadLoyaltyData(
+      merchantId,
+      customerId,
+      { setData, setLoading, setError },
+      controller.signal
+    );
+    return () => controller.abort();
   }, [merchantId, customerId]);
 
   const enroll = async (referralCode?: string): Promise<EnrollmentResult> => {

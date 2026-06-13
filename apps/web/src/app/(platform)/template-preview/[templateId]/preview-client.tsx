@@ -273,9 +273,22 @@ async function activateTemplate({
       .from('merchants')
       .select('id, template_id')
       .eq('user_id', session.user.id)
-      .single();
+      .maybeSingle();
 
-    if (merchantError || !realMerchant) {
+    if (merchantError) {
+      console.error(
+        'Template activation merchant lookup failed:',
+        merchantError
+      );
+      toast({
+        title: 'Unable to load store',
+        description: 'Something went wrong while fetching your store.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!realMerchant) {
       toast({
         title: 'No Store Found',
         description:

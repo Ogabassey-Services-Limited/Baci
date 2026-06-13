@@ -97,22 +97,34 @@ export function useIntegrationSettings<T extends object>({
 
   // Fetch current settings from the features API
   useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+
     if (!merchant) {
+      setSettings(null);
+      setIsLoading(false);
       return;
     }
 
     fetchIntegrationSettings<T>(keys)
       .then((loaded) => {
-        if (loaded) {
+        if (active) {
           setSettings(loaded);
         }
       })
       .catch((error) => {
+        if (!active) return;
         console.error('Failed to fetch settings for', platformName, ':', error);
       })
       .finally(() => {
-        setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+        }
       });
+
+    return () => {
+      active = false;
+    };
   }, [merchant, keys, platformName]);
 
   // Save settings to the features API. Uses a promise chain (no try/catch with

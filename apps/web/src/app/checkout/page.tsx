@@ -120,7 +120,11 @@ async function sendOtpCode(
     await apiPost('/api/storefront/auth/send-code', { email, merchantSlug });
     return { ok: true };
   } catch (err) {
-    return { ok: false, message: (err as Error).message };
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : 'Failed to send verification code',
+    };
   }
 }
 
@@ -153,7 +157,10 @@ async function verifyOtpCode(
 
     return { ok: true, user: userData.user, customer: result.customer };
   } catch (err) {
-    return { ok: false, message: (err as Error).message };
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Failed to verify code',
+    };
   }
 }
 
@@ -1847,7 +1854,11 @@ function CheckoutPageContent() {
 function detectRoutingMode(merchantSlug: string | null): 'domain' | 'path' {
   if (typeof window === 'undefined') return 'path';
   const pathname = window.location.pathname;
-  if (merchantSlug && pathname.startsWith(`/${merchantSlug}`)) {
+  if (
+    merchantSlug &&
+    (pathname === `/${merchantSlug}` ||
+      pathname.startsWith(`/${merchantSlug}/`))
+  ) {
     return 'path';
   }
   return 'domain';

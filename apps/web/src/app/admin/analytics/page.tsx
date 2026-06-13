@@ -149,6 +149,7 @@ export default function AnalyticsPage() {
         <div className="flex items-center gap-2">
           <Select
             value={period}
+            disabled={loading}
             onValueChange={(v) => {
               setLoading(true);
               setPeriod(v as AnalyticsPeriod);

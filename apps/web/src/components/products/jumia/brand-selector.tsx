@@ -43,22 +43,8 @@ export function JumiaBrandSelector({
   const [brands, setBrands] = useState<JumiaBrandItem[]>([]);
   const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [prevMerchantId, setPrevMerchantId] = useState(merchantId);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Reset brands when merchantId changes to avoid stale data. Adjust during
-  // render via a prev-prop comparison instead of an effect so users never see
-  // a stale frame and the React Compiler can optimize this component. The
-  // previous request's controller is aborted inside fetchBrands before any new
-  // fetch starts (and on unmount), so we must not read/touch the ref here —
-  // refs cannot be accessed during render.
-  if (merchantId !== prevMerchantId) {
-    setPrevMerchantId(merchantId);
-    setBrands([]);
-    setErrorMessage(null);
-    setFetchStatus('idle');
-  }
 
   const fetchBrands = (currentMerchantId: string) => {
     abortControllerRef.current?.abort();
@@ -117,13 +103,25 @@ export function JumiaBrandSelector({
     };
   }, []);
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    setOpen(nextOpen);
-    // Lazily load brands the first time the list opens. Triggering from the
-    // open event (instead of an effect) avoids a synchronous setState-in-effect.
-    if (nextOpen && fetchStatus === 'idle') {
+  useEffect(() => {
+    abortControllerRef.current?.abort();
+    setBrands([]);
+    setErrorMessage(null);
+    if (!merchantId) {
+      setErrorMessage('Merchant is required to load Jumia brands.');
+    }
+    setFetchStatus('idle');
+  }, [merchantId]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchBrands uses current state setters and is intentionally not memoized under React Compiler
+  useEffect(() => {
+    if (open && fetchStatus === 'idle') {
       fetchBrands(merchantId);
     }
+  }, [open, fetchStatus, merchantId]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
   };
 
   return (

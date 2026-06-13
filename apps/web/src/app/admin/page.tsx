@@ -158,7 +158,6 @@ export default function AdminDashboardPage() {
       });
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     let active = true;
     loadPlatformAnalytics(period).then((result) => {
@@ -234,6 +233,7 @@ export default function AdminDashboardPage() {
                 variant={period === p ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setPeriod(p)}
+                disabled={refreshing}
                 className="text-xs"
               >
                 {p === '7d'

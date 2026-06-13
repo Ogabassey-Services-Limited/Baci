@@ -90,7 +90,11 @@ async function submitConsignmentUpdate(
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error(`Failed to update consignment: ${res.status} - ${text}`);
+    console.debug('Failed to parse Jumia consignment response', {
+      status: res.status,
+      body: text,
+    });
+    throw new Error(`Failed to update consignment (HTTP ${res.status})`);
   }
   if (!res.ok)
     throw new Error(

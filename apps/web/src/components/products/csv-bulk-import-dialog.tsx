@@ -145,32 +145,42 @@ export function CSVBulkImportDialog({
       setUploadProgress((prev) => Math.min(prev + 10, 90));
     }, 200);
 
-    return uploadProductCsv(file).then((outcome) => {
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      if (outcome.status === 'ok') {
-        const { data } = outcome;
-        setResult(data);
-        toast({
-          title: 'Import Complete',
-          description: `Successfully imported ${data.success} products. ${data.failed} failed.`,
-        });
-        if (data.success > 0) {
-          onImportComplete();
+    return uploadProductCsv(file)
+      .then((outcome) => {
+        if (outcome.status === 'ok') {
+          const { data } = outcome;
+          setResult(data);
+          toast({
+            title: 'Import Complete',
+            description: `Successfully imported ${data.success} products. ${data.failed} failed.`,
+          });
+          if (data.success > 0) {
+            onImportComplete();
+          }
+        } else {
+          console.error('Upload error:', outcome.error);
+          toast({
+            title: 'Upload Failed',
+            description:
+              'There was an error uploading your file. Please try again.',
+            variant: 'destructive',
+          });
         }
-      } else {
-        console.error('Upload error:', outcome.error);
+      })
+      .catch((error: unknown) => {
+        console.error('Unexpected upload flow error:', error);
         toast({
           title: 'Upload Failed',
           description:
             'There was an error uploading your file. Please try again.',
           variant: 'destructive',
         });
-      }
-
-      setIsUploading(false);
-    });
+      })
+      .finally(() => {
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+        setIsUploading(false);
+      });
   };
 
   const handleClose = () => {
