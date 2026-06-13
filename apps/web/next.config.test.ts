@@ -85,7 +85,7 @@ describe('next.config OgaBassey resource headers', () => {
     const ogabasseyLinkHeader = headers
       ?.find(
         (entry) =>
-          entry.source === '/(.*)' &&
+          !entry.source.includes(':productSlug') &&
           JSON.stringify(entry.has) ===
             JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
       )
@@ -103,7 +103,7 @@ describe('next.config OgaBassey resource headers', () => {
     const ogabasseyLinkHeader = headers
       ?.find(
         (entry) =>
-          entry.source === '/(.*)' &&
+          !entry.source.includes(':productSlug') &&
           JSON.stringify(entry.has) ===
             JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
       )
@@ -148,7 +148,7 @@ describe('next.config OgaBassey resource headers', () => {
 
     const ogabasseyGenericHeaderRule = headers.find(
       (entry) =>
-        entry.source === '/(.*)' &&
+        !entry.source.includes(':productSlug') &&
         JSON.stringify(entry.has) ===
           JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
     );
@@ -188,6 +188,67 @@ describe('next.config OgaBassey resource headers', () => {
     );
     expect(linkHeader).toContain(
       '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"'
+    );
+  });
+
+  it('keeps the generic OgaBassey Link header from overriding PDP paths', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
+
+    const ogabasseyHostMatcher = JSON.stringify([
+      { type: 'host', value: 'ogabassey.com' },
+    ]);
+    const pdpRuleIndex = headers.findIndex(
+      (entry) =>
+        entry.source.includes(':productSlug') &&
+        JSON.stringify(entry.has) === ogabasseyHostMatcher
+    );
+    const genericRuleIndex = headers.findIndex(
+      (entry) =>
+        !entry.source.includes(':productSlug') &&
+        JSON.stringify(entry.has) === ogabasseyHostMatcher
+    );
+
+    expect(pdpRuleIndex).toBeGreaterThanOrEqual(0);
+    expect(genericRuleIndex).toBeGreaterThanOrEqual(0);
+    expect(genericRuleIndex).toBeLessThan(pdpRuleIndex);
+    const pdpPath = '/gaming-laptops/lenovo-legion-pro-9-16irx9-rtx-4090';
+    expect(
+      pathToRegexp(headers[pdpRuleIndex]?.source ?? '').test(pdpPath)
+    ).toBe(true);
+    expect(
+      pathToRegexp(headers[genericRuleIndex]?.source ?? '').test(pdpPath)
+    ).toBe(false);
+
+    const matchingPdpLinkHeaders = headers
+      .filter(
+        (entry) =>
+          JSON.stringify(entry.has) === ogabasseyHostMatcher &&
+          entry.headers.some((header) => header.key === 'Link') &&
+          pathToRegexp(entry.source).test(pdpPath)
+      )
+      .map((entry) => entry.headers.find((header) => header.key === 'Link'))
+      .map((header) => header?.value)
+      .filter((value): value is string => typeof value === 'string');
+
+    const firstMatchingPdpLinkHeader = matchingPdpLinkHeaders[0];
+    const nextEffectivePdpLinkHeader = matchingPdpLinkHeaders.at(-1);
+
+    expect(firstMatchingPdpLinkHeader).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug'
+    );
+    expect(firstMatchingPdpLinkHeader).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug'
+    );
+    expect(nextEffectivePdpLinkHeader).toContain(
+      '</.well-known/api-catalog>; rel="api-catalog"'
+    );
+    expect(nextEffectivePdpLinkHeader).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug'
+    );
+    expect(nextEffectivePdpLinkHeader).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug'
     );
   });
 
