@@ -464,6 +464,7 @@ type CategoryProductRouteControlResult =
 interface CategoryProductRouteControl {
   result: CategoryProductRouteControlResult;
   loadProductResult: () => Promise<CategoryProductResult>;
+  preloadedProductImage?: string | null;
 }
 
 function hasCategoryMismatch(
@@ -746,6 +747,9 @@ async function getProductRouteControl(
   productSlug: string
 ): Promise<CategoryProductRouteControl | null> {
   const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(storeSlug);
+  const isKnownOgaBasseyCustomDomain =
+    storeSlug.trim().toLowerCase() === OGABASSEY_DOMAIN.toLowerCase();
+  let preloadedProductImage: string | null = null;
   const knownOgaBasseyLcpHintPromise = knownOgaBasseyMerchantId
     ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug)
     : null;
@@ -757,6 +761,28 @@ async function getProductRouteControl(
         error
       );
     });
+  }
+  if (knownOgaBasseyLcpHintPromise && isKnownOgaBasseyCustomDomain) {
+    void knownOgaBasseyLcpHintPromise
+      .then((cachedProduct) => {
+        const primaryImage = getCachedProductLcpHintPrimaryImage(cachedProduct);
+
+        if (!primaryImage) {
+          return;
+        }
+
+        try {
+          preloadOgabasseyPdpProductResources({ src: primaryImage });
+          preloadedProductImage = primaryImage;
+        } catch (error) {
+          console.warn(
+            'Unable to preload OgaBassey PDP resources early:',
+            sanitizeLookupLogValue(productSlug),
+            error
+          );
+        }
+      })
+      .catch(() => undefined);
   }
   const merchant = await getRequestScopedMerchant(storeSlug);
 
@@ -785,7 +811,11 @@ async function getProductRouteControl(
       productSlug
     );
     return result
-      ? { result, loadProductResult: () => Promise.resolve(result) }
+      ? {
+          result,
+          loadProductResult: () => Promise.resolve(result),
+          preloadedProductImage,
+        }
       : null;
   }
 
@@ -808,6 +838,7 @@ async function getProductRouteControl(
       needsValuesRedirect,
     },
     loadProductResult,
+    preloadedProductImage,
   };
 }
 
@@ -1206,7 +1237,11 @@ export default async function CategoryProductPage({
     return <StorefrontRouteNotFound />;
   }
 
-  const { result: productResult, loadProductResult } = routeControl;
+  const {
+    result: productResult,
+    loadProductResult,
+    preloadedProductImage,
+  } = routeControl;
 
   if (!('product' in productResult)) {
     permanentRedirect(
@@ -1250,13 +1285,16 @@ export default async function CategoryProductPage({
   const pagePreloadProductImage = pageOwnsProductPreload
     ? primaryProductImage
     : null;
+  const shouldPreloadProductImage =
+    pagePreloadProductImage &&
+    pagePreloadProductImage !== preloadedProductImage;
   const criticalProduct =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
 
   try {
-    if (pagePreloadProductImage) {
+    if (shouldPreloadProductImage) {
       preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
     }
   } catch (error) {

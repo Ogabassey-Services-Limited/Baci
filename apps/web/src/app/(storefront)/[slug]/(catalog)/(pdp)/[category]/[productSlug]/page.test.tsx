@@ -2063,8 +2063,11 @@ describe('[category]/[productSlug] page render', () => {
     expect(routeEvents).toEqual([
       `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
       'merchant-start',
+      'product-hints',
     ]);
-    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: earlyProductImage,
+    });
 
     resolveMerchant?.(ogabasseyMerchant);
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
@@ -2077,6 +2080,7 @@ describe('[category]/[productSlug] page render', () => {
       'merchant-start',
       'product-hints',
     ]);
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledTimes(1);
 
     render(await resolveRsc(resolvedPage));
 
