@@ -51,10 +51,21 @@ export default function AddressFormScreen() {
     postal_code: '',
     is_default: false,
   });
-  const [isLoading, setIsLoading] = useState(!isNewAddress);
+  const [isFetchingAddress, setIsFetchingAddress] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Partial<AddressFormData>>({});
   const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derived at render time: the screen can only fetch an existing address when
+  // we have a real address id plus a fully initialized auth context. When this
+  // is false (new address, stale deep link, partial auth) the spinner stays
+  // off without a set-state-in-effect flipping it.
+  const canFetchExistingAddress =
+    !isNewAddress &&
+    Boolean(id) &&
+    Boolean(customer?.id) &&
+    Boolean(merchantId);
+  const isLoading = canFetchExistingAddress && isFetchingAddress;
 
   // Cleanup navigate timeout on unmount to prevent memory leak
   useEffect(() => {
@@ -69,10 +80,9 @@ export default function AddressFormScreen() {
     if (isNewAddress) {
       return;
     }
-    if (!id || !customer?.id || !merchantId) {
-      // Stale deep link or partially initialized auth: don't strand the screen
-      // on a permanent spinner — surface the error and back out.
-      setIsLoading(false);
+    if (!canFetchExistingAddress || !id || !customer?.id || !merchantId) {
+      // Stale deep link or partially initialized auth: the derived `isLoading`
+      // already keeps the spinner off, so just surface the error and back out.
       Alert.alert('Error', 'Unable to load address. Please sign in again.');
       router.back();
       return;
@@ -102,9 +112,9 @@ export default function AddressFormScreen() {
         router.back();
       })
       .finally(() => {
-        setIsLoading(false);
+        setIsFetchingAddress(false);
       });
-  }, [id, isNewAddress, customer?.id, merchantId]);
+  }, [id, isNewAddress, canFetchExistingAddress, customer?.id, merchantId]);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<AddressFormData> = {};

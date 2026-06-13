@@ -130,11 +130,23 @@ export function JumiaProductOverrides({
 
   const [overrides, setOverrides] = useState(DEFAULT_JUMIA_OVERRIDES);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Reset state inline during render when the target product/integration
+  // changes, instead of inside the loading effect. Routing this reset through
+  // useEffect forces an extra render where the previous product's mapping is
+  // briefly visible, and re-arming `loading` inside the effect bails the React
+  // Compiler out of memoizing the component.
+  // See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const targetKey = `${productId}::${integrationId}`;
+  const [prevTargetKey, setPrevTargetKey] = useState(targetKey);
+  if (targetKey !== prevTargetKey) {
+    setPrevTargetKey(targetKey);
     setLoading(true);
     setMapping(null);
     setOverrides(DEFAULT_JUMIA_OVERRIDES);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
     loadJumiaMapping(productId, integrationId)
       .then((loadedMapping) => {
         if (cancelled || !loadedMapping) {
