@@ -17,11 +17,15 @@ vi.mock('./social-media-card', () => ({
     onSocialMediaChange,
   }: {
     onSocialMediaChange: (sm: Record<string, string>) => void;
-  }) => {
-    // Simulate social media change on render
-    onSocialMediaChange({ twitter: '@test' });
-    return <div data-testid="social-media-card" />;
-  },
+  }) => (
+    <button
+      data-testid="social-media-card"
+      type="button"
+      onClick={() => onSocialMediaChange({ twitter: '@test' })}
+    >
+      Social media
+    </button>
+  ),
 }));
 
 vi.mock('./store-features-card', () => ({
@@ -146,6 +150,7 @@ describe('SettingsForm', () => {
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
+    fireEvent.click(screen.getByTestId('social-media-card'));
     const form = screen
       .getByRole('button', { name: /save changes/i })
       .closest('form');
