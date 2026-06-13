@@ -43,6 +43,7 @@ export function JumiaCategorySelector({
   const [categories, setCategories] = useState<JumiaCategoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasFetched, setHasFetched] = useState(false);
   const [prevMerchantId, setPrevMerchantId] = useState(merchantId);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -56,6 +57,7 @@ export function JumiaCategorySelector({
     setPrevMerchantId(merchantId);
     setCategories([]);
     setError(null);
+    setHasFetched(false);
     setLoading(false);
     setOpen(false);
   }
@@ -102,6 +104,7 @@ export function JumiaCategorySelector({
             )
           : [];
         setCategories(cats);
+        setHasFetched(true);
       })
       .catch((err: unknown) => {
         if (didTimeout) {
@@ -131,7 +134,7 @@ export function JumiaCategorySelector({
       setError(null);
     }
     setOpen(nextOpen);
-    if (nextOpen && categories.length === 0 && !error) {
+    if (nextOpen && !hasFetched && !error) {
       fetchCategories();
     }
   };

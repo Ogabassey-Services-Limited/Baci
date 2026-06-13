@@ -200,6 +200,7 @@ export function useStorefrontFeatures({
     if (result.ok) {
       setFeatures(result.features);
     } else {
+      setFeatures(DEFAULT_STOREFRONT_FEATURES);
       setError(result.error);
     }
     setIsLoading(false);
@@ -218,6 +219,7 @@ export function useStorefrontFeatures({
         setFeatures(result.features);
         setError(null);
       } else {
+        setFeatures(DEFAULT_STOREFRONT_FEATURES);
         setError(result.error);
       }
       setIsLoading(false);

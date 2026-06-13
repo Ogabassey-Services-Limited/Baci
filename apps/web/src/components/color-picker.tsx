@@ -67,6 +67,9 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
 
   // Update color and notify parent
   const updateColor = (h: number, s: number, l: number) => {
+    setInternalHue(h);
+    setInternalSaturation(s);
+    setInternalLightness(l);
     const newHex = colord({ h, s, l }).toHex();
     setLastPropColor(newHex);
     setHexInput(newHex);

@@ -69,8 +69,6 @@ async function fetchNotificationsRequest(
     // Implement throttling to prevent 429s
     if (response.status === 429) {
       console.warn('Rate limit exceeded for notifications. Backing off.');
-      // Wait 60 seconds before trying again if rate limited
-      await new Promise((resolve) => setTimeout(resolve, 60000));
       return;
     }
 

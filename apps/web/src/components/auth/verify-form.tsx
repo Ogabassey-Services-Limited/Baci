@@ -158,10 +158,12 @@ export default function VerifyForm() {
         setResendTimer(60);
       })
       .catch((error: unknown) => {
+        const description =
+          error instanceof Error ? error.message : 'Failed to resend code.';
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: (error as Error).message,
+          description,
         });
       })
       .finally(() => {

@@ -159,14 +159,10 @@ export function OnboardingTemplateEditor({
   // Render-time prev-compare instead of an effect, see
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   const [prevInitialData, setPrevInitialData] = useState(initialData);
-  const [prevTemplateId, setPrevTemplateId] = useState(selectedTemplateId);
-  if (
-    initialData !== prevInitialData ||
-    selectedTemplateId !== prevTemplateId
-  ) {
+  if (initialData !== prevInitialData) {
     setPrevInitialData(initialData);
-    setPrevTemplateId(selectedTemplateId);
-    // Only reset if we haven't selected a template yet or if initialData is meaningful
+    // Only reset the default template when parent-provided data actually changes.
+    // Template selections are handled by handleTemplateSelect below.
     if (selectedTemplateId === 'modern-minimal') {
       setCurrentData(initialData);
     }

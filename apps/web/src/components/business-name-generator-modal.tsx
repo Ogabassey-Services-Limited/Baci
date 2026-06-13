@@ -74,9 +74,13 @@ async function runGenerateNames(
     }
   } catch (error) {
     console.error('Failed to generate names:', error);
+    const description =
+      error instanceof Error
+        ? error.message
+        : 'Something went wrong. Please try again.';
     toast({
       title: 'Generation failed',
-      description: 'Something went wrong. Please try again.',
+      description,
       variant: 'destructive',
     });
   } finally {

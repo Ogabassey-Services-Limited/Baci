@@ -177,6 +177,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
   // Handle file deletion
   const handleDelete = async (fileId: string, fileName: string) => {
     if (!confirm(`Delete ${fileName}?`)) return;
+    const deletedFile = files.find((file) => file.id === fileId);
 
     const error = await deleteMediaFile(fileId)
       .then(() => null as Error | null)
@@ -199,7 +200,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
 
     await loadFiles();
 
-    if (selectedFile === fileId) {
+    if (deletedFile && selectedFile === deletedFile.url) {
       setSelectedFile(null);
     }
   };

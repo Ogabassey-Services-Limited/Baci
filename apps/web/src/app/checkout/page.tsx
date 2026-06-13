@@ -1449,15 +1449,52 @@ function CheckoutPageContent() {
         }
 
         // Save transaction ID to order for webhook reconciliation
-        await fetch('/api/orders/update-payment-ref', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const paymentReferenceError = await fetch(
+          '/api/orders/update-payment-ref',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: order.id,
+              paymentRef: response.checkoutTransactionId,
+              gateway: 'credit_direct',
+            }),
+          }
+        )
+          .then(async (updateResponse) => {
+            if (updateResponse.ok) {
+              return null;
+            }
+
+            return await updateResponse
+              .json()
+              .then((body: unknown) =>
+                body &&
+                typeof body === 'object' &&
+                'error' in body &&
+                typeof body.error === 'string'
+                  ? body.error
+                  : 'Failed to save payment reference'
+              )
+              .catch(() => 'Failed to save payment reference');
+          })
+          .catch((error: unknown) =>
+            error instanceof Error
+              ? error.message
+              : 'Failed to save payment reference'
+          );
+
+        if (paymentReferenceError) {
+          console.error('Credit Direct payment reference update failed:', {
+            error: paymentReferenceError,
             orderId: order.id,
-            paymentRef: response.checkoutTransactionId,
-            gateway: 'credit_direct',
-          }),
-        });
+          });
+          toast({
+            title: 'Payment reference not saved',
+            description: paymentReferenceError,
+            variant: 'destructive',
+          });
+        }
       },
     });
 

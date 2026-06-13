@@ -1,6 +1,5 @@
 'use client';
 
-import { createBrowserClient } from '@supabase/ssr';
 import {
   Building2,
   CheckCircle,
@@ -35,6 +34,7 @@ import {
   STAFF_INVITE_ACCEPT_QUERY_PARAM,
   STAFF_INVITE_CLIENT_QUERY_PARAM,
 } from '@/lib/staff-invite-flow';
+import { createClient } from '@/lib/supabase/client';
 
 interface InvitationDetails {
   valid: boolean;
@@ -55,7 +55,7 @@ const roleLabels: Record<string, string> = {
   fulfillment: 'Fulfillment',
 };
 
-type SupabaseBrowserClient = ReturnType<typeof createBrowserClient>;
+type SupabaseBrowserClient = ReturnType<typeof createClient>;
 type SupabaseAuth = SupabaseBrowserClient['auth'];
 
 interface InvitationLoadResult {
@@ -91,7 +91,12 @@ async function loadInvitation(
   try {
     const {
       data: { user: currentUser },
+      error: userError,
     } = await auth.getUser();
+
+    if (userError) {
+      console.warn('Invite user session unavailable:', userError);
+    }
 
     const response = await fetch(
       `/api/staff/accept-invite?token=${encodeURIComponent(token)}`
@@ -100,14 +105,18 @@ async function loadInvitation(
 
     if (!response.ok) {
       return {
-        user: currentUser?.email ? { email: currentUser.email } : null,
+        user:
+          !userError && currentUser?.email
+            ? { email: currentUser.email }
+            : null,
         invitation: null,
         error: data.error || 'Invalid invitation',
       };
     }
 
     return {
-      user: currentUser?.email ? { email: currentUser.email } : null,
+      user:
+        !userError && currentUser?.email ? { email: currentUser.email } : null,
       invitation: data,
       error: null,
     };
@@ -205,10 +214,7 @@ function AcceptInvitePageContent() {
   );
   const autoAcceptAttemptedRef = useRef(false);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-  );
+  const supabase = createClient();
   const normalizedRequestedClient = requestedClient?.trim().toLowerCase();
   const inviteClient =
     normalizedRequestedClient === 'mobile' ||

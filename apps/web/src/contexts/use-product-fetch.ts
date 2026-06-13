@@ -50,6 +50,19 @@ async function runProductFetch<TProduct>({
         if (response.status === 429) {
           console.warn('Rate limit hit for products fetch; not retrying.');
         }
+        if ([401, 403, 404].includes(response.status)) {
+          setProducts([]);
+          setPagination((prev) => ({
+            ...prev,
+            total: 0,
+            totalPages: 0,
+          }));
+          setStats({
+            inventoryValue: 0,
+            outOfStockCount: 0,
+            categoryCount: 0,
+          });
+        }
         fetchInProgressRef.current = false;
         setIsLoading(false);
         return;

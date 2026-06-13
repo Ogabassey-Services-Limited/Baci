@@ -183,6 +183,7 @@ export function CustomerAuthProvider({
     setIsLoading(true);
     setUser(null);
     setCustomer(null);
+    setOtpState(null);
   }
 
   // Check session on demand (e.g. refreshCustomer).

@@ -33,15 +33,24 @@ type BulkImportResult =
   | { status: 'ok'; data: ImportResultData }
   | { status: 'error'; error: unknown };
 
+const BULK_IMPORT_TIMEOUT_MS = 30_000;
+
 // Module-scope so the try/catch stays out of the component body — the React
 // Compiler cannot lower try/finally clauses inside a component.
 async function uploadProductCsv(file: File): Promise<BulkImportResult> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(
+    () => controller.abort(),
+    BULK_IMPORT_TIMEOUT_MS
+  );
+
   try {
     const formData = new FormData();
     formData.append('file', file);
     const response = await fetch('/api/products/bulk-import', {
       method: 'POST',
       body: formData,
+      signal: controller.signal,
     });
     if (!response.ok) {
       throw new Error('Upload failed');
@@ -50,6 +59,8 @@ async function uploadProductCsv(file: File): Promise<BulkImportResult> {
     return { status: 'ok', data };
   } catch (error) {
     return { status: 'error', error };
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 

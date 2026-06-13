@@ -57,6 +57,15 @@ const LogoGeneratorModal = dynamic(
 type ToastFn = ReturnType<typeof useToast>['toast'];
 type SetBrandingValue = UseFormSetValue<OnboardingFormValues>;
 
+function blobToDataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read processed image'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 // Module-scope helpers keep the component body free of try/finally,
 // throw-inside-try, and dynamic-import statements that block React Compiler
 // memoization. They take the dependencies they touch as parameters.
@@ -276,18 +285,10 @@ export default function Step2_Branding() {
     // Toast is nice, but progress bar is better. removing descriptive toast to rely on UI.
 
     removeImageBackground(logoToProcess, setProgress)
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-
-        // Convert blob URL to data URI for storage/processing
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const dataUri = reader.result as string;
-          await processNewLogo(dataUri, true);
-          URL.revokeObjectURL(url);
-          toast({ title: 'Background removed!' });
-        };
-        reader.readAsDataURL(blob);
+      .then(async (blob) => {
+        const dataUri = await blobToDataUri(blob);
+        await processNewLogo(dataUri, true);
+        toast({ title: 'Background removed!' });
       })
       .catch((error) => {
         console.error('Background removal failed:', error);

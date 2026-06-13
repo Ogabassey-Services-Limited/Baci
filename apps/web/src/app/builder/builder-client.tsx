@@ -661,7 +661,9 @@ export default function BuilderClient() {
     if (authLoading || merchantLoading) return;
     if (!user || !merchant) return;
 
-    loadBuilderData({
+    setPageLoading(true);
+
+    void loadBuilderData({
       router,
       toast,
       setData,

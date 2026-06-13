@@ -66,7 +66,9 @@ async function fetchStorefrontProducts({
     setError(err instanceof Error ? err : new Error('Unknown error'));
     setProducts([]);
   } finally {
-    setLoading(false);
+    if (!signal.aborted) {
+      setLoading(false);
+    }
   }
 }
 
@@ -92,11 +94,16 @@ export function useStorefrontProducts({
     setPrevStoreSlug(storeSlug);
     if (!storeSlug) {
       setLoading(false);
+      setProducts([]);
+      setError(null);
     }
   }
 
   useEffect(() => {
     if (!storeSlug) {
+      setProducts([]);
+      setError(null);
+      setLoading(false);
       return;
     }
 

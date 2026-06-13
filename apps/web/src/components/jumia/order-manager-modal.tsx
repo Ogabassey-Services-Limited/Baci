@@ -175,6 +175,16 @@ async function runOrderAction(
         typeof entry.label === 'string' && isValidHttpUrl(entry.label)
     );
 
+    if (validLabels.length === 0) {
+      toast({
+        title: 'No Valid Labels',
+        description: 'No valid printable label URLs were returned.',
+        variant: 'destructive',
+      });
+      refetch();
+      return;
+    }
+
     if (validLabels.length === 1) {
       const popup = window.open(
         validLabels[0].label,

@@ -52,6 +52,9 @@ function TrackingPageContent({ params }: TrackingPageProps) {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setTracking(null);
 
     fetchTrackingResult(trackingNumber)
       .then((data) => {

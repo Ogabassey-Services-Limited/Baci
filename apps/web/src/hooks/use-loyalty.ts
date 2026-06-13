@@ -115,12 +115,15 @@ async function loadLoyaltyData(
   { setData, setLoading, setError }: LoyaltyStateHandlers
 ): Promise<void> {
   if (!merchantId || !customerId) {
+    setData(null);
+    setError(null);
     setLoading(false);
     return;
   }
 
   if (merchantId.endsWith('-preview') || merchantId.startsWith('demo-')) {
     setData(buildPreviewLoyaltyData());
+    setError(null);
     setLoading(false);
     return;
   }

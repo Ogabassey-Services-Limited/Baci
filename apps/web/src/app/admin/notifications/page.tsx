@@ -360,6 +360,7 @@ export default function AdminNotificationsPage() {
                 value={searchQuery}
                 onChange={(e) => {
                   setIsLoading(true);
+                  setPage(0);
                   setSearchQuery(e.target.value);
                 }}
               />
@@ -370,6 +371,7 @@ export default function AdminNotificationsPage() {
               value={filters.status || 'all'}
               onValueChange={(value) => {
                 setIsLoading(true);
+                setPage(0);
                 setFilters({
                   ...filters,
                   status: value as AdminNotificationFilters['status'],
@@ -392,6 +394,7 @@ export default function AdminNotificationsPage() {
               value={filters.type || 'all'}
               onValueChange={(value) => {
                 setIsLoading(true);
+                setPage(0);
                 setFilters({
                   ...filters,
                   type:
@@ -416,6 +419,7 @@ export default function AdminNotificationsPage() {
               value={filters.priority || 'all'}
               onValueChange={(value) => {
                 setIsLoading(true);
+                setPage(0);
                 setFilters({
                   ...filters,
                   priority:

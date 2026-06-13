@@ -51,11 +51,18 @@ interface LoadMerchantsCallbacks {
   setMerchants: (value: AdminMerchantHealthRow[]) => void;
   setLoadError: (value: string | null) => void;
   toast: ReturnType<typeof useToast>['toast'];
+  isLatest: () => boolean;
 }
 
 async function loadMerchants(
   sortBy: SortBy,
-  { setLoading, setMerchants, setLoadError, toast }: LoadMerchantsCallbacks
+  {
+    setLoading,
+    setMerchants,
+    setLoadError,
+    toast,
+    isLatest,
+  }: LoadMerchantsCallbacks
 ): Promise<void> {
   try {
     setLoading(true);
@@ -63,9 +70,15 @@ async function loadMerchants(
     const response = await apiGet<AdminMerchantsResponse>(
       `/api/admin/merchants?${params.toString()}`
     );
+    if (!isLatest()) {
+      return;
+    }
     setMerchants(response.data);
     setLoadError(null);
   } catch (error) {
+    if (!isLatest()) {
+      return;
+    }
     console.error('Failed to fetch merchants:', error);
     setLoadError('Failed to load merchant data.');
     toast({
@@ -74,7 +87,9 @@ async function loadMerchants(
       variant: 'destructive',
     });
   } finally {
-    setLoading(false);
+    if (isLatest()) {
+      setLoading(false);
+    }
   }
 }
 
@@ -97,14 +112,19 @@ export function MerchantsClient({
   const [sortBy, setSortBy] = useState<SortBy>('gmv');
   const { toast } = useToast();
   const hasMounted = useRef(false);
+  const latestLoadId = useRef(0);
 
-  const fetchMerchants = () =>
-    loadMerchants(sortBy, {
+  const fetchMerchants = () => {
+    const loadId = latestLoadId.current + 1;
+    latestLoadId.current = loadId;
+    return loadMerchants(sortBy, {
       setLoading,
       setMerchants,
       setLoadError,
       toast,
+      isLatest: () => latestLoadId.current === loadId,
     });
+  };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the first rows are server-loaded, then this refetches only when sortBy changes (toast/setters are stable).
   useEffect(() => {
@@ -113,11 +133,14 @@ export function MerchantsClient({
       return;
     }
 
+    const loadId = latestLoadId.current + 1;
+    latestLoadId.current = loadId;
     void loadMerchants(sortBy, {
       setLoading,
       setMerchants,
       setLoadError,
       toast,
+      isLatest: () => latestLoadId.current === loadId,
     });
   }, [sortBy]);
 

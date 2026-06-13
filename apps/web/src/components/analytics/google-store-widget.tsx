@@ -127,6 +127,8 @@ export function GoogleStoreWidget({
   );
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const widgetStartedRef = useRef(false);
+  const widgetStartKey = `${isActivatable}:${merchantCenterId ?? ''}`;
+  const widgetStartKeyRef = useRef(widgetStartKey);
 
   // Reset/seed the deferred-load gate inline when activatability changes, so
   // re-enabling restarts the defer window without an extra stale-UI commit.
@@ -183,6 +185,11 @@ export function GoogleStoreWidget({
   }, [domainMatches, enabled, shouldLoadScript, skipActivationDelay]);
 
   useEffect(() => {
+    if (widgetStartKeyRef.current !== widgetStartKey) {
+      widgetStartKeyRef.current = widgetStartKey;
+      widgetStartedRef.current = false;
+    }
+
     if (!enabled || !domainMatches || !shouldLoadScript || !scriptLoaded) {
       return;
     }
@@ -225,6 +232,7 @@ export function GoogleStoreWidget({
     merchantCenterId,
     scriptLoaded,
     shouldLoadScript,
+    widgetStartKey,
   ]);
 
   if (!enabled || !domainMatches || !shouldLoadScript) {

@@ -212,12 +212,22 @@ type RouterApi = ReturnType<typeof useRouter>;
 // Module-scope helper: the dynamic `import()` and try/finally below bail out the
 // React Compiler when written inside the component body, so they live here.
 async function checkTemplateAuth(): Promise<boolean> {
-  const { createClient } = await import('@/lib/supabase/client');
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return !!session?.user;
+  try {
+    const { createClient } = await import('@/lib/supabase/client');
+    const supabase = createClient();
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Template auth check failed:', error);
+      return false;
+    }
+    return !!session?.user;
+  } catch (error) {
+    console.error('Template auth check failed:', error);
+    return false;
+  }
 }
 
 async function activateTemplate({
@@ -241,9 +251,13 @@ async function activateTemplate({
     // Check for real authenticated user
     const {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession();
 
-    if (!session?.user) {
+    if (sessionError || !session?.user) {
+      if (sessionError) {
+        console.error('Template activation auth check failed:', sessionError);
+      }
       toast({
         title: 'Login Required',
         description: 'Please log in to activate this template for your store.',
@@ -310,9 +324,14 @@ function ActivateButton({ templateId }: { templateId: string }) {
   // Check for real authenticated session on mount
   useEffect(() => {
     let cancelled = false;
-    checkTemplateAuth().then((authenticated) => {
-      if (!cancelled) setIsAuthenticated(authenticated);
-    });
+    checkTemplateAuth()
+      .then((authenticated) => {
+        if (!cancelled) setIsAuthenticated(authenticated);
+      })
+      .catch((error: unknown) => {
+        console.error('Template auth check failed:', error);
+        if (!cancelled) setIsAuthenticated(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -398,19 +417,30 @@ export function TemplatePreviewClient({
     // Missing templates are handled by the render guard below, so there's no
     // synchronous setState needed here — just skip the async load.
     if (!template) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setComponents(null);
 
     // Load template components dynamically
     template
       .getComponents()
       .then((loaded) => {
+        if (cancelled) return;
         setComponents(loaded);
         setLoading(false);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
+        if (cancelled) return;
         console.error('Failed to load template:', err);
-        setError(`Failed to load template components: ${err.message}`);
+        const message =
+          err instanceof Error ? err.message : 'Unknown template loading error';
+        setError(`Failed to load template components: ${message}`);
         setLoading(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [template]);
 
   if (!template) {

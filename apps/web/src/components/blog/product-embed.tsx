@@ -40,24 +40,32 @@ interface ProductEmbedPickerProps {
 interface FetchProductsCallbacks {
   setProducts: (products: Product[]) => void;
   setIsLoading: (value: boolean) => void;
+  signal?: AbortSignal;
 }
 
 async function fetchProducts(
   query: string,
-  { setProducts, setIsLoading }: FetchProductsCallbacks
+  { setProducts, setIsLoading, signal }: FetchProductsCallbacks
 ) {
   setIsLoading(true);
   try {
     const params = new URLSearchParams();
     if (query) params.set('search', query);
-    const res = await fetch(`/api/products?${params.toString()}`);
+    const res = await fetch(`/api/products?${params.toString()}`, { signal });
     if (!res.ok) throw new Error('Failed to fetch products');
     const data = await res.json();
-    setProducts(data.products || []);
+    if (!signal?.aborted) {
+      setProducts(data.products || []);
+    }
   } catch (error) {
+    if (signal?.aborted) {
+      return;
+    }
     console.error('Error fetching products:', error);
   } finally {
-    setIsLoading(false);
+    if (!signal?.aborted) {
+      setIsLoading(false);
+    }
   }
 }
 
@@ -76,9 +84,15 @@ export function ProductEmbedPicker({
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
     if (open) {
-      fetchProducts(debouncedSearch, { setProducts, setIsLoading });
+      fetchProducts(debouncedSearch, {
+        setProducts,
+        setIsLoading,
+        signal: controller.signal,
+      });
     }
+    return () => controller.abort();
   }, [open, debouncedSearch]);
 
   const toggleProduct = (id: string) => {
