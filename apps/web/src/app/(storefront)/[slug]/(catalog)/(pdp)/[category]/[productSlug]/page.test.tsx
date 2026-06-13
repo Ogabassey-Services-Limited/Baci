@@ -1462,7 +1462,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('keeps the PDP leaf segment request-time without a page-level metadata marker', async () => {
+  it('renders the OgaBassey PDP hero into the static shell without forcing the leaf dynamic', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1482,7 +1482,7 @@ describe('[category]/[productSlug] page render', () => {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnection).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -2420,8 +2420,15 @@ describe('[category]/[productSlug] page render', () => {
     });
     mockNormalizeStorefrontProductVariants.mockReturnValueOnce(variants);
 
-    await expect(
-      CategoryProductPage({
+    // The variant redirect now fires while the Suspense children render, not
+    // before the page promise resolves: the static shell streams first and the
+    // redirect is raised by getRenderableCategoryProductResult during the
+    // dynamic resume. resolveRsc descends into every resuming boundary, so the
+    // redirect can be raised by each one — it is idempotent (same canonical
+    // target) and is never dropped. Assert it is triggered toward the canonical
+    // product URL rather than the exact resume count.
+    await resolveRsc(
+      await CategoryProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           category: 'laptops',
@@ -2429,10 +2436,20 @@ describe('[category]/[productSlug] page render', () => {
         }),
         searchParams: Promise.resolve({ storage: '128GB' }),
       })
-    ).rejects.toThrow('NEXT_REDIRECT');
+    );
 
-    expect(mockPermanentRedirect).toHaveBeenCalledTimes(1);
-    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+    expect(mockPermanentRedirect).toHaveBeenCalled();
+    const redirectTargets = mockPermanentRedirect.mock.calls.map(
+      ([url]) => url
+    );
+    expect(new Set(redirectTargets).size).toBe(1);
+    expect(redirectTargets[0]).toBe(
+      '/teststore/laptops/hp-laptop-14-ep0063nia'
+    );
+    // The canonical image preload is now emitted in the static shell before the
+    // variant redirect resolves inside the Suspense child, so the previous
+    // "preload not called" ordering assertion no longer holds — the redirect
+    // assertions above remain the load-bearing guarantee.
   });
 
   it('allows valid variantId query routes to stream product hints without redirecting', async () => {

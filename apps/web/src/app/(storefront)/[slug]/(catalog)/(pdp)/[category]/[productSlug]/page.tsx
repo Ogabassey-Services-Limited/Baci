@@ -3,7 +3,6 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
@@ -29,7 +28,6 @@ import {
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
-import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
@@ -377,32 +375,6 @@ function shouldRedirectVariantSelectionParams(
     selectionResolution.type === 'invalid_variant_id' ||
     selectionResolution.type === 'zero_match'
   );
-}
-
-const NON_SELECTION_TRACKING_PARAMS = new Set([
-  // Internal middleware-only cache partition key. Treat it like tracking noise
-  // so metadata cache safety cannot disable the PDP early image hint path.
-  STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
-  'dclid',
-  'fbclid',
-  'gbraid',
-  'gclid',
-  'msclkid',
-  'ttclid',
-  'wbraid',
-]);
-
-function mayContainVariantSelectionParams(
-  searchParams: Awaited<PageProps['searchParams']>
-) {
-  return Object.keys(searchParams).some((key) => {
-    const normalizedKey = key.trim().toLowerCase();
-
-    return !(
-      normalizedKey.startsWith('utm_') ||
-      NON_SELECTION_TRACKING_PARAMS.has(normalizedKey)
-    );
-  });
 }
 
 type CategoryProductResult =
@@ -1274,10 +1246,6 @@ export default async function CategoryProductPage({
   params,
   searchParams,
 }: PageProps) {
-  // Keep the PDP leaf segment request-time. A cacheable PDP shell can resume
-  // with Next's metadata boundary in the first host slot on Vercel/Next 16.
-  await connection();
-
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -1310,24 +1278,6 @@ export default async function CategoryProductPage({
 
   if (categoryMismatch || needsValuesRedirect) {
     permanentRedirect(getRedirectTargetPath(slug, product));
-  }
-
-  const resolvedSearchParams = await searchParams;
-  let productResultPromise: Promise<CategoryProductResult> | null = null;
-
-  // Unknown query keys can be dynamic variant axes, while campaign-only URLs
-  // cannot affect selection and should still receive the early image hint.
-  if (mayContainVariantSelectionParams(resolvedSearchParams)) {
-    productResultPromise = loadProductResult();
-    const detailedProductResult = await productResultPromise;
-
-    if (detailedProductResult && 'product' in detailedProductResult) {
-      redirectInvalidVariantSelectionParams(
-        slug,
-        detailedProductResult.product,
-        resolvedSearchParams
-      );
-    }
   }
 
   const primaryProductImage = product.imageLarge || product.image || null;
@@ -1390,9 +1340,7 @@ export default async function CategoryProductPage({
     ? getRequestScopedCategoryProductBasePath(slug)
     : Promise.resolve<'' | `/${string}`>('');
 
-  if (!productResultPromise) {
-    productResultPromise = loadProductResult();
-  }
+  const productResultPromise = loadProductResult();
 
   return (
     <>
@@ -1410,7 +1358,7 @@ export default async function CategoryProductPage({
               <CategoryProductPageCriticalCommerceControls
                 basePathPromise={criticalBasePathPromise}
                 slug={slug}
-                searchParams={Promise.resolve(resolvedSearchParams)}
+                searchParams={searchParams}
                 productResultPromise={productResultPromise}
               />
             </Suspense>
@@ -1419,7 +1367,7 @@ export default async function CategoryProductPage({
             <CategoryProductPageContent
               renderMode="belowFold"
               slug={slug}
-              searchParams={Promise.resolve(resolvedSearchParams)}
+              searchParams={searchParams}
               productResultPromise={productResultPromise}
             />
           </Suspense>
@@ -1441,7 +1389,7 @@ export default async function CategoryProductPage({
           <CategoryProductPageContent
             renderMode="full"
             slug={slug}
-            searchParams={Promise.resolve(resolvedSearchParams)}
+            searchParams={searchParams}
             productResultPromise={productResultPromise}
           />
         </Suspense>
