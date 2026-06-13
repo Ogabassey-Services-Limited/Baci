@@ -299,39 +299,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (fulfillment.status === 'processing') {
-      after(async () => {
-        try {
-          const { data: vtuTx, error: vtuTxError } = await supabase
-            .from('vtu_transactions')
-            .select(
-              'id, created_at, type, status, amount, network_provider, phone_number, biller_name, biller_item_code, customer_identifier, customer_name, request_reference, transaction_id, error_message, customer_cashback, metadata'
-            )
-            .eq('id', vtuTransactionId)
-            .single();
-
-          if (vtuTx && !vtuTxError) {
-            const txMetadata = normalizeMetadata(vtuTx.metadata);
-            const voucherPin = extractMetadataField(
-              txMetadata,
-              'voucherPin',
-              isString
-            );
-            await scheduleVoucherPinBackfill({
-              metadata: txMetadata,
-              originalMetadata: vtuTx.metadata,
-              supabase,
-              transaction: vtuTx,
-              voucherPin,
-            });
-          }
-        } catch (err) {
-          console.error(
-            'Failed to trigger background backfill in confirm/route.ts:',
-            err
-          );
-        }
-      });
-
       return NextResponse.json(
         { reference: fulfillment.reference, status: 'processing' },
         { status: 202 }

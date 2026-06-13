@@ -3,16 +3,19 @@ import {
   formatPhoneNumber,
   generateRequestRef,
   isValidPhoneNumber,
+  NetworkProvider,
 } from '@/lib/kuda';
 import { resolveKudaDataPlanForPurchase } from '@/lib/kuda-data-plans';
+import { logger } from '@/lib/logger';
 import {
   getBillerProducts as getMonnifyBillerProducts,
+  getBillers as getMonnifyBillers,
   verifyBillCustomer as verifyMonnifyBillCustomer,
 } from '@/lib/monnify-bills';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { resolveVtuProvider } from '@/lib/vtu-commission-rates';
-import type { BillerProduct } from '@/schemas/monnify-bills-schema';
+import type { Biller, BillerProduct } from '@/schemas/monnify-bills-schema';
 import { COMMISSION_CATEGORY_MAP, type PurchaseInput } from '@/schemas/vtu';
 
 export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
@@ -24,6 +27,22 @@ export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
 };
 
 type VtuProviderSource = 'kuda' | 'monnify';
+type NormalizedVtuNetworkProvider = NonNullable<
+  ReturnType<typeof normalizeVtuNetworkProvider>
+>;
+
+const MONNIFY_NETWORK_NORMALIZATION_RULES: Array<{
+  patterns: RegExp[];
+  provider: NormalizedVtuNetworkProvider;
+}> = [
+  {
+    patterns: [/9MOBILE/, /ETISALAT/, /^T2$/],
+    provider: NetworkProvider.MOBILE_9,
+  },
+  { patterns: [/AIRTEL/], provider: NetworkProvider.AIRTEL },
+  { patterns: [/GLO/], provider: NetworkProvider.GLO },
+  { patterns: [/MTN/], provider: NetworkProvider.MTN },
+];
 
 /**
  * Commission rate semantics:
@@ -64,6 +83,40 @@ function firstTrimmed(...values: Array<string | undefined>) {
   return values.map((value) => value?.trim()).find(Boolean);
 }
 
+function normalizeMonnifyNetworkCandidate(value: string | undefined) {
+  const normalizedProvider = value ? normalizeVtuNetworkProvider(value) : null;
+  if (normalizedProvider) {
+    return normalizedProvider;
+  }
+
+  const compactValue = value
+    ?.trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+  if (!compactValue) {
+    return null;
+  }
+
+  const matchingRule = MONNIFY_NETWORK_NORMALIZATION_RULES.find((rule) =>
+    rule.patterns.some((pattern) => pattern.test(compactValue))
+  );
+  if (matchingRule) {
+    return matchingRule.provider;
+  }
+
+  return null;
+}
+
+function monnifyCandidateMatchesNetwork(
+  normalizedNetworkProvider: string,
+  ...values: Array<string | undefined>
+) {
+  return values.some(
+    (value) =>
+      normalizeMonnifyNetworkCandidate(value) === normalizedNetworkProvider
+  );
+}
+
 interface MonnifyTelcoCheckoutFields {
   billerCode: string;
   customerIdentifier: string;
@@ -75,15 +128,36 @@ interface MonnifyTelcoCheckoutFields {
 
 function isMatchingMonnifyAirtimeProduct(
   product: BillerProduct,
-  normalizedNetworkProvider: string
+  normalizedNetworkProvider: string,
+  billerCode: string
 ) {
-  const productNetwork = product.billerCode
-    ? normalizeVtuNetworkProvider(product.billerCode)
-    : null;
+  const productMatchesBiller =
+    !product.billerCode ||
+    product.billerCode === billerCode ||
+    monnifyCandidateMatchesNetwork(
+      normalizedNetworkProvider,
+      product.billerCode,
+      product.name
+    );
 
   return (
-    product.categoryCode === 'AIRTIME' &&
-    productNetwork === normalizedNetworkProvider
+    (!product.categoryCode || product.categoryCode === 'AIRTIME') &&
+    productMatchesBiller
+  );
+}
+
+function isMatchingMonnifyAirtimeBiller(
+  biller: Biller,
+  normalizedNetworkProvider: string
+) {
+  return (
+    biller.categoryCodes.includes('AIRTIME') &&
+    monnifyCandidateMatchesNetwork(
+      normalizedNetworkProvider,
+      biller.billerCode,
+      biller.name,
+      biller.description
+    )
   );
 }
 
@@ -96,9 +170,24 @@ async function resolveMonnifyAirtimeCheckoutFields({
   formattedPhone: string;
   normalizedNetworkProvider: string;
 }): Promise<MonnifyTelcoCheckoutFields> {
-  const products = await getMonnifyBillerProducts(normalizedNetworkProvider);
+  const billers = await getMonnifyBillers('AIRTIME');
+  const biller = billers.find((candidate) =>
+    isMatchingMonnifyAirtimeBiller(candidate, normalizedNetworkProvider)
+  );
+
+  if (!biller) {
+    throw new Error(
+      `Monnify airtime biller not found for ${normalizedNetworkProvider}`
+    );
+  }
+
+  const products = await getMonnifyBillerProducts(biller.billerCode);
   const product = products.find((candidate) =>
-    isMatchingMonnifyAirtimeProduct(candidate, normalizedNetworkProvider)
+    isMatchingMonnifyAirtimeProduct(
+      candidate,
+      normalizedNetworkProvider,
+      biller.billerCode
+    )
   );
 
   if (!product) {
@@ -120,7 +209,7 @@ async function resolveMonnifyAirtimeCheckoutFields({
   }
 
   const verification = await verifyMonnifyBillCustomer(
-    product.billerCode || normalizedNetworkProvider,
+    biller.billerCode,
     product.productCode,
     formattedPhone
   );
@@ -134,7 +223,7 @@ async function resolveMonnifyAirtimeCheckoutFields({
   }
 
   return {
-    billerCode: product.billerCode || normalizedNetworkProvider,
+    billerCode: biller.billerCode,
     customerIdentifier: formattedPhone,
     customerName: verification.customerName,
     productCode: product.productCode,
@@ -434,7 +523,8 @@ export async function preparePendingVtuTransaction({
         monnifyAirtimeError =
           error instanceof Error ? error : new Error(String(error));
         if (input.provider !== 'monnify') {
-          console.warn('Monnify airtime resolution failed; falling back Kuda', {
+          logger.warn({
+            message: 'Monnify airtime resolution failed; falling back Kuda',
             error: monnifyAirtimeError.message,
             networkProvider: normalizedNetworkProvider,
           });

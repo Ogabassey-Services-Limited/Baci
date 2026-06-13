@@ -328,6 +328,50 @@ describe('POST /api/vtu/checkout/confirm', () => {
     );
   });
 
+  it('schedules one voucher backfill for processing fulfillment', async () => {
+    mockFrom.mockImplementation(
+      createMockFrom({
+        vtuTransactionData: {
+          ...defaultVtuTransaction,
+          status: 'processing',
+        },
+      })
+    );
+    mockFulfillPendingVtuTransaction.mockResolvedValue({
+      status: 'processing',
+      reference: 'VTU-123',
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(data).toEqual({ reference: 'VTU-123', status: 'processing' });
+    expect(mockAfterCallbacks).toHaveLength(1);
+
+    await mockAfterCallbacks[0]?.();
+
+    expect(mockScheduleVoucherPinBackfill).toHaveBeenCalledTimes(1);
+    expect(mockScheduleVoucherPinBackfill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {},
+        originalMetadata: {},
+        transaction: expect.objectContaining({
+          id: 'vtu-1',
+          status: 'processing',
+          type: 'electricity',
+        }),
+        voucherPin: null,
+      })
+    );
+  });
+
   // Phase B.7 regression-pin: when initialize records a hybrid
   // payment, `transactions.amount` holds the residual (post-wallet)
   // and the gateway returned the same residual. Confirm's
