@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildOgabasseyPdpCriticalProduct,
+  getOgabasseyPdpImageVersion,
   getOgabasseyPdpPrimaryImage,
 } from './critical-product';
 
@@ -25,6 +26,7 @@ describe('buildOgabasseyPdpCriticalProduct', () => {
       },
       slug: 'lenovo-legion-pro-9',
       stock_quantity: 3,
+      updated_at: '2026-06-13T10:00:00.000Z',
     });
 
     expect(product).toMatchObject({
@@ -34,6 +36,12 @@ describe('buildOgabasseyPdpCriticalProduct', () => {
       condition: 'used',
       id: 'product-1',
       image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
+      imageVersion: getOgabasseyPdpImageVersion({
+        images: [
+          { url: 'https://cdn.ogabassey.com/core-assets/products/legion.avif' },
+        ],
+        updated_at: '2026-06-13T10:00:00.000Z',
+      }),
       name: 'Lenovo Legion Pro 9',
       price: 5_985_000,
       rating: 4.5,
@@ -49,6 +57,63 @@ describe('buildOgabasseyPdpCriticalProduct', () => {
         images: ['https://cdn.ogabassey.com/core-assets/products/iphone.avif'],
       })
     ).toBe('https://cdn.ogabassey.com/core-assets/products/iphone.avif');
+  });
+
+  it('changes the cache version when the primary image changes', () => {
+    const firstVersion = getOgabasseyPdpImageVersion({
+      images: ['https://cdn.ogabassey.com/core-assets/products/old.avif'],
+      updated_at: '2026-06-13T10:00:00.000Z',
+    });
+    const nextVersion = getOgabasseyPdpImageVersion({
+      images: ['https://cdn.ogabassey.com/core-assets/products/new.avif'],
+      updated_at: '2026-06-13T10:00:00.000Z',
+    });
+
+    expect(firstVersion).toMatch(/^[a-z0-9]+$/);
+    expect(nextVersion).toMatch(/^[a-z0-9]+$/);
+    expect(nextVersion).not.toBe(firstVersion);
+  });
+
+  it('changes the cache version when updated_at changes', () => {
+    const firstVersion = getOgabasseyPdpImageVersion({
+      images: ['https://cdn.ogabassey.com/core-assets/products/phone.avif'],
+      updated_at: '2026-06-13T10:00:00.000Z',
+    });
+    const nextVersion = getOgabasseyPdpImageVersion({
+      images: ['https://cdn.ogabassey.com/core-assets/products/phone.avif'],
+      updated_at: '2026-06-13T11:00:00.000Z',
+    });
+
+    expect(firstVersion).toMatch(/^[a-z0-9]+$/);
+    expect(nextVersion).toMatch(/^[a-z0-9]+$/);
+    expect(nextVersion).not.toBe(firstVersion);
+  });
+
+  it('generates a cache version from a real image when updated_at is missing', () => {
+    const version = getOgabasseyPdpImageVersion({
+      images: ['https://cdn.ogabassey.com/core-assets/products/tablet.avif'],
+      updated_at: null,
+    });
+
+    expect(version).toMatch(/^[a-z0-9]+$/);
+  });
+
+  it('generates a cache version from updated_at when the image is fallback', () => {
+    const version = getOgabasseyPdpImageVersion({
+      images: ['/placeholder.png'],
+      updated_at: '2026-06-13T10:00:00.000Z',
+    });
+
+    expect(version).toMatch(/^[a-z0-9]+$/);
+  });
+
+  it('returns null when updated_at is missing and the image is fallback', () => {
+    expect(
+      getOgabasseyPdpImageVersion({
+        images: ['/placeholder.png'],
+        updated_at: null,
+      })
+    ).toBeNull();
   });
 
   it('keeps rating-count-only aggregate ratings visible without claiming reviews', () => {
