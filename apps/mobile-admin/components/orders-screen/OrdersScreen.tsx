@@ -11,7 +11,16 @@ import { useOrderCounts } from '@/hooks/useOrderCounts';
 import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
 import { getOrdersViewState } from '@/lib/orders-view-state';
+import { buildOrdersListData } from './build-orders-list-data';
 import { CreateOrderFab } from './CreateOrderFab';
+import { createPaymentStatusConfigGetter } from './create-payment-status-config-getter';
+import { createShippingStatusConfigGetter } from './create-shipping-status-config-getter';
+import { createSourceConfigGetter } from './create-source-config-getter';
+import { dedupeOrdersById } from './dedupe-orders-by-id';
+import { formatDateChipLabel } from './format-date-chip-label';
+import { formatDateRangeLabel } from './format-date-range-label';
+import { getStatusActions } from './get-status-actions';
+import { getStickyHeaderIndices } from './get-sticky-header-indices';
 import { OrderItem } from './OrderItem';
 import { OrdersHeader } from './OrdersHeader';
 import { OrdersInsightCard } from './OrdersInsightCard';
@@ -19,18 +28,6 @@ import { OrdersModals } from './OrdersModals';
 import { OrdersScrollSurface } from './OrdersScrollSurface';
 import { OrdersSectionHeader } from './OrdersSectionHeader';
 import { OrdersStatusDropdown } from './OrdersStatusDropdown';
-import { formatDateChipLabel, formatDateRangeLabel } from './order-formatters';
-import {
-  createPaymentStatusConfigGetter,
-  createShippingStatusConfigGetter,
-  createSourceConfigGetter,
-  getStatusActions,
-} from './order-status-config';
-import {
-  buildOrdersListData,
-  dedupeOrdersById,
-  getStickyHeaderIndices,
-} from './orders-list-data';
 import {
   requiresPaymentPrompt,
   showPaymentRequiredPrompt,

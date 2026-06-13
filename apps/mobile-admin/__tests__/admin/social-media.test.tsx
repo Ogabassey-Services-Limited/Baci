@@ -12,19 +12,16 @@ const mocks = vi.hoisted(() => ({
   useMutation: vi.fn(),
   invalidateQueries: vi.fn(),
 }));
-
 type MutationOptions = {
   mutationFn: () => Promise<unknown>;
   onError?: (error: unknown) => void;
   onSuccess?: (data: unknown) => void;
 };
-
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
   default: () => null,
   __esModule: true,
 }));
-
 vi.mock('expo-router', () => ({
   Stack: {
     Screen: ({
@@ -37,7 +34,6 @@ vi.mock('expo-router', () => ({
     back: mocks.back,
   }),
 }));
-
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -53,15 +49,12 @@ vi.mock('@/hooks/useTheme', () => ({
     shadows: { sm: {} },
   }),
 }));
-
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => mocks.useMerchant(),
 }));
-
 vi.mock('@/lib/merchant-settings', () => ({
   updateMerchantSettings: mocks.updateMerchantSettings,
 }));
-
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({
     invalidateQueries: mocks.invalidateQueries,

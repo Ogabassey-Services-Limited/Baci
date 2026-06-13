@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createPaymentStatusConfigGetter,
-  createShippingStatusConfigGetter,
-  createSourceConfigGetter,
-  getColorFromKey,
-  getStatusActions,
-} from './order-status-config';
+import { createPaymentStatusConfigGetter } from './create-payment-status-config-getter';
+import { createShippingStatusConfigGetter } from './create-shipping-status-config-getter';
+import { createSourceConfigGetter } from './create-source-config-getter';
+import { getColorFromKey } from './get-color-from-key';
+import { getStatusActions } from './get-status-actions';
 import { mockColors } from './orders-screen-test-utils';
 
 describe('order-status-config', () => {

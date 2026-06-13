@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Order } from '@/hooks/useOrders';
-import {
-  buildOrdersListData,
-  dedupeOrdersById,
-  getStickyHeaderIndices,
-} from './orders-list-data';
+import { buildOrdersListData } from './build-orders-list-data';
+import { dedupeOrdersById } from './dedupe-orders-by-id';
+import { getStickyHeaderIndices } from './get-sticky-header-indices';
 
 vi.mock('@/utils/date-utils', () => ({
   groupOrdersByRelativeDate: (orders: Order[]) => [

@@ -20,19 +20,3 @@ export function buildOrdersListData(allOrders: Order[]) {
 
   return rows;
 }
-
-export function getStickyHeaderIndices(rows: OrdersListRow[]) {
-  return rows
-    .map((item, index) => (item.type === 'header' ? index : null))
-    .filter((index): index is number => index !== null);
-}
-
-export function dedupeOrdersById(orders: Order[]) {
-  const seenIds = new Set<string>();
-
-  return orders.filter((order) => {
-    if (seenIds.has(order.id)) return false;
-    seenIds.add(order.id);
-    return true;
-  });
-}

@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  formatDateChipLabel,
-  formatDateRangeLabel,
-  formatPrice,
-  formatTime,
-  getPresetDateRange,
-} from './order-formatters';
+import { formatDateChipLabel } from './format-date-chip-label';
+import { formatDateRangeLabel } from './format-date-range-label';
+import { formatPrice } from './format-price';
+import { formatTime } from './format-time';
+import { getPresetDateRange } from './get-preset-date-range';
 
 describe('order-formatters', () => {
   it('formats currency and invalid times safely', () => {

@@ -11,7 +11,8 @@ import {
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { Order } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
-import { formatPrice, formatTime } from './order-formatters';
+import { formatPrice } from './format-price';
+import { formatTime } from './format-time';
 import type {
   PaymentStatusConfigGetter,
   ShippingStatusConfigGetter,
