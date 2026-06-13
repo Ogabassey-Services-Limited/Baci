@@ -12,7 +12,10 @@ import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabasse
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
-import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
+import {
+  buildOgabasseyPdpCriticalProduct,
+  getOgabasseyPdpImageVersion,
+} from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import {
@@ -447,6 +450,7 @@ interface LcpRouteProduct {
   schema_markup?: unknown;
   slug?: string;
   stock_quantity?: number | null;
+  updated_at?: string | null;
 }
 
 type CategoryProductRouteControlResult =
@@ -464,7 +468,7 @@ type CategoryProductRouteControlResult =
 interface CategoryProductRouteControl {
   result: CategoryProductRouteControlResult;
   loadProductResult: () => Promise<CategoryProductResult>;
-  preloadedProductImage?: string | null;
+  preloadedProductResourceKey?: string | null;
 }
 
 function hasCategoryMismatch(
@@ -505,6 +509,17 @@ function shouldRedirectResolvedProductSlugValue(
     resolvedSlug !== productSlug &&
     resolvedSlug?.toLowerCase() === productSlug.toLowerCase()
   );
+}
+
+function getDirectProductPreloadKey(src: string): string {
+  return `direct:${src}`;
+}
+
+function getSameOriginProductPreloadKey(
+  productSlug: string,
+  imageVersion: string
+): string {
+  return `same-origin:${productSlug.trim().toLowerCase()}:${imageVersion}`;
 }
 
 function parseRouteProductNumber(value: unknown): number | null {
@@ -587,6 +602,7 @@ function mapCachedProductLcpHintToRouteProduct(
     schema_markup: cachedProduct.schema_markup,
     slug: cachedProduct.slug ?? cachedProduct.id,
     stock_quantity: stockQuantity,
+    updated_at: cachedProduct.updated_at,
   };
 }
 
@@ -749,7 +765,7 @@ async function getProductRouteControl(
   const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(storeSlug);
   const isKnownOgaBasseyCustomDomain =
     storeSlug.trim().toLowerCase() === OGABASSEY_DOMAIN.toLowerCase();
-  let preloadedProductImage: string | null = null;
+  let preloadedProductResourceKey: string | null = null;
   const knownOgaBasseyLcpHintPromise = knownOgaBasseyMerchantId
     ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug)
     : null;
@@ -769,10 +785,15 @@ async function getProductRouteControl(
     const earlyPreloadResult = await Promise.race([
       knownOgaBasseyLcpHintPromise
         .then((cachedProduct) => ({
+          cachedProduct,
           kind: 'lcp-hint' as const,
           primaryImage: getCachedProductLcpHintPrimaryImage(cachedProduct),
         }))
-        .catch(() => ({ kind: 'lcp-hint' as const, primaryImage: null })),
+        .catch(() => ({
+          cachedProduct: null,
+          kind: 'lcp-hint' as const,
+          primaryImage: null,
+        })),
       merchantPromise.then(
         () => ({ kind: 'merchant-ready' as const }),
         () => ({ kind: 'merchant-ready' as const })
@@ -781,13 +802,34 @@ async function getProductRouteControl(
 
     if (
       earlyPreloadResult.kind === 'lcp-hint' &&
-      earlyPreloadResult.primaryImage
+      earlyPreloadResult.primaryImage &&
+      earlyPreloadResult.cachedProduct
     ) {
       try {
-        preloadOgabasseyPdpProductResources({
-          src: earlyPreloadResult.primaryImage,
-        });
-        preloadedProductImage = earlyPreloadResult.primaryImage;
+        const hintProductSlug =
+          earlyPreloadResult.cachedProduct.slug || productSlug;
+        const hintImageVersion = getOgabasseyPdpImageVersion(
+          earlyPreloadResult.cachedProduct
+        );
+
+        if (hintImageVersion) {
+          preloadOgabasseyPdpProductResources({
+            imageVersion: hintImageVersion,
+            productSlug: hintProductSlug,
+            src: null,
+          });
+          preloadedProductResourceKey = getSameOriginProductPreloadKey(
+            hintProductSlug,
+            hintImageVersion
+          );
+        } else {
+          preloadOgabasseyPdpProductResources({
+            src: earlyPreloadResult.primaryImage,
+          });
+          preloadedProductResourceKey = getDirectProductPreloadKey(
+            earlyPreloadResult.primaryImage
+          );
+        }
       } catch (error) {
         console.warn(
           'Unable to preload OgaBassey PDP resources early:',
@@ -828,7 +870,7 @@ async function getProductRouteControl(
       ? {
           result,
           loadProductResult: () => Promise.resolve(result),
-          preloadedProductImage,
+          preloadedProductResourceKey,
         }
       : null;
   }
@@ -852,7 +894,7 @@ async function getProductRouteControl(
       needsValuesRedirect,
     },
     loadProductResult,
-    preloadedProductImage,
+    preloadedProductResourceKey,
   };
 }
 
@@ -1254,7 +1296,7 @@ export default async function CategoryProductPage({
   const {
     result: productResult,
     loadProductResult,
-    preloadedProductImage,
+    preloadedProductResourceKey,
   } = routeControl;
 
   if (!('product' in productResult)) {
@@ -1293,23 +1335,48 @@ export default async function CategoryProductPage({
   const normalizedSlug = slug.trim().toLowerCase();
   const normalizedOgaBasseyDomain = OGABASSEY_DOMAIN.toLowerCase();
   const isOgaBasseyCustomDomain = normalizedSlug === normalizedOgaBasseyDomain;
-  const pageOwnsProductPreload =
-    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
-    (!knownOgaBasseyMerchantId || isOgaBasseyCustomDomain);
-  const pagePreloadProductImage = pageOwnsProductPreload
-    ? primaryProductImage
-    : null;
-  const shouldPreloadProductImage =
-    pagePreloadProductImage &&
-    pagePreloadProductImage !== preloadedProductImage;
   const criticalProduct =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
+  const canUseSameOriginProductImage = Boolean(
+    knownOgaBasseyMerchantId && criticalProduct?.imageVersion
+  );
+  const pageOwnsProductPreload =
+    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
+    (!knownOgaBasseyMerchantId ||
+      isOgaBasseyCustomDomain ||
+      canUseSameOriginProductImage);
+  const pagePreloadProductImage =
+    pageOwnsProductPreload && !canUseSameOriginProductImage
+      ? primaryProductImage
+      : null;
+  const pagePreloadResourceKey =
+    pageOwnsProductPreload &&
+    canUseSameOriginProductImage &&
+    criticalProduct?.imageVersion
+      ? getSameOriginProductPreloadKey(
+          criticalProduct.slug,
+          criticalProduct.imageVersion
+        )
+      : pagePreloadProductImage
+        ? getDirectProductPreloadKey(pagePreloadProductImage)
+        : null;
+  const shouldPreloadProductImage =
+    pagePreloadResourceKey !== null &&
+    pagePreloadResourceKey !== preloadedProductResourceKey;
 
   try {
     if (shouldPreloadProductImage) {
-      preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
+      if (canUseSameOriginProductImage && criticalProduct?.imageVersion) {
+        preloadOgabasseyPdpProductResources({
+          imageVersion: criticalProduct.imageVersion,
+          productSlug: criticalProduct.slug,
+          src: null,
+        });
+      } else if (pagePreloadProductImage) {
+        preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
+      }
     }
   } catch (error) {
     console.warn(
@@ -1334,7 +1401,9 @@ export default async function CategoryProductPage({
           <OgabasseyPdpCriticalShell
             basePath={getCategoryProductBasePath(slug)}
             basePathPromise={criticalBasePathPromise}
-            imageDelivery="direct"
+            imageDelivery={
+              canUseSameOriginProductImage ? 'same-origin' : 'direct'
+            }
             product={criticalProduct}
           >
             <Suspense fallback={null}>

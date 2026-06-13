@@ -171,6 +171,7 @@ const serverSchema = z
     KORAPAY_SECRET_KEY: z.string().optional(),
     JUICYWAY_SECRET_KEY: z.string().optional(),
     PAYSTACK_SECRET_KEY: z.string().optional(),
+    BACI_CDN_ORIGIN_FETCH_SECRET: optionalTrimmedStringSchema,
     BACI_GOOGLE_PAY_ENABLED: z.string().optional(),
     BACI_GOOGLE_PAY_GATEWAY: z.string().optional(),
     BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID: z.string().optional(),
@@ -481,6 +482,7 @@ const getEnv = () => {
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        BACI_CDN_ORIGIN_FETCH_SECRET: process.env.BACI_CDN_ORIGIN_FETCH_SECRET,
         BACI_GOOGLE_PAY_ENABLED: process.env.BACI_GOOGLE_PAY_ENABLED,
         BACI_GOOGLE_PAY_GATEWAY: process.env.BACI_GOOGLE_PAY_GATEWAY,
         BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID:
@@ -826,6 +828,13 @@ export const getPaystackSecretKey = () => {
     process.env.PAYSTACK_SECRET_KEY ?? env?.PAYSTACK_SECRET_KEY
   );
   return secret || undefined;
+};
+export const getBaciCdnOriginFetchSecret = () => {
+  if (isBrowserRuntime()) return undefined;
+  return getRuntimeEnvValue(
+    process.env.BACI_CDN_ORIGIN_FETCH_SECRET,
+    env?.BACI_CDN_ORIGIN_FETCH_SECRET
+  );
 };
 export type GooglePayAgenticConfig = {
   gateway: string;
