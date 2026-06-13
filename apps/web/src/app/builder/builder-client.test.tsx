@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BuilderClient from './builder-client';
 
 const mockPush = vi.fn();
+const mockRouter = { push: mockPush };
 const mockToast = vi.fn();
 const { mockApiPost, mockApiPut, mockFetchWithCsrf } = vi.hoisted(() => ({
   mockApiPost: vi.fn(),
@@ -27,9 +28,7 @@ vi.mock('next/link', () => ({
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
+  useRouter: () => mockRouter,
 }));
 
 vi.mock('@puckeditor/core', () => {
@@ -300,7 +299,8 @@ describe('BuilderClient', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`aiDraftJobId=${aiDraftJobId}`)
+        expect.stringContaining(`aiDraftJobId=${aiDraftJobId}`),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
   });

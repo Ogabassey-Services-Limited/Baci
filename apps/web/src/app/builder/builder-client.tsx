@@ -194,15 +194,17 @@ export default function BuilderClient() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { merchant, loading: merchantLoading } = useMerchant();
+  const userId = user?.id ?? null;
+  const merchantId = merchant?.id ?? null;
 
   // Register CopilotKit actions for AI-driven component manipulation
   useCopilotBuilderActions({ data, setData });
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authLoading && !userId) {
       router.push('/login');
     }
-  }, [user, authLoading, router]);
+  }, [userId, authLoading, router]);
 
   // When auth + merchant have resolved but there is no user/merchant to load
   // for, stop the page loader during render (a prev-key comparison) rather than
@@ -210,7 +212,7 @@ export default function BuilderClient() {
   // stale loading state is briefly visible. The data-loading effect below
   // resets `pageLoading` via the module-scope loader once a fetch completes.
   const isResolvedWithoutTarget =
-    !authLoading && !merchantLoading && (!user || !merchant);
+    !authLoading && !merchantLoading && (!userId || !merchantId);
   // Seed `false` so a first render that is already resolved-without-target
   // still triggers the loader-off transition below.
   const [prevResolvedWithoutTarget, setPrevResolvedWithoutTarget] =
@@ -227,7 +229,7 @@ export default function BuilderClient() {
   // this component.
   useEffect(() => {
     if (authLoading || merchantLoading) return;
-    if (!user || !merchant) return;
+    if (!userId || !merchantId) return;
 
     setPageLoading(true);
 
@@ -246,7 +248,7 @@ export default function BuilderClient() {
       setAiDraftJobId,
       setCanApplyAiDraft,
     });
-  }, [user, merchant, authLoading, merchantLoading, router, toast]);
+  }, [userId, merchantId, authLoading, merchantLoading, router, toast]);
 
   const handleSave = async (newData: Data): Promise<string | null> => {
     if (!canEdit) {
