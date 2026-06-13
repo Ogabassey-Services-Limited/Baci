@@ -278,6 +278,29 @@ describe('usePaymentGatewayController', () => {
     );
   });
 
+  it('starts VTU confirmation when the checkout page stalls instead of showing payment failed', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = { ...vtuParams };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleLoadStart();
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(45_000);
+    });
+
+    expect(result.current.status).toBe('processing');
+    expect(result.current.errorMessage).toBeNull();
+    await waitFor(() =>
+      expect(mockWaitForVtuConfirmation).toHaveBeenCalledWith({
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    );
+  });
+
   it('clears the cart and navigates after order payment completion', () => {
     jest.useFakeTimers();
     const { result } = renderHook(() => usePaymentGatewayController());

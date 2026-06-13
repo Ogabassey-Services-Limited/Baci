@@ -6,7 +6,10 @@ import {
   upsertPaystackAuthorization,
 } from '@/lib/customer-saved-payment-methods';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
-import { verifyTransaction as verifyPaystackTransaction } from '@/lib/paystack';
+import {
+  getPaystackRequestedAmountNgn,
+  verifyTransaction as verifyPaystackTransaction,
+} from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
@@ -22,12 +25,16 @@ function getVerifiedAmount(
   gateway: 'paystack' | 'korapay',
   payload: Record<string, unknown>
 ) {
+  if (gateway === 'paystack') {
+    return getPaystackRequestedAmountNgn(payload);
+  }
+
   const rawAmount = payload.amount;
   if (typeof rawAmount !== 'number' || !Number.isFinite(rawAmount)) {
     return null;
   }
 
-  return gateway === 'paystack' ? rawAmount / 100 : rawAmount;
+  return rawAmount;
 }
 
 export async function POST(request: NextRequest) {

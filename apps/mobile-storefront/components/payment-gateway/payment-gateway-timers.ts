@@ -9,12 +9,14 @@ import type {
 } from './payment-gateway-controller.types';
 
 interface PaymentGatewayTimerInput {
+  onLoadTimeout?: () => boolean;
   refs: PaymentGatewayRefs;
   setErrorMessage: (message: string | null) => void;
   setPaymentStatus: PaymentStatusSetter;
 }
 
 export function createPaymentGatewayTimers({
+  onLoadTimeout,
   refs,
   setErrorMessage,
   setPaymentStatus,
@@ -44,6 +46,9 @@ export function createPaymentGatewayTimers({
         return;
       }
       if (refs.statusRef.current !== 'loading') {
+        return;
+      }
+      if (onLoadTimeout?.()) {
         return;
       }
       setErrorMessage(PAYMENT_LOAD_TIMEOUT_MESSAGE);

@@ -116,6 +116,7 @@ const PaymentVerificationSchema = z.object({
   status: z.enum(PAYMENT_STATUSES),
   reference: z.string(),
   amount: z.number(),
+  requested_amount: z.number().optional(),
   currency: z.string(),
   channel: z.string(),
   paid_at: z.string().nullable(),
@@ -144,6 +145,28 @@ export type PaymentVerificationResponse = z.infer<
   typeof PaymentVerificationSchema
 >;
 export type PaystackAuthorization = z.infer<typeof AuthorizationSchema>;
+
+export function getPaystackRequestedAmountNgn(
+  payload: Record<string, unknown>
+) {
+  const rawRequestedAmount = payload.requested_amount;
+  const rawAmount =
+    typeof rawRequestedAmount === 'number' &&
+    Number.isFinite(rawRequestedAmount) &&
+    rawRequestedAmount > 0
+      ? rawRequestedAmount
+      : payload.amount;
+
+  if (
+    typeof rawAmount !== 'number' ||
+    !Number.isFinite(rawAmount) ||
+    rawAmount <= 0
+  ) {
+    return null;
+  }
+
+  return rawAmount / 100;
+}
 
 const ChargeAuthorizationResponseSchema = z.object({
   amount: z.number(),
