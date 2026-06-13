@@ -8,8 +8,8 @@ import {
 import { resolveKudaDataPlanForPurchase } from '@/lib/kuda-data-plans';
 import { logger } from '@/lib/logger';
 import {
-  getBillerProducts as getMonnifyBillerProducts,
-  getBillers as getMonnifyBillers,
+  getCachedBillerProducts as getMonnifyBillerProducts,
+  getCachedBillers as getMonnifyBillers,
   verifyBillCustomer as verifyMonnifyBillCustomer,
 } from '@/lib/monnify-bills';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';

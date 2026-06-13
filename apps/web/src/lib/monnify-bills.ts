@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import { getMonnifyBaseUrl } from '@/env';
 import type { PurchaseResult } from '@/lib/kuda';
 import { getMonnifyToken } from '@/lib/monnify';
@@ -20,6 +21,7 @@ import {
 const MONNIFY_SUCCESS_RESPONSE_CODE = '0';
 const MONNIFY_DISCOVERY_TIMEOUT_MS = 10_000;
 const MONNIFY_FINANCIAL_TIMEOUT_MS = 30_000;
+const MONNIFY_DISCOVERY_CACHE_REVALIDATE_SECONDS = 300;
 const MONNIFY_SUCCESS_STATUSES = new Set(['PAID', 'SUCCESS', 'SUCCESSFUL']);
 const MONNIFY_PROCESSING_STATUSES = new Set([
   'PENDING',
@@ -211,6 +213,28 @@ export async function getBillerProducts(
   ).parse(envelope);
   assertMonnifyBusinessSuccess(parsed, 'Monnify biller products lookup');
   return parsed.responseBody ?? [];
+}
+
+export function getCachedBillers(categoryCode: string) {
+  return unstable_cache(
+    async () => getBillers(categoryCode),
+    ['monnify-billers', categoryCode],
+    {
+      revalidate: MONNIFY_DISCOVERY_CACHE_REVALIDATE_SECONDS,
+      tags: ['monnify-billers'],
+    }
+  )();
+}
+
+export function getCachedBillerProducts(billerCode: string) {
+  return unstable_cache(
+    async () => getBillerProducts(billerCode),
+    ['monnify-biller-products', billerCode],
+    {
+      revalidate: MONNIFY_DISCOVERY_CACHE_REVALIDATE_SECONDS,
+      tags: ['monnify-biller-products'],
+    }
+  )();
 }
 
 export async function verifyBillCustomer(

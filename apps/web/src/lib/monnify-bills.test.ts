@@ -1,9 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockUnstableCache } = vi.hoisted(() => ({
+  mockUnstableCache: vi.fn(
+    <T extends (...args: never[]) => unknown>(fn: T) => fn
+  ),
+}));
+
+vi.mock('next/cache', () => ({
+  unstable_cache: mockUnstableCache,
+}));
+
 import {
   checkTransactionStatus,
   getBillerCategories,
   getBillerProducts,
   getBillers,
+  getCachedBillerProducts,
+  getCachedBillers,
   purchaseBill,
   verifyBillCustomer,
 } from './monnify-bills';
@@ -124,6 +137,39 @@ describe('Monnify Bills Client', () => {
       ]);
     });
 
+    it('getCachedBillers delegates cached category discovery by category code', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: {
+            content: [
+              {
+                code: 'MTN',
+                name: 'MTN',
+                categories: [{ code: 'AIRTIME', name: 'AIRTIME' }],
+              },
+            ],
+          },
+        }),
+      });
+
+      const result = await getCachedBillers('AIRTIME');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://sandbox.monnify.com/api/v1/vas/bills-payment/billers?categoryCode=AIRTIME',
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(result).toEqual([
+        expect.objectContaining({
+          billerCode: 'MTN',
+          categoryCodes: ['AIRTIME'],
+        }),
+      ]);
+    });
+
     it('getBillerProducts returns unwrapped products list', async () => {
       const mockEnvelope = {
         requestSuccessful: true,
@@ -199,6 +245,44 @@ describe('Monnify Bills Client', () => {
           maxAmount: null,
           minAmount: 100,
         },
+      ]);
+    });
+
+    it('getCachedBillerProducts delegates cached product discovery by biller code', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: {
+            content: [
+              {
+                code: '13',
+                name: 'MTN Mobile Top up',
+                category: { code: 'AIRTIME', name: 'AIRTIME' },
+                biller: { code: 'MTN', name: 'MTN' },
+                minAmount: 100,
+                maxAmount: null,
+                price: null,
+                priceType: 'OPEN',
+              },
+            ],
+          },
+        }),
+      });
+
+      const result = await getCachedBillerProducts('MTN');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://sandbox.monnify.com/api/v1/vas/bills-payment/biller-products?billerCode=MTN',
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(result).toEqual([
+        expect.objectContaining({
+          billerCode: 'MTN',
+          productCode: '13',
+        }),
       ]);
     });
 

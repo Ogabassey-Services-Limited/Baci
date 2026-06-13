@@ -50,6 +50,9 @@ vi.mock('@/lib/supabase/client', () => ({
 }));
 
 vi.mock('@/lib/monnify-bills', () => ({
+  getCachedBillers: (...args: unknown[]) => mockGetMonnifyBillers(...args),
+  getCachedBillerProducts: (...args: unknown[]) =>
+    mockGetMonnifyBillerProducts(...args),
   getBillers: (...args: unknown[]) => mockGetMonnifyBillers(...args),
   getBillerProducts: (...args: unknown[]) =>
     mockGetMonnifyBillerProducts(...args),
