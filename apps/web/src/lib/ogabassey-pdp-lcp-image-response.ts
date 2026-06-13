@@ -10,7 +10,7 @@ import imageLoader from '@/lib/image-loader';
 import { ogabasseyPdpLcpImageRequestSchema } from '@/schemas/ogabassey-pdp-lcp-image';
 
 const PRELOAD_IMAGE_CACHE_CONTROL =
-  'public, max-age=31536000, s-maxage=86400, stale-while-revalidate=86400';
+  'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400';
 const PRELOAD_MISS_CACHE_CONTROL = 'public, max-age=60, s-maxage=60';
 const DEFAULT_IMAGE_ACCEPT_HEADER = 'image/avif,image/webp,image/*,*/*;q=0.8';
 const ORIGIN_FETCH_SECRET_HEADER = 'x-baci-origin-fetch';

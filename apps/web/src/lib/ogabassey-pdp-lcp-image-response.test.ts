@@ -81,7 +81,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('image/avif');
     expect(response.headers.get('cache-control')).toBe(
-      'public, max-age=31536000, s-maxage=86400, stale-while-revalidate=86400'
+      'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
     );
     expect(response.headers.get('vary')).toBe('Accept');
     await expect(response.text()).resolves.toBe('image-bytes');

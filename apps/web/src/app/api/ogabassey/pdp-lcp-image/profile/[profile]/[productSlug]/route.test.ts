@@ -116,6 +116,25 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
     });
   });
 
+  it('streams the mobile header profile with the actual mobile LCP candidate dimensions', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'product-1',
+      images: [
+        'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
+      ],
+      name: 'Dell Alienware m18 R3',
+    });
+
+    const response = await GET(createRequest(), createContext('mobile-header'));
+
+    expect(response.status).toBe(200);
+    expect(mockImageLoader).toHaveBeenCalledWith({
+      quality: 35,
+      src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
+      width: 1080,
+    });
+  });
+
   it('returns 400 before lookup for invalid profiles', async () => {
     const response = await GET(createRequest(), createContext('tablet'));
     const payload = await response.json();
