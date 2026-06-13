@@ -1,15 +1,10 @@
-'use client';
-
 import Link from 'next/link';
-import { useState } from 'react';
 import { Logo } from '@/components/logo';
 import { PLATFORM_CONFIG } from '@/config/platform';
 
-export function PlatformFooter() {
-  // Resolve the copyright year once per mount via a lazy initializer instead of
-  // a setState-in-effect, which keeps React Compiler memoization enabled.
-  const [year] = useState(() => new Date().getFullYear());
+const COPYRIGHT_YEAR = new Date().getFullYear();
 
+export function PlatformFooter() {
   return (
     <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
       <div
@@ -114,7 +109,9 @@ export function PlatformFooter() {
           </div>
         </div>
         <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-          <p className="text-sm">&copy; {year} Baci. All rights reserved.</p>
+          <p className="text-sm">
+            &copy; {COPYRIGHT_YEAR} Baci. All rights reserved.
+          </p>
           <div className="flex gap-6">
             <a
               href={PLATFORM_CONFIG.socialMedia.twitter}
