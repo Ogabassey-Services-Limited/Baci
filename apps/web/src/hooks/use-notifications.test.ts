@@ -261,7 +261,7 @@ describe('useNotifications', () => {
       expect(result.current.notifications).toEqual([]);
     });
 
-    it('handles 429 rate limit response by backing off', async () => {
+    it('surfaces 429 rate limit responses without blocking fetch state', async () => {
       // Arrange
       vi.mocked(useMerchant).mockReturnValue({
         merchant: { id: 'merchant-123' },
@@ -280,13 +280,17 @@ describe('useNotifications', () => {
         });
 
       // Act
-      renderHook(() => useNotifications());
+      const { result } = renderHook(() => useNotifications());
 
       // Assert
       await waitFor(
         () => {
           expect(consoleWarnSpy).toHaveBeenCalledWith(
-            'Rate limit exceeded for notifications. Backing off.'
+            'Rate limit exceeded for notifications.'
+          );
+          expect(result.current.isLoading).toBe(false);
+          expect(result.current.error).toBe(
+            'Notifications are rate limited. Please try again later.'
           );
         },
         { timeout: 1000 }

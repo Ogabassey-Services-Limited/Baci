@@ -68,7 +68,8 @@ async function fetchNotificationsRequest(
     const response = await fetch(`/api/notifications?${params.toString()}`);
     // Implement throttling to prevent 429s
     if (response.status === 429) {
-      console.warn('Rate limit exceeded for notifications. Backing off.');
+      console.warn('Rate limit exceeded for notifications.');
+      setError('Notifications are rate limited. Please try again later.');
       return;
     }
 
