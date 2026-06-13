@@ -2,7 +2,7 @@ import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import { z } from 'zod';
 
 const providerIds = ['gigl', 'topship', 'shiip'] as const;
-export const shippingProviderIdSchema = z.enum(providerIds);
+const shippingProviderIdSchema = z.enum(providerIds);
 
 export const AVAILABLE_PROVIDERS = [
   {
