@@ -10,12 +10,14 @@ import {
 } from '@/lib/order-shipment';
 
 function createItem(overrides: Partial<OrderItem> = {}): OrderItem {
+  const name = overrides.name ?? 'iPhone 13';
+
   return {
     id: 'item-1',
-    name: 'iPhone 13',
+    name,
     price: 500000,
     product_id: 'product-1',
-    product_name: 'iPhone 13',
+    product_name: name,
     quantity: 1,
     ...overrides,
   };
@@ -53,6 +55,46 @@ describe('order-shipment', () => {
     expect(
       orderRequiresFulfillment([
         createItem({ has_assurance: true, name: 'Cotton Hoodie' }),
+      ])
+    ).toBe(true);
+  });
+
+  it('requires fulfillment for every product sold by electronics merchants', () => {
+    expect(
+      orderRequiresFulfillment(
+        [createItem({ has_assurance: false, name: 'USB-C Cable' })],
+        'electronics'
+      )
+    ).toBe(true);
+
+    expect(
+      orderRequiresFulfillment(
+        [createItem({ has_assurance: false, name: 'Travel Case' })],
+        'GADGETS'
+      )
+    ).toBe(true);
+  });
+
+  it('requires fulfillment for device categories even when the item name has no device keyword', () => {
+    expect(
+      orderRequiresFulfillment([
+        createItem({
+          has_assurance: false,
+          name: '13-inch Notebook',
+          category: 'Laptops',
+          category_slug: 'laptops',
+        }),
+      ])
+    ).toBe(true);
+
+    expect(
+      orderRequiresFulfillment([
+        createItem({
+          has_assurance: false,
+          name: 'Portable Bluetooth Item',
+          category: 'Audio',
+          category_slug: 'audio',
+        }),
       ])
     ).toBe(true);
   });
