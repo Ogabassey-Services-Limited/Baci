@@ -5,7 +5,6 @@ import type {
   BNPLShouldStartLoadRequest,
   BNPLWebViewHttpErrorEvent,
   BNPLWebViewLoadError,
-  WebViewOpenWindowEventLike,
 } from './BNPLCheckoutWebView';
 import {
   BNPL_UNTRUSTED_POPUP_MESSAGE,
@@ -153,13 +152,11 @@ export function useBNPLCheckoutController({
     setErrorMessage(effect.errorMessage);
   };
 
-  const handleNavigationChange = (navState: WebViewNavigation) => {
+  const handleNavigationChange = (navState: WebViewNavigation) =>
     handleNavigationUrl(navState.url);
-  };
 
-  const handleClose = () => {
+  const handleClose = () =>
     getAppNavigation().showCancelAlert(returnToAppFromProviderExit);
-  };
 
   const handleWebViewMessage = (event: BNPLWebViewMessageEvent) =>
     createBNPLWebViewMessageHandler({
@@ -210,19 +207,17 @@ export function useBNPLCheckoutController({
     );
   };
 
-  // Build the handler lazily inside the callback so the factory (which closes
-  // over ref-backed timer helpers) is never invoked during render.
-  const handleOpenWindow = (event: WebViewOpenWindowEventLike) =>
-    createBNPLOpenWindowHandler({
-      apiBaseUrl,
-      merchantDomain,
-      merchantSlug,
-      clearPendingLoadTimeout,
-      scheduleLoadTimeout,
-      setCheckoutStatus,
-      setCurrentUrl,
-      setErrorMessage,
-    })(event);
+  // Pure factory returning the event handler — no render side effects.
+  const handleOpenWindow = createBNPLOpenWindowHandler({
+    apiBaseUrl,
+    merchantDomain,
+    merchantSlug,
+    clearPendingLoadTimeout,
+    scheduleLoadTimeout,
+    setCheckoutStatus,
+    setCurrentUrl,
+    setErrorMessage,
+  });
 
   const handleShouldStartLoadWithRequest = (
     request: BNPLShouldStartLoadRequest
