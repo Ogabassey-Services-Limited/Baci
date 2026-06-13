@@ -426,14 +426,23 @@ export function TemplatePreviewClient({
 
   const template = TEMPLATE_REGISTRY[templateId];
 
-  useEffect(() => {
-    // Missing templates are handled by the render guard below, so there's no
-    // synchronous setState needed here — just skip the async load.
-    if (!template) return;
-    let cancelled = false;
+  // Reset load state synchronously during render when the template prop
+  // changes, instead of in an effect — the documented "adjusting state when a
+  // prop changes" pattern. This avoids briefly showing the previous template's
+  // components and keeps React Compiler memoization intact.
+  const [loadedTemplate, setLoadedTemplate] = useState(template);
+  if (template !== loadedTemplate) {
+    setLoadedTemplate(template);
+    setComponents(null);
     setLoading(true);
     setError(null);
-    setComponents(null);
+  }
+
+  useEffect(() => {
+    // Missing templates are handled by the render guard below, so there's no
+    // async load to start. State resets happen during render above.
+    if (!template) return;
+    let cancelled = false;
 
     // Load template components dynamically
     template

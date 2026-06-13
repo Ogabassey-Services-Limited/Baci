@@ -13,18 +13,18 @@ import {
   parseBNPLParams,
   resolveBNPLDocumentNavigation,
 } from './bnpl-checkout.helpers';
+import { createBNPLCheckoutAppNavigation } from './bnpl-checkout-app-navigation';
 import {
   resolveBNPLNavigationUrlEffect,
   shouldHandleBNPLNavigationMessage,
 } from './bnpl-checkout-controller-actions';
-import { createBNPLOpenWindowHandler } from './bnpl-open-window-handler';
-import { createBNPLCheckoutAppNavigation } from './bnpl-checkout-app-navigation';
 import {
   type BNPLWebViewMessageEvent,
   createBNPLWebViewMessageHandler,
   logBNPLCheckoutDebug,
 } from './bnpl-checkout-message-handler';
 import { createBNPLLoadTimers } from './bnpl-checkout-timers';
+import { createBNPLOpenWindowHandler } from './bnpl-open-window-handler';
 
 type BNPLCheckoutParams = Parameters<typeof parseBNPLParams>[0];
 export type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
@@ -152,13 +152,11 @@ export function useBNPLCheckoutController({
     setErrorMessage(effect.errorMessage);
   };
 
-  const handleNavigationChange = (navState: WebViewNavigation) => {
+  const handleNavigationChange = (navState: WebViewNavigation) =>
     handleNavigationUrl(navState.url);
-  };
 
-  const handleClose = () => {
+  const handleClose = () =>
     getAppNavigation().showCancelAlert(returnToAppFromProviderExit);
-  };
 
   const handleWebViewMessage = (event: BNPLWebViewMessageEvent) =>
     createBNPLWebViewMessageHandler({
@@ -209,6 +207,7 @@ export function useBNPLCheckoutController({
     );
   };
 
+  // Pure factory returning the event handler — no render side effects.
   const handleOpenWindow = createBNPLOpenWindowHandler({
     apiBaseUrl,
     merchantDomain,

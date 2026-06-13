@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -151,6 +151,39 @@ async function submitNotification(
   }
 }
 
+// biome-ignore lint/suspicious/noEmptyBlockStatements: useSyncExternalStore needs a no-op subscribe; the minute-resolution snapshot is computed once per session.
+const subscribeToNothing = () => () => {};
+
+const getMinDateTimeServerSnapshot = () => '';
+
+// Earliest selectable datetime ("now" in local time). Empty on the server so
+// the first client render matches (a time-based value hydration-mismatches),
+// then filled from the client clock — via useSyncExternalStore so there is no
+// post-paint setState and React Compiler memoization is preserved.
+//
+// The snapshot is cached in an instance-scoped ref (not a module global) so it
+// stays stable across renders within a visit but is recomputed fresh on each
+// mount — a module-level cache would persist a stale "now" across client-side
+// navigations and let users schedule notifications in the past.
+function useMinDateTime() {
+  const cacheRef = useRef<string | null>(null);
+  const getClientSnapshot = () => {
+    if (cacheRef.current === null) {
+      cacheRef.current = new Date(
+        Date.now() - new Date().getTimezoneOffset() * 60000
+      )
+        .toISOString()
+        .slice(0, 16);
+    }
+    return cacheRef.current;
+  };
+  return useSyncExternalStore(
+    subscribeToNothing,
+    getClientSnapshot,
+    getMinDateTimeServerSnapshot
+  );
+}
+
 export default function CreateNotificationPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -168,18 +201,7 @@ export default function CreateNotificationPage() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [expiresEnabled, setExpiresEnabled] = useState(false);
 
-  // Earliest selectable datetime ("now" in local time). Starts empty so the
-  // server and client first render identically (a time-based initializer
-  // hydration-mismatches), then fills in from the client clock after mount —
-  // the documented client-only rendering pattern.
-  const [minDateTime, setMinDateTime] = useState('');
-  useEffect(() => {
-    setMinDateTime(
-      new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-    );
-  }, []);
+  const minDateTime = useMinDateTime();
 
   const updateFormData = (updates: Partial<CreateNotificationInput>) => {
     setFormData((prev) => ({ ...prev, ...updates }));

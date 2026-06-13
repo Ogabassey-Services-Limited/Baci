@@ -122,6 +122,29 @@ describe('JumiaBrandSelector', () => {
     expect(screen.getByText('Samsung')).toBeInTheDocument();
   });
 
+  it('shows the missing-merchant requirement and never fetches when merchantId is empty', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<JumiaBrandSelector {...defaultProps} merchantId="" />);
+
+    // The requirement is surfaced immediately — not the loading spinner that
+    // the 'idle' status would render.
+    expect(
+      screen.getByText('Merchant is required to load Jumia brands.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Loading brands…')).not.toBeInTheDocument();
+
+    // Opening the popover must not trigger a network request.
+    fireEvent.click(screen.getByRole('combobox'));
+    await waitFor(() => {
+      expect(
+        screen.getByText('Merchant is required to load Jumia brands.')
+      ).toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('fetches and displays brands when opened', async () => {
     vi.stubGlobal(
       'fetch',
@@ -196,9 +219,9 @@ describe('JumiaBrandSelector', () => {
   });
 
   it('retry triggers a new fetch', async () => {
-    // After the first failed fetch, clicking Retry calls fetchBrands directly
-    // which clears error state. The useEffect also re-fires (error changed),
-    // aborting the direct call and starting a new one. Provide enough mocks.
+    // After the first failed fetch, clicking Retry calls fetchBrands directly,
+    // which aborts the prior controller and starts a new request. Provide
+    // enough mocks to cover the initial failure plus the retry success.
     const successResponse = {
       ok: true,
       json: () => Promise.resolve({ brands: mockBrands }),

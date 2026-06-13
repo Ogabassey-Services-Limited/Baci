@@ -138,6 +138,35 @@ async function removeImageBackground(
   });
 }
 
+// Hoisted out of the component body so the try/finally (which blocks React
+// Compiler memoization) lives at module scope. Receives the state setters and
+// dependencies it touches as parameters.
+async function runLogoProcessing(
+  dataUri: string,
+  preserveColors: boolean,
+  suppressExtractionToast: boolean,
+  setValue: SetBrandingValue,
+  toast: ToastFn,
+  setIsExtracting: (extracting: boolean) => void,
+  setIsUploading: (uploading: boolean) => void
+): Promise<void> {
+  try {
+    await Promise.all([
+      uploadLogoToStorage(dataUri, setValue, toast),
+      extractLogoColors(
+        dataUri,
+        preserveColors,
+        suppressExtractionToast,
+        setValue,
+        toast,
+        setIsExtracting
+      ),
+    ]);
+  } finally {
+    setIsUploading(false);
+  }
+}
+
 async function generateLogoFromAi(
   businessName: string,
   businessType: string,
@@ -244,21 +273,15 @@ export default function Step2_Branding() {
     setIsExtracting(true);
     setIsUploading(true);
 
-    try {
-      await Promise.all([
-        uploadLogoToStorage(dataUri, setValue, toast),
-        extractLogoColors(
-          dataUri,
-          preserveColors,
-          suppressExtractionToast,
-          setValue,
-          toast,
-          setIsExtracting
-        ),
-      ]);
-    } finally {
-      setIsUploading(false);
-    }
+    await runLogoProcessing(
+      dataUri,
+      preserveColors,
+      suppressExtractionToast,
+      setValue,
+      toast,
+      setIsExtracting,
+      setIsUploading
+    );
   };
 
   const [progress, setProgress] = useState(0);

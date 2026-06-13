@@ -93,18 +93,30 @@ export function useIntegrationSettings<T extends object>({
   const { merchant } = useMerchant();
   const { toast } = useToast();
   const [settings, setSettings] = useState<T | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!merchant);
 
-  // Fetch current settings from the features API
+  // Adjust loading/settings during render when the merchant changes, instead of
+  // re-arming the loading flag inside the fetch effect. Re-arming a loading flag
+  // in an effect whose deps include the merchant object identity bails the React
+  // Compiler out; deriving it here avoids the stale frame a prop-sync effect adds
+  // and keeps the no-merchant reset out of the effect entirely.
+  // See react.dev "Adjusting some state when a prop changes".
+  const [prevMerchant, setPrevMerchant] = useState(merchant);
+  if (merchant !== prevMerchant) {
+    setPrevMerchant(merchant);
+    setSettings(null);
+    setIsLoading(!!merchant);
+  }
+
+  // Fetch current settings from the features API once a merchant is present.
+  // Loading is armed during render (above / initial state); the effect only
+  // resolves it, so it never re-arms a loading flag keyed on object identities.
   useEffect(() => {
-    let active = true;
-    setIsLoading(true);
-
     if (!merchant) {
-      setSettings(null);
-      setIsLoading(false);
       return;
     }
+
+    let active = true;
 
     fetchIntegrationSettings<T>(keys)
       .then((loaded) => {
