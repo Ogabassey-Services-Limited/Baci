@@ -30,16 +30,15 @@ export function ShipmentFlowDetailsStep({
         icon="barcode-outline"
         subtitle={
           hasExistingFulfillment
-            ? 'Review the device identifiers before this order is marked shipped.'
-            : 'Enter the device identifiers before this order is marked shipped.'
+            ? 'Review the device IMEI or serial number before this order is marked shipped.'
+            : 'Enter the device IMEI or serial number before this order is marked shipped.'
         }
-        title="IMEI details are required for this order. Serial number is optional."
+        title="IMEI or Serial Number is required for this order."
       />
 
       <ShipmentField
         colors={colors}
         label="IMEI Number"
-        required
         value={fulfillmentDetails.imei}
       >
         <TextInput
@@ -65,9 +64,9 @@ export function ShipmentFlowDetailsStep({
       >
         <TextInput
           onChangeText={(value) =>
-            onFulfillmentDetailsChange('serialNumber', value.trim())
+            onFulfillmentDetailsChange('serialNumber', value)
           }
-          placeholder="Optional serial number"
+          placeholder="e.g. C02ZK0ABC123"
           placeholderTextColor={colors.textSecondary}
           style={[styles.input, { color: colors.text }]}
           value={fulfillmentDetails.serialNumber}
