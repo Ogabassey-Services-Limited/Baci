@@ -56,7 +56,9 @@ export function CheckoutLocationPickers({
   const typedCity = citySearch.trim();
   const typedCityLower = typedCity.toLowerCase();
   const filteredCities = typedCity
-    ? shippingCities.filter((city) => city.toLowerCase().includes(typedCityLower))
+    ? shippingCities.filter((city) =>
+        city.toLowerCase().includes(typedCityLower)
+      )
     : shippingCities;
   const exactCityMatch =
     typedCity.length > 0
@@ -86,6 +88,12 @@ export function CheckoutLocationPickers({
               maxToRenderPerBatch={10}
               windowSize={5}
               removeClippedSubviews={removeClippedSubviews}
+              // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+              getItemLayout={(_data, index) => ({
+                length: 48,
+                offset: 48 * index,
+                index,
+              })}
               extraData={watchedState}
               renderItem={({ item }) => (
                 <PickerRow
@@ -202,6 +210,12 @@ export function CheckoutLocationPickers({
               maxToRenderPerBatch={10}
               windowSize={5}
               removeClippedSubviews={removeClippedSubviews}
+              // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+              getItemLayout={(_data, index) => ({
+                length: 48,
+                offset: 48 * index,
+                index,
+              })}
               extraData={watchedCity}
               renderItem={({ item }) => (
                 <PickerRow
