@@ -546,22 +546,22 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: OGABASSEY_PDP_DOCUMENT_ROUTE_SOURCE,
-        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
-        headers: [
-          {
-            key: 'Link',
-            value: OGABASSEY_PDP_LINK_HEADER_VALUE,
-          },
-        ],
-      },
-      {
         source: OGABASSEY_GENERIC_DOCUMENT_ROUTE_SOURCE,
         has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
         headers: [
           {
             key: 'Link',
             value: OGABASSEY_AGENT_DISCOVERY_LINK_HEADER,
+          },
+        ],
+      },
+      {
+        source: OGABASSEY_PDP_DOCUMENT_ROUTE_SOURCE,
+        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
+        headers: [
+          {
+            key: 'Link',
+            value: OGABASSEY_PDP_LINK_HEADER_VALUE,
           },
         ],
       },

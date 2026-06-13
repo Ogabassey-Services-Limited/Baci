@@ -191,7 +191,7 @@ describe('next.config OgaBassey resource headers', () => {
     );
   });
 
-  it('keeps the generic OgaBassey Link header from matching PDP paths', async () => {
+  it('keeps the generic OgaBassey Link header from overriding PDP paths', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     expect(headers).toBeDefined();
@@ -212,6 +212,7 @@ describe('next.config OgaBassey resource headers', () => {
 
     expect(pdpRuleIndex).toBeGreaterThanOrEqual(0);
     expect(genericRuleIndex).toBeGreaterThanOrEqual(0);
+    expect(genericRuleIndex).toBeLessThan(pdpRuleIndex);
     const pdpPath = '/gaming-laptops/lenovo-legion-pro-9-16irx9-rtx-4090';
     expect(
       pathToRegexp(headers[pdpRuleIndex]?.source ?? '').test(pdpPath)
@@ -220,19 +221,33 @@ describe('next.config OgaBassey resource headers', () => {
       pathToRegexp(headers[genericRuleIndex]?.source ?? '').test(pdpPath)
     ).toBe(false);
 
-    const firstMatchingPdpLinkHeader = headers
-      .find(
+    const matchingPdpLinkHeaders = headers
+      .filter(
         (entry) =>
           JSON.stringify(entry.has) === ogabasseyHostMatcher &&
           entry.headers.some((header) => header.key === 'Link') &&
           pathToRegexp(entry.source).test(pdpPath)
       )
-      ?.headers.find((header) => header.key === 'Link')?.value;
+      .map((entry) => entry.headers.find((header) => header.key === 'Link'))
+      .map((header) => header?.value)
+      .filter((value): value is string => typeof value === 'string');
+
+    const firstMatchingPdpLinkHeader = matchingPdpLinkHeaders[0];
+    const nextEffectivePdpLinkHeader = matchingPdpLinkHeaders.at(-1);
 
     expect(firstMatchingPdpLinkHeader).toContain(
       '/api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug'
     );
     expect(firstMatchingPdpLinkHeader).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug'
+    );
+    expect(nextEffectivePdpLinkHeader).toContain(
+      '</.well-known/api-catalog>; rel="api-catalog"'
+    );
+    expect(nextEffectivePdpLinkHeader).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug'
+    );
+    expect(nextEffectivePdpLinkHeader).toContain(
       '/api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug'
     );
   });
