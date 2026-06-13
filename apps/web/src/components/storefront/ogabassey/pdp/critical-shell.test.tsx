@@ -179,7 +179,7 @@ describe('OgabasseyPdpCriticalShell', () => {
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
     ).toHaveAttribute(
       'src',
-      '/api/ogabassey/pdp-lcp-image/lenovo-legion-pro-9?width=3840&quality=35'
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/lenovo-legion-pro-9'
     );
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })

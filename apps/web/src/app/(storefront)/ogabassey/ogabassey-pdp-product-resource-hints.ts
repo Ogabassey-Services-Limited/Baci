@@ -38,14 +38,30 @@ function buildProductImagePreloadProps({
       sameOriginProductSlug,
       'desktop'
     );
+    const {
+      props: { srcSet, sizes },
+    } = getImageProps({
+      alt: '',
+      fill: true,
+      loader: imageLoader,
+      quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
+      sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+      src: href,
+    });
 
     return [
       {
         as: 'image',
         fetchPriority: 'high',
-        href,
-        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        imageSrcSet: `${href} ${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH}w`,
+        href: imageLoader({
+          quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
+          src: href,
+          width: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
+        }),
+        imageSizes: sizes ?? OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+        imageSrcSet:
+          srcSet ??
+          `${href}?w=${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH}&q=${OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY} ${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH}w`,
         rel: 'preload',
         type: getOgabasseyImagePreloadType(href),
       },

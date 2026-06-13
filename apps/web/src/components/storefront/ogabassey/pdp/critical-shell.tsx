@@ -3,16 +3,11 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Suspense, type ReactNode } from 'react';
 import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
-import imageLoader from '@/lib/image-loader';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
-import {
-  buildOgabasseyPdpSameOriginImageUrl,
-  buildOgabasseyPdpSameOriginProfileImageUrl,
-} from './product-image-source';
+import { buildOgabasseyPdpSameOriginProfileImageUrl } from './product-image-source';
 
 interface OgabasseyPdpCriticalShellProps {
   basePath?: string;
@@ -97,39 +92,15 @@ async function OgabasseyPdpResolvedCriticalBreadcrumbs({
   );
 }
 
-function getProductImageLoader(
+function getProductImageSrc(
   product: OgabasseyPdpCriticalProduct,
   imageDelivery: OgabasseyPdpCriticalShellProps['imageDelivery']
 ) {
   if (imageDelivery !== 'same-origin') {
-    return imageLoader;
+    return product.image;
   }
 
-  return ({
-    quality,
-    width,
-  }: {
-    quality?: number;
-    width: number;
-  }) => {
-    const resolvedQuality = quality ?? OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY;
-
-    if (
-      resolvedQuality === OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY &&
-      width === OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH
-    ) {
-      return buildOgabasseyPdpSameOriginProfileImageUrl(
-        product.slug,
-        'desktop'
-      );
-    }
-
-    return buildOgabasseyPdpSameOriginImageUrl({
-      productSlug: product.slug,
-      quality: resolvedQuality,
-      width,
-    });
-  };
+  return buildOgabasseyPdpSameOriginProfileImageUrl(product.slug, 'desktop');
 }
 
 export function OgabasseyPdpCriticalShell({
@@ -139,7 +110,7 @@ export function OgabasseyPdpCriticalShell({
   imageDelivery = 'direct',
   product,
 }: OgabasseyPdpCriticalShellProps) {
-  const productImageLoader = getProductImageLoader(product, imageDelivery);
+  const productImageSrc = getProductImageSrc(product, imageDelivery);
   const aggregateRatingCount = Math.max(
     product.reviewCount,
     product.ratingCount
@@ -185,11 +156,10 @@ export function OgabasseyPdpCriticalShell({
               alt={product.name}
               data-ogabassey-pdp-image="true"
               fill
-              loader={productImageLoader}
               preload
               quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
               sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
-              src={product.image}
+              src={productImageSrc}
             />
             <span data-ogabassey-pdp-condition>
               {product.condition}

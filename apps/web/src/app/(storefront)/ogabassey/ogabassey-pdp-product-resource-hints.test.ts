@@ -135,15 +135,22 @@ describe('OgabasseyPdpProductResourceHints', () => {
       })
     );
 
-    expect(mockGetImageProps).not.toHaveBeenCalled();
+    expect(mockGetImageProps).toHaveBeenCalledWith(
+      expect.objectContaining({
+        loader: expect.any(Function),
+        quality: 35,
+        sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+        src: '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black',
+      })
+    );
 
     expect(mockPreload).toHaveBeenCalledTimes(1);
     const { href, options } = getPreloadCall(0);
     expect(href).toBe(
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black'
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black?w=640&q=35'
     );
     expect(options.imageSrcSet).toContain(
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black 640w'
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black?w=640&q=35 640w'
     );
     expect(options.imageSizes).toBe(OGABASSEY_PDP_PRIMARY_IMAGE_SIZES);
     expect(options).not.toHaveProperty('media');
