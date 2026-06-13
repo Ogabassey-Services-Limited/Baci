@@ -24,3 +24,9 @@ export const OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH = 640;
 export const OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_PRELOAD_WIDTH = 750;
 
 export const OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH = 750;
+
+// Lighthouse and DebugBear mobile profiles choose the 1080w candidate for the
+// PDP hero with the current `sizes` expression and device DPR. Keep the HTTP
+// Link preload aligned with the actual mobile LCP candidate instead of the
+// smaller same-origin profile fallback.
+export const OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_HEADER_PRELOAD_WIDTH = 1080;
