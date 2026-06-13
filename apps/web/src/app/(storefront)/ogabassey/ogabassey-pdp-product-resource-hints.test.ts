@@ -149,9 +149,13 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(href).toBe(
       '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black?w=640&q=35'
     );
+    expect(href).not.toContain('cdn.ogabassey.com');
+    expect(href).not.toContain('/_next/image');
     expect(options.imageSrcSet).toContain(
       '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black?w=640&q=35 640w'
     );
+    expect(options.imageSrcSet).not.toContain('cdn.ogabassey.com');
+    expect(options.imageSrcSet).not.toContain('/_next/image');
     expect(options.imageSizes).toBe(OGABASSEY_PDP_PRIMARY_IMAGE_SIZES);
     expect(options).not.toHaveProperty('media');
   });
