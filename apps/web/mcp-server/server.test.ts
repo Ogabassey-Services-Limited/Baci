@@ -29,6 +29,13 @@ if (snippetStart === -1 || snippetEnd === -1) {
 
 const escapeHtmlSnippet = serverSource.slice(snippetStart, snippetEnd);
 const webRootDirectory = dirname(testFileDirectory);
+const repoRootDirectory = dirname(dirname(webRootDirectory));
+const tsxExecutable = join(
+  repoRootDirectory,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'tsx.cmd' : 'tsx'
+);
 
 function runEmbeddedEscapeHtml(input: unknown) {
   const context: { input: unknown; result?: string } = { input };
@@ -64,18 +71,9 @@ describe('MCP streamable HTTP probe compatibility', () => {
   let serverBaseUrl: string;
 
   beforeAll(async () => {
-    serverProcess = spawn('pnpm', ['exec', 'tsx', 'mcp-server/server.ts'], {
-      cwd: webRootDirectory,
-      env: {
-        ...process.env,
-        MCP_PORT: '0',
-        NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
-        SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
-      },
-    });
-
-    const port = await waitForMcpServerStartup(serverProcess);
-    serverBaseUrl = `http://127.0.0.1:${port}`;
+    const server = await startMcpServer();
+    serverProcess = server.process;
+    serverBaseUrl = server.baseUrl;
   }, 15_000);
 
   afterAll(async () => {
@@ -133,6 +131,82 @@ describe('MCP streamable HTTP probe compatibility', () => {
       });
     }
   });
+
+  it('keeps the ChatGPT tool surface public-only unless private feature flags are enabled', async () => {
+    const payload = await postMcpJsonRpc(serverBaseUrl, {
+      id: 2,
+      method: 'tools/list',
+      params: {},
+    });
+    const toolNames = getResultTools(payload)
+      .map((tool) => tool.name)
+      .sort();
+
+    expect(toolNames).toEqual([
+      'add_to_cart',
+      'browse_categories',
+      'get_brands',
+      'get_product',
+      'get_product_variants',
+      'get_recommendations',
+      'get_shipping_quote',
+      'get_store_info',
+      'search_products',
+    ]);
+    expect(toolNames).not.toContain('check_order');
+    expect(toolNames).not.toContain('check_payment_status');
+    expect(toolNames).not.toContain('create_agentic_checkout_session');
+    expect(toolNames).not.toContain('generate_payment_account');
+    expect(toolNames).not.toContain('search_ucp_catalog');
+  });
+
+  it('exposes private agentic and payment tools when explicit feature flags are enabled', async () => {
+    const flaggedServer = await startMcpServer({
+      MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS: '1',
+      MCP_ENABLE_ORDER_PAYMENT_TOOLS: '1',
+    });
+
+    try {
+      const payload = await postMcpJsonRpc(flaggedServer.baseUrl, {
+        id: 3,
+        method: 'tools/list',
+        params: {},
+      });
+      const tools = getResultTools(payload);
+      const toolNames = tools.map((tool) => tool.name);
+
+      expect(toolNames).toEqual(
+        expect.arrayContaining([
+          'cancel_agentic_checkout_session',
+          'cancel_ucp_cart',
+          'check_order',
+          'check_payment_status',
+          'complete_agentic_checkout_session',
+          'convert_ucp_cart_to_checkout',
+          'create_agentic_checkout_session',
+          'create_ucp_cart',
+          'generate_payment_account',
+          'get_agentic_checkout_session',
+          'get_ucp_cart',
+          'lookup_ucp_catalog_items',
+          'search_ucp_catalog',
+          'update_agentic_checkout_session',
+          'update_ucp_cart',
+        ])
+      );
+
+      const paymentTools = ['generate_payment_account', 'check_payment_status'];
+      for (const toolName of paymentTools) {
+        const tool = tools.find((candidate) => candidate.name === toolName);
+        expect(tool?.inputSchema.properties.customer_email).toMatchObject({
+          type: 'string',
+          format: 'email',
+        });
+      }
+    } finally {
+      await stopMcpServer(flaggedServer.process);
+    }
+  });
 });
 
 interface JsonRpcResponse {
@@ -184,6 +258,56 @@ function getResultTools(payload: JsonRpcResponse): McpToolDefinition[] {
   }
 
   return tools as McpToolDefinition[];
+}
+
+interface StartedMcpServer {
+  baseUrl: string;
+  process: ReturnType<typeof spawn>;
+}
+
+async function startMcpServer(
+  envOverrides: NodeJS.ProcessEnv = {}
+): Promise<StartedMcpServer> {
+  const serverProcess = spawn(tsxExecutable, ['mcp-server/server.ts'], {
+    cwd: webRootDirectory,
+    env: buildMcpServerEnv(envOverrides),
+  });
+
+  try {
+    const port = await waitForMcpServerStartup(serverProcess);
+    return {
+      baseUrl: `http://127.0.0.1:${port}`,
+      process: serverProcess,
+    };
+  } catch (error) {
+    await stopMcpServer(serverProcess);
+    throw error;
+  }
+}
+
+function buildMcpServerEnv(
+  overrides: NodeJS.ProcessEnv = {}
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    MCP_AGENTIC_CHECKOUT_BASE_URL: 'https://ogabassey.test',
+    MCP_PORT: '0',
+    NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
+    OPENAI_AGENTIC_API_KEY: 'test-agentic-key',
+    OPENAI_AGENTIC_SIGNING_KEY: 'test-signing-key',
+    PAYSTACK_SECRET_KEY: 'test-paystack-key',
+    SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+    ...overrides,
+  };
+
+  if (!Object.hasOwn(overrides, 'MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS')) {
+    delete env.MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS;
+  }
+  if (!Object.hasOwn(overrides, 'MCP_ENABLE_ORDER_PAYMENT_TOOLS')) {
+    delete env.MCP_ENABLE_ORDER_PAYMENT_TOOLS;
+  }
+
+  return env;
 }
 
 async function waitForMcpServerStartup(

@@ -54,6 +54,12 @@ const PORT = Number(process.env.MCP_PORT ?? 8787);
 const MCP_PATH = '/mcp';
 const MCP_ALLOWED_HEADERS = 'content-type, mcp-protocol-version, mcp-session-id';
 const MCP_ALLOWED_METHODS = 'POST, GET, OPTIONS, DELETE, HEAD';
+const AGENTIC_CHECKOUT_TOOLS_ENABLED =
+  process.env.MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS === '1' ||
+  process.env.MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS === 'true';
+const ORDER_PAYMENT_TOOLS_ENABLED =
+  process.env.MCP_ENABLE_ORDER_PAYMENT_TOOLS === '1' ||
+  process.env.MCP_ENABLE_ORDER_PAYMENT_TOOLS === 'true';
 const AGENTIC_CHECKOUT_API_BASE_URL =
   process.env.MCP_AGENTIC_CHECKOUT_BASE_URL ?? 'https://ogabassey.com';
 const AGENTIC_CHECKOUT_API_KEY = getAgenticCredential(
@@ -81,6 +87,10 @@ function getAgenticCredential(primaryName: string, legacyName: string) {
 function getAgenticCheckoutClientConfig():
   | ConfiguredAgenticCheckoutClientConfig
   | null {
+  if (!AGENTIC_CHECKOUT_TOOLS_ENABLED) {
+    return null;
+  }
+
   if (!AGENTIC_CHECKOUT_API_KEY || !AGENTIC_CHECKOUT_SIGNING_KEY) {
     return null;
   }
@@ -1978,124 +1988,126 @@ function createOgabasseyServer() {
     }
   );
 
-  // Tool: Check order status
-  server.registerTool(
-    'check_order',
-    {
-      title: 'Check Order Status',
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-      description: 'Look up order status by order number or phone.',
-      inputSchema: {
-        order_number: z
-          .string()
-          .max(20)
-          .optional()
-          .describe('Order number (e.g., ORD-12345)'),
-        phone: z.string().max(20).optional().describe('Phone number'),
+  if (ORDER_PAYMENT_TOOLS_ENABLED) {
+    // Tool: Check order status
+    server.registerTool(
+      'check_order',
+      {
+        title: 'Check Order Status',
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        description: 'Look up order status by order number or phone.',
+        inputSchema: {
+          order_number: z
+            .string()
+            .max(20)
+            .optional()
+            .describe('Order number (e.g., ORD-12345)'),
+          phone: z.string().max(20).optional().describe('Phone number'),
+        },
+        _meta: {
+          'openai/outputTemplate': 'ui://widget/store.html',
+          'openai/toolInvocation/invoking': 'Looking up order...',
+          'openai/toolInvocation/invoked': 'Order found',
+        },
       },
-      _meta: {
-        'openai/outputTemplate': 'ui://widget/store.html',
-        'openai/toolInvocation/invoking': 'Looking up order...',
-        'openai/toolInvocation/invoked': 'Order found',
-      },
-    },
-    async (args) => {
-      if (!args.order_number && !args.phone) {
-        return {
-          content: [
-            { type: 'text', text: 'Please provide order number or phone.' },
-          ],
-          structuredContent: { order: null },
-        };
-      }
+      async (args) => {
+        if (!args.order_number && !args.phone) {
+          return {
+            content: [
+              { type: 'text', text: 'Please provide order number or phone.' },
+            ],
+            structuredContent: { order: null },
+          };
+        }
 
-      // Validate inputs
-      if (args.order_number && !isValidOrderNumber(args.order_number)) {
-        return {
-          content: [{ type: 'text', text: 'Invalid order number format.' }],
-          structuredContent: { order: null },
-        };
-      }
-      if (args.phone && !isValidPhone(args.phone)) {
-        return {
-          content: [{ type: 'text', text: 'Invalid phone number format.' }],
-          structuredContent: { order: null },
-        };
-      }
+        // Validate inputs
+        if (args.order_number && !isValidOrderNumber(args.order_number)) {
+          return {
+            content: [{ type: 'text', text: 'Invalid order number format.' }],
+            structuredContent: { order: null },
+          };
+        }
+        if (args.phone && !isValidPhone(args.phone)) {
+          return {
+            content: [{ type: 'text', text: 'Invalid phone number format.' }],
+            structuredContent: { order: null },
+          };
+        }
 
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: 'Store temporarily unavailable.' }],
-          structuredContent: { order: null },
-        };
-      }
+        const merchantId = await getMerchantId();
+        if (!merchantId) {
+          return {
+            content: [{ type: 'text', text: 'Store temporarily unavailable.' }],
+            structuredContent: { order: null },
+          };
+        }
 
-      let query = supabase
-        .from('orders')
-        .select('id, order_number, status, total, created_at')
-        .eq('merchant_id', merchantId);
+        let query = supabase
+          .from('orders')
+          .select('id, order_number, status, total, created_at')
+          .eq('merchant_id', merchantId);
 
-      if (args.order_number) {
-        query = query.eq(
-          'order_number',
-          sanitizeString(args.order_number, 20).toUpperCase()
-        );
-      } else if (args.phone) {
-        query = query.ilike(
-          'shipping_address->>phone',
-          `%${sanitizeString(args.phone, 20)}%`
-        );
-      }
-
-      const { data: order, error: orderError } = await query
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (orderError || !order) {
-        if (orderError && orderError.code !== 'PGRST116') {
-          console.error(
-            JSON.stringify({
-              type: 'error',
-              context: 'check_order',
-              message: orderError.message,
-            })
+        if (args.order_number) {
+          query = query.eq(
+            'order_number',
+            sanitizeString(args.order_number, 20).toUpperCase()
+          );
+        } else if (args.phone) {
+          query = query.ilike(
+            'shipping_address->>phone',
+            `%${sanitizeString(args.phone, 20)}%`
           );
         }
+
+        const { data: order, error: orderError } = await query
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (orderError || !order) {
+          if (orderError && orderError.code !== 'PGRST116') {
+            console.error(
+              JSON.stringify({
+                type: 'error',
+                context: 'check_order',
+                message: orderError.message,
+              })
+            );
+          }
+          return {
+            content: [{ type: 'text', text: 'Order not found.' }],
+            structuredContent: { order: null },
+          };
+        }
+
+        const statusMessages: Record<string, string> = {
+          pending: 'Your order is pending confirmation.',
+          processing: 'Your order is being processed.',
+          shipped: 'Your order has been shipped!',
+          delivered: 'Your order has been delivered.',
+          cancelled: 'This order was cancelled.',
+        };
+
+        // Redact sensitive order data - only return necessary fields
+        const safeOrder = {
+          order_number: order.order_number,
+          status: order.status,
+          total: order.total,
+          created_at: order.created_at,
+        };
+
         return {
-          content: [{ type: 'text', text: 'Order not found.' }],
-          structuredContent: { order: null },
+          content: [
+            {
+              type: 'text',
+              text: `**Order #${order.order_number}**\n\nStatus: ${order.status}\n${statusMessages[order.status] || ''}\n\nTotal: ${formatPrice(order.total)}\nDate: ${new Date(order.created_at).toLocaleDateString()}`,
+            },
+          ],
+          structuredContent: { order: safeOrder },
         };
       }
-
-      const statusMessages: Record<string, string> = {
-        pending: 'Your order is pending confirmation.',
-        processing: 'Your order is being processed.',
-        shipped: 'Your order has been shipped!',
-        delivered: 'Your order has been delivered.',
-        cancelled: 'This order was cancelled.',
-      };
-
-      // Redact sensitive order data - only return necessary fields
-      const safeOrder = {
-        order_number: order.order_number,
-        status: order.status,
-        total: order.total,
-        created_at: order.created_at,
-      };
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `**Order #${order.order_number}**\n\nStatus: ${order.status}\n${statusMessages[order.status] || ''}\n\nTotal: ${formatPrice(order.total)}\nDate: ${new Date(order.created_at).toLocaleDateString()}`,
-          },
-        ],
-        structuredContent: { order: safeOrder },
-      };
-    }
-  );
+    );
+  }
 
   // Tool: Get store info (read-only, no sensitive data)
   server.registerTool(
@@ -2731,315 +2743,325 @@ function createOgabasseyServer() {
   // [REMOVED] ask_santa
 
 
-  // Tool: Generate Payment Account (DVA for bank transfers)
-  server.registerTool(
-    'generate_payment_account',
-    {
-      title: 'Generate Payment Account',
-      description:
-        'Use this when a customer wants to pay via bank transfer. Generates a dedicated bank account (DVA) for them to transfer money to. REQUIRED: customer email, name, phone, and amount. Do NOT use if customer just wants to browse or hasn\'t decided to buy yet.',
-      inputSchema: {
-        customer_email: z.email()
-          .describe('Customer email address (REQUIRED)'),
-        customer_name: z
-          .string()
-          .min(2)
-          .max(100)
-          .describe('Customer full name (REQUIRED)'),
-        customer_phone: z
-          .string()
-          .min(10)
-          .max(20)
-          .describe('Customer phone number (REQUIRED)'),
-        amount: z
-          .number()
-          .min(100)
-          .describe('Payment amount in Naira (REQUIRED)'),
-        order_id: z
-          .string()
-          .optional()
-          .describe('Order ID to link payment to (optional)'),
+  if (ORDER_PAYMENT_TOOLS_ENABLED) {
+    // Tool: Generate Payment Account (DVA for bank transfers)
+    server.registerTool(
+      'generate_payment_account',
+      {
+        title: 'Generate Payment Account',
+        description:
+          'Use this when a customer wants to pay via bank transfer. Generates a dedicated bank account (DVA) for them to transfer money to. REQUIRED: customer email, name, phone, and amount. Do NOT use if customer just wants to browse or hasn\'t decided to buy yet.',
+        inputSchema: {
+          // Zod 4 promotes string formats to top-level validators;
+          // z.string().email() is deprecated in current Zod docs.
+          customer_email: z.email()
+            .describe('Customer email address (REQUIRED)'),
+          customer_name: z
+            .string()
+            .min(2)
+            .max(100)
+            .describe('Customer full name (REQUIRED)'),
+          customer_phone: z
+            .string()
+            .min(10)
+            .max(20)
+            .describe('Customer phone number (REQUIRED)'),
+          amount: z
+            .number()
+            .min(100)
+            .describe('Payment amount in Naira (REQUIRED)'),
+          order_id: z
+            .string()
+            .optional()
+            .describe('Order ID to link payment to (optional)'),
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false, // Does not delete data
+          openWorldHint: true,    // Calls external Paystack API
+          idempotentHint: false,  // Creates new order each time
+        },
+        _meta: {
+          'openai/toolInvocation/invoking': 'Generating your bank account for payment...',
+          'openai/toolInvocation/invoked': 'Payment account ready!',
+        },
       },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false, // Does not delete data
-        openWorldHint: true,    // Calls external Paystack API
-        idempotentHint: false,  // Creates new order each time
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Generating your bank account for payment...',
-        'openai/toolInvocation/invoked': 'Payment account ready!',
-      },
-    },
-    async (args) => {
-      try {
-        const { customer_email, customer_name, customer_phone, amount, order_id } = args;
+      async (args) => {
+        try {
+          const { customer_email, customer_name, customer_phone, amount, order_id } = args;
 
-        // Import the paystack function dynamically to avoid circular deps
-        const { generatePaymentAccount } = await import('../src/lib/paystack');
+          // Import the paystack function dynamically to avoid circular deps
+          const { generatePaymentAccount } = await import('../src/lib/paystack');
 
-        // Split name into first/last
-        const nameParts = customer_name?.split(' ') || [];
-        const firstName = nameParts[0] || undefined;
-        const lastName = nameParts.slice(1).join(' ') || undefined;
+          // Split name into first/last
+          const nameParts = customer_name?.split(' ') || [];
+          const firstName = nameParts[0] || undefined;
+          const lastName = nameParts.slice(1).join(' ') || undefined;
 
-        // Get merchant ID for chat order
-        const merchantId = await getMerchantId();
-        if (!merchantId) {
-          return {
-            content: [{ type: 'text', text: '❌ Store configuration error. Please try again later.' }],
-          };
-        }
-
-        // Generate unique payment reference for this transaction
-        const paymentReference = `CHAT-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-        // Create chat order in database for tracking
-        // Note: 'total' is a generated column (subtotal + shipping_fee), so we don't insert it
-        const { data: chatOrder, error: orderError } = await supabase
-          .from('chat_orders')
-          .insert({
-            merchant_id: merchantId,
-            customer_email,
-            customer_name,
-            customer_phone,
-            subtotal: amount,
-            shipping_fee: 0,
-            status: 'pending_payment',
-            payment_method: 'bank_transfer',
-            payment_reference: paymentReference,
-            metadata: {
-              source: 'chatbot',
-              created_via: 'mcp_tool',
-            },
-          })
-          .select()
-          .single();
-
-        if (orderError) {
-          console.error('Failed to create chat order:', orderError);
-          // Continue anyway - payment account can still be generated
-        }
-
-        const result = await generatePaymentAccount({
-          email: customer_email,
-          firstName,
-          lastName,
-          phone: customer_phone,
-          orderId: chatOrder?.id || order_id,
-        });
-
-        if (!result.success) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Sorry, I couldn't generate a payment account right now. ${result.error}. Please try using card payment instead.`,
-              },
-            ],
-          };
-        }
-
-        const { bank_name, account_number, account_name } = result.data;
-
-        // Update chat order with payment account details
-        if (chatOrder) {
-          await supabase
-            .from('chat_orders')
-            .update({
-              metadata: {
-                ...chatOrder.metadata,
-                bank_name,
-                account_number,
-                account_name,
-                customer_code: result.data.customer_code,
-              },
-            })
-            .eq('id', chatOrder.id);
-        }
-
-        // Format beautiful response
-        let text = `💳 **Bank Transfer Payment Details**\n\n`;
-        text += `To complete your payment of **₦${amount.toLocaleString()}**, transfer to:\n\n`;
-        text += `┌────────────────────────────────┐\n`;
-        text += `│  **Bank:** ${bank_name}\n`;
-        text += `│  **Account Number:** ${account_number}\n`;
-        text += `│  **Account Name:** ${account_name}\n`;
-        text += `└────────────────────────────────┘\n\n`;
-        if (chatOrder) {
-          text += `🧾 **Order Reference:** ${paymentReference}\n\n`;
-        }
-        text += `📱 **How to pay:**\n`;
-        text += `1. Open your bank app\n`;
-        text += `2. Transfer exactly ₦${amount.toLocaleString()}\n`;
-        text += `3. Come back and say "I've paid" or ask me to check your payment status!\n\n`;
-        text += `⏰ This account is yours permanently - you can use it for future payments too.\n\n`;
-        text += `_Your payment will be confirmed automatically once received._`;
-
-        return {
-          content: [{ type: 'text', text }],
-          structuredContent: {
-            payment_method: 'bank_transfer',
-            bank_name,
-            account_number,
-            account_name,
-            amount,
-            currency: 'NGN',
-            order_id: chatOrder?.id || order_id || null,
-            payment_reference: paymentReference,
-          },
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `❌ Error generating payment account: ${message}. Please try card payment instead.`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  // Tool: Check Payment Status
-  server.registerTool(
-    'check_payment_status',
-    {
-      title: 'Check Payment Status',
-      description:
-        'Use this when a customer says they have paid, transferred money, or asks about their payment status. Trigger phrases: "I\'ve paid", "I sent it", "I transferred", "check my payment", "did you receive it", "payment done". REQUIRED: customer email. Do NOT use for generating new payment accounts.',
-      inputSchema: {
-        customer_email: z.email()
-          .describe('Customer email address (REQUIRED)'),
-        payment_reference: z
-          .string()
-          .optional()
-          .describe('Payment reference (CHAT-xxx format) if known'),
-      },
-      annotations: {
-        readOnlyHint: true,     // Only reads payment status
-        destructiveHint: false,
-        openWorldHint: true,    // Checks external payment status
-        idempotentHint: true,   // Same result on repeated calls
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Checking your payment status...',
-        'openai/toolInvocation/invoked': 'Payment status retrieved!',
-      },
-    },
-    async (args) => {
-      try {
-        const { customer_email, payment_reference } = args;
-
-        const merchantId = await getMerchantId();
-        if (!merchantId) {
-          return {
-            content: [{ type: 'text', text: '❌ Store configuration error.' }],
-          };
-        }
-
-        // Find recent chat orders for this customer
-        let query = supabase
-          .from('chat_orders')
-          .select('id, total, status, payment_reference, paid_at, metadata')
-          .eq('merchant_id', merchantId)
-          .eq('customer_email', customer_email)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (payment_reference) {
-          query = query.eq('payment_reference', payment_reference);
-        }
-
-        const { data: orders, error } = await query;
-
-        if (error || !orders || orders.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `🔍 I couldn't find any recent orders for ${customer_email}. Did you complete the checkout process first?`,
-              },
-            ],
-          };
-        }
-
-        // Check the most recent order
-        const order = orders[0];
-
-        if (order.status === 'paid') {
-          let text = `✅ **Payment Confirmed!**\n\n`;
-          text += `Your payment of **₦${Number(order.total).toLocaleString()}** has been received.\n\n`;
-          text += `🧾 **Order Reference:** ${order.payment_reference}\n`;
-          text += `📅 **Paid at:** ${new Date(order.paid_at).toLocaleString()}\n\n`;
-          text += `Thank you for your purchase! Your order is now being processed. 🎉`;
-
-          return {
-            content: [{ type: 'text', text }],
-            structuredContent: {
-              status: 'paid',
-              order_id: order.id,
-              amount: order.total,
-              payment_reference: order.payment_reference,
-              paid_at: order.paid_at,
-            },
-          };
-        } else if (order.status === 'pending_payment') {
-          const metadata = order.metadata || {};
-          let text = `⏳ **Payment Pending**\n\n`;
-          text += `We haven't received your payment of **₦${Number(order.total).toLocaleString()}** yet.\n\n`;
-
-          if (metadata.account_number) {
-            text += `Please transfer to:\n`;
-            text += `• **Bank:** ${metadata.bank_name}\n`;
-            text += `• **Account:** ${metadata.account_number}\n`;
-            text += `• **Name:** ${metadata.account_name}\n\n`;
+          // Get merchant ID for chat order
+          const merchantId = await getMerchantId();
+          if (!merchantId) {
+            return {
+              content: [{ type: 'text', text: '❌ Store configuration error. Please try again later.' }],
+            };
           }
 
-          text += `💡 Bank transfers can take a few minutes to process. If you've already transferred, please wait 2-3 minutes and check again.\n\n`;
-          text += `🧾 **Order Reference:** ${order.payment_reference}`;
+          // Generate unique payment reference for this transaction
+          const paymentReference = `CHAT-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+          // Create chat order in database for tracking
+          // Note: 'total' is a generated column (subtotal + shipping_fee), so we don't insert it
+          const { data: chatOrder, error: orderError } = await supabase
+            .from('chat_orders')
+            .insert({
+              merchant_id: merchantId,
+              customer_email,
+              customer_name,
+              customer_phone,
+              subtotal: amount,
+              shipping_fee: 0,
+              status: 'pending_payment',
+              payment_method: 'bank_transfer',
+              payment_reference: paymentReference,
+              metadata: {
+                source: 'chatbot',
+                created_via: 'mcp_tool',
+              },
+            })
+            .select('id, metadata')
+            .single();
+
+          if (orderError) {
+            console.error('Failed to create chat order:', orderError);
+            // Continue anyway - payment account can still be generated
+          }
+
+          const result = await generatePaymentAccount({
+            email: customer_email,
+            firstName,
+            lastName,
+            phone: customer_phone,
+            orderId: chatOrder?.id || order_id,
+          });
+
+          if (!result.success) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `❌ Sorry, I couldn't generate a payment account right now. ${result.error}. Please try using card payment instead.`,
+                },
+              ],
+            };
+          }
+
+          const { bank_name, account_number, account_name } = result.data;
+
+          // Update chat order with payment account details
+          if (chatOrder) {
+            const { error: paymentMetadataError } = await supabase
+              .from('chat_orders')
+              .update({
+                metadata: {
+                  ...chatOrder.metadata,
+                  bank_name,
+                  account_number,
+                  account_name,
+                  customer_code: result.data.customer_code,
+                },
+              })
+              .eq('id', chatOrder.id);
+
+            if (paymentMetadataError) {
+              console.error('Failed to update chat order payment metadata:', paymentMetadataError);
+            }
+          }
+
+          // Format beautiful response
+          let text = `💳 **Bank Transfer Payment Details**\n\n`;
+          text += `To complete your payment of **₦${amount.toLocaleString()}**, transfer to:\n\n`;
+          text += `┌────────────────────────────────┐\n`;
+          text += `│  **Bank:** ${bank_name}\n`;
+          text += `│  **Account Number:** ${account_number}\n`;
+          text += `│  **Account Name:** ${account_name}\n`;
+          text += `└────────────────────────────────┘\n\n`;
+          if (chatOrder) {
+            text += `🧾 **Order Reference:** ${paymentReference}\n\n`;
+          }
+          text += `📱 **How to pay:**\n`;
+          text += `1. Open your bank app\n`;
+          text += `2. Transfer exactly ₦${amount.toLocaleString()}\n`;
+          text += `3. Come back and say "I've paid" or ask me to check your payment status!\n\n`;
+          text += `⏰ This account is yours permanently - you can use it for future payments too.\n\n`;
+          text += `_Your payment will be confirmed automatically once received._`;
 
           return {
             content: [{ type: 'text', text }],
             structuredContent: {
-              status: 'pending',
-              order_id: order.id,
-              amount: order.total,
-              payment_reference: order.payment_reference,
-              account_number: metadata.account_number,
-              bank_name: metadata.bank_name,
+              payment_method: 'bank_transfer',
+              bank_name,
+              account_number,
+              account_name,
+              amount,
+              currency: 'NGN',
+              order_id: chatOrder?.id || order_id || null,
+              payment_reference: paymentReference,
             },
           };
-        } else {
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
           return {
             content: [
               {
                 type: 'text',
-                text: `ℹ️ Order status: **${order.status}**\n\nReference: ${order.payment_reference}`,
+                text: `❌ Error generating payment account: ${message}. Please try card payment instead.`,
               },
             ],
-            structuredContent: {
-              status: order.status,
-              order_id: order.id,
-              payment_reference: order.payment_reference,
-            },
           };
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `❌ Error checking payment status: ${message}`,
-            },
-          ],
-        };
       }
-    }
-  );
+    );
+
+    // Tool: Check Payment Status
+    server.registerTool(
+      'check_payment_status',
+      {
+        title: 'Check Payment Status',
+        description:
+          'Use this when a customer says they have paid, transferred money, or asks about their payment status. Trigger phrases: "I\'ve paid", "I sent it", "I transferred", "check my payment", "did you receive it", "payment done". REQUIRED: customer email. Do NOT use for generating new payment accounts.',
+        inputSchema: {
+          // Zod 4 promotes string formats to top-level validators;
+          // z.string().email() is deprecated in current Zod docs.
+          customer_email: z.email()
+            .describe('Customer email address (REQUIRED)'),
+          payment_reference: z
+            .string()
+            .optional()
+            .describe('Payment reference (CHAT-xxx format) if known'),
+        },
+        annotations: {
+          readOnlyHint: true,     // Only reads payment status
+          destructiveHint: false,
+          openWorldHint: true,    // Checks external payment status
+          idempotentHint: true,   // Same result on repeated calls
+        },
+        _meta: {
+          'openai/toolInvocation/invoking': 'Checking your payment status...',
+          'openai/toolInvocation/invoked': 'Payment status retrieved!',
+        },
+      },
+      async (args) => {
+        try {
+          const { customer_email, payment_reference } = args;
+
+          const merchantId = await getMerchantId();
+          if (!merchantId) {
+            return {
+              content: [{ type: 'text', text: '❌ Store configuration error.' }],
+            };
+          }
+
+          // Find recent chat orders for this customer
+          let query = supabase
+            .from('chat_orders')
+            .select('id, total, status, payment_reference, paid_at, metadata')
+            .eq('merchant_id', merchantId)
+            .eq('customer_email', customer_email)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          if (payment_reference) {
+            query = query.eq('payment_reference', payment_reference);
+          }
+
+          const { data: orders, error } = await query;
+
+          if (error || !orders || orders.length === 0) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `🔍 I couldn't find any recent orders for ${customer_email}. Did you complete the checkout process first?`,
+                },
+              ],
+            };
+          }
+
+          // Check the most recent order
+          const order = orders[0];
+
+          if (order.status === 'paid') {
+            let text = `✅ **Payment Confirmed!**\n\n`;
+            text += `Your payment of **₦${Number(order.total).toLocaleString()}** has been received.\n\n`;
+            text += `🧾 **Order Reference:** ${order.payment_reference}\n`;
+            text += `📅 **Paid at:** ${new Date(order.paid_at).toLocaleString()}\n\n`;
+            text += `Thank you for your purchase! Your order is now being processed. 🎉`;
+
+            return {
+              content: [{ type: 'text', text }],
+              structuredContent: {
+                status: 'paid',
+                order_id: order.id,
+                amount: order.total,
+                payment_reference: order.payment_reference,
+                paid_at: order.paid_at,
+              },
+            };
+          } else if (order.status === 'pending_payment') {
+            const metadata = order.metadata || {};
+            let text = `⏳ **Payment Pending**\n\n`;
+            text += `We haven't received your payment of **₦${Number(order.total).toLocaleString()}** yet.\n\n`;
+
+            if (metadata.account_number) {
+              text += `Please transfer to:\n`;
+              text += `• **Bank:** ${metadata.bank_name}\n`;
+              text += `• **Account:** ${metadata.account_number}\n`;
+              text += `• **Name:** ${metadata.account_name}\n\n`;
+            }
+
+            text += `💡 Bank transfers can take a few minutes to process. If you've already transferred, please wait 2-3 minutes and check again.\n\n`;
+            text += `🧾 **Order Reference:** ${order.payment_reference}`;
+
+            return {
+              content: [{ type: 'text', text }],
+              structuredContent: {
+                status: 'pending',
+                order_id: order.id,
+                amount: order.total,
+                payment_reference: order.payment_reference,
+                account_number: metadata.account_number,
+                bank_name: metadata.bank_name,
+              },
+            };
+          } else {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `ℹ️ Order status: **${order.status}**\n\nReference: ${order.payment_reference}`,
+                },
+              ],
+              structuredContent: {
+                status: order.status,
+                order_id: order.id,
+                payment_reference: order.payment_reference,
+              },
+            };
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Error checking payment status: ${message}`,
+              },
+            ],
+          };
+        }
+      }
+    );
+  }
 
   return server;
 }
