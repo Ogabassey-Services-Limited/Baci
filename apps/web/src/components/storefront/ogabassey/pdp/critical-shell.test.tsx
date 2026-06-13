@@ -1,36 +1,27 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA } from '@/components/storefront/ogabassey/config/product-media';
 import { OgabasseyPdpCriticalShell } from './critical-shell';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
 
 vi.mock('next/image', () => ({
-  getImageProps: ({
+  default: ({
     alt,
-    className,
-    decoding,
-    fetchPriority,
     fill,
     loader,
-    loading,
-    priority,
+    preload,
     quality,
     sizes,
     src,
   }: {
     alt: string;
-    className?: string;
-    decoding?: string;
-    fetchPriority?: string;
     fill?: boolean;
     loader?: (params: {
       quality?: number;
       src: string;
       width: number;
     }) => string;
-    loading?: string;
-    priority?: boolean;
+    preload?: boolean;
     quality?: number;
     sizes?: string;
     src: string;
@@ -44,23 +35,19 @@ vi.mock('next/image', () => ({
           .join(', ')
       : `${src} 640w`;
 
-    return {
-      props: {
-        alt,
-        className,
-        decoding,
-        fetchPriority,
-        fill,
-        loader,
-        loading,
-        priority,
-        quality,
-        sizes,
-        src: resolvedSrc,
-        srcSet,
-      },
-    };
+    return (
+      // biome-ignore lint/performance/noImgElement: next/image test double exposes rendered attributes
+      <img
+        alt={alt}
+        data-fill={String(Boolean(fill))}
+        data-preload={String(Boolean(preload))}
+        sizes={sizes}
+        src={resolvedSrc}
+        srcSet={srcSet}
+      />
+    );
   },
+  getImageProps: vi.fn(),
 }));
 
 vi.mock('next/link', () => ({
@@ -134,10 +121,10 @@ describe('OgabasseyPdpCriticalShell', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
-    ).toHaveAttribute('fetchpriority', 'high');
+    ).toHaveAttribute('data-preload', 'true');
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
-    ).toHaveAttribute('loading', 'eager');
+    ).toHaveAttribute('data-fill', 'true');
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
     ).not.toHaveAttribute('loader');
@@ -150,12 +137,13 @@ describe('OgabasseyPdpCriticalShell', () => {
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
     ).not.toHaveAttribute('fill');
-    const mobileSource = document.querySelector(
-      `source[media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"]`
+    expect(document.querySelector('source')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
+    ).toHaveAttribute(
+      'sizes',
+      '(max-width: 767.98px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px'
     );
-    expect(mobileSource).toHaveAttribute('sizes', 'calc(100vw - 32px)');
-    expect(mobileSource?.getAttribute('srcset')).toContain('750w');
-    expect(mobileSource?.getAttribute('srcset')).not.toContain('1080w');
     expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
       'href',
       '/laptops'
@@ -191,15 +179,11 @@ describe('OgabasseyPdpCriticalShell', () => {
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
     ).toHaveAttribute(
       'src',
-      '/api/ogabassey/pdp-lcp-image/lenovo-legion-pro-9?width=3840&quality=35'
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/lenovo-legion-pro-9'
     );
     expect(
-      document
-        .querySelector(`source[media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"]`)
-        ?.getAttribute('srcset')
-    ).toContain(
-      '/api/ogabassey/pdp-lcp-image/profile/mobile/lenovo-legion-pro-9 750w'
-    );
+      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
+    ).toHaveAttribute('data-preload', 'true');
   });
 
   it('does not render filled stars for products without reviews', () => {
