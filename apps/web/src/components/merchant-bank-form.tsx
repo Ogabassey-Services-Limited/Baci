@@ -61,6 +61,9 @@ export function MerchantBankForm({
     null
   );
   const verifyRequestIdRef = useRef(0);
+  const hideBankSuggestionsTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const hasHydratedAutoPayoutSetting =
     typeof initialData?.autoPayoutEnabled === 'boolean';
@@ -83,6 +86,14 @@ export function MerchantBankForm({
 
   const accountNumber = form.watch('accountNumber');
   const selectedBankCode = form.watch('bankCode');
+
+  useEffect(() => {
+    return () => {
+      if (hideBankSuggestionsTimeoutRef.current) {
+        clearTimeout(hideBankSuggestionsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Fetch banks on mount
   useEffect(() => {
@@ -355,9 +366,15 @@ export function MerchantBankForm({
                       }
                     }}
                     // Delay hiding suggestions to allow clicking them
-                    onBlur={() =>
-                      setTimeout(() => setShowBankSuggestions(false), 200)
-                    }
+                    onBlur={() => {
+                      if (hideBankSuggestionsTimeoutRef.current) {
+                        clearTimeout(hideBankSuggestionsTimeoutRef.current);
+                      }
+                      hideBankSuggestionsTimeoutRef.current = setTimeout(() => {
+                        setShowBankSuggestions(false);
+                        hideBankSuggestionsTimeoutRef.current = null;
+                      }, 200);
+                    }}
                     onKeyDown={(e) => {
                       const filteredBanks = banks.filter(
                         (bank) =>

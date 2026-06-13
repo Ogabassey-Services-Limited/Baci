@@ -1,22 +1,16 @@
 import { generateObject } from 'ai';
-import { cookies } from 'next/headers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkRateLimit, withRetry } from '@/ai/provider';
-import { hasPermission } from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { createClient } from '@/lib/supabase/server';
 import { GET } from './route';
 
 vi.mock('ai', () => ({
   generateObject: vi.fn(),
-}));
-
-vi.mock('next/headers', () => ({
-  cookies: vi.fn(),
 }));
 
 vi.mock('@/ai/provider', () => ({
@@ -29,6 +23,7 @@ vi.mock('@/ai/provider', () => ({
 }));
 
 vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: vi.fn(),
   hasPermission: vi.fn(),
 }));
 
@@ -43,10 +38,6 @@ vi.mock('@/lib/cache', () => ({
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: vi.fn(),
   toUserAccess: vi.fn(),
-}));
-
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(),
 }));
 
 type QueryMethod = ReturnType<typeof vi.fn>;
@@ -108,12 +99,15 @@ describe('GET /api/analytics/insights', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    vi.mocked(cookies).mockResolvedValue(
-      {} as Awaited<ReturnType<typeof cookies>>
-    );
-    vi.mocked(createClient).mockReturnValue(
-      makeSupabaseMock() as unknown as ReturnType<typeof createClient>
-    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      supabase: makeSupabaseMock() as unknown as Awaited<
+        ReturnType<typeof authenticateApiRequest>
+      >['supabase'],
+      user: { id: 'user-1' } as Awaited<
+        ReturnType<typeof authenticateApiRequest>
+      >['user'],
+    });
     vi.mocked(getMerchantForApiRequest).mockResolvedValue({
       merchantId: 'merchant-1',
     } as Awaited<ReturnType<typeof getMerchantForApiRequest>>);
@@ -134,6 +128,67 @@ describe('GET /api/analytics/insights', () => {
     vi.restoreAllMocks();
   });
 
+  it('returns 401 when authentication fails', async () => {
+    vi.mocked(authenticateApiRequest).mockResolvedValueOnce({
+      error: 'Invalid token',
+      supabase: null,
+      user: null,
+    } as Awaited<ReturnType<typeof authenticateApiRequest>>);
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
+    expect(getMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when merchant context is missing', async () => {
+    vi.mocked(getMerchantForApiRequest).mockResolvedValueOnce(null);
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Merchant not found',
+    });
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when analytics view permission is denied', async () => {
+    vi.mocked(hasPermission).mockReturnValueOnce(false);
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 when the insights rate limit is exceeded', async () => {
+    vi.mocked(checkRateLimit).mockReturnValueOnce({
+      allowed: false,
+      remaining: 0,
+      resetIn: 45_000,
+    });
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Rate limit exceeded',
+      details: 'Please wait 45 seconds before trying again.',
+    });
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
   it('bounds AI insight generation below the Vercel function timeout', async () => {
     vi.mocked(generateObject).mockResolvedValue({
       object: {
@@ -148,7 +203,9 @@ describe('GET /api/analytics/insights', () => {
       },
     } as unknown as Awaited<ReturnType<typeof generateObject>>);
 
-    const response = await GET();
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -173,7 +230,9 @@ describe('GET /api/analytics/insights', () => {
   it('returns fallback insights when the AI call times out or fails', async () => {
     vi.mocked(generateObject).mockRejectedValueOnce(new Error('model timeout'));
 
-    const response = await GET();
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({

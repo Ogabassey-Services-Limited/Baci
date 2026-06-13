@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -203,6 +203,27 @@ describe('MerchantBankForm', () => {
       screen.queryByRole('button', { name: /save bank details/i })
     ).toBeNull();
     expect(apiPostMock).not.toHaveBeenCalled();
+  });
+
+  it('clears the delayed bank suggestion hide timer on unmount', () => {
+    vi.useFakeTimers();
+
+    try {
+      const { unmount } = render(<MerchantBankForm countryCode="NG" />);
+
+      fireEvent.blur(
+        screen.getByPlaceholderText(
+          'Type to search your bank (e.g. GTB, Access)'
+        )
+      );
+      expect(vi.getTimerCount()).toBe(1);
+
+      unmount();
+
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps a live region mounted and marks the action busy while verifying bank details', async () => {
