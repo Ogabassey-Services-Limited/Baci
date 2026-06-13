@@ -90,15 +90,35 @@ vi.mock('next/image', () => ({
   default: ({
     alt,
     fetchPriority,
+    loader,
+    preload,
+    quality,
     src,
   }: {
     alt: string;
     fetchPriority?: string;
+    loader?: (props: {
+      quality?: number;
+      src: string;
+      width: number;
+    }) => string;
+    preload?: boolean;
+    quality?: number;
     src: string;
-  }) => (
-    // biome-ignore lint/performance/noImgElement: next/image test double exposes rendered attributes
-    <img alt={alt} data-fetch-priority={fetchPriority} src={src} />
-  ),
+  }) => {
+    const resolvedSrc =
+      typeof loader === 'function' ? loader({ quality, src, width: 640 }) : src;
+
+    return (
+      // biome-ignore lint/performance/noImgElement: next/image test double exposes rendered attributes
+      <img
+        alt={alt}
+        data-fetch-priority={fetchPriority}
+        data-preload={String(Boolean(preload))}
+        src={resolvedSrc}
+      />
+    );
+  },
   getImageProps: ({
     alt,
     className,
