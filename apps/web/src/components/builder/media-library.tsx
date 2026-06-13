@@ -17,6 +17,7 @@ import { CopyButton } from '@/components/ui/copy-button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 export interface MediaFile {
@@ -29,7 +30,7 @@ export interface MediaFile {
 }
 
 interface MediaLibraryProps {
-  onSelect?: (url: string) => void;
+  onSelect?: (url: string | null) => void;
   maxSizeMB?: number;
 }
 
@@ -76,7 +77,7 @@ async function uploadMediaFile(file: File): Promise<string | null> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch('/api/media', {
+  const response = await fetchWithCsrf('/api/media', {
     method: 'POST',
     body: formData,
   });
@@ -92,7 +93,7 @@ async function uploadMediaFile(file: File): Promise<string | null> {
 
 // Delete a file by id. Throws on failure so the caller can surface a toast.
 async function deleteMediaFile(fileId: string): Promise<void> {
-  const response = await fetch(`/api/media?id=${fileId}`, {
+  const response = await fetchWithCsrf(`/api/media?id=${fileId}`, {
     method: 'DELETE',
   });
   if (!response.ok) throw new Error('Delete failed');
@@ -171,6 +172,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
     // Auto-select the uploaded file if onSelect is provided
     if (onSelect && result.url) {
       setSelectedFile(result.url);
+      onSelect(result.url);
     }
   };
 
@@ -202,6 +204,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
 
     if (deletedFile && selectedFile === deletedFile.url) {
       setSelectedFile(null);
+      onSelect?.(null);
     }
   };
 

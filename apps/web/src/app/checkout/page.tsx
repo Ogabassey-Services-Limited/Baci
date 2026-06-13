@@ -62,6 +62,8 @@ import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snap
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
   process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00'
 );
+const PAYMENT_REFERENCE_UPDATE_ATTEMPTS = 3;
+const PAYMENT_REFERENCE_UPDATE_RETRY_DELAY_MS = 400;
 
 const shippingSchema = z.object({
   firstName: z
@@ -115,18 +117,7 @@ async function sendOtpCode(
   merchantSlug: string
 ): Promise<SendOtpResult> {
   try {
-    const response = await fetch('/api/storefront/auth/send-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, merchantSlug }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      return { ok: false, message: result.error || 'Failed to send code' };
-    }
-
+    await apiPost('/api/storefront/auth/send-code', { email, merchantSlug });
     return { ok: true };
   } catch (err) {
     return { ok: false, message: (err as Error).message };
@@ -137,23 +128,20 @@ type VerifyOtpResult =
   | { ok: true; user: SupabaseUser; customer?: CustomerData }
   | { ok: false; message: string };
 
+interface VerifyOtpResponse {
+  customer?: CustomerData;
+}
+
 async function verifyOtpCode(
   email: string,
   code: string,
   merchantSlug: string
 ): Promise<VerifyOtpResult> {
   try {
-    const response = await fetch('/api/storefront/auth/verify-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, token: code, merchantSlug }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      return { ok: false, message: result.error || 'Verification failed' };
-    }
+    const result = await apiPost<VerifyOtpResponse>(
+      '/api/storefront/auth/verify-code',
+      { email, token: code, merchantSlug }
+    );
 
     // Get user from Supabase client (session should be set)
     const supabase = createClient();
@@ -251,27 +239,70 @@ async function signCreditDirectCheckout(input: {
   merchantSlug: string | null;
   orderId: unknown;
 }): Promise<SignCreditDirectResult> {
-  const signResponse = await fetch('/api/payments/credit-direct/sign', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      customerEmail: input.customerEmail,
-      totalAmount: input.totalAmount,
-      merchantSlug: input.merchantSlug,
-      orderId: input.orderId,
-    }),
-  });
+  try {
+    const data = await apiPost<CreditDirectSignResult>(
+      '/api/payments/credit-direct/sign',
+      {
+        customerEmail: input.customerEmail,
+        totalAmount: input.totalAmount,
+        merchantSlug: input.merchantSlug,
+        orderId: input.orderId,
+      }
+    );
 
-  if (!signResponse.ok) {
-    const errorData = await signResponse.json();
+    return { ok: true, data };
+  } catch (error) {
     return {
       ok: false,
-      message: errorData.error || 'Failed to initialize Credit Direct checkout',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Failed to initialize Credit Direct checkout',
     };
   }
+}
 
-  const data: CreditDirectSignResult = await signResponse.json();
-  return { ok: true, data };
+interface UpdateCreditDirectPaymentReferenceInput {
+  orderId: string;
+  paymentRef: string;
+}
+
+function waitForRetry(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function updateCreditDirectPaymentReferenceWithRetry(
+  input: UpdateCreditDirectPaymentReferenceInput
+): Promise<string | null> {
+  let lastError = 'Failed to save payment reference';
+
+  for (
+    let attempt = 1;
+    attempt <= PAYMENT_REFERENCE_UPDATE_ATTEMPTS;
+    attempt++
+  ) {
+    try {
+      await apiPost('/api/orders/update-payment-ref', {
+        orderId: input.orderId,
+        paymentRef: input.paymentRef,
+        gateway: 'credit_direct',
+      });
+      return null;
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error.message
+          : 'Failed to save payment reference';
+
+      if (attempt < PAYMENT_REFERENCE_UPDATE_ATTEMPTS) {
+        await waitForRetry(
+          PAYMENT_REFERENCE_UPDATE_RETRY_DELAY_MS * 2 ** (attempt - 1)
+        );
+      }
+    }
+  }
+
+  return lastError;
 }
 
 // Outcome of preparing a checkout — the component executes the matching side
@@ -1448,41 +1479,24 @@ function CheckoutPageContent() {
           return;
         }
 
-        // Save transaction ID to order for webhook reconciliation
-        const paymentReferenceError = await fetch(
-          '/api/orders/update-payment-ref',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              orderId: order.id,
-              paymentRef: response.checkoutTransactionId,
-              gateway: 'credit_direct',
-            }),
-          }
-        )
-          .then(async (updateResponse) => {
-            if (updateResponse.ok) {
-              return null;
-            }
+        if (typeof order.id !== 'string' || !order.id) {
+          console.error('Credit Direct payment reference update skipped:', {
+            orderId: order.id,
+          });
+          toast({
+            title: 'Payment reference not saved',
+            description: 'Order identifier is missing for reconciliation.',
+            variant: 'destructive',
+          });
+          return;
+        }
 
-            return await updateResponse
-              .json()
-              .then((body: unknown) =>
-                body &&
-                typeof body === 'object' &&
-                'error' in body &&
-                typeof body.error === 'string'
-                  ? body.error
-                  : 'Failed to save payment reference'
-              )
-              .catch(() => 'Failed to save payment reference');
-          })
-          .catch((error: unknown) =>
-            error instanceof Error
-              ? error.message
-              : 'Failed to save payment reference'
-          );
+        // Save transaction ID to order for webhook reconciliation
+        const paymentReferenceError =
+          await updateCreditDirectPaymentReferenceWithRetry({
+            orderId: order.id,
+            paymentRef: response.checkoutTransactionId,
+          });
 
         if (paymentReferenceError) {
           console.error('Credit Direct payment reference update failed:', {

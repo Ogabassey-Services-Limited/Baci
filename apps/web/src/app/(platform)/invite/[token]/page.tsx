@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { apiPost } from '@/lib/api-client';
 import {
   buildStaffInvitePath,
   resolveStaffPostAcceptRedirect,
@@ -139,24 +140,17 @@ async function postAcceptInvitation(
   token: string
 ): Promise<AcceptInvitationResult> {
   try {
-    const response = await fetch('/api/staff/accept-invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { ok: false, error: data.error || 'Failed to accept invitation' };
-    }
+    await apiPost('/api/staff/accept-invite', { token });
 
     return { ok: true };
   } catch (err) {
     console.error('Error accepting invitation:', err);
     return {
       ok: false,
-      error: 'Failed to accept invitation. Please try again.',
+      error:
+        err instanceof Error
+          ? err.message
+          : 'Failed to accept invitation. Please try again.',
     };
   }
 }

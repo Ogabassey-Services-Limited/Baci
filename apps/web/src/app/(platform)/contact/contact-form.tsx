@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { apiPost } from '@/lib/api-client';
 
 const PLATFORM_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 
@@ -17,21 +18,17 @@ async function submitContactForm(data: FormData): Promise<boolean> {
   const lastName = data.get('last-name') as string;
 
   try {
-    const response = await fetch('/api/forms/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        merchantId: PLATFORM_MERCHANT_ID,
-        formName: 'contact',
-        formData: {
-          name: `${firstName} ${lastName}`.trim(),
-          email: data.get('email') as string,
-          message: data.get('message') as string,
-        },
-      }),
+    await apiPost('/api/forms/submit', {
+      merchantId: PLATFORM_MERCHANT_ID,
+      formName: 'contact',
+      formData: {
+        name: `${firstName} ${lastName}`.trim(),
+        email: data.get('email') as string,
+        message: data.get('message') as string,
+      },
     });
 
-    return response.ok;
+    return true;
   } catch {
     return false;
   }
