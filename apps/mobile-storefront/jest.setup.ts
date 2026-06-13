@@ -1,6 +1,15 @@
 import '@testing-library/jest-native/extend-expect';
+import { configure as configureReactNativeTestingLibrary } from '@testing-library/react-native';
 import React, { type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
+
+// The suite runs single-process (`jest --runInBand`, 560+ files). Late files
+// execute under accumulated memory/GC pressure that can stall a resolved-promise
+// microtask past React Native Testing Library's 1s default `asyncUtilTimeout`,
+// intermittently timing out `waitFor` assertions (e.g. use-checkout-savings)
+// with no real failure. Widen the async window so load — not correctness —
+// never decides the result.
+configureReactNativeTestingLibrary({ asyncUtilTimeout: 5000 });
 
 // Resolve Expo's lazy fetch polyfill before test teardown can invalidate native mocks.
 void globalThis.fetch;
