@@ -63,32 +63,32 @@ export function OrdersScrollSurface({
     onScroll: (event) => {
       'worklet';
       const currentScrollY = event.contentOffset.y;
-      const diff = currentScrollY - lastScrollY.value;
+      const diff = currentScrollY - lastScrollY.get();
 
       if (Math.abs(diff) > 10) {
-        if (diff > 0 && isSearchVisible.value && currentScrollY > 50) {
-          isSearchVisible.value = false;
-          headerVisibility.value = withTiming(0, { duration: 200 });
-        } else if (diff < 0 && !isSearchVisible.value) {
-          isSearchVisible.value = true;
-          headerVisibility.value = withTiming(1, { duration: 200 });
+        if (diff > 0 && isSearchVisible.get() && currentScrollY > 50) {
+          isSearchVisible.set(false);
+          headerVisibility.set(withTiming(0, { duration: 200 }));
+        } else if (diff < 0 && !isSearchVisible.get()) {
+          isSearchVisible.set(true);
+          headerVisibility.set(withTiming(1, { duration: 200 }));
         }
       }
 
-      lastScrollY.value = currentScrollY;
+      lastScrollY.set(currentScrollY);
     },
   });
 
   const searchHeaderStyle = useAnimatedStyle(() => {
-    const collapsed = !isSearchVisible.value;
+    const collapsed = !isSearchVisible.get();
 
     return {
       height: collapsed ? 0 : undefined,
       marginBottom: collapsed ? 0 : SPACING.md,
-      opacity: headerVisibility.value,
+      opacity: headerVisibility.get(),
       overflow: collapsed ? 'hidden' : 'visible',
       transform: [
-        { translateY: interpolate(headerVisibility.value, [0, 1], [-24, 0]) },
+        { translateY: interpolate(headerVisibility.get(), [0, 1], [-24, 0]) },
       ],
     };
   });

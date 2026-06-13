@@ -38,7 +38,23 @@ vi.mock('react-native-reanimated', async () => {
     interpolate: (value: number) => value,
     useAnimatedScrollHandler: (handler: unknown) => handler,
     useAnimatedStyle: (callback: () => object) => callback(),
-    useSharedValue: (initial: unknown) => ({ value: initial }),
+    // Mirror the Reanimated SharedValue surface: get()/set() accessors plus the
+    // legacy `value` property, so source using either API works under test.
+    useSharedValue: (initial: unknown) => {
+      let current = initial;
+      return {
+        get: () => current,
+        set: (next: unknown) => {
+          current = next;
+        },
+        get value() {
+          return current;
+        },
+        set value(next: unknown) {
+          current = next;
+        },
+      };
+    },
     withTiming: (value: unknown) => value,
   };
 });

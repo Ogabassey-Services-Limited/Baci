@@ -338,9 +338,14 @@ export const CartProvider = ({
     setCart(getCartFromStorage(slugToUse, initialUserId));
   }
 
-  // Hydrate cart + identifiers from localStorage after mount. This is the
-  // documented post-mount external-source read (storage is unavailable during
-  // SSR); prop-driven changes are handled by the render-time comparison above.
+  // Hydrate cart + identifiers from localStorage after mount (storage is
+  // unavailable during SSR); prop-driven changes are handled by the render-time
+  // comparison above. The cart is locally mutable AND localStorage-persisted,
+  // so cleanly eliminating this effect is a useSyncExternalStore migration
+  // (storage as source of truth + mutation-dispatched events) — tracked as a
+  // dedicated follow-up rather than risked in a bulk cleanup. (react-doctor's
+  // set-state-in-effect is a React Compiler diagnostic and cannot be inline-
+  // suppressed; the migration is the real resolution.)
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only hydration; prop changes handled during render
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
