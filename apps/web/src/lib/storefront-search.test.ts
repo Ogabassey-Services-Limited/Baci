@@ -7,6 +7,13 @@ const mockSupabase = {
   })),
 };
 
+const mockAnalyticsInsert = vi.fn().mockResolvedValue({ error: null });
+const mockAnalyticsSupabase = {
+  from: vi.fn(() => ({
+    insert: mockAnalyticsInsert,
+  })),
+};
+
 const mockCookies = vi.fn();
 
 vi.mock('next/headers', () => ({
@@ -42,6 +49,7 @@ vi.mock('@/app/api/storefront/products/product-response', () => ({
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
+    warn: vi.fn(),
   },
 }));
 
@@ -57,6 +65,10 @@ import {
 describe('searchStorefrontProducts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAnalyticsInsert.mockResolvedValue({ error: null });
+    vi.mocked(createPublicClient).mockReturnValue(
+      mockAnalyticsSupabase as never
+    );
   });
 
   it('sanitizes the query before calling the search rpc', async () => {
@@ -102,6 +114,16 @@ describe('searchStorefrontProducts', () => {
       productIds: ['prod-1'],
       query: 'iphone',
     });
+    expect(createPublicClient).toHaveBeenCalledWith({
+      clientInfo: 'baci-storefront-search-analytics',
+    });
+    expect(mockAnalyticsSupabase.from).toHaveBeenCalledWith('search_analytics');
+    expect(mockAnalyticsInsert).toHaveBeenCalledWith({
+      merchant_id: '123e4567-e89b-12d3-a456-426614174000',
+      search_query: 'iphone',
+      results_count: 2,
+      search_method: 'server',
+    });
   });
 
   it('throws InvalidMerchantIdError for invalid merchant ids', async () => {
@@ -138,6 +160,10 @@ describe('getStorefrontSearchProducts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCookies.mockResolvedValue({});
+    mockAnalyticsInsert.mockResolvedValue({ error: null });
+    vi.mocked(createPublicClient).mockReturnValue(
+      mockAnalyticsSupabase as never
+    );
   });
 
   it('hydrates search results and preserves the ranked order', async () => {
@@ -154,33 +180,35 @@ describe('getStorefrontSearchProducts', () => {
       })),
     } as never);
 
-    vi.mocked(createPublicClient).mockReturnValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          in: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              eq: vi.fn().mockResolvedValue({
-                data: [
-                  {
-                    id: 'product-1',
-                    name: 'Phone One',
-                    price: 1000,
-                    slug: 'phone-one',
-                  },
-                  {
-                    id: 'product-2',
-                    name: 'Phone Two',
-                    price: 2000,
-                    slug: 'phone-two',
-                  },
-                ],
-                error: null,
-              }),
+    vi.mocked(createPublicClient)
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            in: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({
+                  data: [
+                    {
+                      id: 'product-1',
+                      name: 'Phone One',
+                      price: 1000,
+                      slug: 'phone-one',
+                    },
+                    {
+                      id: 'product-2',
+                      name: 'Phone Two',
+                      price: 2000,
+                      slug: 'phone-two',
+                    },
+                  ],
+                  error: null,
+                }),
+              })),
             })),
           })),
         })),
-      })),
-    } as never);
+      } as never)
+      .mockReturnValueOnce(mockAnalyticsSupabase as never);
 
     const result = await getStorefrontSearchProducts({
       merchantId: '123e4567-e89b-12d3-a456-426614174000',
