@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 import { ThemedInput } from '@/components/themed/themed-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -41,7 +41,7 @@ export function JumiaPriceForm({
 }: JumiaPriceFormProps) {
   const {
     register,
-    watch,
+    control,
     reset,
     getValues,
     formState: { errors },
@@ -110,11 +110,13 @@ export function JumiaPriceForm({
     getValues,
   ]);
 
-  // Subscribe only to the four fields we care about (not the whole form)
-  const jumiaPrice = watch('jumiaPrice');
-  const jumiaSalePrice = watch('jumiaSalePrice');
-  const saleStart = watch('saleStart');
-  const saleEnd = watch('saleEnd');
+  // Subscribe only to the four fields we care about (not the whole form).
+  // useWatch is the React Compiler-compatible API; watch() returns values
+  // that cannot be memoized without risking stale UI.
+  const jumiaPrice = useWatch({ control, name: 'jumiaPrice' });
+  const jumiaSalePrice = useWatch({ control, name: 'jumiaSalePrice' });
+  const saleStart = useWatch({ control, name: 'saleStart' });
+  const saleEnd = useWatch({ control, name: 'saleEnd' });
 
   useEffect(() => {
     const price = String(jumiaPrice ?? '');

@@ -37,6 +37,42 @@ interface ProductEmbedPickerProps {
   selectedIds?: string[];
 }
 
+interface FetchProductsCallbacks {
+  setProducts: (products: Product[]) => void;
+  setIsLoading: (value: boolean) => void;
+  setLoadError: (message: string | null) => void;
+  signal?: AbortSignal;
+}
+
+async function fetchProducts(
+  query: string,
+  { setProducts, setIsLoading, setLoadError, signal }: FetchProductsCallbacks
+) {
+  setIsLoading(true);
+  try {
+    const params = new URLSearchParams();
+    if (query) params.set('search', query);
+    const res = await fetch(`/api/products?${params.toString()}`, { signal });
+    if (!res.ok) throw new Error('Failed to fetch products');
+    const data = await res.json();
+    if (!signal?.aborted) {
+      setLoadError(null);
+      setProducts(data.products || []);
+    }
+  } catch (error) {
+    if (signal?.aborted) {
+      return;
+    }
+    console.error('Error fetching products:', error);
+    setLoadError('Failed to load products. Please try again.');
+    setProducts([]);
+  } finally {
+    if (!signal?.aborted) {
+      setIsLoading(false);
+    }
+  }
+}
+
 export function ProductEmbedPicker({
   open,
   onClose,
@@ -50,28 +86,19 @@ export function ProductEmbedPicker({
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const fetchProducts = async (query = '') => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (query) params.set('search', query);
-      const res = await fetch(`/api/products?${params.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch products');
-      const data = await res.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
+    const controller = new AbortController();
     if (open) {
-      fetchProducts(debouncedSearch);
+      fetchProducts(debouncedSearch, {
+        setProducts,
+        setIsLoading,
+        setLoadError,
+        signal: controller.signal,
+      });
     }
+    return () => controller.abort();
   }, [open, debouncedSearch]);
 
   const toggleProduct = (id: string) => {
@@ -111,6 +138,11 @@ export function ProductEmbedPicker({
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : loadError ? (
+            <div className="text-center py-8 text-destructive">
+              <Package className="size-12 mx-auto mb-2 opacity-50" />
+              <p>{loadError}</p>
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">

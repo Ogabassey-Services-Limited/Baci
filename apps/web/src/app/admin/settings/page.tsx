@@ -69,6 +69,39 @@ function getSecretToggleAriaLabel(key: SecretToggleKey, isVisible: boolean) {
   return `${action} ${secretToggleLabels[key]}`;
 }
 
+// Hoisted out of the component so React Compiler can lower the loader/saver
+// (try/finally + throw-in-try are not yet supported inside component bodies).
+async function loadPlatformSettings(): Promise<{
+  data: PlatformSettingsResponse | null;
+  ok: boolean;
+}> {
+  try {
+    const response = await fetch('/api/admin/settings');
+    if (!response.ok) throw new Error('Failed to fetch settings');
+    const data = (await response.json()) as PlatformSettingsResponse;
+    return { data, ok: true };
+  } catch (error) {
+    console.error('Failed to fetch settings:', error);
+    return { data: null, ok: false };
+  }
+}
+
+async function savePlatformSettings(
+  settings: PlatformSettingsResponse,
+  secretInputs: PlatformSettingsSecretInputs
+): Promise<{ data: PlatformSettingsResponse | null; ok: boolean }> {
+  try {
+    const data = await apiPut<PlatformSettingsResponse>(
+      '/api/admin/settings',
+      buildPlatformSettingsUpdatePayload(settings, secretInputs)
+    );
+    return { data, ok: true };
+  } catch (error) {
+    console.error('Failed to save settings:', error);
+    return { data: null, ok: false };
+  }
+}
+
 export default function PlatformSettingsPage() {
   const [settings, setSettings] = useState<PlatformSettingsResponse | null>(
     null
@@ -82,55 +115,51 @@ export default function PlatformSettingsPage() {
     );
   const { toast } = useToast();
 
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch('/api/admin/settings');
-      if (!response.ok) throw new Error('Failed to fetch settings');
-      const data = await response.json();
-      setSettings(data);
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load platform settings.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
-    fetchSettings();
+    let active = true;
+    loadPlatformSettings().then(({ data, ok }) => {
+      if (!active) return;
+      if (ok) {
+        setSettings(data);
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to load platform settings.',
+          variant: 'destructive',
+        });
+      }
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
   }, [toast]);
 
   const handleSave = async () => {
     if (!settings) return;
 
     setSaving(true);
-    try {
-      const updated = await apiPut<PlatformSettingsResponse>(
-        '/api/admin/settings',
-        buildPlatformSettingsUpdatePayload(settings, secretInputs)
-      );
+    const { data: updated, ok } = await savePlatformSettings(
+      settings,
+      secretInputs
+    );
+
+    if (ok && updated) {
       setSettings(updated);
       setSecretInputs(EMPTY_PLATFORM_SETTINGS_SECRET_INPUTS);
-
       toast({
         title: 'Settings Saved',
         description: 'Platform settings have been updated successfully.',
       });
-    } catch (error) {
-      console.error('Failed to save settings:', error);
+    } else {
       toast({
         title: 'Error',
         description: 'Failed to save platform settings.',
         variant: 'destructive',
       });
-    } finally {
-      setSaving(false);
     }
+
+    setSaving(false);
   };
 
   const updateSetting = <K extends keyof EditablePlatformSettings>(

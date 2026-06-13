@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   FormProvider,
   useForm,
@@ -62,6 +62,8 @@ import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snap
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
   process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00'
 );
+const PAYMENT_REFERENCE_UPDATE_ATTEMPTS = 3;
+const PAYMENT_REFERENCE_UPDATE_RETRY_DELAY_MS = 400;
 
 const shippingSchema = z.object({
   firstName: z
@@ -106,6 +108,314 @@ interface CustomerData {
   }>;
 }
 
+// Module-scope network helpers keep the try/catch/finally + throw control
+// flow out of the component body so React Compiler can memoize Step0_Auth.
+type SendOtpResult = { ok: true } | { ok: false; message: string };
+
+async function sendOtpCode(
+  email: string,
+  merchantSlug: string
+): Promise<SendOtpResult> {
+  try {
+    await apiPost('/api/storefront/auth/send-code', { email, merchantSlug });
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : 'Failed to send verification code',
+    };
+  }
+}
+
+type VerifyOtpResult =
+  | { ok: true; user: SupabaseUser; customer?: CustomerData }
+  | { ok: false; message: string };
+
+interface VerifyOtpResponse {
+  customer?: CustomerData;
+}
+
+async function verifyOtpCode(
+  email: string,
+  code: string,
+  merchantSlug: string
+): Promise<VerifyOtpResult> {
+  try {
+    const result = await apiPost<VerifyOtpResponse>(
+      '/api/storefront/auth/verify-code',
+      { email, token: code, merchantSlug }
+    );
+
+    // Get user from Supabase client (session should be set)
+    const supabase = createClient();
+    const { data: userData } = await supabase.auth.getUser();
+
+    if (!userData.user) {
+      return { ok: false, message: 'Authentication failed. Please try again.' };
+    }
+
+    return { ok: true, user: userData.user, customer: result.customer };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Failed to verify code',
+    };
+  }
+}
+
+// Hard navigation to an external payment URL. Assigning `window.location.href`
+// is a mutation of a value outside the component, which trips React Compiler's
+// immutability check — isolating it in a module-scope helper keeps the
+// component body memoizable.
+function redirectToExternalUrl(url: string) {
+  window.location.href = url;
+}
+
+interface CreateCheckoutOrderInput {
+  merchantId: string;
+  data: ShippingFormValues;
+  orderItems: ReturnType<typeof buildCheckoutOrderItems>;
+  subtotal: number;
+  finalShippingFee: number;
+  selectedGateway: 'paystack' | 'korapay' | 'pod' | 'credit_direct';
+  selectedShippingQuote: ShippingQuote;
+  shippingSessionId: string;
+}
+
+interface CheckoutOrderResponse {
+  order: Record<string, unknown>;
+  paystackAuthUrl?: string;
+}
+
+// Create the order server-side. Kept at module scope so the order-submit
+// handler stays free of the try/throw control flow the compiler can't lower.
+function createCheckoutOrder(
+  input: CreateCheckoutOrderInput
+): Promise<CheckoutOrderResponse> {
+  return apiPost<CheckoutOrderResponse>('/api/orders', {
+    merchant_id: input.merchantId,
+    customer_email: input.data.email,
+    customer_name: `${input.data.firstName} ${input.data.lastName}`,
+    customer_phone: input.data.phone,
+    items: input.orderItems,
+    subtotal: input.subtotal,
+    shipping_fee: input.finalShippingFee,
+    payment_method: input.selectedGateway,
+    payment_status: 'unpaid', // Order starts unpaid, changes to pending when payment initiated, then paid on confirmation
+    shipping_status: 'pending',
+    shipping_address: {
+      firstName: input.data.firstName,
+      lastName: input.data.lastName,
+      address: input.data.address,
+      city: input.data.city,
+      state: input.data.state,
+    },
+    source: 'online_store',
+    // B3 (plan §5 B3): the pre-submit `!selectedShippingQuote`
+    // guard bounces to step 1 with a toast, so by the time
+    // we reach this payload construction the quote is guaranteed
+    // non-null. Optional-chaining stays as defensive coding —
+    // React state isn't narrowed across statements by TS, and
+    // the cost of `?.` here is zero. The original `|| 'GIGL'`
+    // silent fallback (the B3 root-cause bug) is gone for good.
+    shipping_provider: input.selectedShippingQuote?.provider ?? null,
+    selected_quote_id: input.selectedShippingQuote?.id ?? null,
+    shipping_session_id: input.shippingSessionId,
+    shipping_carrier: input.selectedShippingQuote?.carrierName,
+    shipping_service_tier: input.selectedShippingQuote?.serviceTier,
+  });
+}
+
+interface CreditDirectSignResult {
+  signature: string;
+  publicKey: string;
+  sessionId: string;
+  isLive: boolean;
+}
+
+type SignCreditDirectResult =
+  | { ok: true; data: CreditDirectSignResult }
+  | { ok: false; message: string };
+
+// Request a signed Credit Direct session. The not-ok branch returns a result
+// instead of throwing so the order-submit handler avoids throw-in-try/catch.
+async function signCreditDirectCheckout(input: {
+  customerEmail: string;
+  totalAmount: unknown;
+  merchantSlug: string | null;
+  orderId: unknown;
+}): Promise<SignCreditDirectResult> {
+  try {
+    const data = await apiPost<CreditDirectSignResult>(
+      '/api/payments/credit-direct/sign',
+      {
+        customerEmail: input.customerEmail,
+        totalAmount: input.totalAmount,
+        merchantSlug: input.merchantSlug,
+        orderId: input.orderId,
+      }
+    );
+
+    return { ok: true, data };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Failed to initialize Credit Direct checkout',
+    };
+  }
+}
+
+interface UpdateCreditDirectPaymentReferenceInput {
+  orderId: string;
+  paymentRef: string;
+}
+
+function waitForRetry(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function updateCreditDirectPaymentReferenceWithRetry(
+  input: UpdateCreditDirectPaymentReferenceInput
+): Promise<string | null> {
+  let lastError = 'Failed to save payment reference';
+
+  for (
+    let attempt = 1;
+    attempt <= PAYMENT_REFERENCE_UPDATE_ATTEMPTS;
+    attempt++
+  ) {
+    try {
+      await apiPost('/api/orders/update-payment-ref', {
+        orderId: input.orderId,
+        paymentRef: input.paymentRef,
+        gateway: 'credit_direct',
+      });
+      return null;
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error.message
+          : 'Failed to save payment reference';
+
+      if (attempt < PAYMENT_REFERENCE_UPDATE_ATTEMPTS) {
+        await waitForRetry(
+          PAYMENT_REFERENCE_UPDATE_RETRY_DELAY_MS * 2 ** (attempt - 1)
+        );
+      }
+    }
+  }
+
+  return lastError;
+}
+
+// Outcome of preparing a checkout — the component executes the matching side
+// effect (navigation, popup, toast). All try/catch lives here at module scope
+// so the submit handler stays free of compiler-unsupported control flow.
+type CheckoutPreparation =
+  | { kind: 'error'; title: string; message: string }
+  | {
+      kind: 'credit_direct';
+      order: Record<string, unknown>;
+      sign: CreditDirectSignResult;
+    }
+  | {
+      kind: 'redirect';
+      order: Record<string, unknown>;
+      paystackAuthUrl?: string;
+    };
+
+interface PrepareCheckoutInput {
+  merchantId: string;
+  data: ShippingFormValues;
+  cart: CheckoutCartItem[];
+  cartTotal: number;
+  shippingFee: number | null;
+  selectedGateway: 'paystack' | 'korapay' | 'pod' | 'credit_direct';
+  selectedShippingQuote: ShippingQuote;
+  shippingSessionId: string;
+  currencyCode: string;
+  merchantSlug: string | null;
+}
+
+type CheckoutCartItem = Parameters<typeof buildCheckoutOrderItems>[0][number];
+
+// Create the order, persist the success-page snapshot, fire analytics, and
+// (for BNPL) fetch the Credit Direct signature. Returns a description of the
+// next step for the component to perform.
+async function prepareCheckout(
+  input: PrepareCheckoutInput
+): Promise<CheckoutPreparation> {
+  try {
+    const orderItems = buildCheckoutOrderItems(input.cart);
+    const subtotal = input.cartTotal;
+    const finalShippingFee = input.shippingFee ?? DEFAULT_SHIPPING_FEE;
+
+    const { order, paystackAuthUrl } = await createCheckoutOrder({
+      merchantId: input.merchantId,
+      data: input.data,
+      orderItems,
+      subtotal,
+      finalShippingFee,
+      selectedGateway: input.selectedGateway,
+      selectedShippingQuote: input.selectedShippingQuote,
+      shippingSessionId: input.shippingSessionId,
+    });
+
+    // Store order data for success page (fallback)
+    const orderData = {
+      order_id: order.id,
+      order_number: order.order_number,
+      shipping: input.data,
+      items: input.cart,
+      subtotal,
+      shipping_fee: finalShippingFee,
+      total: order.total,
+    };
+    sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
+    notifyLastOrderSnapshotChanged();
+
+    // Track platform-level purchase (for platform owner's analytics)
+    trackPlatformPurchase(
+      input.merchantId,
+      order.total as number,
+      input.currencyCode,
+      order.order_number as string
+    );
+
+    if (input.selectedGateway === 'credit_direct') {
+      const signResult = await signCreditDirectCheckout({
+        customerEmail: input.data.email,
+        totalAmount: order.total,
+        merchantSlug: input.merchantSlug,
+        orderId: order.id,
+      });
+
+      if (!signResult.ok) {
+        return {
+          kind: 'error',
+          title: 'BNPL Checkout Failed',
+          message:
+            signResult.message || 'Failed to start Credit Direct checkout',
+        };
+      }
+
+      return { kind: 'credit_direct', order, sign: signResult.data };
+    }
+
+    return { kind: 'redirect', order, paystackAuthUrl };
+  } catch (error) {
+    return {
+      kind: 'error',
+      title: 'Order Failed',
+      message: (error as Error).message || 'Something went wrong.',
+    };
+  }
+}
+
 function Step0_Auth({
   onAuthSuccess,
   onGuestCheckout,
@@ -132,30 +442,21 @@ function Step0_Auth({
   const handleSendOtp = async (data: OtpAuthFormValues) => {
     setIsLoading(true);
     setError('');
-    try {
-      const response = await fetch('/api/storefront/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: data.email, merchantSlug }),
-      });
 
-      const result = await response.json();
+    const result = await sendOtpCode(data.email, merchantSlug);
+    setIsLoading(false);
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send code');
-      }
-
-      setEmail(data.email);
-      setOtpSent(true);
-      toast({
-        title: 'Code sent!',
-        description: 'Check your email for the 6-digit verification code.',
-      });
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsLoading(false);
+    if (!result.ok) {
+      setError(result.message);
+      return;
     }
+
+    setEmail(data.email);
+    setOtpSent(true);
+    toast({
+      title: 'Code sent!',
+      description: 'Check your email for the 6-digit verification code.',
+    });
   };
 
   // Handle OTP input change
@@ -206,35 +507,18 @@ function Step0_Auth({
   const handleVerifyOtp = async (code: string) => {
     setIsLoading(true);
     setError('');
-    try {
-      const response = await fetch('/api/storefront/auth/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, token: code, merchantSlug }),
-      });
 
-      const result = await response.json();
+    const result = await verifyOtpCode(email, code, merchantSlug);
+    setIsLoading(false);
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Verification failed');
-      }
-
-      // Get user from Supabase client (session should be set)
-      const supabase = createClient();
-      const { data: userData } = await supabase.auth.getUser();
-
-      if (userData.user) {
-        onAuthSuccess(userData.user, result.customer);
-      } else {
-        throw new Error('Authentication failed. Please try again.');
-      }
-    } catch (err) {
-      setError((err as Error).message);
+    if (!result.ok) {
+      setError(result.message);
       setOtpCode(['', '', '', '', '', '']);
       otpInputRefs.current[0]?.focus();
-    } finally {
-      setIsLoading(false);
+      return;
     }
+
+    onAuthSuccess(result.user, result.customer);
   };
 
   return (
@@ -828,32 +1112,28 @@ function CheckoutPageContent() {
   const [selectedGateway, setSelectedGateway] = useState<
     'paystack' | 'korapay' | 'pod' | 'credit_direct'
   >('paystack');
-  const [creditDirectScriptLoaded, setCreditDirectScriptLoaded] =
-    useState(false);
   const totalSteps = 2;
   const supabase = createClient();
 
-  // Load Credit Direct script when BNPL is enabled
+  // Load Credit Direct script when BNPL is enabled. The injected <script> tag
+  // is the source of truth for "already loaded" — guarding on its presence in
+  // the DOM avoids a synchronous setState cascade inside the effect body.
   useEffect(() => {
-    if (paymentSettings.creditDirectEnabled && !creditDirectScriptLoaded) {
-      const existingScript = document.querySelector(
-        'script[src="https://checkout.creditdirect.ng/bnpl/checkout.min.js"]'
-      );
-      if (existingScript) {
-        setCreditDirectScriptLoaded(true);
-        return;
-      }
+    if (!paymentSettings.creditDirectEnabled) return;
 
-      const script = document.createElement('script');
-      script.src = 'https://checkout.creditdirect.ng/bnpl/checkout.min.js';
-      script.type = 'application/javascript';
-      script.async = true;
-      script.onload = () => setCreditDirectScriptLoaded(true);
-      script.onerror = () =>
-        console.error('Failed to load Credit Direct checkout script');
-      document.body.appendChild(script);
-    }
-  }, [paymentSettings.creditDirectEnabled, creditDirectScriptLoaded]);
+    const existingScript = document.querySelector(
+      'script[src="https://checkout.creditdirect.ng/bnpl/checkout.min.js"]'
+    );
+    if (existingScript) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.creditdirect.ng/bnpl/checkout.min.js';
+    script.type = 'application/javascript';
+    script.async = true;
+    script.onerror = () =>
+      console.error('Failed to load Credit Direct checkout script');
+    document.body.appendChild(script);
+  }, [paymentSettings.creditDirectEnabled]);
 
   // Handle shipping quote selection
   const handleShippingSelect = (quote: ShippingQuote, sessionId: string) => {
@@ -1155,221 +1435,179 @@ function CheckoutPageContent() {
       setStep(step - 1);
     }
   };
+  // Open the Credit Direct BNPL popup. The popup callbacks own the rest of the
+  // flow, so this returns once the popup is wired up.
+  const openCreditDirectPopup = (
+    order: Record<string, unknown>,
+    sign: CreditDirectSignResult,
+    data: ShippingFormValues
+  ) => {
+    if (!window.Connect) {
+      toast({
+        variant: 'destructive',
+        title: 'BNPL Checkout Failed',
+        description: 'Credit Direct SDK not loaded',
+      });
+      setFormIsLoading(false);
+      return;
+    }
+
+    const transaction = {
+      totalAmount: order.total as number,
+      customerEmail: data.email,
+      customerPhone: data.phone,
+      sessionId: sign.sessionId,
+      metaData: order.id as string,
+      products: cart.map((item) => ({
+        productName: item.name,
+        productAmount: item.price,
+        productId: item.id,
+      })),
+    };
+
+    const connect = new window.Connect({
+      publicKey: sign.publicKey,
+      signature: sign.signature,
+      transaction,
+      isLive: sign.isLive,
+      onSuccess: () => {
+        clearCart();
+        router.push(`/checkout/success?orderId=${order.id}`);
+      },
+      onClose: () => {
+        toast({
+          title: 'Checkout Cancelled',
+          description: 'You can complete your purchase anytime.',
+        });
+        setFormIsLoading(false);
+      },
+      onPopup: async (response) => {
+        if (!response?.checkoutTransactionId) {
+          return;
+        }
+
+        if (typeof order.id !== 'string' || !order.id) {
+          console.error('Credit Direct payment reference update skipped:', {
+            orderId: order.id,
+          });
+          toast({
+            title: 'Payment reference not saved',
+            description: 'Order identifier is missing for reconciliation.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        // Save transaction ID to order for webhook reconciliation
+        const paymentReferenceError =
+          await updateCreditDirectPaymentReferenceWithRetry({
+            orderId: order.id,
+            paymentRef: response.checkoutTransactionId,
+          });
+
+        if (paymentReferenceError) {
+          console.error('Credit Direct payment reference update failed:', {
+            error: paymentReferenceError,
+            orderId: order.id,
+          });
+          toast({
+            title: 'Payment reference not saved',
+            description: paymentReferenceError,
+            variant: 'destructive',
+          });
+        }
+      },
+    });
+
+    connect.setup();
+    connect.open();
+  };
+
   const onShippingSubmit = async (data: ShippingFormValues) => {
     setFormIsLoading(true);
 
-    try {
-      // Get merchant ID from context (useMerchant hook)
-      if (!merchant?.id) {
-        throw new Error(
-          'Merchant information not available. Please refresh the page and try again.'
-        );
-      }
-
-      // B3 review fix (PR #1611): block order submission when no
-      // shipping quote is selected. Pre-fix this sent
-      // `shipping_provider: null + selected_quote_id: null`, which
-      // slips past the RPC's `provider != null AND quote_id IS NULL`
-      // guard (both null → guard doesn't fire) and persists a silent
-      // zero-shipping order. The `handleNext` guard at step 1 catches
-      // most cases, but a stale quote between step transitions (rates
-      // refresh, the previously-selected quote gets invalidated) can
-      // leave us here with `selectedShippingQuote = null`. Fail closed
-      // at the submit-time boundary too.
-      if (!selectedShippingQuote) {
-        toast({
-          variant: 'destructive',
-          title: 'Shipping Required',
-          description: 'Please select a shipping option to continue.',
-        });
-        setFormIsLoading(false);
-        setStep(1);
-        return;
-      }
-
-      // Prepare order items
-      const orderItems = buildCheckoutOrderItems(cart);
-
-      // Calculate totals - use merchant data from hook directly (no need to query DB again)
-      const subtotal = cartTotal;
-      const finalShippingFee = shippingFee ?? DEFAULT_SHIPPING_FEE;
-
-      // Create order via API
-      const { order, paystackAuthUrl } = await apiPost<{
-        order: Record<string, unknown>;
-        paystackAuthUrl?: string;
-      }>('/api/orders', {
-        merchant_id: merchant.id,
-        customer_email: data.email,
-        customer_name: `${data.firstName} ${data.lastName}`,
-        customer_phone: data.phone,
-        items: orderItems,
-        subtotal,
-        shipping_fee: finalShippingFee,
-        payment_method: selectedGateway,
-        payment_status: 'unpaid', // Order starts unpaid, changes to pending when payment initiated, then paid on confirmation
-        shipping_status: 'pending',
-        shipping_address: {
-          firstName: data.firstName,
-          lastName: data.lastName,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-        },
-        source: 'online_store',
-        // B3 (plan §5 B3): the pre-submit `!selectedShippingQuote`
-        // guard above bounces to step 1 with a toast, so by the time
-        // we reach this payload construction the quote is guaranteed
-        // non-null. Optional-chaining stays as defensive coding —
-        // React state isn't narrowed across statements by TS, and
-        // the cost of `?.` here is zero. The original `|| 'GIGL'`
-        // silent fallback (the B3 root-cause bug) is gone for good.
-        shipping_provider: selectedShippingQuote?.provider ?? null,
-        selected_quote_id: selectedShippingQuote?.id ?? null,
-        shipping_session_id: shippingSessionId,
-        shipping_carrier: selectedShippingQuote?.carrierName,
-        shipping_service_tier: selectedShippingQuote?.serviceTier,
-      });
-
-      // Store order data for success page (fallback)
-      const orderData = {
-        order_id: order.id,
-        order_number: order.order_number,
-        shipping: data,
-        items: cart,
-        subtotal,
-        shipping_fee: finalShippingFee,
-        total: order.total,
-      };
-      sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
-      notifyLastOrderSnapshotChanged();
-
-      // Track platform-level purchase (for platform owner's analytics)
-      trackPlatformPurchase(
-        merchant.id,
-        order.total as number,
-        currencyCode,
-        order.order_number as string
-      );
-
-      // Handle Credit Direct BNPL checkout
-      if (selectedGateway === 'credit_direct') {
-        try {
-          // Get signature from server
-          const signResponse = await fetch('/api/payments/credit-direct/sign', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              customerEmail: data.email,
-              totalAmount: order.total,
-              merchantSlug: merchantSlug,
-              orderId: order.id,
-            }),
-          });
-
-          if (!signResponse.ok) {
-            const errorData = await signResponse.json();
-            throw new Error(
-              errorData.error || 'Failed to initialize Credit Direct checkout'
-            );
-          }
-
-          const { signature, publicKey, sessionId, isLive } =
-            await signResponse.json();
-
-          // Build transaction object for Credit Direct
-          const transaction = {
-            totalAmount: order.total as number,
-            customerEmail: data.email,
-            customerPhone: data.phone,
-            sessionId,
-            metaData: order.id as string,
-            products: cart.map((item) => ({
-              productName: item.name,
-              productAmount: item.price,
-              productId: item.id,
-            })),
-          };
-
-          // Configure and open Credit Direct popup
-          if (!window.Connect) {
-            throw new Error('Credit Direct SDK not loaded');
-          }
-          const connect = new window.Connect({
-            publicKey,
-            signature,
-            transaction,
-            isLive,
-            onSuccess: () => {
-              clearCart();
-              router.push(`/checkout/success?orderId=${order.id}`);
-            },
-            onClose: () => {
-              toast({
-                title: 'Checkout Cancelled',
-                description: 'You can complete your purchase anytime.',
-              });
-              setFormIsLoading(false);
-            },
-            onPopup: async (response) => {
-              if (!response?.checkoutTransactionId) {
-                return;
-              }
-
-              // Save transaction ID to order for webhook reconciliation
-              await fetch('/api/orders/update-payment-ref', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  orderId: order.id,
-                  paymentRef: response.checkoutTransactionId,
-                  gateway: 'credit_direct',
-                }),
-              });
-            },
-          });
-
-          connect.setup();
-          connect.open();
-          return; // Don't proceed to success page yet - wait for popup callbacks
-        } catch (creditDirectError) {
-          console.error('Credit Direct error:', creditDirectError);
-          toast({
-            variant: 'destructive',
-            title: 'BNPL Checkout Failed',
-            description:
-              (creditDirectError as Error).message ||
-              'Failed to start Credit Direct checkout',
-          });
-          setFormIsLoading(false);
-          return;
-        }
-      }
-
-      toast({
-        title: 'Order Placed!',
-        description: `Order ${order.order_number} has been placed.`,
-      });
-
-      clearCart();
-
-      // Redirect to Paystack/Korapay for payment
-      if (paystackAuthUrl && selectedGateway !== 'pod') {
-        window.location.href = paystackAuthUrl;
-        return;
-      }
-
-      // Fallback for demo/testing if no URL returned or if POD
-      router.push(`/checkout/success?orderId=${order.id}`);
-    } catch (error) {
+    // Get merchant ID from context (useMerchant hook)
+    if (!merchant?.id) {
       toast({
         variant: 'destructive',
         title: 'Order Failed',
-        description: (error as Error).message || 'Something went wrong.',
+        description:
+          'Merchant information not available. Please refresh the page and try again.',
       });
-    } finally {
       setFormIsLoading(false);
+      return;
     }
+
+    // B3 review fix (PR #1611): block order submission when no
+    // shipping quote is selected. Pre-fix this sent
+    // `shipping_provider: null + selected_quote_id: null`, which
+    // slips past the RPC's `provider != null AND quote_id IS NULL`
+    // guard (both null → guard doesn't fire) and persists a silent
+    // zero-shipping order. The `handleNext` guard at step 1 catches
+    // most cases, but a stale quote between step transitions (rates
+    // refresh, the previously-selected quote gets invalidated) can
+    // leave us here with `selectedShippingQuote = null`. Fail closed
+    // at the submit-time boundary too.
+    if (!selectedShippingQuote) {
+      toast({
+        variant: 'destructive',
+        title: 'Shipping Required',
+        description: 'Please select a shipping option to continue.',
+      });
+      setFormIsLoading(false);
+      setStep(1);
+      return;
+    }
+
+    const result = await prepareCheckout({
+      merchantId: merchant.id,
+      data,
+      cart,
+      cartTotal,
+      shippingFee,
+      selectedGateway,
+      selectedShippingQuote,
+      shippingSessionId,
+      currencyCode,
+      merchantSlug,
+    });
+
+    if (result.kind === 'error') {
+      toast({
+        variant: 'destructive',
+        title: result.title,
+        description: result.message,
+      });
+      setFormIsLoading(false);
+      return;
+    }
+
+    if (result.kind === 'credit_direct') {
+      // Popup callbacks drive the rest of the flow — don't proceed to the
+      // success page yet. Matching the prior behavior, the submit spinner is
+      // cleared now; the popup's onClose re-clears it if reopened.
+      openCreditDirectPopup(result.order, result.sign, data);
+      setFormIsLoading(false);
+      return;
+    }
+
+    toast({
+      title: 'Order Placed!',
+      description: `Order ${result.order.order_number} has been placed.`,
+    });
+
+    clearCart();
+
+    // Redirect to Paystack/Korapay for payment
+    if (result.paystackAuthUrl && selectedGateway !== 'pod') {
+      redirectToExternalUrl(result.paystackAuthUrl);
+      setFormIsLoading(false);
+      return;
+    }
+
+    // Fallback for demo/testing if no URL returned or if POD
+    router.push(`/checkout/success?orderId=${result.order.id}`);
+    setFormIsLoading(false);
   };
 
   const getStepTitle = () => {
@@ -1609,26 +1847,39 @@ function CheckoutPageContent() {
   );
 }
 
+// Detect routing mode from the URL: path-based when the pathname is prefixed
+// with the merchant slug (e.g. /ogabassey/checkout), otherwise domain-based
+// (custom domain or root). Falls back to 'path' during SSR where there is no
+// window — the wrapper upgrades it after mount.
+function detectRoutingMode(merchantSlug: string | null): 'domain' | 'path' {
+  if (typeof window === 'undefined') return 'path';
+  const pathname = window.location.pathname;
+  if (
+    merchantSlug &&
+    (pathname === `/${merchantSlug}` ||
+      pathname.startsWith(`/${merchantSlug}/`))
+  ) {
+    return 'path';
+  }
+  return 'domain';
+}
+
+const subscribeRoutingMode = () => () => {
+  // Routing mode is static for the page lifetime: nothing to unsubscribe.
+};
+
 function CheckoutPageWrapper() {
   const { merchantSlug } = useCart();
-  const [routingMode, setRoutingMode] = useState<'domain' | 'path'>('path');
 
-  // Detect routing mode on client side to ensure basePath is correct
-  useEffect(() => {
-    // If not running on server and we have a window
-    if (typeof window !== 'undefined') {
-      const pathname = window.location.pathname;
-      // If the path starts with the merchant slug, it's path-based routing
-      // e.g. /ogabassey/checkout
-      if (merchantSlug && pathname.startsWith(`/${merchantSlug}`)) {
-        setRoutingMode('path');
-      } else {
-        // Otherwise, it's likely domain-based routing (e.g. custom domain or root)
-        // e.g. /checkout on ogabassey.com
-        setRoutingMode('domain');
-      }
-    }
-  }, [merchantSlug]);
+  // Read the URL-derived routing mode via useSyncExternalStore so the server
+  // snapshot ('path') matches the first client render (avoiding a hydration
+  // mismatch) and React swaps in the real value after hydration — no
+  // synchronous setState in an effect.
+  const routingMode = useSyncExternalStore(
+    subscribeRoutingMode,
+    () => detectRoutingMode(merchantSlug),
+    () => 'path' as const
+  );
 
   return (
     <MerchantProvider

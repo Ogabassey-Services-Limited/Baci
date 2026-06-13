@@ -66,17 +66,32 @@ const Carousel = React.forwardRef<
       },
       plugins
     );
-    const [canScrollPrev, setCanScrollPrev] = React.useState(false);
-    const [canScrollNext, setCanScrollNext] = React.useState(false);
 
-    const onSelect = (api: CarouselApi) => {
+    // Subscribe to embla (an external store) for scroll state. Using
+    // useSyncExternalStore reads the current value on every render and updates
+    // via embla's events, instead of a synchronous setState inside an effect.
+    const subscribeToApi = (onStoreChange: () => void) => {
       if (!api) {
-        return;
+        return () => undefined;
       }
-
-      setCanScrollPrev(api.canScrollPrev());
-      setCanScrollNext(api.canScrollNext());
+      api.on('reInit', onStoreChange);
+      api.on('select', onStoreChange);
+      return () => {
+        api.off('reInit', onStoreChange);
+        api.off('select', onStoreChange);
+      };
     };
+
+    const canScrollPrev = React.useSyncExternalStore(
+      subscribeToApi,
+      () => api?.canScrollPrev() ?? false,
+      () => false
+    );
+    const canScrollNext = React.useSyncExternalStore(
+      subscribeToApi,
+      () => api?.canScrollNext() ?? false,
+      () => false
+    );
 
     const scrollPrev = () => {
       api?.scrollPrev();
@@ -103,21 +118,6 @@ const Carousel = React.forwardRef<
 
       setApi(api);
     }, [api, setApi]);
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: onSelect is stable across renders
-    React.useEffect(() => {
-      if (!api) {
-        return;
-      }
-
-      onSelect(api);
-      api.on('reInit', onSelect);
-      api.on('select', onSelect);
-
-      return () => {
-        api?.off('select', onSelect);
-      };
-    }, [api]);
 
     return (
       <CarouselContext.Provider

@@ -1,7 +1,13 @@
 'use client';
 
 import { Lock, Sparkles } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useRef,
+  useState,
+} from 'react';
 import type { Change } from '@/app/dashboard/products/actions';
 import { enrichProductsBatch } from '@/app/dashboard/products/generation-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -31,15 +37,112 @@ import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, getCurrencySymbol } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
+const ENRICHMENT_BATCH_SIZE = 5;
+
+type EnrichmentTarget = Change & { originalIndex: number };
+
+interface EnrichmentRunArgs {
+  targets: EnrichmentTarget[];
+  stopGenerationRef: RefObject<boolean>;
+  toast: ReturnType<typeof useToast>['toast'];
+  setLocalChanges: Dispatch<SetStateAction<Change[]>>;
+  setGenProgress: Dispatch<SetStateAction<number>>;
+  setIsGenerating: Dispatch<SetStateAction<boolean>>;
+  setShowGenModal: Dispatch<SetStateAction<boolean>>;
+}
+
+// Module-scope helper so the try/finally stays outside the component body
+// (React Compiler cannot lower try/finally inside components/hooks yet).
+async function runEnrichmentBatches({
+  targets,
+  stopGenerationRef,
+  toast,
+  setLocalChanges,
+  setGenProgress,
+  setIsGenerating,
+  setShowGenModal,
+}: EnrichmentRunArgs): Promise<void> {
+  const totalBatches = Math.ceil(targets.length / ENRICHMENT_BATCH_SIZE);
+
+  try {
+    for (let i = 0; i < totalBatches; i++) {
+      if (stopGenerationRef.current) {
+        toast({
+          title: 'Generation Stopped',
+          description: `Stopped after ${i * ENRICHMENT_BATCH_SIZE} products.`,
+        });
+        break;
+      }
+
+      const batch = targets.slice(
+        i * ENRICHMENT_BATCH_SIZE,
+        (i + 1) * ENRICHMENT_BATCH_SIZE
+      );
+      const names = batch.map((c) => c.details.name);
+
+      // Call Server Action
+      const results = await enrichProductsBatch(names);
+
+      // Update State
+      setLocalChanges((prev) => {
+        const next = [...prev];
+        results.forEach((res) => {
+          const target = batch.find((b) => b.details.name === res.productName);
+          if (target) {
+            next[target.originalIndex] = {
+              ...next[target.originalIndex],
+              details: {
+                ...next[target.originalIndex].details,
+                description:
+                  res.description ||
+                  next[target.originalIndex].details.description, // Only overwrite if new description exists
+                sku: next[target.originalIndex].details.sku || res.sku, // Only set SKU if missing
+                category:
+                  next[target.originalIndex].details.category || res.category, // Set category if missing
+                attributes: res.attributes, // Save attributes
+              },
+            };
+          }
+        });
+        return next;
+      });
+
+      // Update Progress
+      setGenProgress(Math.round(((i + 1) / totalBatches) * 100));
+    }
+
+    if (!stopGenerationRef.current) {
+      toast({
+        title: 'Generation Complete',
+        description: `Generated descriptions for ${targets.length} products.`,
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    toast({
+      title: 'Generation Failed',
+      description: 'Something went wrong.',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsGenerating(false);
+    setTimeout(() => setShowGenModal(false), 1000);
+    stopGenerationRef.current = false; // Reset for next time
+  }
+}
+
 export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
   const { aiResponse, setWorkflowStep, applyChanges } = useProductContext();
   const { merchant } = useMerchant();
   const { toast } = useToast();
 
-  // Local state for editable changes
-  const [localChanges, setLocalChanges] = useState<Change[]>([]);
+  // Local state for editable changes, seeded from the AI response
+  const [localChanges, setLocalChanges] = useState<Change[]>(
+    () => aiResponse?.changes ?? []
+  );
+  // Default select all
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
-    new Set()
+    () => new Set((aiResponse?.changes ?? []).map((_, i) => i))
   );
 
   // AI Generation State
@@ -48,14 +151,17 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
   const [showGenModal, setShowGenModal] = useState(false);
   const stopGenerationRef = useRef(false);
 
-  // Initialize local state when aiResponse loads
-  useEffect(() => {
+  // Re-seed local state when a new aiResponse loads. Adjusted inline during
+  // render with a prev-value comparison (react.dev: adjusting some state when
+  // a prop changes) instead of a setState inside an effect.
+  const [prevAiResponse, setPrevAiResponse] = useState(aiResponse);
+  if (aiResponse !== prevAiResponse) {
+    setPrevAiResponse(aiResponse);
     if (aiResponse?.changes) {
       setLocalChanges(aiResponse.changes);
-      // Default select all
       setSelectedIndices(new Set(aiResponse.changes.map((_, i) => i)));
     }
-  }, [aiResponse]);
+  }
 
   if (!aiResponse) {
     return (
@@ -137,73 +243,17 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
     setIsGenerating(true);
     setGenProgress(0);
 
-    const BATCH_SIZE = 5;
-    const totalBatches = Math.ceil(targets.length / BATCH_SIZE);
-
-    try {
-      for (let i = 0; i < totalBatches; i++) {
-        if (stopGenerationRef.current) {
-          toast({
-            title: 'Generation Stopped',
-            description: `Stopped after ${i * BATCH_SIZE} products.`,
-          });
-          break;
-        }
-
-        const batch = targets.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
-        const names = batch.map((c) => c.details.name);
-
-        // Call Server Action
-        const results = await enrichProductsBatch(names);
-
-        // Update State
-        setLocalChanges((prev) => {
-          const next = [...prev];
-          results.forEach((res) => {
-            const target = batch.find(
-              (b) => b.details.name === res.productName
-            );
-            if (target) {
-              next[target.originalIndex] = {
-                ...next[target.originalIndex],
-                details: {
-                  ...next[target.originalIndex].details,
-                  description:
-                    res.description ||
-                    next[target.originalIndex].details.description, // Only overwrite if new description exists
-                  sku: next[target.originalIndex].details.sku || res.sku, // Only set SKU if missing
-                  category:
-                    next[target.originalIndex].details.category || res.category, // Set category if missing
-                  attributes: res.attributes, // Save attributes
-                },
-              };
-            }
-          });
-          return next;
-        });
-
-        // Update Progress
-        setGenProgress(Math.round(((i + 1) / totalBatches) * 100));
-      }
-
-      if (!stopGenerationRef.current) {
-        toast({
-          title: 'Generation Complete',
-          description: `Generated descriptions for ${targets.length} products.`,
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Generation Failed',
-        description: 'Something went wrong.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGenerating(false);
-      setTimeout(() => setShowGenModal(false), 1000);
-      stopGenerationRef.current = false; // Reset for next time
-    }
+    // Delegate the try/finally batch loop to a module-scope helper so the
+    // component body stays free of try/finally (React Compiler cannot lower it).
+    await runEnrichmentBatches({
+      targets,
+      stopGenerationRef,
+      toast,
+      setLocalChanges,
+      setGenProgress,
+      setIsGenerating,
+      setShowGenModal,
+    });
   };
 
   const handleStopGeneration = () => {

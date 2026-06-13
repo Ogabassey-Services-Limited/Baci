@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Package, Plus, Trash2 } from 'lucide-react';
-import type { FieldErrors } from 'react-hook-form';
+import type { FieldErrors, UseFormReset } from 'react-hook-form';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { ThemedButton } from '@/components/themed/themed-button';
 import { ThemedInput } from '@/components/themed/themed-input';
@@ -26,6 +26,66 @@ import {
 interface CreateConsignmentFormProps {
   integrationId: string;
   businessClientCode: string;
+}
+
+interface SubmitConsignmentArgs {
+  values: ConsignmentFormValues;
+  integrationId: string;
+  businessClientCode: string;
+  toast: ReturnType<typeof useToast>['toast'];
+  reset: UseFormReset<ConsignmentFormValues>;
+}
+
+// Module-scope helper so the try/catch (with a ThrowStatement) lives outside
+// the component body, keeping it compilable by the React Compiler.
+async function submitConsignment({
+  values,
+  integrationId,
+  businessClientCode,
+  toast,
+  reset,
+}: SubmitConsignmentArgs): Promise<void> {
+  try {
+    const res = await fetchWithCsrf('/api/marketplace/jumia/consignment', {
+      method: 'POST',
+      body: JSON.stringify({
+        integrationId,
+        businessClientCode,
+        shippingDate: values.shippingDate,
+        comment: values.comment || undefined,
+        products: values.products.map((p) => ({
+          sku: p.sku.trim(),
+          quantity: Number(p.quantity.trim()),
+          labelCode: p.labelCode?.trim() || undefined,
+        })),
+      }),
+    });
+
+    const data: Record<string, unknown> = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        (typeof data.error === 'string' ? data.error : null) ||
+          'Failed to create consignment'
+      );
+    }
+    const poNumber =
+      typeof data.purchaseOrderNumber === 'string'
+        ? sanitizeText(data.purchaseOrderNumber)
+        : 'created';
+    toast({
+      title: 'Consignment Created',
+      description: `Purchase Order: ${poNumber}`,
+    });
+    reset();
+  } catch (err: unknown) {
+    toast({
+      title: 'Consignment Failed',
+      description: sanitizeText(
+        err instanceof Error ? err.message : 'Unknown error'
+      ),
+      variant: 'destructive',
+    });
+  }
 }
 
 export function CreateConsignmentForm({
@@ -53,49 +113,14 @@ export function CreateConsignmentForm({
     name: 'products',
   });
 
-  const onSubmit = async (values: ConsignmentFormValues) => {
-    try {
-      const res = await fetchWithCsrf('/api/marketplace/jumia/consignment', {
-        method: 'POST',
-        body: JSON.stringify({
-          integrationId,
-          businessClientCode,
-          shippingDate: values.shippingDate,
-          comment: values.comment || undefined,
-          products: values.products.map((p) => ({
-            sku: p.sku.trim(),
-            quantity: Number(p.quantity.trim()),
-            labelCode: p.labelCode?.trim() || undefined,
-          })),
-        }),
-      });
-
-      const data: Record<string, unknown> = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(
-          (typeof data.error === 'string' ? data.error : null) ||
-            'Failed to create consignment'
-        );
-      }
-      const poNumber =
-        typeof data.purchaseOrderNumber === 'string'
-          ? sanitizeText(data.purchaseOrderNumber)
-          : 'created';
-      toast({
-        title: 'Consignment Created',
-        description: `Purchase Order: ${poNumber}`,
-      });
-      reset();
-    } catch (err: unknown) {
-      toast({
-        title: 'Consignment Failed',
-        description: sanitizeText(
-          err instanceof Error ? err.message : 'Unknown error'
-        ),
-        variant: 'destructive',
-      });
-    }
-  };
+  const onSubmit = (values: ConsignmentFormValues) =>
+    submitConsignment({
+      values,
+      integrationId,
+      businessClientCode,
+      toast,
+      reset,
+    });
 
   const onInvalid = (fe: FieldErrors<ConsignmentFormValues>) => {
     if (fe.shippingDate?.message) {

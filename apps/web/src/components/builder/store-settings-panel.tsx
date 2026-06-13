@@ -8,7 +8,7 @@ import {
   ShoppingCart,
   Truck,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -133,12 +133,15 @@ export function StoreSettingsPanel({
   onChange,
 }: StoreSettingsPanelProps) {
   const [data, setData] = useState<StoreSettings>(settings || defaultSettings);
+  const [prevSettings, setPrevSettings] = useState(settings);
 
-  // Sync local state when settings prop changes from parent
-  // This is an intentional controlled component pattern for prop-to-state sync
-  useEffect(() => {
+  // Sync local state when the settings prop changes from the parent.
+  // Adjust during render via a prev-prop comparison instead of an effect so
+  // users never see a stale frame and the React Compiler can optimize this.
+  if (settings !== prevSettings) {
+    setPrevSettings(settings);
     setData(settings || defaultSettings);
-  }, [settings]);
+  }
 
   const handleChange = <K extends keyof StoreSettings>(
     section: K,

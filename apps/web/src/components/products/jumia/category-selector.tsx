@@ -42,12 +42,35 @@ export function JumiaCategorySelector({
   const [open, setOpen] = useState(false);
   const [categories, setCategories] = useState<JumiaCategoryItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedName, setSelectedName] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [hasFetched, setHasFetched] = useState(false);
+  const [prevMerchantId, setPrevMerchantId] = useState(merchantId);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchCategories = (currentValue: number | null | undefined) => {
+  // Reset state during render when the merchant context changes so a new
+  // merchant refetches its own categories (replaces a setState-in-effect sync).
+  // The previous request's controller is aborted inside fetchCategories before
+  // any new fetch starts (and on unmount), so we must not read/touch the ref
+  // here — refs cannot be accessed during render.
+  if (merchantId !== prevMerchantId) {
+    setPrevMerchantId(merchantId);
+    setCategories([]);
+    setError(null);
+    setHasFetched(false);
+    setLoading(false);
+    setOpen(false);
+  }
+
+  // The selected label is derived from the controlled value + loaded
+  // categories, so it never needs to be mirrored into local state.
+  const selectedMatch =
+    value == null ? null : categories.find((c) => c.code === value);
+  const selectedName = selectedMatch
+    ? selectedMatch.completePath || selectedMatch.name
+    : '';
+
+  const fetchCategories = () => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -68,6 +91,7 @@ export function JumiaCategorySelector({
         return res.json();
       })
       .then((data) => {
+        if (controller.signal.aborted) return;
         // Categories are already flat from the Vendor Center API
         const cats = Array.isArray(data.categories)
           ? data.categories.filter(
@@ -80,15 +104,7 @@ export function JumiaCategorySelector({
             )
           : [];
         setCategories(cats);
-        // Restore selectedName if value is already set (e.g. controlled prop)
-        if (currentValue != null) {
-          const match = cats.find(
-            (c: JumiaCategoryItem) => c.code === currentValue
-          );
-          if (match) {
-            setSelectedName(match.completePath || match.name);
-          }
-        }
+        setHasFetched(true);
       })
       .catch((err: unknown) => {
         if (didTimeout) {
@@ -108,47 +124,23 @@ export function JumiaCategorySelector({
       });
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally depends only on merchantId to reset state when merchant context changes
+  // Abort any in-flight request when the component unmounts.
   useEffect(() => {
-    setCategories([]);
-    setSelectedName('');
-    setError(null);
-    setLoading(false);
     return () => abortControllerRef.current?.abort();
-  }, [merchantId]);
+  }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchCategories intentionally omitted; merchantId used as proxy dependency
-  useEffect(() => {
-    if (open && categories.length === 0 && !error) {
-      fetchCategories(value);
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && error) {
+      setError(null);
     }
-  }, [open, merchantId, categories.length, error]);
-
-  // Sync selectedName when value changes and categories are already loaded
-  useEffect(() => {
-    if (value != null && categories.length > 0) {
-      const match = categories.find((c) => c.code === value);
-      if (match) {
-        setSelectedName(match.completePath || match.name);
-      } else {
-        // Value doesn't match any loaded category — clear stale label
-        setSelectedName('');
-      }
-    } else if (value == null) {
-      setSelectedName('');
+    setOpen(nextOpen);
+    if (nextOpen && !hasFetched && !error) {
+      fetchCategories();
     }
-  }, [value, categories]);
+  };
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen && error) {
-          setError(null);
-        }
-        setOpen(nextOpen);
-      }}
-    >
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -177,7 +169,7 @@ export function JumiaCategorySelector({
                   <Button
                     variant="link"
                     size="sm"
-                    onClick={() => fetchCategories(value)}
+                    onClick={() => fetchCategories()}
                     className="mt-2 text-sm underline"
                   >
                     Retry
@@ -200,7 +192,6 @@ export function JumiaCategorySelector({
                       value={category.completePath || category.name}
                       onSelect={() => {
                         onSelect(category.code, category.name);
-                        setSelectedName(category.completePath || category.name);
                         setOpen(false);
                       }}
                     >

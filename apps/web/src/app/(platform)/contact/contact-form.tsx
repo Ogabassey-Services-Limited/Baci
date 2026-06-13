@@ -7,8 +7,32 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { apiPost } from '@/lib/api-client';
 
 const PLATFORM_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+
+// Hoisted out of the component so React Compiler can lower the handler body
+// (try/finally + throw-in-try are not yet supported inside component bodies).
+async function submitContactForm(data: FormData): Promise<boolean> {
+  const firstName = data.get('first-name') as string;
+  const lastName = data.get('last-name') as string;
+
+  try {
+    await apiPost('/api/forms/submit', {
+      merchantId: PLATFORM_MERCHANT_ID,
+      formName: 'contact',
+      formData: {
+        name: `${firstName} ${lastName}`.trim(),
+        email: data.get('email') as string,
+        message: data.get('message') as string,
+      },
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function PlatformContactForm() {
   const { toast } = useToast();
@@ -20,42 +44,24 @@ export function PlatformContactForm() {
 
     const form = e.currentTarget;
     const data = new FormData(form);
-    const firstName = data.get('first-name') as string;
-    const lastName = data.get('last-name') as string;
 
-    try {
-      const response = await fetch('/api/forms/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          merchantId: PLATFORM_MERCHANT_ID,
-          formName: 'contact',
-          formData: {
-            name: `${firstName} ${lastName}`.trim(),
-            email: data.get('email') as string,
-            message: data.get('message') as string,
-          },
-        }),
+    const succeeded = await submitContactForm(data);
+
+    if (succeeded) {
+      toast({
+        title: 'Message Sent!',
+        description: "We'll get back to you as soon as possible.",
       });
-
-      if (response.ok) {
-        toast({
-          title: 'Message Sent!',
-          description: "We'll get back to you as soon as possible.",
-        });
-        form.reset();
-      } else {
-        throw new Error('Failed to send message');
-      }
-    } catch {
+      form.reset();
+    } else {
       toast({
         title: 'Error',
         description: 'Failed to send message. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
     }
+
+    setIsSubmitting(false);
   };
 
   return (

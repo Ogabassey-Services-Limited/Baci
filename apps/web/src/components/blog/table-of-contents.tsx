@@ -9,21 +9,25 @@ interface TocItem {
   level: number;
 }
 
+function collectHeadings(setHeadings: (items: TocItem[]) => void): void {
+  const container = document.querySelector('.blog-content-renderer');
+  if (!container) return;
+
+  const elements = container.querySelectorAll('h2[id], h3[id]');
+  const items: TocItem[] = Array.from(elements).map((el) => ({
+    id: el.id,
+    text: el.textContent || '',
+    level: Number(el.tagName[1]),
+  }));
+  setHeadings(items);
+}
+
 export function TableOfContents() {
   const [headings, setHeadings] = useState<TocItem[]>([]);
   const [activeId, setActiveId] = useState('');
 
   useEffect(() => {
-    const container = document.querySelector('.blog-content-renderer');
-    if (!container) return;
-
-    const elements = container.querySelectorAll('h2[id], h3[id]');
-    const items: TocItem[] = Array.from(elements).map((el) => ({
-      id: el.id,
-      text: el.textContent || '',
-      level: Number(el.tagName[1]),
-    }));
-    setHeadings(items);
+    collectHeadings(setHeadings);
   }, []);
 
   useEffect(() => {

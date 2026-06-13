@@ -4,19 +4,20 @@ import { PlatformContactForm } from './contact-form';
 
 // Mock dependencies
 const mockToast = vi.fn();
+const mockApiPost = vi.fn();
 
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  apiPost: (...args: unknown[]) => mockApiPost(...args),
+}));
+
 describe('PlatformContactForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ success: true }), { status: 200 })
-      );
+    mockApiPost.mockResolvedValue({ success: true });
   });
 
   it('renders all form fields', () => {
@@ -45,7 +46,7 @@ describe('PlatformContactForm', () => {
     expect(screen.getByLabelText(/message/i)).toBeRequired();
   });
 
-  it('calls fetch with correct payload on submit', async () => {
+  it('submits with CSRF-protected API helper and correct payload', async () => {
     render(<PlatformContactForm />);
 
     fireEvent.change(screen.getByLabelText(/first name/i), {
@@ -64,20 +65,50 @@ describe('PlatformContactForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /send message/i }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/forms/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
-          formName: 'contact',
-          formData: {
-            name: 'John Doe',
-            email: 'john@example.com',
-            message: 'Hello there',
-          },
-        }),
+      expect(mockApiPost).toHaveBeenCalledWith('/api/forms/submit', {
+        merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
+        formName: 'contact',
+        formData: {
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Hello there',
+        },
       });
     });
+  });
+
+  it('does not issue a raw fetch for submission', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch');
+
+    render(<PlatformContactForm />);
+
+    fireEvent.change(screen.getByLabelText(/first name/i), {
+      target: { value: 'John' },
+    });
+    fireEvent.change(screen.getByLabelText(/last name/i), {
+      target: { value: 'Doe' },
+    });
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: 'john@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/message/i), {
+      target: { value: 'Hello there' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith('/api/forms/submit', {
+        merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
+        formName: 'contact',
+        formData: {
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Hello there',
+        },
+      });
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('shows success toast and resets form on successful submission', async () => {
@@ -109,11 +140,7 @@ describe('PlatformContactForm', () => {
   });
 
   it('shows error toast on failed submission', async () => {
-    global.fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ error: 'Server error' }), { status: 500 })
-      );
+    mockApiPost.mockRejectedValue(new Error('Server error'));
 
     render(<PlatformContactForm />);
 
@@ -142,10 +169,10 @@ describe('PlatformContactForm', () => {
   });
 
   it('disables submit button while submitting', async () => {
-    let resolvePromise: ((value: Response) => void) | undefined;
-    global.fetch = vi.fn().mockImplementation(
+    let resolvePromise: ((value: { success: boolean }) => void) | undefined;
+    mockApiPost.mockImplementation(
       () =>
-        new Promise<Response>((resolve) => {
+        new Promise<{ success: boolean }>((resolve) => {
           resolvePromise = resolve;
         })
     );
@@ -172,9 +199,7 @@ describe('PlatformContactForm', () => {
     });
 
     // Resolve the fetch to clean up
-    resolvePromise?.(
-      new Response(JSON.stringify({ success: true }), { status: 200 })
-    );
+    resolvePromise?.({ success: true });
 
     await waitFor(() => {
       expect(

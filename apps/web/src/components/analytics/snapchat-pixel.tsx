@@ -1,11 +1,32 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { getStoredConsent } from '@/lib/consent-mode';
 
 interface SnapchatPixelProps {
   pixelId: string;
+}
+
+// Subscribe to consent changes via the storage + custom consent events.
+// Using useSyncExternalStore (instead of useEffect + setState) lets React
+// Compiler memoize the component and keeps the read free of a synchronous
+// setState inside an effect.
+function subscribeMarketingConsent(onChange: () => void): () => void {
+  window.addEventListener('storage', onChange);
+  window.addEventListener('cookie-consent-updated', onChange);
+  return () => {
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener('cookie-consent-updated', onChange);
+  };
+}
+
+function getMarketingConsentSnapshot(): boolean {
+  return getStoredConsent()?.marketing === true;
+}
+
+function getMarketingConsentServerSnapshot(): boolean {
+  return false;
 }
 
 /**
@@ -19,25 +40,11 @@ interface SnapchatPixelProps {
  * @see https://businesshelp.snapchat.com/s/article/snap-pixel-about
  */
 export function SnapchatPixel({ pixelId }: SnapchatPixelProps) {
-  const [isAllowed, setIsAllowed] = useState(false);
-
-  useEffect(() => {
-    const consent = getStoredConsent();
-    setIsAllowed(consent?.marketing === true);
-
-    const handleConsentUpdate = () => {
-      const newConsent = getStoredConsent();
-      setIsAllowed(newConsent?.marketing === true);
-    };
-
-    window.addEventListener('storage', handleConsentUpdate);
-    window.addEventListener('cookie-consent-updated', handleConsentUpdate);
-
-    return () => {
-      window.removeEventListener('storage', handleConsentUpdate);
-      window.removeEventListener('cookie-consent-updated', handleConsentUpdate);
-    };
-  }, []);
+  const isAllowed = useSyncExternalStore(
+    subscribeMarketingConsent,
+    getMarketingConsentSnapshot,
+    getMarketingConsentServerSnapshot
+  );
 
   if (!pixelId || !isAllowed) {
     return null;

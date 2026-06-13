@@ -46,6 +46,53 @@ function safeParseNumber(value: number | string | null | undefined): number {
   return Number.isFinite(parsedValue) ? parsedValue : 0;
 }
 
+interface LoadMerchantsCallbacks {
+  setLoading: (value: boolean) => void;
+  setMerchants: (value: AdminMerchantHealthRow[]) => void;
+  setLoadError: (value: string | null) => void;
+  toast: ReturnType<typeof useToast>['toast'];
+  isLatest: () => boolean;
+}
+
+async function loadMerchants(
+  sortBy: SortBy,
+  {
+    setLoading,
+    setMerchants,
+    setLoadError,
+    toast,
+    isLatest,
+  }: LoadMerchantsCallbacks
+): Promise<void> {
+  try {
+    setLoading(true);
+    const params = new URLSearchParams({ sortBy });
+    const response = await apiGet<AdminMerchantsResponse>(
+      `/api/admin/merchants?${params.toString()}`
+    );
+    if (!isLatest()) {
+      return;
+    }
+    setMerchants(response.data);
+    setLoadError(null);
+  } catch (error) {
+    if (!isLatest()) {
+      return;
+    }
+    console.error('Failed to fetch merchants:', error);
+    setLoadError('Failed to load merchant data.');
+    toast({
+      description: 'Failed to load merchant data.',
+      title: 'Error',
+      variant: 'destructive',
+    });
+  } finally {
+    if (isLatest()) {
+      setLoading(false);
+    }
+  }
+}
+
 export function MerchantsClient({
   initialError = null,
   initialHealthFilter,
@@ -65,37 +112,36 @@ export function MerchantsClient({
   const [sortBy, setSortBy] = useState<SortBy>('gmv');
   const { toast } = useToast();
   const hasMounted = useRef(false);
+  const latestLoadId = useRef(0);
 
-  const fetchMerchants = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({ sortBy });
-      const response = await apiGet<AdminMerchantsResponse>(
-        `/api/admin/merchants?${params.toString()}`
-      );
-      setMerchants(response.data);
-      setLoadError(null);
-    } catch (error) {
-      console.error('Failed to fetch merchants:', error);
-      setLoadError('Failed to load merchant data.');
-      toast({
-        description: 'Failed to load merchant data.',
-        title: 'Error',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
+  const fetchMerchants = () => {
+    const loadId = latestLoadId.current + 1;
+    latestLoadId.current = loadId;
+    return loadMerchants(sortBy, {
+      setLoading,
+      setMerchants,
+      setLoadError,
+      toast,
+      isLatest: () => latestLoadId.current === loadId,
+    });
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler keeps fetchMerchants stable; the first rows are server-loaded, then this refetches only when sortBy changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the first rows are server-loaded, then this refetches only when sortBy changes (toast/setters are stable).
   useEffect(() => {
     if (!hasMounted.current) {
       hasMounted.current = true;
       return;
     }
 
-    fetchMerchants();
+    const loadId = latestLoadId.current + 1;
+    latestLoadId.current = loadId;
+    void loadMerchants(sortBy, {
+      setLoading,
+      setMerchants,
+      setLoadError,
+      toast,
+      isLatest: () => latestLoadId.current === loadId,
+    });
   }, [sortBy]);
 
   const filteredMerchants = merchants.filter((merchant) => {

@@ -106,6 +106,60 @@ async function fetchCustomerSession(
   };
 }
 
+interface SessionSetters {
+  setUser: (user: CustomerUser | null) => void;
+  setCustomer: (customer: Customer | null) => void;
+  setIsLoading: (loading: boolean) => void;
+}
+
+// Module-scope helper so the try/catch/finally control flow lives outside the
+// component body, keeping the provider compilable by the React Compiler.
+async function loadCustomerSession(
+  merchantSlug: string,
+  { setUser, setCustomer, setIsLoading }: SessionSetters,
+  isCancelled: () => boolean = () => false
+): Promise<void> {
+  try {
+    const session = await fetchCustomerSession(merchantSlug);
+    if (isCancelled()) return;
+
+    if (session) {
+      setUser(session.user);
+      setCustomer(session.customer);
+    } else {
+      setUser(null);
+      setCustomer(null);
+    }
+  } catch (error) {
+    if (isCancelled()) return;
+    console.error('Session check error:', error);
+    setUser(null);
+    setCustomer(null);
+  } finally {
+    if (!isCancelled()) setIsLoading(false);
+  }
+}
+
+// Module-scope helper for logout so its try/catch/finally stays outside render.
+async function performCustomerLogout(
+  merchantSlug: string,
+  setUser: (user: CustomerUser | null) => void,
+  setCustomer: (customer: Customer | null) => void,
+  setOtpState: (otp: OtpState | null) => void
+): Promise<void> {
+  try {
+    await fetch('/api/storefront/auth/logout', { method: 'POST' });
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    setUser(null);
+    setCustomer(null);
+    setOtpState(null);
+    // Clear cart on logout to prevent cart data leakage between users
+    clearCartStorage(merchantSlug);
+  }
+}
+
 export function CustomerAuthProvider({
   children,
   merchantSlug,
@@ -117,57 +171,33 @@ export function CustomerAuthProvider({
 
   const isAuthenticated = !!user && !!customer;
 
-  // Check session on mount
-  const checkSession = async () => {
-    try {
-      const session = await fetchCustomerSession(merchantSlug);
+  // Reset the auth state during render when the storefront (merchantSlug prop)
+  // changes, via a prev-prop comparison instead of inside the effect. Routing
+  // these resets through the effect forces an extra render where the previous
+  // store's customer is briefly visible. Initial state already matches a fresh
+  // load (loading + signed out), so only a runtime prop change adjusts here.
+  // See react.dev "Adjusting some state when a prop changes".
+  const [prevMerchantSlug, setPrevMerchantSlug] = useState(merchantSlug);
+  if (merchantSlug !== prevMerchantSlug) {
+    setPrevMerchantSlug(merchantSlug);
+    setIsLoading(true);
+    setUser(null);
+    setCustomer(null);
+    setOtpState(null);
+  }
 
-      if (session) {
-        setUser(session.user);
-        setCustomer(session.customer);
-      } else {
-        setUser(null);
-        setCustomer(null);
-      }
-    } catch (error) {
-      console.error('Session check error:', error);
-      setUser(null);
-      setCustomer(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Check session on demand (e.g. refreshCustomer).
+  const checkSession = () =>
+    loadCustomerSession(merchantSlug, { setUser, setCustomer, setIsLoading });
 
   useEffect(() => {
     let cancelled = false;
 
-    async function hydrateSession() {
-      try {
-        setIsLoading(true);
-        setUser(null);
-        setCustomer(null);
-
-        const session = await fetchCustomerSession(merchantSlug);
-        if (cancelled) return;
-
-        if (session) {
-          setUser(session.user);
-          setCustomer(session.customer);
-        } else {
-          setUser(null);
-          setCustomer(null);
-        }
-      } catch (error) {
-        if (cancelled) return;
-        console.error('Session check error:', error);
-        setUser(null);
-        setCustomer(null);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    void hydrateSession();
+    void loadCustomerSession(
+      merchantSlug,
+      { setUser, setCustomer, setIsLoading },
+      () => cancelled
+    );
 
     return () => {
       cancelled = true;
@@ -243,19 +273,8 @@ export function CustomerAuthProvider({
   };
 
   // Logout
-  const logout = async () => {
-    try {
-      await fetch('/api/storefront/auth/logout', { method: 'POST' });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      setUser(null);
-      setCustomer(null);
-      setOtpState(null);
-      // Clear cart on logout to prevent cart data leakage between users
-      clearCartStorage(merchantSlug);
-    }
-  };
+  const logout = () =>
+    performCustomerLogout(merchantSlug, setUser, setCustomer, setOtpState);
 
   // Shared OAuth sign-in helper
   const signInWithOAuth = async (

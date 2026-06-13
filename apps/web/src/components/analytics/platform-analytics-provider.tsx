@@ -1,7 +1,7 @@
 'use client';
 
 import { nanoid } from 'nanoid';
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { FacebookPixel } from './facebook-pixel';
 import { GoogleAnalytics } from './google-analytics';
 import { SnapchatPixel } from './snapchat-pixel';
@@ -33,22 +33,12 @@ export function PlatformAnalyticsProvider() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    // Fetch platform analytics settings from public endpoint
-    async function fetchSettings() {
-      try {
-        const response = await fetch('/api/platform/analytics-config');
-        if (response.ok) {
-          const data = await response.json();
-          setSettings(data);
-        }
-      } catch (error) {
-        console.warn('Failed to load platform analytics settings:', error);
-      } finally {
-        setLoaded(true);
-      }
-    }
-
-    fetchSettings();
+    // Fetch platform analytics settings from public endpoint. The try/catch/
+    // finally lives in a module-scope helper so the React Compiler can memoize
+    // this component (it cannot lower a `finally` clause inside the body).
+    const controller = new AbortController();
+    loadPlatformAnalyticsSettings(setSettings, setLoaded, controller.signal);
+    return () => controller.abort();
   }, []);
 
   // Track landing page view when settings are loaded
@@ -81,6 +71,35 @@ export function PlatformAnalyticsProvider() {
       )}
     </>
   );
+}
+
+/**
+ * Fetch platform analytics settings from the public endpoint.
+ *
+ * Lives at module scope (outside the component) so the `try/catch/finally`
+ * does not block the React Compiler from memoizing the provider component.
+ */
+async function loadPlatformAnalyticsSettings(
+  setSettings: Dispatch<SetStateAction<PlatformAnalyticsSettings | null>>,
+  setLoaded: Dispatch<SetStateAction<boolean>>,
+  signal: AbortSignal
+) {
+  try {
+    const response = await fetch('/api/platform/analytics-config', { signal });
+    if (signal.aborted) return;
+    if (response.ok) {
+      const data = await response.json();
+      if (signal.aborted) return;
+      setSettings(data);
+    }
+  } catch (error) {
+    if (signal.aborted) return;
+    console.warn('Failed to load platform analytics settings:', error);
+  } finally {
+    if (!signal.aborted) {
+      setLoaded(true);
+    }
+  }
 }
 
 /**

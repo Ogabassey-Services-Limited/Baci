@@ -6,7 +6,7 @@ import { Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import z from 'zod';
 import { Logo } from '@/components/logo';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
@@ -79,6 +79,23 @@ const resetPasswordSchema = z
 
 type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
+type SupabaseClient = ReturnType<typeof createClient>;
+
+type ResetPasswordResult = { ok: true } | { ok: false; message: string };
+
+// Module-scope helper keeps the try/catch out of the component body so the
+// React Compiler can memoize the component (it cannot lower try/finally).
+async function updatePassword(
+  supabase: SupabaseClient,
+  password: string
+): Promise<ResetPasswordResult> {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+  return { ok: true };
+}
+
 function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -97,7 +114,7 @@ function ResetPasswordForm() {
     defaultValues: { password: '', confirmPassword: '' },
   });
 
-  const passwordValue = form.watch('password');
+  const passwordValue = useWatch({ control: form.control, name: 'password' });
   const passwordStrength = checkPasswordStrength(passwordValue || '');
 
   useEffect(() => {
@@ -116,28 +133,36 @@ function ResetPasswordForm() {
     }
   }, [searchParams, supabase.auth, router, toast]);
 
-  const onSubmit = async (data: ResetPasswordFormValues) => {
+  const onSubmit = (data: ResetPasswordFormValues) => {
     setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: data.password,
+    return updatePassword(supabase, data.password)
+      .then((result) => {
+        if (result.ok) {
+          toast({
+            title: 'Password Updated!',
+            description:
+              'Your password has been successfully reset. You can now sign in.',
+          });
+          router.push('/login');
+          return;
+        }
+        toast({
+          variant: 'destructive',
+          title: 'Failed to Reset Password',
+          description: result.message,
+        });
+      })
+      .catch((error: unknown) => {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to Reset Password',
+          description:
+            error instanceof Error ? error.message : 'Something went wrong.',
+        });
+      })
+      .then(() => {
+        setIsLoading(false);
       });
-      if (error) throw error;
-      toast({
-        title: 'Password Updated!',
-        description:
-          'Your password has been successfully reset. You can now sign in.',
-      });
-      router.push('/login');
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Failed to Reset Password',
-        description: (error as Error).message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   return (

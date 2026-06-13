@@ -44,34 +44,38 @@ export function GoogleSheetImportDialog({
     wasOpenRef.current = open;
   }, [open, initialUrl]);
 
-  const handleImport = async () => {
+  const handleImport = () => {
     if (!url) return;
 
     setIsLoading(true);
-    try {
-      const csvContent = await fetchGoogleSheet(url);
-      onImport(csvContent, url, saveUrl);
-      onOpenChange(false);
-      // Don't clear URL if we saved it, keeps it ready for next time
-      if (!saveUrl) setUrl('');
+    // Promise chain instead of try/finally so React Compiler can memoize this
+    // component (the statement-level finalizer blocks compilation).
+    fetchGoogleSheet(url)
+      .then((csvContent) => {
+        onImport(csvContent, url, saveUrl);
+        onOpenChange(false);
+        // Don't clear URL if we saved it, keeps it ready for next time
+        if (!saveUrl) setUrl('');
 
-      toast({
-        title: 'Success',
-        description: 'Google Sheet imported successfully.',
+        toast({
+          title: 'Success',
+          description: 'Google Sheet imported successfully.',
+        });
+      })
+      .catch((error: unknown) => {
+        console.error(error);
+        toast({
+          title: 'Import Failed',
+          description:
+            error instanceof Error
+              ? error.message
+              : 'Failed to import Google Sheet',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Import Failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to import Google Sheet',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   return (

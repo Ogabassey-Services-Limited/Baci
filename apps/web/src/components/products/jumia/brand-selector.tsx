@@ -96,26 +96,36 @@ export function JumiaBrandSelector({
       });
   };
 
-  // Reset brands when merchantId changes to avoid stale data
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
+  // Abort any in-flight request when the component unmounts.
   useEffect(() => {
-    setBrands([]);
-    setErrorMessage(null);
-    setFetchStatus('idle');
     return () => {
       abortControllerRef.current?.abort();
     };
+  }, []);
+
+  useEffect(() => {
+    abortControllerRef.current?.abort();
+    setBrands([]);
+    setErrorMessage(null);
+    if (!merchantId) {
+      setErrorMessage('Merchant is required to load Jumia brands.');
+    }
+    setFetchStatus('idle');
   }, [merchantId]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchBrands intentionally omitted — it's a stable callback using currentMerchantId param; merchantId + fetchStatus are sufficient triggers
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchBrands uses current state setters and is intentionally not memoized under React Compiler
   useEffect(() => {
     if (open && fetchStatus === 'idle') {
       fetchBrands(merchantId);
     }
-  }, [open, merchantId, fetchStatus]);
+  }, [open, fetchStatus, merchantId]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

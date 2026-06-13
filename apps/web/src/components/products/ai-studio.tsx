@@ -10,7 +10,7 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,6 +26,64 @@ interface AIStudioProps {
   onClose: () => void;
   onSuccess: (imageUrl: string) => void;
   productName: string;
+}
+
+// Module-scope helpers keep throw/finally statements out of the component body
+// so React Compiler can memoize the component.
+async function compositeOnStudioBackground(blob: Blob): Promise<string> {
+  const imageBitmap = await createImageBitmap(blob);
+  try {
+    const canvas = document.createElement('canvas');
+    // Set canvas size (square for e-commerce)
+    const size = Math.max(imageBitmap.width, imageBitmap.height);
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get canvas context');
+
+    // Fill white background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, size, size);
+
+    // Center image
+    const x = (size - imageBitmap.width) / 2;
+    const y = (size - imageBitmap.height) / 2;
+    ctx.drawImage(imageBitmap, x, y);
+
+    return canvas.toDataURL('image/jpeg', 0.9);
+  } finally {
+    imageBitmap.close();
+  }
+}
+
+async function uploadStudioImage(
+  processedImage: string,
+  productName: string
+): Promise<string> {
+  const supabase = createClient();
+
+  // Convert Data URL to Blob
+  const res = await fetch(processedImage);
+  const blob = await res.blob();
+
+  // Upload to Supabase
+  const filename = `studio-${Date.now()}-${productName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.jpg`;
+  const { error } = await supabase.storage
+    .from('products')
+    .upload(filename, blob, {
+      contentType: 'image/jpeg',
+      upsert: true,
+    });
+
+  if (error) throw error;
+
+  // Get Public URL
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('products').getPublicUrl(filename);
+
+  return publicUrl;
 }
 
 export function AIStudio({
@@ -46,14 +104,17 @@ export function AIStudio({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const _canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Reset state when opening
-  useEffect(() => {
+  // Reset state when opening (render-time prev-compare, see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setStep('capture');
       setOriginalImage(null);
       setProcessedImage(null);
     }
-  }, [isOpen]);
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -80,26 +141,7 @@ export function AIStudio({
 
       // Composite onto white background
       setLoadingText('Compositing studio background...');
-      const imageBitmap = await createImageBitmap(blob);
-      const canvas = document.createElement('canvas');
-      // Set canvas size (square for e-commerce)
-      const size = Math.max(imageBitmap.width, imageBitmap.height);
-      canvas.width = size;
-      canvas.height = size;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not get canvas context');
-
-      // Fill white background
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, size, size);
-
-      // Center image
-      const x = (size - imageBitmap.width) / 2;
-      const y = (size - imageBitmap.height) / 2;
-      ctx.drawImage(imageBitmap, x, y);
-
-      const finalDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      const finalDataUrl = await compositeOnStudioBackground(blob);
       setProcessedImage(finalDataUrl);
       setStep('preview');
     } catch (error) {
@@ -113,49 +155,30 @@ export function AIStudio({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!processedImage) return;
     setIsUploading(true);
 
-    try {
-      const supabase = createClient();
-
-      // Convert Data URL to Blob
-      const res = await fetch(processedImage);
-      const blob = await res.blob();
-
-      // Upload to Supabase
-      const filename = `studio-${Date.now()}-${productName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.jpg`;
-      const { error } = await supabase.storage
-        .from('products')
-        .upload(filename, blob, {
-          contentType: 'image/jpeg',
-          upsert: true,
+    uploadStudioImage(processedImage, productName)
+      .then((publicUrl) => {
+        onSuccess(publicUrl);
+        onClose();
+        toast({
+          title: 'Image Saved!',
+          description: 'Studio-quality image added to product.',
         });
-
-      if (error) throw error;
-
-      // Get Public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('products').getPublicUrl(filename);
-
-      onSuccess(publicUrl);
-      onClose();
-      toast({
-        title: 'Image Saved!',
-        description: 'Studio-quality image added to product.',
+      })
+      .catch((error: unknown) => {
+        console.error('Upload failed:', error);
+        toast({
+          title: 'Save Failed',
+          description: 'Could not upload image. Please try again.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsUploading(false);
       });
-    } catch (error) {
-      console.error('Upload failed:', error);
-      toast({
-        title: 'Save Failed',
-        description: 'Could not upload image. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   return (

@@ -95,7 +95,7 @@ export function MetricCard({
 }: MetricCardProps) {
   const { prefix, number: targetNumber, suffix, decimals } = parseValue(value);
   const [displayValue, setDisplayValue] = useState('0');
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const hasAnimatedRef = useRef(false);
   const cardRef = useRef<HTMLLIElement>(null);
 
   const startAnimation = () => {
@@ -127,20 +127,25 @@ export function MetricCard({
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     const element = cardRef.current;
-    if (!element || hasAnimated) return;
+    if (!element || hasAnimatedRef.current) return;
 
-    // Skip animation for users who prefer reduced motion
+    // Skip animation for users who prefer reduced motion. The setState lives in
+    // a rAF callback so the effect body stays free of synchronous state writes.
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setDisplayValue(formatNumber(targetNumber, decimals));
-      setHasAnimated(true);
-      return;
+      hasAnimatedRef.current = true;
+      const finalFrame = requestAnimationFrame(() => {
+        setDisplayValue(formatNumber(targetNumber, decimals));
+      });
+      return () => {
+        cancelAnimationFrame(finalFrame);
+      };
     }
 
     // Use shared IntersectionObserver for better performance
     const observer = getSharedObserver();
 
     const handleIntersection = () => {
-      setHasAnimated(true);
+      hasAnimatedRef.current = true;
       startAnimation();
     };
 
@@ -151,7 +156,7 @@ export function MetricCard({
       observer.unobserve(element);
       observerCallbacks.delete(element);
     };
-  }, [hasAnimated, delay, duration, targetNumber, decimals]);
+  }, [delay, duration, targetNumber, decimals]);
 
   return (
     <li

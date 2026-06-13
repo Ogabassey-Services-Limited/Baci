@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface UseEffectiveSearchTermArgs {
   searchTerm: string;
@@ -33,13 +33,17 @@ export function useEffectiveSearchTerm({
   delayMs = 500,
 }: UseEffectiveSearchTermArgs): string {
   const [effective, setEffective] = useState(searchTerm);
-  const prevFlushOnRef = useRef(flushOn);
+  // Track the previous flushOn snapshot in state (not a ref) so the comparison
+  // happens purely during render — reading/writing a ref in render trips React
+  // Compiler's `refs` rule. This is the sanctioned "adjust state when a prop
+  // changes" pattern: compare against prev state and setState during render.
+  const [prevFlushOn, setPrevFlushOn] = useState<readonly unknown[]>(flushOn);
 
   // Compare each entry in flushOn against the previous render's snapshot.
-  let flushOnChanged = prevFlushOnRef.current.length !== flushOn.length;
+  let flushOnChanged = prevFlushOn.length !== flushOn.length;
   if (!flushOnChanged) {
     for (let i = 0; i < flushOn.length; i++) {
-      if (prevFlushOnRef.current[i] !== flushOn[i]) {
+      if (prevFlushOn[i] !== flushOn[i]) {
         flushOnChanged = true;
         break;
       }
@@ -47,7 +51,7 @@ export function useEffectiveSearchTerm({
   }
 
   if (flushOnChanged) {
-    prevFlushOnRef.current = flushOn;
+    setPrevFlushOn(flushOn);
     if (effective !== searchTerm) {
       // setState during render is supported when the new value is derived from
       // existing state and we guard against infinite loops via the !== check.

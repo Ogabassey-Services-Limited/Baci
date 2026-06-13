@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OnboardingFormValues } from '@/schemas/onboarding';
 
@@ -245,6 +245,14 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
   return <FormProvider {...methods}>{children}</FormProvider>;
 }
 
+// Probe that reads brandColors via useWatch (compiler-compatible) instead of
+// methods.watch() (which React Compiler flags as an incompatible library API).
+function BrandColorsProbe() {
+  const brandColors = useWatch<OnboardingFormValues>({ name: 'brandColors' });
+
+  return <div data-testid="brand-colors">{brandColors}</div>;
+}
+
 describe('Step2_Branding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -405,7 +413,7 @@ describe('Step2_Branding', () => {
       return (
         <FormProvider {...methods}>
           <Step2_Branding />
-          <div data-testid="brand-colors">{methods.watch('brandColors')}</div>
+          <BrandColorsProbe />
         </FormProvider>
       );
     };
@@ -511,7 +519,7 @@ describe('Step2_Branding', () => {
       return (
         <FormProvider {...methods}>
           <Step2_Branding />
-          <div data-testid="brand-colors">{methods.watch('brandColors')}</div>
+          <BrandColorsProbe />
         </FormProvider>
       );
     };
