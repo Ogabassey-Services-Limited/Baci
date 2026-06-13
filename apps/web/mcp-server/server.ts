@@ -2828,7 +2828,7 @@ function createOgabasseyServer() {
                 created_via: 'mcp_tool',
               },
             })
-            .select()
+            .select('id, metadata')
             .single();
 
           if (orderError) {
@@ -2859,7 +2859,7 @@ function createOgabasseyServer() {
 
           // Update chat order with payment account details
           if (chatOrder) {
-            await supabase
+            const { error: paymentMetadataError } = await supabase
               .from('chat_orders')
               .update({
                 metadata: {
@@ -2871,6 +2871,10 @@ function createOgabasseyServer() {
                 },
               })
               .eq('id', chatOrder.id);
+
+            if (paymentMetadataError) {
+              console.error('Failed to update chat order payment metadata:', paymentMetadataError);
+            }
           }
 
           // Format beautiful response
