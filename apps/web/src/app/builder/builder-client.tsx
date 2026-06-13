@@ -231,10 +231,12 @@ export default function BuilderClient() {
     if (authLoading || merchantLoading) return;
     if (!userId || !merchantId) return;
 
+    const controller = new AbortController();
     setPageLoading(true);
 
     void loadBuilderData({
       router,
+      signal: controller.signal,
       toast,
       setData,
       setSeoData,
@@ -248,6 +250,10 @@ export default function BuilderClient() {
       setAiDraftJobId,
       setCanApplyAiDraft,
     });
+
+    return () => {
+      controller.abort();
+    };
   }, [userId, merchantId, authLoading, merchantLoading, router, toast]);
 
   const handleSave = async (newData: Data): Promise<string | null> => {

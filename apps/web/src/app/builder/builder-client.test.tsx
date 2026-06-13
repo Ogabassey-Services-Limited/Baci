@@ -31,6 +31,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => mockRouter,
 }));
 
+vi.mock('@puckeditor/core/puck.css', () => ({}));
+
 vi.mock('@puckeditor/core', () => {
   const PuckComponent = ({ children }: { children: React.ReactNode }) => (
     <div data-testid="puck">{children}</div>
@@ -303,6 +305,30 @@ describe('BuilderClient', () => {
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
+  });
+
+  it('aborts the bootstrap request when the builder unmounts', async () => {
+    let bootstrapSignal: AbortSignal | undefined;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (_input: string | URL | Request, init?: RequestInit) => {
+        bootstrapSignal = init?.signal as AbortSignal | undefined;
+
+        return new Promise<Response>(() => {
+          // Intentionally unresolved so unmount cleanup owns cancellation.
+        });
+      }
+    );
+
+    const { unmount } = render(<BuilderClient />);
+
+    await waitFor(() => {
+      expect(bootstrapSignal).toBeInstanceOf(AbortSignal);
+    });
+    expect(bootstrapSignal?.aborted).toBe(false);
+
+    unmount();
+
+    expect(bootstrapSignal?.aborted).toBe(true);
   });
 
   it('renders AI draft previews without apply controls for view-only staff', async () => {

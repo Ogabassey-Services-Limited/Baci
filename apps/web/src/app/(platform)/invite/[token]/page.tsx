@@ -11,14 +11,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import {
-  Suspense,
-  useEffect,
-  useEffectEvent,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { Suspense, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -65,22 +58,8 @@ interface InvitationLoadResult {
   error: string | null;
 }
 
-const noop = () => {
-  // No teardown needed: userAgent has no change events to unsubscribe from.
-};
-
-// userAgent never changes for the lifetime of the page, so there is no
-// subscription to manage. Hoisting these keeps the references stable.
-function subscribeNoop() {
-  return noop;
-}
-
-function getIsMobileBrowserSnapshot() {
+function detectIsMobileBrowser() {
   return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-function getIsMobileBrowserServerSnapshot() {
-  return false;
 }
 
 // Module-scope helpers keep the component body free of try/finally and
@@ -199,13 +178,7 @@ function AcceptInvitePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [accepted, setAccepted] = useState(false);
-  // Read the browser type from an external (navigator) source without an
-  // effect: the server snapshot stays `false` to keep hydration consistent.
-  const isMobileBrowser = useSyncExternalStore(
-    subscribeNoop,
-    getIsMobileBrowserSnapshot,
-    getIsMobileBrowserServerSnapshot
-  );
+  const [isMobileBrowser, setIsMobileBrowser] = useState(false);
   const autoAcceptAttemptedRef = useRef(false);
 
   const supabase = createClient();
@@ -225,6 +198,10 @@ function AcceptInvitePageContent() {
     user &&
     invitation &&
     user.email.toLowerCase() !== invitation.email.toLowerCase();
+
+  useEffect(() => {
+    setIsMobileBrowser(detectIsMobileBrowser());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

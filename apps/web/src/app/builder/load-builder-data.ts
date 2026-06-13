@@ -20,6 +20,7 @@ interface LoadBuilderDataParams
   extends BuilderSessionSetters,
     BuilderDataSetters {
   router: BuilderRouter;
+  signal?: AbortSignal;
   toast: BuilderToast;
   setPageLoading: Dispatch<SetStateAction<boolean>>;
 }
@@ -116,9 +117,24 @@ function applyFallbackBuilderData(
   }
 }
 
+function getBuilderBootstrapSignal(signal?: AbortSignal) {
+  const timeoutSignal = AbortSignal.timeout(BUILDER_BOOTSTRAP_TIMEOUT_MS);
+
+  if (!signal) {
+    return timeoutSignal;
+  }
+
+  if (signal.aborted) {
+    return signal;
+  }
+
+  return AbortSignal.any([signal, timeoutSignal]);
+}
+
 export async function loadBuilderData(params: LoadBuilderDataParams) {
   const {
     router,
+    signal,
     toast,
     setData,
     setSeoData,
@@ -134,19 +150,12 @@ export async function loadBuilderData(params: LoadBuilderDataParams) {
   } = params;
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      BUILDER_BOOTSTRAP_TIMEOUT_MS
-    );
-    let res: Response;
+    const res = await fetch(getBuilderBootstrapUrl(), {
+      signal: getBuilderBootstrapSignal(signal),
+    });
 
-    try {
-      res = await fetch(getBuilderBootstrapUrl(), {
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeoutId);
+    if (signal?.aborted) {
+      return;
     }
 
     if (!res.ok) {
@@ -158,6 +167,10 @@ export async function loadBuilderData(params: LoadBuilderDataParams) {
     }
 
     const json = (await res.json()) as BuilderLoadResponse;
+
+    if (signal?.aborted) {
+      return;
+    }
 
     if (json.config) {
       applyLoadedBuilderData({
@@ -197,6 +210,10 @@ export async function loadBuilderData(params: LoadBuilderDataParams) {
       applyFallbackBuilderData(setData);
     }
   } catch (error) {
+    if (signal?.aborted) {
+      return;
+    }
+
     console.error('Failed to load builder data:', error);
     toast({
       title: 'Error',
@@ -212,6 +229,8 @@ export async function loadBuilderData(params: LoadBuilderDataParams) {
       setCanApplyAiDraft,
     });
   } finally {
-    setPageLoading(false);
+    if (!signal?.aborted) {
+      setPageLoading(false);
+    }
   }
 }

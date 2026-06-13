@@ -193,4 +193,32 @@ describe('loadBuilderData', () => {
     );
     expect(mockApplyTheme).toHaveBeenCalled();
   });
+
+  it('does not update state or toast after the caller aborts the bootstrap request', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string | URL | Request, init?: RequestInit) => {
+        const signal = init?.signal as AbortSignal;
+
+        return new Promise<Response>((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true }
+          );
+        });
+      })
+    );
+    const controller = new AbortController();
+    const params = { ...createParams(), signal: controller.signal };
+
+    const pendingLoad = loadBuilderData(params);
+    controller.abort();
+    await pendingLoad;
+
+    expect(params.toast).not.toHaveBeenCalled();
+    expect(params.setData).not.toHaveBeenCalled();
+    expect(params.setCanEdit).not.toHaveBeenCalled();
+    expect(params.setPageLoading).not.toHaveBeenCalled();
+  });
 });
