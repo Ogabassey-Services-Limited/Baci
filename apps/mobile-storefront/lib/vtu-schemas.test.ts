@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { BillerSchema, BillItemSchema } from '@/lib/vtu-schemas';
+import { BillerListSchema, BillItemSchema } from '@/lib/vtu-schemas';
 
 describe('BillItemSchema', () => {
   it('rejects negative configured amounts', () => {
@@ -29,33 +29,37 @@ describe('BillItemSchema', () => {
   });
 
   it('preserves Monnify provider metadata', () => {
-    const result = BillerSchema.safeParse({
-      billerId: 'MTN',
-      billerName: 'MTN',
-      billerType: 'airtime',
-      categoryId: 'AIRTIME',
-      categoryName: 'airtime',
-      provider: 'monnify',
-      billerCode: 'MTN',
-      billItems: [
+    const result = BillerListSchema.safeParse({
+      billers: [
         {
-          itemCode: '13',
-          itemName: 'MTN Mobile Top up',
-          amount: 100,
-          itemCurrencySymbol: 'NGN',
-          isAmountFixed: false,
-          itemFee: 0,
+          billerId: 'MTN',
+          billerName: 'MTN',
+          billerType: 'airtime',
+          categoryId: 'AIRTIME',
+          categoryName: 'airtime',
           provider: 'monnify',
           billerCode: 'MTN',
-          productCode: '13',
+          billItems: [
+            {
+              itemCode: '13',
+              itemName: 'MTN Mobile Top up',
+              amount: 100,
+              itemCurrencySymbol: 'NGN',
+              isAmountFixed: false,
+              itemFee: 0,
+              provider: 'monnify',
+              billerCode: 'MTN',
+              productCode: '13',
+            },
+          ],
         },
       ],
     });
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.provider).toBe('monnify');
-      expect(result.data.billItems?.[0]?.productCode).toBe('13');
+      expect(result.data.billers[0]?.provider).toBe('monnify');
+      expect(result.data.billers[0]?.billItems?.[0]?.productCode).toBe('13');
     }
   });
 });
