@@ -43,6 +43,24 @@ describe('Monnify Bills Client', () => {
       ]);
     });
 
+    it('getBillerCategories unwraps current paginated category responses', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: {
+            content: [{ code: 'AIRTIME', name: 'AIRTIME' }],
+            totalElements: 1,
+          },
+        }),
+      });
+
+      const result = await getBillerCategories();
+      expect(result).toEqual([{ code: 'AIRTIME', name: 'AIRTIME' }]);
+    });
+
     it('getBillers returns unwrapped billers list', async () => {
       const mockEnvelope = {
         requestSuccessful: true,
@@ -70,6 +88,38 @@ describe('Monnify Bills Client', () => {
           description: 'Ikeja Electric',
           billerCode: 'IKEDC',
           billerCategoryCode: 'UTILITY',
+          categoryCodes: ['UTILITY'],
+        },
+      ]);
+    });
+
+    it('getBillers normalizes current Monnify biller responses', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: {
+            content: [
+              {
+                code: 'MTN',
+                name: 'MTN',
+                categories: [{ code: 'AIRTIME', name: 'AIRTIME' }],
+              },
+            ],
+          },
+        }),
+      });
+
+      const result = await getBillers('AIRTIME');
+      expect(result).toEqual([
+        {
+          name: 'MTN',
+          description: 'MTN',
+          billerCode: 'MTN',
+          billerCategoryCode: 'AIRTIME',
+          categoryCodes: ['AIRTIME'],
         },
       ]);
     });
@@ -105,6 +155,49 @@ describe('Monnify Bills Client', () => {
           fee: 100,
           amount: 0,
           isAmountFixed: false,
+          categoryCode: undefined,
+          maxAmount: null,
+          minAmount: null,
+        },
+      ]);
+    });
+
+    it('getBillerProducts normalizes current Monnify product responses', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: {
+            content: [
+              {
+                code: '13',
+                name: 'MTN Mobile Top up',
+                category: { code: 'AIRTIME', name: 'AIRTIME' },
+                biller: { code: 'MTN', name: 'MTN' },
+                minAmount: 100,
+                maxAmount: null,
+                price: null,
+                priceType: 'OPEN',
+              },
+            ],
+          },
+        }),
+      });
+
+      const result = await getBillerProducts('MTN');
+      expect(result).toEqual([
+        {
+          productCode: '13',
+          name: 'MTN Mobile Top up',
+          billerCode: 'MTN',
+          fee: null,
+          amount: null,
+          isAmountFixed: false,
+          categoryCode: 'AIRTIME',
+          maxAmount: null,
+          minAmount: 100,
         },
       ]);
     });

@@ -5,9 +5,14 @@ import {
   isValidPhoneNumber,
 } from '@/lib/kuda';
 import { resolveKudaDataPlanForPurchase } from '@/lib/kuda-data-plans';
+import {
+  getBillerProducts as getMonnifyBillerProducts,
+  verifyBillCustomer as verifyMonnifyBillCustomer,
+} from '@/lib/monnify-bills';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { resolveVtuProvider } from '@/lib/vtu-commission-rates';
+import type { BillerProduct } from '@/schemas/monnify-bills-schema';
 import { COMMISSION_CATEGORY_MAP, type PurchaseInput } from '@/schemas/vtu';
 
 export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
@@ -57,6 +62,85 @@ function normalizeCommissionPercentage(value: number | null | undefined) {
 
 function firstTrimmed(...values: Array<string | undefined>) {
   return values.map((value) => value?.trim()).find(Boolean);
+}
+
+interface MonnifyTelcoCheckoutFields {
+  billerCode: string;
+  customerIdentifier: string;
+  customerName?: string;
+  productCode: string;
+  requireValidationRef?: boolean;
+  validationReference?: string;
+}
+
+function isMatchingMonnifyAirtimeProduct(
+  product: BillerProduct,
+  normalizedNetworkProvider: string
+) {
+  const productNetwork = product.billerCode
+    ? normalizeVtuNetworkProvider(product.billerCode)
+    : null;
+
+  return (
+    product.categoryCode === 'AIRTIME' &&
+    productNetwork === normalizedNetworkProvider
+  );
+}
+
+async function resolveMonnifyAirtimeCheckoutFields({
+  amount,
+  formattedPhone,
+  normalizedNetworkProvider,
+}: {
+  amount: number;
+  formattedPhone: string;
+  normalizedNetworkProvider: string;
+}): Promise<MonnifyTelcoCheckoutFields> {
+  const products = await getMonnifyBillerProducts(normalizedNetworkProvider);
+  const product = products.find((candidate) =>
+    isMatchingMonnifyAirtimeProduct(candidate, normalizedNetworkProvider)
+  );
+
+  if (!product) {
+    throw new Error(
+      `Monnify airtime product not found for ${normalizedNetworkProvider}`
+    );
+  }
+
+  if (product.minAmount != null && amount < product.minAmount) {
+    throw new Error(
+      `Monnify airtime minimum amount for ${normalizedNetworkProvider} is ${product.minAmount}`
+    );
+  }
+
+  if (product.maxAmount != null && amount > product.maxAmount) {
+    throw new Error(
+      `Monnify airtime maximum amount for ${normalizedNetworkProvider} is ${product.maxAmount}`
+    );
+  }
+
+  const verification = await verifyMonnifyBillCustomer(
+    product.billerCode || normalizedNetworkProvider,
+    product.productCode,
+    formattedPhone
+  );
+
+  if (!verification.verified) {
+    throw new Error(`Monnify validation failed: ${verification.message}`);
+  }
+
+  if (verification.requireValidationRef && !verification.validationReference) {
+    throw new Error('Monnify validation reference is required but missing');
+  }
+
+  return {
+    billerCode: product.billerCode || normalizedNetworkProvider,
+    customerIdentifier: formattedPhone,
+    customerName: verification.customerName,
+    productCode: product.productCode,
+    requireValidationRef: verification.requireValidationRef,
+    validationReference: verification.validationReference,
+  };
 }
 
 function resolveRoutingProviderKey({
@@ -326,12 +410,54 @@ export async function preparePendingVtuTransaction({
 
   let resolvedProvider: 'kuda' | 'monnify';
   let commissionProvider: string | undefined;
+  let monnifyTelcoFields: MonnifyTelcoCheckoutFields | null = null;
 
   if (isTelco) {
-    if (input.provider === 'monnify') {
-      throw new Error('Monnify does not support airtime/data purchases');
+    const routingPreference = resolveVtuProvider(
+      normalizedNetworkProvider,
+      COMMISSION_CATEGORY_MAP[purchaseType]
+    );
+    const shouldTryMonnifyAirtime =
+      input.type === 'airtime' &&
+      (input.provider === 'monnify' ||
+        (!input.provider && routingPreference === 'monnify'));
+    let monnifyAirtimeError: Error | null = null;
+
+    if (shouldTryMonnifyAirtime) {
+      try {
+        monnifyTelcoFields = await resolveMonnifyAirtimeCheckoutFields({
+          amount: purchaseAmount,
+          formattedPhone,
+          normalizedNetworkProvider: normalizedNetworkProvider ?? '',
+        });
+      } catch (error) {
+        monnifyAirtimeError =
+          error instanceof Error ? error : new Error(String(error));
+        if (input.provider !== 'monnify') {
+          console.warn('Monnify airtime resolution failed; falling back Kuda', {
+            error: monnifyAirtimeError.message,
+            networkProvider: normalizedNetworkProvider,
+          });
+        }
+      }
     }
-    resolvedProvider = 'kuda';
+
+    if (input.provider === 'monnify') {
+      if (input.type !== 'airtime') {
+        throw new Error('Monnify data purchases require product metadata');
+      }
+      if (!monnifyTelcoFields) {
+        throw (
+          monnifyAirtimeError ??
+          new Error('Required Monnify fields are missing')
+        );
+      }
+      resolvedProvider = 'monnify';
+    } else if (routingPreference === 'monnify' && monnifyTelcoFields) {
+      resolvedProvider = 'monnify';
+    } else {
+      resolvedProvider = 'kuda';
+    }
     commissionProvider = resolveCommissionProviderKey({
       isTelco,
       normalizedNetworkProvider: normalizedNetworkProvider ?? undefined,
@@ -437,6 +563,19 @@ export async function preparePendingVtuTransaction({
   const effectiveMerchantEarning =
     commissions.merchantEarning - customerCashback;
   const requestReference = generateRequestRef();
+  const monnifyBillerCode = monnifyTelcoFields?.billerCode ?? input.billerCode;
+  const monnifyProductCode =
+    monnifyTelcoFields?.productCode ?? input.productCode;
+  const monnifyCustomerIdentifier =
+    monnifyTelcoFields?.customerIdentifier ?? input.customerIdentifier;
+  const monnifyCustomerName =
+    input.customerName?.trim() || monnifyTelcoFields?.customerName || null;
+  const monnifyValidationReference =
+    monnifyTelcoFields?.validationReference ?? input.validationReference;
+  const monnifyRequireValidationRef =
+    typeof monnifyTelcoFields?.requireValidationRef === 'boolean'
+      ? monnifyTelcoFields.requireValidationRef
+      : input.requireValidationRef;
 
   const { data: transaction, error: transactionError } = await supabase
     .from('vtu_transactions')
@@ -460,18 +599,21 @@ export async function preparePendingVtuTransaction({
       customer_cashback: customerCashback,
       biller_name: input.billerName ?? null,
       biller_item_code: input.billItemIdentifier ?? null,
-      customer_identifier: input.customerIdentifier ?? null,
-      customer_name: input.customerName?.trim() || null,
+      customer_identifier:
+        resolvedProvider === 'monnify'
+          ? (monnifyCustomerIdentifier ?? null)
+          : (input.customerIdentifier ?? null),
+      customer_name: monnifyCustomerName,
       metadata: {
         provider: resolvedProvider,
         ...(resolvedProvider === 'monnify'
           ? {
-              billerCode: input.billerCode,
-              productCode: input.productCode,
-              validationReference: input.validationReference || undefined,
+              billerCode: monnifyBillerCode,
+              productCode: monnifyProductCode,
+              validationReference: monnifyValidationReference || undefined,
               requireValidationRef:
-                typeof input.requireValidationRef === 'boolean'
-                  ? input.requireValidationRef
+                typeof monnifyRequireValidationRef === 'boolean'
+                  ? monnifyRequireValidationRef
                   : undefined,
             }
           : {}),

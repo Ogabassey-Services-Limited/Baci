@@ -47,6 +47,7 @@ export function createBillFormPurchaseHandler({
   onSuccess,
   payment,
   selectedBiller,
+  selectedBillItem,
   selectedBillItemIdentifier,
   selectedBillItemPathLabel,
   setIsSubmitting,
@@ -116,15 +117,27 @@ export function createBillFormPurchaseHandler({
       // have it. Falls back to the buyer name only when verification produced
       // no name — keeps existing legacy receipts from going blank.
       const customerName = verifiedCustomerName?.trim() || buyerName;
+      const selectedProvider =
+        selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
+      const selectedBillerCode =
+        selectedBillItem?.billerCode ?? selectedBiller.billerCode;
+      const selectedProductCode =
+        selectedBillItem?.productCode ??
+        (selectedProvider === 'monnify'
+          ? selectedBillItemIdentifier ?? undefined
+          : undefined);
       const payload = {
         amount: numericAmount,
         billItemIdentifier: selectedBillItemIdentifier ?? undefined,
+        billerCode: selectedBillerCode,
         billerName: selectedBillItemPathLabel
           ? `${selectedBiller.billerName} - ${selectedBillItemPathLabel}`
           : selectedBiller.billerName,
         customerIdentifier: customerId,
         customerName,
         customerPhone: customer?.phone || undefined,
+        productCode: selectedProductCode,
+        provider: selectedProvider,
         type: billType,
         ...(walletAmount > 0 ? { walletAmount } : {}),
       };
@@ -135,10 +148,13 @@ export function createBillFormPurchaseHandler({
           const result = await chargeWalletForVtu({
             amount: numericAmount,
             billItemIdentifier: payload.billItemIdentifier,
+            billerCode: payload.billerCode,
             billerName: payload.billerName,
             customerIdentifier: customerId,
             customerName,
             customerPhone: payload.customerPhone,
+            productCode: payload.productCode,
+            provider: payload.provider,
             type: billType,
             walletAmount: numericAmount,
             idempotencyKey,

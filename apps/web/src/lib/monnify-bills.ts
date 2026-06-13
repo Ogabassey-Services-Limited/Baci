@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { getMonnifyBaseUrl } from '@/env';
 import type { PurchaseResult } from '@/lib/kuda';
 import { getMonnifyToken } from '@/lib/monnify';
@@ -10,6 +9,7 @@ import {
   billerProductSchema,
   billerSchema,
   monnifyEnvelopeSchema,
+  monnifyListResponseBodySchema,
   requeryResponseBodySchema,
   validateCustomerRequestSchema,
   validateCustomerResponseBodySchema,
@@ -168,9 +168,9 @@ export async function getBillerCategories(
       signal: options.signal,
     }
   );
-  const parsed = monnifyEnvelopeSchema(z.array(billerCategorySchema)).parse(
-    envelope
-  );
+  const parsed = monnifyEnvelopeSchema(
+    monnifyListResponseBodySchema(billerCategorySchema)
+  ).parse(envelope);
   assertMonnifyBusinessSuccess(parsed, 'Monnify biller categories lookup');
   return parsed.responseBody ?? [];
 }
@@ -187,7 +187,9 @@ export async function getBillers(
       signal: options.signal,
     }
   );
-  const parsed = monnifyEnvelopeSchema(z.array(billerSchema)).parse(envelope);
+  const parsed = monnifyEnvelopeSchema(
+    monnifyListResponseBodySchema(billerSchema)
+  ).parse(envelope);
   assertMonnifyBusinessSuccess(parsed, 'Monnify biller lookup');
   return parsed.responseBody ?? [];
 }
@@ -204,9 +206,9 @@ export async function getBillerProducts(
       signal: options.signal,
     }
   );
-  const parsed = monnifyEnvelopeSchema(z.array(billerProductSchema)).parse(
-    envelope
-  );
+  const parsed = monnifyEnvelopeSchema(
+    monnifyListResponseBodySchema(billerProductSchema)
+  ).parse(envelope);
   assertMonnifyBusinessSuccess(parsed, 'Monnify biller products lookup');
   return parsed.responseBody ?? [];
 }

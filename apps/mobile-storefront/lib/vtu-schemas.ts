@@ -7,6 +7,9 @@ export interface BillItem {
   itemCurrencySymbol: string;
   isAmountFixed: boolean;
   itemFee: number;
+  provider?: 'kuda' | 'monnify';
+  billerCode?: string;
+  productCode?: string;
   billItems?: BillItem[];
 }
 
@@ -28,6 +31,18 @@ export const BillItemSchema: z.ZodType<BillItem> = z.lazy(() =>
       .number()
       .nonnegative()
       .describe('Provider fee attached to the bill item'),
+    provider: z
+      .enum(['kuda', 'monnify'])
+      .optional()
+      .describe('Backend vending provider for this bill item'),
+    billerCode: z
+      .string()
+      .optional()
+      .describe('Monnify biller code when provider is Monnify'),
+    productCode: z
+      .string()
+      .optional()
+      .describe('Monnify product code when provider is Monnify'),
     billItems: z
       .array(BillItemSchema)
       .optional()
@@ -45,6 +60,14 @@ export const BillerSchema = z.object({
   billerType: z.string().describe('Type/description of the biller'),
   categoryId: z.string().describe('Category ID from the Kuda API'),
   categoryName: z.string().describe('Display name of the category'),
+  provider: z
+    .enum(['kuda', 'monnify'])
+    .optional()
+    .describe('Backend vending provider for this biller'),
+  billerCode: z
+    .string()
+    .optional()
+    .describe('Monnify biller code when provider is Monnify'),
   billerIconUrl: z.string().optional().describe('Icon URL for the biller'),
   billItems: z
     .array(BillItemSchema)

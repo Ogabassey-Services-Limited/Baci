@@ -428,6 +428,18 @@ describe('GET /api/vtu/billers', () => {
   it('uses documented Monnify bill category codes for supported categories only', async () => {
     const { GET } = await import('./route');
 
+    await GET(makeRequest({ type: 'airtime', includeMonnify: 'true' }));
+    expect(mockMonnifyGetBillers).toHaveBeenLastCalledWith(
+      'AIRTIME',
+      expect.objectContaining({ signal: expect.any(Object) })
+    );
+
+    await GET(makeRequest({ type: 'data', includeMonnify: 'true' }));
+    expect(mockMonnifyGetBillers).toHaveBeenLastCalledWith(
+      'DATA_BUNDLE',
+      expect.objectContaining({ signal: expect.any(Object) })
+    );
+
     await GET(makeRequest({ type: 'electricity', includeMonnify: 'true' }));
     expect(mockMonnifyGetBillers).toHaveBeenLastCalledWith(
       'ELECTRICITY',
@@ -441,7 +453,7 @@ describe('GET /api/vtu/billers', () => {
     );
 
     await GET(makeRequest({ type: 'betting', includeMonnify: 'true' }));
-    expect(mockMonnifyGetBillers).toHaveBeenCalledTimes(2);
+    expect(mockMonnifyGetBillers).toHaveBeenCalledTimes(4);
   });
 
   it('omits Monnify billers that have no usable products', async () => {
@@ -710,7 +722,7 @@ describe('GET /api/vtu/billers', () => {
         billerCode: 'IKEDC',
         description: 'Ikeja Electricity Distribution Company',
         name: 'Ikeja Electricity Distribution Company',
-        billerCategoryCode: 'UTILITY_PAYMENT',
+        billerCategoryCode: 'ELECTRICITY',
       },
     ]);
     mockMonnifyGetBillerProducts.mockResolvedValue([
@@ -718,6 +730,7 @@ describe('GET /api/vtu/billers', () => {
         productCode: 'IKEDC-PREPAID',
         name: 'Ikeja Electric prepaid (Monnify)',
         billerCode: 'IKEDC',
+        categoryCode: 'ELECTRICITY',
         fee: 100,
         amount: 0,
         isAmountFixed: false,

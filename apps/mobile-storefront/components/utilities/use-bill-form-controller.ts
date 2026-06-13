@@ -170,10 +170,20 @@ export function useBillFormController({
       return;
     }
     pendingVerificationKeyRef.current = currentVerificationKey;
+    const selectedProvider =
+      selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
     verify.mutate(
       {
         billItemIdentifier: selectedBillItemIdentifier,
+        billerCode:
+          selectedBillItem?.billerCode ?? selectedBiller.billerCode,
         customerIdentifier: normalizedCustomerId,
+        productCode:
+          selectedBillItem?.productCode ??
+          (selectedProvider === 'monnify'
+            ? selectedBillItemIdentifier
+            : undefined),
+        provider: selectedProvider,
       },
       { onSuccess: handleVerifySuccess }
     );
@@ -206,6 +216,7 @@ export function useBillFormController({
       onSuccess,
       payment,
       selectedBiller,
+      selectedBillItem,
       selectedBillItemIdentifier,
       selectedBillItemPathLabel,
       setIsSubmitting: updateSubmitting,

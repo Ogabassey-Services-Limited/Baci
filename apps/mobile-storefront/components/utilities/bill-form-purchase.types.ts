@@ -1,5 +1,5 @@
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
-import type { Biller } from '@/hooks/use-vtu-billers';
+import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
 import type { BillFormProps } from './bill-form.types';
 
 export type PaymentState = ReturnType<typeof useUtilityPayment>;
@@ -23,6 +23,7 @@ export interface CreateBillFormPurchaseHandlerInput {
   onSuccess: BillFormProps['onSuccess'];
   payment: PaymentState;
   selectedBiller: Biller | null;
+  selectedBillItem: BillItem | null;
   selectedBillItemIdentifier: string | null;
   selectedBillItemPathLabel: string;
   setIsSubmitting: (isSubmitting: boolean) => void;

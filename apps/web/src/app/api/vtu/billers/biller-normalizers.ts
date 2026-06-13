@@ -53,13 +53,26 @@ export function normalizeKudaBillItem(
 }
 
 const BACI_TO_MONNIFY_CATEGORY: Record<MonnifySupportedCategory, string> = {
+  airtime: 'AIRTIME',
+  data: 'DATA_BUNDLE',
   electricity: 'ELECTRICITY',
   cable_tv: 'CABLE_TV',
+};
+
+const MONNIFY_CATEGORY_ALIASES: Record<string, string[]> = {
+  AIRTIME: ['AIRTIME'],
+  CABLE_TV: ['CABLE_TV'],
+  DATA_BUNDLE: ['DATA_BUNDLE', 'DATA'],
+  ELECTRICITY: ['ELECTRICITY'],
 };
 
 export function getMonnifyCategoryCode(type: string) {
   const parsed = monnifySupportedCategorySchema.safeParse(type);
   return parsed.success ? BACI_TO_MONNIFY_CATEGORY[parsed.data] : undefined;
+}
+
+export function getMonnifyCategoryAliases(categoryCode: string) {
+  return MONNIFY_CATEGORY_ALIASES[categoryCode] ?? [categoryCode];
 }
 
 export function normalizeMonnifyProducts({
@@ -72,7 +85,7 @@ export function normalizeMonnifyProducts({
   return products.map((prod) => ({
     itemCode: prod.productCode,
     itemName: prod.name,
-    amount: prod.amount ?? 0,
+    amount: prod.amount ?? prod.minAmount ?? 0,
     itemCurrencySymbol: MONNIFY_CURRENCY,
     isAmountFixed: prod.isAmountFixed ?? false,
     itemFee: prod.fee ?? 0,

@@ -71,30 +71,124 @@ export function monnifyEnvelopeSchema<T extends z.ZodTypeAny>(bodySchema: T) {
 // Biller Category Schema
 export const billerCategorySchema = z.object({
   name: z.string(),
-  description: z.string(),
+  description: z.string().optional(),
   code: z.string(),
 });
 export type BillerCategory = z.infer<typeof billerCategorySchema>;
 
 // Biller Schema
-export const billerSchema = z.object({
+const monnifyCategoryRefSchema = z.object({
+  code: z.string(),
   name: z.string(),
-  description: z.string(),
-  billerCode: z.string(),
-  billerCategoryCode: z.string(),
 });
+
+export const billerSchema = z
+  .union([
+    z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      billerCode: z.string(),
+      billerCategoryCode: z.string(),
+      categoryCodes: z.array(z.string()).optional(),
+    }),
+    z.object({
+      code: z.string(),
+      name: z.string(),
+      categories: z.array(monnifyCategoryRefSchema).optional(),
+    }),
+  ])
+  .transform((biller) => {
+    if ('billerCode' in biller) {
+      return {
+        name: biller.name,
+        description: biller.description ?? biller.name,
+        billerCode: biller.billerCode,
+        billerCategoryCode: biller.billerCategoryCode,
+        categoryCodes:
+          biller.categoryCodes ??
+          (biller.billerCategoryCode ? [biller.billerCategoryCode] : []),
+      };
+    }
+
+    const categoryCodes =
+      biller.categories?.map((category) => category.code) ?? [];
+    return {
+      name: biller.name,
+      description: biller.name,
+      billerCode: biller.code,
+      billerCategoryCode: categoryCodes[0] ?? '',
+      categoryCodes,
+    };
+  });
 export type Biller = z.infer<typeof billerSchema>;
 
 // Biller Product Schema
-export const billerProductSchema = z.object({
-  productCode: z.string(),
-  name: z.string(),
-  billerCode: z.string(),
-  fee: monnifyOptionalNumberSchema,
-  amount: monnifyOptionalNumberSchema,
-  isAmountFixed: monnifyOptionalBooleanSchema,
-});
+export const billerProductSchema = z
+  .union([
+    z.object({
+      productCode: z.string(),
+      name: z.string(),
+      billerCode: z.string(),
+      fee: monnifyOptionalNumberSchema,
+      amount: monnifyOptionalNumberSchema,
+      isAmountFixed: monnifyOptionalBooleanSchema,
+      categoryCode: z.string().optional(),
+      minAmount: monnifyOptionalNumberSchema,
+      maxAmount: monnifyOptionalNumberSchema,
+    }),
+    z.object({
+      code: z.string(),
+      name: z.string(),
+      category: monnifyCategoryRefSchema.optional().nullable(),
+      biller: monnifyCategoryRefSchema.optional().nullable(),
+      minAmount: monnifyOptionalNumberSchema,
+      maxAmount: monnifyOptionalNumberSchema,
+      price: monnifyOptionalNumberSchema,
+      priceType: z.string().optional().nullable(),
+    }),
+  ])
+  .transform((product) => {
+    if ('productCode' in product) {
+      return {
+        productCode: product.productCode,
+        name: product.name,
+        billerCode: product.billerCode,
+        fee: product.fee ?? null,
+        amount: product.amount ?? null,
+        isAmountFixed: product.isAmountFixed ?? null,
+        categoryCode: product.categoryCode,
+        minAmount: product.minAmount ?? null,
+        maxAmount: product.maxAmount ?? null,
+      };
+    }
+
+    const isAmountFixed = product.priceType?.toUpperCase() === 'FIXED';
+    return {
+      productCode: product.code,
+      name: product.name,
+      billerCode: product.biller?.code ?? '',
+      fee: null,
+      amount: product.price ?? null,
+      isAmountFixed,
+      categoryCode: product.category?.code,
+      minAmount: product.minAmount ?? null,
+      maxAmount: product.maxAmount ?? null,
+    };
+  });
 export type BillerProduct = z.infer<typeof billerProductSchema>;
+
+export function monnifyListResponseBodySchema<T extends z.ZodTypeAny>(
+  itemSchema: T
+) {
+  return z.union([
+    z.array(itemSchema),
+    z
+      .object({
+        content: z.array(itemSchema),
+      })
+      .transform((body) => body.content),
+  ]);
+}
 
 // Validate Customer Response Body Schema (flat + nested vendInstruction support)
 export const validateCustomerResponseBodySchema = z.object({

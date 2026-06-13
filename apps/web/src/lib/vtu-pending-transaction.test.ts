@@ -10,12 +10,16 @@ const {
   mockIsValidPhoneNumber,
   mockGenerateRequestRef,
   mockGetDataProviders,
+  mockGetMonnifyBillerProducts,
+  mockVerifyMonnifyBillCustomer,
   mockCalculateCommerce,
 } = vi.hoisted(() => ({
   mockFormatPhoneNumber: vi.fn((value: string) => value),
   mockIsValidPhoneNumber: vi.fn(() => true),
   mockGenerateRequestRef: vi.fn(() => 'VTU-REF-123'),
   mockGetDataProviders: vi.fn(),
+  mockGetMonnifyBillerProducts: vi.fn(),
+  mockVerifyMonnifyBillCustomer: vi.fn(),
   mockCalculateCommerce: vi.fn(() =>
     Promise.resolve({
       merchantEarning: 10,
@@ -39,6 +43,13 @@ vi.mock('@/lib/kuda', () => ({
 
 vi.mock('@/lib/supabase/client', () => ({
   calculateCommerce: mockCalculateCommerce,
+}));
+
+vi.mock('@/lib/monnify-bills', () => ({
+  getBillerProducts: (...args: unknown[]) =>
+    mockGetMonnifyBillerProducts(...args),
+  verifyBillCustomer: (...args: unknown[]) =>
+    mockVerifyMonnifyBillCustomer(...args),
 }));
 
 type PrepareSupabase = Parameters<
@@ -165,6 +176,24 @@ describe('preparePendingVtuTransaction', () => {
     vi.clearAllMocks();
     clearKudaDataPlanCacheForTests();
     mockGetDataProviders.mockResolvedValue([]);
+    mockGetMonnifyBillerProducts.mockResolvedValue([
+      {
+        amount: null,
+        billerCode: 'MTN',
+        categoryCode: 'AIRTIME',
+        fee: null,
+        isAmountFixed: false,
+        maxAmount: null,
+        minAmount: 100,
+        name: 'MTN Mobile Top up',
+        productCode: '13',
+      },
+    ]);
+    mockVerifyMonnifyBillCustomer.mockResolvedValue({
+      verified: true,
+      message: 'success',
+      requireValidationRef: false,
+    });
   });
 
   it('creates a pending VTU row with computed commissions', async () => {
@@ -185,10 +214,18 @@ describe('preparePendingVtuTransaction', () => {
       category: 'AIRTIME',
       merchantSplit: 50,
       provider: 'MTN',
-      providerSource: 'kuda',
+      providerSource: 'monnify',
     });
     expect(insert).toHaveBeenCalledWith(
-      expect.objectContaining({ network_provider: 'MTN' })
+      expect.objectContaining({
+        customer_identifier: '08012345678',
+        metadata: expect.objectContaining({
+          billerCode: 'MTN',
+          productCode: '13',
+          provider: 'monnify',
+        }),
+        network_provider: 'MTN',
+      })
     );
   });
 
@@ -206,7 +243,7 @@ describe('preparePendingVtuTransaction', () => {
       category: 'AIRTIME',
       merchantSplit: 50,
       provider: 'MTN',
-      providerSource: 'kuda',
+      providerSource: 'monnify',
     });
   });
 
@@ -897,34 +934,61 @@ describe('preparePendingVtuTransaction', () => {
         );
       });
 
-      it('throws for telco with explicit provider monnify', async () => {
-        const { supabase } = createMockSupabase();
-        await expect(
-          preparePendingVtuTransaction({
-            supabase,
-            user: {
-              id: 'user-1',
-              email: 'customer@example.com',
-            } as unknown as Parameters<
-              typeof preparePendingVtuTransaction
-            >[0]['user'],
-            input: {
-              merchantSlug: 'ogabassey',
-              type: 'airtime',
-              amount: 1000,
-              phoneNumber: '08012345678',
-              networkProvider: 'mtn',
-              provider: 'monnify',
-              source: 'checkout',
-            } as unknown as Parameters<
-              typeof preparePendingVtuTransaction
-            >[0]['input'],
+      it('routes explicit Monnify airtime through validated Monnify product metadata', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'airtime',
+            amount: 1000,
+            phoneNumber: '08012345678',
+            networkProvider: 'mtn',
+            provider: 'monnify',
             source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(mockGetMonnifyBillerProducts).toHaveBeenCalledWith('MTN');
+        expect(mockVerifyMonnifyBillCustomer).toHaveBeenCalledWith(
+          'MTN',
+          '13',
+          '08012345678'
+        );
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            customer_identifier: '08012345678',
+            metadata: expect.objectContaining({
+              billerCode: 'MTN',
+              productCode: '13',
+              provider: 'monnify',
+              requireValidationRef: false,
+            }),
           })
-        ).rejects.toThrow('Monnify does not support airtime/data purchases');
+        );
+        expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+          'calculate_vtu',
+          expect.objectContaining({
+            category: 'AIRTIME',
+            provider: 'MTN',
+            providerSource: 'monnify',
+          })
+        );
       });
 
-      it('behaves as Kuda-only for telco with no monnify metadata persisted', async () => {
+      it('falls back to Kuda for auto-routed airtime when Monnify resolution fails', async () => {
+        mockGetMonnifyBillerProducts.mockRejectedValueOnce(
+          new Error('Monnify unavailable')
+        );
         const { insert, supabase } = createMockSupabase();
         await preparePendingVtuTransaction({
           supabase,
@@ -959,6 +1023,38 @@ describe('preparePendingVtuTransaction', () => {
           | { metadata?: Record<string, unknown> }
           | undefined;
         expect(insertCall?.metadata?.provider).toBe('kuda');
+      });
+
+      it('throws for explicit Monnify airtime when Monnify validation fails', async () => {
+        mockVerifyMonnifyBillCustomer.mockResolvedValueOnce({
+          verified: false,
+          message: 'Invalid phone number',
+        });
+        const { supabase } = createMockSupabase();
+
+        await expect(
+          preparePendingVtuTransaction({
+            supabase,
+            user: {
+              id: 'user-1',
+              email: 'customer@example.com',
+            } as unknown as Parameters<
+              typeof preparePendingVtuTransaction
+            >[0]['user'],
+            input: {
+              merchantSlug: 'ogabassey',
+              type: 'airtime',
+              amount: 1000,
+              phoneNumber: '08012345678',
+              networkProvider: 'mtn',
+              provider: 'monnify',
+              source: 'checkout',
+            } as unknown as Parameters<
+              typeof preparePendingVtuTransaction
+            >[0]['input'],
+            source: 'checkout',
+          })
+        ).rejects.toThrow('Monnify validation failed: Invalid phone number');
       });
     });
   });

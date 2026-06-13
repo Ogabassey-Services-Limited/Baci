@@ -18,7 +18,10 @@ const VerifyResultSchema = z.object({
 
 interface VerifyParams {
   billItemIdentifier: string;
+  billerCode?: string;
   customerIdentifier: string;
+  productCode?: string;
+  provider?: 'kuda' | 'monnify';
 }
 
 /**

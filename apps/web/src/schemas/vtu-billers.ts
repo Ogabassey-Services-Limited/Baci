@@ -32,6 +32,8 @@ export const kudaBillerSchema = z.object({
 });
 
 export const monnifySupportedCategorySchema = z.enum([
+  'airtime',
+  'data',
   'electricity',
   'cable_tv',
 ]);
