@@ -21,7 +21,7 @@ export function formatTrackOrderDate(dateStr: string): string {
   });
 }
 
-export const CUSTOMER_STATUS_BADGES: Record<
+const CUSTOMER_STATUS_BADGES: Record<
   CustomerOrderStatusKey,
   { color: string; bg: string }
 > = {

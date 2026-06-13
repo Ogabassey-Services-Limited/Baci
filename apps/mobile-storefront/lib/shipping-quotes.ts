@@ -5,7 +5,7 @@ export interface ShippingQuoteLike {
   price: number | string;
 }
 
-export function normalizeShippingQuotePrice(value: number | string): number {
+function normalizeShippingQuotePrice(value: number | string): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.max(0, value);
   }
