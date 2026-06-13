@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Bell, Save } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bell, RefreshCw, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import type {
   NotificationPreferences,
   UpdatePreferencesInput,
@@ -26,78 +27,138 @@ export default function NotificationPreferencesPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [preferences, setPreferences] =
     useState<NotificationPreferences | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
   useEffect(() => {
-    async function fetchPreferences() {
-      try {
-        const response = await fetch('/api/notifications/preferences');
+    let isStale = false;
+
+    fetch('/api/notifications/preferences')
+      .then((response) => {
         if (!response.ok) {
           throw new Error('Failed to fetch preferences');
         }
-        const data = await response.json();
+        return response.json() as Promise<NotificationPreferences>;
+      })
+      .then((data) => {
+        if (isStale) return;
         setPreferences(data);
-      } catch (error) {
+        setLoadError(null);
+      })
+      .catch((error: unknown) => {
+        if (isStale) return;
         console.error('Error fetching preferences:', error);
+        setLoadError('Failed to load notification preferences.');
         toast({
           title: 'Error',
           description: 'Failed to load notification preferences',
           variant: 'destructive',
         });
-      } finally {
+      })
+      .finally(() => {
+        if (isStale) return;
         setIsLoading(false);
-      }
-    }
+      });
 
-    fetchPreferences();
-  }, [toast]);
+    return () => {
+      isStale = true;
+    };
+  }, [toast, reloadToken]);
+
+  const retryLoad = () => {
+    setIsLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
 
   const updatePreference = (updates: UpdatePreferencesInput) => {
     if (!preferences) return;
     setPreferences({ ...preferences, ...updates });
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!preferences) return;
 
     setIsSaving(true);
-    try {
-      const response = await fetch('/api/notifications/preferences', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          in_app_enabled: preferences.in_app_enabled,
-          banner_enabled: preferences.banner_enabled,
-          quiet_hours_start: preferences.quiet_hours_start,
-          quiet_hours_end: preferences.quiet_hours_end,
-        }),
-      });
+    fetchWithCsrf('/api/notifications/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        in_app_enabled: preferences.in_app_enabled,
+        banner_enabled: preferences.banner_enabled,
+        quiet_hours_start: preferences.quiet_hours_start,
+        quiet_hours_end: preferences.quiet_hours_end,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to save preferences');
+        }
 
-      if (!response.ok) {
-        throw new Error('Failed to save preferences');
-      }
-
-      toast({
-        title: 'Saved',
-        description: 'Your notification preferences have been updated',
+        toast({
+          title: 'Saved',
+          description: 'Your notification preferences have been updated',
+        });
+      })
+      .catch((error: unknown) => {
+        console.error('Error saving preferences:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to save notification preferences',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
-    } catch (error) {
-      console.error('Error saving preferences:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save notification preferences',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <BagLoader size={32} />
+      </div>
+    );
+  }
+
+  if (loadError || !preferences) {
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/dashboard/notifications">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Notification Preferences
+            </h1>
+            <p className="text-muted-foreground">
+              Manage how you receive notifications
+            </p>
+          </div>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError || 'Failed to load notification preferences.'}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={retryLoad}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

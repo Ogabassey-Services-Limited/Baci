@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   Globe,
@@ -12,7 +13,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,6 +52,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 interface DNSRecord {
   type: 'A' | 'AAAA' | 'CNAME' | 'MX' | 'TXT' | 'NS';
@@ -75,6 +77,94 @@ interface Nameservers {
   ns2?: string;
 }
 
+// Module-scope loaders: try/finally inside the component body bails React
+// Compiler out of memoizing the whole page.
+async function loadDnsRecords(
+  domain: string,
+  setDnsRecords: Dispatch<SetStateAction<DNSRecord[]>>,
+  setLoadingDns: Dispatch<SetStateAction<boolean>>
+) {
+  try {
+    setLoadingDns(true);
+    const res = await fetch(`/api/domains/${domain}/dns`);
+    const data = await res.json();
+    if (res.ok) setDnsRecords(data.records || []);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setLoadingDns(false);
+  }
+}
+
+async function loadEmailForwards(
+  domain: string,
+  setForwards: Dispatch<SetStateAction<EmailForward[]>>
+) {
+  try {
+    const res = await fetch(`/api/domains/${domain}/email-forwarding`);
+    const data = await res.json();
+    if (res.ok) setForwards(data.forwards || []);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadIdProtection(
+  domain: string,
+  setIdProtection: Dispatch<SetStateAction<boolean>>
+) {
+  try {
+    const res = await fetch(`/api/domains/${domain}/id-protection`);
+    const data = await res.json();
+    if (res.ok) setIdProtection(data.enabled);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+interface DomainDetailsContext {
+  domain: string;
+  setLoading: Dispatch<SetStateAction<boolean>>;
+  setLoadError: Dispatch<SetStateAction<string | null>>;
+  setDomainInfo: Dispatch<SetStateAction<DomainInfo | null>>;
+  setNameservers: Dispatch<SetStateAction<Nameservers | null>>;
+  setLockStatus: Dispatch<SetStateAction<boolean>>;
+  setDnsRecords: Dispatch<SetStateAction<DNSRecord[]>>;
+  setLoadingDns: Dispatch<SetStateAction<boolean>>;
+  setForwards: Dispatch<SetStateAction<EmailForward[]>>;
+  setIdProtection: Dispatch<SetStateAction<boolean>>;
+}
+
+async function loadDomainDetails(context: DomainDetailsContext) {
+  const { domain, setLoading, setLoadError, setDomainInfo, setNameservers } =
+    context;
+  // The tab data only depends on the domain param, so fire those requests
+  // concurrently with the main details fetch instead of waterfalling them
+  // behind it. Each loader owns its own error handling.
+  loadDnsRecords(domain, context.setDnsRecords, context.setLoadingDns);
+  loadEmailForwards(domain, context.setForwards);
+  loadIdProtection(domain, context.setIdProtection);
+  try {
+    setLoading(true);
+    setLoadError(null);
+    const response = await fetch(`/api/domains/${domain}`);
+    const data = await response.json();
+
+    if (response.ok) {
+      setDomainInfo(data.info);
+      setNameservers(data.nameservers);
+      context.setLockStatus(data.lock?.status === 'active');
+    } else {
+      setLoadError(data.error || 'Failed to load domain details');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    setLoadError('Failed to load domain details. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+}
+
 export default function DomainDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -82,6 +172,7 @@ export default function DomainDetailsPage() {
   const domain = params.domain as string;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [domainInfo, setDomainInfo] = useState<DomainInfo | null>(null);
   const [nameservers, setNameservers] = useState<Nameservers | null>(null);
   const [lockStatus, setLockStatus] = useState<boolean>(false);
@@ -106,96 +197,50 @@ export default function DomainDetailsPage() {
   // ID Protection State
   const [idProtection, setIdProtection] = useState<boolean>(false);
 
-  const fetchDnsRecords = async () => {
-    try {
-      setLoadingDns(true);
-      const res = await fetch(`/api/domains/${domain}/dns`);
-      const data = await res.json();
-      if (res.ok) setDnsRecords(data.records || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingDns(false);
-    }
-  };
-
-  const fetchEmailForwards = async () => {
-    try {
-      const res = await fetch(`/api/domains/${domain}/email-forwarding`);
-      const data = await res.json();
-      if (res.ok) setForwards(data.forwards || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchIdProtection = async () => {
-    try {
-      const res = await fetch(`/api/domains/${domain}/id-protection`);
-      const data = await res.json();
-      if (res.ok) setIdProtection(data.enabled);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchDomainDetails = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/domains/${domain}`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setDomainInfo(data.info);
-        setNameservers(data.nameservers);
-        setLockStatus(data.lock?.status === 'active');
-
-        // Also fetch initial tab data
-        fetchDnsRecords();
-        fetchEmailForwards();
-        fetchIdProtection();
-      } else {
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to load domain details',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchDomainDetails = () =>
+    loadDomainDetails({
+      domain,
+      setLoading,
+      setLoadError,
+      setDomainInfo,
+      setNameservers,
+      setLockStatus,
+      setDnsRecords,
+      setLoadingDns,
+      setForwards,
+      setIdProtection,
+    });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     fetchDomainDetails();
-  }, [domain, toast]);
+  }, [domain]);
 
   // --- Actions ---
 
   const handleAddDnsRecord = async () => {
+    const updatedRecords = [...dnsRecords, newRecord];
+    let succeeded = false;
     try {
-      const updatedRecords = [...dnsRecords, newRecord];
-      const res = await fetch(`/api/domains/${domain}/dns`, {
+      const res = await fetchWithCsrf(`/api/domains/${domain}/dns`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ records: updatedRecords }),
       });
-
-      if (res.ok) {
-        setDnsRecords(updatedRecords);
-        setIsAddRecordOpen(false);
-        setNewRecord({ type: 'A', name: '', value: '' });
-        toast({
-          title: 'Success',
-          description: 'DNS record added successfully',
-        });
-      } else {
-        throw new Error('Failed to add record');
-      }
+      succeeded = res.ok;
     } catch (_) {
+      succeeded = false;
+    }
+
+    if (succeeded) {
+      setDnsRecords(updatedRecords);
+      setIsAddRecordOpen(false);
+      setNewRecord({ type: 'A', name: '', value: '' });
+      toast({
+        title: 'Success',
+        description: 'DNS record added successfully',
+      });
+    } else {
       toast({
         title: 'Error',
         description: 'Failed to add DNS record',
@@ -207,7 +252,7 @@ export default function DomainDetailsPage() {
   const handleDeleteDnsRecord = async (index: number) => {
     try {
       const updatedRecords = dnsRecords.filter((_, i) => i !== index);
-      const res = await fetch(`/api/domains/${domain}/dns`, {
+      const res = await fetchWithCsrf(`/api/domains/${domain}/dns`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ records: updatedRecords }),
@@ -229,11 +274,14 @@ export default function DomainDetailsPage() {
   const handleAddForward = async () => {
     try {
       const updatedForwards = [...forwards, newForward];
-      const res = await fetch(`/api/domains/${domain}/email-forwarding`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forwards: updatedForwards }),
-      });
+      const res = await fetchWithCsrf(
+        `/api/domains/${domain}/email-forwarding`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ forwards: updatedForwards }),
+        }
+      );
 
       if (res.ok) {
         setForwards(updatedForwards);
@@ -251,7 +299,7 @@ export default function DomainDetailsPage() {
 
   const handleToggleIdProtection = async (checked: boolean) => {
     try {
-      const res = await fetch(`/api/domains/${domain}/id-protection`, {
+      const res = await fetchWithCsrf(`/api/domains/${domain}/id-protection`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: checked }),
@@ -302,6 +350,41 @@ export default function DomainDetailsPage() {
 
   if (loading) {
     return <div className="p-8 text-center">Loading domain details…</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">{domain}</h1>
+            <p className="text-muted-foreground">
+              Manage domain settings and configuration
+            </p>
+          </div>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={fetchDomainDetails}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

@@ -34,7 +34,13 @@ import {
 import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  Suspense,
+  useEffect,
+  useState,
+} from 'react';
 import { BagIcon } from '@/components/bag-icon';
 
 import { Logo } from '@/components/logo';
@@ -97,6 +103,37 @@ function flattenDashboardNavItems(
     const { children, ...itemWithoutChildren } = item;
     return [itemWithoutChildren, ...flattenDashboardNavItems(children ?? [])];
   });
+}
+
+// Module-scope helper: dynamic import() expressions are not yet supported by
+// React Compiler inside component bodies, so the lazy Supabase load lives here.
+async function fetchOrdersCount(merchantId: string): Promise<number> {
+  const { createClient } = await import('@/lib/supabase/client');
+  const supabase = createClient();
+  const { count, error } = await supabase
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('merchant_id', merchantId);
+
+  if (error) {
+    return 0;
+  }
+
+  return count || 0;
+}
+
+// Module-scope helper: syncs the persisted smart-nav usage from localStorage
+// once the merchant id is known (post-hydration external-store read).
+function loadSmartNavUsage(
+  merchantId: string,
+  setUsage: Dispatch<SetStateAction<SmartNavUsage>>
+): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const storageKey = buildSmartNavStorageKey(merchantId);
+  setUsage(readSmartNavUsage(window.localStorage, storageKey));
 }
 
 const StoreLink = ({
@@ -235,31 +272,22 @@ export default function DashboardClientLayout({
   const [smartNavUsage, setSmartNavUsage] = useState<SmartNavUsage>({});
   useToast(); // Keep toast available for potential future use
 
-  // Track if we've already attempted a redirect to prevent loops
-  const [hasAttemptedAuthCheck, setHasAttemptedAuthCheck] = useState(false);
-
   // Orders count for sidebar badge - fetched lazily to not block initial render
   const [ordersCount, setOrdersCount] = useState(0);
 
-  // NOTE: Auth and onboarding redirects are now handled SERVER-SIDE in layout.tsx
-  // This effect is only for handling edge cases like session expiry during navigation
+  // NOTE: Auth and onboarding redirects are now handled SERVER-SIDE in layout.tsx.
+  // This effect is only for handling edge cases like session expiry during navigation.
   useEffect(() => {
-    // Wait for auth loading to finish
-    if (authLoading) return;
+    if (authLoading || user) return;
 
-    // If session expires during navigation, redirect to login
-    // The server layout handles initial auth, this is a safety net
-    if (!user && !hasAttemptedAuthCheck) {
-      setHasAttemptedAuthCheck(true);
-      // Wait briefly for potential session hydration
-      const timer = setTimeout(() => {
-        if (!user) {
-          router.push('/login');
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [user, authLoading, router, hasAttemptedAuthCheck]);
+    // Wait briefly for potential session hydration, but restart the timer if auth
+    // state changes so the safety net cannot be cancelled permanently.
+    const timer = setTimeout(() => {
+      router.push('/login');
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [user, authLoading, router]);
 
   // Auto-collapse sidebar on main content interaction
   useEffect(() => {
@@ -302,24 +330,10 @@ export default function DashboardClientLayout({
     // This is a lightweight call just for the badge count
     if (merchant?.id && ordersCount === 0) {
       // Use a simpler query just for count instead of full metrics
-      import('@/lib/supabase/client')
-        .then(({ createClient }) => {
-          const supabase = createClient();
-          return supabase
-            .from('orders')
-            .select('id', { count: 'exact', head: true })
-            .eq('merchant_id', merchant.id);
-        })
-        .then(({ count, error }) => {
-          if (error) {
-            if (isMounted) {
-              setOrdersCount(0);
-            }
-            return;
-          }
-
+      fetchOrdersCount(merchant.id)
+        .then((count) => {
           if (isMounted) {
-            setOrdersCount(count || 0);
+            setOrdersCount(count);
           }
         })
         .catch(() => {
@@ -335,12 +349,11 @@ export default function DashboardClientLayout({
   }, [merchant?.id, ordersCount]);
 
   useEffect(() => {
-    if (!merchant?.id || typeof window === 'undefined') {
+    if (!merchant?.id) {
       return;
     }
 
-    const storageKey = buildSmartNavStorageKey(merchant.id);
-    setSmartNavUsage(readSmartNavUsage(window.localStorage, storageKey));
+    loadSmartNavUsage(merchant.id, setSmartNavUsage);
   }, [merchant?.id]);
 
   const selectedCountry = merchant?.country

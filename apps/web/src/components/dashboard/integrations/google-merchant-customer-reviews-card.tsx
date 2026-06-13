@@ -100,9 +100,10 @@ export function GoogleMerchantCustomerReviewsCard({
         description: 'Failed to save Merchant Center ID.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSaving(false);
     }
+    // Runs on both success and failure (the catch never rethrows) — kept out
+    // of a `finally` clause because React Compiler cannot lower try/finally.
+    setIsSaving(false);
   };
 
   return (

@@ -45,21 +45,20 @@ export function GoogleMerchantReadinessCard() {
   useEffect(() => {
     let isMounted = true;
 
-    const loadReadiness = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(READINESS_ENDPOINT);
+    fetch(READINESS_ENDPOINT)
+      .then((response) => {
         if (!response.ok) {
           throw new Error('Unable to load Merchant Center readiness');
         }
 
-        const data = (await response.json()) as MerchantCenterReadiness;
+        return response.json() as Promise<MerchantCenterReadiness>;
+      })
+      .then((data) => {
         if (isMounted) {
           setReadiness(data);
         }
-      } catch (fetchError) {
+      })
+      .catch((fetchError: unknown) => {
         if (isMounted) {
           setError(
             fetchError instanceof Error
@@ -67,14 +66,12 @@ export function GoogleMerchantReadinessCard() {
               : 'Unable to load Merchant Center readiness'
           );
         }
-      } finally {
+      })
+      .finally(() => {
         if (isMounted) {
           setIsLoading(false);
         }
-      }
-    };
-
-    void loadReadiness();
+      });
 
     return () => {
       isMounted = false;

@@ -112,33 +112,34 @@ export function CacVerification({
         '/api/merchant/cac-search',
         JSON.stringify({ searchTerm: normalizeCacSearchTerm(term) })
       );
-      if (!data) return;
-      const rawCompanies = (
-        data as {
-          companies: Array<{
-            approvedName: string;
-            rcNumber: string;
-            status: unknown;
-          }>;
+      if (data) {
+        const rawCompanies = (
+          data as {
+            companies: Array<{
+              approvedName: string;
+              rcNumber: string;
+              status: unknown;
+            }>;
+          }
+        ).companies;
+        const foundCompanies: CacCompany[] = rawCompanies.map((c) => ({
+          approvedName: c.approvedName,
+          rcNumber: c.rcNumber,
+          status: normalizeCacStatus(c.status),
+        }));
+        setCompanies(foundCompanies);
+        if (!foundCompanies.length) {
+          toast({
+            title: 'No results',
+            description: 'No companies found for that RC/BN number.',
+          });
         }
-      ).companies;
-      const foundCompanies: CacCompany[] = rawCompanies.map((c) => ({
-        approvedName: c.approvedName,
-        rcNumber: c.rcNumber,
-        status: normalizeCacStatus(c.status),
-      }));
-      setCompanies(foundCompanies);
-      if (!foundCompanies.length) {
-        toast({
-          title: 'No results',
-          description: 'No companies found for that RC/BN number.',
-        });
       }
     } catch (error) {
       toastError('Search failed', error);
-    } finally {
-      setSearching(false);
     }
+
+    setSearching(false);
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -184,16 +185,17 @@ export function CacVerification({
       formData.append('rcNumber', selectedCompany.rcNumber);
       formData.append('approvedName', selectedCompany.approvedName);
       const data = await postApi('/api/merchant/verify-cac', formData);
-      if (!data) return;
-      const result = data as { verified: boolean; reason?: string };
-      setVerifyResult(result);
-      setCacStep('result');
-      if (result.verified) onVerified();
+      if (data) {
+        const result = data as { verified: boolean; reason?: string };
+        setVerifyResult(result);
+        setCacStep('result');
+        if (result.verified) onVerified();
+      }
     } catch (error) {
       toastError('Verification failed', error);
-    } finally {
-      setUploading(false);
     }
+
+    setUploading(false);
   }
 
   function resetToSearch() {

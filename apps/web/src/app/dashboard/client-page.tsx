@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { StoreBuildStatusCard } from '@/components/dashboard/store-build-status-card';
 import { BentoCard } from '@/components/ui/bento-card';
@@ -81,6 +81,56 @@ interface DashboardClientPageProps {
   initialChartData?: MonthlyChartData[];
 }
 
+interface PublishToggleContext {
+  isPublished: boolean | undefined | null;
+  toast: ReturnType<typeof useToast>['toast'];
+  reloadMerchant: ReturnType<typeof useMerchant>['reloadMerchant'];
+  router: ReturnType<typeof useRouter>;
+  setIsPublishing: Dispatch<SetStateAction<boolean>>;
+}
+
+// Module-scope helper: try/finally inside the component body bails React
+// Compiler out of memoizing the whole page.
+async function togglePublishState({
+  isPublished,
+  toast,
+  reloadMerchant,
+  router,
+  setIsPublishing,
+}: PublishToggleContext) {
+  setIsPublishing(true);
+  try {
+    const response = await requestMerchantPublish(isPublished);
+    const data = await response.json();
+
+    if (!response.ok) {
+      toast({
+        title: data.error || 'Failed to update store status',
+        description: data.missingItems?.join(', ') || data.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({
+      title: isPublished ? 'Store Unpublished' : 'Store Published!',
+      description: isPublished
+        ? 'Your store is now offline.'
+        : 'Your store is now live and accessible to customers.',
+    });
+    reloadMerchant();
+    router.refresh();
+  } catch (_error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to update store status. Please try again.',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsPublishing(false);
+  }
+}
+
 export default function DashboardClientPage({
   initialMetrics,
   initialRecentSales,
@@ -89,6 +139,8 @@ export default function DashboardClientPage({
   const { merchant, reloadMerchant } = useMerchant();
   const router = useRouter();
   const { toast } = useToast();
+  // React hydration requires the first browser render to match the server.
+  // Render the mounted-only dashboard content on the second client pass.
   const [mounted, setMounted] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   // TODO: These will be used for metric selector dropdown
@@ -113,7 +165,9 @@ export default function DashboardClientPage({
 
   useEffect(() => {
     setMounted(true);
+  }, []);
 
+  useEffect(() => {
     // If we have initial data, don't fetch again on mount
     if (initialMetrics && initialRecentSales && initialChartData) {
       return;
@@ -137,41 +191,14 @@ export default function DashboardClientPage({
     }
   }, [merchant?.id, initialMetrics, initialRecentSales, initialChartData]);
 
-  const handlePublishToggle = async () => {
-    setIsPublishing(true);
-    try {
-      const response = await requestMerchantPublish(merchant?.is_published);
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast({
-          title: data.error || 'Failed to update store status',
-          description: data.missingItems?.join(', ') || data.message,
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      toast({
-        title: merchant?.is_published
-          ? 'Store Unpublished'
-          : 'Store Published!',
-        description: merchant?.is_published
-          ? 'Your store is now offline.'
-          : 'Your store is now live and accessible to customers.',
-      });
-      reloadMerchant();
-      router.refresh();
-    } catch (_error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update store status. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsPublishing(false);
-    }
-  };
+  const handlePublishToggle = () =>
+    togglePublishState({
+      isPublished: merchant?.is_published,
+      toast,
+      reloadMerchant,
+      router,
+      setIsPublishing,
+    });
 
   if (!mounted) return null;
 

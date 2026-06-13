@@ -2,11 +2,13 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
   Building2,
   Check,
   CreditCard,
   Globe,
   Loader2,
+  RefreshCw,
   Truck,
   Wallet,
 } from 'lucide-react';
@@ -57,12 +59,69 @@ const DEFAULT_SETTINGS: PaymentGatewaySettings = {
   credit_direct_enabled: false,
 };
 
+async function fetchPaymentSettings(): Promise<PaymentGatewaySettings | null> {
+  const response = await fetch('/api/merchant/features');
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = await response.json();
+  return {
+    paystack_enabled: data.paystack_enabled ?? true,
+    korapay_enabled: data.korapay_enabled ?? true,
+    pay_on_delivery_enabled: data.pay_on_delivery_enabled ?? false,
+    preferred_local_gateway: data.preferred_local_gateway || 'paystack',
+    preferred_international_gateway:
+      data.preferred_international_gateway || 'korapay',
+    // Credit Direct BNPL
+    credit_direct_enabled: data.credit_direct_enabled ?? false,
+  };
+}
+
+async function savePaymentSettings(
+  settings: PaymentGatewaySettings,
+  isPaystackSupported: boolean
+): Promise<'saved' | 'redirecting'> {
+  const response = await fetchWithCsrf('/api/merchant/features', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...settings,
+      paystack_enabled: isPaystackSupported ? settings.paystack_enabled : false,
+      preferred_local_gateway:
+        !isPaystackSupported && settings.preferred_local_gateway === 'paystack'
+          ? 'korapay'
+          : settings.preferred_local_gateway,
+      preferred_international_gateway:
+        !isPaystackSupported &&
+        settings.preferred_international_gateway === 'paystack'
+          ? 'korapay'
+          : settings.preferred_international_gateway,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to save settings');
+  }
+
+  // Check for onboarding flow
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('onboarding') === 'true') {
+    window.location.href = '/dashboard?setup_complete=payments';
+    return 'redirecting';
+  }
+
+  return 'saved';
+}
+
 export default function PaymentSettingsPage() {
   const { toast } = useToast();
   const { merchant, loading: merchantLoading, reloadMerchant } = useMerchant();
   const [settings, setSettings] =
     useState<PaymentGatewaySettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [saving, setSaving] = useState(false);
   const merchantData = merchant as unknown as Record<string, unknown> | null;
   const countryCode =
@@ -75,91 +134,101 @@ export default function PaymentSettingsPage() {
     : null;
   const paystackFixedFee = formatCurrencyCompact(100, 'NG');
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await fetch('/api/merchant/features');
-        if (response.ok) {
-          const data = await response.json();
-          setSettings({
-            paystack_enabled: data.paystack_enabled ?? true,
-            korapay_enabled: data.korapay_enabled ?? true,
-            pay_on_delivery_enabled: data.pay_on_delivery_enabled ?? false,
-            preferred_local_gateway: data.preferred_local_gateway || 'paystack',
-            preferred_international_gateway:
-              data.preferred_international_gateway || 'korapay',
-            // Credit Direct BNPL
-            credit_direct_enabled: data.credit_direct_enabled ?? false,
-          });
+    let isStale = false;
+
+    fetchPaymentSettings()
+      .then((fetchedSettings) => {
+        if (isStale) return;
+        if (fetchedSettings) {
+          setSettings(fetchedSettings);
+          setLoadError(null);
+        } else {
+          setLoadError('Failed to load payment settings.');
         }
-      } catch (error) {
+      })
+      .catch((error: unknown) => {
+        if (isStale) return;
         console.error('Failed to fetch payment settings:', error);
-      } finally {
+        setLoadError('Failed to load payment settings.');
+      })
+      .finally(() => {
+        if (isStale) return;
         setLoading(false);
-      }
-    };
-
-    fetchSettings();
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    let redirectingAfterSave = false;
-    try {
-      const response = await fetchWithCsrf('/api/merchant/features', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...settings,
-          paystack_enabled: isPaystackSupported
-            ? settings.paystack_enabled
-            : false,
-          preferred_local_gateway:
-            !isPaystackSupported &&
-            settings.preferred_local_gateway === 'paystack'
-              ? 'korapay'
-              : settings.preferred_local_gateway,
-          preferred_international_gateway:
-            !isPaystackSupported &&
-            settings.preferred_international_gateway === 'paystack'
-              ? 'korapay'
-              : settings.preferred_international_gateway,
-        }),
       });
 
-      if (response.ok) {
-        // Check for onboarding flow
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('onboarding') === 'true') {
-          redirectingAfterSave = true;
-          window.location.href = '/dashboard?setup_complete=payments';
-          return;
-        }
+    return () => {
+      isStale = true;
+    };
+  }, [reloadToken]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
+
+  const handleSave = () => {
+    setSaving(true);
+    savePaymentSettings(settings, isPaystackSupported)
+      .then((outcome) => {
+        // Keep the button disabled while the browser navigates away.
+        if (outcome === 'redirecting') return;
 
         toast({
           title: 'Settings Saved',
           description: 'Payment gateway settings have been updated.',
         });
-      } else {
-        throw new Error('Failed to save settings');
-      }
-    } catch (_error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to save payment settings.',
-      });
-    } finally {
-      if (!redirectingAfterSave) {
         setSaving(false);
-      }
-    }
+      })
+      .catch(() => {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to save payment settings.',
+        });
+        setSaving(false);
+      });
   };
 
   if (loading || merchantLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="size-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Payment Settings
+          </h1>
+          <p className="text-muted-foreground">
+            Configure payment gateways, delivery payments, and settlement
+            details
+          </p>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={retryLoad}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

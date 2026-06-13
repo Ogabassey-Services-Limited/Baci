@@ -52,6 +52,9 @@ export function OrderCard({
   formatCurrency: (amount: number) => string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  // Capture "now" once per mount via the useState initializer: calling
+  // Date.now() during render is impure and blocks React Compiler memoization.
+  const [renderedAt] = useState(() => Date.now());
   const orderDetailsHref = getDashboardOrderDetailsHref(order);
   const itemCount = order.items?.length || 0;
   const itemLabel = `${itemCount} ${itemCount === 1 ? 'item' : 'items'}`;
@@ -60,7 +63,7 @@ export function OrderCard({
   const orderTime = order.createdAt || new Date(order.date).getTime();
   const hoursAgo = Math.max(
     0,
-    Math.floor((Date.now() - orderTime) / (1000 * 60 * 60))
+    Math.floor((renderedAt - orderTime) / (1000 * 60 * 60))
   );
   const isActionable =
     ['Pending', 'Processing'].includes(order.shippingStatus) ||

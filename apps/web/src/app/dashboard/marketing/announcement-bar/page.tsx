@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,47 +32,79 @@ const DEFAULT_CONFIG: AnnouncementBarConfig = {
   text_color: '#ffffff',
 };
 
+type ToastFn = ReturnType<typeof useToast>['toast'];
+type UpdateMerchantFn = ReturnType<typeof useMerchant>['updateMerchant'];
+
+// Module-scope helper keeps the try/finally out of the component body
+// (React Compiler cannot lower try/finally inside components yet).
+async function saveAnnouncementBarConfig({
+  updatedConfig,
+  updateMerchant,
+  toast,
+  setIsSaving,
+}: {
+  updatedConfig: Record<string, unknown>;
+  updateMerchant: UpdateMerchantFn;
+  toast: ToastFn;
+  setIsSaving: (saving: boolean) => void;
+}): Promise<void> {
+  try {
+    await updateMerchant({
+      published_config: updatedConfig,
+    });
+
+    toast({
+      title: 'Settings saved',
+      description: 'Announcement bar settings have been updated.',
+    });
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'Failed to save settings.',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsSaving(false);
+  }
+}
+
 export default function AnnouncementBarPage() {
   const { merchant, updateMerchant, loading } = useMerchant();
   const { toast } = useToast();
-  const [config, setConfig] = useState<AnnouncementBarConfig>(DEFAULT_CONFIG);
+
+  const announcementBar = merchant?.published_config?.announcement_bar as
+    | Partial<AnnouncementBarConfig>
+    | undefined;
+
+  const [config, setConfig] = useState<AnnouncementBarConfig>(() =>
+    announcementBar ? { ...DEFAULT_CONFIG, ...announcementBar } : DEFAULT_CONFIG
+  );
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (merchant?.published_config?.announcement_bar) {
-      setConfig({
-        ...DEFAULT_CONFIG,
-        ...(merchant.published_config
-          .announcement_bar as Partial<AnnouncementBarConfig>),
-      });
-    }
-  }, [merchant]);
+  // Re-sync the form during render when the merchant's saved announcement bar
+  // changes (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevAnnouncementBar, setPrevAnnouncementBar] =
+    useState(announcementBar);
+  if (announcementBar !== prevAnnouncementBar) {
+    setPrevAnnouncementBar(announcementBar);
+    setConfig(
+      announcementBar
+        ? { ...DEFAULT_CONFIG, ...announcementBar }
+        : DEFAULT_CONFIG
+    );
+  }
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setIsSaving(true);
-    try {
-      const updatedConfig = {
+    return saveAnnouncementBarConfig({
+      updatedConfig: {
         ...merchant?.published_config,
         announcement_bar: config,
-      };
-
-      await updateMerchant({
-        published_config: updatedConfig,
-      });
-
-      toast({
-        title: 'Settings saved',
-        description: 'Announcement bar settings have been updated.',
-      });
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to save settings.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
+      },
+      updateMerchant,
+      toast,
+      setIsSaving,
+    });
   };
 
   if (loading) {

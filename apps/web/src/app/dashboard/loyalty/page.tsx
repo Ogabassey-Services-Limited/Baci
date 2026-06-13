@@ -1,6 +1,6 @@
 'use client';
 
-import { Award, Gift } from 'lucide-react';
+import { AlertTriangle, Award, Gift, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -16,6 +16,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
 
 interface LoyaltySettings {
@@ -39,22 +41,6 @@ interface LoyaltySettings {
   points_expiry_days: number;
 }
 
-interface CustomerLoyalty {
-  id: string;
-  points_balance: number;
-  lifetime_points: number;
-  current_tier: string;
-  referral_code: string;
-  referral_count: number;
-  customers: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    store_credit: number;
-  } | null;
-}
-
 const tierColors: Record<string, string> = {
   Bronze: 'bg-amber-700 text-white',
   Silver: 'bg-gray-400 text-white',
@@ -62,74 +48,117 @@ const tierColors: Record<string, string> = {
   Platinum: 'bg-purple-600 text-white',
 };
 
+async function fetchLoyaltySettings(): Promise<LoyaltySettings | null> {
+  try {
+    const res = await fetch('/api/loyalty/settings');
+    if (res.ok) {
+      return (await res.json()) as LoyaltySettings;
+    }
+  } catch (error) {
+    console.error('Failed to fetch loyalty settings:', error);
+  }
+  return null;
+}
+
 export default function LoyaltyProgramPage() {
+  const { toast } = useToast();
   const [settings, setSettings] = useState<LoyaltySettings | null>(null);
-  const [_customers, setCustomers] = useState<CustomerLoyalty[]>([]);
-  const [_tierDistribution, setTierDistribution] = useState<
-    Record<string, number>
-  >({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const fetchSettings = async () => {
-    try {
-      const res = await fetch('/api/loyalty/settings');
-      if (res.ok) {
-        const data = await res.json();
-        setSettings(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch loyalty settings:', error);
-    }
-  };
-
-  const fetchCustomers = async (tier?: string | null) => {
-    try {
-      const params = new URLSearchParams();
-      if (tier) params.set('tier', tier);
-
-      const res = await fetch(`/api/loyalty/customers?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCustomers(data.customers || []);
-        setTierDistribution(data.stats?.tierDistribution || {});
-      }
-    } catch (error) {
-      console.error('Failed to fetch customers:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
   useEffect(() => {
-    fetchSettings();
-    fetchCustomers();
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes these functions
-  }, [fetchCustomers, fetchSettings]);
+    let isStale = false;
 
-  async function saveSettings() {
+    fetchLoyaltySettings().then((settingsData) => {
+      if (isStale) return;
+
+      if (!settingsData) {
+        setLoadError('Failed to load loyalty program data.');
+      } else {
+        setSettings(settingsData);
+        setLoadError(null);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      isStale = true;
+    };
+  }, [reloadToken]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
+
+  function saveSettings() {
     if (!settings) return;
     setSaving(true);
-    try {
-      const res = await fetch('/api/loyalty/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+    fetchWithCsrf('/api/loyalty/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to save settings (${res.status})`);
+        }
+        toast({
+          title: 'Settings Saved',
+          description: 'Your loyalty program settings have been updated.',
+        });
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to save settings:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to save loyalty settings. Please try again.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setSaving(false);
       });
-      if (res.ok) {
-        // Show success message
-      }
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-    } finally {
-      setSaving(false);
-    }
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <BagLoader size={32} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Loyalty Program</h1>
+          <p className="text-muted-foreground">
+            Reward your customers and build lasting relationships
+          </p>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={retryLoad}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

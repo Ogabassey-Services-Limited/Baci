@@ -50,13 +50,8 @@ export function useMigrationJobs({
     useState<ImportUploadProgress | null>(null);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
-  const jobsRef = useRef(jobs);
   const selectedJobIdRef = useRef(selectedJobId);
   const selectedJobRef = useRef(selectedJob);
-
-  useEffect(() => {
-    jobsRef.current = jobs;
-  }, [jobs]);
 
   useEffect(() => {
     selectedJobIdRef.current = selectedJobId;
@@ -88,63 +83,77 @@ export function useMigrationJobs({
     pruneRowsCacheForJobs(jobs.map((job) => job.id));
   }, [jobs, pruneRowsCacheForJobs]);
 
-  const handleSelectedJobChange = useEffectEvent(
+  // Adjust selection-derived state during render when the selection changes
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevSelectedJobId, setPrevSelectedJobId] = useState(selectedJobId);
+  if (selectedJobId !== prevSelectedJobId) {
+    setPrevSelectedJobId(selectedJobId);
+    setRowsResponse(null);
+
+    if (selectedJobId) {
+      setActiveFilter('all');
+      const nextSelectedJob =
+        jobs.find((job) => job.id === selectedJobId) || null;
+      setSelectedJob(
+        nextSelectedJob ? decorateImportJob(nextSelectedJob) : null
+      );
+    } else {
+      setSelectedJob(null);
+    }
+  }
+
+  // Keep the selected job in sync during render when the jobs list changes
+  const [prevJobs, setPrevJobs] = useState(jobs);
+  if (jobs !== prevJobs) {
+    setPrevJobs(jobs);
+
+    if (selectedJobId) {
+      const nextSelectedJob = jobs.find((job) => job.id === selectedJobId);
+      if (nextSelectedJob) {
+        setSelectedJob(decorateImportJob(nextSelectedJob));
+      }
+    }
+  }
+
+  const kickSelectedJobRefresh = useEffectEvent(
     (nextSelectedJobId: string | null) => {
       if (!nextSelectedJobId) {
-        setSelectedJob(null);
-        setRowsResponse(null);
         return;
       }
-
-      setActiveFilter('all');
-      setRowsResponse(null);
 
       const nextSelectedJob =
-        jobsRef.current.find((job) => job.id === nextSelectedJobId) || null;
-      if (nextSelectedJob) {
-        const decoratedJob = decorateImportJob(nextSelectedJob);
-        setSelectedJob(decoratedJob);
-        const canLoadRows = canLoadMigrationRows(
-          decoratedJob.status,
-          decoratedJob.processed_rows
-        );
-
-        if (isMigrationStatusActive(decoratedJob.status)) {
-          void refreshJob(nextSelectedJobId, {
-            background: true,
-            filter: 'all',
-            includeJob: !canLoadRows,
-            includeRows: true,
-          });
-        } else if (canLoadRows) {
-          void refreshJob(nextSelectedJobId, {
-            filter: 'all',
-            includeJob: false,
-            includeRows: true,
-          });
-        }
+        jobs.find((job) => job.id === nextSelectedJobId) || null;
+      if (!nextSelectedJob) {
+        void refreshJob(nextSelectedJobId, { filter: 'all' });
         return;
       }
 
-      setSelectedJob(null);
-      void refreshJob(nextSelectedJobId, { filter: 'all' });
+      const decoratedJob = decorateImportJob(nextSelectedJob);
+      const canLoadRows = canLoadMigrationRows(
+        decoratedJob.status,
+        decoratedJob.processed_rows
+      );
+
+      if (isMigrationStatusActive(decoratedJob.status)) {
+        void refreshJob(nextSelectedJobId, {
+          background: true,
+          filter: 'all',
+          includeJob: !canLoadRows,
+          includeRows: true,
+        });
+      } else if (canLoadRows) {
+        void refreshJob(nextSelectedJobId, {
+          filter: 'all',
+          includeJob: false,
+          includeRows: true,
+        });
+      }
     }
   );
 
   useEffect(() => {
-    void handleSelectedJobChange(selectedJobId);
+    kickSelectedJobRefresh(selectedJobId);
   }, [selectedJobId]);
-
-  useEffect(() => {
-    if (!selectedJobId) {
-      return;
-    }
-
-    const nextSelectedJob = jobs.find((job) => job.id === selectedJobId);
-    if (nextSelectedJob) {
-      setSelectedJob(decorateImportJob(nextSelectedJob));
-    }
-  }, [jobs, selectedJobId]);
 
   const handleRealtimeJobUpdate = useEffectEvent(
     (partial: Partial<ImportJobListItem>) => {
@@ -210,10 +219,10 @@ export function useMigrationJobs({
       setError(
         uploadError instanceof Error ? uploadError.message : 'Upload failed'
       );
-    } finally {
-      setUploading(false);
-      setUploadProgress(null);
     }
+
+    setUploading(false);
+    setUploadProgress(null);
   }
 
   async function queueJobAction(path: string) {
@@ -235,9 +244,9 @@ export function useMigrationJobs({
       setError(
         actionError instanceof Error ? actionError.message : 'Action failed'
       );
-    } finally {
-      setActing(false);
     }
+
+    setActing(false);
   }
 
   async function handleFilterChange(filter: MigrationPreviewFilter) {

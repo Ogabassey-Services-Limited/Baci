@@ -95,20 +95,27 @@ export default function CustomersClientPage({
       return;
     }
 
-    const fetchCustomers = async () => {
+    let isStale = false;
+
+    const fetchCustomers = () => {
       setLoading(true);
-      try {
-        const data = await getCustomers(merchant.id, searchTerm);
-        setCustomers(data);
-      } catch (_error) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load customers',
-          variant: 'destructive',
+      getCustomers(merchant.id, searchTerm)
+        .then((data) => {
+          if (isStale) return;
+          setCustomers(data);
+        })
+        .catch(() => {
+          if (isStale) return;
+          toast({
+            title: 'Error',
+            description: 'Failed to load customers',
+            variant: 'destructive',
+          });
+        })
+        .finally(() => {
+          if (isStale) return;
+          setLoading(false);
         });
-      } finally {
-        setLoading(false);
-      }
     };
 
     // Debounce search
@@ -119,7 +126,10 @@ export default function CustomersClientPage({
       searchTerm ? 500 : 0
     );
 
-    return () => clearTimeout(timer);
+    return () => {
+      isStale = true;
+      clearTimeout(timer);
+    };
   }, [searchTerm, authLoading, user, merchant?.id, toast, initialCustomers]);
 
   const handleAddCustomer = async () => {

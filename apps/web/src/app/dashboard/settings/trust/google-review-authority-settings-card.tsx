@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,7 +55,6 @@ export function GoogleReviewAuthoritySettingsCard({
     handleSubmit,
     register,
     setError,
-    watch,
   } = useForm<GoogleReviewAuthoritySettingsFormValues>({
     defaultValues: {
       google_place_id: initialGooglePlaceId ?? '',
@@ -64,7 +63,12 @@ export function GoogleReviewAuthoritySettingsCard({
     resolver: zodResolver(googleReviewAuthoritySettingsSchema),
   });
 
-  const googleReviewsEnabled = watch('google_reviews_enabled');
+  // useWatch is React Compiler-compatible, unlike watch() which returns
+  // interior-mutable values that would skip memoization for this component.
+  const googleReviewsEnabled = useWatch({
+    control,
+    name: 'google_reviews_enabled',
+  });
   const googlePlaceIdError = errors.google_place_id?.message;
   const rootError = errors.root?.message;
 

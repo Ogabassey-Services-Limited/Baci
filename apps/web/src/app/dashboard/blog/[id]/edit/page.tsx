@@ -16,7 +16,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { BlogEditor } from '@/components/blog/blog-editor';
 import { ProductGrid } from '@/components/blog/product-embed';
 import {
@@ -218,6 +218,254 @@ async function readResponseErrorMessage(
   return body;
 }
 
+const INITIAL_FORM_DATA: PostFormData = {
+  title: '',
+  slug: '',
+  content: '',
+  excerpt: '',
+  featured_image_url: '',
+  featured_image_alt: '',
+  featured_image_width: null,
+  featured_image_height: null,
+  featured_image_variants: {},
+  category: '',
+  tags: '',
+  keywords: '',
+  author_name: '',
+  author_title: '',
+  author_bio: '',
+  seo_title: '',
+  seo_description: '',
+  focus_keyword: '',
+  status: 'draft',
+  published_at: null,
+};
+
+type FetchedBlogPost = Omit<BlogPost, 'tags' | 'keywords'> & {
+  tags?: unknown;
+  keywords?: unknown;
+  embedded_products?: unknown;
+};
+
+type LoadBlogPostResult =
+  | { status: 'not-found' }
+  | { status: 'error' }
+  | {
+      status: 'success';
+      post: BlogPost;
+      formData: PostFormData;
+      embeddedProducts: Product[] | null;
+      productsLoadFailed: boolean;
+    };
+
+async function loadBlogPost(postId: string): Promise<LoadBlogPostResult> {
+  try {
+    const response = await fetch(`/api/merchant/blog/posts/${postId}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { status: 'not-found' };
+      }
+      throw new Error('Failed to fetch post');
+    }
+
+    const post = (await response.json()) as FetchedBlogPost;
+    const formData: PostFormData = {
+      title: post.title || '',
+      slug: post.slug || '',
+      content: post.content || '',
+      excerpt: post.excerpt || '',
+      featured_image_url: post.featured_image_url || '',
+      featured_image_alt: post.featured_image_alt || '',
+      featured_image_width: post.featured_image_width ?? null,
+      featured_image_height: post.featured_image_height ?? null,
+      featured_image_variants: normalizeFeaturedImageVariantMap(
+        post.featured_image_variants
+      ),
+      category: post.category || '',
+      tags: Array.isArray(post.tags) ? post.tags.join(', ') : '',
+      keywords: Array.isArray(post.keywords) ? post.keywords.join(', ') : '',
+      author_name: post.author_name || '',
+      author_title: post.author_title || '',
+      author_bio: post.author_bio || '',
+      seo_title: post.seo_title || '',
+      seo_description: post.seo_description || '',
+      focus_keyword: post.focus_keyword || '',
+      status: post.status || 'draft',
+      published_at: post.published_at || null,
+    };
+
+    // Fetch embedded products if any
+    let embeddedProducts: Product[] | null = null;
+    let productsLoadFailed = false;
+    try {
+      if (
+        Array.isArray(post.embedded_products) &&
+        post.embedded_products.length > 0
+      ) {
+        const productsResponse = await fetch(
+          `/api/products?ids=${post.embedded_products.join(',')}`
+        );
+        if (productsResponse.ok) {
+          const data = (await productsResponse.json()) as {
+            products?: Product[];
+          };
+          embeddedProducts = data.products || [];
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching post:', error);
+      productsLoadFailed = true;
+    }
+
+    return {
+      status: 'success',
+      post: post as BlogPost,
+      formData,
+      embeddedProducts,
+      productsLoadFailed,
+    };
+  } catch (error) {
+    console.error('Error fetching post:', error);
+    return { status: 'error' };
+  }
+}
+
+async function deleteUploadedFeaturedImage(
+  imageToDelete: UploadedFeaturedImage
+): Promise<void> {
+  const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'DELETE',
+    body: JSON.stringify({
+      path: imageToDelete.path,
+      variantPaths: imageToDelete.variantPaths,
+    }),
+  });
+
+  if (!response.ok) {
+    const fallback = 'Failed to delete image';
+    const message = await readResponseErrorMessage(response, fallback);
+    throw new Error(
+      message === fallback
+        ? `${fallback} (${response.status})`
+        : `${fallback} (${response.status}): ${message}`
+    );
+  }
+}
+
+async function deletePreviousFeaturedImage(
+  image: UploadedFeaturedImage
+): Promise<void> {
+  try {
+    await deleteUploadedFeaturedImage(image);
+  } catch (deleteError) {
+    console.error(
+      'Error deleting previously uploaded featured image:',
+      deleteError
+    );
+  }
+}
+
+async function uploadFeaturedImage(
+  file: File
+): Promise<FeaturedImageUploadResponse> {
+  const formDataUpload = new FormData();
+  formDataUpload.append('file', file);
+  formDataUpload.append('purpose', 'featured');
+
+  const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+    method: 'POST',
+    body: formDataUpload,
+  });
+
+  if (!response.ok) {
+    const error = (await response.json()) as { error?: string };
+    throw new Error(error.error || 'Failed to upload image');
+  }
+
+  return (await response.json()) as FeaturedImageUploadResponse;
+}
+
+interface SubmitBlogPostUpdateArgs {
+  postId: string;
+  formData: PostFormData;
+  originalSlug?: string;
+  newStatus?: PostFormData['status'];
+  scheduledDate?: Date;
+  embeddedProductIds: string[];
+}
+
+async function submitBlogPostUpdate({
+  postId,
+  formData,
+  originalSlug,
+  newStatus,
+  scheduledDate,
+  embeddedProductIds,
+}: SubmitBlogPostUpdateArgs): Promise<BlogPost> {
+  const rawPostData = {
+    title: formData.title.trim(),
+    slug:
+      formData.slug && formData.slug !== originalSlug
+        ? formData.slug
+        : undefined,
+    content: formData.content,
+    excerpt: formData.excerpt,
+    featured_image_url: formData.featured_image_url,
+    featured_image_alt: formData.featured_image_alt,
+    featured_image_width: formData.featured_image_url
+      ? formData.featured_image_width
+      : null,
+    featured_image_height: formData.featured_image_url
+      ? formData.featured_image_height
+      : null,
+    featured_image_variants: formData.featured_image_url
+      ? formData.featured_image_variants
+      : {},
+    category: formData.category,
+    tags: formData.tags ? formData.tags.split(',') : [],
+    keywords: formData.keywords ? formData.keywords.split(',') : [],
+    author_name: formData.author_name,
+    author_title: formData.author_title,
+    author_bio: formData.author_bio,
+    seo_title: formData.seo_title,
+    seo_description: formData.seo_description,
+    focus_keyword: formData.focus_keyword,
+    status: newStatus || formData.status,
+    published_at:
+      newStatus === 'scheduled'
+        ? scheduledDate?.toISOString()
+        : newStatus === 'published'
+          ? new Date().toISOString()
+          : formData.published_at,
+    embedded_products: embeddedProductIds,
+  };
+
+  const postData = sanitizeBlogPostData(rawPostData);
+
+  const response = await fetchWithCsrf(`/api/merchant/blog/posts/${postId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(postData),
+  });
+
+  if (!response.ok) {
+    const data = (await response.json()) as {
+      error?: string;
+      details?: { fieldErrors?: Record<string, string[]> };
+    };
+    const fieldErrors = data.details?.fieldErrors;
+    const errorMessage = fieldErrors
+      ? Object.values(fieldErrors)[0]?.[0]
+      : data.error;
+
+    throw new Error(errorMessage || 'Failed to update post');
+  }
+
+  return (await response.json()) as BlogPost;
+}
+
 export default function EditBlogPostPage() {
   const router = useRouter();
   const params = useParams();
@@ -230,36 +478,12 @@ export default function EditBlogPostPage() {
   const [activeTab, setActiveTab] = useState('content');
   const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
   const [originalPost, setOriginalPost] = useState<BlogPost | null>(null);
-  const [formData, setFormData] = useState<PostFormData>({
-    title: '',
-    slug: '',
-    content: '',
-    excerpt: '',
-    featured_image_url: '',
-    featured_image_alt: '',
-    featured_image_width: null,
-    featured_image_height: null,
-    featured_image_variants: {},
-    category: '',
-    tags: '',
-    keywords: '',
-    author_name: '',
-    author_title: '',
-    author_bio: '',
-    seo_title: '',
-    seo_description: '',
-    focus_keyword: '',
-    status: 'draft',
-    published_at: null,
-  });
+  const [formData, setFormData] = useState<PostFormData>(INITIAL_FORM_DATA);
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(
     formData.published_at ? new Date(formData.published_at) : undefined
   );
   const [isSchedulePopoverOpen, setIsSchedulePopoverOpen] = useState(false);
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
-  const [preRecoveryData, setPreRecoveryData] = useState<PostFormData | null>(
-    null
-  ); // For undo functionality
   const [uploadedFeaturedImage, setUploadedFeaturedImage] =
     useState<UploadedFeaturedImage | null>(null);
   const uploadedFeaturedImageRef = useRef<UploadedFeaturedImage | null>(null);
@@ -290,123 +514,88 @@ export default function EditBlogPostPage() {
   };
 
   // Undo auto-recovery - restore the original database state
-  const undoRecovery = () => {
-    if (preRecoveryData) {
-      setFormData(preRecoveryData);
-      clearSavedData();
-      setPreRecoveryData(null);
-      toast({
-        title: 'Recovery Undone',
-        description: 'Restored to the last saved version.',
-      });
-    }
+  const undoRecovery = (previousData: PostFormData) => {
+    setFormData(previousData);
+    clearSavedData();
+    toast({
+      title: 'Recovery Undone',
+      description: 'Restored to the last saved version.',
+    });
   };
 
-  useEffect(() => {
-    const fetchPost = async () => {
-      try {
-        const response = await fetch(`/api/merchant/blog/posts/${postId}`);
-        if (!response.ok) {
-          if (response.status === 404) {
-            toast({ title: 'Post not found', variant: 'destructive' });
-            router.push(asRoute('/dashboard/blog'));
-            return;
-          }
-          throw new Error('Failed to fetch post');
-        }
+  // Silent auto-recovery after initial load (no blocking dialog)
+  const recoverSavedDraft = (loadedFormData: PostFormData | null) => {
+    if (!hasSavedData() || hasCheckedForRecovery.current) {
+      return;
+    }
+    hasCheckedForRecovery.current = true;
+    const saved = getSavedData();
+    if (!saved) {
+      return;
+    }
+    // Keep the pre-recovery data for undo functionality
+    const previousData = loadedFormData ?? { ...INITIAL_FORM_DATA };
+    // Silently restore the draft
+    setFormData(withFeaturedImageDefaults(saved.data));
+    // Show non-blocking toast with undo option
+    toast({
+      title: 'Draft Recovered',
+      description: 'Your unsaved changes have been restored.',
+      action: (
+        <button
+          type="button"
+          onClick={() => undoRecovery(previousData)}
+          className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
+        >
+          Undo
+        </button>
+      ),
+      duration: 8000, // Give user time to read and click undo
+    });
+  };
 
-        const post = await response.json();
-        setOriginalPost(post);
-        setFormData({
-          title: post.title || '',
-          slug: post.slug || '',
-          content: post.content || '',
-          excerpt: post.excerpt || '',
-          featured_image_url: post.featured_image_url || '',
-          featured_image_alt: post.featured_image_alt || '',
-          featured_image_width: post.featured_image_width ?? null,
-          featured_image_height: post.featured_image_height ?? null,
-          featured_image_variants: normalizeFeaturedImageVariantMap(
-            post.featured_image_variants
-          ),
-          category: post.category || '',
-          tags: Array.isArray(post.tags) ? post.tags.join(', ') : '',
-          keywords: Array.isArray(post.keywords)
-            ? post.keywords.join(', ')
-            : '',
-          author_name: post.author_name || '',
-          author_title: post.author_title || '',
-          author_bio: post.author_bio || '',
-          seo_title: post.seo_title || '',
-          seo_description: post.seo_description || '',
-          focus_keyword: post.focus_keyword || '',
-          status: post.status || 'draft',
-          published_at: post.published_at || null,
-        });
-        if (post.published_at) {
-          setScheduledDate(new Date(post.published_at));
-        }
+  const onPostLoaded = useEffectEvent((result: LoadBlogPostResult) => {
+    let loadedFormData: PostFormData | null = null;
 
-        // Fetch embedded products if any
-        if (
-          post.embedded_products &&
-          Array.isArray(post.embedded_products) &&
-          post.embedded_products.length > 0
-        ) {
-          const productsResponse = await fetch(
-            `/api/products?ids=${post.embedded_products.join(',')}`
-          );
-          if (productsResponse.ok) {
-            const data = await productsResponse.json();
-            setEmbeddedProducts(data.products || []);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching post:', error);
+    if (result.status === 'not-found') {
+      toast({ title: 'Post not found', variant: 'destructive' });
+      router.push(asRoute('/dashboard/blog'));
+    } else if (result.status === 'error') {
+      toast({
+        title: 'Error',
+        description: 'Failed to load blog post.',
+        variant: 'destructive',
+      });
+    } else {
+      setOriginalPost(result.post);
+      setFormData(result.formData);
+      loadedFormData = result.formData;
+      if (result.post.published_at) {
+        setScheduledDate(new Date(result.post.published_at));
+      }
+      if (result.embeddedProducts) {
+        setEmbeddedProducts(result.embeddedProducts);
+      }
+      if (result.productsLoadFailed) {
         toast({
           title: 'Error',
           description: 'Failed to load blog post.',
           variant: 'destructive',
         });
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    if (postId) {
-      fetchPost();
     }
-  }, [postId, router, toast]);
 
-  // Silent auto-recovery after initial load (no blocking dialog)
+    recoverSavedDraft(loadedFormData);
+    setIsLoading(false);
+  });
+
   useEffect(() => {
-    if (!isLoading && hasSavedData() && !hasCheckedForRecovery.current) {
-      hasCheckedForRecovery.current = true;
-      const saved = getSavedData();
-      if (saved) {
-        // Store current data for undo functionality
-        setPreRecoveryData({ ...formData });
-        // Silently restore the draft
-        setFormData(withFeaturedImageDefaults(saved.data));
-        // Show non-blocking toast with undo option
-        toast({
-          title: 'Draft Recovered',
-          description: 'Your unsaved changes have been restored.',
-          action: (
-            <button
-              type="button"
-              onClick={undoRecovery}
-              className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
-            >
-              Undo
-            </button>
-          ),
-          duration: 8000, // Give user time to read and click undo
-        });
-      }
+    if (!postId) {
+      return;
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes undoRecovery
-  }, [isLoading, hasSavedData, getSavedData, formData, toast, undoRecovery]);
+
+    loadBlogPost(postId).then((result) => onPostLoaded(result));
+  }, [postId]);
 
   const handleChange = (field: keyof PostFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -434,97 +623,54 @@ export default function EditBlogPostPage() {
     setUploadedFeaturedImage(image);
   };
 
-  const deleteUploadedFeaturedImage = async (
-    imageToDelete: UploadedFeaturedImage
-  ) => {
-    const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'DELETE',
-      body: JSON.stringify({
-        path: imageToDelete.path,
-        variantPaths: imageToDelete.variantPaths,
-      }),
-    });
-
-    if (!response.ok) {
-      const fallback = 'Failed to delete image';
-      const message = await readResponseErrorMessage(response, fallback);
-      throw new Error(
-        message === fallback
-          ? `${fallback} (${response.status})`
-          : `${fallback} (${response.status}): ${message}`
-      );
-    }
-  };
-
   // Handle featured image selection and upload
   const handleFeaturedImageUpload = async (files: File[]) => {
     if (files.length === 0) return;
 
     setIsUploading(true);
     const file = files[0];
-    const formDataUpload = new FormData();
-    formDataUpload.append('file', file);
-    formDataUpload.append('purpose', 'featured');
 
-    try {
-      const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-        method: 'POST',
-        body: formDataUpload,
-      });
+    await uploadFeaturedImage(file)
+      .then(async (data) => {
+        const featuredImageVariants = normalizeFeaturedImageVariantMap(
+          data.variants
+        );
+        const variantPaths = normalizeFeaturedImageVariantPaths(
+          data.variantPaths
+        );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload image');
-      }
-
-      const data = (await response.json()) as FeaturedImageUploadResponse;
-      const featuredImageVariants = normalizeFeaturedImageVariantMap(
-        data.variants
-      );
-      const variantPaths = normalizeFeaturedImageVariantPaths(
-        data.variantPaths
-      );
-
-      if (uploadedFeaturedImageRef.current) {
-        try {
-          await deleteUploadedFeaturedImage(uploadedFeaturedImageRef.current);
-        } catch (deleteError) {
-          console.error(
-            'Error deleting previously uploaded featured image:',
-            deleteError
-          );
+        if (uploadedFeaturedImageRef.current) {
+          await deletePreviousFeaturedImage(uploadedFeaturedImageRef.current);
         }
-      }
 
-      setFormData((prev) => ({
-        ...prev,
-        featured_image_url: data.url,
-        featured_image_width: data.width,
-        featured_image_height: data.height,
-        featured_image_variants: featuredImageVariants,
-      }));
-      setTrackedUploadedFeaturedImage({
-        path: data.path,
-        variantPaths,
+        setFormData((prev) => ({
+          ...prev,
+          featured_image_url: data.url,
+          featured_image_width: data.width,
+          featured_image_height: data.height,
+          featured_image_variants: featuredImageVariants,
+        }));
+        setTrackedUploadedFeaturedImage({
+          path: data.path,
+          variantPaths,
+        });
+        toast({
+          title: 'Success',
+          description: 'Featured image uploaded successfully.',
+        });
+      })
+      .catch((error) => {
+        console.error('Error uploading image:', error);
+        toast({
+          title: 'Error',
+          description:
+            error instanceof Error ? error.message : 'Failed to upload image',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsUploading(false);
       });
-      toast({
-        title: 'Success',
-        description: 'Featured image uploaded successfully.',
-      });
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to upload image',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   // Image upload handler for the editor
@@ -660,7 +806,7 @@ export default function EditBlogPostPage() {
 
   const savePost = async (
     newStatus?: 'draft' | 'published' | 'archived' | 'scheduled'
-  ) => {
+  ): Promise<boolean> => {
     const normalizedFormData = normalizeFormData(formData);
     const error = validateForm(normalizedFormData);
     if (error) {
@@ -669,105 +815,60 @@ export default function EditBlogPostPage() {
         description: error,
         variant: 'destructive',
       });
-      return;
+      return false;
     }
 
     setIsSaving(true);
-    try {
-      const rawPostData = {
-        title: normalizedFormData.title.trim(),
-        slug:
-          normalizedFormData.slug &&
-          normalizedFormData.slug !== originalPost?.slug
-            ? normalizedFormData.slug
-            : undefined,
-        content: normalizedFormData.content,
-        excerpt: normalizedFormData.excerpt,
-        featured_image_url: normalizedFormData.featured_image_url,
-        featured_image_alt: normalizedFormData.featured_image_alt,
-        featured_image_width: normalizedFormData.featured_image_url
-          ? normalizedFormData.featured_image_width
-          : null,
-        featured_image_height: normalizedFormData.featured_image_url
-          ? normalizedFormData.featured_image_height
-          : null,
-        featured_image_variants: normalizedFormData.featured_image_url
-          ? normalizedFormData.featured_image_variants
-          : {},
-        category: normalizedFormData.category,
-        tags: normalizedFormData.tags ? normalizedFormData.tags.split(',') : [],
-        keywords: normalizedFormData.keywords
-          ? normalizedFormData.keywords.split(',')
-          : [],
-        author_name: normalizedFormData.author_name,
-        author_title: normalizedFormData.author_title,
-        author_bio: normalizedFormData.author_bio,
-        seo_title: normalizedFormData.seo_title,
-        seo_description: normalizedFormData.seo_description,
-        focus_keyword: normalizedFormData.focus_keyword,
-        status: newStatus || normalizedFormData.status,
-        published_at:
-          newStatus === 'scheduled'
-            ? scheduledDate?.toISOString()
-            : newStatus === 'published'
-              ? new Date().toISOString()
-              : normalizedFormData.published_at,
-        embedded_products: embeddedProducts.map((p) => p.id),
-      };
+    return await submitBlogPostUpdate({
+      postId,
+      formData: normalizedFormData,
+      originalSlug: originalPost?.slug,
+      newStatus,
+      scheduledDate,
+      embeddedProductIds: embeddedProducts.map((p) => p.id),
+    })
+      .then((updatedPost) => {
+        setOriginalPost(updatedPost);
+        setFormData((prev) => ({
+          ...prev,
+          status: updatedPost.status,
+          published_at: updatedPost.published_at ?? null,
+        }));
 
-      const postData = sanitizeBlogPostData(rawPostData);
+        const statusMessages: Record<string, string> = {
+          published: 'Your blog post is now live.',
+          draft: 'Your post has been saved as a draft.',
+          archived: 'Your post has been archived.',
+          scheduled: `Your post is scheduled for ${scheduledDate ? format(scheduledDate, 'PPP p') : 'later'}.`,
+        };
 
-      const response = await fetchWithCsrf(
-        `/api/merchant/blog/posts/${postId}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify(postData),
-        }
-      );
+        toast({
+          title:
+            newStatus === 'published' ? 'Post Published!' : 'Changes Saved',
+          description:
+            statusMessages[newStatus || formData.status] ||
+            'Your changes have been saved.',
+        });
 
-      if (!response.ok) {
-        const data = await response.json();
-        const fieldErrors = data.details?.fieldErrors as
-          | Record<string, string[]>
-          | undefined;
-        const errorMessage = fieldErrors
-          ? Object.values(fieldErrors)[0]?.[0]
-          : data.error;
-
-        throw new Error(errorMessage || 'Failed to update post');
-      }
-
-      const updatedPost = await response.json();
-      setOriginalPost(updatedPost);
-      setFormData((prev) => ({ ...prev, status: updatedPost.status }));
-
-      const statusMessages: Record<string, string> = {
-        published: 'Your blog post is now live.',
-        draft: 'Your post has been saved as a draft.',
-        archived: 'Your post has been archived.',
-        scheduled: `Your post is scheduled for ${scheduledDate ? format(scheduledDate, 'PPP p') : 'later'}.`,
-      };
-
-      toast({
-        title: newStatus === 'published' ? 'Post Published!' : 'Changes Saved',
-        description:
-          statusMessages[newStatus || formData.status] ||
-          'Your changes have been saved.',
+        // Clear auto-saved draft on successful server save
+        clearSavedData();
+        return true;
+      })
+      .catch((saveError) => {
+        console.error('Error saving post:', saveError);
+        toast({
+          title: 'Error',
+          description:
+            saveError instanceof Error
+              ? saveError.message
+              : 'Failed to save blog post.',
+          variant: 'destructive',
+        });
+        return false;
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
-
-      // Clear auto-saved draft on successful server save
-      clearSavedData();
-    } catch (error) {
-      console.error('Error saving post:', error);
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to save blog post.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handlePreview = async () => {
@@ -781,7 +882,10 @@ export default function EditBlogPostPage() {
     }
 
     // Always save as draft first to ensure the latest content is available in preview
-    await savePost('draft');
+    const saved = await savePost('draft');
+    if (!saved) {
+      return;
+    }
 
     try {
       const previewUrl = await getPreviewUrl(merchant.slug, formData.slug);
