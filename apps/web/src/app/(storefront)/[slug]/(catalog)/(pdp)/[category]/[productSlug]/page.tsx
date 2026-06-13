@@ -762,29 +762,43 @@ async function getProductRouteControl(
       );
     });
   }
+
+  const merchantPromise = getRequestScopedMerchant(storeSlug);
+
   if (knownOgaBasseyLcpHintPromise && isKnownOgaBasseyCustomDomain) {
-    void knownOgaBasseyLcpHintPromise
-      .then((cachedProduct) => {
-        const primaryImage = getCachedProductLcpHintPrimaryImage(cachedProduct);
+    const earlyPreloadResult = await Promise.race([
+      knownOgaBasseyLcpHintPromise
+        .then((cachedProduct) => ({
+          kind: 'lcp-hint' as const,
+          primaryImage: getCachedProductLcpHintPrimaryImage(cachedProduct),
+        }))
+        .catch(() => ({ kind: 'lcp-hint' as const, primaryImage: null })),
+      merchantPromise.then(
+        () => ({ kind: 'merchant-ready' as const }),
+        () => ({ kind: 'merchant-ready' as const })
+      ),
+    ]);
 
-        if (!primaryImage) {
-          return;
-        }
-
-        try {
-          preloadOgabasseyPdpProductResources({ src: primaryImage });
-          preloadedProductImage = primaryImage;
-        } catch (error) {
-          console.warn(
-            'Unable to preload OgaBassey PDP resources early:',
-            sanitizeLookupLogValue(productSlug),
-            error
-          );
-        }
-      })
-      .catch(() => undefined);
+    if (
+      earlyPreloadResult.kind === 'lcp-hint' &&
+      earlyPreloadResult.primaryImage
+    ) {
+      try {
+        preloadOgabasseyPdpProductResources({
+          src: earlyPreloadResult.primaryImage,
+        });
+        preloadedProductImage = earlyPreloadResult.primaryImage;
+      } catch (error) {
+        console.warn(
+          'Unable to preload OgaBassey PDP resources early:',
+          sanitizeLookupLogValue(productSlug),
+          error
+        );
+      }
+    }
   }
-  const merchant = await getRequestScopedMerchant(storeSlug);
+
+  const merchant = await merchantPromise;
 
   if (!merchant) {
     console.warn('Merchant not found for storefront product route:', storeSlug);

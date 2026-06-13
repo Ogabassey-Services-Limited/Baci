@@ -2087,6 +2087,80 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
+  it('emits one page preload when the merchant lookup wins the early LCP hint race', async () => {
+    let resolveHint:
+      | ((value: ReturnType<typeof toLegacyCachedProduct>) => void)
+      | undefined;
+    const routeEvents: string[] = [];
+    const delayedProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/delayed-lcp-hint.avif';
+    const ogabasseyMerchant = {
+      ...baseMerchant,
+      id: OGABASSEY_MERCHANT_ID,
+      slug: OGABASSEY_TEMPLATE_ID,
+      custom_domain: OGABASSEY_DOMAIN,
+      template_id: OGABASSEY_TEMPLATE_ID,
+    };
+    let merchantLookupCount = 0;
+
+    mockGetRequestScopedMerchant.mockImplementation(() => {
+      merchantLookupCount += 1;
+      if (merchantLookupCount === 1) {
+        routeEvents.push('merchant-start');
+      }
+      return Promise.resolve(ogabasseyMerchant);
+    });
+    mockGetCachedProductLcpHint.mockImplementation((merchantId) => {
+      routeEvents.push(`lcp-hint:${merchantId}`);
+      return new Promise((resolve) => {
+        resolveHint = resolve;
+      });
+    });
+    mockOgabasseyPdpProductResourceHints.mockImplementationOnce(() => {
+      routeEvents.push('product-hints');
+      return null;
+    });
+
+    const pagePromise = CategoryProductPage({
+      params: Promise.resolve({
+        slug: OGABASSEY_DOMAIN,
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    await waitFor(() => {
+      expect(routeEvents).toEqual([
+        `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
+        'merchant-start',
+      ]);
+    });
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+
+    resolveHint?.(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [delayedProductImage],
+      })
+    );
+    const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: delayedProductImage,
+    });
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledTimes(1);
+    expect(routeEvents).toEqual([
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
+      'merchant-start',
+      'product-hints',
+    ]);
+
+    render(await resolveRsc(resolvedPage));
+
+    expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
+  });
+
   it('propagates speculative OgaBassey LCP hint failures after merchant validation', async () => {
     let resolveMerchant:
       | ((
