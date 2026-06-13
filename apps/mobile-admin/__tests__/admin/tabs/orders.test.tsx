@@ -1,258 +1,23 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ordersScreenTestHarness as harness } from './orders-screen-test-harness';
 
-const mocks = vi.hoisted(() => ({
-  invalidateQueries: vi.fn(),
-  useMerchant: vi.fn(),
-  useOrders: vi.fn(),
-  useOrderCounts: vi.fn(),
-  mutateAsync: vi.fn(),
-  push: vi.fn(),
-}));
-
-vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({
-    invalidateQueries: mocks.invalidateQueries,
-  }),
-}));
-
-vi.mock('react-native', async () => {
-  const React = await import('react');
-
-  return {
-    StatusBar: () => null,
-    ActivityIndicator: () => React.createElement('span', null, 'loading'),
-    Alert: { alert: vi.fn() },
-    Pressable: ({
-      children,
-      onPress,
-      accessibilityLabel,
-    }: {
-      children?: React.ReactNode;
-      onPress?: () => void;
-      accessibilityLabel?: string;
-    }) =>
-      React.createElement(
-        'button',
-        { onClick: onPress, 'aria-label': accessibilityLabel },
-        children
-      ),
-    RefreshControl: () => null,
-    ScrollView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-    SectionList: ({
-      sections,
-      ListEmptyComponent,
-    }: {
-      sections?: Array<{ data?: unknown[] }>;
-      ListEmptyComponent?: React.ReactNode;
-    }) => {
-      const hasItems = (sections ?? []).some(
-        (section) => (section.data?.length ?? 0) > 0
-      );
-      return React.createElement(
-        'div',
-        null,
-        hasItems ? null : ListEmptyComponent
-      );
-    },
-    StyleSheet: {
-      create: (styles: Record<string, unknown>) => styles,
-    },
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
-    TextInput: ({
-      value,
-      onChangeText,
-      placeholder,
-    }: {
-      value?: string;
-      onChangeText?: (text: string) => void;
-      placeholder?: string;
-    }) =>
-      React.createElement('input', {
-        value: value ?? '',
-        placeholder,
-        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-          onChangeText?.(event.target.value),
-      }),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-  };
-});
-
-vi.mock('react-native-reanimated', async () => {
-  const React = await import('react');
-
-  const makeSharedValue = (initial: unknown) => {
-    let current = initial;
-    return {
-      get value() {
-        return current;
-      },
-      set value(next: unknown) {
-        current = next;
-      },
-      get: () => current,
-      set: (next: unknown) => {
-        current = next;
-      },
-    };
-  };
-
-  return {
-    default: {
-      View: ({ children }: { children?: React.ReactNode }) =>
-        React.createElement('div', null, children),
-    },
-    interpolate: () => 0,
-    useAnimatedStyle: () => ({}),
-    useSharedValue: makeSharedValue,
-    withTiming: (value: unknown) => value,
-  };
-});
-
-vi.mock('react-native-safe-area-context', async () => {
-  const React = await import('react');
-
-  return {
-    SafeAreaView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-  };
-});
-
-vi.mock('@react-native-vector-icons/ionicons', async () => {
-  const React = await import('react');
-
-  return {
-    Ionicons: ({ name }: { name: string }) =>
-      React.createElement('span', null, name),
-
-    default: ({ name }: { name: string }) =>
-      React.createElement('span', null, name),
-    __esModule: true,
-  };
-});
-
-vi.mock('expo-router', () => ({
-  router: {
-    push: mocks.push,
-  },
-}));
-
-vi.mock('@/components/ui/DateRangePicker', () => ({
-  default: () => null,
-}));
-
-vi.mock('@/components/ui/OrderReportModal', () => ({
-  default: () => null,
-}));
-
-vi.mock('@/hooks/useDebounce', () => ({
-  useDebounce: (value: string) => value,
-}));
-
-vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: mocks.useMerchant,
-}));
-
-vi.mock('@/hooks/useOrderCounts', () => ({
-  useOrderCounts: mocks.useOrderCounts,
-}));
-
-vi.mock('@/hooks/useOrders', () => ({
-  useOrders: mocks.useOrders,
-  useUpdateOrderStatus: () => ({
-    isPending: false,
-    mutateAsync: mocks.mutateAsync,
-  }),
-}));
-
-vi.mock('@/hooks/useTheme', () => ({
-  useTheme: () => ({
-    colors: {
-      background: '#0D0D1A',
-      backgroundLight: '#12121F',
-      card: '#1A1A2E',
-      cardHover: '#252542',
-      border: '#2A2A40',
-      text: '#FFFFFF',
-      textSecondary: '#9CA3AF',
-      textMuted: '#6B7280',
-      primary: '#4A90D9',
-      textOnPrimary: '#FFFFFF',
-      gold: '#F0BF58',
-      goldLight: 'rgba(240, 191, 88, 0.15)',
-      error: '#EF4444',
-      pending: '#F59E0B',
-      processing: '#3B82F6',
-      shipped: '#8B5CF6',
-      delivered: '#22C55E',
-      cancelled: '#EF4444',
-      returned: '#A855F7',
-      success: '#22C55E',
-      warning: '#F59E0B',
-      info: '#3B82F6',
-    },
-    shadows: {
-      sm: {},
-      lg: {},
-    },
-    isDark: true,
-  }),
-}));
-
-vi.mock('@/utils/date-utils', () => ({
-  groupOrdersByRelativeDate: () => [],
-}));
-
-vi.mock('@/utils/export-orders', () => ({
-  orderExportTools: {
-    exportOrdersRPC: vi.fn(),
-  },
-}));
-
-import OrdersScreen from '../../../app/(admin)/(tabs)/orders';
-
-describe('OrdersScreen', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.useMerchant.mockReturnValue({
-      storeUrl: 'ogabassey.com',
-      merchant: {
-        id: 'merchant-1',
-        business_name: 'Ogabassey',
-        payout_currency: 'NGN',
-        logo_url: null,
-      },
-      isLoading: false,
-      error: null,
-    });
-    mocks.useOrders.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isFetching: false,
-      isFetchingNextPage: false,
-      hasNextPage: false,
-      fetchNextPage: vi.fn(),
-      error: null,
-    });
-    mocks.useOrderCounts.mockReturnValue({ data: null });
-  });
-
+describe('OrdersScreen states and filters', () => {
+  beforeEach(() => harness.reset());
   afterEach(() => {
     cleanup();
+    harness.cleanup();
   });
 
   it('renders the merchant error state instead of the empty state', () => {
-    mocks.useMerchant.mockReturnValue({
+    harness.mocks.useMerchant.mockReturnValue({
       storeUrl: '',
       merchant: null,
       isLoading: false,
       error: new Error('merchant failed'),
     });
 
-    render(<OrdersScreen />);
+    harness.render();
 
     expect(screen.getByText('Failed to load store')).toBeTruthy();
     expect(
@@ -264,7 +29,7 @@ describe('OrdersScreen', () => {
   });
 
   it('renders the orders error state and retries the relevant queries', () => {
-    mocks.useOrders.mockReturnValue({
+    harness.mocks.useOrders.mockReturnValue({
       data: undefined,
       isLoading: false,
       isFetching: false,
@@ -274,32 +39,32 @@ describe('OrdersScreen', () => {
       error: new Error('orders failed'),
     });
 
-    render(<OrdersScreen />);
+    harness.render();
 
     expect(screen.getByText('Failed to load orders')).toBeTruthy();
     expect(screen.queryByText('No orders found')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+    expect(harness.mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['merchant'],
     });
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+    expect(harness.mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['orders', 'merchant-1'],
     });
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+    expect(harness.mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['order-counts', 'merchant-1'],
     });
   });
 
   it('retries only the merchant query when merchant context is missing', () => {
-    mocks.useMerchant.mockReturnValue({
+    harness.mocks.useMerchant.mockReturnValue({
       storeUrl: '',
       merchant: null,
       isLoading: false,
       error: null,
     });
-    mocks.useOrders.mockReturnValue({
+    harness.mocks.useOrders.mockReturnValue({
       data: undefined,
       isLoading: false,
       isFetching: false,
@@ -309,23 +74,23 @@ describe('OrdersScreen', () => {
       error: new Error('orders failed'),
     });
 
-    render(<OrdersScreen />);
+    harness.render();
 
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+    expect(harness.mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['merchant'],
     });
-    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({
+    expect(harness.mocks.invalidateQueries).not.toHaveBeenCalledWith({
       queryKey: ['orders', 'merchant-1'],
     });
-    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({
+    expect(harness.mocks.invalidateQueries).not.toHaveBeenCalledWith({
       queryKey: ['order-counts', 'merchant-1'],
     });
   });
 
   it('keeps the empty state for a genuine zero-orders result', () => {
-    render(<OrdersScreen />);
+    harness.render();
 
     expect(screen.getByText('No orders found')).toBeTruthy();
     expect(
@@ -333,8 +98,13 @@ describe('OrdersScreen', () => {
     ).toBeTruthy();
   });
 
-  it('renders the insight card above the search bar and keeps filters below search', () => {
-    mocks.useOrderCounts.mockReturnValue({
+  it('renders the insight card above search and keeps filters below search', () => {
+    harness.mocks.useAiInsights.mockReturnValue({
+      data: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+    harness.mocks.useOrderCounts.mockReturnValue({
       data: {
         all: 8,
         pending: 4,
@@ -346,7 +116,7 @@ describe('OrdersScreen', () => {
       },
     });
 
-    render(<OrdersScreen />);
+    harness.render();
 
     const viewPendingButton = screen.getByLabelText('View 4 pending orders');
     const searchInput = screen.getByPlaceholderText(

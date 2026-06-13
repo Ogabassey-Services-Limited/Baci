@@ -1,36 +1,19 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateObject } from 'ai';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import z from 'zod';
 import {
   AI_RATE_LIMITS,
   checkRateLimit,
   geminiFlash,
   withRetry,
 } from '@/ai/provider';
-import { hasPermission } from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { createClient } from '@/lib/supabase/server';
-
-// Schema for AI insights
-const InsightSchema = z.object({
-  insights: z.array(
-    z.object({
-      title: z.string(),
-      description: z.string(),
-      type: z.enum(['positive', 'negative', 'neutral', 'opportunity']),
-      priority: z.enum(['high', 'medium', 'low']),
-      action: z
-        .string()
-        .optional()
-        .describe('Suggested action for the merchant'),
-    })
-  ),
-});
+import { analyticsInsightsSchema } from '@/schemas/analytics-insights';
 
 const AI_INSIGHTS_TIMEOUT_MS = 10_000;
 const AI_INSIGHTS_RETRY_CONFIG = {
@@ -41,7 +24,7 @@ const AI_INSIGHTS_RETRY_CONFIG = {
 };
 
 async function generateInsights(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   merchantId: string,
   userId: string
 ) {
@@ -128,7 +111,7 @@ async function generateInsights(
     const { object } = await withRetry(async () => {
       return await generateObject({
         model: geminiFlash,
-        schema: InsightSchema,
+        schema: analyticsInsightsSchema,
         maxRetries: 0,
         timeout: AI_INSIGHTS_TIMEOUT_MS,
         prompt: `
@@ -171,17 +154,13 @@ Be specific and constructive.
   }
 }
 
-async function handleInsightsRequest() {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+async function handleInsightsRequest(request: Request) {
+  const auth = await authenticateApiRequest(request);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (auth.error || !auth.user || !auth.supabase) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const { supabase, user } = auth;
 
   // Get merchant context (supports both owners and staff members)
   const merchantContext = await getMerchantForApiRequest(supabase, user.id);
@@ -206,9 +185,9 @@ async function handleInsightsRequest() {
   return NextResponse.json(result.data);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    return await handleInsightsRequest();
+    return await handleInsightsRequest(request);
   } catch (error) {
     console.error('Error generating insights:', error);
     return NextResponse.json(
@@ -219,9 +198,9 @@ export async function GET() {
 }
 
 // POST handler - same behavior as GET, kept for API compatibility
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    return await handleInsightsRequest();
+    return await handleInsightsRequest(request);
   } catch (error) {
     console.error('Error generating insights:', error);
     return NextResponse.json(
