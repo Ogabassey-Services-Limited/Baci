@@ -1,5 +1,4 @@
 import { PenTool } from 'lucide-react';
-import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,8 +26,7 @@ async function fetchInitialBlogData(
   merchantId: string
 ): Promise<BlogInitialData> {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
 
     // We fetch from the database directly since we are on the server
     const { data: posts, error: postsError } = await supabase
