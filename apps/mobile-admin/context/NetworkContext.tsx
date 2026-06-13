@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type NetworkState, useNetworkState } from '@/hooks/useNetworkState';
@@ -99,26 +99,6 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
       )}
     </NetworkContext.Provider>
   );
-}
-
-/**
- * Hook to access network state from any component
- *
- * @example
- * ```tsx
- * const { isOnline, wasRecentlyReconnected } = useNetwork();
- *
- * if (!isOnline) {
- *   return <Text>Please check your internet connection</Text>;
- * }
- * ```
- */
-function useNetwork(): NetworkContextValue {
-  const context = useContext(NetworkContext);
-  if (context === undefined) {
-    throw new Error('useNetwork must be used within a NetworkProvider');
-  }
-  return context;
 }
 
 /**
