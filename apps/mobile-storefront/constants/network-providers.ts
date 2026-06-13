@@ -4,7 +4,7 @@ import gloImage from '@/assets/images/glo.jpg';
 import mtnImage from '@/assets/images/mtn.jpeg';
 import t2Image from '@/assets/images/t2.png';
 
-export const NETWORK_PROVIDER_IDS = ['mtn', 'airtel', 'glo', 't2'] as const;
+const NETWORK_PROVIDER_IDS = ['mtn', 'airtel', 'glo', 't2'] as const;
 
 export type NetworkProviderId = (typeof NETWORK_PROVIDER_IDS)[number];
 

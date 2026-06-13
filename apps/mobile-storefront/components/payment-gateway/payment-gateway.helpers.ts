@@ -1,4 +1,4 @@
-export const PAYMENT_GATEWAYS = ['paystack', 'korapay', 'juicyway'] as const;
+const PAYMENT_GATEWAYS = ['paystack', 'korapay', 'juicyway'] as const;
 
 export type PaymentGateway = (typeof PAYMENT_GATEWAYS)[number];
 

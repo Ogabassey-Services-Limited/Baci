@@ -260,22 +260,3 @@ export function useCart() {
     clearCart,
   };
 }
-
-/**
- * Hook for just getting cart count (optimized for tab bar badge)
- * M18 fix: Compute count directly in selector to avoid calling a function
- * inside the selector (which creates a new value every time and causes re-renders).
- */
-export function useCartCount() {
-  return useCartStore((state) => state.items.length);
-}
-
-/**
- * Hook for checking if a product is in cart
- */
-export function useIsInCart(productId: string, variantId?: string) {
-  const items = useCartStore((state) => state.items);
-  return items.some(
-    (item) => item.product_id === productId && item.variant_id === variantId
-  );
-}
