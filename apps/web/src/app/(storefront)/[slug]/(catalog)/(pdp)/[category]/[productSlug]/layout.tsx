@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { sanitizeLookupLogValue } from '@/lib/cached-data';
 import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
 
@@ -21,6 +22,10 @@ function preloadOgabasseyPdpEarlyProductResources({
   productSlug,
   storeSlug,
 }: OgabasseyPdpEarlyProductResourceHintsProps): void {
+  if (storeSlug.trim().toLowerCase() === OGABASSEY_DOMAIN.toLowerCase()) {
+    return;
+  }
+
   const merchantId = getKnownOgaBasseyMerchantId(storeSlug);
 
   if (!merchantId) {
