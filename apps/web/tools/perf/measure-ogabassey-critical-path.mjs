@@ -1,6 +1,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  getDebugBearCategoryScore,
+  getDebugBearMetric,
+  getDebugBearQuickTestId,
+  getDebugBearQuickTestPollPath,
+} from './debugbear-quick-test-utils.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const outputDir =
@@ -62,43 +68,6 @@ function summarizePsi(label, payload) {
   };
 }
 
-function firstQuickTest(body) {
-  if (Array.isArray(body)) return body[0] || null;
-  if (Array.isArray(body.quickTests)) return body.quickTests[0] || null;
-  if (Array.isArray(body.tests)) return body.tests[0] || null;
-  return body;
-}
-
-function quickTestId(body) {
-  const quickTest = firstQuickTest(body);
-  return (
-    quickTest?.id ||
-    quickTest?.quickTestId ||
-    quickTest?.testId ||
-    quickTest?.resultId ||
-    null
-  );
-}
-
-function pollPath(body, id) {
-  const quickTest = firstQuickTest(body);
-  const link =
-    quickTest?.apiUrl ||
-    quickTest?.pollUrl ||
-    quickTest?.resultApiUrl ||
-    quickTest?._links?.self?.href ||
-    quickTest?._links?.result?.href;
-
-  if (typeof link === 'string') {
-    return new URL(link, 'https://www.debugbear.com').pathname.replace(
-      '/api/v1',
-      ''
-    );
-  }
-
-  return `/quickTest/${id}`;
-}
-
 function isDebugBearComplete(body) {
   const status = `${body.status || body.state || ''}`.toLowerCase();
   return (
@@ -110,40 +79,37 @@ function isDebugBearComplete(body) {
   );
 }
 
-function debugBearMetric(body, names) {
-  for (const name of names) {
-    const value =
-      body.metrics?.[name] ||
-      body.summary?.[name] ||
-      body.lighthouseResult?.audits?.[name]?.numericValue;
-    if (typeof value === 'number') return value;
-  }
-  return null;
-}
-
 function summarizeDebugBear(label, url, body) {
   return {
-    cls: debugBearMetric(body, [
+    a11y: getDebugBearCategoryScore(body, ['accessibility']),
+    bp: getDebugBearCategoryScore(body, ['best-practices', 'bestPractices']),
+    cls: getDebugBearMetric(body, [
       'performance.cumulativeLayoutShift',
       'cumulativeLayoutShift',
       'cls',
+      'cumulative-layout-shift',
     ]),
-    fcpMs: debugBearMetric(body, [
+    fcpMs: getDebugBearMetric(body, [
       'performance.firstContentfulPaint',
       'firstContentfulPaint',
       'fcp',
+      'first-contentful-paint',
     ]),
     label,
-    lcpMs: debugBearMetric(body, [
+    lcpMs: getDebugBearMetric(body, [
       'performance.largestContentfulPaint',
       'largestContentfulPaint',
       'lcp',
+      'largest-contentful-paint',
     ]),
+    performance: getDebugBearCategoryScore(body, ['performance']),
+    seo: getDebugBearCategoryScore(body, ['seo']),
     source: 'debugbear',
-    tbtMs: debugBearMetric(body, [
+    tbtMs: getDebugBearMetric(body, [
       'performance.totalBlockingTime',
       'totalBlockingTime',
       'tbt',
+      'total-blocking-time',
     ]),
     url,
   };
@@ -202,13 +168,17 @@ async function runDebugBear(route) {
     ]),
     method: 'POST',
   });
-  const id = quickTestId(created);
+  const id = getDebugBearQuickTestId(created);
   if (!id) {
     throw new Error('DebugBear quick test response did not include an id');
   }
 
   let result = created;
-  const path = pollPath(created, id);
+  const path = getDebugBearQuickTestPollPath({
+    body: created,
+    projectId: debugBearProjectId,
+    quickTestId: id,
+  });
   for (let attempt = 0; attempt < debugBearMaxPollAttempts; attempt += 1) {
     result = await debugBear(path);
     if (isDebugBearComplete(result)) break;
