@@ -6,7 +6,7 @@ export const INTERNAL_SELECTION_AXIS_VALUES = [
   'colour_hex',
 ] as const;
 
-export const INTERNAL_SELECTION_AXES = new Set<string>(
+const INTERNAL_SELECTION_AXES = new Set<string>(
   INTERNAL_SELECTION_AXIS_VALUES
 );
 
