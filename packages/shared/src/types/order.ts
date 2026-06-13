@@ -42,6 +42,10 @@ export interface OrderItem {
   product_id: string;
   name: string;
   product_name: string;
+  /** Catalog category label used for order display and fulfillment rules. */
+  category?: string | null;
+  /** Canonical catalog category slug when the ordered product is linked. */
+  category_slug?: string | null;
   condition?: string;
   has_assurance?: boolean;
   variant_name?: string;

@@ -66,7 +66,10 @@ export function useOrderDetailsController() {
   const recordPaymentMutation = useRecordPayment();
   const uiState = useOrderDetailsUiState();
 
-  const requiresShipmentDetails = orderRequiresFulfillment(order?.items);
+  const requiresShipmentDetails = orderRequiresFulfillment(
+    order?.items,
+    merchant?.business_type
+  );
   const providerLabel = formatShippingProviderName(order?.shipping_provider);
   const providerBookingAvailable = order
     ? canUseSelectedShippingProvider(order)
