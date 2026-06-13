@@ -41,22 +41,6 @@ interface LoyaltySettings {
   points_expiry_days: number;
 }
 
-interface CustomerLoyalty {
-  id: string;
-  points_balance: number;
-  lifetime_points: number;
-  current_tier: string;
-  referral_code: string;
-  referral_count: number;
-  customers: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    store_credit: number;
-  } | null;
-}
-
 const tierColors: Record<string, string> = {
   Bronze: 'bg-amber-700 text-white',
   Silver: 'bg-gray-400 text-white',
@@ -76,39 +60,9 @@ async function fetchLoyaltySettings(): Promise<LoyaltySettings | null> {
   return null;
 }
 
-interface LoyaltyCustomersData {
-  customers: CustomerLoyalty[];
-  tierDistribution: Record<string, number>;
-}
-
-async function fetchLoyaltyCustomers(
-  tier?: string | null
-): Promise<LoyaltyCustomersData | null> {
-  try {
-    const params = new URLSearchParams();
-    if (tier) params.set('tier', tier);
-
-    const res = await fetch(`/api/loyalty/customers?${params}`);
-    if (res.ok) {
-      const data = await res.json();
-      return {
-        customers: data.customers || [],
-        tierDistribution: data.stats?.tierDistribution || {},
-      };
-    }
-  } catch (error) {
-    console.error('Failed to fetch customers:', error);
-  }
-  return null;
-}
-
 export default function LoyaltyProgramPage() {
   const { toast } = useToast();
   const [settings, setSettings] = useState<LoyaltySettings | null>(null);
-  const [_customers, setCustomers] = useState<CustomerLoyalty[]>([]);
-  const [_tierDistribution, setTierDistribution] = useState<
-    Record<string, number>
-  >({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -118,21 +72,17 @@ export default function LoyaltyProgramPage() {
   useEffect(() => {
     let isStale = false;
 
-    Promise.all([fetchLoyaltySettings(), fetchLoyaltyCustomers()]).then(
-      ([settingsData, customersData]) => {
-        if (isStale) return;
+    fetchLoyaltySettings().then((settingsData) => {
+      if (isStale) return;
 
-        if (!settingsData || !customersData) {
-          setLoadError('Failed to load loyalty program data.');
-        } else {
-          setSettings(settingsData);
-          setCustomers(customersData.customers);
-          setTierDistribution(customersData.tierDistribution);
-          setLoadError(null);
-        }
-        setLoading(false);
+      if (!settingsData) {
+        setLoadError('Failed to load loyalty program data.');
+      } else {
+        setSettings(settingsData);
+        setLoadError(null);
       }
-    );
+      setLoading(false);
+    });
 
     return () => {
       isStale = true;
