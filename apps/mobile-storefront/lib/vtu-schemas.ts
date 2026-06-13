@@ -39,7 +39,7 @@ export const BillItemSchema: z.ZodType<BillItem> = z.lazy(() =>
  * VTU Biller Schema - 2026 Best Practice
  * Ensures runtime integrity of biller data from external APIs.
  */
-export const BillerSchema = z.object({
+const BillerSchema = z.object({
   billerId: z.string().describe('Unique identifier for the biller/provider'),
   billerName: z.string().describe('Display name of the biller'),
   billerType: z.string().describe('Type/description of the biller'),

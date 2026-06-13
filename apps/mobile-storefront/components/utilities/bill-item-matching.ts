@@ -48,12 +48,12 @@ export function billerNameContainsBillItemName(
   );
 }
 
-export function getBillerMatchTokens(value: string) {
+function getBillerMatchTokens(value: string) {
   const normalizedValue = normalizeBillItemMatchText(value);
   return normalizedValue ? normalizedValue.split(' ') : [];
 }
 
-export function startsWithCompleteBillerName(
+function startsWithCompleteBillerName(
   normalizedInitialName: string,
   normalizedBillerName: string
 ) {
@@ -63,7 +63,7 @@ export function startsWithCompleteBillerName(
   );
 }
 
-export function containsBillerNameTokenSequence(
+function containsBillerNameTokenSequence(
   initialNameTokens: string[],
   billerNameTokens: string[]
 ) {
