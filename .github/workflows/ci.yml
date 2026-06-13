@@ -151,9 +151,11 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
-    # Full web/mobile test fan-out reached ~15 minutes on GitHub-hosted runners.
-    # Keep enough headroom for Turbo summary and Actions post-job cleanup.
-    timeout-minutes: 30
+    # Full web/mobile test fan-out reached ~15 minutes warm, but cold runs
+    # (Turbo remote cache unavailable) measure 31m+ on GitHub-hosted runners —
+    # three consecutive 30m timeouts on cold caches. Keep headroom for Turbo
+    # summary and Actions post-job cleanup.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:

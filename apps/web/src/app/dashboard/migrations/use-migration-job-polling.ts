@@ -49,8 +49,11 @@ export function useMigrationJobPolling({
   const selectedJobProcessedRows = selectedJob?.processed_rows ?? 0;
   const selectedJobStatusRef = useRef(selectedJobStatus);
   const selectedJobProcessedRowsRef = useRef(selectedJobProcessedRows);
-  selectedJobStatusRef.current = selectedJobStatus;
-  selectedJobProcessedRowsRef.current = selectedJobProcessedRows;
+
+  useEffect(() => {
+    selectedJobStatusRef.current = selectedJobStatus;
+    selectedJobProcessedRowsRef.current = selectedJobProcessedRows;
+  }, [selectedJobStatus, selectedJobProcessedRows]);
 
   useEffect(() => {
     if (

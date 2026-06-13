@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useActionState, useEffect, useState, useTransition } from 'react';
+import { useActionState, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
@@ -191,8 +191,10 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
 
   const { toast } = useToast();
 
-  // Use Action State for better form handling
-  const [state, formAction, isBasePending] = useActionState<
+  // Use Action State for better form handling.
+  // Success/error side effects run inside the action itself (event context)
+  // instead of mirroring the action result through an effect.
+  const [, formAction, isBasePending] = useActionState<
     { success: boolean; message?: string; error?: string } | null,
     FormData
   >(
@@ -209,31 +211,24 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
 
       try {
         const result = await inviteStaffMember(data as InviteStaffData);
+        toast({ title: 'Invitation Sent', description: result.message });
+        form.reset();
+        setInviteDialogOpen(false);
+        router.refresh();
         return { success: true, message: result.message };
       } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Invitation failed',
-        };
+        const message =
+          error instanceof Error ? error.message : 'Invitation failed';
+        toast({
+          title: 'Error',
+          description: message,
+          variant: 'destructive',
+        });
+        return { success: false, error: message };
       }
     },
     null
   );
-
-  useEffect(() => {
-    if (state?.success) {
-      toast({ title: 'Invitation Sent', description: state.message });
-      form.reset();
-      setInviteDialogOpen(false);
-      router.refresh();
-    } else if (state?.error) {
-      toast({
-        title: 'Error',
-        description: state.error,
-        variant: 'destructive',
-      });
-    }
-  }, [state, toast, form, router]);
 
   const isInvitePending = isBasePending;
 
@@ -316,10 +311,11 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
               : 'Failed to remove team member.',
           variant: 'destructive',
         });
-      } finally {
-        setRemoveDialogOpen(false);
-        setStaffToRemove(null);
       }
+      // Always close the dialog (the catch above never rethrows, so this
+      // runs on both success and failure — equivalent to the old finally).
+      setRemoveDialogOpen(false);
+      setStaffToRemove(null);
     });
   };
 

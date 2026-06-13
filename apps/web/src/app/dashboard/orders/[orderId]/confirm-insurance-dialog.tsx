@@ -118,9 +118,9 @@ export default function ConfirmInsuranceDialog({
         title: 'Error',
         description: 'Failed to confirm order. Please try again.',
       });
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
   return (

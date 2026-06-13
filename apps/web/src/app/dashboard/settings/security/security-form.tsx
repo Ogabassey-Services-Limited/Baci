@@ -3,7 +3,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, KeyRound, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import {
+  FormProvider,
+  type UseFormReturn,
+  useForm,
+  useWatch,
+} from 'react-hook-form';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -35,6 +40,90 @@ import {
   setPasswordSchema,
 } from '@/schemas/account-security';
 
+type SecurityFormValues = SetPasswordValues | ChangePasswordValues;
+type ToastFn = ReturnType<typeof useToast>['toast'];
+
+// Module-scope helper keeps the try/finally and dynamic import out of the
+// component body (React Compiler cannot lower either inside components yet).
+async function submitPasswordUpdate({
+  data,
+  hasPasswordIdentity,
+  userEmail,
+  form,
+  toast,
+  setIsSubmitting,
+}: {
+  data: SecurityFormValues;
+  hasPasswordIdentity: boolean;
+  userEmail: string;
+  form: UseFormReturn<SecurityFormValues>;
+  toast: ToastFn;
+  setIsSubmitting: (submitting: boolean) => void;
+}): Promise<void> {
+  try {
+    const supabase = createClient();
+
+    // For users with existing password, verify current password first
+    if (hasPasswordIdentity && 'currentPassword' in data) {
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: data.currentPassword,
+      });
+
+      if (verifyError) {
+        form.setError('currentPassword' as keyof typeof data, {
+          message: 'Current password is incorrect.',
+        });
+        return;
+      }
+    }
+
+    // Check for breached passwords (async, fail-safe)
+    try {
+      const { checkPasswordBreach } = await import('@/lib/password-breach');
+      const { isBreached } = await checkPasswordBreach(data.newPassword);
+      if (isBreached) {
+        form.setError('newPassword', {
+          message:
+            'This password has been found in a data breach. Please choose a different password.',
+        });
+        return;
+      }
+    } catch {
+      // Breach check failed (network issue) — continue, fail-safe
+    }
+
+    // Set or update the password
+    const { error } = await supabase.auth.updateUser({
+      password: data.newPassword,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    toast({
+      title: hasPasswordIdentity ? 'Password Changed' : 'Password Set',
+      description: hasPasswordIdentity
+        ? 'Your password has been updated successfully.'
+        : 'You can now sign in with your email and password.',
+    });
+
+    form.reset();
+  } catch (error) {
+    toast({
+      variant: 'destructive',
+      title: 'Failed to Update Password',
+      description:
+        error instanceof Error
+          ? error.message
+          : 'An unexpected error occurred.',
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+}
+
 export function SecurityForm() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -43,7 +132,7 @@ export function SecurityForm() {
   const hasPasswordIdentity =
     user?.identities?.some((i) => i.provider === 'email') ?? false;
 
-  const form = useForm<SetPasswordValues | ChangePasswordValues>({
+  const form = useForm<SecurityFormValues>({
     resolver: zodResolver(
       hasPasswordIdentity ? changePasswordSchema : setPasswordSchema
     ),
@@ -52,74 +141,25 @@ export function SecurityForm() {
       : { newPassword: '', confirmPassword: '' },
   });
 
-  const passwordValue = form.watch('newPassword');
+  // useWatch instead of form.watch(): watch() returns interior-mutable values
+  // that are incompatible with React Compiler memoization.
+  const passwordValue = useWatch({
+    control: form.control,
+    name: 'newPassword',
+  });
   const passwordStrength = checkPasswordStrength(passwordValue || '');
 
-  const onSubmit = async (data: SetPasswordValues | ChangePasswordValues) => {
+  const onSubmit = (data: SecurityFormValues) => {
     setIsSubmitting(true);
 
-    try {
-      const supabase = createClient();
-
-      // For users with existing password, verify current password first
-      if (hasPasswordIdentity && 'currentPassword' in data) {
-        const { error: verifyError } = await supabase.auth.signInWithPassword({
-          email: user?.email ?? '',
-          password: data.currentPassword,
-        });
-
-        if (verifyError) {
-          form.setError('currentPassword' as keyof typeof data, {
-            message: 'Current password is incorrect.',
-          });
-          return;
-        }
-      }
-
-      // Check for breached passwords (async, fail-safe)
-      try {
-        const { checkPasswordBreach } = await import('@/lib/password-breach');
-        const { isBreached } = await checkPasswordBreach(data.newPassword);
-        if (isBreached) {
-          form.setError('newPassword', {
-            message:
-              'This password has been found in a data breach. Please choose a different password.',
-          });
-          return;
-        }
-      } catch {
-        // Breach check failed (network issue) — continue, fail-safe
-      }
-
-      // Set or update the password
-      const { error } = await supabase.auth.updateUser({
-        password: data.newPassword,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: hasPasswordIdentity ? 'Password Changed' : 'Password Set',
-        description: hasPasswordIdentity
-          ? 'Your password has been updated successfully.'
-          : 'You can now sign in with your email and password.',
-      });
-
-      form.reset();
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Failed to Update Password',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'An unexpected error occurred.',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    return submitPasswordUpdate({
+      data,
+      hasPasswordIdentity,
+      userEmail: user?.email ?? '',
+      form,
+      toast,
+      setIsSubmitting,
+    });
   };
 
   if (authLoading) {

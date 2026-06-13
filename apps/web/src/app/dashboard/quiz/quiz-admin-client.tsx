@@ -47,6 +47,46 @@ function formatValidationSummary(
     .join('; ');
 }
 
+interface GenerateQuizDraftInput {
+  difficulty: 'easy' | 'standard' | 'hard';
+  prizeProductId: string;
+  publicationMode: 'draft' | 'active';
+  questionCountPerTopic: number;
+  timeLimitSeconds: number;
+  title: string;
+  topics: string;
+}
+
+async function generateQuizDraft(
+  input: GenerateQuizDraftInput
+): Promise<MerchantQuizGenerationResponse> {
+  const normalizedTopics = topicsFromTextarea(input.topics);
+  if (normalizedTopics.length === 0) {
+    throw new Error('Add at least one quiz topic before generating.');
+  }
+  if (!input.prizeProductId) {
+    throw new Error('Select an active product prize before generating.');
+  }
+
+  const parsed = merchantQuizGenerationResponseSchema.safeParse(
+    await apiPost('/api/merchant/quiz/generate', {
+      difficulty: input.difficulty,
+      prizeProductId: input.prizeProductId,
+      publicationMode: input.publicationMode,
+      questionCountPerTopic: input.questionCountPerTopic,
+      timeLimitSeconds: input.timeLimitSeconds,
+      title: input.title,
+      topics: normalizedTopics,
+    })
+  );
+  if (!parsed.success) {
+    const validationSummary = formatValidationSummary(parsed.error.issues);
+    console.error('Invalid quiz generation response', parsed.error);
+    throw new Error(`Invalid quiz generation response: ${validationSummary}`);
+  }
+  return parsed.data;
+}
+
 interface QuizAdminClientProps {
   initialPrizeProducts: MerchantQuizPrizeProduct[];
   initialPrizeProductsError?: string | null;
@@ -88,64 +128,52 @@ export function QuizAdminClient({
     title.trim().length > 0 &&
     selectedPrizeProductId.length > 0;
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     setError(null);
     setResult(null);
     setIsGenerating(true);
-    try {
-      const normalizedTimeLimitSeconds = clampNumber(
-        Number(timeLimitSeconds),
-        5,
-        60
-      );
-      const normalizedQuestionCountPerTopic = clampNumber(
-        Number(questionCountPerTopic),
-        1,
-        5
-      );
-      setTimeLimitSeconds(String(normalizedTimeLimitSeconds));
-      setQuestionCountPerTopic(String(normalizedQuestionCountPerTopic));
 
-      const normalizedTopics = topicsFromTextarea(topics);
-      if (normalizedTopics.length === 0) {
-        throw new Error('Add at least one quiz topic before generating.');
-      }
-      if (!selectedPrizeProductId) {
-        throw new Error('Select an active product prize before generating.');
-      }
+    const normalizedTimeLimitSeconds = clampNumber(
+      Number(timeLimitSeconds),
+      5,
+      60
+    );
+    const normalizedQuestionCountPerTopic = clampNumber(
+      Number(questionCountPerTopic),
+      1,
+      5
+    );
+    setTimeLimitSeconds(String(normalizedTimeLimitSeconds));
+    setQuestionCountPerTopic(String(normalizedQuestionCountPerTopic));
 
-      const parsed = merchantQuizGenerationResponseSchema.safeParse(
-        await apiPost('/api/merchant/quiz/generate', {
-          difficulty,
-          prizeProductId: selectedPrizeProductId,
-          publicationMode,
-          questionCountPerTopic: normalizedQuestionCountPerTopic,
-          timeLimitSeconds: normalizedTimeLimitSeconds,
-          title,
-          topics: normalizedTopics,
-        })
-      );
-      if (!parsed.success) {
-        const validationSummary = formatValidationSummary(parsed.error.issues);
-        console.error('Invalid quiz generation response', parsed.error);
-        throw new Error(
-          `Invalid quiz generation response: ${validationSummary}`
+    generateQuizDraft({
+      difficulty,
+      prizeProductId: selectedPrizeProductId,
+      publicationMode,
+      questionCountPerTopic: normalizedQuestionCountPerTopic,
+      timeLimitSeconds: normalizedTimeLimitSeconds,
+      title,
+      topics,
+    })
+      .then((data) => {
+        setResult(data);
+      })
+      .catch((generationError: unknown) => {
+        setResult(null);
+        setError(
+          generationError instanceof Error
+            ? generationError.message
+            : 'Failed to generate quiz draft'
         );
-      }
-      setResult(parsed.data);
-    } catch (error) {
-      setResult(null);
-      setError(
-        error instanceof Error ? error.message : 'Failed to generate quiz draft'
-      );
-    } finally {
-      setIsGenerating(false);
-    }
+      })
+      .finally(() => {
+        setIsGenerating(false);
+      });
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void handleGenerate();
+    handleGenerate();
   };
 
   return (

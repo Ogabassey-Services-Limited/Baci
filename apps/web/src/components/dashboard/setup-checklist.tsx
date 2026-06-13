@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   ChevronRight,
@@ -10,13 +11,14 @@ import {
   FileText,
   Megaphone,
   Package,
+  RefreshCw,
   Rocket,
   Store,
   X,
 } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import type {
   SetupItem,
   StoreReadiness,
@@ -64,6 +66,59 @@ const priorityLabels = {
   recommended: 'Recommended',
   optional: 'Optional',
 };
+
+const setupItemPriorities = new Set<SetupItem['priority']>([
+  'required',
+  'recommended',
+  'optional',
+]);
+
+const setupItemCategories = new Set<SetupItem['category']>([
+  'payments',
+  'products',
+  'store',
+  'legal',
+  'marketing',
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isSetupItem(value: unknown): value is SetupItem {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === 'string' &&
+    typeof value.label === 'string' &&
+    typeof value.description === 'string' &&
+    typeof value.completed === 'boolean' &&
+    typeof value.href === 'string' &&
+    setupItemPriorities.has(value.priority as SetupItem['priority']) &&
+    setupItemCategories.has(value.category as SetupItem['category'])
+  );
+}
+
+function isStoreReadiness(value: unknown): value is StoreReadiness {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.isReady === 'boolean' &&
+    typeof value.isPublished === 'boolean' &&
+    typeof value.completedRequired === 'number' &&
+    typeof value.totalRequired === 'number' &&
+    typeof value.completedRecommended === 'number' &&
+    typeof value.totalRecommended === 'number' &&
+    typeof value.overallProgress === 'number' &&
+    Array.isArray(value.items) &&
+    value.items.every(isSetupItem) &&
+    isRecord(value.storeBuild)
+  );
+}
 
 interface SetupChecklistProps {
   onPublish?: () => void;
@@ -144,125 +199,27 @@ function SetupChecklistMobileWidget({
   );
 }
 
-export function SetupChecklist({
-  onPublish,
-  compact = false,
-  dismissible = false,
-}: SetupChecklistProps) {
-  const { toast } = useToast();
-  const [readiness, setReadiness] = useState<StoreReadiness | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [publishing, setPublishing] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  const [showAll, setShowAll] = useState(false);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+interface ChecklistContentProps {
+  compact: boolean;
+  displayItems: SetupItem[];
+  incompleteItems: SetupItem[];
+  readiness: StoreReadiness;
+  requiredIncomplete: SetupItem[];
+  setShowAll: Dispatch<SetStateAction<boolean>>;
+  showAll: boolean;
+}
 
-  // Handle completion highlighting - must be before any early returns
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const completedCategory = params.get('setup_complete');
-
-    if (completedCategory) {
-      // Clear the param
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-
-      // Show success toast
-      toast({
-        title: 'Step Completed! 🎉',
-        description: 'Great job! Moving to the next step.',
-        className:
-          'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/50 dark:border-green-800 dark:text-green-200',
-      });
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    const fetchReadiness = async () => {
-      try {
-        const response = await fetch('/api/merchant/readiness');
-        if (response.ok) {
-          const data = await response.json();
-          setReadiness(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch readiness:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReadiness();
-  }, []);
-
-  const handlePublish = async () => {
-    if (!readiness?.isReady) {
-      toast({
-        variant: 'destructive',
-        title: 'Cannot publish store',
-        description: 'Please complete all required setup items first.',
-      });
-      return;
-    }
-
-    setPublishing(true);
-    try {
-      const response = await requestMerchantPublish(false);
-
-      if (response.ok) {
-        toast({
-          title: 'Store published!',
-          description: 'Your store is now live and accepting orders.',
-        });
-        setReadiness((prev) => (prev ? { ...prev, isPublished: true } : null));
-        onPublish?.();
-        setIsSheetOpen(false);
-      } else {
-        throw new Error('Failed to publish');
-      }
-    } catch (_error) {
-      toast({
-        variant: 'destructive',
-        title: 'Failed to publish',
-        description: 'Please try again later.',
-      });
-    } finally {
-      setPublishing(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <Card className={cn(compact && 'border-0 shadow-none')}>
-        <CardContent className="py-8">
-          <div className="flex items-center justify-center">
-            <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!readiness) return null;
-
-  // If store is published and all required items are done, return null or minimal state
-  if (readiness.isPublished && readiness.isReady && dismissible && dismissed) {
-    return null;
-  }
-
-  // Group items
-  const incompleteItems = readiness.items.filter((item) => !item.completed);
-  const displayItems = showAll
-    ? readiness.items
-    : compact
-      ? incompleteItems.slice(0, 3)
-      : incompleteItems;
-  const requiredIncomplete = incompleteItems.filter(
-    (item) => item.priority === 'required'
-  );
-
-  // Main Card Content (refactored for reuse in Drawer)
-  const ChecklistContent = () => (
+// Main Card Content (shared between the desktop card and the mobile drawer)
+function ChecklistContent({
+  compact,
+  displayItems,
+  incompleteItems,
+  readiness,
+  requiredIncomplete,
+  setShowAll,
+  showAll,
+}: ChecklistContentProps) {
+  return (
     <CardContent className={cn(compact && 'px-0 pb-0', 'p-0 sm:p-6 sm:pt-0')}>
       {/* Required items warning */}
       {!readiness.isReady && requiredIncomplete.length > 0 && (
@@ -326,9 +283,17 @@ export function SetupChecklist({
       )}
     </CardContent>
   );
+}
 
-  // Drawer Header (for mobile)
-  const DrawerHeader = () => (
+interface DrawerHeaderProps {
+  onPublish: () => void;
+  publishing: boolean;
+  readiness: StoreReadiness;
+}
+
+// Drawer Header (for mobile)
+function DrawerHeader({ onPublish, publishing, readiness }: DrawerHeaderProps) {
+  return (
     <div className="flex flex-col gap-4 mb-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
@@ -358,7 +323,7 @@ export function SetupChecklist({
         </div>
         {!readiness.isPublished && readiness.isReady && (
           <Button
-            onClick={handlePublish}
+            onClick={onPublish}
             disabled={publishing}
             size="sm"
             className="shrink-0"
@@ -378,6 +343,172 @@ export function SetupChecklist({
         aria-label="Setup progress"
       />
     </div>
+  );
+}
+
+export function SetupChecklist({
+  onPublish,
+  compact = false,
+  dismissible = false,
+}: SetupChecklistProps) {
+  const { toast } = useToast();
+  const [readiness, setReadiness] = useState<StoreReadiness | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [publishing, setPublishing] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  // Handle completion highlighting - must be before any early returns
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const completedCategory = params.get('setup_complete');
+
+    if (completedCategory) {
+      // Clear the param
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+
+      // Show success toast
+      toast({
+        title: 'Step Completed! 🎉',
+        description: 'Great job! Moving to the next step.',
+        className:
+          'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/50 dark:border-green-800 dark:text-green-200',
+      });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    let active = true;
+
+    fetch('/api/merchant/readiness')
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error('Failed to fetch readiness');
+        }
+        const data: unknown = await response.json();
+        if (!isStoreReadiness(data)) {
+          throw new Error('Invalid readiness payload');
+        }
+        if (active) {
+          setReadiness(data);
+          setLoadError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to fetch readiness:', error);
+        if (active) {
+          setLoadError('Failed to load your setup checklist.');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [reloadToken]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
+
+  const handlePublish = () => {
+    if (!readiness?.isReady) {
+      toast({
+        variant: 'destructive',
+        title: 'Cannot publish store',
+        description: 'Please complete all required setup items first.',
+      });
+      return;
+    }
+
+    setPublishing(true);
+    requestMerchantPublish(false)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to publish');
+        }
+        toast({
+          title: 'Store published!',
+          description: 'Your store is now live and accepting orders.',
+        });
+        setReadiness((prev) => (prev ? { ...prev, isPublished: true } : null));
+        onPublish?.();
+        setIsSheetOpen(false);
+      })
+      .catch(() => {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to publish',
+          description: 'Please try again later.',
+        });
+      })
+      .finally(() => {
+        setPublishing(false);
+      });
+  };
+
+  if (loading) {
+    return (
+      <Card className={cn(compact && 'border-0 shadow-none')}>
+        <CardContent className="py-8">
+          <div className="flex items-center justify-center">
+            <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card
+        className={cn('border-destructive', compact && 'border shadow-none')}
+      >
+        <CardContent className="pt-6">
+          <p className="text-sm text-destructive flex items-center gap-2">
+            <AlertTriangle className="size-4" />
+            {loadError}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={retryLoad}
+          >
+            <RefreshCw className="size-4 mr-1.5" />
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!readiness) return null;
+
+  // If store is published and all required items are done, return null or minimal state
+  if (readiness.isPublished && readiness.isReady && dismissible && dismissed) {
+    return null;
+  }
+
+  // Group items
+  const incompleteItems = readiness.items.filter((item) => !item.completed);
+  const displayItems = showAll
+    ? readiness.items
+    : compact
+      ? incompleteItems.slice(0, 3)
+      : incompleteItems;
+  const requiredIncomplete = incompleteItems.filter(
+    (item) => item.priority === 'required'
   );
 
   return (
@@ -401,8 +532,20 @@ export function SetupChecklist({
               </SheetDescription>
             </SheetHeader>
             <div className="h-full overflow-y-auto pb-20 no-scrollbar">
-              <DrawerHeader />
-              <ChecklistContent />
+              <DrawerHeader
+                onPublish={handlePublish}
+                publishing={publishing}
+                readiness={readiness}
+              />
+              <ChecklistContent
+                compact={compact}
+                displayItems={displayItems}
+                incompleteItems={incompleteItems}
+                readiness={readiness}
+                requiredIncomplete={requiredIncomplete}
+                setShowAll={setShowAll}
+                showAll={showAll}
+              />
             </div>
           </SheetContent>
         </Sheet>
@@ -490,7 +633,15 @@ export function SetupChecklist({
           </div>
         </CardHeader>
 
-        <ChecklistContent />
+        <ChecklistContent
+          compact={compact}
+          displayItems={displayItems}
+          incompleteItems={incompleteItems}
+          readiness={readiness}
+          requiredIncomplete={requiredIncomplete}
+          setShowAll={setShowAll}
+          showAll={showAll}
+        />
       </Card>
     </>
   );

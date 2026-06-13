@@ -12,6 +12,43 @@ type ToastApi = (args: {
   variant?: 'default' | 'destructive';
 }) => unknown;
 
+async function analyzePriceList(
+  products: Product[],
+  data: string,
+  vendor: string,
+  fileType: string
+): Promise<AIResponse> {
+  const { parseCSVDirectly, processPriceList } = await import(
+    '@/app/dashboard/products/actions'
+  );
+
+  const lines = data.split('\n').filter((line) => line.trim());
+  const directResult = await parseCSVDirectly(products, data);
+  const hasStructuralError =
+    !directResult ||
+    directResult.summary?.includes('Could not find') ||
+    directResult.summary?.includes('No data rows');
+  const structuralSummary =
+    directResult?.summary ??
+    'Could not parse the pasted content. Please check the format.';
+
+  if (hasStructuralError) {
+    if (lines.length > 50) {
+      throw new Error(structuralSummary);
+    }
+
+    return processPriceList(products, data, vendor, fileType);
+  }
+
+  return directResult;
+}
+
+async function fetchConnectedSheet(sheetUrl: string): Promise<string> {
+  const { fetchGoogleSheet } = await import('@/app/dashboard/products/actions');
+
+  return fetchGoogleSheet(sheetUrl);
+}
+
 interface UseProductsPageActionsArgs {
   connectedSheetUrl?: string;
   merchantId?: string;
@@ -48,31 +85,7 @@ export function useProductsPageActions({
   ) => {
     setWorkflowStep('processing');
     try {
-      const { parseCSVDirectly, processPriceList } = await import(
-        '@/app/dashboard/products/actions'
-      );
-
-      const lines = data.split('\n').filter((line) => line.trim());
-      const directResult = await parseCSVDirectly(products, data);
-      const hasStructuralError =
-        !directResult ||
-        directResult.summary?.includes('Could not find') ||
-        directResult.summary?.includes('No data rows');
-      const structuralSummary =
-        directResult?.summary ??
-        'Could not parse the pasted content. Please check the format.';
-
-      let response: AIResponse;
-
-      if (hasStructuralError) {
-        if (lines.length > 50) {
-          throw new Error(structuralSummary);
-        }
-
-        response = await processPriceList(products, data, vendor, fileType);
-      } else {
-        response = directResult;
-      }
+      const response = await analyzePriceList(products, data, vendor, fileType);
 
       setAiResponse(response);
       setWorkflowStep('review');
@@ -122,27 +135,25 @@ export function useProductsPageActions({
     if (!connectedSheetUrl) return;
 
     setIsSyncing(true);
-    try {
-      const { fetchGoogleSheet } = await import(
-        '@/app/dashboard/products/actions'
-      );
-      const csvContent = await fetchGoogleSheet(connectedSheetUrl);
-
-      await startAiProcessing(csvContent, 'Google Sheet Sync', 'csv');
-      toast({
-        title: 'Sync Started',
-        description: 'Analyzing changes from your connected sheet...',
+    await fetchConnectedSheet(connectedSheetUrl)
+      .then(async (csvContent) => {
+        await startAiProcessing(csvContent, 'Google Sheet Sync', 'csv');
+        toast({
+          title: 'Sync Started',
+          description: 'Analyzing changes from your connected sheet...',
+        });
+      })
+      .catch((error) => {
+        console.error(error);
+        toast({
+          title: 'Sync Failed',
+          description: 'Could not fetch the connected sheet.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsSyncing(false);
       });
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Sync Failed',
-        description: 'Could not fetch the connected sheet.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSyncing(false);
-    }
   };
 
   const disconnectSheet = async () => {

@@ -122,4 +122,18 @@ describe('SetupChecklist', () => {
       ).toHaveAttribute('aria-expanded', 'true');
     });
   });
+
+  it('shows a load error instead of rendering malformed readiness data', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ isReady: false }),
+    } as Response);
+
+    render(<SetupChecklist compact />);
+
+    expect(
+      await screen.findByText('Failed to load your setup checklist.')
+    ).toBeInTheDocument();
+  });
 });

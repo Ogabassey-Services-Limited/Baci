@@ -1,6 +1,14 @@
 'use client';
 
-import { CheckCircle2, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Pencil,
+  RefreshCw,
+  Sparkles,
+  Wand2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
@@ -42,6 +50,8 @@ interface StoreBuildStatusCardProps {
 export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
   const [status, setStatus] = useState<StoreBuildStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [applying, setApplying] = useState(false);
   const [showStaleDialog, setShowStaleDialog] = useState(false);
   const { toast } = useToast();
@@ -49,37 +59,46 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
   useEffect(() => {
     let active = true;
 
-    const loadStatus = async () => {
-      try {
-        const response = await fetch('/api/merchant/readiness', {
-          credentials: 'include',
-        });
-
+    fetch('/api/merchant/readiness', {
+      credentials: 'include',
+    })
+      .then((response) => {
         if (!response.ok) {
           throw new Error('Failed to load store build status');
         }
 
-        const payload: unknown = await response.json();
+        return response.json() as Promise<unknown>;
+      })
+      .then((payload) => {
         if (active && isReadinessPayload(payload)) {
           setStatus(payload.storeBuild ?? null);
+          setLoadError(null);
         }
-      } catch (error) {
+      })
+      .catch((error: unknown) => {
         console.error('Failed to load store build status:', error);
-      } finally {
+        if (active) {
+          setLoadError('Failed to load store build status.');
+        }
+      })
+      .finally(() => {
         if (active) {
           setLoading(false);
         }
-      }
-    };
-
-    loadStatus();
+      });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadToken]);
 
-  const applyDraft = async (force = false) => {
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
+
+  const applyDraft = (force = false) => {
     if (!status?.latestJobId || !status.canApplyAiDraft) {
       toast({
         title: 'Cannot apply this AI design',
@@ -90,57 +109,56 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
     }
 
     setApplying(true);
-    try {
-      const response = await fetchWithCsrf(
-        `/api/ai-jobs/${status.latestJobId}/apply`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(force ? { force: true } : {}),
+    fetchWithCsrf(`/api/ai-jobs/${status.latestJobId}/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(force ? { force: true } : {}),
+    })
+      .then(async (response) => {
+        const payload = await readApplyResponse(response);
+
+        if (
+          !force &&
+          response.status === 409 &&
+          payload.code === 'ai_draft_stale'
+        ) {
+          setShowStaleDialog(true);
+          return;
         }
-      );
-      const payload = await readApplyResponse(response);
 
-      if (
-        !force &&
-        response.status === 409 &&
-        payload.code === 'ai_draft_stale'
-      ) {
-        setShowStaleDialog(true);
-        return;
-      }
+        if (!response.ok) {
+          throw new Error(
+            payload.error || payload.message || 'Failed to apply AI design'
+          );
+        }
 
-      if (!response.ok) {
-        throw new Error(
-          payload.error || payload.message || 'Failed to apply AI design'
+        setStatus((current) =>
+          current
+            ? {
+                ...current,
+                aiStatus: 'applied',
+                message: 'Your generated storefront is now editable.',
+              }
+            : current
         );
-      }
-
-      setStatus((current) =>
-        current
-          ? {
-              ...current,
-              aiStatus: 'applied',
-              message: 'Your generated storefront is now editable.',
-            }
-          : current
-      );
-      toast({
-        title: 'AI design applied',
-        description: 'The generated storefront is now your editable draft.',
+        toast({
+          title: 'AI design applied',
+          description: 'The generated storefront is now your editable draft.',
+        });
+        onApplied?.();
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to apply AI storefront draft:', error);
+        toast({
+          title: 'Failed to apply AI design',
+          description:
+            error instanceof Error ? error.message : 'Please try again later.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setApplying(false);
       });
-      onApplied?.();
-    } catch (error) {
-      console.error('Failed to apply AI storefront draft:', error);
-      toast({
-        title: 'Failed to apply AI design',
-        description:
-          error instanceof Error ? error.message : 'Please try again later.',
-        variant: 'destructive',
-      });
-    } finally {
-      setApplying(false);
-    }
   };
 
   if (loading) {
@@ -149,6 +167,28 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
         <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
           Checking store build status…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card className="border-destructive">
+        <CardContent className="pt-6">
+          <p className="text-sm text-destructive flex items-center gap-2">
+            <AlertTriangle className="size-4" />
+            {loadError}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={retryLoad}
+          >
+            <RefreshCw className="size-4 mr-1.5" />
+            Retry
+          </Button>
         </CardContent>
       </Card>
     );

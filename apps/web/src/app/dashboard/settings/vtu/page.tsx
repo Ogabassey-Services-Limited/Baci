@@ -2,11 +2,13 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
   Check,
   Gift,
   Loader2,
   Phone,
   Plus,
+  RefreshCw,
   Settings,
   ShoppingCart,
   TrendingUp,
@@ -27,6 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 interface VTUSettings {
@@ -49,70 +52,94 @@ const DEFAULT_SETTINGS: VTUSettings = {
   vtu_merchant_commission_rate: 0.5,
 };
 
+async function fetchVtuSettings(): Promise<VTUSettings | null> {
+  try {
+    const response = await fetch('/api/merchant/features');
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    return {
+      vtu_enabled: data.vtu_enabled ?? false,
+      vtu_airtime_enabled: data.vtu_airtime_enabled ?? true,
+      vtu_data_enabled: data.vtu_data_enabled ?? true,
+      vtu_checkout_addon_enabled: data.vtu_checkout_addon_enabled ?? false,
+      vtu_checkout_addon_amounts: data.vtu_checkout_addon_amounts || [
+        100, 200, 500, 1000,
+      ],
+      vtu_loyalty_reward_enabled: data.vtu_loyalty_reward_enabled ?? false,
+      vtu_merchant_commission_rate: data.vtu_merchant_commission_rate ?? 0.5,
+    };
+  } catch (error) {
+    console.error('Failed to fetch VTU settings:', error);
+    return null;
+  }
+}
+
 export default function VTUSettingsPage() {
   const { toast } = useToast();
   const [settings, setSettings] = useState<VTUSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [saving, setSaving] = useState(false);
   const [newAmount, setNewAmount] = useState('');
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await fetch('/api/merchant/features');
-        if (response.ok) {
-          const data = await response.json();
-          setSettings({
-            vtu_enabled: data.vtu_enabled ?? false,
-            vtu_airtime_enabled: data.vtu_airtime_enabled ?? true,
-            vtu_data_enabled: data.vtu_data_enabled ?? true,
-            vtu_checkout_addon_enabled:
-              data.vtu_checkout_addon_enabled ?? false,
-            vtu_checkout_addon_amounts: data.vtu_checkout_addon_amounts || [
-              100, 200, 500, 1000,
-            ],
-            vtu_loyalty_reward_enabled:
-              data.vtu_loyalty_reward_enabled ?? false,
-            vtu_merchant_commission_rate:
-              data.vtu_merchant_commission_rate ?? 0.5,
-          });
+    let isStale = false;
+
+    fetchVtuSettings()
+      .then((fetchedSettings) => {
+        if (isStale) return;
+        if (fetchedSettings) {
+          setSettings(fetchedSettings);
+          setLoadError(null);
+        } else {
+          setLoadError('Failed to load VTU settings.');
         }
-      } catch (error) {
-        console.error('Failed to fetch VTU settings:', error);
-      } finally {
+      })
+      .finally(() => {
+        if (isStale) return;
         setLoading(false);
-      }
-    };
-
-    fetchSettings();
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const response = await fetch('/api/merchant/features', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
       });
 
-      if (response.ok) {
+    return () => {
+      isStale = true;
+    };
+  }, [reloadToken]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadToken((token) => token + 1);
+  };
+
+  const handleSave = () => {
+    setSaving(true);
+    fetchWithCsrf('/api/merchant/features', {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to save settings');
+        }
         toast({
           title: 'Settings Saved',
           description: 'VTU settings have been updated.',
         });
-      } else {
-        throw new Error('Failed to save settings');
-      }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to save VTU settings.',
+      })
+      .catch(() => {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to save VTU settings.',
+        });
+      })
+      .finally(() => {
+        setSaving(false);
       });
-    } finally {
-      setSaving(false);
-    }
   };
 
   const addAmount = () => {
@@ -146,6 +173,37 @@ export default function VTUSettingsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="size-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">VTU Services</h1>
+          <p className="text-muted-foreground">
+            Enable airtime and data purchases for your customers. Earn
+            commission on every sale.
+          </p>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              {loadError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={retryLoad}
+            >
+              <RefreshCw className="size-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

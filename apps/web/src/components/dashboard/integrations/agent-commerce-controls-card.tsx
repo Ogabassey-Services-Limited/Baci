@@ -70,31 +70,34 @@ export function AgentCommerceControlsCard({
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleToggle = async (nextEnabled: boolean) => {
+  const handleToggle = (nextEnabled: boolean) => {
     const previousEnabled = enabled;
     setEnabled(nextEnabled);
     setIsSaving(true);
     setError(null);
     setSuccessMessage(null);
 
-    try {
-      const updated = await apiPatch<
-        Partial<Pick<MerchantFeatureSettingsInput, 'agentic_checkout_enabled'>>
-      >(FEATURES_ENDPOINT, { agentic_checkout_enabled: nextEnabled });
-      setEnabled(updated.agentic_checkout_enabled ?? true);
-    } catch (saveError) {
-      setEnabled(previousEnabled);
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Unable to save agent checkout controls'
-      );
-    } finally {
-      setIsSaving(false);
-    }
+    apiPatch<
+      Partial<Pick<MerchantFeatureSettingsInput, 'agentic_checkout_enabled'>>
+    >(FEATURES_ENDPOINT, { agentic_checkout_enabled: nextEnabled })
+      .then((updated) => {
+        // Preserve the user's intended value when the response omits the flag.
+        setEnabled(updated.agentic_checkout_enabled ?? nextEnabled);
+      })
+      .catch((saveError: unknown) => {
+        setEnabled(previousEnabled);
+        setError(
+          saveError instanceof Error
+            ? saveError.message
+            : 'Unable to save agent checkout controls'
+        );
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
-  const handleSaveAgentAccessControls = async () => {
+  const handleSaveAgentAccessControls = () => {
     setIsSaving(true);
     setError(null);
     setSuccessMessage(null);
@@ -105,26 +108,31 @@ export function AgentCommerceControlsCard({
       [AGENTIC_AGENT_DENYLIST_KEY]: parsePatternsInput(denylistInput),
     };
 
-    try {
-      const updated = await apiPatch<
-        Partial<Pick<MerchantFeatureSettingsInput, 'custom_settings'>>
-      >(FEATURES_ENDPOINT, { custom_settings: nextCustomSettings });
-      const updatedCustomSettings =
-        getRecordValue(updated.custom_settings) ?? nextCustomSettings;
-      const updatedControls = readAgenticRequestControls(updatedCustomSettings);
-      setCustomSettings(updatedCustomSettings);
-      setAllowlistInput(formatPatterns(updatedControls.allowlist));
-      setDenylistInput(formatPatterns(updatedControls.denylist));
-      setSuccessMessage('Agent access controls saved');
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Unable to save agent access controls'
-      );
-    } finally {
-      setIsSaving(false);
-    }
+    apiPatch<Partial<Pick<MerchantFeatureSettingsInput, 'custom_settings'>>>(
+      FEATURES_ENDPOINT,
+      { custom_settings: nextCustomSettings }
+    )
+      .then((updated) => {
+        const updatedCustomSettings =
+          getRecordValue(updated.custom_settings) ?? nextCustomSettings;
+        const updatedControls = readAgenticRequestControls(
+          updatedCustomSettings
+        );
+        setCustomSettings(updatedCustomSettings);
+        setAllowlistInput(formatPatterns(updatedControls.allowlist));
+        setDenylistInput(formatPatterns(updatedControls.denylist));
+        setSuccessMessage('Agent access controls saved');
+      })
+      .catch((saveError: unknown) => {
+        setError(
+          saveError instanceof Error
+            ? saveError.message
+            : 'Unable to save agent access controls'
+        );
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
   return (
