@@ -25,6 +25,7 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
+import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
@@ -1240,8 +1241,12 @@ export default async function CategoryProductPage({
 
   const primaryProductImage = product.imageLarge || product.image || null;
   const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(slug);
+  const normalizedSlug = slug.trim().toLowerCase();
+  const normalizedOgaBasseyDomain = OGABASSEY_DOMAIN.toLowerCase();
+  const isOgaBasseyCustomDomain = normalizedSlug === normalizedOgaBasseyDomain;
   const pageOwnsProductPreload =
-    merchant.template_id === OGABASSEY_TEMPLATE_ID && !knownOgaBasseyMerchantId;
+    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
+    (!knownOgaBasseyMerchantId || isOgaBasseyCustomDomain);
   const pagePreloadProductImage = pageOwnsProductPreload
     ? primaryProductImage
     : null;

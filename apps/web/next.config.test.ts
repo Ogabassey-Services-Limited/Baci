@@ -163,7 +163,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
   });
 
-  it('adds route-scoped OgaBassey PDP LCP preload Link headers without dropping agent discovery', async () => {
+  it('keeps route-scoped OgaBassey PDP Link headers agent-only', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     expect(headers).toBeDefined();
@@ -183,12 +183,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
-    expect(linkHeader).toContain(
-      '</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767.98px)"'
-    );
-    expect(linkHeader).toContain(
-      '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"'
-    );
+    expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
   });
 
   it('keeps the generic OgaBassey Link header from overriding PDP paths', async () => {
@@ -232,23 +227,14 @@ describe('next.config OgaBassey resource headers', () => {
       .map((header) => header?.value)
       .filter((value): value is string => typeof value === 'string');
 
+    expect(matchingPdpLinkHeaders).toHaveLength(1);
     const firstMatchingPdpLinkHeader = matchingPdpLinkHeaders[0];
-    const nextEffectivePdpLinkHeader = matchingPdpLinkHeaders.at(-1);
 
     expect(firstMatchingPdpLinkHeader).toContain(
-      '/api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug'
-    );
-    expect(firstMatchingPdpLinkHeader).toContain(
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug'
-    );
-    expect(nextEffectivePdpLinkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
-    expect(nextEffectivePdpLinkHeader).toContain(
-      '/api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug'
-    );
-    expect(nextEffectivePdpLinkHeader).toContain(
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug'
+    expect(firstMatchingPdpLinkHeader).not.toContain(
+      '/api/ogabassey/pdp-lcp-image/'
     );
   });
 
