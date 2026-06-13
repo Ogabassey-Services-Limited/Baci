@@ -4,8 +4,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import nextConfig from './next.config';
 import {
+  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_HEADER_PRELOAD_WIDTH,
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
 } from './src/components/storefront/ogabassey/config/product-media';
 import {
@@ -197,14 +199,15 @@ describe('next.config OgaBassey resource headers', () => {
     )?.value;
 
     expect(linkHeader).toContain(
-      `</api/ogabassey/pdp-lcp-image/:productSlug?width=${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_HEADER_PRELOAD_WIDTH}&quality=${OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767.98px)"`
+      `</api/ogabassey/pdp-lcp-image/:productSlug?width=${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_HEADER_PRELOAD_WIDTH}&quality=${OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`
     );
     expect(linkHeader).toContain(
-      `</api/ogabassey/pdp-lcp-image/:productSlug?width=${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH}&quality=${OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"`
+      `</api/ogabassey/pdp-lcp-image/:productSlug?width=${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH}&quality=${OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA}"`
     );
     expect(linkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
+    expect(linkHeader).toContain('<https://cdn.ogabassey.com>; rel=preconnect');
   });
 
   it('keeps the generic OgaBassey Link header from overriding PDP paths', async () => {
@@ -272,7 +275,9 @@ describe('next.config OgaBassey resource headers', () => {
     );
 
     expect(ogabasseyPdpHeaderRule).toBeDefined();
-    expect(ogabasseyPdpHeaderRule?.source).toContain('[^/]+');
+    expect(ogabasseyPdpHeaderRule?.source).toContain(
+      ':productSlug([a-zA-Z0-9-]+)'
+    );
     expect(ogabasseyPdpHeaderRule?.source).not.toContain('.*');
 
     const pdpHeaderMatcher = pathToRegexp(ogabasseyPdpHeaderRule?.source ?? '');
@@ -283,6 +288,8 @@ describe('next.config OgaBassey resource headers', () => {
     ).toBe(true);
     expect(pdpHeaderMatcher.test('/about/company')).toBe(false);
     expect(pdpHeaderMatcher.test('/about/nested/route')).toBe(false);
+    expect(pdpHeaderMatcher.test('/gaming-laptops/bad;slug')).toBe(false);
+    expect(pdpHeaderMatcher.test('/gaming-laptops/bad>slug')).toBe(false);
   });
 
   it('rewrites agent-readable homepage and robots probes to machine endpoints', async () => {
