@@ -1,10 +1,6 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
-import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-} from './src/components/storefront/ogabassey/config/product-media';
 import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-discovery-link-header';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
@@ -59,14 +55,7 @@ const OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN = [
 ].join('|');
 const OGABASSEY_PDP_DOCUMENT_ROUTE_SOURCE = `/:category((?!(?:${OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN})(?:/|$))[^/]+)/:productSlug`;
 const OGABASSEY_GENERIC_DOCUMENT_ROUTE_SOURCE = `/:path((?!(?:(?!(?:${OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN})(?:/|$))[^/]+/[^/]+/?$)).*)`;
-const OGABASSEY_PDP_LCP_IMAGE_PRELOAD_LINK_HEADER = [
-  `</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`,
-  `</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA}"`,
-].join(', ');
-const OGABASSEY_PDP_LINK_HEADER_VALUE = [
-  OGABASSEY_AGENT_DISCOVERY_LINK_HEADER,
-  OGABASSEY_PDP_LCP_IMAGE_PRELOAD_LINK_HEADER,
-].join(', ');
+const OGABASSEY_PDP_LINK_HEADER_VALUE = OGABASSEY_AGENT_DISCOVERY_LINK_HEADER;
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // jsPDF stays external here so server PDF generators can use the package

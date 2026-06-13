@@ -1549,7 +1549,9 @@ describe('[category]/[productSlug] page render', () => {
       'src',
       'https://cdn.ogabassey.com/image/width=640,quality=35,format=auto/core-assets/products/hp-laptop.avif'
     );
-    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: productImage,
+    });
   });
 
   it('splits OgaBassey client work into critical commerce and deferred detail islands', async () => {
@@ -2038,6 +2040,10 @@ describe('[category]/[productSlug] page render', () => {
         })
       );
     });
+    mockOgabasseyPdpProductResourceHints.mockImplementationOnce(() => {
+      routeEvents.push('product-hints');
+      return null;
+    });
 
     const pagePromise = CategoryProductPage({
       params: Promise.resolve({
@@ -2058,11 +2064,19 @@ describe('[category]/[productSlug] page render', () => {
       `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
       'merchant-start',
     ]);
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
 
     resolveMerchant?.(ogabasseyMerchant);
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
-    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: earlyProductImage,
+    });
+    expect(routeEvents).toEqual([
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
+      'merchant-start',
+      'product-hints',
+    ]);
 
     render(await resolveRsc(resolvedPage));
 
