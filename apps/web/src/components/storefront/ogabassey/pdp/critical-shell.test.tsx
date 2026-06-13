@@ -74,6 +74,7 @@ const defaultProduct: OgabasseyPdpCriticalProduct = {
   condition: 'new',
   id: 'product-1',
   image: 'https://cdn.ogabassey.com/core-assets/products/galaxy-trifold.avif',
+  imageVersion: 'lcpv1',
   name: 'Samsung Galaxy Z TriFold',
   price: 5_800_000,
   rating: 0,
@@ -169,6 +170,7 @@ describe('OgabasseyPdpCriticalShell', () => {
         product={{
           ...defaultProduct,
           image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
+          imageVersion: 'lcpv2',
           name: 'Lenovo Legion Pro 9',
           slug: 'lenovo-legion-pro-9',
         }}
@@ -179,7 +181,7 @@ describe('OgabasseyPdpCriticalShell', () => {
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
     ).toHaveAttribute(
       'src',
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/lenovo-legion-pro-9'
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/lenovo-legion-pro-9?v=lcpv2'
     );
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })

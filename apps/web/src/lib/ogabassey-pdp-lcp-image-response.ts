@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
+import { getBaciCdnOriginFetchSecret } from '@/env';
 import {
   getCachedProductLcpHint,
   sanitizeLookupLogValue,
@@ -9,9 +10,10 @@ import imageLoader from '@/lib/image-loader';
 import { ogabasseyPdpLcpImageRequestSchema } from '@/schemas/ogabassey-pdp-lcp-image';
 
 const PRELOAD_IMAGE_CACHE_CONTROL =
-  'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800';
+  'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400';
 const PRELOAD_MISS_CACHE_CONTROL = 'public, max-age=60, s-maxage=60';
 const DEFAULT_IMAGE_ACCEPT_HEADER = 'image/avif,image/webp,image/*,*/*;q=0.8';
+const ORIGIN_FETCH_SECRET_HEADER = 'x-baci-origin-fetch';
 
 type OgabasseyPdpLcpImageResponseInput = {
   accept?: string | null;
@@ -87,10 +89,17 @@ export async function buildOgabasseyPdpLcpImageResponse({
 
   let imageResponse: Response;
   try {
+    const fetchHeaders = new Headers({
+      Accept: accept || DEFAULT_IMAGE_ACCEPT_HEADER,
+    });
+    const originFetchSecret = getBaciCdnOriginFetchSecret();
+
+    if (originFetchSecret) {
+      fetchHeaders.set(ORIGIN_FETCH_SECRET_HEADER, originFetchSecret);
+    }
+
     imageResponse = await fetch(preloadUrl, {
-      headers: {
-        Accept: accept || DEFAULT_IMAGE_ACCEPT_HEADER,
-      },
+      headers: fetchHeaders,
     });
   } catch (error) {
     console.warn(

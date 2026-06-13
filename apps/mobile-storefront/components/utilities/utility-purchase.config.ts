@@ -19,12 +19,6 @@ export function isValidUtilityType(value: string): value is ValidUtilityType {
   return (VALID_UTILITY_TYPES as readonly string[]).includes(value);
 }
 
-export function isBillUtilityType(
-  type: ValidUtilityType
-): type is 'tv' | 'power' | 'gaming' {
-  return type === 'tv' || type === 'power' || type === 'gaming';
-}
-
 export function getRouteRepeatDefaults(
   params: RawRouteRepeatParams | RouteRepeatParams
 ): UtilityRepeatDefaults {

@@ -23,20 +23,24 @@ type ImagePreloadLinkProps = ComponentProps<'link'> & {
 };
 
 type ProductResourceHintInput = {
+  imageVersion?: string | null | undefined;
   productSlug?: string | null | undefined;
   src: string | null | undefined;
 };
 
 function buildProductImagePreloadProps({
+  imageVersion,
   productSlug,
   src,
 }: ProductResourceHintInput): ImagePreloadLinkProps[] {
   const sameOriginProductSlug = productSlug?.trim() || null;
+  const sameOriginImageVersion = imageVersion?.trim() || null;
 
-  if (sameOriginProductSlug !== null) {
+  if (sameOriginProductSlug !== null && sameOriginImageVersion !== null) {
     const href = buildOgabasseyPdpSameOriginProfileImageUrl(
       sameOriginProductSlug,
-      'desktop'
+      'desktop',
+      sameOriginImageVersion
     );
     const {
       props: { srcSet, sizes },
@@ -112,10 +116,15 @@ function buildProductImagePreloadProps({
 }
 
 export function preloadOgabasseyPdpProductResources({
+  imageVersion,
   productSlug,
   src,
 }: ProductResourceHintInput): void {
-  const props = buildProductImagePreloadProps({ productSlug, src });
+  const props = buildProductImagePreloadProps({
+    imageVersion,
+    productSlug,
+    src,
+  });
   if (!props.length) return;
 
   // Keep PDP image hints out of the page body. Next/Vercel resume can drift
@@ -140,9 +149,10 @@ export function preloadOgabasseyPdpProductResources({
 }
 
 export function OgabasseyPdpProductResourceHints({
+  imageVersion,
   productSlug,
   src,
 }: ProductResourceHintInput): null {
-  preloadOgabasseyPdpProductResources({ productSlug, src });
+  preloadOgabasseyPdpProductResources({ imageVersion, productSlug, src });
   return null;
 }

@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { BRAND, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 
-export const AIRTIME_FORM_TOKENS = {
+const AIRTIME_FORM_TOKENS = {
   fontSize: {
     xs: 12,
     sm: 13,

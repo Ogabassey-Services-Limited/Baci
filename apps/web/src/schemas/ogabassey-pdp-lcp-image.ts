@@ -37,7 +37,11 @@ export const ogabasseyPdpLcpImageRequestSchema = z.object({
   width: imageDimensionSearchParamSchema(750),
 });
 
-export const ogabasseyPdpLcpImageProfileSchema = z.enum(['mobile', 'desktop']);
+export const ogabasseyPdpLcpImageProfileSchema = z.enum([
+  'mobile',
+  'mobile-header',
+  'desktop',
+]);
 
 export type OgabasseyPdpLcpImageRequest = z.infer<
   typeof ogabasseyPdpLcpImageRequestSchema
