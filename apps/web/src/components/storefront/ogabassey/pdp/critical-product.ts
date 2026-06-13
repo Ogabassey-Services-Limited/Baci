@@ -5,6 +5,10 @@ type CategoryShape =
 
 type ProductImage = string | { alt?: string | null; url?: string | null };
 
+const FALLBACK_PRODUCT_IMAGE = '/placeholder.png';
+const FNV_OFFSET_BASIS = 0x811c9dc5;
+const FNV_PRIME = 0x01000193;
+
 export interface OgabasseyPdpCriticalProductInput {
   brand?: string | null;
   category?: string | null;
@@ -23,6 +27,7 @@ export interface OgabasseyPdpCriticalProductInput {
   schema_markup?: unknown;
   slug?: string | null;
   stock_quantity?: number | null;
+  updated_at?: string | null;
 }
 
 export interface OgabasseyPdpCriticalProduct {
@@ -32,6 +37,7 @@ export interface OgabasseyPdpCriticalProduct {
   condition: string;
   id: string;
   image: string;
+  imageVersion: string | null;
   name: string;
   price: number;
   rating: number;
@@ -63,6 +69,17 @@ function slugify(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+function stableHash(value: string): string {
+  let hash = FNV_OFFSET_BASIS;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, FNV_PRIME) >>> 0;
+  }
+
+  return hash.toString(36);
 }
 
 function getAggregateRating(schemaMarkup: unknown) {
@@ -120,8 +137,22 @@ export function getOgabasseyPdpPrimaryImage(
     product.imageLarge ||
     product.image ||
     mappedFirstImage ||
-    '/placeholder.png'
+    FALLBACK_PRODUCT_IMAGE
   );
+}
+
+export function getOgabasseyPdpImageVersion(
+  product: Pick<
+    OgabasseyPdpCriticalProductInput,
+    'image' | 'imageLarge' | 'images' | 'updated_at'
+  >
+): string | null {
+  const primaryImage = getOgabasseyPdpPrimaryImage(product);
+  const parts = [product.updated_at, primaryImage]
+    .map((part) => (typeof part === 'string' ? part.trim() : ''))
+    .filter((part) => part && part !== FALLBACK_PRODUCT_IMAGE);
+
+  return parts.length ? stableHash(parts.join('|')) : null;
 }
 
 export function buildOgabasseyPdpCriticalProduct(
@@ -134,6 +165,7 @@ export function buildOgabasseyPdpCriticalProduct(
   const category = directCategory || fallbackCategory;
   const categoryName = category?.name || product.category || 'Electronics';
   const aggregateRating = getAggregateRating(product.schema_markup);
+  const image = getOgabasseyPdpPrimaryImage(product);
 
   return {
     brand: product.brand || 'OgaBassey',
@@ -142,7 +174,8 @@ export function buildOgabasseyPdpCriticalProduct(
       category?.slug || product.category_slug || slugify(categoryName),
     condition: product.condition || 'new',
     id: product.id,
-    image: getOgabasseyPdpPrimaryImage(product),
+    image,
+    imageVersion: getOgabasseyPdpImageVersion(product),
     name: product.name,
     price: parseNumber(product.price),
     rating: aggregateRating.rating,

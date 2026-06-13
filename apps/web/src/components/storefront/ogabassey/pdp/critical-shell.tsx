@@ -96,11 +96,15 @@ function getProductImageSrc(
   product: OgabasseyPdpCriticalProduct,
   imageDelivery: OgabasseyPdpCriticalShellProps['imageDelivery']
 ) {
-  if (imageDelivery !== 'same-origin') {
+  if (imageDelivery !== 'same-origin' || !product.imageVersion) {
     return product.image;
   }
 
-  return buildOgabasseyPdpSameOriginProfileImageUrl(product.slug, 'desktop');
+  return buildOgabasseyPdpSameOriginProfileImageUrl(
+    product.slug,
+    'desktop',
+    product.imageVersion
+  );
 }
 
 export function OgabasseyPdpCriticalShell({
