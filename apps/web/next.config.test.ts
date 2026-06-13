@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import nextConfig from './next.config';
 import {
@@ -5,6 +6,11 @@ import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
 } from './src/config/storefront-metadata-cache-bots';
+
+const require = createRequire(import.meta.url);
+const { pathToRegexp } = require('next/dist/compiled/path-to-regexp') as {
+  pathToRegexp: (path: string) => RegExp;
+};
 
 function expectStructuredRewrites(
   rewrites: unknown
@@ -115,13 +121,24 @@ describe('next.config OgaBassey resource headers', () => {
     expect(ogabasseyLinkHeader).toContain('</auth.md>; rel="service-doc"');
   });
 
-  it('keeps PDP LCP image preload hints out of static next.config headers', async () => {
+  it('keeps PDP LCP image preload hints out of global HTML headers', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
 
-    expect(JSON.stringify(headers)).not.toContain(
-      '/api/ogabassey/pdp-lcp-image/'
+    const globalHtmlHeaderRule = headers.find(
+      (entry) =>
+        entry.source.startsWith('/((?!api') &&
+        entry.headers.some(
+          (header) =>
+            header.key === 'Vary' &&
+            header.value.includes(STOREFRONT_METADATA_CACHE_BUCKET_HEADER)
+        )
     );
+    expect(globalHtmlHeaderRule).toBeDefined();
+    const globalHeaderValues =
+      globalHtmlHeaderRule?.headers.map((header) => header.value).join('\n') ??
+      '';
+    expect(globalHeaderValues).not.toContain('/api/ogabassey/pdp-lcp-image/');
   });
 
   it('keeps PDP LCP image preload headers off generic OgaBassey routes', async () => {
@@ -144,6 +161,60 @@ describe('next.config OgaBassey resource headers', () => {
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
     expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
+  });
+
+  it('adds route-scoped OgaBassey PDP LCP preload Link headers without dropping agent discovery', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
+
+    const ogabasseyPdpHeaderRule = headers.find(
+      (entry) =>
+        entry.source.includes(':productSlug') &&
+        JSON.stringify(entry.has) ===
+          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+    );
+
+    expect(ogabasseyPdpHeaderRule).toBeDefined();
+    const linkHeader = ogabasseyPdpHeaderRule?.headers.find(
+      (header) => header.key === 'Link'
+    )?.value;
+
+    expect(linkHeader).toContain(
+      '</.well-known/api-catalog>; rel="api-catalog"'
+    );
+    expect(linkHeader).toContain(
+      '</api/ogabassey/pdp-lcp-image/profile/mobile/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(max-width: 767.98px)"'
+    );
+    expect(linkHeader).toContain(
+      '</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="(min-width: 768px)"'
+    );
+  });
+
+  it('limits route-scoped OgaBassey PDP preload headers to two-segment PDP paths', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
+
+    const ogabasseyPdpHeaderRule = headers.find(
+      (entry) =>
+        entry.source.includes(':productSlug') &&
+        JSON.stringify(entry.has) ===
+          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+    );
+
+    expect(ogabasseyPdpHeaderRule).toBeDefined();
+    expect(ogabasseyPdpHeaderRule?.source).toContain('[^/]+');
+    expect(ogabasseyPdpHeaderRule?.source).not.toContain('.*');
+
+    const pdpHeaderMatcher = pathToRegexp(ogabasseyPdpHeaderRule?.source ?? '');
+    expect(
+      pdpHeaderMatcher.test(
+        '/gaming-laptops/lenovo-legion-pro-9-16irx9-rtx-4090'
+      )
+    ).toBe(true);
+    expect(pdpHeaderMatcher.test('/about/company')).toBe(false);
+    expect(pdpHeaderMatcher.test('/about/nested/route')).toBe(false);
   });
 
   it('rewrites agent-readable homepage and robots probes to machine endpoints', async () => {
