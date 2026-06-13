@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildOgabasseyPdpLcpImageResponse } from './ogabassey-pdp-lcp-image-response';
 
 const mockGetCachedProductLcpHint = vi.fn();
+const mockGetBaciCdnOriginFetchSecret = vi.fn();
 const mockImageLoader = vi.fn();
 const mockFetch = vi.fn();
 let restoreFetch: () => void = () => undefined;
@@ -11,6 +12,10 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedProductLcpHint: (...args: unknown[]) =>
     mockGetCachedProductLcpHint(...args),
   sanitizeLookupLogValue: (value: string) => value,
+}));
+
+vi.mock('@/env', () => ({
+  getBaciCdnOriginFetchSecret: () => mockGetBaciCdnOriginFetchSecret(),
 }));
 
 vi.mock('@/lib/image-loader', () => ({
@@ -27,6 +32,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
       );
     restoreFetch = () => fetchSpy.mockRestore();
     mockWarn.mockClear();
+    mockGetBaciCdnOriginFetchSecret.mockReturnValue(undefined);
     mockImageLoader.mockReturnValue(
       'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
@@ -46,6 +52,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
   });
 
   it('streams valid preload inputs from the transformed primary image', async () => {
+    mockGetBaciCdnOriginFetchSecret.mockReturnValue('origin-fetch-secret');
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -64,9 +71,18 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
       'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif',
       expect.any(Object)
     );
+    const [, fetchInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const fetchHeaders = new Headers(fetchInit.headers);
+
+    expect(fetchHeaders.get('accept')).toBe(
+      'image/avif,image/webp,image/*,*/*;q=0.8'
+    );
+    expect(fetchHeaders.get('x-baci-origin-fetch')).toBe('origin-fetch-secret');
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('image/avif');
-    expect(response.headers.get('cache-control')).toContain('s-maxage=86400');
+    expect(response.headers.get('cache-control')).toBe(
+      'public, max-age=31536000, s-maxage=86400, stale-while-revalidate=86400'
+    );
     expect(response.headers.get('vary')).toBe('Accept');
     await expect(response.text()).resolves.toBe('image-bytes');
   });

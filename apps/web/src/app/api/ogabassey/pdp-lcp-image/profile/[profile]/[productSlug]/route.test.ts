@@ -13,6 +13,10 @@ vi.mock('@/lib/cached-data', () => ({
   sanitizeLookupLogValue: (value: string) => value,
 }));
 
+vi.mock('@/env', () => ({
+  getBaciCdnOriginFetchSecret: () => undefined,
+}));
+
 vi.mock('@/lib/image-loader', () => ({
   default: (...args: unknown[]) => mockImageLoader(...args),
 }));
@@ -78,12 +82,10 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
     expect(response.status).toBe(200);
     expect(mockFetch).toHaveBeenCalledWith(
       'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif',
-      {
-        headers: {
-          Accept: 'image/avif',
-        },
-      }
+      expect.any(Object)
     );
+    const [, fetchInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(fetchInit.headers).get('accept')).toBe('image/avif');
     expect(response.headers.get('content-type')).toBe('image/avif');
     expect(response.headers.get('cache-control')).toContain('s-maxage=86400');
     expect(response.headers.get('vary')).toBe('Accept');
