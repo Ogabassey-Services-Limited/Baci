@@ -66,6 +66,162 @@ interface OrderManagerModalProps {
   onClose: () => void;
 }
 
+interface FetchItemsCallbacks {
+  setLoading: (value: boolean) => void;
+  setError: (value: string | null) => void;
+  setItems: (value: JumiaOrderItem[]) => void;
+}
+
+async function loadOrderItems(
+  orderId: string,
+  integrationId: string,
+  { setLoading, setError, setItems }: FetchItemsCallbacks,
+  signal?: AbortSignal
+): Promise<void> {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await fetch(
+      `/api/marketplace/jumia/orders/${encodeURIComponent(orderId)}/items?integrationId=${encodeURIComponent(integrationId)}`,
+      { signal }
+    );
+    if (signal?.aborted) return;
+    if (!res.ok) throw new Error('Failed to fetch items');
+    const data = await res.json();
+    if (signal?.aborted) return;
+    setItems(data && Array.isArray(data.items) ? data.items : []);
+  } catch (err) {
+    if (signal?.aborted) return;
+    if (err instanceof DOMException && err.name === 'AbortError') return;
+    setError('Could not load order items.');
+  } finally {
+    if (!signal?.aborted) {
+      setLoading(false);
+    }
+  }
+}
+
+interface ActionCallbacks {
+  setLabelUrls: (value: string[]) => void;
+  setBlockedLabelUrl: (value: string | null) => void;
+  setActionLoading: (value: string | null) => void;
+  refetch: () => void;
+  toast: ReturnType<typeof useToast>['toast'];
+}
+
+async function runOrderAction(
+  action: 'pack' | 'ready_to_ship' | 'print_label' | 'cancel',
+  orderId: string,
+  integrationId: string,
+  itemIds: string[],
+  {
+    setLabelUrls,
+    setBlockedLabelUrl,
+    setActionLoading,
+    refetch,
+    toast,
+  }: ActionCallbacks
+): Promise<void> {
+  setLabelUrls([]);
+  setBlockedLabelUrl(null);
+  setActionLoading(action);
+  try {
+    const res = await fetchWithCsrf('/api/marketplace/jumia/actions', {
+      method: 'POST',
+      body: JSON.stringify({
+        action,
+        integrationId,
+        orderId,
+        itemIds,
+      }),
+    });
+
+    let data: ActionResponse;
+    let jsonParsed = true;
+    const text = await res.text();
+    try {
+      data = JSON.parse(text);
+    } catch {
+      jsonParsed = false;
+      const MAX_RAW_LENGTH = 200;
+      const sanitized = stripHtmlTags(text).slice(0, MAX_RAW_LENGTH);
+      data = { error: sanitized } as ActionResponse;
+    }
+
+    if (!res.ok) throw new Error(data.error || 'Action failed');
+
+    // Treat non-JSON 200 responses as failures
+    if (!jsonParsed) {
+      throw new Error(
+        data.error || 'Server returned an unexpected non-JSON response'
+      );
+    }
+
+    if (action !== 'print_label') {
+      toast({
+        title: 'Success',
+        description: data.message || 'Action completed',
+      });
+      refetch();
+      return;
+    }
+
+    // print_label path
+    if (!data.labels || data.labels.length === 0) {
+      toast({
+        title: 'No Labels',
+        description: data.labels
+          ? 'No labels were generated for this order.'
+          : 'No labels returned for this order.',
+      });
+      refetch();
+      return;
+    }
+
+    const validLabels = data.labels.filter(
+      (entry): entry is { label: string } =>
+        typeof entry.label === 'string' && isValidHttpUrl(entry.label)
+    );
+
+    if (validLabels.length === 0) {
+      toast({
+        title: 'No Valid Labels',
+        description: 'No valid printable label URLs were returned.',
+        variant: 'destructive',
+      });
+      refetch();
+      return;
+    }
+
+    if (validLabels.length === 1) {
+      const popup = window.open(
+        validLabels[0].label,
+        '_blank',
+        'noopener,noreferrer'
+      );
+      if (!popup) {
+        setBlockedLabelUrl(validLabels[0].label);
+      }
+    }
+
+    setLabelUrls(validLabels.map((entry) => entry.label));
+    const count = validLabels.length;
+    toast({
+      title: 'Labels Generated',
+      description: `${count} label${count === 1 ? '' : 's'} ready`,
+    });
+    refetch();
+  } catch (err: unknown) {
+    toast({
+      title: 'Action Failed',
+      description: err instanceof Error ? err.message : 'Unknown error',
+      variant: 'destructive',
+    });
+  } finally {
+    setActionLoading(null);
+  }
+}
+
 export function OrderManagerModal({
   orderId,
   orderNumber,
@@ -81,122 +237,46 @@ export function OrderManagerModal({
   const [blockedLabelUrl, setBlockedLabelUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const fetchItems = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/marketplace/jumia/orders/${encodeURIComponent(orderId)}/items?integrationId=${encodeURIComponent(integrationId)}`
-      );
-      if (!res.ok) throw new Error('Failed to fetch items');
-      const data = await res.json();
-      setItems(data && Array.isArray(data.items) ? data.items : []);
-    } catch (_err) {
-      setError('Could not load order items.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchItems = () =>
+    loadOrderItems(orderId, integrationId, {
+      setLoading,
+      setError,
+      setItems,
+    });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     if (isOpen && orderId) {
-      fetchItems();
+      const controller = new AbortController();
+      void loadOrderItems(
+        orderId,
+        integrationId,
+        {
+          setLoading,
+          setError,
+          setItems,
+        },
+        controller.signal
+      );
+      return () => controller.abort();
     }
   }, [isOpen, orderId, integrationId]);
 
-  const handleAction = async (
+  const handleAction = (
     action: 'pack' | 'ready_to_ship' | 'print_label' | 'cancel'
-  ) => {
-    setLabelUrls([]);
-    setBlockedLabelUrl(null);
-    setActionLoading(action);
-    try {
-      const res = await fetchWithCsrf('/api/marketplace/jumia/actions', {
-        method: 'POST',
-        body: JSON.stringify({
-          action,
-          integrationId,
-          orderId,
-          itemIds: items.map((i) => i.id),
-        }),
-      });
-
-      let data: ActionResponse;
-      let jsonParsed = true;
-      const text = await res.text();
-      try {
-        data = JSON.parse(text);
-      } catch {
-        jsonParsed = false;
-        const MAX_RAW_LENGTH = 200;
-        const sanitized = stripHtmlTags(text).slice(0, MAX_RAW_LENGTH);
-        data = { error: sanitized } as ActionResponse;
+  ) =>
+    runOrderAction(
+      action,
+      orderId,
+      integrationId,
+      items.map((i) => i.id),
+      {
+        setLabelUrls,
+        setBlockedLabelUrl,
+        setActionLoading,
+        refetch: fetchItems,
+        toast,
       }
-
-      if (!res.ok) throw new Error(data.error || 'Action failed');
-
-      // Treat non-JSON 200 responses as failures
-      if (!jsonParsed) {
-        throw new Error(
-          data.error || 'Server returned an unexpected non-JSON response'
-        );
-      }
-
-      if (action !== 'print_label') {
-        toast({
-          title: 'Success',
-          description: data.message || 'Action completed',
-        });
-        fetchItems();
-        return;
-      }
-
-      // print_label path
-      if (!data.labels || data.labels.length === 0) {
-        toast({
-          title: 'No Labels',
-          description: data.labels
-            ? 'No labels were generated for this order.'
-            : 'No labels returned for this order.',
-        });
-        fetchItems();
-        return;
-      }
-
-      const validLabels = data.labels.filter(
-        (entry): entry is { label: string } =>
-          typeof entry.label === 'string' && isValidHttpUrl(entry.label)
-      );
-
-      if (validLabels.length === 1) {
-        const popup = window.open(
-          validLabels[0].label,
-          '_blank',
-          'noopener,noreferrer'
-        );
-        if (!popup) {
-          setBlockedLabelUrl(validLabels[0].label);
-        }
-      }
-
-      setLabelUrls(validLabels.map((entry) => entry.label));
-      const count = validLabels.length;
-      toast({
-        title: 'Labels Generated',
-        description: `${count} label${count === 1 ? '' : 's'} ready`,
-      });
-      fetchItems();
-    } catch (err: unknown) {
-      toast({
-        title: 'Action Failed',
-        description: err instanceof Error ? err.message : 'Unknown error',
-        variant: 'destructive',
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
+    );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

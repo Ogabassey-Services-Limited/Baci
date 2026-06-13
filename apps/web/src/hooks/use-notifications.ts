@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type {
   ActiveBanner,
@@ -9,6 +15,249 @@ import type {
 } from '@/types/notifications';
 import type { MerchantData } from './merchant/types';
 import { useMerchant, useMerchantSafe } from './use-merchant-client';
+
+type SupabaseClient = ReturnType<typeof createClient>;
+
+interface FetchNotificationsDeps {
+  cursor: string | null;
+  isFetchingRef: { current: boolean };
+  setIsLoading: Dispatch<SetStateAction<boolean>>;
+  setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>;
+  setUnreadCount: Dispatch<SetStateAction<number>>;
+  setHasMore: Dispatch<SetStateAction<boolean>>;
+  setCursor: Dispatch<SetStateAction<string | null>>;
+  setError: Dispatch<SetStateAction<string | null>>;
+}
+
+/**
+ * Fetch notifications from the API. Hoisted to module scope so the
+ * try/finally finalizer doesn't bail out React Compiler on the hook.
+ */
+async function fetchNotificationsRequest(
+  append: boolean,
+  deps: FetchNotificationsDeps
+): Promise<void> {
+  const {
+    cursor,
+    isFetchingRef,
+    setIsLoading,
+    setNotifications,
+    setUnreadCount,
+    setHasMore,
+    setCursor,
+    setError,
+  } = deps;
+
+  // Prevent duplicate parallel fetches
+  if (isFetchingRef.current && !append) {
+    return;
+  }
+
+  try {
+    if (!append) {
+      isFetchingRef.current = true;
+      setIsLoading(true);
+    }
+
+    const params = new URLSearchParams();
+    params.set('limit', '20');
+    if (append && cursor) {
+      params.set('cursor', cursor);
+    }
+
+    const response = await fetch(`/api/notifications?${params.toString()}`);
+    // Implement throttling to prevent 429s
+    if (response.status === 429) {
+      console.warn('Rate limit exceeded for notifications.');
+      setError('Notifications are rate limited. Please try again later.');
+      return;
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      // Don't throw for 429s or other actionable errors, just log and return
+      console.error(
+        'Failed to fetch notifications:',
+        response.status,
+        errorData
+      );
+      return;
+    }
+
+    const data = await response.json();
+
+    if (append) {
+      setNotifications((prev) => [...prev, ...data.data]);
+    } else {
+      setNotifications(data.data);
+    }
+
+    setUnreadCount(data.unread_count);
+    setHasMore(data.has_more);
+    setCursor(data.cursor);
+    setError(null);
+  } catch (err) {
+    console.error('Error fetching notifications:', err);
+    setError(
+      err instanceof Error ? err.message : 'Failed to fetch notifications'
+    );
+  } finally {
+    setIsLoading(false);
+    isFetchingRef.current = false;
+  }
+}
+
+/**
+ * Fetch active banners. Module-scope helper to keep the hook compilable.
+ */
+async function fetchActiveBannersRequest(
+  merchantId: string,
+  supabase: SupabaseClient,
+  setActiveBanners: Dispatch<SetStateAction<ActiveBanner[]>>
+): Promise<void> {
+  try {
+    const { data, error: bannerError } = await supabase.rpc(
+      'get_active_banners',
+      { p_merchant_id: merchantId }
+    );
+
+    if (bannerError) {
+      console.error('Error fetching banners:', bannerError);
+      return;
+    }
+
+    setActiveBanners(data || []);
+  } catch (err) {
+    console.error('Error fetching active banners:', err);
+  }
+}
+
+/**
+ * Mark a notification as read. Throw lives in module scope so the
+ * try/catch ThrowStatement doesn't bail out React Compiler on the hook.
+ */
+async function markNotificationAsRead(
+  id: string,
+  setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>,
+  setUnreadCount: Dispatch<SetStateAction<number>>
+): Promise<void> {
+  try {
+    const response = await fetch(`/api/notifications/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ read: true }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to mark as read');
+    }
+
+    const data = await response.json();
+
+    // Update local state
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.id === id ? { ...n, read_at: new Date().toISOString() } : n
+      )
+    );
+    setUnreadCount(data.unread_count);
+  } catch (err) {
+    console.error('Error marking notification as read:', err);
+    throw err;
+  }
+}
+
+/**
+ * Mark all notifications as read.
+ */
+async function markAllNotificationsAsRead(
+  notifications: MerchantNotificationWithDetails[],
+  setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>,
+  setUnreadCount: Dispatch<SetStateAction<number>>
+): Promise<void> {
+  try {
+    // Check if there are any unread notifications
+    const hasUnread = notifications.some((n) => !n.read_at);
+    if (!hasUnread) return;
+
+    const response = await fetch('/api/notifications/mark-all-read', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to mark all as read');
+    }
+
+    // Update local state
+    setNotifications((prev) =>
+      prev.map((n) => ({
+        ...n,
+        read_at: n.read_at || new Date().toISOString(),
+      }))
+    );
+    setUnreadCount(0);
+  } catch (err) {
+    console.error('Error marking all as read:', err);
+    throw err;
+  }
+}
+
+/**
+ * Dismiss a notification (removes from list).
+ */
+async function dismissNotification(
+  id: string,
+  setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>,
+  setUnreadCount: Dispatch<SetStateAction<number>>
+): Promise<void> {
+  try {
+    const response = await fetch(`/api/notifications/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dismissed: true }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to dismiss notification');
+    }
+
+    const data = await response.json();
+
+    // Remove from local state
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setUnreadCount(data.unread_count);
+  } catch (err) {
+    console.error('Error dismissing notification:', err);
+    throw err;
+  }
+}
+
+/**
+ * Dismiss a banner notification.
+ */
+async function dismissBannerNotification(
+  id: string,
+  setActiveBanners: Dispatch<SetStateAction<ActiveBanner[]>>
+): Promise<void> {
+  try {
+    const response = await fetch(`/api/notifications/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ banner_dismissed: true }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to dismiss banner');
+    }
+
+    // Remove from active banners
+    setActiveBanners((prev) => prev.filter((b) => b.id !== id));
+  } catch (err) {
+    console.error('Error dismissing banner:', err);
+    throw err;
+  }
+}
 
 interface UseNotificationsReturn {
   // Data
@@ -64,64 +313,16 @@ function useNotificationsForMerchant(
   const fetchNotifications = async (append = false) => {
     if (!merchant?.id) return;
 
-    // Prevent duplicate parallel fetches
-    if (isFetchingRef.current && !append) {
-      return;
-    }
-
-    try {
-      if (!append) {
-        isFetchingRef.current = true;
-        setIsLoading(true);
-      }
-
-      const params = new URLSearchParams();
-      params.set('limit', '20');
-      if (append && cursor) {
-        params.set('cursor', cursor);
-      }
-
-      const response = await fetch(`/api/notifications?${params.toString()}`);
-      // Implement throttling to prevent 429s
-      if (response.status === 429) {
-        console.warn('Rate limit exceeded for notifications. Backing off.');
-        // Wait 60 seconds before trying again if rate limited
-        await new Promise((resolve) => setTimeout(resolve, 60000));
-        return [];
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        // Don't throw for 429s or other actionable errors, just log and return empty
-        console.error(
-          'Failed to fetch notifications:',
-          response.status,
-          errorData
-        );
-        return [];
-      }
-
-      const data = await response.json();
-
-      if (append) {
-        setNotifications((prev) => [...prev, ...data.data]);
-      } else {
-        setNotifications(data.data);
-      }
-
-      setUnreadCount(data.unread_count);
-      setHasMore(data.has_more);
-      setCursor(data.cursor);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
-      setError(
-        err instanceof Error ? err.message : 'Failed to fetch notifications'
-      );
-    } finally {
-      setIsLoading(false);
-      isFetchingRef.current = false;
-    }
+    await fetchNotificationsRequest(append, {
+      cursor,
+      isFetchingRef,
+      setIsLoading,
+      setNotifications,
+      setUnreadCount,
+      setHasMore,
+      setCursor,
+      setError,
+    });
   };
 
   /**
@@ -130,22 +331,11 @@ function useNotificationsForMerchant(
   const fetchActiveBanners = async () => {
     if (!merchant?.id) return;
 
-    try {
-      const supabase = supabaseRef.current;
-      const { data, error: bannerError } = await supabase.rpc(
-        'get_active_banners',
-        { p_merchant_id: merchant.id }
-      );
-
-      if (bannerError) {
-        console.error('Error fetching banners:', bannerError);
-        return;
-      }
-
-      setActiveBanners(data || []);
-    } catch (err) {
-      console.error('Error fetching active banners:', err);
-    }
+    await fetchActiveBannersRequest(
+      merchant.id,
+      supabaseRef.current,
+      setActiveBanners
+    );
   };
 
   /**
@@ -244,113 +434,26 @@ function useNotificationsForMerchant(
   /**
    * Mark a notification as read
    */
-  const markAsRead = async (id: string) => {
-    try {
-      const response = await fetch(`/api/notifications/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ read: true }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to mark as read');
-      }
-
-      const data = await response.json();
-
-      // Update local state
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === id ? { ...n, read_at: new Date().toISOString() } : n
-        )
-      );
-      setUnreadCount(data.unread_count);
-    } catch (err) {
-      console.error('Error marking notification as read:', err);
-      throw err;
-    }
-  };
+  const markAsRead = (id: string) =>
+    markNotificationAsRead(id, setNotifications, setUnreadCount);
 
   /**
    * Mark all notifications as read
    */
-  const markAllAsRead = async () => {
-    try {
-      // Check if there are any unread notifications
-      const hasUnread = notifications.some((n) => !n.read_at);
-      if (!hasUnread) return;
-
-      const response = await fetch('/api/notifications/mark-all-read', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to mark all as read');
-      }
-
-      // Update local state
-      setNotifications((prev) =>
-        prev.map((n) => ({
-          ...n,
-          read_at: n.read_at || new Date().toISOString(),
-        }))
-      );
-      setUnreadCount(0);
-    } catch (err) {
-      console.error('Error marking all as read:', err);
-      throw err;
-    }
-  };
+  const markAllAsRead = () =>
+    markAllNotificationsAsRead(notifications, setNotifications, setUnreadCount);
 
   /**
    * Dismiss a notification (removes from list)
    */
-  const dismiss = async (id: string) => {
-    try {
-      const response = await fetch(`/api/notifications/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dismissed: true }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to dismiss notification');
-      }
-
-      const data = await response.json();
-
-      // Remove from local state
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      setUnreadCount(data.unread_count);
-    } catch (err) {
-      console.error('Error dismissing notification:', err);
-      throw err;
-    }
-  };
+  const dismiss = (id: string) =>
+    dismissNotification(id, setNotifications, setUnreadCount);
 
   /**
    * Dismiss a banner notification
    */
-  const dismissBanner = async (id: string) => {
-    try {
-      const response = await fetch(`/api/notifications/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ banner_dismissed: true }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to dismiss banner');
-      }
-
-      // Remove from active banners
-      setActiveBanners((prev) => prev.filter((b) => b.id !== id));
-    } catch (err) {
-      console.error('Error dismissing banner:', err);
-      throw err;
-    }
-  };
+  const dismissBanner = (id: string) =>
+    dismissBannerNotification(id, setActiveBanners);
 
   /**
    * Load more notifications (cursor-based pagination)

@@ -23,6 +23,47 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 
+interface ImportResultData {
+  success: number;
+  failed: number;
+  errors: string[];
+}
+
+type BulkImportResult =
+  | { status: 'ok'; data: ImportResultData }
+  | { status: 'error'; error: unknown };
+
+const BULK_IMPORT_TIMEOUT_MS = 30_000;
+
+// Module-scope so the try/catch stays out of the component body — the React
+// Compiler cannot lower try/finally clauses inside a component.
+async function uploadProductCsv(file: File): Promise<BulkImportResult> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(
+    () => controller.abort(),
+    BULK_IMPORT_TIMEOUT_MS
+  );
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch('/api/products/bulk-import', {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error('Upload failed');
+    }
+    const data = (await response.json()) as ImportResultData;
+    return { status: 'ok', data };
+  } catch (error) {
+    return { status: 'error', error };
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 interface CSVBulkImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,11 +78,7 @@ export function CSVBulkImportDialog({
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [result, setResult] = useState<{
-    success: number;
-    failed: number;
-    errors: string[];
-  } | null>(null);
+  const [result, setResult] = useState<ImportResultData | null>(null);
   const { toast } = useToast();
 
   const downloadTemplate = () => {
@@ -90,7 +127,7 @@ export function CSVBulkImportDialog({
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!file) {
       toast({
         title: 'No File Selected',
@@ -103,49 +140,47 @@ export function CSVBulkImportDialog({
     setIsUploading(true);
     setUploadProgress(0);
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+    // Simulate progress while the request is in flight.
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev) => Math.min(prev + 10, 90));
+    }, 200);
 
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90));
-      }, 200);
-
-      const response = await fetch('/api/products/bulk-import', {
-        method: 'POST',
-        body: formData,
+    return uploadProductCsv(file)
+      .then((outcome) => {
+        if (outcome.status === 'ok') {
+          const { data } = outcome;
+          setResult(data);
+          toast({
+            title: 'Import Complete',
+            description: `Successfully imported ${data.success} products. ${data.failed} failed.`,
+          });
+          if (data.success > 0) {
+            onImportComplete();
+          }
+        } else {
+          console.error('Upload error:', outcome.error);
+          toast({
+            title: 'Upload Failed',
+            description:
+              'There was an error uploading your file. Please try again.',
+            variant: 'destructive',
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Unexpected upload flow error:', error);
+        toast({
+          title: 'Upload Failed',
+          description:
+            'There was an error uploading your file. Please try again.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+        setIsUploading(false);
       });
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const data = await response.json();
-      setResult(data);
-
-      toast({
-        title: 'Import Complete',
-        description: `Successfully imported ${data.success} products. ${data.failed} failed.`,
-      });
-
-      if (data.success > 0) {
-        onImportComplete();
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast({
-        title: 'Upload Failed',
-        description:
-          'There was an error uploading your file. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const handleClose = () => {

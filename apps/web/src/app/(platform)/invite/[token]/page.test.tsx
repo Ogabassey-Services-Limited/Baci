@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AcceptInvitePage from './page';
 
@@ -45,6 +45,26 @@ vi.mock('@/hooks/use-toast', () => ({
   }),
 }));
 
+function setUserAgent(userAgent: string) {
+  Object.defineProperty(window.navigator, 'userAgent', {
+    value: userAgent,
+    configurable: true,
+  });
+}
+
+function validInvitationResponse() {
+  return {
+    ok: true,
+    json: vi.fn().mockResolvedValue({
+      valid: true,
+      email: 'staff@example.com',
+      role: 'manager',
+      merchantName: 'Test Store',
+      expiresAt: '2026-12-31T00:00:00.000Z',
+    }),
+  } as unknown as Response;
+}
+
 describe('AcceptInvitePage', () => {
   beforeEach(() => {
     mockUseParams.mockReset();
@@ -54,6 +74,7 @@ describe('AcceptInvitePage', () => {
     mockGetUser.mockReset();
     mockFetch.mockReset();
     mockToast.mockReset();
+    setUserAgent('Mozilla/5.0');
 
     mockUseParams.mockReturnValue({ token: 'invite-token' });
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
@@ -82,5 +103,25 @@ describe('AcceptInvitePage', () => {
     render(<AcceptInvitePage />);
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading invitation');
+  });
+
+  it('updates mobile invite redirects after hydration without changing the server-safe initial render', async () => {
+    setUserAgent(
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15'
+    );
+    mockFetch.mockResolvedValue(validInvitationResponse());
+
+    render(<AcceptInvitePage />);
+
+    const createAccountButton = await screen.findByRole('button', {
+      name: 'Create Account',
+    });
+
+    await waitFor(() => {
+      expect(createAccountButton.closest('a')).toHaveAttribute(
+        'href',
+        expect.stringContaining('client%3Dmobile')
+      );
+    });
   });
 });

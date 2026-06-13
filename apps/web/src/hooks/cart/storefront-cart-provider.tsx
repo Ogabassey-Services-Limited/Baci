@@ -42,9 +42,11 @@ export function StorefrontCartProvider({
     initialMerchantSlug
   );
   const [isHydrated, setIsHydrated] = useState(false);
-  const [isValidationActivated, setIsValidationActivated] = useState(
-    !deferValidationUntilIdle
-  );
+  // Tracks idle/interaction-driven activation only. The non-deferred case is
+  // derived below so the activation effect never sets state synchronously.
+  const [idleValidationActivated, setIdleValidationActivated] = useState(false);
+  const isValidationActivated =
+    !deferValidationUntilIdle || idleValidationActivated;
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [lastAddedProduct, setLastAddedProduct] = useState<Product | null>(
     null
@@ -53,20 +55,36 @@ export function StorefrontCartProvider({
   const upsellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastValidatedCartHashRef = useRef('');
 
+  // Re-sync the slug + cart when the merchant slug prop changes (after the
+  // initial hydration). Adjusting during render avoids the stale frame a
+  // prop-sync effect would introduce, and only runs on an actual prop change.
+  // See react.dev "Adjusting some state when a prop changes". The mount-time
+  // load (storage is unavailable during SSR) still happens in the effect below
+  // so the server-rendered empty cart stays until `isHydrated` flips.
+  const [prevInitialMerchantSlug, setPrevInitialMerchantSlug] =
+    useState(initialMerchantSlug);
+  if (isHydrated && initialMerchantSlug !== prevInitialMerchantSlug) {
+    setPrevInitialMerchantSlug(initialMerchantSlug);
+    const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
+    setMerchantSlugState(slugToUse);
+    setCart(getCartFromStorage(slugToUse));
+  }
+
+  // Hydrate cart + merchant slug from localStorage after mount. This is the
+  // documented post-mount external-source read (storage is unavailable during
+  // SSR), gated by `isHydrated` so consumers keep rendering the server cart
+  // until hydration completes. Runs once on mount; prop-driven slug changes
+  // are handled by the render-time comparison above.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only hydration; initialMerchantSlug prop changes handled during render
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     setCart(getCartFromStorage(slugToUse));
     setMerchantSlugState(slugToUse);
     setIsHydrated(true);
-  }, [initialMerchantSlug]);
+  }, []);
 
   useEffect(() => {
-    if (!deferValidationUntilIdle) {
-      setIsValidationActivated(true);
-      return;
-    }
-
-    if (isValidationActivated) {
+    if (!deferValidationUntilIdle || idleValidationActivated) {
       return;
     }
 
@@ -75,7 +93,7 @@ export function StorefrontCartProvider({
     let loadListenerAttached = false;
     const activateValidation = () => {
       if (!cancelled) {
-        setIsValidationActivated(true);
+        setIdleValidationActivated(true);
       }
     };
 
@@ -142,7 +160,7 @@ export function StorefrontCartProvider({
     };
   }, [
     deferValidationUntilIdle,
-    isValidationActivated,
+    idleValidationActivated,
     validationActivationTimeoutMs,
   ]);
 

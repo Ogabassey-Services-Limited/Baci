@@ -345,7 +345,6 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <div data-testid="debug-bt">{methods.watch('businessType')}</div>
         </FormProvider>
       );
     };
@@ -357,11 +356,7 @@ describe('Step1_BusinessDetails', () => {
     });
     fireEvent.change(select, { target: { value: 'other' } });
 
-    await waitFor(() => {
-      expect(screen.getByTestId('debug-bt').textContent).toBe('other');
-    });
-
-    expect(screen.getByTestId('otherBusinessType')).toBeInTheDocument();
+    expect(await screen.findByTestId('otherBusinessType')).toBeInTheDocument();
   });
 
   it('does not show "other" input field when regular business type is selected', () => {
@@ -390,7 +385,7 @@ describe('Step1_BusinessDetails', () => {
     expect(select).toBeInTheDocument();
   });
 
-  it('updates country when India is selected', async () => {
+  it('updates country when India is selected', () => {
     const TestForm = () => {
       const methods = useForm<OnboardingFormValues>({
         defaultValues: {
@@ -403,7 +398,6 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <div data-testid="country-value">{methods.watch('country')}</div>
         </FormProvider>
       );
     };
@@ -419,9 +413,11 @@ describe('Step1_BusinessDetails', () => {
       }
     );
 
-    await waitFor(() => {
-      expect(screen.getByTestId('country-value')).toHaveTextContent('IN');
-    });
+    expect(
+      screen.getByRole('combobox', {
+        name: /where is your business registered/i,
+      })
+    ).toHaveValue('IN');
   });
 
   it('renders "Generate Business Name" button', () => {
@@ -466,7 +462,6 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <div data-testid="current-value">{methods.watch('businessName')}</div>
         </FormProvider>
       );
     };
@@ -477,8 +472,7 @@ describe('Step1_BusinessDetails', () => {
     await user.type(input, 'my awesome STORE');
 
     await waitFor(() => {
-      const currentValue = screen.getByTestId('current-value');
-      expect(currentValue.textContent).toBe('My Awesome Store');
+      expect(input).toHaveValue('My Awesome Store');
     });
   });
 
@@ -555,7 +549,6 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <div data-testid="current-value">{methods.watch('businessName')}</div>
         </FormProvider>
       );
     };
@@ -571,8 +564,9 @@ describe('Step1_BusinessDetails', () => {
     await user.click(selectButton);
 
     await waitFor(() => {
-      const currentValue = screen.getByTestId('current-value');
-      expect(currentValue.textContent).toBe('Generated Store Name');
+      expect(screen.getByTestId('businessName')).toHaveValue(
+        'Generated Store Name'
+      );
     });
   });
 

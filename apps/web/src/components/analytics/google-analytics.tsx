@@ -29,7 +29,15 @@ export function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps) {
     // Apply any stored consent preferences
     applyStoredConsent();
 
-    setIsInitialized(true);
+    // Flip the render gate off the synchronous effect body (microtask) so the
+    // compiler can memoize this component; the consent init above still runs
+    // first, preserving the required ordering before gtag.js renders.
+    let active = true;
+    queueMicrotask(() => {
+      if (active) {
+        setIsInitialized(true);
+      }
+    });
 
     // Listen for consent updates
     const handleConsentUpdate = () => {
@@ -40,6 +48,7 @@ export function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps) {
     window.addEventListener('cookie-consent-updated', handleConsentUpdate);
 
     return () => {
+      active = false;
       window.removeEventListener('storage', handleConsentUpdate);
       window.removeEventListener('cookie-consent-updated', handleConsentUpdate);
     };

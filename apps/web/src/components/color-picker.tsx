@@ -2,7 +2,7 @@
 
 import { colord } from 'colord';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
@@ -24,37 +24,38 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   // Separate state for hex input to allow typing partial values
   const [hexInput, setHexInput] = useState(parsedColor.toHex());
   const [isHexValid, setIsHexValid] = useState(true);
-  const hexInputRef = useRef(parsedColor.toHex());
 
   // Track if we're currently dragging - using state so it's available during render
-  const [_isDraggingSatLight, setIsDraggingSatLight] = useState(false);
-  const [_isDraggingHue, setIsDraggingHue] = useState(false);
-  // Use ref for synchronous access in useEffect to avoid race conditions
-  const isDraggingRef = useRef(false);
-  const lastPropColorRef = useRef(color);
+  const [isDraggingSatLight, setIsDraggingSatLight] = useState(false);
+  const [isDraggingHue, setIsDraggingHue] = useState(false);
+  // Last color we emitted via onChange (or synced from props)
+  const [lastPropColor, setLastPropColor] = useState(color);
 
   const satLightBoxRef = useRef<HTMLDivElement>(null);
   const hueSliderRef = useRef<HTMLDivElement>(null);
 
   // Sync internal state when prop changes externally (not from our own onChange)
-  // This is an intentional controlled component pattern for prop-to-state sync
-  useEffect(() => {
-    if (lastPropColorRef.current !== color && !isDraggingRef.current) {
+  // This is an intentional controlled component pattern for prop-to-state sync,
+  // adjusted inline during render with a prev-prop comparison. See
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevColor, setPrevColor] = useState(color);
+  if (color !== prevColor) {
+    setPrevColor(color);
+    if (lastPropColor !== color && !isDraggingSatLight && !isDraggingHue) {
       const newParsedColor = colord(color);
       const newHsl = newParsedColor.toHsl();
       setInternalHue(newHsl.h);
       setInternalSaturation(newHsl.s);
       setInternalLightness(newHsl.l);
-      lastPropColorRef.current = color;
+      setLastPropColor(color);
       setIsHexValid(true);
       // Also update hex input if it wasn't the source of the change
       const newHex = newParsedColor.toHex();
-      if (hexInputRef.current !== newHex) {
+      if (hexInput !== newHex) {
         setHexInput(newHex);
-        hexInputRef.current = newHex;
       }
     }
-  }, [color]);
+  }
 
   // Always use internal state for rendering to preserve precision and avoid
   // lossy Hex->HSL conversion issues (e.g. losing Hue in grayscale).
@@ -66,10 +67,12 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
 
   // Update color and notify parent
   const updateColor = (h: number, s: number, l: number) => {
+    setInternalHue(h);
+    setInternalSaturation(s);
+    setInternalLightness(l);
     const newHex = colord({ h, s, l }).toHex();
-    lastPropColorRef.current = newHex;
+    setLastPropColor(newHex);
     setHexInput(newHex);
-    hexInputRef.current = newHex;
     onChange(newHex);
   };
 
@@ -126,7 +129,6 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const handleMouseUp = () => {
     setIsDraggingSatLight(false);
     setIsDraggingHue(false);
-    isDraggingRef.current = false;
   };
 
   const handleMouseDownSatLight = (
@@ -137,7 +139,6 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
       e.preventDefault();
     }
     setIsDraggingSatLight(true);
-    isDraggingRef.current = true;
     handleSatLightChange(e);
 
     const onMove = (moveEvent: MouseEvent | TouchEvent) =>
@@ -164,7 +165,6 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
       e.preventDefault();
     }
     setIsDraggingHue(true);
-    isDraggingRef.current = true;
     handleHueChange(e);
 
     const onMove = (moveEvent: MouseEvent | TouchEvent) =>
@@ -285,7 +285,6 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
           onChange={(e) => {
             const newHex = e.target.value;
             setHexInput(newHex);
-            hexInputRef.current = newHex;
             const parsed = colord(newHex);
             const isValid = parsed.isValid();
             setIsHexValid(isValid);
@@ -295,7 +294,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
               setInternalHue(newHsl.h);
               setInternalSaturation(newHsl.s);
               setInternalLightness(newHsl.l);
-              lastPropColorRef.current = parsed.toHex();
+              setLastPropColor(parsed.toHex());
               onChange(parsed.toHex());
             }
           }}

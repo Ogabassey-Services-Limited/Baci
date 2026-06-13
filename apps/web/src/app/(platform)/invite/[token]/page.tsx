@@ -1,6 +1,5 @@
 'use client';
 
-import { createBrowserClient } from '@supabase/ssr';
 import {
   Building2,
   CheckCircle,
@@ -22,12 +21,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { apiPost } from '@/lib/api-client';
 import {
   buildStaffInvitePath,
   resolveStaffPostAcceptRedirect,
   STAFF_INVITE_ACCEPT_QUERY_PARAM,
   STAFF_INVITE_CLIENT_QUERY_PARAM,
 } from '@/lib/staff-invite-flow';
+import { createClient } from '@/lib/supabase/client';
 
 interface InvitationDetails {
   valid: boolean;
@@ -47,6 +48,91 @@ const roleLabels: Record<string, string> = {
   marketing: 'Marketing',
   fulfillment: 'Fulfillment',
 };
+
+type SupabaseBrowserClient = ReturnType<typeof createClient>;
+type SupabaseAuth = SupabaseBrowserClient['auth'];
+
+interface InvitationLoadResult {
+  user: { email: string } | null;
+  invitation: InvitationDetails | null;
+  error: string | null;
+}
+
+function detectIsMobileBrowser() {
+  return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+// Module-scope helpers keep the component body free of try/finally and
+// throw-inside-try statements that block React Compiler memoization.
+async function loadInvitation(
+  auth: SupabaseAuth,
+  token: string
+): Promise<InvitationLoadResult> {
+  try {
+    const {
+      data: { user: currentUser },
+      error: userError,
+    } = await auth.getUser();
+
+    if (userError) {
+      console.warn('Invite user session unavailable:', userError);
+    }
+
+    const response = await fetch(
+      `/api/staff/accept-invite?token=${encodeURIComponent(token)}`
+    );
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        user:
+          !userError && currentUser?.email
+            ? { email: currentUser.email }
+            : null,
+        invitation: null,
+        error: data.error || 'Invalid invitation',
+      };
+    }
+
+    return {
+      user:
+        !userError && currentUser?.email ? { email: currentUser.email } : null,
+      invitation: data,
+      error: null,
+    };
+  } catch (err) {
+    console.error('Error validating invitation:', err);
+    return {
+      user: null,
+      invitation: null,
+      error: 'Failed to validate invitation',
+    };
+  }
+}
+
+interface AcceptInvitationResult {
+  ok: boolean;
+  error?: string;
+}
+
+async function postAcceptInvitation(
+  token: string
+): Promise<AcceptInvitationResult> {
+  try {
+    await apiPost('/api/staff/accept-invite', { token });
+
+    return { ok: true };
+  } catch (err) {
+    console.error('Error accepting invitation:', err);
+    return {
+      ok: false,
+      error:
+        err instanceof Error
+          ? err.message
+          : 'Failed to accept invitation. Please try again.',
+    };
+  }
+}
 
 export default function AcceptInvitePage() {
   return (
@@ -95,10 +181,7 @@ function AcceptInvitePageContent() {
   const [isMobileBrowser, setIsMobileBrowser] = useState(false);
   const autoAcceptAttemptedRef = useRef(false);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-  );
+  const supabase = createClient();
   const normalizedRequestedClient = requestedClient?.trim().toLowerCase();
   const inviteClient =
     normalizedRequestedClient === 'mobile' ||
@@ -117,41 +200,36 @@ function AcceptInvitePageContent() {
     user.email.toLowerCase() !== invitation.email.toLowerCase();
 
   useEffect(() => {
-    setIsMobileBrowser(/android|iphone|ipad|ipod/i.test(navigator.userAgent));
+    setIsMobileBrowser(detectIsMobileBrowser());
   }, []);
 
   useEffect(() => {
-    const checkAuthAndValidate = async () => {
-      try {
-        // Check if user is logged in
-        const {
-          data: { user: currentUser },
-        } = await supabase.auth.getUser();
-        if (currentUser?.email) {
-          setUser({ email: currentUser.email });
-        }
-
-        // Validate the invitation token
-        const response = await fetch(
-          `/api/staff/accept-invite?token=${encodeURIComponent(token)}`
-        );
-        const data = await response.json();
-
-        if (!response.ok) {
-          setError(data.error || 'Invalid invitation');
+    let cancelled = false;
+    loadInvitation(supabase.auth, token)
+      .then((result) => {
+        if (cancelled) {
           return;
         }
+        if (result.user) {
+          setUser(result.user);
+        }
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        if (result.invitation) {
+          setInvitation(result.invitation);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
 
-        setInvitation(data);
-      } catch (err) {
-        console.error('Error validating invitation:', err);
-        setError('Failed to validate invitation');
-      } finally {
-        setLoading(false);
-      }
+    return () => {
+      cancelled = true;
     };
-
-    checkAuthAndValidate();
   }, [token, supabase.auth]);
 
   const redirectAfterAcceptance = () => {
@@ -183,45 +261,32 @@ function AcceptInvitePageContent() {
     document.addEventListener('visibilitychange', clearFallbackOnAppOpen);
   };
 
-  const acceptInvitation = async () => {
+  const acceptInvitation = () => {
     setAccepting(true);
-    try {
-      const response = await fetch('/api/staff/accept-invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
+    return postAcceptInvitation(token)
+      .then((result) => {
+        if (!result.ok) {
+          toast({
+            title: 'Error',
+            description: result.error,
+            variant: 'destructive',
+          });
+          return;
+        }
 
-      const data = await response.json();
-
-      if (!response.ok) {
+        setAccepted(true);
         toast({
-          title: 'Error',
-          description: data.error || 'Failed to accept invitation',
-          variant: 'destructive',
+          title: 'Welcome to the team!',
+          description: `You've joined ${invitation?.merchantName} as ${roleLabels[invitation?.role || ''] || invitation?.role}.`,
         });
-        return;
-      }
 
-      setAccepted(true);
-      toast({
-        title: 'Welcome to the team!',
-        description: `You've joined ${invitation?.merchantName} as ${roleLabels[invitation?.role || ''] || invitation?.role}.`,
+        window.setTimeout(() => {
+          redirectAfterAcceptance();
+        }, 800);
+      })
+      .finally(() => {
+        setAccepting(false);
       });
-
-      window.setTimeout(() => {
-        redirectAfterAcceptance();
-      }, 800);
-    } catch (err) {
-      console.error('Error accepting invitation:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to accept invitation. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setAccepting(false);
-    }
   };
 
   const handleAcceptInvitation = async () => {

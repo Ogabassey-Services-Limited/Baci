@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,6 +29,147 @@ import { getCurrencySymbol } from './product-currency-input';
 import { saveDirtyProducts } from './save-dirty-products';
 import { useJumiaIntegrations } from './use-jumia-integrations';
 
+type CatalogToast = ReturnType<typeof useToast>['toast'];
+
+interface RunProductSaveParams {
+  dirtyProductIdsForSave: Set<string>;
+  isMountedRef: RefObject<boolean>;
+  hasQueuedSaveRef: RefObject<boolean>;
+  isSavingRef: RefObject<boolean>;
+  dirtyProductSnapshotsRef: RefObject<Map<string, Product>>;
+  dirtyProductRevisionsRef: RefObject<Map<string, number>>;
+  localProductsRef: RefObject<Product[]>;
+  updateProduct: (product: Product) => Promise<unknown>;
+  toast: CatalogToast;
+  setIsSaving: Dispatch<SetStateAction<boolean>>;
+  setDirtyProducts: Dispatch<SetStateAction<Set<string>>>;
+  setSaveFlushCounter: Dispatch<SetStateAction<number>>;
+}
+
+/**
+ * Module-scope save runner. The try/finally control flow lives here rather than
+ * inside the component effect because React Compiler cannot lower a
+ * TryStatement with a finalizer, which would bail out the whole component.
+ */
+async function runProductSave({
+  dirtyProductIdsForSave,
+  isMountedRef,
+  hasQueuedSaveRef,
+  isSavingRef,
+  dirtyProductSnapshotsRef,
+  dirtyProductRevisionsRef,
+  localProductsRef,
+  updateProduct,
+  toast,
+  setIsSaving,
+  setDirtyProducts,
+  setSaveFlushCounter,
+}: RunProductSaveParams): Promise<void> {
+  const dirtyProductSnapshotsForSave = new Map(
+    dirtyProductSnapshotsRef.current
+  );
+  const dirtyProductRevisionsForSave = new Map(
+    dirtyProductRevisionsRef.current
+  );
+
+  if (isMountedRef.current) {
+    setIsSaving(true);
+  }
+  try {
+    const { failedIds, fulfilledIds, skippedIds } = await saveDirtyProducts({
+      dirtyProductIds: dirtyProductIdsForSave,
+      dirtyProductSnapshots: dirtyProductSnapshotsForSave,
+      localProducts: localProductsRef.current,
+      updateProduct,
+    });
+
+    if (failedIds.length > 0) {
+      console.error('Failed to save products', failedIds);
+    }
+
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    const hasQueuedFollowUp = hasQueuedSaveRef.current;
+    const fulfilledCurrentIds = fulfilledIds.filter((id) => {
+      return (
+        dirtyProductRevisionsRef.current.get(id) ===
+        dirtyProductRevisionsForSave.get(id)
+      );
+    });
+    const staleFulfilledCount =
+      fulfilledIds.length - fulfilledCurrentIds.length;
+
+    if (staleFulfilledCount > 0) {
+      hasQueuedSaveRef.current = true;
+    }
+
+    if (fulfilledCurrentIds.length > 0) {
+      for (const id of fulfilledCurrentIds) {
+        dirtyProductSnapshotsRef.current.delete(id);
+        dirtyProductRevisionsRef.current.delete(id);
+      }
+      setDirtyProducts((current) => {
+        const next = new Set(current);
+        for (const id of fulfilledCurrentIds) {
+          next.delete(id);
+        }
+        return next;
+      });
+    }
+
+    if (
+      failedIds.length === 0 &&
+      skippedIds.length === 0 &&
+      staleFulfilledCount === 0
+    ) {
+      toast({
+        title: 'Changes Saved',
+        description: `Updated ${fulfilledIds.length} product(s).`,
+      });
+      return;
+    }
+
+    if (fulfilledCurrentIds.length > 0) {
+      toast({
+        title: 'Partial Save',
+        description: `Saved ${fulfilledCurrentIds.length} product(s). ${failedIds.length + skippedIds.length + staleFulfilledCount} change(s) are still pending.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (
+      staleFulfilledCount > 0 &&
+      failedIds.length === 0 &&
+      skippedIds.length === 0
+    ) {
+      return;
+    }
+
+    if (hasQueuedFollowUp) {
+      return;
+    }
+
+    toast({
+      title: 'Save Failed',
+      description: 'Could not save changes. Please try again.',
+      variant: 'destructive',
+    });
+  } finally {
+    const shouldFlushQueuedSave = hasQueuedSaveRef.current;
+    hasQueuedSaveRef.current = false;
+    isSavingRef.current = false;
+    if (isMountedRef.current) {
+      setIsSaving(false);
+      if (shouldFlushQueuedSave) {
+        setSaveFlushCounter((current) => current + 1);
+      }
+    }
+  }
+}
+
 interface ProductCatalogProps {
   statusFilter: string;
   stockFilter: string;
@@ -39,6 +187,23 @@ export function ProductCatalog({
   const { toast } = useToast();
   const [localProducts, setLocalProducts] = useState(products);
   const [dirtyProducts, setDirtyProducts] = useState<Set<string>>(new Set());
+  // Merge incoming context products with unsaved local edits during render
+  // (prev-input comparison) instead of a setState-in-effect, which keeps React
+  // Compiler memoization enabled. `localProducts` must persist in-flight edits
+  // across context refreshes, so it cannot be a pure derivation.
+  const [prevMergeProducts, setPrevMergeProducts] = useState(products);
+  const [prevMergeDirty, setPrevMergeDirty] = useState(dirtyProducts);
+  if (products !== prevMergeProducts || dirtyProducts !== prevMergeDirty) {
+    setPrevMergeProducts(products);
+    setPrevMergeDirty(dirtyProducts);
+    setLocalProducts((current) =>
+      mergeLocalProducts({
+        current,
+        dirtyProductIds: dirtyProducts,
+        incoming: products,
+      })
+    );
+  }
   const debouncedDirtyProducts = useDebounce(dirtyProducts, 1000);
   const [isSaving, setIsSaving] = useState(false);
   const [saveFlushCounter, setSaveFlushCounter] = useState(0);
@@ -99,16 +264,6 @@ export function ProductCatalog({
     dirtyProductSnapshotsRef.current = nextSnapshots;
   }, [dirtyProducts, localProducts]);
 
-  useEffect(() => {
-    setLocalProducts((current) => {
-      return mergeLocalProducts({
-        current,
-        dirtyProductIds: dirtyProducts,
-        incoming: products,
-      });
-    });
-  }, [dirtyProducts, products]);
-
   // Re-run only when the debounced dirty set changes (i.e., the user makes
   // new edits) or when an edit was queued during an in-flight save. We do NOT
   // list `isSaving` as a dep — that would create an infinite retry loop on
@@ -143,113 +298,20 @@ export function ProductCatalog({
     }
 
     isSavingRef.current = true;
-    void (async () => {
-      const dirtyProductSnapshotsForSave = new Map(
-        dirtyProductSnapshotsRef.current
-      );
-      const dirtyProductRevisionsForSave = new Map(
-        dirtyProductRevisionsRef.current
-      );
-
-      if (isMountedRef.current) {
-        setIsSaving(true);
-      }
-      try {
-        const { failedIds, fulfilledIds, skippedIds } = await saveDirtyProducts(
-          {
-            dirtyProductIds: dirtyProductIdsForSave,
-            dirtyProductSnapshots: dirtyProductSnapshotsForSave,
-            localProducts: localProductsRef.current,
-            updateProduct,
-          }
-        );
-
-        if (failedIds.length > 0) {
-          console.error('Failed to save products', failedIds);
-        }
-
-        if (!isMountedRef.current) {
-          return;
-        }
-
-        const hasQueuedFollowUp = hasQueuedSaveRef.current;
-        const fulfilledCurrentIds = fulfilledIds.filter((id) => {
-          return (
-            dirtyProductRevisionsRef.current.get(id) ===
-            dirtyProductRevisionsForSave.get(id)
-          );
-        });
-        const staleFulfilledCount =
-          fulfilledIds.length - fulfilledCurrentIds.length;
-
-        if (staleFulfilledCount > 0) {
-          hasQueuedSaveRef.current = true;
-        }
-
-        if (fulfilledCurrentIds.length > 0) {
-          for (const id of fulfilledCurrentIds) {
-            dirtyProductSnapshotsRef.current.delete(id);
-            dirtyProductRevisionsRef.current.delete(id);
-          }
-          setDirtyProducts((current) => {
-            const next = new Set(current);
-            for (const id of fulfilledCurrentIds) {
-              next.delete(id);
-            }
-            return next;
-          });
-        }
-
-        if (
-          failedIds.length === 0 &&
-          skippedIds.length === 0 &&
-          staleFulfilledCount === 0
-        ) {
-          toast({
-            title: 'Changes Saved',
-            description: `Updated ${fulfilledIds.length} product(s).`,
-          });
-          return;
-        }
-
-        if (fulfilledCurrentIds.length > 0) {
-          toast({
-            title: 'Partial Save',
-            description: `Saved ${fulfilledCurrentIds.length} product(s). ${failedIds.length + skippedIds.length + staleFulfilledCount} change(s) are still pending.`,
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        if (
-          staleFulfilledCount > 0 &&
-          failedIds.length === 0 &&
-          skippedIds.length === 0
-        ) {
-          return;
-        }
-
-        if (hasQueuedFollowUp) {
-          return;
-        }
-
-        toast({
-          title: 'Save Failed',
-          description: 'Could not save changes. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        const shouldFlushQueuedSave = hasQueuedSaveRef.current;
-        hasQueuedSaveRef.current = false;
-        isSavingRef.current = false;
-        if (isMountedRef.current) {
-          setIsSaving(false);
-          if (shouldFlushQueuedSave) {
-            setSaveFlushCounter((current) => current + 1);
-          }
-        }
-      }
-    })();
+    void runProductSave({
+      dirtyProductIdsForSave,
+      isMountedRef,
+      hasQueuedSaveRef,
+      isSavingRef,
+      dirtyProductSnapshotsRef,
+      dirtyProductRevisionsRef,
+      localProductsRef,
+      updateProduct,
+      toast,
+      setIsSaving,
+      setDirtyProducts,
+      setSaveFlushCounter,
+    });
   }, [debouncedDirtyProducts, saveFlushCounter, updateProduct, toast]);
 
   const markProductDirty = (productId: string) => {

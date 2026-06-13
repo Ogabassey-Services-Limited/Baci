@@ -31,9 +31,11 @@ export function ImagePickerField({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'library' | 'url'>('library');
 
-  const handleSelectImage = (url: string) => {
-    onChange(url);
-    setDialogOpen(false);
+  const handleSelectImage = (url: string | null) => {
+    onChange(url ?? '');
+    if (url) {
+      setDialogOpen(false);
+    }
   };
 
   return (

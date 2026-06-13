@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BuilderClient from './builder-client';
 
 const mockPush = vi.fn();
+const mockRouter = { push: mockPush };
 const mockToast = vi.fn();
 const { mockApiPost, mockApiPut, mockFetchWithCsrf } = vi.hoisted(() => ({
   mockApiPost: vi.fn(),
@@ -27,10 +28,10 @@ vi.mock('next/link', () => ({
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
+  useRouter: () => mockRouter,
 }));
+
+vi.mock('@puckeditor/core/puck.css', () => ({}));
 
 vi.mock('@puckeditor/core', () => {
   const PuckComponent = ({ children }: { children: React.ReactNode }) => (
@@ -300,9 +301,34 @@ describe('BuilderClient', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`aiDraftJobId=${aiDraftJobId}`)
+        expect.stringContaining(`aiDraftJobId=${aiDraftJobId}`),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
+  });
+
+  it('aborts the bootstrap request when the builder unmounts', async () => {
+    let bootstrapSignal: AbortSignal | undefined;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (_input: string | URL | Request, init?: RequestInit) => {
+        bootstrapSignal = init?.signal as AbortSignal | undefined;
+
+        return new Promise<Response>(() => {
+          // Intentionally unresolved so unmount cleanup owns cancellation.
+        });
+      }
+    );
+
+    const { unmount } = render(<BuilderClient />);
+
+    await waitFor(() => {
+      expect(bootstrapSignal).toBeInstanceOf(AbortSignal);
+    });
+    expect(bootstrapSignal?.aborted).toBe(false);
+
+    unmount();
+
+    expect(bootstrapSignal?.aborted).toBe(true);
   });
 
   it('renders AI draft previews without apply controls for view-only staff', async () => {

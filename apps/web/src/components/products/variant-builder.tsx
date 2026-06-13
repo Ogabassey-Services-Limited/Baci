@@ -48,6 +48,108 @@ const DEFAULT_ATTRIBUTE_ORDER = ['ram', 'storage', 'color'];
 // Attribute keys that should be numerically sorted in variants
 const NUMERIC_SORT_ATTRIBUTE_KEYS = ['ram', 'storage', 'size', 'weight'];
 
+// Module-scope readers for AI variant suggestions. Keeping the try/catch/finally
+// out of the component body lets React Compiler memoize the component.
+interface StoredVariantSuggestionsResult {
+  // True when raw data was present (even if it failed to parse), so the caller
+  // can stop the max-poll timer — matching the original control flow.
+  hadRawData: boolean;
+  suggestions: { attribute: string; options: string[] }[] | null;
+}
+
+function readStoredVariantSuggestions(): StoredVariantSuggestionsResult {
+  let raw: string | null = null;
+  try {
+    raw = sessionStorage.getItem('ai_variant_suggestions');
+  } catch (error) {
+    console.error(
+      'Could not access sessionStorage for ai_variant_suggestions',
+      error
+    );
+    return { hadRawData: false, suggestions: null };
+  }
+
+  if (!raw) {
+    return { hadRawData: false, suggestions: null };
+  }
+
+  try {
+    return { hadRawData: true, suggestions: JSON.parse(raw) };
+  } catch (error) {
+    console.error('Failed to parse AI variant suggestions', error);
+    return { hadRawData: true, suggestions: null };
+  } finally {
+    // Clean up immediately after use
+    try {
+      sessionStorage.removeItem('ai_variant_suggestions');
+    } catch (error) {
+      console.error(
+        'Could not remove ai_variant_suggestions from sessionStorage',
+        error
+      );
+    }
+  }
+}
+
+function mapSuggestionsToSelections(
+  suggestions: { attribute: string; options: string[] }[],
+  variantAttributes: CategoryConfig['variantAttributes']
+): AttributeSelection {
+  const newSelections: AttributeSelection = {};
+  suggestions.forEach((suggestion) => {
+    // Find attribute key case-insensitively
+    const attrKey = variantAttributes?.find(
+      (a) => a.label.toLowerCase() === suggestion.attribute.toLowerCase()
+    )?.key;
+    if (attrKey) {
+      newSelections[attrKey] = suggestion.options;
+    }
+  });
+  return newSelections;
+}
+
+// Module-scope image-enhancement pipeline. Keeping the dynamic import, throw,
+// and try/catch out of the component body lets React Compiler memoize the
+// component (BuildHIR can't yet lower those statements inside a component).
+async function enhanceVariantImage(sourceImage: string): Promise<string> {
+  // 1. Remove Background
+  const { removeBackground } = await import('@imgly/background-removal');
+  const blob = await removeBackground(sourceImage);
+  const noBgUrl = URL.createObjectURL(blob);
+
+  // 2. Adjust Lighting (Brightness/Contrast)
+  const img = new window.Image();
+  img.src = noBgUrl;
+  await new Promise((resolve) => {
+    img.onload = resolve;
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get canvas context');
+
+  ctx.drawImage(img, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  const contrast = 1.1;
+  const brightness = 10;
+  const intercept = 128 * (1 - contrast);
+
+  for (let i = 0; i < data.length; i += 4) {
+    // Only adjust non-transparent pixels
+    if (data[i + 3] > 0) {
+      data[i] = data[i] * contrast + intercept + brightness;
+      data[i + 1] = data[i + 1] * contrast + intercept + brightness;
+      data[i + 2] = data[i + 2] * contrast + intercept + brightness;
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas.toDataURL('image/png');
+}
+
 // Helper to format text to Title Case
 function toTitleCase(text: string) {
   if (!text) return '';
@@ -118,60 +220,24 @@ export function VariantBuilder({
 
   useEffect(() => {
     function checkForSuggestions() {
-      let aiSuggestionsRaw: string | null = null;
-      try {
-        aiSuggestionsRaw = sessionStorage.getItem('ai_variant_suggestions');
-      } catch (error) {
-        console.error(
-          'Could not access sessionStorage for ai_variant_suggestions',
-          error
-        );
+      const { hadRawData, suggestions } = readStoredVariantSuggestions();
+
+      if (!hadRawData) {
         return;
       }
 
-      if (aiSuggestionsRaw) {
-        try {
-          const aiSuggestions: { attribute: string; options: string[] }[] =
-            JSON.parse(aiSuggestionsRaw);
-          const newSelections: AttributeSelection = {};
-          aiSuggestions.forEach((suggestion) => {
-            // Find attribute key case-insensitively
-            const attrKey = categoryConfig.variantAttributes?.find(
-              (a) =>
-                a.label.toLowerCase() === suggestion.attribute.toLowerCase()
-            )?.key;
-            if (attrKey) {
-              // For color attributes, store the first option (or all) as a string array
-              const attr = categoryConfig.variantAttributes?.find(
-                (a) => a.key === attrKey
-              );
-              if (attr?.type === 'color') {
-                // Keep all color options
-                newSelections[attrKey] = suggestion.options;
-              } else {
-                newSelections[attrKey] = suggestion.options;
-              }
-            }
-          });
-          setAttributeSelections(newSelections);
-        } catch (error) {
-          console.error('Failed to parse AI variant suggestions', error);
-        } finally {
-          // Clean up immediately after use
-          try {
-            sessionStorage.removeItem('ai_variant_suggestions');
-          } catch (error) {
-            console.error(
-              'Could not remove ai_variant_suggestions from sessionStorage',
-              error
-            );
-          }
-        }
+      if (suggestions) {
+        setAttributeSelections(
+          mapSuggestionsToSelections(
+            suggestions,
+            categoryConfig.variantAttributes
+          )
+        );
+      }
 
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
     }
 
@@ -302,7 +368,7 @@ export function VariantBuilder({
     reader.readAsDataURL(file);
   };
 
-  const handleEnhanceImage = async (color: string) => {
+  const handleEnhanceImage = (color: string) => {
     const variantToEnhance = variants.find((v) => v.attributes.color === color);
     if (!variantToEnhance?.primary_image) {
       toast({
@@ -314,75 +380,41 @@ export function VariantBuilder({
     }
 
     setEnhancingImages((prev) => ({ ...prev, [color]: true }));
-    try {
-      toast({
-        title: 'Enhancing Image',
-        description:
-          'Removing background and adjusting lighting... This may take a moment.',
+    toast({
+      title: 'Enhancing Image',
+      description:
+        'Removing background and adjusting lighting... This may take a moment.',
+    });
+
+    return enhanceVariantImage(variantToEnhance.primary_image)
+      .then((enhancedPhotoDataUri) => {
+        const updated = variants.map((v) =>
+          v.attributes.color === color
+            ? {
+                ...v,
+                primary_image: enhancedPhotoDataUri,
+                images: [enhancedPhotoDataUri],
+              }
+            : v
+        );
+        setVariants(updated);
+        onVariantsChange(updated);
+        toast({
+          title: 'Image enhanced!',
+          description: 'Background removed and lighting adjusted.',
+        });
+      })
+      .catch((error: unknown) => {
+        console.error('Enhancement failed:', error);
+        toast({
+          title: 'Enhancement Failed',
+          description: `Could not enhance the image.`,
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setEnhancingImages((prev) => ({ ...prev, [color]: false }));
       });
-
-      // 1. Remove Background
-      const { removeBackground } = await import('@imgly/background-removal');
-      const blob = await removeBackground(variantToEnhance.primary_image);
-      const noBgUrl = URL.createObjectURL(blob);
-
-      // 2. Adjust Lighting (Brightness/Contrast)
-      const img = new window.Image();
-      img.src = noBgUrl;
-      await new Promise((resolve) => {
-        img.onload = resolve;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not get canvas context');
-
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      const contrast = 1.1;
-      const brightness = 10;
-      const intercept = 128 * (1 - contrast);
-
-      for (let i = 0; i < data.length; i += 4) {
-        // Only adjust non-transparent pixels
-        if (data[i + 3] > 0) {
-          data[i] = data[i] * contrast + intercept + brightness;
-          data[i + 1] = data[i + 1] * contrast + intercept + brightness;
-          data[i + 2] = data[i + 2] * contrast + intercept + brightness;
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-      const enhancedPhotoDataUri = canvas.toDataURL('image/png');
-
-      const updated = variants.map((v) =>
-        v.attributes.color === color
-          ? {
-              ...v,
-              primary_image: enhancedPhotoDataUri,
-              images: [enhancedPhotoDataUri],
-            }
-          : v
-      );
-      setVariants(updated);
-      onVariantsChange(updated);
-      toast({
-        title: 'Image enhanced!',
-        description: 'Background removed and lighting adjusted.',
-      });
-    } catch (error) {
-      console.error('Enhancement failed:', error);
-      toast({
-        title: 'Enhancement Failed',
-        description: `Could not enhance the image.`,
-        variant: 'destructive',
-      });
-    } finally {
-      setEnhancingImages((prev) => ({ ...prev, [color]: false }));
-    }
   };
 
   const updateVariant = (

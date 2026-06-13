@@ -364,6 +364,27 @@ const NodeRenderer = ({
   }
 };
 
+type ParsedBlogDoc = { kind: 'doc'; doc: TipTapNode } | { kind: 'fallback' };
+
+// Parse + validate the TipTap JSON outside of render so JSX is never
+// constructed inside a try/catch (react.dev: construct JSX in an error
+// boundary, not a try/catch, since render errors escape the try block).
+function parseBlogDoc(json: unknown): ParsedBlogDoc {
+  try {
+    const doc = typeof json === 'string' ? JSON.parse(json) : json;
+    if (
+      doc &&
+      typeof doc === 'object' &&
+      (doc as { type?: unknown }).type === 'doc'
+    ) {
+      return { kind: 'doc', doc: doc as TipTapNode };
+    }
+  } catch (e) {
+    console.error('Renderer failed:', e);
+  }
+  return { kind: 'fallback' };
+}
+
 export const BlogContentRenderer = ({
   json,
   basePath,
@@ -372,27 +393,21 @@ export const BlogContentRenderer = ({
 }: BlogContentRendererProps) => {
   if (!json) return null;
 
-  try {
-    const doc = typeof json === 'string' ? JSON.parse(json) : json;
+  const parsed = parseBlogDoc(json);
 
-    // Safety check for TipTap format
-    if (doc.type !== 'doc') {
-      return <SafeHtml html={typeof json === 'string' ? json : ''} />;
-    }
-
-    return (
-      <div className="blog-content-renderer prose dark:prose-invert prose-baci max-w-none text-foreground">
-        <NodeRenderer
-          basePath={basePath}
-          baseUrl={baseUrl}
-          merchantSlug={merchantSlug}
-          node={doc}
-          index={0}
-        />
-      </div>
-    );
-  } catch (e) {
-    console.error('Renderer failed:', e);
+  if (parsed.kind === 'fallback') {
     return <SafeHtml html={typeof json === 'string' ? json : ''} />;
   }
+
+  return (
+    <div className="blog-content-renderer prose dark:prose-invert prose-baci max-w-none text-foreground">
+      <NodeRenderer
+        basePath={basePath}
+        baseUrl={baseUrl}
+        merchantSlug={merchantSlug}
+        node={parsed.doc}
+        index={0}
+      />
+    </div>
+  );
 };

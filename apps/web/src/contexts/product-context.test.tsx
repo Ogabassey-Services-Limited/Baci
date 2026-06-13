@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
+import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProductProvider, useProductContext } from '@/contexts/product-context';
 import type { Product } from '@/lib/products';
@@ -119,9 +120,14 @@ describe('ProductProvider — search debounce + filter flush', () => {
 
   function CapturingProbe() {
     const ctx = useProductContext();
-    refs.setSearchTerm = ctx.setSearchTerm;
-    refs.setStatusFilter = ctx.setStatusFilter;
-    refs.setPage = ctx.setPage;
+    // Capture the context setters outside of render so the test helper can
+    // drive state. Writing to the module-scoped `refs` during render trips the
+    // React Compiler immutability rule, so do it in an effect instead.
+    useEffect(() => {
+      refs.setSearchTerm = ctx.setSearchTerm;
+      refs.setStatusFilter = ctx.setStatusFilter;
+      refs.setPage = ctx.setPage;
+    }, [ctx.setSearchTerm, ctx.setStatusFilter, ctx.setPage]);
     return null;
   }
 

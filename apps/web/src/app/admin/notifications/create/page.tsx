@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -104,6 +104,53 @@ const segmentOptions: {
   },
 ];
 
+interface SubmitNotificationCallbacks {
+  toast: ReturnType<typeof useToast>['toast'];
+  router: ReturnType<typeof useRouter>;
+  setIsSubmitting: (value: boolean) => void;
+}
+
+async function submitNotification(
+  payload: CreateNotificationInput,
+  { toast, router, setIsSubmitting }: SubmitNotificationCallbacks
+): Promise<void> {
+  try {
+    const result = await apiPost<CreateNotificationResponse>(
+      '/api/admin/notifications',
+      payload
+    );
+
+    toast({
+      title:
+        result.status === 'sent'
+          ? 'Notification Sent'
+          : 'Notification Scheduled',
+      description:
+        result.status === 'sent'
+          ? typeof result.merchants_notified === 'number'
+            ? `Sent to ${result.merchants_notified} merchants`
+            : 'Notification has been sent'
+          : result.scheduled_for
+            ? `Scheduled for ${new Date(result.scheduled_for).toLocaleString()}`
+            : 'Notification has been scheduled',
+    });
+
+    router.push('/admin/notifications');
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    toast({
+      title: 'Error',
+      description:
+        error instanceof Error
+          ? error.message
+          : 'Failed to create notification',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+}
+
 export default function CreateNotificationPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -121,6 +168,19 @@ export default function CreateNotificationPage() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [expiresEnabled, setExpiresEnabled] = useState(false);
 
+  // Earliest selectable datetime ("now" in local time). Starts empty so the
+  // server and client first render identically (a time-based initializer
+  // hydration-mismatches), then fills in from the client clock after mount —
+  // the documented client-only rendering pattern.
+  const [minDateTime, setMinDateTime] = useState('');
+  useEffect(() => {
+    setMinDateTime(
+      new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16)
+    );
+  }, []);
+
   const updateFormData = (updates: Partial<CreateNotificationInput>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
   };
@@ -136,7 +196,7 @@ export default function CreateNotificationPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.title.trim()) {
@@ -176,47 +236,13 @@ export default function CreateNotificationPage() {
 
     setIsSubmitting(true);
 
-    try {
-      const payload: CreateNotificationInput = {
-        ...formData,
-        scheduled_for: scheduleEnabled ? formData.scheduled_for : undefined,
-        expires_at: expiresEnabled ? formData.expires_at : undefined,
-      };
+    const payload: CreateNotificationInput = {
+      ...formData,
+      scheduled_for: scheduleEnabled ? formData.scheduled_for : undefined,
+      expires_at: expiresEnabled ? formData.expires_at : undefined,
+    };
 
-      const result = await apiPost<CreateNotificationResponse>(
-        '/api/admin/notifications',
-        payload
-      );
-
-      toast({
-        title:
-          result.status === 'sent'
-            ? 'Notification Sent'
-            : 'Notification Scheduled',
-        description:
-          result.status === 'sent'
-            ? typeof result.merchants_notified === 'number'
-              ? `Sent to ${result.merchants_notified} merchants`
-              : 'Notification has been sent'
-            : result.scheduled_for
-              ? `Scheduled for ${new Date(result.scheduled_for).toLocaleString()}`
-              : 'Notification has been scheduled',
-      });
-
-      router.push('/admin/notifications');
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to create notification',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    void submitNotification(payload, { toast, router, setIsSubmitting });
   };
 
   return (
@@ -483,11 +509,7 @@ export default function CreateNotificationPage() {
                   onChange={(e) =>
                     updateFormData({ scheduled_for: e.target.value })
                   }
-                  min={new Date(
-                    Date.now() - new Date().getTimezoneOffset() * 60000
-                  )
-                    .toISOString()
-                    .slice(0, 16)}
+                  min={minDateTime}
                 />
               )}
             </div>
@@ -511,11 +533,7 @@ export default function CreateNotificationPage() {
                   onChange={(e) =>
                     updateFormData({ expires_at: e.target.value })
                   }
-                  min={new Date(
-                    Date.now() - new Date().getTimezoneOffset() * 60000
-                  )
-                    .toISOString()
-                    .slice(0, 16)}
+                  min={minDateTime}
                 />
               )}
             </div>

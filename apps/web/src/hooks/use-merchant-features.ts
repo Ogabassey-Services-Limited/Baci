@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 /**
  * Storefront Feature Settings (Public)
@@ -137,6 +138,41 @@ interface UseStorefrontFeaturesOptions {
   autoFetch?: boolean;
 }
 
+type StorefrontFeaturesResult =
+  | { ok: true; features: StorefrontFeatures }
+  | { ok: false; error: string };
+
+/**
+ * Module-scope fetch helper. Keeping the try/catch/finally control flow out of
+ * the hook body (and out of the effect's synchronous path) lets React Compiler
+ * memoize the hook: it cannot lower try/finally, and synchronous setState in an
+ * effect triggers cascading renders.
+ */
+async function fetchStorefrontFeatures(
+  merchantId?: string,
+  slug?: string
+): Promise<StorefrontFeaturesResult> {
+  try {
+    const params = new URLSearchParams();
+    if (merchantId) params.set('merchantId', merchantId);
+    if (slug) params.set('slug', slug);
+
+    const response = await fetch(`/api/storefront/features?${params}`);
+    const result = await response.json();
+
+    if (!response.ok) {
+      return { ok: false, error: result.error || 'Failed to fetch features' };
+    }
+
+    return { ok: true, features: result };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Failed to fetch features',
+    };
+  }
+}
+
 /**
  * Hook for storefront to get public feature settings
  */
@@ -148,7 +184,11 @@ export function useStorefrontFeatures({
   const [features, setFeatures] = useState<StorefrontFeatures>(
     DEFAULT_STOREFRONT_FEATURES
   );
-  const [isLoading, setIsLoading] = useState(false);
+  // Initialise loading to reflect whether an auto-fetch will run, so the effect
+  // never needs a synchronous setIsLoading(true).
+  const [isLoading, setIsLoading] = useState(
+    () => autoFetch && Boolean(merchantId || slug)
+  );
   const [error, setError] = useState<string | null>(null);
 
   const fetchFeatures = async () => {
@@ -157,33 +197,39 @@ export function useStorefrontFeatures({
     setIsLoading(true);
     setError(null);
 
-    try {
-      const params = new URLSearchParams();
-      if (merchantId) params.set('merchantId', merchantId);
-      if (slug) params.set('slug', slug);
-
-      const response = await fetch(`/api/storefront/features?${params}`);
-      const result = await response.json();
-
-      if (!response.ok) {
-        setError(result.error || 'Failed to fetch features');
-        return;
-      }
-
-      setFeatures(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch features');
-    } finally {
-      setIsLoading(false);
+    const result = await fetchStorefrontFeatures(merchantId, slug);
+    if (result.ok) {
+      setFeatures(result.features);
+    } else {
+      setFeatures(DEFAULT_STOREFRONT_FEATURES);
+      setError(result.error);
     }
+    setIsLoading(false);
   };
 
   useEffect(() => {
-    if (autoFetch && (merchantId || slug)) {
-      fetchFeatures();
+    if (!(autoFetch && (merchantId || slug))) {
+      return;
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes fetchFeatures
-  }, [autoFetch, merchantId, slug, fetchFeatures]);
+
+    let cancelled = false;
+
+    fetchStorefrontFeatures(merchantId, slug).then((result) => {
+      if (cancelled) return;
+      if (result.ok) {
+        setFeatures(result.features);
+        setError(null);
+      } else {
+        setFeatures(DEFAULT_STOREFRONT_FEATURES);
+        setError(result.error);
+      }
+      setIsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoFetch, merchantId, slug]);
 
   return {
     features,
@@ -204,6 +250,60 @@ export function useStorefrontFeatures({
   };
 }
 
+type MerchantSettingsResult =
+  | { ok: true; settings: MerchantFeatureSettings }
+  | { ok: false; error: string };
+
+/**
+ * Module-scope fetch helper (see fetchStorefrontFeatures for rationale).
+ */
+async function fetchMerchantSettings(): Promise<MerchantSettingsResult> {
+  try {
+    const response = await fetch('/api/merchant/features');
+    const result = await response.json();
+
+    if (!response.ok) {
+      return { ok: false, error: result.error || 'Failed to fetch settings' };
+    }
+
+    return { ok: true, settings: result };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Failed to fetch settings',
+    };
+  }
+}
+
+/**
+ * Module-scope update helper. Owns the try/catch/finally control flow so the
+ * hook body stays compiler-friendly.
+ */
+async function patchMerchantSettings(
+  updates: Partial<MerchantFeatureSettings>
+): Promise<MerchantSettingsResult> {
+  try {
+    const response = await fetchWithCsrf('/api/merchant/features', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return { ok: false, error: result.error || 'Failed to update settings' };
+    }
+
+    return { ok: true, settings: result };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Failed to update settings',
+    };
+  }
+}
+
 /**
  * Hook for merchant dashboard to manage feature settings
  */
@@ -211,7 +311,9 @@ export function useMerchantFeatures() {
   const [settings, setSettings] = useState<MerchantFeatureSettings | null>(
     null
   );
-  const [isLoading, setIsLoading] = useState(false);
+  // Auto-fetch always runs on mount, so start in the loading state and avoid a
+  // synchronous setIsLoading(true) inside the effect.
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -219,21 +321,13 @@ export function useMerchantFeatures() {
     setIsLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch('/api/merchant/features');
-      const result = await response.json();
-
-      if (!response.ok) {
-        setError(result.error || 'Failed to fetch settings');
-        return;
-      }
-
-      setSettings(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch settings');
-    } finally {
-      setIsLoading(false);
+    const result = await fetchMerchantSettings();
+    if (result.ok) {
+      setSettings(result.settings);
+    } else {
+      setError(result.error);
     }
+    setIsLoading(false);
   };
 
   const updateSettings = async (
@@ -242,30 +336,14 @@ export function useMerchantFeatures() {
     setIsSaving(true);
     setError(null);
 
-    try {
-      const response = await fetch('/api/merchant/features', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setError(result.error || 'Failed to update settings');
-        return false;
-      }
-
-      setSettings(result);
-      return true;
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to update settings'
-      );
-      return false;
-    } finally {
-      setIsSaving(false);
+    const result = await patchMerchantSettings(updates);
+    if (result.ok) {
+      setSettings(result.settings);
+    } else {
+      setError(result.error);
     }
+    setIsSaving(false);
+    return result.ok;
   };
 
   const toggleFeature = async (
@@ -281,9 +359,23 @@ export function useMerchantFeatures() {
   };
 
   useEffect(() => {
-    fetchSettings();
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes fetchSettings
-  }, [fetchSettings]);
+    let cancelled = false;
+
+    fetchMerchantSettings().then((result) => {
+      if (cancelled) return;
+      if (result.ok) {
+        setSettings(result.settings);
+        setError(null);
+      } else {
+        setError(result.error);
+      }
+      setIsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return {
     settings,

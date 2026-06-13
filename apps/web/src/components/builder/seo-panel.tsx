@@ -9,7 +9,7 @@ import {
   Share2,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,10 +36,14 @@ interface SEOPanelProps {
 
 export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
   const [data, setData] = useState<SEOData>(seoData);
+  const [prevSeoData, setPrevSeoData] = useState<SEOData>(seoData);
 
-  useEffect(() => {
+  // Sync local edit state when the incoming prop changes, adjusting during
+  // render (instead of an effect) so users never see a stale frame.
+  if (seoData !== prevSeoData) {
+    setPrevSeoData(seoData);
     setData(seoData);
-  }, [seoData]);
+  }
 
   const handleChange = (field: keyof SEOData, value: string) => {
     const updated = { ...data, [field]: value };

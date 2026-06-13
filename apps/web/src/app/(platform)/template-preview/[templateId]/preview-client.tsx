@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, CheckCircle, Info, Loader2, XCircle } from 'lucide-react';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -205,6 +206,127 @@ function TemplateInfoSheet({ template }: { template: TemplateDefinition }) {
   );
 }
 
+type ToastApi = ReturnType<typeof useToast>['toast'];
+type RouterApi = ReturnType<typeof useRouter>;
+
+// Module-scope helper: the dynamic `import()` and try/finally below bail out the
+// React Compiler when written inside the component body, so they live here.
+async function checkTemplateAuth(): Promise<boolean> {
+  try {
+    const { createClient } = await import('@/lib/supabase/client');
+    const supabase = createClient();
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Template auth check failed:', error);
+      return false;
+    }
+    return !!session?.user;
+  } catch (error) {
+    console.error('Template auth check failed:', error);
+    return false;
+  }
+}
+
+async function activateTemplate({
+  templateId,
+  toast,
+  router,
+  setIsActivating,
+}: {
+  templateId: string;
+  toast: ToastApi;
+  router: RouterApi;
+  setIsActivating: (value: boolean) => void;
+}): Promise<void> {
+  setIsActivating(true);
+
+  try {
+    // Import Supabase client directly to bypass mock MerchantProvider context
+    const { createClient } = await import('@/lib/supabase/client');
+    const supabase = createClient();
+
+    // Check for real authenticated user
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.user) {
+      if (sessionError) {
+        console.error('Template activation auth check failed:', sessionError);
+      }
+      toast({
+        title: 'Login Required',
+        description: 'Please log in to activate this template for your store.',
+        variant: 'destructive',
+      });
+      const loginUrl = `/login?redirect=/template-preview/${templateId}`;
+      router.push(loginUrl as Route);
+      return;
+    }
+
+    // Fetch the real merchant for this user
+    const { data: realMerchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('id, template_id')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+
+    if (merchantError) {
+      console.error(
+        'Template activation merchant lookup failed:',
+        merchantError
+      );
+      toast({
+        title: 'Unable to load store',
+        description: 'Something went wrong while fetching your store.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!realMerchant) {
+      toast({
+        title: 'No Store Found',
+        description:
+          'You need to create a store first before selecting a template.',
+        variant: 'destructive',
+      });
+      router.push('/onboarding');
+      return;
+    }
+
+    // Update the merchant's template_id
+    const { error: updateError } = await supabase
+      .from('merchants')
+      .update({ template_id: templateId })
+      .eq('id', realMerchant.id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    toast({
+      title: 'Template Activated!',
+      description: 'Your store is now using this template.',
+    });
+
+    router.push('/dashboard/settings');
+  } catch (error) {
+    console.error('Template activation error:', error);
+    toast({
+      title: 'Activation Failed',
+      description: 'Could not update store settings. Please try again.',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsActivating(false);
+  }
+}
+
 // Helper component for Activation - bypasses mock context to use real session
 function ActivateButton({ templateId }: { templateId: string }) {
   const { toast } = useToast();
@@ -214,87 +336,22 @@ function ActivateButton({ templateId }: { templateId: string }) {
 
   // Check for real authenticated session on mount
   useEffect(() => {
-    const checkAuth = async () => {
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session?.user);
+    let cancelled = false;
+    checkTemplateAuth()
+      .then((authenticated) => {
+        if (!cancelled) setIsAuthenticated(authenticated);
+      })
+      .catch((error: unknown) => {
+        console.error('Template auth check failed:', error);
+        if (!cancelled) setIsAuthenticated(false);
+      });
+    return () => {
+      cancelled = true;
     };
-    checkAuth();
   }, []);
 
-  const handleActivate = async () => {
-    setIsActivating(true);
-
-    try {
-      // Import Supabase client directly to bypass mock MerchantProvider context
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-
-      // Check for real authenticated user
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.user) {
-        toast({
-          title: 'Login Required',
-          description:
-            'Please log in to activate this template for your store.',
-          variant: 'destructive',
-        });
-        const loginUrl = `/login?redirect=/template-preview/${templateId}`;
-        router.push(loginUrl as '/login');
-        return;
-      }
-
-      // Fetch the real merchant for this user
-      const { data: realMerchant, error: merchantError } = await supabase
-        .from('merchants')
-        .select('id, template_id')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (merchantError || !realMerchant) {
-        toast({
-          title: 'No Store Found',
-          description:
-            'You need to create a store first before selecting a template.',
-          variant: 'destructive',
-        });
-        router.push('/onboarding');
-        return;
-      }
-
-      // Update the merchant's template_id
-      const { error: updateError } = await supabase
-        .from('merchants')
-        .update({ template_id: templateId })
-        .eq('id', realMerchant.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      toast({
-        title: 'Template Activated!',
-        description: 'Your store is now using this template.',
-      });
-
-      router.push('/dashboard/settings');
-    } catch (error) {
-      console.error('Template activation error:', error);
-      toast({
-        title: 'Activation Failed',
-        description: 'Could not update store settings. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsActivating(false);
-    }
-  };
+  const handleActivate = () =>
+    activateTemplate({ templateId, toast, router, setIsActivating });
 
   // Show loading state while checking auth
   if (isAuthenticated === null) {
@@ -370,25 +427,34 @@ export function TemplatePreviewClient({
   const template = TEMPLATE_REGISTRY[templateId];
 
   useEffect(() => {
-    if (!template) {
-      setError(`Template "${templateId}" not found in registry.`);
-      setLoading(false);
-      return;
-    }
+    // Missing templates are handled by the render guard below, so there's no
+    // synchronous setState needed here — just skip the async load.
+    if (!template) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setComponents(null);
 
     // Load template components dynamically
     template
       .getComponents()
       .then((loaded) => {
+        if (cancelled) return;
         setComponents(loaded);
         setLoading(false);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
+        if (cancelled) return;
         console.error('Failed to load template:', err);
-        setError(`Failed to load template components: ${err.message}`);
+        const message =
+          err instanceof Error ? err.message : 'Unknown template loading error';
+        setError(`Failed to load template components: ${message}`);
         setLoading(false);
       });
-  }, [templateId, template]);
+    return () => {
+      cancelled = true;
+    };
+  }, [template]);
 
   if (!template) {
     return <ErrorDisplay message={`Template "${templateId}" not found.`} />;

@@ -53,6 +53,112 @@ const AdSettingsContext = createContext<AdSettingsContextType | undefined>(
   undefined
 );
 
+type SupabaseClient = ReturnType<typeof createClient>;
+
+interface LoadedAdSettings {
+  settings: AdMonetizationSettings;
+  tier: AdFeatureTier;
+}
+
+// Fetch + merge the merchant's ad settings. Kept at module scope so the
+// try/catch with throws doesn't trigger a React Compiler bailout in the
+// provider component body. Throws on hard DB errors so the caller can
+// surface an error state.
+async function fetchAdSettings(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<LoadedAdSettings> {
+  // PERFORMANCE: Use Promise.all to fetch independent queries concurrently
+  // Load main settings, placements, and rewarded settings at once
+  const [
+    { data: mainSettings, error: mainError },
+    { data: placements, error: placementsError },
+    { data: rewardedSettings, error: rewardedError },
+  ] = await Promise.all([
+    supabase
+      .from('merchant_ad_settings')
+      .select(
+        'enabled, network_code, adsense_id, provider, revenue_share_percent, test_mode, max_ads_per_page, min_content_between_ads, track_impressions, track_clicks, gdpr_compliant, ccpa_compliant, show_ad_labels, created_at, updated_at, ad_tier'
+      )
+      .eq('merchant_id', merchantId)
+      .single(),
+    supabase
+      .from('merchant_ad_placements')
+      .select(
+        'placement_key, enabled, custom_ad_unit_id, custom_sizes, frequency'
+      )
+      .eq('merchant_id', merchantId),
+    supabase
+      .from('merchant_rewarded_ad_settings')
+      .select(
+        'enabled, reward_type, reward_value, reward_expiry_days, min_order_value'
+      )
+      .eq('merchant_id', merchantId)
+      .single(),
+  ]);
+
+  if (mainError && mainError.code !== 'PGRST116') {
+    throw mainError;
+  }
+
+  if (placementsError) {
+    throw placementsError;
+  }
+
+  if (rewardedError && rewardedError.code !== 'PGRST116') {
+    throw rewardedError;
+  }
+
+  // If no settings exist, use defaults
+  if (!mainSettings) {
+    return { settings: DEFAULT_AD_SETTINGS, tier: 'starter' };
+  }
+
+  // Merge database data with defaults
+  const mergedSettings: AdMonetizationSettings = {
+    ...DEFAULT_AD_SETTINGS,
+    enabled: mainSettings.enabled,
+    credentials: {
+      networkCode: mainSettings.network_code || undefined,
+      adsenseId: mainSettings.adsense_id || undefined,
+      provider: mainSettings.provider || 'adsense',
+    },
+    placements:
+      placements?.map((p) => ({
+        placementKey: p.placement_key,
+        enabled: p.enabled,
+        customAdUnitId: p.custom_ad_unit_id || undefined,
+        customSizes: p.custom_sizes || undefined,
+        frequency: p.frequency || 1,
+      })) || DEFAULT_AD_SETTINGS.placements,
+    rewardedAd: rewardedSettings
+      ? {
+          enabled: rewardedSettings.enabled,
+          rewardType: rewardedSettings.reward_type,
+          rewardValue: rewardedSettings.reward_value,
+          rewardExpiryDays: rewardedSettings.reward_expiry_days,
+          minOrderValue: rewardedSettings.min_order_value || undefined,
+        }
+      : DEFAULT_AD_SETTINGS.rewardedAd,
+    revenueSharePercent: mainSettings.revenue_share_percent,
+    testMode: mainSettings.test_mode,
+    maxAdsPerPage: mainSettings.max_ads_per_page,
+    minContentBetweenAds: mainSettings.min_content_between_ads,
+    trackImpressions: mainSettings.track_impressions,
+    trackClicks: mainSettings.track_clicks,
+    gdprCompliant: mainSettings.gdpr_compliant,
+    ccpaCompliant: mainSettings.ccpa_compliant,
+    showAdLabels: mainSettings.show_ad_labels,
+    createdAt: mainSettings.created_at,
+    updatedAt: mainSettings.updated_at,
+  };
+
+  return {
+    settings: mergedSettings,
+    tier: (mainSettings.ad_tier as AdFeatureTier) || 'starter',
+  };
+}
+
 // ============================================
 // Provider Component
 // ============================================
@@ -70,120 +176,43 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
 
   const supabase = createClient();
 
-  // Load settings from database
-  const loadSettings = async () => {
-    if (!merchant?.merchant?.id) {
-      setSettings(null);
-      setLoading(false);
-      return;
+  // Load settings from database. `markLoading` is false for the mount-driven
+  // load, where `loading` already starts as `true`; deferring to a microtask
+  // (await) also keeps the synchronous effect body free of setState calls.
+  // Uses a promise chain (no try/catch/finally statement in the hook body) so
+  // React Compiler can lower the provider component.
+  const loadSettings = (markLoading = true): Promise<void> => {
+    if (markLoading) {
+      setLoading(true);
     }
-
-    setLoading(true);
     setError(null);
 
-    try {
-      // PERFORMANCE: Use Promise.all to fetch independent queries concurrently
-      // Load main settings, placements, and rewarded settings at once
-      const [
-        { data: mainSettings, error: mainError },
-        { data: placements, error: placementsError },
-        { data: rewardedSettings, error: rewardedError },
-      ] = await Promise.all([
-        supabase
-          .from('merchant_ad_settings')
-          .select(
-            'enabled, network_code, adsense_id, provider, revenue_share_percent, test_mode, max_ads_per_page, min_content_between_ads, track_impressions, track_clicks, gdpr_compliant, ccpa_compliant, show_ad_labels, created_at, updated_at, ad_tier'
-          )
-          .eq('merchant_id', merchant.merchant.id)
-          .single(),
-        supabase
-          .from('merchant_ad_placements')
-          .select(
-            'placement_key, enabled, custom_ad_unit_id, custom_sizes, frequency'
-          )
-          .eq('merchant_id', merchant.merchant.id),
-        supabase
-          .from('merchant_rewarded_ad_settings')
-          .select(
-            'enabled, reward_type, reward_value, reward_expiry_days, min_order_value'
-          )
-          .eq('merchant_id', merchant.merchant.id)
-          .single(),
-      ]);
-
-      if (mainError && mainError.code !== 'PGRST116') {
-        throw mainError;
-      }
-
-      if (placementsError) {
-        throw placementsError;
-      }
-
-      if (rewardedError && rewardedError.code !== 'PGRST116') {
-        throw rewardedError;
-      }
-
-      // If no settings exist, use defaults
-      if (!mainSettings) {
-        setSettings(DEFAULT_AD_SETTINGS);
-        setTier('starter');
-        setLoading(false);
-        return;
-      }
-
-      // Merge database data with defaults
-      const mergedSettings: AdMonetizationSettings = {
-        ...DEFAULT_AD_SETTINGS,
-        enabled: mainSettings.enabled,
-        credentials: {
-          networkCode: mainSettings.network_code || undefined,
-          adsenseId: mainSettings.adsense_id || undefined,
-          provider: mainSettings.provider || 'adsense',
-        },
-        placements:
-          placements?.map((p) => ({
-            placementKey: p.placement_key,
-            enabled: p.enabled,
-            customAdUnitId: p.custom_ad_unit_id || undefined,
-            customSizes: p.custom_sizes || undefined,
-            frequency: p.frequency || 1,
-          })) || DEFAULT_AD_SETTINGS.placements,
-        rewardedAd: rewardedSettings
-          ? {
-              enabled: rewardedSettings.enabled,
-              rewardType: rewardedSettings.reward_type,
-              rewardValue: rewardedSettings.reward_value,
-              rewardExpiryDays: rewardedSettings.reward_expiry_days,
-              minOrderValue: rewardedSettings.min_order_value || undefined,
-            }
-          : DEFAULT_AD_SETTINGS.rewardedAd,
-        revenueSharePercent: mainSettings.revenue_share_percent,
-        testMode: mainSettings.test_mode,
-        maxAdsPerPage: mainSettings.max_ads_per_page,
-        minContentBetweenAds: mainSettings.min_content_between_ads,
-        trackImpressions: mainSettings.track_impressions,
-        trackClicks: mainSettings.track_clicks,
-        gdprCompliant: mainSettings.gdpr_compliant,
-        ccpaCompliant: mainSettings.ccpa_compliant,
-        showAdLabels: mainSettings.show_ad_labels,
-        createdAt: mainSettings.created_at,
-        updatedAt: mainSettings.updated_at,
-      };
-
-      setSettings(mergedSettings);
-      setTier(mainSettings.ad_tier || 'starter');
-    } catch (err) {
-      console.error('Failed to load ad settings:', err);
-      setError('Failed to load ad settings');
-      setSettings(DEFAULT_AD_SETTINGS);
-    } finally {
+    const merchantId = merchant?.merchant?.id;
+    if (!merchantId) {
+      setSettings(null);
       setLoading(false);
+      return Promise.resolve();
     }
+
+    return fetchAdSettings(supabase, merchantId)
+      .then(({ settings: loadedSettings, tier: loadedTier }) => {
+        setSettings(loadedSettings);
+        setTier(loadedTier);
+      })
+      .catch((err) => {
+        console.error('Failed to load ad settings:', err);
+        setError('Failed to load ad settings');
+        setSettings(DEFAULT_AD_SETTINGS);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: loadSettings is stable across renders
   useEffect(() => {
-    loadSettings();
+    // Defer to a microtask so the effect body performs no synchronous setState.
+    void Promise.resolve().then(() => loadSettings(false));
   }, [merchant?.merchant?.id]);
 
   // Update main settings

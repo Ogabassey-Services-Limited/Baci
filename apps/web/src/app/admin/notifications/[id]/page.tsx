@@ -75,6 +75,27 @@ const typeStyles: Record<NotificationType, { bg: string; icon: typeof Info }> =
     error: { bg: 'bg-red-100 text-red-800', icon: AlertCircle },
   };
 
+interface NotificationDetailsResult {
+  notification: NotificationWithStats;
+  deliveries: DeliveryRecord[];
+}
+
+/**
+ * Fetches a notification with its delivery records. Defined at module scope so
+ * its throw-on-error control flow does not bail React Compiler out of the page.
+ */
+async function fetchNotificationDetails(
+  id: string,
+  signal: AbortSignal
+): Promise<NotificationDetailsResult> {
+  const response = await fetch(`/api/admin/notifications/${id}`, { signal });
+  if (!response.ok) {
+    throw new Error('Failed to fetch notification');
+  }
+  const data = await response.json();
+  return { notification: data, deliveries: data.deliveries || [] };
+}
+
 export default function NotificationDetailsPage({
   params,
 }: {
@@ -94,59 +115,55 @@ export default function NotificationDetailsPage({
   useEffect(() => {
     const abortController = new AbortController();
 
-    async function fetchNotification() {
-      try {
-        const response = await fetch(`/api/admin/notifications/${id}`, {
-          signal: abortController.signal,
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch notification');
-        }
-
-        const data = await response.json();
+    fetchNotificationDetails(id, abortController.signal)
+      .then(({ notification: data, deliveries: records }) => {
         setNotification(data);
-        setDeliveries(data.deliveries || []);
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
+        setDeliveries(records);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
         console.error('Error fetching notification:', error);
         toast({
           title: 'Error',
           description: 'Failed to fetch notification details',
           variant: 'destructive',
         });
-      } finally {
+      })
+      .finally(() => {
         if (!abortController.signal.aborted) {
           setIsLoading(false);
         }
-      }
-    }
+      });
 
-    fetchNotification();
     return () => abortController.abort();
   }, [id, toast]);
 
   const handleDelete = async () => {
     setIsDeleting(true);
     setShowDeleteDialog(false);
-    try {
-      await apiDelete(`/api/admin/notifications/${id}`);
 
-      toast({
-        title: 'Deleted',
-        description: 'Notification has been deleted',
-      });
+    await apiDelete(`/api/admin/notifications/${id}`)
+      .then(() => {
+        toast({
+          title: 'Deleted',
+          description: 'Notification has been deleted',
+        });
 
-      router.push('/admin/notifications');
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete notification',
-        variant: 'destructive',
+        router.push('/admin/notifications');
+      })
+      .catch((error: unknown) => {
+        console.error('Error deleting notification:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete notification',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsDeleting(false);
       });
-    } finally {
-      setIsDeleting(false);
-    }
   };
 
   if (isLoading) {

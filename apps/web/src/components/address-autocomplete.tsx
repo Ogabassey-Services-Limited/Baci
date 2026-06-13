@@ -34,6 +34,76 @@ interface AddressAutocompleteProps
   country?: string;
 }
 
+function initSession(
+  setSessionToken: (token: string) => void,
+  setMounted: (mounted: boolean) => void
+): void {
+  setSessionToken(generateSessionToken());
+  setMounted(true);
+}
+
+async function loadPredictions(
+  query: string,
+  sessionToken: string,
+  country: string | undefined,
+  setPredictions: (predictions: PlacePrediction[]) => void,
+  setIsLoading: (loading: boolean) => void,
+  shouldApplyResult: () => boolean
+): Promise<void> {
+  try {
+    const results = await getPlacePredictions(query, sessionToken, country);
+    if (!shouldApplyResult()) return;
+    setPredictions(results);
+  } catch (error) {
+    if (!shouldApplyResult()) return;
+    console.error('Error fetching predictions:', error);
+  } finally {
+    if (shouldApplyResult()) {
+      setIsLoading(false);
+    }
+  }
+}
+
+interface SelectPredictionCallbacks {
+  onSelect?: (place: PlaceDetails) => void;
+  setSessionToken: (token: string) => void;
+  setIsLoading: (loading: boolean) => void;
+}
+
+async function loadPlaceDetails(
+  placeId: string,
+  sessionToken: string,
+  { onSelect, setSessionToken, setIsLoading }: SelectPredictionCallbacks,
+  shouldApplyResult: () => boolean
+): Promise<void> {
+  try {
+    const details = await getPlaceDetails(placeId, sessionToken);
+    if (!shouldApplyResult()) return;
+
+    if (details && onSelect) {
+      onSelect({
+        streetNumber: details.streetNumber || '',
+        route: details.route || '',
+        city: details.city || '',
+        state: details.state || '',
+        zip: details.postalCode || '',
+        country: details.country || '',
+        formattedAddress: details.formattedAddress,
+      });
+    }
+
+    // Refresh session token
+    setSessionToken(generateSessionToken());
+  } catch (error) {
+    if (!shouldApplyResult()) return;
+    console.error('Error fetching place details:', error);
+  } finally {
+    if (shouldApplyResult()) {
+      setIsLoading(false);
+    }
+  }
+}
+
 export function AddressAutocomplete({
   value,
   onChange,
@@ -47,12 +117,15 @@ export function AddressAutocomplete({
   // Internal state for input value if not controlled
   const [internalValue, setInternalValue] = useState(value || '');
 
-  // Sync internal value with prop
-  useEffect(() => {
+  // Sync internal value with the controlled prop during render (prev-prop
+  // compare) so users never see a stale frame between commits.
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     if (value !== undefined) {
       setInternalValue(value);
     }
-  }, [value]);
+  }
 
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [sessionToken, setSessionToken] = useState<string>('');
@@ -64,11 +137,12 @@ export function AddressAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const predictionRequestId = useRef(0);
+  const placeDetailsRequestId = useRef(0);
 
   // Initialize session token and mark as mounted
   useEffect(() => {
-    setSessionToken(generateSessionToken());
-    setMounted(true);
+    initSession(setSessionToken, setMounted);
   }, []);
 
   // Close dropdown on outside click
@@ -102,33 +176,37 @@ export function AddressAutocomplete({
 
     // Debounce API call
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    placeDetailsRequestId.current += 1;
 
     if (newValue.length < 2) {
+      predictionRequestId.current += 1;
       setPredictions([]);
+      setIsLoading(false);
       return;
     }
 
+    const currentRequestId = predictionRequestId.current + 1;
+    predictionRequestId.current = currentRequestId;
     setIsLoading(true);
-    debounceTimer.current = setTimeout(async () => {
-      try {
-        const results = await getPlacePredictions(
-          newValue,
-          sessionToken,
-          country
-        );
-        setPredictions(results);
-      } catch (error) {
-        console.error('Error fetching predictions:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    debounceTimer.current = setTimeout(() => {
+      void loadPredictions(
+        newValue,
+        sessionToken,
+        country,
+        setPredictions,
+        setIsLoading,
+        () => predictionRequestId.current === currentRequestId
+      );
     }, 300);
   };
 
   const handleClear = () => {
+    predictionRequestId.current += 1;
+    placeDetailsRequestId.current += 1;
     setInternalValue('');
     setPredictions([]);
     setIsOpen(false);
+    setIsLoading(false);
     if (onChange) {
       // Create a synthetic event to clear the parent form
       const event = {
@@ -139,7 +217,7 @@ export function AddressAutocomplete({
     inputRef.current?.focus();
   };
 
-  const handlePredictionSelect = async (prediction: PlacePrediction) => {
+  const handlePredictionSelect = (prediction: PlacePrediction) => {
     // Update input with main text
     setInternalValue(prediction.mainText);
 
@@ -150,29 +228,20 @@ export function AddressAutocomplete({
 
     setIsOpen(false);
     setIsLoading(true);
+    predictionRequestId.current += 1;
+    const currentRequestId = placeDetailsRequestId.current + 1;
+    placeDetailsRequestId.current = currentRequestId;
 
-    try {
-      const details = await getPlaceDetails(prediction.placeId, sessionToken);
-
-      if (details && onSelect) {
-        onSelect({
-          streetNumber: details.streetNumber || '',
-          route: details.route || '',
-          city: details.city || '',
-          state: details.state || '',
-          zip: details.postalCode || '',
-          country: details.country || '',
-          formattedAddress: details.formattedAddress,
-        });
-      }
-
-      // Refresh session token
-      setSessionToken(generateSessionToken());
-    } catch (error) {
-      console.error('Error fetching place details:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    void loadPlaceDetails(
+      prediction.placeId,
+      sessionToken,
+      {
+        onSelect,
+        setSessionToken,
+        setIsLoading,
+      },
+      () => placeDetailsRequestId.current === currentRequestId
+    );
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

@@ -19,6 +19,88 @@ import type {
   StaffAccess,
 } from './types';
 
+type SupabaseClient = ReturnType<typeof createClient>;
+
+interface LoadBySlugArgs {
+  supabase: SupabaseClient;
+  slug: string;
+  isCancelled: () => boolean;
+  setMerchant: (merchant: MerchantData | null) => void;
+  setLoading: (loading: boolean) => void;
+}
+
+// Module-scope helper owns the try/catch/finally so the provider body stays
+// lowerable by the React Compiler (try/finally bails out the whole component).
+async function loadMerchantBySlug({
+  supabase,
+  slug,
+  isCancelled,
+  setMerchant,
+  setLoading,
+}: LoadBySlugArgs): Promise<void> {
+  try {
+    const data = await fetchMerchantBySlug(supabase, slug);
+    if (isCancelled()) return;
+
+    if (data?.id) {
+      const domain = await fetchPrimaryDomain(supabase, data.id);
+      if (!isCancelled() && domain) data.custom_domain = domain;
+    }
+
+    if (!isCancelled()) setMerchant(data);
+  } catch (error) {
+    logger.error({
+      message: `Failed to load merchant by slug: ${slug}. Error: ${(error as Error).message}`,
+    });
+    if (!isCancelled()) setMerchant(null);
+  } finally {
+    if (!isCancelled()) setLoading(false);
+  }
+}
+
+interface LoadDashboardArgs {
+  supabase: SupabaseClient;
+  userId: string;
+  isCancelled: () => boolean;
+  setMerchant: (merchant: MerchantData | null) => void;
+  setStaffAccess: (access: StaffAccess) => void;
+  setLoading: (loading: boolean) => void;
+}
+
+async function loadDashboardMerchant({
+  supabase,
+  userId,
+  isCancelled,
+  setMerchant,
+  setStaffAccess,
+  setLoading,
+}: LoadDashboardArgs): Promise<void> {
+  try {
+    const result = await fetchDashboardMerchant(supabase, userId);
+    if (isCancelled()) return;
+
+    if (result.merchant?.id) {
+      const domain = await fetchPrimaryDomain(supabase, result.merchant.id);
+      if (!isCancelled() && domain) result.merchant.custom_domain = domain;
+    }
+
+    if (!isCancelled()) {
+      setMerchant(result.merchant);
+      setStaffAccess(result.staffAccess);
+    }
+  } catch (error) {
+    logger.error({
+      message: `Failed to load merchant data. Error: ${(error as Error).message}`,
+    });
+    if (!isCancelled()) {
+      setMerchant(null);
+      setStaffAccess(defaultStaffAccess);
+    }
+  } finally {
+    if (!isCancelled()) setLoading(false);
+  }
+}
+
 export const MerchantProvider = ({
   children,
   slug,
@@ -31,13 +113,72 @@ export const MerchantProvider = ({
   const user = auth?.user ?? null;
   const authLoading = auth?.loading ?? false;
 
+  // Resolve a demo merchant synchronously from the slug (no DB call). Used for
+  // both the initial state and prop-change sync so the data is ready on the
+  // first commit instead of routing a synchronous setState through an effect.
+  const initialDemoMerchant =
+    !initialMerchant && slug ? getDemoMerchant(slug) : null;
+
   const [merchant, setMerchant] = useState<MerchantData | null>(
-    initialMerchant ?? null
+    initialMerchant ?? initialDemoMerchant ?? null
   );
-  const [loading, setLoading] = useState(!initialMerchant);
+  const [loading, setLoading] = useState(
+    !initialMerchant && !initialDemoMerchant
+  );
   const [staffAccess, setStaffAccess] = useState<StaffAccess>(
     initialStaffAccess ?? defaultStaffAccess
   );
+
+  // When the slug prop changes, re-resolve any demo merchant during render
+  // (via a prev-prop comparison) instead of an effect. Real slugs/users are
+  // loaded async in the effect below.
+  const [prevSlug, setPrevSlug] = useState(slug);
+  if (slug !== prevSlug) {
+    setPrevSlug(slug);
+    if (!initialMerchant && slug) {
+      const demoMerchant = getDemoMerchant(slug);
+      if (demoMerchant) {
+        setMerchant(demoMerchant);
+        setLoading(false);
+      }
+    }
+  }
+
+  // Flip `loading` on during render (a prev-key comparison) whenever the inputs
+  // that trigger a fresh async load change, instead of calling setLoading(true)
+  // synchronously inside the effect — that forces an extra render where stale
+  // (not-loading) state is briefly visible. The effect below only resolves the
+  // data and turns loading back off via the module-scope loaders.
+  const willFetchBySlug =
+    !initialMerchant && Boolean(slug) && !getDemoMerchant(slug ?? '');
+  const willFetchDashboard =
+    !initialMerchant && !slug && !authLoading && Boolean(user);
+  // Dashboard mode with auth resolved but no signed-in user → signed-out reset.
+  const isAnonDashboard = !initialMerchant && !slug && !authLoading && !user;
+  const fetchLoadingKey = initialMerchant
+    ? 'static'
+    : willFetchBySlug
+      ? `slug:${slug}`
+      : willFetchDashboard
+        ? `user:${user?.id ?? ''}`
+        : isAnonDashboard
+          ? 'anon'
+          : 'idle';
+  // Seed an "init" sentinel so the first render always reconciles loading with
+  // the resolved fetch state (e.g. an immediate signed-out reset on mount).
+  const [prevFetchLoadingKey, setPrevFetchLoadingKey] = useState('init');
+  if (fetchLoadingKey !== prevFetchLoadingKey) {
+    setPrevFetchLoadingKey(fetchLoadingKey);
+    if (willFetchBySlug || willFetchDashboard) {
+      setLoading(true);
+    } else if (isAnonDashboard) {
+      // Mirror the signed-out reset during render instead of in the effect so
+      // no stale merchant is briefly shown after logout.
+      setMerchant(null);
+      setStaffAccess(defaultStaffAccess);
+      setLoading(false);
+    }
+  }
 
   const routingMode = initialRoutingMode ?? 'path';
   const basePath =
@@ -57,39 +198,19 @@ export const MerchantProvider = ({
 
     // CASE 2: Storefront mode (slug, no initial data)
     if (slug) {
-      const demoMerchant = getDemoMerchant(slug);
-      if (demoMerchant) {
-        setMerchant(demoMerchant);
-        setLoading(false);
-        return;
-      }
+      // Demo merchants are resolved synchronously during render (see below).
+      if (getDemoMerchant(slug)) return;
 
+      // `loading` is flipped on during render (see fetchLoadingKey above).
       let cancelled = false;
-      setLoading(true);
 
-      (async () => {
-        try {
-          const data = await fetchMerchantBySlug(supabaseRef.current, slug);
-          if (cancelled) return;
-
-          if (data?.id) {
-            const domain = await fetchPrimaryDomain(
-              supabaseRef.current,
-              data.id
-            );
-            if (!cancelled && domain) data.custom_domain = domain;
-          }
-
-          if (!cancelled) setMerchant(data);
-        } catch (error) {
-          logger.error({
-            message: `Failed to load merchant by slug: ${slug}. Error: ${(error as Error).message}`,
-          });
-          if (!cancelled) setMerchant(null);
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      })();
+      void loadMerchantBySlug({
+        supabase: supabaseRef.current,
+        slug,
+        isCancelled: () => cancelled,
+        setMerchant,
+        setLoading,
+      });
 
       return () => {
         cancelled = true;
@@ -98,48 +219,20 @@ export const MerchantProvider = ({
 
     // CASE 3: Dashboard/Builder mode (no slug, no initial data)
     if (authLoading) return;
-    if (!user) {
-      setMerchant(null);
-      setStaffAccess(defaultStaffAccess);
-      setLoading(false);
-      return;
-    }
+    // Signed-out reset is handled during render (see fetchLoadingKey above).
+    if (!user) return;
 
+    // `loading` is flipped on during render (see fetchLoadingKey above).
     let cancelled = false;
-    setLoading(true);
 
-    (async () => {
-      try {
-        const result = await fetchDashboardMerchant(
-          supabaseRef.current,
-          user.id
-        );
-        if (cancelled) return;
-
-        if (result.merchant?.id) {
-          const domain = await fetchPrimaryDomain(
-            supabaseRef.current,
-            result.merchant.id
-          );
-          if (!cancelled && domain) result.merchant.custom_domain = domain;
-        }
-
-        if (!cancelled) {
-          setMerchant(result.merchant);
-          setStaffAccess(result.staffAccess);
-        }
-      } catch (error) {
-        logger.error({
-          message: `Failed to load merchant data. Error: ${(error as Error).message}`,
-        });
-        if (!cancelled) {
-          setMerchant(null);
-          setStaffAccess(defaultStaffAccess);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    void loadDashboardMerchant({
+      supabase: supabaseRef.current,
+      userId: user.id,
+      isCancelled: () => cancelled,
+      setMerchant,
+      setStaffAccess,
+      setLoading,
+    });
 
     return () => {
       cancelled = true;

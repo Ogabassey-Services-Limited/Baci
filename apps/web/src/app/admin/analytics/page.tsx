@@ -67,34 +67,63 @@ function formatPercentage(value: number): string {
   return `${formatted}%`;
 }
 
+type AnalyticsPeriod = '7d' | '30d' | '90d';
+
+// Hoisted out of the component so React Compiler can lower the loader
+// (try/finally + throw-in-try are not yet supported inside component bodies).
+async function loadPlatformAnalytics(
+  period: AnalyticsPeriod
+): Promise<{ data: PlatformAnalytics | null; ok: boolean }> {
+  try {
+    const response = await fetch(`/api/admin/analytics?period=${period}`);
+    if (!response.ok) throw new Error('Failed to fetch analytics');
+    const data = (await response.json()) as PlatformAnalytics;
+    return { data, ok: true };
+  } catch (error) {
+    console.error('Failed to fetch analytics:', error);
+    return { data: null, ok: false };
+  }
+}
+
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+  const [period, setPeriod] = useState<AnalyticsPeriod>('30d');
   const { toast } = useToast();
 
-  const fetchAnalytics = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/admin/analytics?period=${period}`);
-      if (!response.ok) throw new Error('Failed to fetch analytics');
-      const data = (await response.json()) as PlatformAnalytics;
+  const refreshAnalytics = async (nextPeriod: AnalyticsPeriod) => {
+    setLoading(true);
+    const { data, ok } = await loadPlatformAnalytics(nextPeriod);
+    if (ok) {
       setAnalytics(data);
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error);
+    } else {
       toast({
         title: 'Error',
         description: 'Failed to load analytics data.',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
-    fetchAnalytics();
+    let active = true;
+    loadPlatformAnalytics(period).then(({ data, ok }) => {
+      if (!active) return;
+      if (ok) {
+        setAnalytics(data);
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to load analytics data.',
+          variant: 'destructive',
+        });
+      }
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
   }, [period, toast]);
 
   const chartData =
@@ -120,7 +149,11 @@ export default function AnalyticsPage() {
         <div className="flex items-center gap-2">
           <Select
             value={period}
-            onValueChange={(v) => setPeriod(v as typeof period)}
+            disabled={loading}
+            onValueChange={(v) => {
+              setLoading(true);
+              setPeriod(v as AnalyticsPeriod);
+            }}
           >
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="Period" />
@@ -134,7 +167,7 @@ export default function AnalyticsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchAnalytics()}
+            onClick={() => refreshAnalytics(period)}
             disabled={loading}
           >
             <RefreshCw

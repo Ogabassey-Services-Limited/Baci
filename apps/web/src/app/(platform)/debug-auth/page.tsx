@@ -20,19 +20,18 @@ export default function DebugAuthPage() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on mount
   useEffect(() => {
-    // Get session on mount
+    // Read cookies after hydration to keep the initial render deterministic.
+    // setState runs in the async callback below (not synchronously in the
+    // effect body), so it does not trigger React Compiler's cascading-render
+    // bailout.
     supabase.auth.getSession().then(({ data, error }) => {
+      setCookies(document.cookie);
       if (error) addLog(`Session Error: ${error.message}`);
       else {
         setSession(data.session);
         addLog(`Session found: ${data.session ? 'YES' : 'NO'}`);
       }
     });
-  }, []);
-
-  useEffect(() => {
-    // Set cookies separately to avoid synchronous state updates
-    setCookies(document.cookie);
   }, []);
 
   const handleLogin = async () => {
