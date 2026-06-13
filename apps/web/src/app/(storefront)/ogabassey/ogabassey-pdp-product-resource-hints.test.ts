@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_SIZES,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
@@ -154,16 +155,15 @@ describe('OgabasseyPdpProductResourceHints', () => {
     ).toBe(calls.length);
   });
 
-  it('uses same-origin PDP image URLs when a product slug is provided', () => {
-    const productImage =
-      'https://cdn.ogabassey.com/core-assets/products/z-fold-7-jet-black.avif';
-
+  it('uses same-origin PDP image URLs when only a product slug is provided', () => {
     renderToStaticMarkup(
       createElement(OgabasseyPdpProductResourceHints, {
         productSlug: 'z-fold-7-jet-black',
-        src: productImage,
+        src: null,
       })
     );
+
+    expect(mockGetImageProps).not.toHaveBeenCalled();
 
     const mobilePreload = mockPreload.mock.calls.find(
       ([, options]) =>
@@ -191,6 +191,9 @@ describe('OgabasseyPdpProductResourceHints', () => {
       (desktopPreload?.[1] as { imageSrcSet: string }).imageSrcSet
     ).toContain(
       '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black 640w'
+    );
+    expect((desktopPreload?.[1] as { imageSizes: string }).imageSizes).toBe(
+      OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_SIZES
     );
   });
 

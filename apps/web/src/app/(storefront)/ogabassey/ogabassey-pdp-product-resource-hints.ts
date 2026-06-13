@@ -5,6 +5,7 @@ import { preload } from 'react-dom';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
+  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_SIZES,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_PRELOAD_WIDTH,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
@@ -40,8 +41,45 @@ function buildProductImagePreloadProps({
   productSlug,
   src,
 }: ProductResourceHintInput): ImagePreloadLinkProps[] {
-  if (!src) return [];
   const sameOriginProductSlug = productSlug?.trim() || null;
+
+  if (sameOriginProductSlug !== null) {
+    const mobileHref = buildOgabasseyPdpSameOriginProfileImageUrl(
+      sameOriginProductSlug,
+      'mobile'
+    );
+    const desktopHref = buildOgabasseyPdpSameOriginProfileImageUrl(
+      sameOriginProductSlug,
+      'desktop'
+    );
+
+    return [
+      {
+        as: 'image',
+        fetchPriority: 'high',
+        href: mobileHref,
+        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
+        imageSrcSet: buildOgabasseyPdpSameOriginMobileImageSrcSet(
+          sameOriginProductSlug
+        ),
+        media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+        rel: 'preload',
+        type: getOgabasseyImagePreloadType(mobileHref),
+      },
+      {
+        as: 'image',
+        fetchPriority: 'high',
+        href: desktopHref,
+        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_SIZES,
+        imageSrcSet: `${desktopHref} ${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH}w`,
+        media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+        rel: 'preload',
+        type: getOgabasseyImagePreloadType(desktopHref),
+      },
+    ];
+  }
+
+  if (!src) return [];
 
   const {
     props: { srcSet, sizes },
@@ -71,39 +109,21 @@ function buildProductImagePreloadProps({
     src,
     width: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_PRELOAD_WIDTH,
   });
-  const mobileHref =
-    sameOriginProductSlug === null
-      ? mobilePreloadHref
-      : buildOgabasseyPdpSameOriginProfileImageUrl(
-          sameOriginProductSlug,
-          'mobile'
-        );
-  const desktopHref =
-    sameOriginProductSlug === null
-      ? preloadHref
-      : buildOgabasseyPdpSameOriginProfileImageUrl(
-          sameOriginProductSlug,
-          'desktop'
-        );
+  const desktopHref = preloadHref;
   const resolvedDesktopImageSrcSet =
-    sameOriginProductSlug === null
-      ? (desktopImageSrcSet ??
-        `${desktopHref} ${OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH}w`)
-      : `${desktopHref} ${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH}w`;
+    desktopImageSrcSet ??
+    `${desktopHref} ${OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH}w`;
 
   return [
     {
       as: 'image',
       fetchPriority: 'high',
-      href: mobileHref,
+      href: mobilePreloadHref,
       imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-      imageSrcSet:
-        sameOriginProductSlug === null
-          ? buildOgabasseyPdpMobileImageSrcSet(src)
-          : buildOgabasseyPdpSameOriginMobileImageSrcSet(sameOriginProductSlug),
+      imageSrcSet: buildOgabasseyPdpMobileImageSrcSet(src),
       media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
       rel: 'preload',
-      type: getOgabasseyImagePreloadType(mobileHref),
+      type: getOgabasseyImagePreloadType(mobilePreloadHref),
     },
     {
       as: 'image',
