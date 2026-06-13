@@ -5,12 +5,34 @@ import { ORDER_COLUMNS } from '@/lib/orders';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
+import {
+  type OrderListRow,
+  orderListRowSchema,
+} from '@/schemas/order-list-row';
 import { useBranchScope } from '../useBranchScope';
 import { useMerchant } from '../useMerchant';
 import { applyOrderListVisibilityFilter } from './order-list-visibility';
 import type { OrdersPage, OrderWithCount } from './order-types';
 
 const PAGE_SIZE = 20;
+function parseOrderListRows(rows: unknown[]) {
+  const normalizedRows: OrderListRow[] = [];
+
+  for (const row of rows) {
+    const parsedRow = orderListRowSchema.safeParse(row);
+
+    if (parsedRow.success) {
+      normalizedRows.push(parsedRow.data);
+      continue;
+    }
+
+    console.warn('Skipping invalid order row in orders list', {
+      issues: parsedRow.error.issues.map((issue) => issue.path.join('.')),
+    });
+  }
+
+  return normalizedRows;
+}
 
 export type { Order, OrderItem, OrdersPage, OrderWithCount, ShippingStatus };
 
@@ -97,11 +119,16 @@ export async function fetchOrders(
   }
 
   const hasMore = (count ?? 0) > cursor + PAGE_SIZE;
-  const orders = (data ?? []).map((order) => ({
-    ...order,
-    item_count: order.order_items?.length ?? 0,
-    order_items: undefined,
-  })) as OrderWithCount[];
+  const normalizedRows = parseOrderListRows(data ?? []);
+  const orders = normalizedRows.map((order) => {
+    const { order_items, ...normalizedOrder } = order;
+
+    return {
+      ...normalizedOrder,
+      item_count: order_items?.length ?? 0,
+      order_items: undefined,
+    } as unknown as OrderWithCount;
+  });
 
   return {
     nextCursor: hasMore ? cursor + PAGE_SIZE : null,
