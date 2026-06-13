@@ -1,4 +1,6 @@
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import nextConfig from './next.config';
 import {
@@ -35,6 +37,15 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.images?.qualities).toEqual([
       35, 50, 60, 70, 75, 80, 85, 90, 100,
     ]);
+  });
+
+  it('uses the shared custom next/image loader instead of the default optimizer', () => {
+    const loaderFile = nextConfig.images?.loaderFile;
+
+    expect(nextConfig.images?.loader).toBe('custom');
+    expect(typeof loaderFile).toBe('string');
+    expect(loaderFile).toBe('./src/lib/image-loader.ts');
+    expect(existsSync(resolve(process.cwd(), String(loaderFile)))).toBe(true);
   });
 
   it('uses the same metadata-blocking bot classifier as storefront cache buckets', () => {

@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
+import imageLoader from '@/lib/image-loader';
 
 vi.mock('server-only', () => ({}));
 
@@ -86,74 +87,106 @@ vi.mock('next/server', () => ({
   connection: () => mockConnection(),
 }));
 
-vi.mock('next/image', () => ({
-  default: ({
-    alt,
-    fetchPriority,
-    src,
-  }: {
-    alt: string;
-    fetchPriority?: string;
-    src: string;
-  }) => (
-    // biome-ignore lint/performance/noImgElement: next/image test double exposes rendered attributes
-    <img alt={alt} data-fetch-priority={fetchPriority} src={src} />
-  ),
-  getImageProps: ({
-    alt,
-    className,
-    decoding,
-    fetchPriority,
-    fill,
-    loader,
-    loading,
-    priority,
-    quality,
-    sizes,
-    src,
-    width,
-  }: {
-    alt: string;
-    className?: string;
-    decoding?: string;
-    fetchPriority?: string;
-    fill?: boolean;
-    loader?: (props: {
+vi.mock('next/image', async () => {
+  const { default: globalImageLoader } =
+    await vi.importActual<typeof import('@/lib/image-loader')>(
+      '@/lib/image-loader'
+    );
+
+  return {
+    default: ({
+      alt,
+      fetchPriority,
+      loader,
+      preload,
+      quality,
+      src,
+    }: {
+      alt: string;
+      fetchPriority?: string;
+      loader?: (props: {
+        quality?: number;
+        src: string;
+        width: number;
+      }) => string;
+      preload?: boolean;
       quality?: number;
       src: string;
-      width: number;
-    }) => string;
-    loading?: string;
-    priority?: boolean;
-    quality?: number;
-    sizes?: string;
-    src: string;
-    width?: number;
-  }) => {
-    const resolvedWidth = width ?? 640;
-    const resolvedSrc =
-      typeof loader === 'function'
-        ? loader({ quality, src, width: resolvedWidth })
-        : src;
+    }) => {
+      const effectiveLoader =
+        typeof loader === 'function' ? loader : globalImageLoader;
+      const resolvedSrc = effectiveLoader({ quality, src, width: 640 });
 
-    return {
-      props: {
-        alt,
-        className,
-        decoding,
-        fetchPriority,
-        fill,
-        loader,
-        loading,
-        priority,
+      return (
+        // biome-ignore lint/performance/noImgElement: next/image test double exposes rendered attributes
+        <img
+          alt={alt}
+          data-fetch-priority={fetchPriority}
+          data-loader-prop={String(typeof loader === 'function')}
+          data-preload={String(Boolean(preload))}
+          src={resolvedSrc}
+        />
+      );
+    },
+    getImageProps: ({
+      alt,
+      className,
+      decoding,
+      fetchPriority,
+      fill,
+      loader,
+      loading,
+      priority,
+      quality,
+      sizes,
+      src,
+      width,
+    }: {
+      alt: string;
+      className?: string;
+      decoding?: string;
+      fetchPriority?: string;
+      fill?: boolean;
+      loader?: (props: {
+        quality?: number;
+        src: string;
+        width: number;
+      }) => string;
+      loading?: string;
+      priority?: boolean;
+      quality?: number;
+      sizes?: string;
+      src: string;
+      width?: number;
+    }) => {
+      const resolvedWidth = width ?? 640;
+      const effectiveLoader =
+        typeof loader === 'function' ? loader : globalImageLoader;
+      const resolvedSrc = effectiveLoader({
         quality,
-        sizes,
-        src: resolvedSrc,
-        srcSet: `${resolvedSrc} ${resolvedWidth}w`,
-      },
-    };
-  },
-}));
+        src,
+        width: resolvedWidth,
+      });
+
+      return {
+        props: {
+          alt,
+          className,
+          decoding,
+          fetchPriority,
+          fill,
+          loader,
+          loading,
+          priority,
+          quality,
+          sizes,
+          src: resolvedSrc,
+          srcSet: `${resolvedSrc} ${resolvedWidth}w`,
+        },
+      };
+    },
+  };
+});
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
@@ -1510,7 +1543,7 @@ describe('[category]/[productSlug] page render', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders known OgaBassey PDP critical images through the direct CDN loader', async () => {
+  it('renders known OgaBassey PDP critical images through the preloaded Image path', async () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif';
     mockGetRequestScopedMerchant.mockResolvedValueOnce({
@@ -1543,12 +1576,16 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    expect(
-      screen.getByRole('img', { name: 'HP Laptop 14-ep0063nia' })
-    ).toHaveAttribute(
+    const productImageElement = screen.getByRole('img', {
+      name: 'HP Laptop 14-ep0063nia',
+    });
+
+    expect(productImageElement).toHaveAttribute(
       'src',
-      'https://cdn.ogabassey.com/image/width=640,quality=35,format=auto/core-assets/products/hp-laptop.avif'
+      imageLoader({ quality: 35, src: productImage, width: 640 })
     );
+    expect(productImageElement).toHaveAttribute('data-loader-prop', 'false');
+    expect(productImageElement).toHaveAttribute('data-preload', 'true');
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
     });

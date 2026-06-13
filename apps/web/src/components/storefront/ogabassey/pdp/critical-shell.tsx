@@ -1,22 +1,13 @@
-import { getImageProps } from 'next/image';
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { Suspense, type ComponentProps, type ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
-import imageLoader from '@/lib/image-loader';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
-import {
-  buildOgabasseyPdpMobileImageSrcSet,
-  buildOgabasseyPdpSameOriginImageUrl,
-  buildOgabasseyPdpSameOriginMobileImageSrcSet,
-  buildOgabasseyPdpSameOriginProfileImageUrl,
-} from './product-image-source';
+import { buildOgabasseyPdpSameOriginProfileImageUrl } from './product-image-source';
 
 interface OgabasseyPdpCriticalShellProps {
   basePath?: string;
@@ -25,13 +16,6 @@ interface OgabasseyPdpCriticalShellProps {
   imageDelivery?: 'direct' | 'same-origin';
   product: OgabasseyPdpCriticalProduct;
 }
-
-type NativeImagePropsWithNextInternals = ComponentProps<'img'> & {
-  fill?: unknown;
-  loader?: unknown;
-  priority?: unknown;
-  quality?: unknown;
-};
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('en-NG', {
@@ -108,65 +92,15 @@ async function OgabasseyPdpResolvedCriticalBreadcrumbs({
   );
 }
 
-function getNativeProductImageProps(
+function getProductImageSrc(
   product: OgabasseyPdpCriticalProduct,
   imageDelivery: OgabasseyPdpCriticalShellProps['imageDelivery']
 ) {
-  const { props } = getImageProps({
-    alt: product.name,
-    decoding: 'sync',
-    fetchPriority: 'high',
-    fill: true,
-    loader:
-      imageDelivery === 'same-origin'
-        ? ({ quality, width }) => {
-            const resolvedQuality =
-              quality ?? OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY;
+  if (imageDelivery !== 'same-origin') {
+    return product.image;
+  }
 
-            if (
-              resolvedQuality === OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY &&
-              width === OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH
-            ) {
-              return buildOgabasseyPdpSameOriginProfileImageUrl(
-                product.slug,
-                'desktop'
-              );
-            }
-
-            return buildOgabasseyPdpSameOriginImageUrl({
-              productSlug: product.slug,
-              quality: resolvedQuality,
-              width,
-            });
-          }
-        : imageLoader,
-    loading: 'eager',
-    quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
-    sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-    src: product.image,
-  });
-  const {
-    fill: _fill,
-    loader: _loader,
-    quality: _quality,
-    ...nativeProps
-  } = props as NativeImagePropsWithNextInternals;
-
-  return nativeProps;
-}
-
-function getMobileProductImageSourceProps(
-  product: OgabasseyPdpCriticalProduct,
-  imageDelivery: OgabasseyPdpCriticalShellProps['imageDelivery']
-) {
-  return {
-    media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-    sizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-    srcSet:
-      imageDelivery === 'same-origin'
-        ? buildOgabasseyPdpSameOriginMobileImageSrcSet(product.slug)
-        : buildOgabasseyPdpMobileImageSrcSet(product.image),
-  };
+  return buildOgabasseyPdpSameOriginProfileImageUrl(product.slug, 'desktop');
 }
 
 export function OgabasseyPdpCriticalShell({
@@ -176,14 +110,7 @@ export function OgabasseyPdpCriticalShell({
   imageDelivery = 'direct',
   product,
 }: OgabasseyPdpCriticalShellProps) {
-  const productImageProps = getNativeProductImageProps(
-    product,
-    imageDelivery
-  );
-  const mobileSourceProps = getMobileProductImageSourceProps(
-    product,
-    imageDelivery
-  );
+  const productImageSrc = getProductImageSrc(product, imageDelivery);
   const aggregateRatingCount = Math.max(
     product.reviewCount,
     product.ratingCount
@@ -225,15 +152,15 @@ export function OgabasseyPdpCriticalShell({
         </nav>
         <div data-ogabassey-pdp-grid>
           <div data-ogabassey-pdp-image-frame>
-            <picture data-ogabassey-pdp-picture>
-              <source {...mobileSourceProps} />
-              {/* biome-ignore lint/performance/noImgElement: Server-generated native img avoids passing a loader function through the RSC payload. */}
-              <img
-                {...productImageProps}
-                alt={product.name}
-                data-ogabassey-pdp-image="true"
-              />
-            </picture>
+            <Image
+              alt={product.name}
+              data-ogabassey-pdp-image="true"
+              fill
+              preload
+              quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
+              sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
+              src={productImageSrc}
+            />
             <span data-ogabassey-pdp-condition>
               {product.condition}
             </span>
