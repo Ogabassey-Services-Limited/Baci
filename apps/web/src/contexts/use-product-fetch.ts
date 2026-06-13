@@ -22,6 +22,68 @@ type ToastApi = (args: {
   variant?: 'default' | 'destructive';
 }) => unknown;
 
+interface RunProductFetchArgs<TProduct> {
+  params: URLSearchParams;
+  setProducts: Dispatch<SetStateAction<TProduct[]>>;
+  setPagination: Dispatch<SetStateAction<PaginationInfo>>;
+  setStats: Dispatch<SetStateAction<ProductStats>>;
+  setIsLoading: Dispatch<SetStateAction<boolean>>;
+  toast: ToastApi;
+  fetchInProgressRef: { current: boolean };
+}
+
+// Module-scope helper owns the try/catch/finally so the hook body stays
+// lowerable by the React Compiler (try/finally + throw-in-try bail it out).
+async function runProductFetch<TProduct>({
+  params,
+  setProducts,
+  setPagination,
+  setStats,
+  setIsLoading,
+  toast,
+  fetchInProgressRef,
+}: RunProductFetchArgs<TProduct>): Promise<void> {
+  try {
+    const response = await fetch(`/api/products?${params}`);
+    if (!response.ok) {
+      if ([401, 403, 404, 500, 429].includes(response.status)) {
+        if (response.status === 429) {
+          console.warn('Rate limit hit for products fetch; not retrying.');
+        }
+        fetchInProgressRef.current = false;
+        setIsLoading(false);
+        return;
+      }
+
+      console.error(
+        `Fetch failed with status: ${response.status} ${response.statusText}`
+      );
+      throw new Error(`Failed to fetch products: ${response.status}`);
+    }
+
+    const data = await response.json();
+    setProducts(data.products || []);
+    setPagination(data.pagination);
+    setStats(
+      data.stats || {
+        inventoryValue: 0,
+        outOfStockCount: 0,
+        categoryCount: 0,
+      }
+    );
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to load products',
+      variant: 'destructive',
+    });
+  } finally {
+    fetchInProgressRef.current = false;
+    setIsLoading(false);
+  }
+}
+
 interface UseProductFetchArgs<TProduct> {
   authLoading: boolean;
   user: { id: string } | null | undefined;
@@ -108,45 +170,15 @@ export function useProductFetch<TProduct>({
     lastFetchParamsRef.current = paramsString;
     setIsLoading(true);
 
-    try {
-      const response = await fetch(`/api/products?${params}`);
-      if (!response.ok) {
-        if ([401, 403, 404, 500, 429].includes(response.status)) {
-          if (response.status === 429) {
-            console.warn('Rate limit hit for products fetch; not retrying.');
-          }
-          fetchInProgressRef.current = false;
-          setIsLoading(false);
-          return;
-        }
-
-        console.error(
-          `Fetch failed with status: ${response.status} ${response.statusText}`
-        );
-        throw new Error(`Failed to fetch products: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setProducts(data.products || []);
-      setPagination(data.pagination);
-      setStats(
-        data.stats || {
-          inventoryValue: 0,
-          outOfStockCount: 0,
-          categoryCount: 0,
-        }
-      );
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load products',
-        variant: 'destructive',
-      });
-    } finally {
-      fetchInProgressRef.current = false;
-      setIsLoading(false);
-    }
+    await runProductFetch({
+      params,
+      setProducts,
+      setPagination,
+      setStats,
+      setIsLoading,
+      toast,
+      fetchInProgressRef,
+    });
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: queryKey intentionally drives refetch while fetchProducts closes over the current render state.

@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, Loader2 } from 'lucide-react';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -31,6 +32,54 @@ const verifySchema = z.object({
     message: 'Your verification code must be 6 characters.',
   }),
 });
+
+// Module-scope helpers keep throw statements out of the component body so
+// React Compiler can memoize the component.
+async function verifyEmailOtp(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+  code: string
+): Promise<void> {
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token: code,
+    type: 'signup',
+  });
+
+  if (error) {
+    // Fallback to 'email' type (magic link / recovery flow sometimes overlaps)
+    // But for strict signup verification, 'signup' or 'email' should be tried.
+    console.warn(
+      'Signup verification failed, trying recovery type...',
+      error.message
+    );
+    const { error: retryError } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: 'email',
+    });
+
+    if (retryError) {
+      throw retryError;
+    }
+  }
+}
+
+async function resendSignupOtp(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+  redirectTo: string
+): Promise<void> {
+  const { error } = await supabase.auth.resend({
+    email,
+    type: 'signup',
+    options: {
+      emailRedirectTo: `${window.location.origin}${redirectTo}`,
+    },
+  });
+
+  if (error) throw error;
+}
 
 export default function VerifyForm() {
   const router = useRouter();
@@ -66,86 +115,58 @@ export default function VerifyForm() {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  async function onSubmit(data: z.infer<typeof verifySchema>) {
+  function onSubmit(data: z.infer<typeof verifySchema>) {
     if (!email) return;
     setIsLoading(true);
 
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: data.code,
-        type: 'signup',
-      });
-
-      if (error) {
-        // Fallback to 'email' type (magic link / recovery flow sometimes overlaps)
-        // But for strict signup verification, 'signup' or 'email' should be tried.
-        console.warn(
-          'Signup verification failed, trying recovery type...',
-          error.message
-        );
-        const { error: retryError } = await supabase.auth.verifyOtp({
-          email,
-          token: data.code,
-          type: 'email',
+    verifyEmailOtp(supabase, email, data.code)
+      .then(() => {
+        toast({
+          title: 'Success',
+          description: 'Your email has been verified.',
         });
 
-        if (retryError) {
-          throw retryError;
-        }
-      }
-
-      toast({
-        title: 'Success',
-        description: 'Your email has been verified.',
+        // Force refresh to update auth state
+        router.refresh();
+        router.replace(redirectTo as Route);
+      })
+      .catch((error: unknown) => {
+        toast({
+          variant: 'destructive',
+          title: 'Verification Failed',
+          description:
+            error instanceof Error
+              ? error.message
+              : 'Invalid code. Please try again.',
+        });
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-
-      // Force refresh to update auth state
-      router.refresh();
-      // biome-ignore lint/suspicious/noExplicitAny: typed routes require a Route-compatible string at runtime
-      router.replace(redirectTo as any);
-    } catch (error: unknown) {
-      toast({
-        variant: 'destructive',
-        title: 'Verification Failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Invalid code. Please try again.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
   }
 
-  async function onResend() {
+  function onResend() {
     if (resendTimer > 0 || !email) return;
     setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.resend({
-        email,
-        type: 'signup',
-        options: {
-          emailRedirectTo: `${window.location.origin}${redirectTo}`,
-        },
-      });
 
-      if (error) throw error;
-
-      toast({
-        title: 'Code Sent',
-        description: 'A new verification code has been sent to your email.',
+    resendSignupOtp(supabase, email, redirectTo)
+      .then(() => {
+        toast({
+          title: 'Code Sent',
+          description: 'A new verification code has been sent to your email.',
+        });
+        setResendTimer(60);
+      })
+      .catch((error: unknown) => {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: (error as Error).message,
+        });
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-      setResendTimer(60);
-    } catch (error: unknown) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: (error as Error).message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
   }
 
   if (!email) return null;

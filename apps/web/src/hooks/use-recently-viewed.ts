@@ -54,6 +54,39 @@ function getStorageKey(merchantId?: string | null): string {
 }
 
 /**
+ * Read and prune the recently-viewed entries for a storage key. Pruned
+ * (expired) entries are written back so storage stays bounded. Returns an
+ * empty list on the server or when storage is unavailable/corrupt.
+ */
+function loadEntriesFromStorage(
+  storageKey: string,
+  expirationMs: number
+): RecentlyViewedEntry[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) return [];
+
+    const parsed: RecentlyViewedEntry[] = JSON.parse(stored);
+    const now = Date.now();
+    const validEntries = parsed.filter(
+      (entry) => now - entry.viewedAt < expirationMs
+    );
+
+    // Persist the pruned list when expired entries were removed.
+    if (validEntries.length !== parsed.length) {
+      localStorage.setItem(storageKey, JSON.stringify(validEntries));
+    }
+
+    return validEntries;
+  } catch (error) {
+    console.error('Failed to load recently viewed products:', error);
+    return [];
+  }
+}
+
+/**
  * Hook for tracking recently viewed products
  *
  * @example
@@ -86,50 +119,34 @@ export function useRecentlyViewed(
   const merchantContext = useMerchantSafe();
   const merchantId = merchantContext?.merchant?.id ?? null;
 
-  const [entries, setEntries] = useState<RecentlyViewedEntry[]>([]);
-  const [isInitialized, setIsInitialized] = useState(false);
-
   const storageKey = getStorageKey(merchantId);
   const expirationMs = expirationDays * 24 * 60 * 60 * 1000;
 
-  // Load from localStorage on mount - this is the standard pattern for syncing external state
+  // Read directly from storage on first render (lazy initializer runs once),
+  // so there is no effect-driven setState cascade on mount.
+  const [entries, setEntries] = useState<RecentlyViewedEntry[]>(() =>
+    loadEntriesFromStorage(storageKey, expirationMs)
+  );
+
+  // Re-read from storage when the scoped key changes (e.g. merchant switch).
+  // Adjusting state inline during render avoids the stale-frame an effect
+  // would introduce. See react.dev "Adjusting some state when a prop changes".
+  const [prevStorageKey, setPrevStorageKey] = useState(storageKey);
+  if (storageKey !== prevStorageKey) {
+    setPrevStorageKey(storageKey);
+    setEntries(loadEntriesFromStorage(storageKey, expirationMs));
+  }
+
+  // Save to localStorage when entries change.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        const parsed: RecentlyViewedEntry[] = JSON.parse(stored);
-        const now = Date.now();
-
-        // Filter out expired entries
-        const validEntries = parsed.filter(
-          (entry) => now - entry.viewedAt < expirationMs
-        );
-
-        // Update storage if we removed expired entries
-        if (validEntries.length !== parsed.length) {
-          localStorage.setItem(storageKey, JSON.stringify(validEntries));
-        }
-
-        setEntries(validEntries);
-      }
-    } catch (error) {
-      console.error('Failed to load recently viewed products:', error);
-    }
-    setIsInitialized(true);
-  }, [storageKey, expirationMs]);
-
-  // Save to localStorage when entries change
-  useEffect(() => {
-    if (!isInitialized || typeof window === 'undefined') return;
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(entries));
     } catch (error) {
       console.error('Failed to save recently viewed products:', error);
     }
-  }, [entries, storageKey, isInitialized]);
+  }, [entries, storageKey]);
 
   const addToRecentlyViewed = (productId: string) => {
     setEntries((prev) => {

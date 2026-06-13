@@ -1,7 +1,7 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
 import {
   normalizeHostname,
@@ -73,6 +73,35 @@ function titleMerchantWidgetFrame() {
   return true;
 }
 
+function resolveDomainMatches({
+  enabled,
+  merchant,
+  merchantCustomDomain,
+  hostname,
+}: Pick<
+  GoogleStoreWidgetProps,
+  'enabled' | 'merchant' | 'merchantCustomDomain' | 'hostname'
+>): boolean {
+  if (!enabled) {
+    return false;
+  }
+
+  const merchantDomain = normalizeHostname(
+    merchantCustomDomain ?? merchant?.custom_domain
+  );
+
+  if (!merchantDomain) {
+    return true;
+  }
+
+  const currentHostname = normalizeHostname(
+    hostname ||
+      (typeof window !== 'undefined' ? window.location.hostname : undefined)
+  );
+
+  return currentHostname === merchantDomain;
+}
+
 export function GoogleStoreWidget({
   merchant,
   merchantCustomDomain,
@@ -80,46 +109,45 @@ export function GoogleStoreWidget({
   hostname,
   skipActivationDelay = false,
 }: GoogleStoreWidgetProps) {
-  const [domainMatches, setDomainMatches] = useState(false);
-  const [shouldLoadScript, setShouldLoadScript] = useState(false);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-  const [widgetStarted, setWidgetStarted] = useState(false);
   const merchantCenterId = resolveGoogleMerchantCenterId(merchant);
 
-  useEffect(() => {
-    if (!enabled) {
-      setDomainMatches(false);
-      return;
+  // Derive domain match during render instead of syncing it through an effect.
+  const domainMatches = resolveDomainMatches({
+    enabled,
+    merchant,
+    merchantCustomDomain,
+    hostname,
+  });
+  const isActivatable = enabled && domainMatches;
+
+  // When the outer shell already delayed mounting we activate immediately, so
+  // seed the gate instead of flipping it through an effect on mount.
+  const [shouldLoadScript, setShouldLoadScript] = useState(
+    skipActivationDelay && isActivatable
+  );
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const widgetStartedRef = useRef(false);
+
+  // Reset/seed the deferred-load gate inline when activatability changes, so
+  // re-enabling restarts the defer window without an extra stale-UI commit.
+  const [wasActivatable, setWasActivatable] = useState(isActivatable);
+  if (isActivatable !== wasActivatable) {
+    setWasActivatable(isActivatable);
+    if (!isActivatable) {
+      if (shouldLoadScript) {
+        setShouldLoadScript(false);
+      }
+    } else if (skipActivationDelay && !shouldLoadScript) {
+      setShouldLoadScript(true);
     }
-
-    const merchantDomain = normalizeHostname(
-      merchantCustomDomain ?? merchant?.custom_domain
-    );
-
-    if (!merchantDomain) {
-      setDomainMatches(true);
-      return;
-    }
-
-    const currentHostname = normalizeHostname(
-      hostname || window.location.hostname
-    );
-
-    setDomainMatches(currentHostname === merchantDomain);
-  }, [enabled, hostname, merchant?.custom_domain, merchantCustomDomain]);
+  }
 
   useEffect(() => {
-    if (!enabled || !domainMatches) {
-      setShouldLoadScript(false);
+    if (!enabled || !domainMatches || skipActivationDelay) {
       return;
     }
 
     if (shouldLoadScript) {
-      return;
-    }
-
-    if (skipActivationDelay) {
-      setShouldLoadScript(true);
       return;
     }
 
@@ -155,19 +183,15 @@ export function GoogleStoreWidget({
   }, [domainMatches, enabled, shouldLoadScript, skipActivationDelay]);
 
   useEffect(() => {
-    if (
-      !enabled ||
-      !domainMatches ||
-      !shouldLoadScript ||
-      !scriptLoaded ||
-      widgetStarted
-    ) {
+    if (!enabled || !domainMatches || !shouldLoadScript || !scriptLoaded) {
       return;
     }
 
-    if (!window.merchantwidget?.start) {
+    if (widgetStartedRef.current || !window.merchantwidget?.start) {
       return;
     }
+
+    widgetStartedRef.current = true;
 
     const widgetOptions: MerchantWidgetOptions = {
       ...(merchantCenterId ? { merchant_id: Number(merchantCenterId) } : {}),
@@ -180,19 +204,8 @@ export function GoogleStoreWidget({
     };
 
     window.merchantwidget.start(widgetOptions);
-    titleMerchantWidgetFrame();
-    setWidgetStarted(true);
-  }, [
-    domainMatches,
-    enabled,
-    merchantCenterId,
-    scriptLoaded,
-    shouldLoadScript,
-    widgetStarted,
-  ]);
 
-  useEffect(() => {
-    if (!widgetStarted || titleMerchantWidgetFrame()) {
+    if (titleMerchantWidgetFrame()) {
       return;
     }
 
@@ -206,7 +219,13 @@ export function GoogleStoreWidget({
     return () => {
       observer.disconnect();
     };
-  }, [widgetStarted]);
+  }, [
+    domainMatches,
+    enabled,
+    merchantCenterId,
+    scriptLoaded,
+    shouldLoadScript,
+  ]);
 
   if (!enabled || !domainMatches || !shouldLoadScript) {
     return null;

@@ -1,30 +1,36 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { isAnalyticsAllowed } from '@/lib/analytics';
 
 interface FacebookPixelProps {
   pixelId: string;
 }
 
+const CONSENT_STORAGE_KEY = 'baci-cookie-consent';
+
+// Subscribe to cross-tab consent changes. React re-reads the snapshot whenever
+// the listener fires, so consent updates flow in without a setState-in-effect.
+function subscribeToConsent(onChange: () => void): () => void {
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === CONSENT_STORAGE_KEY) {
+      onChange();
+    }
+  };
+  window.addEventListener('storage', handleStorageChange);
+  return () => window.removeEventListener('storage', handleStorageChange);
+}
+
+// Server renders with consent denied to stay deterministic during hydration.
+const getConsentServerSnapshot = (): boolean => false;
+
 export function FacebookPixel({ pixelId }: FacebookPixelProps) {
-  const [isAllowed, setIsAllowed] = useState(false);
-
-  useEffect(() => {
-    // Check consent on mount
-    setIsAllowed(isAnalyticsAllowed());
-
-    // Listen for consent changes
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'baci-cookie-consent') {
-        setIsAllowed(isAnalyticsAllowed());
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  const isAllowed = useSyncExternalStore(
+    subscribeToConsent,
+    isAnalyticsAllowed,
+    getConsentServerSnapshot
+  );
 
   // Don't render if no pixel ID or consent not given
   if (!pixelId || !isAllowed) {

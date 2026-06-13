@@ -23,15 +23,139 @@ type ExportResponse =
   | { success: true; feedId: string }
   | { success: false; error: string; feedErrors?: string[] };
 
-interface ExportToJumiaDialogProps {
-  product: {
-    id: string;
-    sku: string;
-    name: string;
-    description: string;
-    price: number;
-    images?: string[];
+interface JumiaExportProduct {
+  id: string;
+  sku: string;
+  name: string;
+  description: string;
+  price: number;
+  images?: string[];
+}
+
+interface BuildExportPayloadParams {
+  product: JumiaExportProduct;
+  merchantId: string;
+  integrationId: string;
+  categoryCode: number;
+  brand: { code: number; name: string };
+}
+
+type ExportResult =
+  | { ok: true; feedId: string }
+  | { ok: false; message: string };
+
+const MAX_DISPLAYED_FEED_ERRORS = 3;
+const MAX_FEED_ERROR_LENGTH = 200;
+const MAX_TOTAL_FEED_ERROR_LENGTH = 500;
+
+function buildExportPayload({
+  product,
+  merchantId,
+  integrationId,
+  categoryCode,
+  brand,
+}: BuildExportPayloadParams) {
+  return {
+    integrationId,
+    merchantId,
+    name: sanitizeText(stripHtmlTags(product.name)),
+    brand: {
+      code: brand.code,
+      name: sanitizeText(stripHtmlTags(brand.name)),
+    },
+    category: { code: categoryCode },
+    description: sanitizeText(
+      stripHtmlTags(product.description || product.name)
+    ),
+    images: (product.images ?? [])
+      .filter((url) => {
+        if (!url) return false;
+        try {
+          const parsed = new URL(url);
+          return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        } catch {
+          return false;
+        }
+      })
+      .map((url, i) => ({
+        url,
+        primary: i === 0,
+      })),
+    variations: [
+      {
+        sellerSku: product.sku,
+        price: product.price,
+        // NGN is Nigeria-pilot specific; derive from merchant config when multi-country support is added
+        currency: 'NGN',
+      },
+    ],
   };
+}
+
+function buildFeedErrorDetail(feedErrors: string[] | undefined): string {
+  if (!feedErrors || feedErrors.length === 0) {
+    return '';
+  }
+
+  const displayed = feedErrors.slice(0, MAX_DISPLAYED_FEED_ERRORS).map((e) => {
+    const safe = sanitizeText(e);
+    return safe.length > MAX_FEED_ERROR_LENGTH
+      ? `${safe.slice(0, MAX_FEED_ERROR_LENGTH)}...`
+      : safe;
+  });
+
+  let detail = `\n${displayed.join('\n')}`;
+  if (feedErrors.length > MAX_DISPLAYED_FEED_ERRORS) {
+    detail += `\n... (${feedErrors.length - MAX_DISPLAYED_FEED_ERRORS} more errors)`;
+  }
+  return detail;
+}
+
+/**
+ * Module-scope helper that owns the network request and its try/catch/throw
+ * control flow. Keeping this out of the component body lets React Compiler
+ * memoize the dialog (the compiler cannot lower try/finally or throw-in-try).
+ */
+async function submitJumiaExport(
+  payload: ReturnType<typeof buildExportPayload>
+): Promise<ExportResult> {
+  const res = await fetchWithCsrf('/api/marketplace/jumia/products/export', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let message = res.statusText || 'Export failed';
+    try {
+      const errorBody = await res.json();
+      if (errorBody.error) message = errorBody.error;
+    } catch {
+      // Response body is not JSON, use statusText
+    }
+    return { ok: false, message };
+  }
+
+  let data: ExportResponse;
+  try {
+    data = await res.json();
+  } catch {
+    return { ok: false, message: 'Invalid response from server' };
+  }
+
+  if (!data.success) {
+    const feedDetail = buildFeedErrorDetail(data.feedErrors);
+    let message = sanitizeText(data.error || 'Export failed') + feedDetail;
+    if (message.length > MAX_TOTAL_FEED_ERROR_LENGTH) {
+      message = `${message.slice(0, MAX_TOTAL_FEED_ERROR_LENGTH)}... (truncated)`;
+    }
+    return { ok: false, message };
+  }
+
+  return { ok: true, feedId: data.feedId };
+}
+
+interface ExportToJumiaDialogProps {
+  product: JumiaExportProduct;
   merchantId: string;
   integrationId: string;
   open?: boolean;
@@ -65,7 +189,7 @@ export function ExportToJumiaDialog({
     null
   );
 
-  const handleExport = async () => {
+  const handleExport = () => {
     if (!categoryCode || !brand) {
       toast({
         title: 'Selection Required',
@@ -76,111 +200,42 @@ export function ExportToJumiaDialog({
     }
 
     setLoading(true);
-    try {
-      const payload = {
-        integrationId,
-        merchantId,
-        name: sanitizeText(stripHtmlTags(product.name)),
-        brand: {
-          code: brand.code,
-          name: sanitizeText(stripHtmlTags(brand.name)),
-        },
-        category: { code: categoryCode },
-        description: sanitizeText(
-          stripHtmlTags(product.description || product.name)
-        ),
-        images: (product.images ?? [])
-          .filter((url) => {
-            if (!url) return false;
-            try {
-              const parsed = new URL(url);
-              return (
-                parsed.protocol === 'http:' || parsed.protocol === 'https:'
-              );
-            } catch {
-              return false;
-            }
-          })
-          .map((url, i) => ({
-            url,
-            primary: i === 0,
-          })),
-        variations: [
-          {
-            sellerSku: product.sku,
-            price: product.price,
-            // NGN is Nigeria-pilot specific; derive from merchant config when multi-country support is added
-            currency: 'NGN',
-          },
-        ],
-      };
 
-      const res = await fetchWithCsrf(
-        '/api/marketplace/jumia/products/export',
-        {
-          method: 'POST',
-          body: JSON.stringify(payload),
+    const payload = buildExportPayload({
+      product,
+      merchantId,
+      integrationId,
+      categoryCode,
+      brand,
+    });
+
+    submitJumiaExport(payload)
+      .then((result) => {
+        if (result.ok) {
+          toast({
+            title: 'Export Started',
+            description: `Feed ID: ${result.feedId}`,
+          });
+          setOpen(false);
+          return;
         }
-      );
 
-      if (!res.ok) {
-        let message = res.statusText || 'Export failed';
-        try {
-          const errorBody = await res.json();
-          if (errorBody.error) message = errorBody.error;
-        } catch {
-          // Response body is not JSON, use statusText
-        }
-        throw new Error(message);
-      }
-
-      let data: ExportResponse;
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error('Invalid response from server');
-      }
-
-      if (!data.success) {
-        const MAX_DISPLAYED_ERRORS = 3;
-        const MAX_ERROR_LENGTH = 200;
-        const MAX_TOTAL_LENGTH = 500;
-        let feedDetail = '';
-        if (data.feedErrors && data.feedErrors.length > 0) {
-          const displayed = data.feedErrors
-            .slice(0, MAX_DISPLAYED_ERRORS)
-            .map((e) => {
-              const safe = sanitizeText(e);
-              return safe.length > MAX_ERROR_LENGTH
-                ? `${safe.slice(0, MAX_ERROR_LENGTH)}...`
-                : safe;
-            });
-          feedDetail = `\n${displayed.join('\n')}`;
-          if (data.feedErrors.length > MAX_DISPLAYED_ERRORS) {
-            feedDetail += `\n... (${data.feedErrors.length - MAX_DISPLAYED_ERRORS} more errors)`;
-          }
-        }
-        let message = sanitizeText(data.error || 'Export failed') + feedDetail;
-        if (message.length > MAX_TOTAL_LENGTH) {
-          message = `${message.slice(0, MAX_TOTAL_LENGTH)}... (truncated)`;
-        }
-        throw new Error(message);
-      }
-
-      toast({
-        title: 'Export Started',
-        description: `Feed ID: ${data.feedId}`,
+        toast({
+          title: 'Export Failed',
+          description: result.message,
+          variant: 'destructive',
+        });
+      })
+      .catch((error) => {
+        toast({
+          title: 'Export Failed',
+          description: error instanceof Error ? error.message : 'Export failed',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setLoading(false);
       });
-      setOpen(false);
-    } catch (error) {
-      toast({
-        title: 'Export Failed',
-        description: error instanceof Error ? error.message : 'Export failed',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (

@@ -4,7 +4,7 @@ import { type Data, Puck, usePuck } from '@puckeditor/core';
 import { Button } from '@/components/ui/button';
 import '@puckeditor/core/puck.css';
 import { ArrowLeft, Check, LayoutTemplate, Loader2, Lock } from 'lucide-react';
-import { Component, type ReactNode, useEffect, useState } from 'react';
+import { Component, type ReactNode, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -155,13 +155,22 @@ export function OnboardingTemplateEditor({
   // Get template data mapping from shared config
   const templateDataMap = getTemplateData(businessName);
 
-  // Update currentData when initialData changes (if needed)
-  useEffect(() => {
+  // Update currentData when initialData changes (if needed).
+  // Render-time prev-compare instead of an effect, see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevInitialData, setPrevInitialData] = useState(initialData);
+  const [prevTemplateId, setPrevTemplateId] = useState(selectedTemplateId);
+  if (
+    initialData !== prevInitialData ||
+    selectedTemplateId !== prevTemplateId
+  ) {
+    setPrevInitialData(initialData);
+    setPrevTemplateId(selectedTemplateId);
     // Only reset if we haven't selected a template yet or if initialData is meaningful
     if (selectedTemplateId === 'modern-minimal') {
       setCurrentData(initialData);
     }
-  }, [initialData, selectedTemplateId]);
+  }
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplateId(templateId);
@@ -174,18 +183,20 @@ export function OnboardingTemplateEditor({
     setIsTemplatesOpen(false);
   };
 
-  const handlePublish = async (data: Data) => {
+  const handlePublish = (data: Data) => {
     setIsSaving(true);
-    try {
-      // Simulate save delay or actual save logic if needed
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      onSave(data);
-      onClose();
-    } catch (error) {
-      console.error('Failed to save template:', error);
-    } finally {
-      setIsSaving(false);
-    }
+    // Simulate save delay or actual save logic if needed
+    new Promise((resolve) => setTimeout(resolve, 500))
+      .then(() => {
+        onSave(data);
+        onClose();
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to save template:', error);
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
   return (

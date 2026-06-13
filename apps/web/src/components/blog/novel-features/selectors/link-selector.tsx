@@ -41,9 +41,14 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
   const { editor } = useEditor();
   const [value, setValue] = useState(editor?.getAttributes('link').href || '');
 
-  useEffect(() => {
+  // Sync the input with the active link when the editor instance changes.
+  // Adjusting state during render (instead of in an effect) avoids the extra
+  // commit with a stale value that React Compiler flags.
+  const [prevEditor, setPrevEditor] = useState(editor);
+  if (editor !== prevEditor) {
+    setPrevEditor(editor);
     setValue(editor?.getAttributes('link').href || '');
-  }, [editor]);
+  }
 
   // Focus the input when the popover opens
   useEffect(() => {

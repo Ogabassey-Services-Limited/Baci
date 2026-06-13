@@ -42,6 +42,18 @@ import { cn } from '@/lib/utils';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
+// Dynamically load grid layout CSS to avoid render-blocking. Hoisted to
+// module scope so the dynamic `import()` expressions don't bail out the
+// React Compiler on the grid component.
+function loadGridLayoutStyles(): void {
+  import('react-grid-layout/css/styles.css');
+  import('react-resizable/css/styles.css');
+}
+
+function resolveCategoryLayouts(activeCategory: string): Layouts {
+  return CATEGORY_LAYOUTS[activeCategory] ?? DEFAULT_LAYOUTS;
+}
+
 interface MetricData {
   value: number;
   change: number;
@@ -445,19 +457,20 @@ export function DraggableAnalyticsGrid({
 
   // Dynamically load grid layout CSS to avoid render-blocking
   useEffect(() => {
-    import('react-grid-layout/css/styles.css');
-    import('react-resizable/css/styles.css');
+    loadGridLayoutStyles();
   }, []);
 
-  const [layouts, setLayouts] = useState<Layouts>(DEFAULT_LAYOUTS);
+  const [layouts, setLayouts] = useState<Layouts>(() =>
+    resolveCategoryLayouts(activeCategory)
+  );
+  const [prevCategory, setPrevCategory] = useState(activeCategory);
 
-  useEffect(() => {
-    if (CATEGORY_LAYOUTS[activeCategory]) {
-      setLayouts(CATEGORY_LAYOUTS[activeCategory]);
-    } else {
-      setLayouts(DEFAULT_LAYOUTS);
-    }
-  }, [activeCategory]);
+  // Sync layouts to the active category during render (instead of an effect)
+  // so users never see a stale layout between the prop change and the commit.
+  if (activeCategory !== prevCategory) {
+    setPrevCategory(activeCategory);
+    setLayouts(resolveCategoryLayouts(activeCategory));
+  }
 
   // Save layout change
   const onLayoutChange = (currentLayout: Layout, allLayouts: Layouts) => {

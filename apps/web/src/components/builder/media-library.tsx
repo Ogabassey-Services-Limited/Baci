@@ -33,9 +33,74 @@ interface MediaLibraryProps {
   maxSizeMB?: number;
 }
 
+type ToastFn = ReturnType<typeof useToast>['toast'];
+
+// Fetch the media list. Returns the file array; throws on failure so the
+// caller can surface a toast. Kept at module scope so React Compiler can
+// lower the component (try/catch/finally in the body triggers a bailout).
+async function fetchMediaFiles(): Promise<MediaFile[]> {
+  const response = await fetch('/api/media');
+  if (!response.ok) throw new Error('Failed to load media');
+  const data = await response.json();
+  return data.files || [];
+}
+
+// Load files into state, owning the loading flag and error toast.
+// `markLoading` is false on the initial mount load, where `loading` already
+// starts as `true` — this avoids a synchronous setState inside the mount
+// effect (which would defeat React Compiler memoization).
+async function loadMediaFiles(
+  setFiles: (files: MediaFile[]) => void,
+  setLoading: (loading: boolean) => void,
+  toast: ToastFn,
+  markLoading = true
+): Promise<void> {
+  if (markLoading) setLoading(true);
+  try {
+    setFiles(await fetchMediaFiles());
+  } catch (error: unknown) {
+    console.error('Error loading media:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to load media library',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+}
+
+// Upload a single file. Returns the created file URL (if any); throws on
+// failure so the caller can surface a toast.
+async function uploadMediaFile(file: File): Promise<string | null> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('/api/media', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Upload failed');
+  }
+
+  const data = await response.json();
+  return data.file?.url ?? null;
+}
+
+// Delete a file by id. Throws on failure so the caller can surface a toast.
+async function deleteMediaFile(fileId: string): Promise<void> {
+  const response = await fetch(`/api/media?id=${fileId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Delete failed');
+}
+
 export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
   const [files, setFiles] = useState<MediaFile[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -44,29 +109,12 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
   const { toast } = useToast();
 
   // Load existing files
-  const loadFiles = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/media');
-      if (!response.ok) throw new Error('Failed to load media');
-      const data = await response.json();
-      setFiles(data.files || []);
-    } catch (error: unknown) {
-      console.error('Error loading media:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load media library',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loadFiles = () => loadMediaFiles(setFiles, setLoading, toast);
 
-  // Load files on mount
-  // biome-ignore lint/correctness/useExhaustiveDependencies: loadFiles is stable, only run on mount
+  // Load files on mount (loading already starts true, so don't re-flag it)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only run on mount
   useEffect(() => {
-    loadFiles();
+    void loadMediaFiles(setFiles, setLoading, toast, false);
   }, []);
 
   // Handle file upload
@@ -97,43 +145,32 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
     }
 
     setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+    const result = await uploadMediaFile(file)
+      .then((url) => ({ url, error: null as Error | null }))
+      .catch((error: unknown) => ({ url: null, error: error as Error }))
+      .finally(() => setUploading(false));
 
-      const response = await fetch('/api/media', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Upload failed');
-      }
-
-      const data = await response.json();
-
-      toast({
-        title: 'Upload successful',
-        description: `${file.name} has been uploaded`,
-      });
-
-      // Reload files
-      await loadFiles();
-
-      // Auto-select the uploaded file if onSelect is provided
-      if (onSelect && data.file?.url) {
-        setSelectedFile(data.file.url);
-      }
-    } catch (error: unknown) {
-      console.error('Upload error:', error);
+    if (result.error) {
+      console.error('Upload error:', result.error);
       toast({
         title: 'Upload failed',
-        description: (error as Error).message || 'Failed to upload file',
+        description: result.error.message || 'Failed to upload file',
         variant: 'destructive',
       });
-    } finally {
-      setUploading(false);
+      return;
+    }
+
+    toast({
+      title: 'Upload successful',
+      description: `${file.name} has been uploaded`,
+    });
+
+    // Reload files
+    await loadFiles();
+
+    // Auto-select the uploaded file if onSelect is provided
+    if (onSelect && result.url) {
+      setSelectedFile(result.url);
     }
   };
 
@@ -141,30 +178,29 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
   const handleDelete = async (fileId: string, fileName: string) => {
     if (!confirm(`Delete ${fileName}?`)) return;
 
-    try {
-      const response = await fetch(`/api/media?id=${fileId}`, {
-        method: 'DELETE',
-      });
+    const error = await deleteMediaFile(fileId)
+      .then(() => null as Error | null)
+      .catch((err: unknown) => err as Error);
 
-      if (!response.ok) throw new Error('Delete failed');
-
-      toast({
-        title: 'Deleted',
-        description: `${fileName} has been deleted`,
-      });
-
-      await loadFiles();
-
-      if (selectedFile === fileId) {
-        setSelectedFile(null);
-      }
-    } catch (error: unknown) {
+    if (error) {
       console.error('Delete error:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete file',
         variant: 'destructive',
       });
+      return;
+    }
+
+    toast({
+      title: 'Deleted',
+      description: `${fileName} has been deleted`,
+    });
+
+    await loadFiles();
+
+    if (selectedFile === fileId) {
+      setSelectedFile(null);
     }
   };
 

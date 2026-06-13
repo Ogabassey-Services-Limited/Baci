@@ -54,94 +54,110 @@ function getMetricRating(
   return 'needs-improvement';
 }
 
+interface WebVitalMetric {
+  name: string;
+  value: number;
+  id: string;
+  rating: string;
+  navigationType: string;
+}
+
+function handleWebVitalMetric(
+  metric: WebVitalMetric,
+  debug: boolean,
+  endpoint: string | undefined
+): void {
+  // Debug logging
+  if (debug) {
+    const rating = getMetricRating(metric.name, metric.value);
+    const color =
+      rating === 'good'
+        ? 'color: green'
+        : rating === 'poor'
+          ? 'color: red'
+          : 'color: orange';
+
+    console.log(
+      `%c[Web Vitals] ${metric.name}: ${metric.value.toFixed(metric.name === 'CLS' ? 3 : 0)}ms (${rating})`,
+      color
+    );
+  }
+
+  // Send to GA4 if available
+  if (
+    typeof window !== 'undefined' &&
+    (window as unknown as { gtag?: unknown }).gtag
+  ) {
+    const gtag = (window as unknown as { gtag: (...args: unknown[]) => void })
+      .gtag;
+    gtag('event', metric.name, {
+      value: Math.round(
+        metric.name === 'CLS' ? metric.value * 1000 : metric.value
+      ),
+      event_label: metric.id,
+      metric_rating: metric.rating,
+      navigation_type: metric.navigationType,
+      non_interaction: true,
+    });
+  }
+
+  // Send to custom endpoint if provided
+  if (endpoint) {
+    const body = JSON.stringify({
+      name: metric.name,
+      value: metric.value,
+      rating: metric.rating,
+      id: metric.id,
+      navigationType: metric.navigationType,
+      timestamp: Date.now(),
+    });
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(endpoint, body);
+    } else {
+      fetch(endpoint, {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+      }).catch(() => {
+        // Ignore errors during beacon send
+      });
+    }
+  }
+}
+
+async function registerWebVitals(
+  debug: boolean,
+  endpoint: string | undefined
+): Promise<void> {
+  try {
+    // Dynamic import to avoid Turbopack bundling issues
+    const { onCLS, onFCP, onINP, onLCP, onTTFB } = await import('web-vitals');
+    const handleMetric = (metric: WebVitalMetric) =>
+      handleWebVitalMetric(metric, debug, endpoint);
+
+    // Register all web vitals observers
+    onCLS(handleMetric);
+    onINP(handleMetric);
+    onLCP(handleMetric);
+    onFCP(handleMetric);
+    onTTFB(handleMetric);
+  } catch (err) {
+    if (debug) {
+      console.warn('[Web Vitals] Failed to load:', err);
+    }
+  }
+}
+
+const DEFAULT_DEBUG = process.env.NODE_ENV === 'development';
+
 export function WebVitalsReporter({
-  debug = process.env.NODE_ENV === 'development',
+  debug = DEFAULT_DEBUG,
   endpoint,
 }: WebVitalsReporterProps = {}) {
   useEffect(() => {
-    // Dynamic import to avoid Turbopack bundling issues
-    import('web-vitals')
-      .then(({ onCLS, onFCP, onINP, onLCP, onTTFB }) => {
-        const handleMetric = (metric: {
-          name: string;
-          value: number;
-          id: string;
-          rating: string;
-          navigationType: string;
-        }) => {
-          // Debug logging
-          if (debug) {
-            const rating = getMetricRating(metric.name, metric.value);
-            const color =
-              rating === 'good'
-                ? 'color: green'
-                : rating === 'poor'
-                  ? 'color: red'
-                  : 'color: orange';
-
-            console.log(
-              `%c[Web Vitals] ${metric.name}: ${metric.value.toFixed(metric.name === 'CLS' ? 3 : 0)}ms (${rating})`,
-              color
-            );
-          }
-
-          // Send to GA4 if available
-          if (
-            typeof window !== 'undefined' &&
-            (window as unknown as { gtag?: unknown }).gtag
-          ) {
-            const gtag = (
-              window as unknown as { gtag: (...args: unknown[]) => void }
-            ).gtag;
-            gtag('event', metric.name, {
-              value: Math.round(
-                metric.name === 'CLS' ? metric.value * 1000 : metric.value
-              ),
-              event_label: metric.id,
-              metric_rating: metric.rating,
-              navigation_type: metric.navigationType,
-              non_interaction: true,
-            });
-          }
-
-          // Send to custom endpoint if provided
-          if (endpoint) {
-            const body = JSON.stringify({
-              name: metric.name,
-              value: metric.value,
-              rating: metric.rating,
-              id: metric.id,
-              navigationType: metric.navigationType,
-              timestamp: Date.now(),
-            });
-
-            if (navigator.sendBeacon) {
-              navigator.sendBeacon(endpoint, body);
-            } else {
-              fetch(endpoint, {
-                method: 'POST',
-                body,
-                headers: { 'Content-Type': 'application/json' },
-                keepalive: true,
-              }).catch(() => {
-                // Ignore errors during beacon send
-              });
-            }
-          }
-        };
-
-        // Register all web vitals observers
-        onCLS(handleMetric);
-        onINP(handleMetric);
-        onLCP(handleMetric);
-        onFCP(handleMetric);
-        onTTFB(handleMetric);
-      })
-      .catch((err) => {
-        if (debug) {
-          console.warn('[Web Vitals] Failed to load:', err);
-        }
-      });
+    void registerWebVitals(debug, endpoint);
   }, [debug, endpoint]);
 
   // This component doesn't render anything

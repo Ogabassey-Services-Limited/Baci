@@ -30,6 +30,16 @@ import {
 } from '@/lib/utils';
 import type { OnboardingFormValues } from '@/schemas/onboarding';
 
+// Module-scope so the `import()` expression stays out of the component body —
+// the React Compiler cannot lower import expressions, which would otherwise
+// opt this component out of automatic memoization.
+async function signOutAndReload(): Promise<void> {
+  const { createClient } = await import('@/lib/supabase/client');
+  const supabase = createClient();
+  await supabase.auth.signOut();
+  window.location.reload();
+}
+
 interface Step3Props {
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onMagicLinkSent: () => void;
@@ -106,11 +116,8 @@ export default function Step3_Account({
             <Button
               variant="link"
               className="p-0 h-auto text-muted-foreground hover:text-primary underline font-normal"
-              onClick={async () => {
-                const { createClient } = await import('@/lib/supabase/client');
-                const supabase = createClient();
-                await supabase.auth.signOut();
-                window.location.reload();
+              onClick={() => {
+                void signOutAndReload();
               }}
             >
               Not you? Log out

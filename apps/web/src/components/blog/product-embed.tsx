@@ -37,6 +37,30 @@ interface ProductEmbedPickerProps {
   selectedIds?: string[];
 }
 
+interface FetchProductsCallbacks {
+  setProducts: (products: Product[]) => void;
+  setIsLoading: (value: boolean) => void;
+}
+
+async function fetchProducts(
+  query: string,
+  { setProducts, setIsLoading }: FetchProductsCallbacks
+) {
+  setIsLoading(true);
+  try {
+    const params = new URLSearchParams();
+    if (query) params.set('search', query);
+    const res = await fetch(`/api/products?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch products');
+    const data = await res.json();
+    setProducts(data.products || []);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+  } finally {
+    setIsLoading(false);
+  }
+}
+
 export function ProductEmbedPicker({
   open,
   onClose,
@@ -51,26 +75,9 @@ export function ProductEmbedPicker({
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchProducts = async (query = '') => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (query) params.set('search', query);
-      const res = await fetch(`/api/products?${params.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch products');
-      const data = await res.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     if (open) {
-      fetchProducts(debouncedSearch);
+      fetchProducts(debouncedSearch, { setProducts, setIsLoading });
     }
   }, [open, debouncedSearch]);
 

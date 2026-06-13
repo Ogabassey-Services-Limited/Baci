@@ -30,6 +30,60 @@ interface BusinessNameGeneratorModalProps {
   businessType?: string;
 }
 
+interface GenerateNamesCallbacks {
+  setIsGenerating: (value: boolean) => void;
+  setGeneratedNames: (names: string[]) => void;
+  toast: ReturnType<typeof useToast>['toast'];
+}
+
+async function runGenerateNames(
+  description: string,
+  tone: string,
+  { setIsGenerating, setGeneratedNames, toast }: GenerateNamesCallbacks
+) {
+  if (!description.trim()) {
+    toast({
+      title: 'Description required',
+      description: 'Please describe your business.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  setIsGenerating(true);
+  setGeneratedNames([]);
+
+  try {
+    const result = await guideBusinessOnboarding({
+      businessName: 'placeholder',
+      businessType: 'placeholder',
+      brandPreferences: 'placeholder',
+      task: 'generate_names',
+      description,
+      tone,
+    });
+
+    if (result.businessNames && result.businessNames.length > 0) {
+      setGeneratedNames(result.businessNames);
+    } else {
+      toast({
+        title: 'No names generated',
+        description: 'Please try again with a different description.',
+        variant: 'destructive',
+      });
+    }
+  } catch (error) {
+    console.error('Failed to generate names:', error);
+    toast({
+      title: 'Generation failed',
+      description: 'Something went wrong. Please try again.',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsGenerating(false);
+  }
+}
+
 const TONES = [
   'Modern',
   'Classic',
@@ -77,49 +131,12 @@ export function BusinessNameGeneratorModal({
       ? PLACEHOLDERS[businessType]
       : PLACEHOLDERS.default;
 
-  const handleGenerate = async () => {
-    if (!description.trim()) {
-      toast({
-        title: 'Description required',
-        description: 'Please describe your business.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    setGeneratedNames([]);
-
-    try {
-      const result = await guideBusinessOnboarding({
-        businessName: 'placeholder',
-        businessType: 'placeholder',
-        brandPreferences: 'placeholder',
-        task: 'generate_names',
-        description,
-        tone,
-      });
-
-      if (result.businessNames && result.businessNames.length > 0) {
-        setGeneratedNames(result.businessNames);
-      } else {
-        toast({
-          title: 'No names generated',
-          description: 'Please try again with a different description.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to generate names:', error);
-      toast({
-        title: 'Generation failed',
-        description: 'Something went wrong. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  const handleGenerate = () =>
+    runGenerateNames(description, tone, {
+      setIsGenerating,
+      setGeneratedNames,
+      toast,
+    });
 
   const handleSelectName = (name: string) => {
     onNameSelect(name);

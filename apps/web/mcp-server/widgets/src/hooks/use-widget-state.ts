@@ -1,4 +1,4 @@
-import { type SetStateAction, useEffect, useState } from 'react';
+import { type SetStateAction, useState } from 'react';
 import { useOpenAiGlobal } from './use-openai-global';
 
 type UnknownObject = Record<string, unknown>;
@@ -27,13 +27,19 @@ export function useWidgetState<T extends UnknownObject>(
       ? defaultState()
       : (defaultState ?? null);
   });
+  const [prevWidgetStateFromWindow, setPrevWidgetStateFromWindow] =
+    useState<T | null>(widgetStateFromWindow);
 
-  // Sync from window.openai.widgetState when it changes (e.g., from tool responses)
-  useEffect(() => {
+  // Sync from window.openai.widgetState when it changes (e.g., from tool
+  // responses). Adjusting state inline during render avoids the extra render
+  // (and stale frame) an effect would introduce, and lets the React Compiler
+  // memoize this hook.
+  if (widgetStateFromWindow !== prevWidgetStateFromWindow) {
+    setPrevWidgetStateFromWindow(widgetStateFromWindow);
     if (widgetStateFromWindow != null) {
       _setWidgetState(widgetStateFromWindow);
     }
-  }, [widgetStateFromWindow]);
+  }
 
   const setWidgetState = (state: SetStateAction<T | null>) => {
     _setWidgetState((prevState) => {

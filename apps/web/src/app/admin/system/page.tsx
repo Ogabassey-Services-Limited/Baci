@@ -55,6 +55,45 @@ interface SystemHealth {
   checkedAt: string;
 }
 
+type LoadHealthResult =
+  | { status: 'ok'; data: SystemHealth }
+  | { status: 'aborted' }
+  | { status: 'error'; error: unknown };
+
+// Module-scope helpers keep try/catch out of the component body so the React
+// Compiler can memoize it (it cannot lower try/finally clauses).
+async function loadSystemHealth(
+  signal: AbortSignal
+): Promise<LoadHealthResult> {
+  try {
+    const response = await fetch('/api/admin/db-health', { signal });
+    if (!response.ok) throw new Error('Failed to fetch health data');
+    const data = (await response.json()) as SystemHealth;
+    return { status: 'ok', data };
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { status: 'aborted' };
+    }
+    return { status: 'error', error };
+  }
+}
+
+type RefreshViewsResult =
+  | { status: 'ok' }
+  | { status: 'error'; error: unknown };
+
+async function postRefreshAnalyticsViews(): Promise<RefreshViewsResult> {
+  try {
+    const response = await fetchWithCsrf('/api/admin/analytics', {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to refresh views');
+    return { status: 'ok' };
+  } catch (error) {
+    return { status: 'error', error };
+  }
+}
+
 function getStatusIcon(status: string) {
   switch (status) {
     case 'healthy':
@@ -121,64 +160,64 @@ export default function SystemHealthPage() {
   const [refreshingViews, setRefreshingViews] = useState(false);
   const { toast } = useToast();
 
-  const fetchHealth = async () => {
-    const controller = new AbortController();
-    const signal = controller.signal;
-
-    try {
-      setLoading(true);
-      const response = await fetch('/api/admin/db-health', { signal });
-      if (!response.ok) throw new Error('Failed to fetch health data');
-      const data = await response.json();
-      if (!signal.aborted) {
-        setHealth(data);
-      }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') return;
-      console.error('Failed to fetch system health:', error);
+  const applyHealthResult = (result: LoadHealthResult) => {
+    if (result.status === 'aborted') return;
+    if (result.status === 'error') {
+      console.error('Failed to fetch system health:', result.error);
       toast({
         title: 'Error',
         description: 'Failed to load system health data.',
         variant: 'destructive',
       });
-    } finally {
-      if (!signal.aborted) {
-        setLoading(false);
-      }
+      setLoading(false);
+      return;
     }
-
-    return () => controller.abort();
+    setHealth(result.data);
+    setLoading(false);
   };
 
-  const refreshAnalyticsViews = async () => {
-    try {
-      setRefreshingViews(true);
-      const response = await fetchWithCsrf('/api/admin/analytics', {
-        method: 'POST',
+  const fetchHealth = () => {
+    const controller = new AbortController();
+    setLoading(true);
+    loadSystemHealth(controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      applyHealthResult(result);
+    });
+  };
+
+  const refreshAnalyticsViews = () => {
+    setRefreshingViews(true);
+    return postRefreshAnalyticsViews()
+      .then((result) => {
+        if (result.status === 'ok') {
+          toast({
+            title: 'Success',
+            description: 'Analytics views are being refreshed.',
+          });
+          return;
+        }
+        console.error('Failed to refresh views:', result.error);
+        toast({
+          title: 'Error',
+          description: 'Failed to refresh analytics views.',
+          variant: 'destructive',
+        });
+      })
+      .then(() => {
+        setRefreshingViews(false);
       });
-      if (!response.ok) throw new Error('Failed to refresh views');
-      toast({
-        title: 'Success',
-        description: 'Analytics views are being refreshed.',
-      });
-    } catch (error) {
-      console.error('Failed to refresh views:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to refresh analytics views.',
-        variant: 'destructive',
-      });
-    } finally {
-      setRefreshingViews(false);
-    }
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
-    const abort = fetchHealth();
-    return () => {
-      abort.then((cleanup) => cleanup?.());
-    };
+    const controller = new AbortController();
+    // `loading` already initializes to true, so we avoid a synchronous
+    // setState here (which would trigger a cascading render in the effect).
+    loadSystemHealth(controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      applyHealthResult(result);
+    });
+    return () => controller.abort();
   }, [toast]);
 
   // Calculate overall health score with safe fallback array

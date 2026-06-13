@@ -66,6 +66,61 @@ async function uploadBlogMedia(
   };
 }
 
+type SubmitBlogPostArgs = {
+  form: PlatformAdminBlogFormState;
+  isEditMode: boolean;
+  postId?: string;
+  initialPost?: PlatformAdminBlogPostDetail | null;
+  setSaving: (saving: boolean) => void;
+  toast: ReturnType<typeof useToast>['toast'];
+  router: ReturnType<typeof useRouter>;
+};
+
+// Module-scope helper so the try/catch/finally control flow lives outside the
+// component body, keeping it compilable by the React Compiler.
+async function submitBlogPost({
+  form,
+  isEditMode,
+  postId,
+  initialPost,
+  setSaving,
+  toast,
+  router,
+}: SubmitBlogPostArgs): Promise<void> {
+  try {
+    setSaving(true);
+    if (!form.title.trim() || !form.content.trim()) {
+      throw new Error('Title and content are required');
+    }
+
+    const payload: PlatformAdminBlogFormState = {
+      ...form,
+      slug: form.slug.trim() || generateSlug(form.title.trim()),
+    };
+
+    if (isEditMode) {
+      if (!postId) {
+        throw new Error('Missing post id for edit mode');
+      }
+      await updatePlatformBlogPost(postId, payload, initialPost);
+    } else {
+      await createPlatformBlogPost(payload);
+    }
+
+    toast({ title: isEditMode ? 'Post updated' : 'Post created' });
+    router.push('/admin/blog');
+    router.refresh();
+  } catch (error) {
+    toast({
+      title: 'Save failed',
+      description: error instanceof Error ? error.message : 'Unknown error',
+      variant: 'destructive',
+    });
+  } finally {
+    setSaving(false);
+  }
+}
+
 function toFormState(
   post?: PlatformAdminBlogPostDetail | null
 ): PlatformAdminBlogFormState {
@@ -145,40 +200,16 @@ export function BlogEditorClient({
     input.click();
   };
 
-  const handleSubmit = async () => {
-    try {
-      setSaving(true);
-      if (!form.title.trim() || !form.content.trim()) {
-        throw new Error('Title and content are required');
-      }
-
-      const payload: PlatformAdminBlogFormState = {
-        ...form,
-        slug: form.slug.trim() || generateSlug(form.title.trim()),
-      };
-
-      if (isEditMode) {
-        if (!postId) {
-          throw new Error('Missing post id for edit mode');
-        }
-        await updatePlatformBlogPost(postId, payload, initialPost);
-      } else {
-        await createPlatformBlogPost(payload);
-      }
-
-      toast({ title: isEditMode ? 'Post updated' : 'Post created' });
-      router.push('/admin/blog');
-      router.refresh();
-    } catch (error) {
-      toast({
-        title: 'Save failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleSubmit = () =>
+    submitBlogPost({
+      form,
+      isEditMode,
+      postId,
+      initialPost,
+      setSaving,
+      toast,
+      router,
+    });
 
   if (isEditMode && !initialPost) {
     return (

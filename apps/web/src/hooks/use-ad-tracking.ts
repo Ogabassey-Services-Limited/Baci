@@ -1,12 +1,57 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import {
   type AdTrackingData,
   generateEventId,
   getAdTrackingData,
   shouldApplyLimitedDataUse,
 } from '@/lib/ad-tracking-cookies';
+
+// Cookies are written by middleware before the app mounts and don't change
+// during a session, so the "store" never emits. An empty subscribe matches the
+// original effect's `[]`-deps single read.
+function subscribeNoop(): () => void {
+  return () => {
+    // No-op: cookie values are static for the lifetime of the session.
+  };
+}
+
+// useSyncExternalStore requires a stable snapshot reference for unchanged data.
+// getAdTrackingData() allocates a fresh object each call, so cache the last
+// result and reuse it when the serialized value is unchanged.
+let cachedTrackingData: AdTrackingData = {};
+let cachedTrackingDataKey = '';
+
+function getTrackingDataSnapshot(): AdTrackingData {
+  const next = getAdTrackingData();
+  const key = JSON.stringify(next);
+  if (key !== cachedTrackingDataKey) {
+    cachedTrackingData = next;
+    cachedTrackingDataKey = key;
+  }
+  return cachedTrackingData;
+}
+
+const EMPTY_TRACKING_DATA: AdTrackingData = {};
+
+function getTrackingDataServerSnapshot(): AdTrackingData {
+  return EMPTY_TRACKING_DATA;
+}
+
+function getCaliforniaUserSnapshot(): boolean {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return shouldApplyLimitedDataUse(timezone);
+  } catch {
+    // Fallback: assume not California if we can't detect
+    return false;
+  }
+}
+
+function getCaliforniaUserServerSnapshot(): boolean {
+  return false;
+}
 
 // Type definitions for ad tracking pixels on window
 interface WindowWithAdPixels {
@@ -65,24 +110,21 @@ const getWindow = (): WindowWithAdPixels | undefined => {
  * ```
  */
 export function useAdTracking() {
-  const [trackingData, setTrackingData] = useState<AdTrackingData>({});
-  const [isCaliforniaUser, setIsCaliforniaUser] = useState(false);
+  // Read client-only cookie + locale values via useSyncExternalStore instead
+  // of a mount effect + setState. This keeps the reads SSR-safe (server
+  // snapshots match the pre-hydration markup) and lets React Compiler memoize
+  // the hook, which a synchronous setState inside an effect would prevent.
+  const trackingData = useSyncExternalStore(
+    subscribeNoop,
+    getTrackingDataSnapshot,
+    getTrackingDataServerSnapshot
+  );
+  const isCaliforniaUser = useSyncExternalStore(
+    subscribeNoop,
+    getCaliforniaUserSnapshot,
+    getCaliforniaUserServerSnapshot
+  );
   const [purchaseEventId, setPurchaseEventId] = useState<string | null>(null);
-
-  // Load tracking data on mount
-  useEffect(() => {
-    const data = getAdTrackingData();
-    setTrackingData(data);
-
-    // Check if user is in California (for CCPA/LDU)
-    try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      setIsCaliforniaUser(shouldApplyLimitedDataUse(timezone));
-    } catch {
-      // Fallback: assume not California if we can't detect
-      setIsCaliforniaUser(false);
-    }
-  }, []);
 
   /**
    * Generate a new event ID for a purchase event

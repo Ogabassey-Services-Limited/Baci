@@ -25,6 +25,88 @@ interface JumiaProductOverridesProps {
   integrationId: string;
 }
 
+interface JumiaOverridesState {
+  price: string;
+  salePrice: string;
+  saleStart: string;
+  saleEnd: string;
+  isActive: boolean;
+  syncInventory: boolean;
+  syncPrice: boolean;
+}
+
+// Module-scope helper so the component body stays free of try/finally and
+// throw-inside-try statements that block React Compiler memoization.
+async function loadJumiaMapping(
+  productId: string,
+  integrationId: string
+): Promise<JumiaMapping | null> {
+  try {
+    const response = await fetch(
+      `/api/marketplace/jumia/products?productId=${productId}&integrationId=${integrationId}`
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    return data.mapping ?? null;
+  } catch (error) {
+    console.error('Failed to fetch Jumia mapping:', error);
+    return null;
+  }
+}
+
+function mappingToOverrides(mapping: JumiaMapping): JumiaOverridesState {
+  return {
+    price: mapping.jumia_price?.toString() || '',
+    salePrice: mapping.jumia_sale_price?.toString() || '',
+    saleStart: mapping.jumia_sale_start
+      ? mapping.jumia_sale_start.split('T')[0]
+      : '',
+    saleEnd: mapping.jumia_sale_end ? mapping.jumia_sale_end.split('T')[0] : '',
+    isActive: mapping.is_active ?? true,
+    syncInventory: mapping.sync_inventory ?? true,
+    syncPrice: mapping.sync_price ?? false,
+  };
+}
+
+// Module-scope helper owns the throw-on-failure path so the component handler
+// does not contain a throw inside try/catch (a React Compiler bailout).
+async function saveJumiaOverrides(
+  productId: string,
+  integrationId: string,
+  overrides: JumiaOverridesState
+): Promise<void> {
+  const response = await fetchWithCsrf(
+    '/api/marketplace/jumia/products/update',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        productId,
+        integrationId,
+        overrides: {
+          jumia_price: overrides.price
+            ? Number.parseFloat(overrides.price)
+            : null,
+          jumia_sale_price: overrides.salePrice
+            ? Number.parseFloat(overrides.salePrice)
+            : null,
+          jumia_sale_start: overrides.saleStart || null,
+          jumia_sale_end: overrides.saleEnd || null,
+          is_active: overrides.isActive,
+          sync_inventory: overrides.syncInventory,
+          sync_price: overrides.syncPrice,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errData = await response.json();
+    throw new Error(errData.error || 'Failed to update overrides');
+  }
+}
+
 export function JumiaProductOverrides({
   productId,
   basePrice,
@@ -46,87 +128,48 @@ export function JumiaProductOverrides({
   });
 
   useEffect(() => {
-    async function fetchMapping() {
-      try {
-        const response = await fetch(
-          `/api/marketplace/jumia/products?productId=${productId}&integrationId=${integrationId}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          if (data.mapping) {
-            setMapping(data.mapping);
-            setOverrides({
-              price: data.mapping.jumia_price?.toString() || '',
-              salePrice: data.mapping.jumia_sale_price?.toString() || '',
-              saleStart: data.mapping.jumia_sale_start
-                ? data.mapping.jumia_sale_start.split('T')[0]
-                : '',
-              saleEnd: data.mapping.jumia_sale_end
-                ? data.mapping.jumia_sale_end.split('T')[0]
-                : '',
-              isActive: data.mapping.is_active ?? true,
-              syncInventory: data.mapping.sync_inventory ?? true,
-              syncPrice: data.mapping.sync_price ?? false,
-            });
-          }
+    let cancelled = false;
+    loadJumiaMapping(productId, integrationId)
+      .then((loadedMapping) => {
+        if (cancelled || !loadedMapping) {
+          return;
         }
-      } catch (error) {
-        console.error('Failed to fetch Jumia mapping:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
+        setMapping(loadedMapping);
+        setOverrides(mappingToOverrides(loadedMapping));
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
 
-    fetchMapping();
+    return () => {
+      cancelled = true;
+    };
   }, [productId, integrationId]);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!mapping) return;
 
     setSaving(true);
-    try {
-      const response = await fetchWithCsrf(
-        '/api/marketplace/jumia/products/update',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            productId,
-            integrationId,
-            overrides: {
-              jumia_price: overrides.price
-                ? Number.parseFloat(overrides.price)
-                : null,
-              jumia_sale_price: overrides.salePrice
-                ? Number.parseFloat(overrides.salePrice)
-                : null,
-              jumia_sale_start: overrides.saleStart || null,
-              jumia_sale_end: overrides.saleEnd || null,
-              is_active: overrides.isActive,
-              sync_inventory: overrides.syncInventory,
-              sync_price: overrides.syncPrice,
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to update overrides');
-      }
-
-      toast({
-        title: 'Jumia Overrides Saved',
-        description: 'Product settings have been updated and pushed to Jumia.',
+    saveJumiaOverrides(productId, integrationId, overrides)
+      .then(() => {
+        toast({
+          title: 'Jumia Overrides Saved',
+          description:
+            'Product settings have been updated and pushed to Jumia.',
+        });
+      })
+      .catch((error) => {
+        toast({
+          title: 'Update Failed',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setSaving(false);
       });
-    } catch (error) {
-      toast({
-        title: 'Update Failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
   };
 
   if (loading) {

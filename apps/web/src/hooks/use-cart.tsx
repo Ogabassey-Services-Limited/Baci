@@ -316,22 +316,56 @@ export const CartProvider = ({
   // 2026 Critical Fix: Track validation state to prevent infinite loops
   const lastValidatedCartHashRef = useRef<string>('');
 
-  // Hydrate from localStorage
+  // Re-sync the slug/user/cart when the identifying props change after the
+  // initial hydration. Adjusting during render (a prev-prop comparison) avoids
+  // the stale frame a prop-sync effect introduces, and only runs on an actual
+  // prop change. The mount-time hydration (localStorage is unavailable during
+  // SSR) still happens in the effect below until `isHydrated` flips.
+  // See react.dev "Adjusting some state when a prop changes".
+  const [prevInitialMerchantSlug, setPrevInitialMerchantSlug] =
+    useState(initialMerchantSlug);
+  const [prevInitialUserId, setPrevInitialUserId] = useState(initialUserId);
+  if (
+    isHydrated &&
+    (initialMerchantSlug !== prevInitialMerchantSlug ||
+      initialUserId !== prevInitialUserId)
+  ) {
+    setPrevInitialMerchantSlug(initialMerchantSlug);
+    setPrevInitialUserId(initialUserId);
+    const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
+    setMerchantSlugState(slugToUse);
+    setUserId(initialUserId);
+    setCart(getCartFromStorage(slugToUse, initialUserId));
+  }
+
+  // Hydrate cart + identifiers from localStorage after mount. This is the
+  // documented post-mount external-source read (storage is unavailable during
+  // SSR); prop-driven changes are handled by the render-time comparison above.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only hydration; prop changes handled during render
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     setCart(getCartFromStorage(slugToUse, initialUserId));
     setMerchantSlugState(slugToUse);
     setUserId(initialUserId);
     setIsHydrated(true);
-  }, [initialMerchantSlug, initialUserId]);
+  }, []);
+
+  // If validation should run eagerly (no deferral), activate during render via
+  // a prev-prop comparison rather than synchronously inside the effect. The
+  // initial state already reflects `!deferValidationUntilIdle`, so this only
+  // fires if the prop flips to eager at runtime.
+  const [prevDeferValidation, setPrevDeferValidation] = useState(
+    deferValidationUntilIdle
+  );
+  if (deferValidationUntilIdle !== prevDeferValidation) {
+    setPrevDeferValidation(deferValidationUntilIdle);
+    if (!deferValidationUntilIdle && !isValidationActivated) {
+      setIsValidationActivated(true);
+    }
+  }
 
   useEffect(() => {
-    if (!deferValidationUntilIdle) {
-      setIsValidationActivated(true);
-      return;
-    }
-
-    if (isValidationActivated) {
+    if (isValidationActivated || !deferValidationUntilIdle) {
       return;
     }
 

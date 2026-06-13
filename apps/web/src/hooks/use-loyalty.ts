@@ -72,76 +72,96 @@ interface EnrollmentResult {
   error?: string;
 }
 
+interface LoyaltyStateHandlers {
+  setData: (data: LoyaltyData | null) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+}
+
+// Mock data for preview/demo merchants. Built fresh per call so consumers
+// never share a mutable reference.
+function buildPreviewLoyaltyData(): LoyaltyData {
+  return {
+    enrolled: true,
+    points_balance: 150,
+    lifetime_points: 500,
+    tier: 'silver',
+    next_tier: 'gold',
+    points_to_next_tier: 350,
+    tier_thresholds: {
+      bronze: 0,
+      silver: 100,
+      gold: 500,
+      platinum: 1000,
+    },
+    available_rewards: [],
+    redeemable_rewards: [],
+    recent_transactions: [],
+    settings: {
+      points_per_naira: 1,
+      naira_per_point: 1,
+      welcome_bonus: 50,
+      referral_bonus_referrer: 50,
+      referral_bonus_referee: 50,
+    },
+  };
+}
+
+// Module-scope helper so the try/finally + throw stay outside the hook body
+// (React Compiler cannot lower try/finally inside components/hooks yet).
+async function loadLoyaltyData(
+  merchantId: string | undefined,
+  customerId: string | undefined,
+  { setData, setLoading, setError }: LoyaltyStateHandlers
+): Promise<void> {
+  if (!merchantId || !customerId) {
+    setLoading(false);
+    return;
+  }
+
+  if (merchantId.endsWith('-preview') || merchantId.startsWith('demo-')) {
+    setData(buildPreviewLoyaltyData());
+    setLoading(false);
+    return;
+  }
+
+  try {
+    setLoading(true);
+    const params = new URLSearchParams({
+      merchant_id: merchantId,
+      customer_id: customerId,
+    });
+
+    const response = await fetch(`/api/storefront/loyalty?${params}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        // Loyalty program not available or customer not enrolled
+        setData(null);
+        setError(null);
+        return;
+      }
+      throw new Error('Failed to fetch loyalty data');
+    }
+
+    const loyaltyData = await response.json();
+    setData(loyaltyData);
+    setError(null);
+  } catch (err) {
+    console.error('Error fetching loyalty data:', err);
+    setError(err instanceof Error ? err.message : 'Unknown error');
+    setData(null);
+  } finally {
+    setLoading(false);
+  }
+}
+
 export function useLoyalty(merchantId?: string, customerId?: string) {
   const [data, setData] = useState<LoyaltyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLoyaltyData = async () => {
-    if (!merchantId || !customerId) {
-      setLoading(false);
-      return;
-    }
-
-    // Mock data for preview/demo merchants
-    if (merchantId.endsWith('-preview') || merchantId.startsWith('demo-')) {
-      setData({
-        enrolled: true,
-        points_balance: 150,
-        lifetime_points: 500,
-        tier: 'silver',
-        next_tier: 'gold',
-        points_to_next_tier: 350,
-        tier_thresholds: {
-          bronze: 0,
-          silver: 100,
-          gold: 500,
-          platinum: 1000,
-        },
-        available_rewards: [],
-        redeemable_rewards: [],
-        recent_transactions: [],
-        settings: {
-          points_per_naira: 1,
-          naira_per_point: 1,
-          welcome_bonus: 50,
-          referral_bonus_referrer: 50,
-          referral_bonus_referee: 50,
-        },
-      });
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        merchant_id: merchantId,
-        customer_id: customerId,
-      });
-
-      const response = await fetch(`/api/storefront/loyalty?${params}`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          // Loyalty program not available or customer not enrolled
-          setData(null);
-          setError(null);
-          return;
-        }
-        throw new Error('Failed to fetch loyalty data');
-      }
-
-      const loyaltyData = await response.json();
-      setData(loyaltyData);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching loyalty data:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchLoyaltyData = () =>
+    loadLoyaltyData(merchantId, customerId, { setData, setLoading, setError });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: listing actual deps instead of fetchLoyaltyData avoids infinite loop without React Compiler
   useEffect(() => {

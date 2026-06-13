@@ -27,28 +27,13 @@ interface FileUploaderProps {
 const getFiles = (entryList: PreviewEntry[]): File[] =>
   entryList.flatMap((e) => (e.file ? [e.file] : []));
 
-// Helper to create a stable reference based on content
-// 2026 Best Practice: Prevent unnecessary effect re-runs using shallow comparison instead of heavy JSON.stringify
-function useStableArray<T>(arr: T[]): T[] {
-  const ref = useRef<T[]>(arr);
-  const prevArr = useRef<T[]>(arr);
-
-  const changed =
-    arr.length !== prevArr.current.length ||
-    arr.some((item, i) => item !== prevArr.current[i]);
-
-  if (changed) {
-    prevArr.current = arr;
-    ref.current = arr;
-  }
-
-  return ref.current;
-}
+// 5MB. Hoisted so the default parameter is a static reference the compiler can reorder safely.
+const DEFAULT_MAX_SIZE = 5 * 1024 * 1024;
 
 export function FileUploader({
   onFilesSelected,
   maxFiles = 5,
-  maxSize = 5 * 1024 * 1024, // 5MB
+  maxSize = DEFAULT_MAX_SIZE,
   accept = {
     'image/*': ['.png', '.jpg', '.jpeg', '.webp'],
   },
@@ -108,20 +93,25 @@ export function FileUploader({
     }
   }, [entries, onFilesSelected]);
 
-  const stableInitialFiles = useStableArray(initialFiles);
-
-  // Sync initialFiles prop changes to state while preserving new uploads
-  // This allows parent forms to update (e.g. from DB) without losing work
-  useEffect(() => {
+  // Sync initialFiles prop changes to state while preserving new uploads.
+  // This allows parent forms to update (e.g. from DB) without losing work.
+  // Adjusted inline during render with a prev-prop content comparison
+  // (react.dev: adjusting some state when a prop changes) instead of an effect.
+  const [prevInitialFiles, setPrevInitialFiles] = useState(initialFiles);
+  const initialFilesChanged =
+    initialFiles.length !== prevInitialFiles.length ||
+    initialFiles.some((src, i) => src !== prevInitialFiles[i]);
+  if (initialFilesChanged) {
+    setPrevInitialFiles(initialFiles);
     setEntries((prev) => {
-      const newInitialEntries = stableInitialFiles.map((src) => ({
+      const newInitialEntries = initialFiles.map((src) => ({
         src,
         file: null,
       }));
       const fileEntries = prev.filter((e) => e.file !== null);
       return [...newInitialEntries, ...fileEntries];
     });
-  }, [stableInitialFiles]);
+  }
 
   // Cleanup object URLs and announcement timeout to avoid memory leaks
   // Runs only on unmount to ensure URLs remain valid while the component is active

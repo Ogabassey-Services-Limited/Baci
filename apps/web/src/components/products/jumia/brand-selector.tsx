@@ -43,8 +43,22 @@ export function JumiaBrandSelector({
   const [brands, setBrands] = useState<JumiaBrandItem[]>([]);
   const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [prevMerchantId, setPrevMerchantId] = useState(merchantId);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Reset brands when merchantId changes to avoid stale data. Adjust during
+  // render via a prev-prop comparison instead of an effect so users never see
+  // a stale frame and the React Compiler can optimize this component. The
+  // previous request's controller is aborted inside fetchBrands before any new
+  // fetch starts (and on unmount), so we must not read/touch the ref here —
+  // refs cannot be accessed during render.
+  if (merchantId !== prevMerchantId) {
+    setPrevMerchantId(merchantId);
+    setBrands([]);
+    setErrorMessage(null);
+    setFetchStatus('idle');
+  }
 
   const fetchBrands = (currentMerchantId: string) => {
     abortControllerRef.current?.abort();
@@ -96,26 +110,24 @@ export function JumiaBrandSelector({
       });
   };
 
-  // Reset brands when merchantId changes to avoid stale data
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
+  // Abort any in-flight request when the component unmounts.
   useEffect(() => {
-    setBrands([]);
-    setErrorMessage(null);
-    setFetchStatus('idle');
     return () => {
       abortControllerRef.current?.abort();
     };
-  }, [merchantId]);
+  }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchBrands intentionally omitted — it's a stable callback using currentMerchantId param; merchantId + fetchStatus are sufficient triggers
-  useEffect(() => {
-    if (open && fetchStatus === 'idle') {
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    // Lazily load brands the first time the list opens. Triggering from the
+    // open event (instead of an effect) avoids a synchronous setState-in-effect.
+    if (nextOpen && fetchStatus === 'idle') {
       fetchBrands(merchantId);
     }
-  }, [open, merchantId, fetchStatus]);
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

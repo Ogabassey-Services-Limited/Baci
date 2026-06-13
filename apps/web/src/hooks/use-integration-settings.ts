@@ -23,6 +23,52 @@ interface UseIntegrationSettingsReturn<T> {
   saveSettings: (updates: Partial<T>) => Promise<void>;
 }
 
+// Pick only the keys we care about from an API response object.
+function extractKeys<T extends object>(
+  source: Record<string, unknown>,
+  keys: (keyof T)[]
+): T {
+  const extracted = {} as T;
+  for (const key of keys) {
+    extracted[key] = (source[key as string] ?? null) as T[keyof T];
+  }
+  return extracted;
+}
+
+// Fetch the current settings from the features API. Returns null when the
+// request is not ok. Kept at module scope so the try/catch (with throws)
+// doesn't trigger a React Compiler bailout in the hook body.
+async function fetchIntegrationSettings<T extends object>(
+  keys: (keyof T)[]
+): Promise<T | null> {
+  const response = await fetch('/api/merchant/features');
+  if (!response.ok) {
+    return null;
+  }
+  const data = await response.json();
+  return extractKeys<T>(data, keys);
+}
+
+// Save settings to the features API and return the persisted subset.
+// Throws on a non-ok response so the caller can surface an error toast.
+async function persistIntegrationSettings<T extends object>(
+  updates: Partial<T>,
+  keys: (keyof T)[]
+): Promise<T> {
+  const response = await fetchWithCsrf('/api/merchant/features', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to save settings');
+  }
+
+  const data = await response.json();
+  return extractKeys<T>(data, keys);
+}
+
 /**
  * Shared hook for integration pages to fetch and save settings
  * from the merchant features API.
@@ -51,65 +97,44 @@ export function useIntegrationSettings<T extends object>({
 
   // Fetch current settings from the features API
   useEffect(() => {
-    async function fetchSettings() {
-      try {
-        const response = await fetch('/api/merchant/features');
-        if (response.ok) {
-          const data = await response.json();
-          // Extract only the keys we care about
-          const extracted = {} as T;
-          for (const key of keys) {
-            extracted[key] = data[key as string] ?? null;
-          }
-          setSettings(extracted);
-        }
-      } catch (error) {
-        console.error('Failed to fetch settings for', platformName, ':', error);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!merchant) {
+      return;
     }
 
-    if (merchant) {
-      fetchSettings();
-    }
+    fetchIntegrationSettings<T>(keys)
+      .then((loaded) => {
+        if (loaded) {
+          setSettings(loaded);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to fetch settings for', platformName, ':', error);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, [merchant, keys, platformName]);
 
-  // Save settings to the features API
-  const saveSettings = async (updates: Partial<T>) => {
-    try {
-      const response = await fetchWithCsrf('/api/merchant/features', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+  // Save settings to the features API. Uses a promise chain (no try/catch with
+  // a re-throw in the hook body) so React Compiler can lower the hook.
+  const saveSettings = (updates: Partial<T>): Promise<void> =>
+    persistIntegrationSettings<T>(updates, keys)
+      .then((persisted) => {
+        setSettings(persisted);
+        toast({
+          title: 'Settings saved',
+          description: `Your ${platformName} settings have been updated.`,
+        });
+      })
+      .catch((error) => {
+        console.error('Failed to save settings for', platformName, ':', error);
+        toast({
+          variant: 'destructive',
+          title: 'Save failed',
+          description: 'Could not save your settings. Please try again.',
+        });
+        return Promise.reject(error);
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to save settings');
-      }
-
-      const data = await response.json();
-      // Extract only the keys we care about from the response
-      const extracted = {} as T;
-      for (const key of keys) {
-        extracted[key] = data[key as string] ?? null;
-      }
-      setSettings(extracted);
-
-      toast({
-        title: 'Settings saved',
-        description: `Your ${platformName} settings have been updated.`,
-      });
-    } catch (error) {
-      console.error('Failed to save settings for', platformName, ':', error);
-      toast({
-        variant: 'destructive',
-        title: 'Save failed',
-        description: 'Could not save your settings. Please try again.',
-      });
-      throw error;
-    }
-  };
 
   return {
     settings,

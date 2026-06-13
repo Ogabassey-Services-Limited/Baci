@@ -1,6 +1,6 @@
 'use client';
 
-import type { User } from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import {
   createContext,
   type ReactNode,
@@ -18,6 +18,29 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Hoisted out of the component so React Compiler can lower the effect body
+// (try/finally statements are not yet supported inside component/hook bodies).
+async function initializeAuthState(
+  supabase: SupabaseClient,
+  hadInitialUser: boolean,
+  onUser: (user: User | null) => void,
+  onSettled: () => void
+) {
+  try {
+    const {
+      data: { user: refreshedUser },
+    } = await supabase.auth.getUser();
+    onUser(refreshedUser ?? null);
+  } catch (error) {
+    console.error('[AuthProvider] Failed to initialize auth state', error);
+    if (!hadInitialUser) {
+      onUser(null);
+    }
+  } finally {
+    onSettled();
+  }
+}
 
 export function AuthProvider({
   children,
@@ -37,27 +60,20 @@ export function AuthProvider({
     // Get initial user - use getUser() instead of getSession() to ensure
     // we get fresh auth state after server-side login redirects.
     // getUser() validates the JWT with Supabase's server, preventing stale states.
-    const initializeAuth = async () => {
-      try {
-        const {
-          data: { user: refreshedUser },
-        } = await supabase.auth.getUser();
+    initializeAuthState(
+      supabase,
+      Boolean(initialUserRef.current),
+      (nextUser) => {
         if (isMounted) {
-          setUser(refreshedUser ?? null);
+          setUser(nextUser);
         }
-      } catch (error) {
-        console.error('[AuthProvider] Failed to initialize auth state', error);
-        if (isMounted && !initialUserRef.current) {
-          setUser(null);
-        }
-      } finally {
+      },
+      () => {
         if (isMounted) {
           setLoading(false);
         }
       }
-    };
-
-    initializeAuth();
+    );
 
     // Listen for auth changes (login, logout, token refresh)
     const {

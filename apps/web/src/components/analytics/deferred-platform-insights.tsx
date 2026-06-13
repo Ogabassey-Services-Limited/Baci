@@ -14,6 +14,18 @@ interface InsightModules {
   SpeedInsights?: ComponentType;
 }
 
+async function loadDefaultInsightModules(): Promise<InsightModules> {
+  const [analyticsModule, speedInsightsModule] = await Promise.all([
+    import('@vercel/analytics/next'),
+    import('@vercel/speed-insights/next'),
+  ]);
+
+  return {
+    Analytics: analyticsModule.Analytics,
+    SpeedInsights: speedInsightsModule.SpeedInsights,
+  };
+}
+
 export function DeferredPlatformInsights({
   timeoutMs = DEFAULT_PLATFORM_INSIGHTS_TIMEOUT_MS,
   loadModules,
@@ -94,19 +106,7 @@ export function DeferredPlatformInsights({
 
     let cancelled = false;
 
-    const loadInsightModules =
-      loadModules ??
-      (async () => {
-        const [analyticsModule, speedInsightsModule] = await Promise.all([
-          import('@vercel/analytics/next'),
-          import('@vercel/speed-insights/next'),
-        ]);
-
-        return {
-          Analytics: analyticsModule.Analytics,
-          SpeedInsights: speedInsightsModule.SpeedInsights,
-        };
-      });
+    const loadInsightModules = loadModules ?? loadDefaultInsightModules;
 
     loadInsightModules().then((loadedModules) => {
       if (!cancelled) {

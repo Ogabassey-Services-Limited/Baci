@@ -12,7 +12,14 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useEffectEvent, useRef, useState } from 'react';
+import {
+  Suspense,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -47,6 +54,103 @@ const roleLabels: Record<string, string> = {
   marketing: 'Marketing',
   fulfillment: 'Fulfillment',
 };
+
+type SupabaseBrowserClient = ReturnType<typeof createBrowserClient>;
+type SupabaseAuth = SupabaseBrowserClient['auth'];
+
+interface InvitationLoadResult {
+  user: { email: string } | null;
+  invitation: InvitationDetails | null;
+  error: string | null;
+}
+
+const noop = () => {
+  // No teardown needed: userAgent has no change events to unsubscribe from.
+};
+
+// userAgent never changes for the lifetime of the page, so there is no
+// subscription to manage. Hoisting these keeps the references stable.
+function subscribeNoop() {
+  return noop;
+}
+
+function getIsMobileBrowserSnapshot() {
+  return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+function getIsMobileBrowserServerSnapshot() {
+  return false;
+}
+
+// Module-scope helpers keep the component body free of try/finally and
+// throw-inside-try statements that block React Compiler memoization.
+async function loadInvitation(
+  auth: SupabaseAuth,
+  token: string
+): Promise<InvitationLoadResult> {
+  try {
+    const {
+      data: { user: currentUser },
+    } = await auth.getUser();
+
+    const response = await fetch(
+      `/api/staff/accept-invite?token=${encodeURIComponent(token)}`
+    );
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        user: currentUser?.email ? { email: currentUser.email } : null,
+        invitation: null,
+        error: data.error || 'Invalid invitation',
+      };
+    }
+
+    return {
+      user: currentUser?.email ? { email: currentUser.email } : null,
+      invitation: data,
+      error: null,
+    };
+  } catch (err) {
+    console.error('Error validating invitation:', err);
+    return {
+      user: null,
+      invitation: null,
+      error: 'Failed to validate invitation',
+    };
+  }
+}
+
+interface AcceptInvitationResult {
+  ok: boolean;
+  error?: string;
+}
+
+async function postAcceptInvitation(
+  token: string
+): Promise<AcceptInvitationResult> {
+  try {
+    const response = await fetch('/api/staff/accept-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { ok: false, error: data.error || 'Failed to accept invitation' };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    console.error('Error accepting invitation:', err);
+    return {
+      ok: false,
+      error: 'Failed to accept invitation. Please try again.',
+    };
+  }
+}
 
 export default function AcceptInvitePage() {
   return (
@@ -92,7 +196,13 @@ function AcceptInvitePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [accepted, setAccepted] = useState(false);
-  const [isMobileBrowser, setIsMobileBrowser] = useState(false);
+  // Read the browser type from an external (navigator) source without an
+  // effect: the server snapshot stays `false` to keep hydration consistent.
+  const isMobileBrowser = useSyncExternalStore(
+    subscribeNoop,
+    getIsMobileBrowserSnapshot,
+    getIsMobileBrowserServerSnapshot
+  );
   const autoAcceptAttemptedRef = useRef(false);
 
   const supabase = createBrowserClient(
@@ -117,41 +227,32 @@ function AcceptInvitePageContent() {
     user.email.toLowerCase() !== invitation.email.toLowerCase();
 
   useEffect(() => {
-    setIsMobileBrowser(/android|iphone|ipad|ipod/i.test(navigator.userAgent));
-  }, []);
-
-  useEffect(() => {
-    const checkAuthAndValidate = async () => {
-      try {
-        // Check if user is logged in
-        const {
-          data: { user: currentUser },
-        } = await supabase.auth.getUser();
-        if (currentUser?.email) {
-          setUser({ email: currentUser.email });
-        }
-
-        // Validate the invitation token
-        const response = await fetch(
-          `/api/staff/accept-invite?token=${encodeURIComponent(token)}`
-        );
-        const data = await response.json();
-
-        if (!response.ok) {
-          setError(data.error || 'Invalid invitation');
+    let cancelled = false;
+    loadInvitation(supabase.auth, token)
+      .then((result) => {
+        if (cancelled) {
           return;
         }
+        if (result.user) {
+          setUser(result.user);
+        }
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        if (result.invitation) {
+          setInvitation(result.invitation);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
 
-        setInvitation(data);
-      } catch (err) {
-        console.error('Error validating invitation:', err);
-        setError('Failed to validate invitation');
-      } finally {
-        setLoading(false);
-      }
+    return () => {
+      cancelled = true;
     };
-
-    checkAuthAndValidate();
   }, [token, supabase.auth]);
 
   const redirectAfterAcceptance = () => {
@@ -183,45 +284,32 @@ function AcceptInvitePageContent() {
     document.addEventListener('visibilitychange', clearFallbackOnAppOpen);
   };
 
-  const acceptInvitation = async () => {
+  const acceptInvitation = () => {
     setAccepting(true);
-    try {
-      const response = await fetch('/api/staff/accept-invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
+    return postAcceptInvitation(token)
+      .then((result) => {
+        if (!result.ok) {
+          toast({
+            title: 'Error',
+            description: result.error,
+            variant: 'destructive',
+          });
+          return;
+        }
 
-      const data = await response.json();
-
-      if (!response.ok) {
+        setAccepted(true);
         toast({
-          title: 'Error',
-          description: data.error || 'Failed to accept invitation',
-          variant: 'destructive',
+          title: 'Welcome to the team!',
+          description: `You've joined ${invitation?.merchantName} as ${roleLabels[invitation?.role || ''] || invitation?.role}.`,
         });
-        return;
-      }
 
-      setAccepted(true);
-      toast({
-        title: 'Welcome to the team!',
-        description: `You've joined ${invitation?.merchantName} as ${roleLabels[invitation?.role || ''] || invitation?.role}.`,
+        window.setTimeout(() => {
+          redirectAfterAcceptance();
+        }, 800);
+      })
+      .finally(() => {
+        setAccepting(false);
       });
-
-      window.setTimeout(() => {
-        redirectAfterAcceptance();
-      }, 800);
-    } catch (err) {
-      console.error('Error accepting invitation:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to accept invitation. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setAccepting(false);
-    }
   };
 
   const handleAcceptInvitation = async () => {

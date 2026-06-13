@@ -57,25 +57,27 @@ export function BlogListClient({
       return;
     }
 
-    try {
-      setDeletingPostId(post.id);
-      await deletePlatformBlogPost(post.id);
-      setPosts((current) => current.filter((item) => item.id !== post.id));
-      toast({
-        title: 'Post deleted',
-        description: `"${post.title}" was removed.`,
+    setDeletingPostId(post.id);
+    await deletePlatformBlogPost(post.id)
+      .then(() => {
+        setPosts((current) => current.filter((item) => item.id !== post.id));
+        toast({
+          title: 'Post deleted',
+          description: `"${post.title}" was removed.`,
+        });
+        router.refresh();
+      })
+      .catch((error: unknown) => {
+        toast({
+          title: 'Delete failed',
+          description:
+            error instanceof Error ? error.message : 'Failed to delete post',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setDeletingPostId(null);
       });
-      router.refresh();
-    } catch (error) {
-      toast({
-        title: 'Delete failed',
-        description:
-          error instanceof Error ? error.message : 'Failed to delete post',
-        variant: 'destructive',
-      });
-    } finally {
-      setDeletingPostId(null);
-    }
   };
 
   const handleLoadMore = async () => {
@@ -83,30 +85,32 @@ export function BlogListClient({
       return;
     }
 
-    try {
-      setLoadingMore(true);
-      const nextPage = await listPlatformBlogPostsPage({
-        limit: pageSize,
-        offset: posts.length,
+    setLoadingMore(true);
+    await listPlatformBlogPostsPage({
+      limit: pageSize,
+      offset: posts.length,
+    })
+      .then((nextPage) => {
+        setPosts((current) => {
+          const seenIds = new Set(current.map((post) => post.id));
+          const uniquePosts = nextPage.posts.filter(
+            (post) => !seenIds.has(post.id)
+          );
+          return [...current, ...uniquePosts];
+        });
+        setHasMore(nextPage.hasMore);
+      })
+      .catch((error: unknown) => {
+        toast({
+          title: 'Load failed',
+          description:
+            error instanceof Error ? error.message : 'Failed to load posts',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setLoadingMore(false);
       });
-      setPosts((current) => {
-        const seenIds = new Set(current.map((post) => post.id));
-        const uniquePosts = nextPage.posts.filter(
-          (post) => !seenIds.has(post.id)
-        );
-        return [...current, ...uniquePosts];
-      });
-      setHasMore(nextPage.hasMore);
-    } catch (error) {
-      toast({
-        title: 'Load failed',
-        description:
-          error instanceof Error ? error.message : 'Failed to load posts',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingMore(false);
-    }
   };
 
   return (

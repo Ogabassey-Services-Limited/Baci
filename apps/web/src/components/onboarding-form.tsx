@@ -227,12 +227,15 @@ export default function OnboardingForm() {
     }
   }, [searchParams, form, toast]);
 
-  // Handle successful submission
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  // Handle successful submission. `isRedirecting` is derived from the action
+  // result during render rather than mirrored into state via the effect, which
+  // avoids the synchronous setState-in-effect cascade and lets the React
+  // Compiler memoize this component. Once the action succeeds the page redirects
+  // away, so the value never needs to flip back to `false`.
+  const isRedirecting = submissionState.success;
 
   useEffect(() => {
     if (submissionState.success) {
-      setIsRedirecting(true); // Immediate UI update
       localStorage.removeItem('onboardingForm');
       toast({
         title: 'Store Created!',

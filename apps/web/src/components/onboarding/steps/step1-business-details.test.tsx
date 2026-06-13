@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FormProvider, useForm } from 'react-hook-form';
+import { type Control, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OnboardingFormValues } from '@/schemas/onboarding';
 
@@ -191,6 +191,21 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
   return <FormProvider {...methods}>{children}</FormProvider>;
 }
 
+// Renders a watched form field for assertions. Uses `useWatch` (compiler-safe)
+// instead of `methods.watch()` (interior-mutable / incompatible-library).
+function WatchedValue({
+  control,
+  name,
+  testId,
+}: {
+  control: Control<OnboardingFormValues>;
+  name: keyof OnboardingFormValues;
+  testId: string;
+}) {
+  const value = useWatch({ control, name });
+  return <div data-testid={testId}>{value}</div>;
+}
+
 describe('Step1_BusinessDetails', () => {
   const mockOnKeyDown = vi.fn();
 
@@ -345,7 +360,11 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <div data-testid="debug-bt">{methods.watch('businessType')}</div>
+          <WatchedValue
+            control={methods.control}
+            name="businessType"
+            testId="debug-bt"
+          />
         </FormProvider>
       );
     };
@@ -403,7 +422,11 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <div data-testid="country-value">{methods.watch('country')}</div>
+          <WatchedValue
+            control={methods.control}
+            name="country"
+            testId="country-value"
+          />
         </FormProvider>
       );
     };
@@ -466,7 +489,11 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <div data-testid="current-value">{methods.watch('businessName')}</div>
+          <WatchedValue
+            control={methods.control}
+            name="businessName"
+            testId="current-value"
+          />
         </FormProvider>
       );
     };
@@ -555,7 +582,11 @@ describe('Step1_BusinessDetails', () => {
       return (
         <FormProvider {...methods}>
           <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
-          <div data-testid="current-value">{methods.watch('businessName')}</div>
+          <WatchedValue
+            control={methods.control}
+            name="businessName"
+            testId="current-value"
+          />
         </FormProvider>
       );
     };

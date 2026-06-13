@@ -61,6 +61,46 @@ const updateConsignmentSchema = z
 
 type UpdateConsignmentValues = z.infer<typeof updateConsignmentSchema>;
 
+// Module-scope helper keeps throw statements out of the component body so
+// React Compiler can memoize the component.
+async function submitConsignmentUpdate(
+  integrationId: string,
+  values: UpdateConsignmentValues,
+  signal: AbortSignal
+): Promise<string | null> {
+  const res = await fetchWithCsrf('/api/marketplace/jumia/consignment', {
+    method: 'PATCH',
+    signal,
+    body: JSON.stringify({
+      integrationId,
+      purchaseOrderNumber: values.purchaseOrderNumber.trim(),
+      ...(values.isShipped && { isShipped: true }),
+      trackingNumber: values.trackingNumber?.trim() || undefined,
+      actualDepartureDate: values.actualDepartureDate || undefined,
+      estimatedArrivalDate: values.estimatedArrivalDate || undefined,
+      deliveryAgentPhoneNumber:
+        values.deliveryAgentPhoneNumber?.trim() || undefined,
+      thirdPartyLogisticsName:
+        values.thirdPartyLogisticsName?.trim() || undefined,
+    }),
+  });
+
+  let data: Record<string, unknown>;
+  const text = await res.text();
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Failed to update consignment: ${res.status} - ${text}`);
+  }
+  if (!res.ok)
+    throw new Error(
+      (typeof data.error === 'string' ? data.error : null) ||
+        'Failed to update consignment'
+    );
+
+  return typeof data.message === 'string' ? data.message : null;
+}
+
 interface UpdateConsignmentFormProps {
   integrationId: string;
 }
@@ -111,43 +151,15 @@ export function UpdateConsignmentForm({
     abortControllerRef.current = controller;
 
     try {
-      const res = await fetchWithCsrf('/api/marketplace/jumia/consignment', {
-        method: 'PATCH',
-        signal: controller.signal,
-        body: JSON.stringify({
-          integrationId,
-          purchaseOrderNumber: values.purchaseOrderNumber.trim(),
-          ...(values.isShipped && { isShipped: true }),
-          trackingNumber: values.trackingNumber?.trim() || undefined,
-          actualDepartureDate: values.actualDepartureDate || undefined,
-          estimatedArrivalDate: values.estimatedArrivalDate || undefined,
-          deliveryAgentPhoneNumber:
-            values.deliveryAgentPhoneNumber?.trim() || undefined,
-          thirdPartyLogisticsName:
-            values.thirdPartyLogisticsName?.trim() || undefined,
-        }),
-      });
-
-      let data: Record<string, unknown>;
-      const text = await res.text();
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(
-          `Failed to update consignment: ${res.status} - ${text}`
-        );
-      }
-      if (!res.ok)
-        throw new Error(
-          (typeof data.error === 'string' ? data.error : null) ||
-            'Failed to update consignment'
-        );
+      const message = await submitConsignmentUpdate(
+        integrationId,
+        values,
+        controller.signal
+      );
 
       toast({
         title: 'Consignment Updated',
-        description:
-          (typeof data.message === 'string' ? data.message : null) ||
-          'Shipment details have been updated.',
+        description: message || 'Shipment details have been updated.',
       });
 
       reset();
@@ -162,7 +174,7 @@ export function UpdateConsignmentForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form onSubmit={(event) => handleSubmit(onSubmit)(event)}>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
           <Truck className="size-5 text-store-primary" />

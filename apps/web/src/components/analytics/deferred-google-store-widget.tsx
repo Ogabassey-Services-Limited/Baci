@@ -21,6 +21,13 @@ interface GoogleStoreWidgetModule {
 const GOOGLE_STORE_WIDGET_DELAY_MS = 20000;
 const MAX_DEFERRED_WIDGET_LOAD_RETRIES = 2;
 
+// Module-scope dynamic import keeps the `import()` expression out of the
+// component body — the React Compiler cannot lower import expressions, so
+// inlining it would opt the component out of automatic memoization.
+function importGoogleStoreWidgetModule(): Promise<GoogleStoreWidgetModule> {
+  return import('./google-store-widget');
+}
+
 export function DeferredGoogleStoreWidget(
   props: DeferredGoogleStoreWidgetProps
 ) {
@@ -68,7 +75,7 @@ export function DeferredGoogleStoreWidget(
       clearLoadTimeout();
 
       const widgetModule = Promise.resolve().then(
-        () => props.loadWidgetModule?.() ?? import('./google-store-widget')
+        () => props.loadWidgetModule?.() ?? importGoogleStoreWidgetModule()
       );
 
       void widgetModule

@@ -83,82 +83,101 @@ function getPeriodLabel(period: '7d' | '30d' | '90d' | 'all'): string {
   return PERIOD_LABELS[period];
 }
 
+type AnalyticsPeriod = '7d' | '30d' | '90d' | 'all';
+
+type LoadAnalyticsResult =
+  | { status: 'ok'; data: PlatformAnalytics }
+  | { status: 'error'; error: unknown };
+
+// Module-scope helpers keep try/catch out of the component body so the React
+// Compiler can memoize it (it cannot lower try/finally clauses).
+async function loadPlatformAnalytics(
+  period: AnalyticsPeriod
+): Promise<LoadAnalyticsResult> {
+  try {
+    const response = await fetch(`/api/admin/analytics?period=${period}`);
+    if (!response.ok) throw new Error('Failed to fetch analytics');
+    const data = (await response.json()) as PlatformAnalytics;
+    return { status: 'ok', data };
+  } catch (error) {
+    return { status: 'error', error };
+  }
+}
+
+type RefreshResult = { status: 'ok' } | { status: 'error'; error: unknown };
+
+async function postRefreshViews(): Promise<RefreshResult> {
+  try {
+    const response = await fetchWithCsrf('/api/admin/analytics', {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to refresh');
+    return { status: 'ok' };
+  } catch (error) {
+    return { status: 'error', error };
+  }
+}
+
 export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [period, setPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('all');
+  const [period, setPeriod] = useState<AnalyticsPeriod>('all');
   const { toast } = useToast();
 
-  const fetchAnalytics = async ({
-    showErrorToast = true,
-    successToast,
-    throwOnError = false,
-  }: {
-    showErrorToast?: boolean;
-    successToast?: {
-      description: string;
-      title: string;
-    };
-    throwOnError?: boolean;
-  } = {}) => {
-    try {
-      const response = await fetch(`/api/admin/analytics?period=${period}`);
-      if (!response.ok) throw new Error('Failed to fetch analytics');
-      const data = await response.json();
-      setAnalytics(data);
-      if (successToast) {
-        toast(successToast);
-      }
-      return data;
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error);
-      if (showErrorToast) {
+  const handleRefreshViews = () => {
+    setRefreshing(true);
+    return postRefreshViews()
+      .then((refresh) => {
+        if (refresh.status === 'error') {
+          throw refresh.error;
+        }
+        return loadPlatformAnalytics(period);
+      })
+      .then((result) => {
+        if (result.status === 'error') {
+          throw result.error;
+        }
+        setAnalytics(result.data);
+        setLoading(false);
+        toast({
+          title: 'Data Refreshed',
+          description: 'Platform analytics have been updated.',
+        });
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to refresh views:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to refresh analytics views.',
+          variant: 'destructive',
+        });
+      })
+      .then(() => {
+        setRefreshing(false);
+      });
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
+  useEffect(() => {
+    let active = true;
+    loadPlatformAnalytics(period).then((result) => {
+      if (!active) return;
+      if (result.status === 'ok') {
+        setAnalytics(result.data);
+      } else {
+        console.error('Failed to fetch analytics:', result.error);
         toast({
           title: 'Error',
           description: 'Failed to load platform analytics.',
           variant: 'destructive',
         });
       }
-      if (throwOnError) {
-        throw error;
-      }
-      return null;
-    } finally {
       setLoading(false);
-    }
-  };
-
-  const handleRefreshViews = async () => {
-    try {
-      setRefreshing(true);
-      const response = await fetchWithCsrf('/api/admin/analytics', {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to refresh');
-      await fetchAnalytics({
-        showErrorToast: false,
-        successToast: {
-          title: 'Data Refreshed',
-          description: 'Platform analytics have been updated.',
-        },
-        throwOnError: true,
-      });
-    } catch (error) {
-      console.error('Failed to refresh views:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to refresh analytics views.',
-        variant: 'destructive',
-      });
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
-  useEffect(() => {
-    fetchAnalytics();
+    });
+    return () => {
+      active = false;
+    };
   }, [period, toast]);
 
   const healthData = analytics

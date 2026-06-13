@@ -1,16 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Logo } from '@/components/logo';
 import { PLATFORM_CONFIG } from '@/config/platform';
 
 export function PlatformFooter() {
-  const [year, setYear] = useState(2026);
-
-  useEffect(() => {
-    setYear(new Date().getFullYear());
-  }, []);
+  // Resolve the copyright year once per mount via a lazy initializer instead of
+  // a setState-in-effect, which keeps React Compiler memoization enabled.
+  const [year] = useState(() => new Date().getFullYear());
 
   return (
     <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">

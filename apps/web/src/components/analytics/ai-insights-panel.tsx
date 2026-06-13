@@ -43,6 +43,53 @@ const CATEGORY_KEYWORDS: Partial<Record<AnalyticsCategory, readonly string[]>> =
     ads: ['ad', 'campaign', 'advertising', 'promotion'],
   } as const;
 
+interface FetchInsightsCallbacks {
+  signal: AbortSignal;
+  setInsights: (insights: Insight[]) => void;
+  setError: (value: boolean) => void;
+  setLoading: (value: boolean) => void;
+  startTransition: (callback: () => void) => void;
+}
+
+async function fetchInsights({
+  signal,
+  setInsights,
+  setError,
+  setLoading,
+  startTransition,
+}: FetchInsightsCallbacks) {
+  try {
+    const response = await fetch('/api/analytics/insights', {
+      signal,
+      // Don't block on this request
+      priority: 'low' as RequestPriority,
+    });
+
+    if (!response.ok) {
+      // Log but don't throw - we have a graceful fallback UI
+      console.warn(`AI insights unavailable (${response.status})`);
+      setError(true);
+      return;
+    }
+
+    const data = await response.json();
+
+    // Use transition to avoid blocking UI
+    startTransition(() => {
+      setInsights(data.insights || []);
+      setError(false);
+    });
+  } catch (err) {
+    if ((err as Error).name !== 'AbortError') {
+      // Only warn - insights are non-critical
+      console.warn('AI insights fetch failed:', (err as Error).message);
+      setError(true);
+    }
+  } finally {
+    setLoading(false);
+  }
+}
+
 export function AIInsightsPanel({
   className,
   activeCategory,
@@ -56,43 +103,16 @@ export function AIInsightsPanel({
   useEffect(() => {
     const controller = new AbortController();
 
-    async function fetchInsights() {
-      try {
-        const response = await fetch('/api/analytics/insights', {
-          signal: controller.signal,
-          // Don't block on this request
-          priority: 'low' as RequestPriority,
-        });
-
-        if (!response.ok) {
-          // Log but don't throw - we have a graceful fallback UI
-          console.warn(`AI insights unavailable (${response.status})`);
-          setError(true);
-          return;
-        }
-
-        const data = await response.json();
-
-        // Use transition to avoid blocking UI
-        startTransition(() => {
-          setInsights(data.insights || []);
-          setError(false);
-        });
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          // Only warn - insights are non-critical
-          console.warn('AI insights fetch failed:', (err as Error).message);
-          setError(true);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchInsights();
+    fetchInsights({
+      signal: controller.signal,
+      setInsights,
+      setError,
+      setLoading,
+      startTransition,
+    });
 
     return () => controller.abort();
-  }, []);
+  }, [startTransition]);
 
   // Filter insights based on active category
   const filteredInsights =

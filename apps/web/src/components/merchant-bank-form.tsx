@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, CheckCircle2, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { type Resolver, useForm } from 'react-hook-form';
+import { type Resolver, useForm, useWatch } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -27,6 +27,100 @@ import {
 } from '@/schemas/merchant-bank';
 export type BankFormInput = MerchantBankFormInput;
 type BankFormValues = MerchantBankFormValues;
+
+type AccountVerificationResult =
+  | { status: 'verified'; accountName: string }
+  | { status: 'empty' }
+  | { status: 'error'; message: string };
+
+// Hoisted out of the component so React Compiler can lower the verification
+// handler (try/finally is not yet supported inside component bodies).
+async function resolvePaystackAccount(
+  accountNumber: string,
+  bankCode: string
+): Promise<AccountVerificationResult> {
+  try {
+    const data = await apiPost<{
+      account_name: string;
+      account_number: string;
+      bank_id: number | null;
+    }>('/api/paystack/resolve', { accountNumber, bankCode });
+
+    if (data.account_name) {
+      return { status: 'verified', accountName: data.account_name };
+    }
+    return { status: 'empty' };
+  } catch (error) {
+    return {
+      status: 'error',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Failed to verify account. Please try again.',
+    };
+  }
+}
+
+type LoadBanksResult =
+  | { status: 'ok'; banks: Bank[] }
+  | { status: 'error'; error: unknown };
+
+// Hoisted so the React Compiler can lower the component body (try/finally is
+// not yet supported there). Dedupes bank codes from the Paystack banks API.
+async function loadPaystackBanks(): Promise<LoadBanksResult> {
+  try {
+    const response = await fetch('/api/paystack/banks');
+    const data = await response.json();
+    if (!data.banks) {
+      return { status: 'ok', banks: [] };
+    }
+    const seenCodes = new Set<string>();
+    const uniqueBanks = (data.banks as Bank[]).filter((bank) => {
+      if (seenCodes.has(bank.code)) {
+        return false;
+      }
+      seenCodes.add(bank.code);
+      return true;
+    });
+    return { status: 'ok', banks: uniqueBanks };
+  } catch (error) {
+    return { status: 'error', error };
+  }
+}
+
+type SaveBankResult =
+  | { status: 'ok'; accountName: string }
+  | { status: 'noop' }
+  | { status: 'error'; message: string };
+
+interface SaveBankPayload {
+  accountNumber: string;
+  bankCode?: string;
+  businessName: string;
+  autoPayoutEnabled?: boolean;
+}
+
+async function saveBankSubaccount(
+  payload: SaveBankPayload
+): Promise<SaveBankResult> {
+  try {
+    const result = await apiPost<{
+      success: boolean;
+      accountName: string;
+      subaccountCode: string | null;
+    }>('/api/paystack/subaccount', payload);
+    if (result.success) {
+      return { status: 'ok', accountName: result.accountName };
+    }
+    return { status: 'noop' };
+  } catch (error) {
+    return {
+      status: 'error',
+      message:
+        error instanceof Error ? error.message : 'Could not save bank details.',
+    };
+  }
+}
 
 interface MerchantBankFormProps {
   countryCode?: string | null;
@@ -84,8 +178,20 @@ export function MerchantBankForm({
     },
   });
 
-  const accountNumber = form.watch('accountNumber');
-  const selectedBankCode = form.watch('bankCode');
+  // useWatch (instead of form.watch) keeps React Compiler from skipping this
+  // component — form.watch returns interior-mutable values it cannot memoize.
+  const accountNumber = useWatch({
+    control: form.control,
+    name: 'accountNumber',
+  });
+  const selectedBankCode = useWatch({
+    control: form.control,
+    name: 'bankCode',
+  });
+  const autoPayoutEnabled = useWatch({
+    control: form.control,
+    name: 'autoPayoutEnabled',
+  });
 
   useEffect(() => {
     return () => {
@@ -95,137 +201,122 @@ export function MerchantBankForm({
     };
   }, []);
 
-  // Fetch banks on mount
+  // Reset bank state during render when the settlement support flips (derived
+  // from the `countryCode` prop). Adjusting inline with a prev-prop comparison
+  // avoids a stale frame an effect would introduce. `banks`/`isLoadingBanks`
+  // already initialize from `isPaystackSupported`, so the first render needs no
+  // adjustment — only a runtime change does.
+  const [prevIsPaystackSupported, setPrevIsPaystackSupported] =
+    useState(isPaystackSupported);
+  if (isPaystackSupported !== prevIsPaystackSupported) {
+    setPrevIsPaystackSupported(isPaystackSupported);
+    setBanks([]);
+    setIsLoadingBanks(isPaystackSupported);
+  }
+
+  // Fetch banks on mount / when settlement support is enabled. State is set in
+  // the async callback so the effect never calls setState synchronously.
   useEffect(() => {
     if (!isPaystackSupported) {
-      setIsLoadingBanks(false);
-      setBanks([]);
       return;
     }
 
-    const fetchBanks = async () => {
-      try {
-        const response = await fetch('/api/paystack/banks');
-        const data = await response.json();
-        if (data.banks) {
-          // Filter out duplicate bank codes
-          const seenCodes = new Set<string>();
-          const uniqueBanks = data.banks.filter((bank: Bank) => {
-            if (seenCodes.has(bank.code)) {
-              return false;
-            }
-            seenCodes.add(bank.code);
-            return true;
-          });
-          setBanks(uniqueBanks);
-        }
-      } catch (error) {
-        console.error('Failed to fetch banks:', error);
+    let active = true;
+    loadPaystackBanks().then((result) => {
+      if (!active) return;
+      if (result.status === 'ok') {
+        setBanks(result.banks);
+      } else {
+        console.error('Failed to fetch banks:', result.error);
         toast({
           variant: 'destructive',
           title: 'Error',
           description: 'Failed to load bank list. Please refresh.',
         });
-      } finally {
-        setIsLoadingBanks(false);
       }
-    };
+      setIsLoadingBanks(false);
+    });
 
-    fetchBanks();
+    return () => {
+      active = false;
+    };
   }, [isPaystackSupported, toast]);
 
-  // Set initial search term when banks load if value exists
-  useEffect(() => {
-    if (selectedBankCode && banks.length > 0 && !bankSearchTerm) {
-      const bank = banks.find((b) => b.code === selectedBankCode);
-      if (bank) {
-        setBankSearchTerm(bank.name);
-      }
+  // Seed the search input with the selected bank's name once banks load,
+  // adjusting during render via a prev-comparison instead of an effect (which
+  // would briefly render an empty field). Keyed on bankCode + bank availability
+  // so it runs only when the resolvable selection first becomes available; user
+  // edits to `bankSearchTerm` are preserved because we only seed an empty term.
+  const resolvedBankName =
+    selectedBankCode && banks.length > 0
+      ? (banks.find((b) => b.code === selectedBankCode)?.name ?? '')
+      : '';
+  const [prevResolvedBankName, setPrevResolvedBankName] =
+    useState(resolvedBankName);
+  if (resolvedBankName !== prevResolvedBankName) {
+    setPrevResolvedBankName(resolvedBankName);
+    if (resolvedBankName && !bankSearchTerm) {
+      setBankSearchTerm(resolvedBankName);
     }
-  }, [selectedBankCode, banks, bankSearchTerm]);
+  }
 
   // Get selected bank name - for verification logic if needed
   // const selectedBankName = banks.find(b => b.code === selectedBankCode)?.name;
 
-  // Verify account when both account number and bank are provided
-  const verifyAccount = async (
-    requestId: number,
-    accountNumberToVerify: string,
-    bankCodeToVerify: string
-  ) => {
-    if (!isPaystackSupported) {
-      return;
-    }
+  // A verifiable combination is a supported country with a 10-digit account
+  // number and a selected bank.
+  const canVerify =
+    isPaystackSupported &&
+    Boolean(selectedBankCode) &&
+    accountNumber.length === 10;
+  const verificationKey = canVerify
+    ? `${selectedBankCode}:${accountNumber}`
+    : '';
 
-    if (accountNumberToVerify.length !== 10 || !bankCodeToVerify) {
-      return;
-    }
-
-    setIsVerifying(true);
-    setVerificationError(null);
+  // Reset stale verification UI during render (instead of in an effect) the
+  // moment the watched inputs change away from the last verified combination.
+  // Routing this through an effect would briefly show the previous result.
+  // Seeding `prevVerificationKey` empty makes the first render with a
+  // verifiable combination kick off the same reset-then-verify lifecycle the
+  // mount effect used to perform.
+  const [prevVerificationKey, setPrevVerificationKey] = useState('');
+  if (verificationKey !== prevVerificationKey) {
+    setPrevVerificationKey(verificationKey);
     setVerifiedName(null);
+    setVerificationError(null);
+    setIsVerifying(canVerify);
+  }
 
-    try {
-      const data = await apiPost<{
-        account_name: string;
-        account_number: string;
-        bank_id: number | null;
-      }>('/api/paystack/resolve', {
-        accountNumber: accountNumberToVerify,
-        bankCode: bankCodeToVerify,
-      });
-
-      if (requestId !== verifyRequestIdRef.current) {
-        return;
-      }
-
-      if (data.account_name) {
-        setVerifiedName(data.account_name);
-        // Auto-fill business name if empty
-        if (!form.getValues('businessName')) {
-          form.setValue('businessName', data.account_name);
-        }
-      }
-    } catch (error) {
-      if (requestId !== verifyRequestIdRef.current) {
-        return;
-      }
-
-      setVerificationError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to verify account. Please try again.'
-      );
-    } finally {
-      if (requestId === verifyRequestIdRef.current) {
-        setIsVerifying(false);
-      }
-    }
-  };
-
-  // Trigger verification when both fields are filled
-  // biome-ignore lint/correctness/useExhaustiveDependencies: verifyAccount defined inline, dependencies managed explicitly
+  // Trigger verification when both fields are filled. This synchronizes with
+  // the external Paystack resolve API, so state is set in the async callback.
   useEffect(() => {
+    if (!canVerify || !selectedBankCode) {
+      return;
+    }
+
     const requestId = verifyRequestIdRef.current + 1;
     verifyRequestIdRef.current = requestId;
 
-    if (!isPaystackSupported) {
-      setVerifiedName(null);
-      setVerificationError(null);
-      setIsVerifying(false);
-      return;
-    }
+    resolvePaystackAccount(accountNumber, selectedBankCode).then((result) => {
+      if (requestId !== verifyRequestIdRef.current) {
+        return;
+      }
 
-    if (selectedBankCode && accountNumber.length === 10) {
-      verifyAccount(requestId, accountNumber, selectedBankCode);
-    } else {
-      setVerifiedName(null);
-      setVerificationError(null);
-      setIsVerifying(false);
-    }
-  }, [isPaystackSupported, selectedBankCode, accountNumber]);
+      if (result.status === 'verified') {
+        setVerifiedName(result.accountName);
+        // Auto-fill business name if empty
+        if (!form.getValues('businessName')) {
+          form.setValue('businessName', result.accountName);
+        }
+      } else if (result.status === 'error') {
+        setVerificationError(result.message);
+      }
 
-  const onSubmit = async (data: BankFormValues) => {
+      setIsVerifying(false);
+    });
+  }, [canVerify, selectedBankCode, accountNumber, form]);
+
+  const onSubmit = (data: BankFormValues) => {
     if (isPaystackSupported && !verifiedName) {
       toast({
         variant: 'destructive',
@@ -237,51 +328,41 @@ export function MerchantBankForm({
 
     setIsSubmitting(true);
 
-    try {
-      const payload: {
-        accountNumber: string;
-        bankCode?: string;
-        businessName: string;
-        autoPayoutEnabled?: boolean;
-      } = {
-        accountNumber: data.accountNumber,
-        businessName: data.businessName,
-        bankCode: data.bankCode,
-      };
+    const payload: SaveBankPayload = {
+      accountNumber: data.accountNumber,
+      businessName: data.businessName,
+      bankCode: data.bankCode,
+    };
 
-      if (
-        isPaystackSupported &&
-        hasHydratedAutoPayoutSetting &&
-        form.formState.dirtyFields.autoPayoutEnabled
-      ) {
-        payload.autoPayoutEnabled = data.autoPayoutEnabled ?? false;
-      }
-
-      const result = await apiPost<{
-        success: boolean;
-        accountName: string;
-        subaccountCode: string | null;
-      }>('/api/paystack/subaccount', payload);
-
-      if (result.success) {
-        toast({
-          title: 'Bank Details Saved',
-          description: `Verified: ${result.accountName}`,
-        });
-        onSuccess?.();
-      }
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Save Failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Could not save bank details.',
-      });
-    } finally {
-      setIsSubmitting(false);
+    if (
+      isPaystackSupported &&
+      hasHydratedAutoPayoutSetting &&
+      form.formState.dirtyFields.autoPayoutEnabled
+    ) {
+      payload.autoPayoutEnabled = data.autoPayoutEnabled ?? false;
     }
+
+    return saveBankSubaccount(payload)
+      .then((result) => {
+        if (result.status === 'ok') {
+          toast({
+            title: 'Bank Details Saved',
+            description: `Verified: ${result.accountName}`,
+          });
+          onSuccess?.();
+          return;
+        }
+        if (result.status === 'error') {
+          toast({
+            variant: 'destructive',
+            title: 'Save Failed',
+            description: result.message,
+          });
+        }
+      })
+      .then(() => {
+        setIsSubmitting(false);
+      });
   };
 
   if (!isPaystackSupported) {
@@ -584,7 +665,7 @@ export function MerchantBankForm({
                   )}
                 />
 
-                {form.watch('autoPayoutEnabled') && (
+                {autoPayoutEnabled && (
                   <p className="text-xs text-muted-foreground">
                     Weekly auto-payouts will run using your wallet settings
                     after this bank account is connected.

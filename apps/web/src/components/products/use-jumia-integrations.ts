@@ -23,14 +23,26 @@ export function useJumiaIntegrations(
   const [jumiaIntegrationId, setJumiaIntegrationId] = useState<string | null>(
     null
   );
-  const [jumiaLoading, setJumiaLoading] = useState(false);
+  const [jumiaLoading, setJumiaLoading] = useState(() =>
+    Boolean(merchantIdTrigger)
+  );
+  const [prevMerchantIdTrigger, setPrevMerchantIdTrigger] =
+    useState(merchantIdTrigger);
+
+  // Reset integration state inline when the merchant trigger changes, instead
+  // of routing the adjustment through the effect. Doing it during render keeps
+  // the UI from briefly showing the previous merchant's integrations and lets
+  // the React Compiler memoize this hook.
+  if (merchantIdTrigger !== prevMerchantIdTrigger) {
+    setPrevMerchantIdTrigger(merchantIdTrigger);
+    setJumiaIntegrations([]);
+    setJumiaIntegrationId(null);
+    setJumiaLoading(Boolean(merchantIdTrigger));
+  }
 
   useEffect(() => {
     if (!merchantIdTrigger) return;
 
-    setJumiaIntegrations([]);
-    setJumiaIntegrationId(null);
-    setJumiaLoading(true);
     const controller = new AbortController();
 
     fetch('/api/marketplace/jumia/connect', { signal: controller.signal })

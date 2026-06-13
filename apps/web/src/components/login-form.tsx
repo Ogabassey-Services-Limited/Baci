@@ -115,7 +115,6 @@ export default function LoginForm({
         description:
           'Please check your email for a link to reset your password.',
       });
-      setMode('login');
     } else if (forgotState.error) {
       toast({
         variant: 'destructive',
@@ -124,6 +123,17 @@ export default function LoginForm({
       });
     }
   }, [forgotState.success, forgotState.error, toast]);
+
+  // Return to the login view once a reset email is sent. Adjusted inline
+  // during render with a prev-state comparison (react.dev: adjusting some
+  // state when a prop changes) instead of a setState inside the effect.
+  const [prevForgotState, setPrevForgotState] = useState(forgotState);
+  if (forgotState !== prevForgotState) {
+    setPrevForgotState(forgotState);
+    if (forgotState.success) {
+      setMode('login');
+    }
+  }
 
   const handleOAuthSignIn = async ({
     provider,

@@ -34,6 +34,66 @@ interface AddressAutocompleteProps
   country?: string;
 }
 
+function initSession(
+  setSessionToken: (token: string) => void,
+  setMounted: (mounted: boolean) => void
+): void {
+  setSessionToken(generateSessionToken());
+  setMounted(true);
+}
+
+async function loadPredictions(
+  query: string,
+  sessionToken: string,
+  country: string | undefined,
+  setPredictions: (predictions: PlacePrediction[]) => void,
+  setIsLoading: (loading: boolean) => void
+): Promise<void> {
+  try {
+    const results = await getPlacePredictions(query, sessionToken, country);
+    setPredictions(results);
+  } catch (error) {
+    console.error('Error fetching predictions:', error);
+  } finally {
+    setIsLoading(false);
+  }
+}
+
+interface SelectPredictionCallbacks {
+  onSelect?: (place: PlaceDetails) => void;
+  setSessionToken: (token: string) => void;
+  setIsLoading: (loading: boolean) => void;
+}
+
+async function loadPlaceDetails(
+  placeId: string,
+  sessionToken: string,
+  { onSelect, setSessionToken, setIsLoading }: SelectPredictionCallbacks
+): Promise<void> {
+  try {
+    const details = await getPlaceDetails(placeId, sessionToken);
+
+    if (details && onSelect) {
+      onSelect({
+        streetNumber: details.streetNumber || '',
+        route: details.route || '',
+        city: details.city || '',
+        state: details.state || '',
+        zip: details.postalCode || '',
+        country: details.country || '',
+        formattedAddress: details.formattedAddress,
+      });
+    }
+
+    // Refresh session token
+    setSessionToken(generateSessionToken());
+  } catch (error) {
+    console.error('Error fetching place details:', error);
+  } finally {
+    setIsLoading(false);
+  }
+}
+
 export function AddressAutocomplete({
   value,
   onChange,
@@ -47,12 +107,15 @@ export function AddressAutocomplete({
   // Internal state for input value if not controlled
   const [internalValue, setInternalValue] = useState(value || '');
 
-  // Sync internal value with prop
-  useEffect(() => {
+  // Sync internal value with the controlled prop during render (prev-prop
+  // compare) so users never see a stale frame between commits.
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     if (value !== undefined) {
       setInternalValue(value);
     }
-  }, [value]);
+  }
 
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [sessionToken, setSessionToken] = useState<string>('');
@@ -67,8 +130,7 @@ export function AddressAutocomplete({
 
   // Initialize session token and mark as mounted
   useEffect(() => {
-    setSessionToken(generateSessionToken());
-    setMounted(true);
+    initSession(setSessionToken, setMounted);
   }, []);
 
   // Close dropdown on outside click
@@ -109,19 +171,14 @@ export function AddressAutocomplete({
     }
 
     setIsLoading(true);
-    debounceTimer.current = setTimeout(async () => {
-      try {
-        const results = await getPlacePredictions(
-          newValue,
-          sessionToken,
-          country
-        );
-        setPredictions(results);
-      } catch (error) {
-        console.error('Error fetching predictions:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    debounceTimer.current = setTimeout(() => {
+      void loadPredictions(
+        newValue,
+        sessionToken,
+        country,
+        setPredictions,
+        setIsLoading
+      );
     }, 300);
   };
 
@@ -139,7 +196,7 @@ export function AddressAutocomplete({
     inputRef.current?.focus();
   };
 
-  const handlePredictionSelect = async (prediction: PlacePrediction) => {
+  const handlePredictionSelect = (prediction: PlacePrediction) => {
     // Update input with main text
     setInternalValue(prediction.mainText);
 
@@ -151,28 +208,11 @@ export function AddressAutocomplete({
     setIsOpen(false);
     setIsLoading(true);
 
-    try {
-      const details = await getPlaceDetails(prediction.placeId, sessionToken);
-
-      if (details && onSelect) {
-        onSelect({
-          streetNumber: details.streetNumber || '',
-          route: details.route || '',
-          city: details.city || '',
-          state: details.state || '',
-          zip: details.postalCode || '',
-          country: details.country || '',
-          formattedAddress: details.formattedAddress,
-        });
-      }
-
-      // Refresh session token
-      setSessionToken(generateSessionToken());
-    } catch (error) {
-      console.error('Error fetching place details:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    void loadPlaceDetails(prediction.placeId, sessionToken, {
+      onSelect,
+      setSessionToken,
+      setIsLoading,
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

@@ -79,6 +79,80 @@ const priorityStyles: Record<NotificationPriority, string> = {
   urgent: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 };
 
+interface NotificationStats {
+  totalSent: number;
+  avgReadRate: number;
+  activeBanners: number;
+  scheduled: number;
+}
+
+interface NotificationsPageResult {
+  notifications: NotificationWithStats[];
+  totalCount: number;
+  stats: NotificationStats;
+}
+
+const PAGE_LIMIT = 20;
+
+/**
+ * Fetches notifications for the given filters and derives summary stats. Lives
+ * at module scope so its throw-on-error control flow does not bail React
+ * Compiler out of the page component.
+ */
+async function fetchAdminNotifications(
+  filters: AdminNotificationFilters,
+  searchQuery: string,
+  page: number
+): Promise<NotificationsPageResult> {
+  const params = new URLSearchParams();
+  params.set('limit', PAGE_LIMIT.toString());
+  params.set('offset', (page * PAGE_LIMIT).toString());
+
+  if (filters.status && filters.status !== 'all') {
+    params.set('status', filters.status);
+  }
+  if (filters.type) {
+    params.set('type', filters.type);
+  }
+  if (filters.priority) {
+    params.set('priority', filters.priority);
+  }
+  if (searchQuery) {
+    params.set('search', searchQuery);
+  }
+
+  const response = await fetch(`/api/admin/notifications?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch notifications');
+  }
+
+  const data = await response.json();
+  const notifications = data.data as NotificationWithStats[];
+
+  const sent = notifications.filter((n) => n.sent_at);
+  const readRates = sent
+    .map((n) => n.stats?.read_rate || 0)
+    .filter((r) => r > 0);
+  const avgRate =
+    readRates.length > 0
+      ? readRates.reduce((a, b) => a + b, 0) / readRates.length
+      : 0;
+
+  return {
+    notifications,
+    totalCount: data.pagination.total,
+    stats: {
+      totalSent: sent.length,
+      avgReadRate: Math.round(avgRate),
+      activeBanners: notifications.filter(
+        (n) => n.sent_at && n.channels?.includes('banner') && !n.expires_at
+      ).length,
+      scheduled: notifications.filter((n) => !n.sent_at && n.scheduled_for)
+        .length,
+    },
+  };
+}
+
 export default function AdminNotificationsPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -96,106 +170,81 @@ export default function AdminNotificationsPage() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
-  const limit = 20;
+  const limit = PAGE_LIMIT;
+
+  // Bumped to re-run the load effect for manual refreshes (refresh button,
+  // post-delete) that do not change the filter/page inputs.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Stats
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<NotificationStats>({
     totalSent: 0,
     avgReadRate: 0,
     activeBanners: 0,
     scheduled: 0,
   });
 
-  const fetchNotifications = async () => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey re-triggers manual reloads (React Compiler handles memoization)
+  useEffect(() => {
+    let active = true;
+
+    fetchAdminNotifications(filters, searchQuery, page)
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+        setNotifications(result.notifications);
+        setTotalCount(result.totalCount);
+        setStats(result.stats);
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        console.error('Error fetching notifications:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch notifications',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        if (active) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [page, filters, searchQuery, toast, refreshKey]);
+
+  const reloadNotifications = () => {
     setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set('limit', limit.toString());
-      params.set('offset', (page * limit).toString());
-
-      if (filters.status && filters.status !== 'all') {
-        params.set('status', filters.status);
-      }
-      if (filters.type) {
-        params.set('type', filters.type);
-      }
-      if (filters.priority) {
-        params.set('priority', filters.priority);
-      }
-      if (searchQuery) {
-        params.set('search', searchQuery);
-      }
-
-      const response = await fetch(
-        `/api/admin/notifications?${params.toString()}`
-      );
-      if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
-      }
-
-      const data = await response.json();
-      setNotifications(data.data);
-      setTotalCount(data.pagination.total);
-
-      // Calculate stats
-      const sent = data.data.filter((n: NotificationWithStats) => n.sent_at);
-      const readRates = sent
-        .map((n: NotificationWithStats) => n.stats?.read_rate || 0)
-        .filter((r: number) => r > 0);
-      const avgRate =
-        readRates.length > 0
-          ? readRates.reduce((a: number, b: number) => a + b, 0) /
-            readRates.length
-          : 0;
-
-      setStats({
-        totalSent: sent.length,
-        avgReadRate: Math.round(avgRate),
-        activeBanners: data.data.filter(
-          (n: NotificationWithStats) =>
-            n.sent_at && n.channels?.includes('banner') && !n.expires_at
-        ).length,
-        scheduled: data.data.filter(
-          (n: NotificationWithStats) => !n.sent_at && n.scheduled_for
-        ).length,
-      });
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch notifications',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    setRefreshKey((key) => key + 1);
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
-  useEffect(() => {
-    fetchNotifications();
-  }, [page, filters, searchQuery, toast]);
-
   const handleDelete = async (id: string) => {
-    try {
-      await apiDelete(`/api/admin/notifications/${id}`);
+    await apiDelete(`/api/admin/notifications/${id}`)
+      .then(() => {
+        toast({
+          title: 'Deleted',
+          description: 'Notification has been deleted',
+        });
 
-      toast({
-        title: 'Deleted',
-        description: 'Notification has been deleted',
+        reloadNotifications();
+      })
+      .catch((error: unknown) => {
+        console.error('Error deleting notification:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete notification',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setDeleteId(null);
       });
-
-      fetchNotifications();
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete notification',
-        variant: 'destructive',
-      });
-    } finally {
-      setDeleteId(null);
-    }
   };
 
   const getStatusBadge = (notification: NotificationWithStats) => {
@@ -294,7 +343,7 @@ export default function AdminNotificationsPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Notifications</CardTitle>
-            <Button variant="outline" size="sm" onClick={fetchNotifications}>
+            <Button variant="outline" size="sm" onClick={reloadNotifications}>
               <RefreshCw className="size-4 mr-2" />
               Refresh
             </Button>
@@ -309,19 +358,23 @@ export default function AdminNotificationsPage() {
                 placeholder="Search notifications..."
                 className="pl-9"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setIsLoading(true);
+                  setSearchQuery(e.target.value);
+                }}
               />
             </div>
 
             {/* Status Filter */}
             <Select
               value={filters.status || 'all'}
-              onValueChange={(value) =>
+              onValueChange={(value) => {
+                setIsLoading(true);
                 setFilters({
                   ...filters,
                   status: value as AdminNotificationFilters['status'],
-                })
-              }
+                });
+              }}
             >
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Status" />
@@ -337,13 +390,14 @@ export default function AdminNotificationsPage() {
             {/* Type Filter */}
             <Select
               value={filters.type || 'all'}
-              onValueChange={(value) =>
+              onValueChange={(value) => {
+                setIsLoading(true);
                 setFilters({
                   ...filters,
                   type:
                     value === 'all' ? undefined : (value as NotificationType),
-                })
-              }
+                });
+              }}
             >
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Type" />
@@ -360,15 +414,16 @@ export default function AdminNotificationsPage() {
             {/* Priority Filter */}
             <Select
               value={filters.priority || 'all'}
-              onValueChange={(value) =>
+              onValueChange={(value) => {
+                setIsLoading(true);
                 setFilters({
                   ...filters,
                   priority:
                     value === 'all'
                       ? undefined
                       : (value as NotificationPriority),
-                })
-              }
+                });
+              }}
             >
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Priority" />
@@ -520,7 +575,10 @@ export default function AdminNotificationsPage() {
                     variant="outline"
                     size="sm"
                     disabled={page === 0}
-                    onClick={() => setPage((p) => p - 1)}
+                    onClick={() => {
+                      setIsLoading(true);
+                      setPage((p) => p - 1);
+                    }}
                   >
                     Previous
                   </Button>
@@ -528,7 +586,10 @@ export default function AdminNotificationsPage() {
                     variant="outline"
                     size="sm"
                     disabled={(page + 1) * limit >= totalCount}
-                    onClick={() => setPage((p) => p + 1)}
+                    onClick={() => {
+                      setIsLoading(true);
+                      setPage((p) => p + 1);
+                    }}
                   >
                     Next
                   </Button>

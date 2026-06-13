@@ -345,25 +345,37 @@ export function OnboardingPuckPreview({
 }: OnboardingPuckPreviewProps) {
   const [internalPuckData, setInternalPuckData] = useState<Data | null>(null);
   const puckData = externalData || internalPuckData;
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Generate Puck data asynchronously
+  // The set of inputs that drives template regeneration. When it changes we
+  // flip `isLoading` on during render (a prev-prop comparison) rather than
+  // synchronously inside the effect — an effect-driven flip forces an extra
+  // render where the stale (not-loading) state is briefly visible.
+  const previewInputKey = `${businessName ?? ''}|${businessType ?? ''}|${logoDataUri ?? ''}`;
+  const [isLoading, setIsLoading] = useState(true);
+  const [prevPreviewInputKey, setPrevPreviewInputKey] =
+    useState(previewInputKey);
+  if (previewInputKey !== prevPreviewInputKey) {
+    setPrevPreviewInputKey(previewInputKey);
+    setIsLoading(true);
+  }
+
+  // Generate Puck data asynchronously. The try/catch/finally lives on the
+  // promise chain (not as statement syntax in the component body) so React
+  // Compiler can memoize the component.
   useEffect(() => {
     let isMounted = true;
 
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const data = await generatePreviewTemplate({
-          businessName: businessName || 'Your Store',
-          businessType: businessType || 'other',
-          logoDataUri: logoDataUri ?? null,
-        });
-
+    generatePreviewTemplate({
+      businessName: businessName || 'Your Store',
+      businessType: businessType || 'other',
+      logoDataUri: logoDataUri ?? null,
+    })
+      .then((data) => {
         if (isMounted) {
           setInternalPuckData(data);
         }
-      } catch (error) {
+      })
+      .catch((error: unknown) => {
         // Log error but don't crash - preview is non-critical
         console.error('Failed to generate preview template:', error);
 
@@ -371,14 +383,12 @@ export function OnboardingPuckPreview({
         if (isMounted) {
           setInternalPuckData(null);
         }
-      } finally {
+      })
+      .finally(() => {
         if (isMounted) {
           setIsLoading(false);
         }
-      }
-    };
-
-    loadData();
+      });
 
     return () => {
       isMounted = false;

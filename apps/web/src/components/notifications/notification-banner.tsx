@@ -73,13 +73,17 @@ export function NotificationBanner({ className }: NotificationBannerProps) {
 
   // Animate in when banner appears
   useEffect(() => {
-    if (currentBanner && !isLoading) {
-      // Small delay for smooth animation
-      const timer = setTimeout(() => setIsVisible(true), 100);
-      return () => clearTimeout(timer);
-    } else {
-      setIsVisible(false);
+    if (!currentBanner || isLoading) {
+      return;
     }
+    // Small delay for smooth animation
+    const timer = setTimeout(() => setIsVisible(true), 100);
+    return () => {
+      clearTimeout(timer);
+      // Reset visibility when the banner changes or is removed so the next
+      // banner animates in from a hidden state.
+      setIsVisible(false);
+    };
   }, [currentBanner, isLoading]);
 
   const handleDismiss = async () => {

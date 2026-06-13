@@ -15,6 +15,7 @@ import {
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
+import type { UseFormSetValue } from 'react-hook-form';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { useShallow } from 'zustand/react/shallow';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
@@ -52,6 +53,103 @@ const LogoGeneratorModal = dynamic(
     ),
   { ssr: false }
 );
+
+type ToastFn = ReturnType<typeof useToast>['toast'];
+type SetBrandingValue = UseFormSetValue<OnboardingFormValues>;
+
+// Module-scope helpers keep the component body free of try/finally,
+// throw-inside-try, and dynamic-import statements that block React Compiler
+// memoization. They take the dependencies they touch as parameters.
+async function uploadLogoToStorage(
+  dataUri: string,
+  setValue: SetBrandingValue,
+  toast: ToastFn,
+  setIsUploading: (uploading: boolean) => void
+): Promise<void> {
+  try {
+    const uploadedUrl = await uploadImage(dataUri);
+    if (uploadedUrl) {
+      setValue('logoUrl', uploadedUrl, { shouldValidate: true });
+    } else {
+      throw new Error('Upload failed: No URL returned.');
+    }
+  } catch (e) {
+    logger.error({ error: e as Error, message: 'Logo upload failed.' });
+    toast({
+      title: 'Upload failed',
+      description: (e as Error).message,
+      variant: 'destructive',
+    });
+    // Keep local URI even if upload fails so user can see it
+    setValue('logoUrl', dataUri, { shouldValidate: true });
+  } finally {
+    setIsUploading(false);
+  }
+}
+
+async function extractLogoColors(
+  dataUri: string,
+  preserveColors: boolean,
+  suppressExtractionToast: boolean,
+  setValue: SetBrandingValue,
+  toast: ToastFn,
+  setIsExtracting: (extracting: boolean) => void
+): Promise<void> {
+  if (preserveColors) {
+    setIsExtracting(false);
+    return;
+  }
+  try {
+    const colors = await extractBrandColorsFromImage(dataUri);
+    setValue('brandColors', JSON.stringify(colors), {
+      shouldValidate: true,
+    });
+    if (!suppressExtractionToast) {
+      toast({ title: 'Brand colors extracted!' });
+    }
+  } catch (e) {
+    logger.error({
+      error: e as Error,
+      message: 'Color extraction failed.',
+    });
+    // Don't fail hard, let user pick colors manually
+    setValue('brandColors', '', { shouldValidate: true });
+  } finally {
+    setIsExtracting(false);
+  }
+}
+
+async function removeImageBackground(
+  source: string,
+  onProgress: (percent: number) => void
+): Promise<Blob> {
+  // Dynamic import to avoid loading heavy library until needed
+  const { removeBackground } = await import('@imgly/background-removal');
+  return removeBackground(source, {
+    progress: (_key: string, current: number, total: number) => {
+      onProgress(Math.round((current / total) * 100));
+    },
+  });
+}
+
+async function generateLogoFromAi(
+  businessName: string,
+  businessType: string,
+  brandPreferences: string
+): Promise<{ logoUri: string; brandColors: BrandColors | undefined }> {
+  const result = await guideBusinessOnboarding({
+    businessName,
+    businessType,
+    brandPreferences,
+    task: 'generate_logos',
+  });
+
+  if (!result.logos || result.logos.length === 0) {
+    throw new Error('No logo was returned.');
+  }
+
+  return { logoUri: result.logos[0], brandColors: result.brandColors };
+}
 
 export default function Step2_Branding() {
   const form = useFormContext<OnboardingFormValues>();
@@ -100,16 +198,27 @@ export default function Step2_Branding() {
     }))
   );
 
-  // Effect to keep currentLogoDataUri updated for client-side operations
-  useEffect(() => {
+  // Adjust the local data-URI state during render (instead of an effect) when
+  // the watched logoUrl changes, so the compiler can optimize this component.
+  const [prevLogoUrl, setPrevLogoUrl] = useState(logoUrl);
+  if (logoUrl !== prevLogoUrl) {
+    setPrevLogoUrl(logoUrl);
     if (logoUrl?.startsWith('data:')) {
       setCurrentLogoDataUri(logoUrl);
+    } else if (!logoUrl) {
+      setCurrentLogoDataUri(null);
+    }
+  }
+
+  // Sync the external (Zustand) preview store from the watched logoUrl. This
+  // only updates an external system, so it is the documented effect use case.
+  useEffect(() => {
+    if (logoUrl?.startsWith('data:')) {
       setStoreLogoDataUri(logoUrl);
     } else if (logoUrl && !currentLogoDataUri) {
       // Fallback for remote URLs if local data URI isn't set (e.g. page refresh)
       setStoreLogoDataUri(logoUrl);
     } else if (!logoUrl) {
-      setCurrentLogoDataUri(null);
       setStoreLogoDataUri(null);
     }
   }, [logoUrl, currentLogoDataUri, setStoreLogoDataUri]);
@@ -129,60 +238,22 @@ export default function Step2_Branding() {
     setIsExtracting(true);
     setIsUploading(true);
 
-    const uploadPromise = (async () => {
-      try {
-        const uploadedUrl = await uploadImage(dataUri);
-        if (uploadedUrl) {
-          setValue('logoUrl', uploadedUrl, { shouldValidate: true });
-          // toast({ title: 'Logo saved!' });
-        } else {
-          throw new Error('Upload failed: No URL returned.');
-        }
-      } catch (e) {
-        logger.error({ error: e as Error, message: 'Logo upload failed.' });
-        toast({
-          title: 'Upload failed',
-          description: (e as Error).message,
-          variant: 'destructive',
-        });
-        // Keep local URI even if upload fails so user can see it
-        setValue('logoUrl', dataUri, { shouldValidate: true });
-      } finally {
-        setIsUploading(false);
-      }
-    })();
-
-    const extractionPromise = (async () => {
-      if (preserveColors) {
-        setIsExtracting(false);
-        return;
-      }
-      try {
-        const colors = await extractBrandColorsFromImage(dataUri);
-        setValue('brandColors', JSON.stringify(colors), {
-          shouldValidate: true,
-        });
-        if (!suppressExtractionToast) {
-          toast({ title: 'Brand colors extracted!' });
-        }
-      } catch (e) {
-        logger.error({
-          error: e as Error,
-          message: 'Color extraction failed.',
-        });
-        // Don't fail hard, let user pick colors manually
-        setValue('brandColors', '', { shouldValidate: true });
-      } finally {
-        setIsExtracting(false);
-      }
-    })();
-
-    await Promise.all([uploadPromise, extractionPromise]);
+    await Promise.all([
+      uploadLogoToStorage(dataUri, setValue, toast, setIsUploading),
+      extractLogoColors(
+        dataUri,
+        preserveColors,
+        suppressExtractionToast,
+        setValue,
+        toast,
+        setIsExtracting
+      ),
+    ]);
   };
 
   const [progress, setProgress] = useState(0);
 
-  const handleRemoveBackground = async () => {
+  const handleRemoveBackground = () => {
     const logoToProcess = currentLogoDataUri || logoUrl;
     if (!logoToProcess) return;
 
@@ -204,41 +275,32 @@ export default function Step2_Branding() {
 
     // Toast is nice, but progress bar is better. removing descriptive toast to rely on UI.
 
-    try {
-      // Dynamic import to avoid loading heavy library until needed
-      const { removeBackground } = await import('@imgly/background-removal');
+    removeImageBackground(logoToProcess, setProgress)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
 
-      const blob = await removeBackground(logoToProcess, {
-        progress: (_key: string, current: number, total: number) => {
-          // 'fetch' phase is the download (key.includes('model') or similar)
-          // We just calculate overall percent for simplicity
-          const percent = Math.round((current / total) * 100);
-          setProgress(percent);
-        },
+        // Convert blob URL to data URI for storage/processing
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const dataUri = reader.result as string;
+          await processNewLogo(dataUri, true);
+          URL.revokeObjectURL(url);
+          toast({ title: 'Background removed!' });
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch((error) => {
+        console.error('Background removal failed:', error);
+        toast({
+          title: 'Background removal failed',
+          description: 'Please try a different image.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsUploading(false);
+        setProgress(0);
       });
-
-      const url = URL.createObjectURL(blob);
-
-      // Convert blob URL to data URI for storage/processing
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const dataUri = reader.result as string;
-        await processNewLogo(dataUri, true);
-        URL.revokeObjectURL(url);
-        toast({ title: 'Background removed!' });
-      };
-      reader.readAsDataURL(blob);
-    } catch (error) {
-      console.error('Background removal failed:', error);
-      toast({
-        title: 'Background removal failed',
-        description: 'Please try a different image.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
-      setProgress(0);
-    }
   };
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,7 +335,7 @@ export default function Step2_Branding() {
     }
   };
 
-  const handleGenerateLogo = async (favoriteColor: string) => {
+  const handleGenerateLogo = (favoriteColor: string) => {
     setIsGeneratorModalOpen(false);
     setIsGenerating(true);
     setValue('brandPreferences', favoriteColor); // Save preference
@@ -282,45 +344,36 @@ export default function Step2_Branding() {
       description: 'This usually takes 10-15 seconds.',
     });
 
-    try {
-      const result = await guideBusinessOnboarding({
-        businessName,
-        businessType,
-        brandPreferences: favoriteColor,
-        task: 'generate_logos',
-      });
-
-      if (result.logos && result.logos.length > 0) {
-        const generatedLogoUri = result.logos[0];
-        const hasGeneratedBrandColors = Boolean(result.brandColors);
-        if (result.brandColors) {
-          setValue('brandColors', JSON.stringify(result.brandColors), {
+    generateLogoFromAi(businessName, businessType, favoriteColor)
+      .then(async ({ logoUri, brandColors: generatedBrandColors }) => {
+        const hasGeneratedBrandColors = Boolean(generatedBrandColors);
+        if (generatedBrandColors) {
+          setValue('brandColors', JSON.stringify(generatedBrandColors), {
             shouldValidate: true,
           });
         }
-        await processNewLogo(generatedLogoUri, hasGeneratedBrandColors, true);
+        await processNewLogo(logoUri, hasGeneratedBrandColors, true);
         toast({
           title: 'Logo Generated!',
           description: hasGeneratedBrandColors
             ? "We've applied AI-generated brand colors."
             : 'We extracted colors from your logo where possible. You can fine-tune them below.',
         });
-      } else {
-        throw new Error('No logo was returned.');
-      }
-    } catch (error) {
-      logger.error({
-        error: error as Error,
-        message: 'Logo generation failed',
+      })
+      .catch((error) => {
+        logger.error({
+          error: error as Error,
+          message: 'Logo generation failed',
+        });
+        toast({
+          title: 'Generation Failed',
+          description: 'Please try again or upload a logo.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setIsGenerating(false);
       });
-      toast({
-        title: 'Generation Failed',
-        description: 'Please try again or upload a logo.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
   };
 
   const handleColorChange = (role: keyof BrandColors, newColor: string) => {

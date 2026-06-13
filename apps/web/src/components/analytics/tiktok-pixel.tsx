@@ -1,11 +1,33 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { getStoredConsent } from '@/lib/consent-mode';
 
 interface TikTokPixelProps {
   pixelId: string;
+}
+
+/**
+ * Subscribe to marketing-consent changes from the external consent store
+ * (localStorage + custom events) so the pixel can sync without a
+ * setState-in-effect, keeping React Compiler memoization enabled.
+ */
+function subscribeToConsent(onChange: () => void): () => void {
+  window.addEventListener('storage', onChange);
+  window.addEventListener('cookie-consent-updated', onChange);
+  return () => {
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener('cookie-consent-updated', onChange);
+  };
+}
+
+function getMarketingConsentSnapshot(): boolean {
+  return getStoredConsent()?.marketing === true;
+}
+
+function getMarketingConsentServerSnapshot(): boolean {
+  return false;
 }
 
 /**
@@ -19,25 +41,11 @@ interface TikTokPixelProps {
  * @see https://business-api.tiktok.com/portal/docs?id=1739585696931842
  */
 export function TikTokPixel({ pixelId }: TikTokPixelProps) {
-  const [isAllowed, setIsAllowed] = useState(false);
-
-  useEffect(() => {
-    const consent = getStoredConsent();
-    setIsAllowed(consent?.marketing === true);
-
-    const handleConsentUpdate = () => {
-      const newConsent = getStoredConsent();
-      setIsAllowed(newConsent?.marketing === true);
-    };
-
-    window.addEventListener('storage', handleConsentUpdate);
-    window.addEventListener('cookie-consent-updated', handleConsentUpdate);
-
-    return () => {
-      window.removeEventListener('storage', handleConsentUpdate);
-      window.removeEventListener('cookie-consent-updated', handleConsentUpdate);
-    };
-  }, []);
+  const isAllowed = useSyncExternalStore(
+    subscribeToConsent,
+    getMarketingConsentSnapshot,
+    getMarketingConsentServerSnapshot
+  );
 
   if (!pixelId || !isAllowed) {
     return null;

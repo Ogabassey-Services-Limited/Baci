@@ -18,6 +18,24 @@ interface TrackingPageProps {
   params: Promise<{ trackingNumber: string }>;
 }
 
+// Module-scope helper keeps try/throw control flow out of the component body
+// so React Compiler can memoize the page.
+async function fetchTrackingResult(
+  trackingNumber: string
+): Promise<TrackingResult> {
+  const response = await fetchWithCsrf(
+    `/api/shipping/track/${encodeURIComponent(trackingNumber)}`,
+    { method: 'POST' }
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to track shipment');
+  }
+
+  return data;
+}
+
 export default function TrackingPage(props: TrackingPageProps) {
   return (
     <Suspense fallback={<TrackingPageFallback />}>
@@ -33,29 +51,32 @@ function TrackingPageContent({ params }: TrackingPageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchTracking = async () => {
-      try {
-        const response = await fetchWithCsrf(
-          `/api/shipping/track/${encodeURIComponent(trackingNumber)}`,
-          { method: 'POST' }
-        );
-        const data = await response.json();
+    let cancelled = false;
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to track shipment');
+    fetchTrackingResult(trackingNumber)
+      .then((data) => {
+        if (cancelled) {
+          return;
         }
-
         setTracking(data);
-      } catch (err) {
+      })
+      .catch((err: unknown) => {
+        if (cancelled) {
+          return;
+        }
         setError(
           err instanceof Error ? err.message : 'Failed to track shipment'
         );
-      } finally {
-        setLoading(false);
-      }
-    };
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
 
-    fetchTracking();
+    return () => {
+      cancelled = true;
+    };
   }, [trackingNumber]);
 
   const formatDate = (dateString: string) => {

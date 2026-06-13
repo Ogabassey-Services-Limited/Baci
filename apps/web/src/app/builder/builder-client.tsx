@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { BuilderSidebar } from '@/components/builder/builder-sidebar';
 import { builderConfig } from '@/components/builder/config';
 import { GeminiCommandBar } from '@/components/builder/gemini-command-bar';
@@ -173,6 +173,380 @@ function getBuilderBootstrapUrl() {
   return url.toString();
 }
 
+// React Compiler cannot yet lower try/finally (or throw inside try/catch)
+// statements, so the async builder mutations live at module scope instead of
+// inside the component body.
+
+type BuilderToast = ReturnType<typeof useToast>['toast'];
+
+interface BuilderSessionSetters {
+  setLastUpdated: Dispatch<SetStateAction<string | null>>;
+  setCanEdit: Dispatch<SetStateAction<boolean>>;
+  setDegradedReason: Dispatch<SetStateAction<BuilderDegradedReason | null>>;
+  setPreviewMode: Dispatch<SetStateAction<BuilderPreviewMode>>;
+  setAiDraftJobId: Dispatch<SetStateAction<string | null>>;
+  setCanApplyAiDraft: Dispatch<SetStateAction<boolean>>;
+}
+
+interface LoadBuilderDataParams extends BuilderSessionSetters {
+  router: ReturnType<typeof useRouter>;
+  toast: BuilderToast;
+  setData: Dispatch<SetStateAction<Data>>;
+  setSeoData: Dispatch<SetStateAction<SEOData>>;
+  setStoreSettings: Dispatch<SetStateAction<StoreSettings>>;
+  setSetupSettings: Dispatch<SetStateAction<SetupSettings>>;
+  setPageLoading: Dispatch<SetStateAction<boolean>>;
+}
+
+async function loadBuilderData(params: LoadBuilderDataParams) {
+  const {
+    router,
+    toast,
+    setData,
+    setSeoData,
+    setStoreSettings,
+    setSetupSettings,
+    setPageLoading,
+    setLastUpdated,
+    setCanEdit,
+    setDegradedReason,
+    setPreviewMode,
+    setAiDraftJobId,
+    setCanApplyAiDraft,
+  } = params;
+
+  try {
+    const res = await fetch(getBuilderBootstrapUrl());
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+      throw new Error(`API error: ${res.status}`);
+    }
+
+    const json = (await res.json()) as BuilderLoadResponse;
+
+    if (json.config) {
+      setData(json.config as Data);
+      setLastUpdated(json.lastUpdated);
+      setCanEdit(json.canEdit);
+      setDegradedReason(json.degradedReason);
+      setPreviewMode(json.previewMode);
+      setAiDraftJobId(json.aiDraftJobId);
+      setCanApplyAiDraft(json.canApplyAiDraft);
+
+      // Load SEO data if it exists
+      if (json.seo) {
+        setSeoData(json.seo as SEOData);
+      } else {
+        // Set default SEO from page title
+        setSeoData({
+          title: json.config.root?.title || 'Home',
+          description: '',
+          keywords: '',
+          twitterCard: 'summary_large_image',
+        });
+      }
+
+      // Load Store Settings if they exist
+      if (json.storeSettings) {
+        setStoreSettings(json.storeSettings as StoreSettings);
+      }
+
+      // Load Setup Settings if they exist
+      if (json.setupSettings) {
+        setSetupSettings(json.setupSettings as SetupSettings);
+      }
+
+      if (json.config.theme) {
+        applyTheme(json.config.theme as ThemeConfiguration);
+      } else {
+        applyTheme(defaultTheme);
+      }
+      if (json.degraded) {
+        toast({
+          title: 'Builder opened in read-only mode',
+          description: getDegradedBuilderDescription(json.degradedReason),
+          variant: 'destructive',
+        });
+      } else if (json.previewMode === 'ai_draft') {
+        toast({
+          title: 'AI draft preview',
+          description:
+            'Review the generated storefront before applying it to your draft.',
+        });
+      } else if (json.isDefault) {
+        toast({
+          title: 'Starting from your template',
+          description:
+            "We've loaded your current storefront as a starting point. Customize it to make it your own!",
+        });
+      }
+    } else {
+      const defaultData = {
+        content: [],
+        root: { title: 'Home' },
+        zones: {},
+        theme: defaultTheme,
+      };
+      setData(defaultData);
+      applyTheme(defaultData.theme);
+    }
+  } catch (error) {
+    console.error('Failed to load builder data:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to load page configuration. Using default template.',
+      variant: 'destructive',
+    });
+    const defaultData = {
+      content: [],
+      root: { title: 'Home' },
+      zones: {},
+      theme: defaultTheme,
+    };
+    setData(defaultData);
+    applyTheme(defaultData.theme);
+    setLastUpdated(null);
+    setCanEdit(false);
+    setDegradedReason('config_load_failed');
+    setPreviewMode(null);
+    setAiDraftJobId(null);
+    setCanApplyAiDraft(false);
+  } finally {
+    setPageLoading(false);
+  }
+}
+
+interface SaveBuilderDraftParams {
+  newData: Data;
+  seoData: SEOData;
+  storeSettings: StoreSettings;
+  setupSettings: SetupSettings;
+  expectedLastUpdated: string | null;
+  setLastUpdated: Dispatch<SetStateAction<string | null>>;
+  setSaving: Dispatch<SetStateAction<boolean>>;
+  toast: BuilderToast;
+}
+
+async function saveBuilderDraft(
+  params: SaveBuilderDraftParams
+): Promise<string | null> {
+  const {
+    newData,
+    seoData,
+    storeSettings,
+    setupSettings,
+    expectedLastUpdated,
+    setLastUpdated,
+    setSaving,
+    toast,
+  } = params;
+
+  setSaving(true);
+  try {
+    const result = await apiPost<BuilderMutationResponse>('/api/builder', {
+      slug: 'home',
+      name: 'Home',
+      config: newData,
+      seo: seoData,
+      storeSettings: storeSettings,
+      setupSettings: setupSettings,
+      expectedLastUpdated: expectedLastUpdated,
+    });
+    setLastUpdated(result.lastUpdated);
+    return result.lastUpdated;
+  } catch (error) {
+    console.error('Failed to save:', error);
+    toast({
+      title: 'Error',
+      description: getBuilderMutationErrorMessage(
+        error,
+        'Failed to save changes.'
+      ),
+      variant: 'destructive',
+    });
+    return null;
+  } finally {
+    setSaving(false);
+  }
+}
+
+interface PublishBuilderDraftParams {
+  expectedLastUpdated: string;
+  setLastUpdated: Dispatch<SetStateAction<string | null>>;
+  setPublishing: Dispatch<SetStateAction<boolean>>;
+  toast: BuilderToast;
+}
+
+async function publishBuilderDraft(params: PublishBuilderDraftParams) {
+  const { expectedLastUpdated, setLastUpdated, setPublishing, toast } = params;
+
+  try {
+    const result = await apiPut<BuilderMutationResponse>('/api/builder', {
+      slug: 'home',
+      expectedLastUpdated: expectedLastUpdated,
+    });
+    setLastUpdated(result.lastUpdated);
+
+    toast({
+      title: 'Published! 🚀',
+      description: 'Your changes are now live on your storefront.',
+    });
+  } catch (error) {
+    console.error('Failed to publish:', error);
+    toast({
+      title: 'Error',
+      description: getBuilderMutationErrorMessage(
+        error,
+        'Failed to publish changes.'
+      ),
+      variant: 'destructive',
+    });
+  } finally {
+    setPublishing(false);
+  }
+}
+
+interface RunBuilderAiCommandParams {
+  command: string;
+  currentConfig: Data;
+  setData: Dispatch<SetStateAction<Data>>;
+  setIsAiLoading: Dispatch<SetStateAction<boolean>>;
+  toast: BuilderToast;
+}
+
+async function runBuilderAiCommand(params: RunBuilderAiCommandParams) {
+  const { command, currentConfig, setData, setIsAiLoading, toast } = params;
+
+  setIsAiLoading(true);
+  try {
+    const response = await fetchWithCsrf('/api/builder/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: command,
+        currentConfig: currentConfig,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ details: 'Unknown error' }));
+      throw new Error(errorData.details || 'Failed to process AI request');
+    }
+
+    const result = await response.json();
+
+    if (result.config) {
+      setData(result.config);
+      if (result.config.theme) {
+        applyTheme(result.config.theme);
+      }
+      toast({
+        title: '✨ Design Updated',
+        description: 'Gemini AI has applied your changes successfully!',
+      });
+    } else {
+      toast({
+        title: 'Warning',
+        description: 'AI response was incomplete. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  } catch (error) {
+    console.error('Gemini AI Command Error:', error);
+    toast({
+      title: 'Error',
+      description: getBuilderMutationErrorMessage(
+        error,
+        'Failed to process AI command. Please try again.'
+      ),
+      variant: 'destructive',
+    });
+  } finally {
+    setIsAiLoading(false);
+  }
+}
+
+interface ApplyAiDraftRequestParams extends BuilderSessionSetters {
+  aiDraftJobId: string;
+  force: boolean;
+  router: ReturnType<typeof useRouter>;
+  toast: BuilderToast;
+  setShowStaleAiDraftDialog: Dispatch<SetStateAction<boolean>>;
+  setApplyingAiDraft: Dispatch<SetStateAction<boolean>>;
+}
+
+async function applyAiDraftRequest(params: ApplyAiDraftRequestParams) {
+  const {
+    aiDraftJobId,
+    force,
+    router,
+    toast,
+    setShowStaleAiDraftDialog,
+    setApplyingAiDraft,
+    setLastUpdated,
+    setCanEdit,
+    setDegradedReason,
+    setPreviewMode,
+    setAiDraftJobId,
+    setCanApplyAiDraft,
+  } = params;
+
+  setApplyingAiDraft(true);
+  try {
+    const response = await fetchWithCsrf(`/api/ai-jobs/${aiDraftJobId}/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(force ? { force: true } : {}),
+    });
+    const payload = await readApplyAiDraftResponse(response);
+
+    if (
+      !force &&
+      response.status === 409 &&
+      payload.code === 'ai_draft_stale'
+    ) {
+      setShowStaleAiDraftDialog(true);
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        payload.error || payload.message || 'Failed to apply AI design'
+      );
+    }
+
+    setLastUpdated(payload.lastUpdated ?? null);
+    toast({
+      title: 'AI design applied',
+      description: 'The generated storefront is now your editable draft.',
+    });
+    setCanEdit(true);
+    setDegradedReason(null);
+    setPreviewMode(null);
+    setAiDraftJobId(null);
+    setCanApplyAiDraft(false);
+    router.push('/builder');
+  } catch (error) {
+    console.error('Failed to apply AI draft:', error);
+    toast({
+      title: 'Failed to apply AI design',
+      description: getBuilderMutationErrorMessage(
+        error,
+        'Please retry from the dashboard.'
+      ),
+      variant: 'destructive',
+    });
+  } finally {
+    setApplyingAiDraft(false);
+  }
+}
+
 export default function BuilderClient() {
   const [data, setData] = useState<Data>({
     content: [],
@@ -262,122 +636,46 @@ export default function BuilderClient() {
     }
   }, [user, authLoading, router]);
 
-  // Load initial data
+  // When auth + merchant have resolved but there is no user/merchant to load
+  // for, stop the page loader during render (a prev-key comparison) rather than
+  // synchronously inside the effect — that forces an extra render where the
+  // stale loading state is briefly visible. The data-loading effect below
+  // resets `pageLoading` via the module-scope loader once a fetch completes.
+  const isResolvedWithoutTarget =
+    !authLoading && !merchantLoading && (!user || !merchant);
+  // Seed `false` so a first render that is already resolved-without-target
+  // still triggers the loader-off transition below.
+  const [prevResolvedWithoutTarget, setPrevResolvedWithoutTarget] =
+    useState(false);
+  if (isResolvedWithoutTarget !== prevResolvedWithoutTarget) {
+    setPrevResolvedWithoutTarget(isResolvedWithoutTarget);
+    if (isResolvedWithoutTarget) {
+      setPageLoading(false);
+    }
+  }
+
+  // Load initial data. The async fetch (with its try/catch/finally) lives in
+  // the module-scope `loadBuilderData` helper so the React Compiler can memoize
+  // this component.
   useEffect(() => {
-    const loadData = async () => {
-      if (authLoading || merchantLoading) return;
-      if (!user || !merchant) {
-        setPageLoading(false);
-        return;
-      }
+    if (authLoading || merchantLoading) return;
+    if (!user || !merchant) return;
 
-      try {
-        const res = await fetch(getBuilderBootstrapUrl());
-
-        if (!res.ok) {
-          if (res.status === 401) {
-            router.push('/login');
-            return;
-          }
-          throw new Error(`API error: ${res.status}`);
-        }
-
-        const json = (await res.json()) as BuilderLoadResponse;
-
-        if (json.config) {
-          setData(json.config as Data);
-          setLastUpdated(json.lastUpdated);
-          setCanEdit(json.canEdit);
-          setDegradedReason(json.degradedReason);
-          setPreviewMode(json.previewMode);
-          setAiDraftJobId(json.aiDraftJobId);
-          setCanApplyAiDraft(json.canApplyAiDraft);
-
-          // Load SEO data if it exists
-          if (json.seo) {
-            setSeoData(json.seo as SEOData);
-          } else {
-            // Set default SEO from page title
-            setSeoData({
-              title: json.config.root?.title || 'Home',
-              description: '',
-              keywords: '',
-              twitterCard: 'summary_large_image',
-            });
-          }
-
-          // Load Store Settings if they exist
-          if (json.storeSettings) {
-            setStoreSettings(json.storeSettings as StoreSettings);
-          }
-
-          // Load Setup Settings if they exist
-          if (json.setupSettings) {
-            setSetupSettings(json.setupSettings as SetupSettings);
-          }
-
-          if (json.config.theme) {
-            applyTheme(json.config.theme as ThemeConfiguration);
-          } else {
-            applyTheme(defaultTheme);
-          }
-          if (json.degraded) {
-            toast({
-              title: 'Builder opened in read-only mode',
-              description: getDegradedBuilderDescription(json.degradedReason),
-              variant: 'destructive',
-            });
-          } else if (json.previewMode === 'ai_draft') {
-            toast({
-              title: 'AI draft preview',
-              description:
-                'Review the generated storefront before applying it to your draft.',
-            });
-          } else if (json.isDefault) {
-            toast({
-              title: 'Starting from your template',
-              description:
-                "We've loaded your current storefront as a starting point. Customize it to make it your own!",
-            });
-          }
-        } else {
-          const defaultData = {
-            content: [],
-            root: { title: 'Home' },
-            zones: {},
-            theme: defaultTheme,
-          };
-          setData(defaultData);
-          applyTheme(defaultData.theme);
-        }
-      } catch (error) {
-        console.error('Failed to load builder data:', error);
-        toast({
-          title: 'Error',
-          description:
-            'Failed to load page configuration. Using default template.',
-          variant: 'destructive',
-        });
-        const defaultData = {
-          content: [],
-          root: { title: 'Home' },
-          zones: {},
-          theme: defaultTheme,
-        };
-        setData(defaultData);
-        applyTheme(defaultData.theme);
-        setLastUpdated(null);
-        setCanEdit(false);
-        setDegradedReason('config_load_failed');
-        setPreviewMode(null);
-        setAiDraftJobId(null);
-        setCanApplyAiDraft(false);
-      } finally {
-        setPageLoading(false);
-      }
-    };
-
-    loadData();
+    loadBuilderData({
+      router,
+      toast,
+      setData,
+      setSeoData,
+      setStoreSettings,
+      setSetupSettings,
+      setPageLoading,
+      setLastUpdated,
+      setCanEdit,
+      setDegradedReason,
+      setPreviewMode,
+      setAiDraftJobId,
+      setCanApplyAiDraft,
+    });
   }, [user, merchant, authLoading, merchantLoading, router, toast]);
 
   const handleSave = async (newData: Data): Promise<string | null> => {
@@ -390,33 +688,16 @@ export default function BuilderClient() {
       return null;
     }
 
-    setSaving(true);
-    try {
-      const result = await apiPost<BuilderMutationResponse>('/api/builder', {
-        slug: 'home',
-        name: 'Home',
-        config: newData,
-        seo: seoData,
-        storeSettings: storeSettings,
-        setupSettings: setupSettings,
-        expectedLastUpdated: lastUpdated,
-      });
-      setLastUpdated(result.lastUpdated);
-      return result.lastUpdated;
-    } catch (error) {
-      console.error('Failed to save:', error);
-      toast({
-        title: 'Error',
-        description: getBuilderMutationErrorMessage(
-          error,
-          'Failed to save changes.'
-        ),
-        variant: 'destructive',
-      });
-      return null;
-    } finally {
-      setSaving(false);
-    }
+    return await saveBuilderDraft({
+      newData,
+      seoData,
+      storeSettings,
+      setupSettings,
+      expectedLastUpdated: lastUpdated,
+      setLastUpdated,
+      setSaving,
+      toast,
+    });
   };
 
   const handlePublish = async () => {
@@ -441,30 +722,12 @@ export default function BuilderClient() {
       return;
     }
 
-    try {
-      const result = await apiPut<BuilderMutationResponse>('/api/builder', {
-        slug: 'home',
-        expectedLastUpdated: savedLastUpdated,
-      });
-      setLastUpdated(result.lastUpdated);
-
-      toast({
-        title: 'Published! 🚀',
-        description: 'Your changes are now live on your storefront.',
-      });
-    } catch (error) {
-      console.error('Failed to publish:', error);
-      toast({
-        title: 'Error',
-        description: getBuilderMutationErrorMessage(
-          error,
-          'Failed to publish changes.'
-        ),
-        variant: 'destructive',
-      });
-    } finally {
-      setPublishing(false);
-    }
+    await publishBuilderDraft({
+      expectedLastUpdated: savedLastUpdated,
+      setLastUpdated,
+      setPublishing,
+      toast,
+    });
   };
 
   const handleAiCommand = async (command: string) => {
@@ -477,55 +740,13 @@ export default function BuilderClient() {
       return;
     }
 
-    setIsAiLoading(true);
-    try {
-      const response = await fetchWithCsrf('/api/builder/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: command,
-          currentConfig: data,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ details: 'Unknown error' }));
-        throw new Error(errorData.details || 'Failed to process AI request');
-      }
-
-      const result = await response.json();
-
-      if (result.config) {
-        setData(result.config);
-        if (result.config.theme) {
-          applyTheme(result.config.theme);
-        }
-        toast({
-          title: '✨ Design Updated',
-          description: 'Gemini AI has applied your changes successfully!',
-        });
-      } else {
-        toast({
-          title: 'Warning',
-          description: 'AI response was incomplete. Please try again.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Gemini AI Command Error:', error);
-      toast({
-        title: 'Error',
-        description: getBuilderMutationErrorMessage(
-          error,
-          'Failed to process AI command. Please try again.'
-        ),
-        variant: 'destructive',
-      });
-    } finally {
-      setIsAiLoading(false);
-    }
+    await runBuilderAiCommand({
+      command,
+      currentConfig: data,
+      setData,
+      setIsAiLoading,
+      toast,
+    });
   };
 
   const applyAiDraft = async (force = false) => {
@@ -539,57 +760,20 @@ export default function BuilderClient() {
       return;
     }
 
-    setApplyingAiDraft(true);
-    try {
-      const response = await fetchWithCsrf(
-        `/api/ai-jobs/${aiDraftJobId}/apply`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(force ? { force: true } : {}),
-        }
-      );
-      const payload = await readApplyAiDraftResponse(response);
-
-      if (
-        !force &&
-        response.status === 409 &&
-        payload.code === 'ai_draft_stale'
-      ) {
-        setShowStaleAiDraftDialog(true);
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          payload.error || payload.message || 'Failed to apply AI design'
-        );
-      }
-
-      setLastUpdated(payload.lastUpdated ?? null);
-      toast({
-        title: 'AI design applied',
-        description: 'The generated storefront is now your editable draft.',
-      });
-      setCanEdit(true);
-      setDegradedReason(null);
-      setPreviewMode(null);
-      setAiDraftJobId(null);
-      setCanApplyAiDraft(false);
-      router.push('/builder');
-    } catch (error) {
-      console.error('Failed to apply AI draft:', error);
-      toast({
-        title: 'Failed to apply AI design',
-        description: getBuilderMutationErrorMessage(
-          error,
-          'Please retry from the dashboard.'
-        ),
-        variant: 'destructive',
-      });
-    } finally {
-      setApplyingAiDraft(false);
-    }
+    await applyAiDraftRequest({
+      aiDraftJobId,
+      force,
+      router,
+      toast,
+      setShowStaleAiDraftDialog,
+      setApplyingAiDraft,
+      setLastUpdated,
+      setCanEdit,
+      setDegradedReason,
+      setPreviewMode,
+      setAiDraftJobId,
+      setCanApplyAiDraft,
+    });
   };
 
   if (authLoading || merchantLoading || pageLoading) {
