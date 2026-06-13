@@ -464,6 +464,7 @@ type CategoryProductRouteControlResult =
 interface CategoryProductRouteControl {
   result: CategoryProductRouteControlResult;
   loadProductResult: () => Promise<CategoryProductResult>;
+  preloadedProductImage?: string | null;
 }
 
 function hasCategoryMismatch(
@@ -746,6 +747,9 @@ async function getProductRouteControl(
   productSlug: string
 ): Promise<CategoryProductRouteControl | null> {
   const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(storeSlug);
+  const isKnownOgaBasseyCustomDomain =
+    storeSlug.trim().toLowerCase() === OGABASSEY_DOMAIN.toLowerCase();
+  let preloadedProductImage: string | null = null;
   const knownOgaBasseyLcpHintPromise = knownOgaBasseyMerchantId
     ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug)
     : null;
@@ -758,7 +762,43 @@ async function getProductRouteControl(
       );
     });
   }
-  const merchant = await getRequestScopedMerchant(storeSlug);
+
+  const merchantPromise = getRequestScopedMerchant(storeSlug);
+
+  if (knownOgaBasseyLcpHintPromise && isKnownOgaBasseyCustomDomain) {
+    const earlyPreloadResult = await Promise.race([
+      knownOgaBasseyLcpHintPromise
+        .then((cachedProduct) => ({
+          kind: 'lcp-hint' as const,
+          primaryImage: getCachedProductLcpHintPrimaryImage(cachedProduct),
+        }))
+        .catch(() => ({ kind: 'lcp-hint' as const, primaryImage: null })),
+      merchantPromise.then(
+        () => ({ kind: 'merchant-ready' as const }),
+        () => ({ kind: 'merchant-ready' as const })
+      ),
+    ]);
+
+    if (
+      earlyPreloadResult.kind === 'lcp-hint' &&
+      earlyPreloadResult.primaryImage
+    ) {
+      try {
+        preloadOgabasseyPdpProductResources({
+          src: earlyPreloadResult.primaryImage,
+        });
+        preloadedProductImage = earlyPreloadResult.primaryImage;
+      } catch (error) {
+        console.warn(
+          'Unable to preload OgaBassey PDP resources early:',
+          sanitizeLookupLogValue(productSlug),
+          error
+        );
+      }
+    }
+  }
+
+  const merchant = await merchantPromise;
 
   if (!merchant) {
     console.warn('Merchant not found for storefront product route:', storeSlug);
@@ -785,7 +825,11 @@ async function getProductRouteControl(
       productSlug
     );
     return result
-      ? { result, loadProductResult: () => Promise.resolve(result) }
+      ? {
+          result,
+          loadProductResult: () => Promise.resolve(result),
+          preloadedProductImage,
+        }
       : null;
   }
 
@@ -808,6 +852,7 @@ async function getProductRouteControl(
       needsValuesRedirect,
     },
     loadProductResult,
+    preloadedProductImage,
   };
 }
 
@@ -1206,7 +1251,11 @@ export default async function CategoryProductPage({
     return <StorefrontRouteNotFound />;
   }
 
-  const { result: productResult, loadProductResult } = routeControl;
+  const {
+    result: productResult,
+    loadProductResult,
+    preloadedProductImage,
+  } = routeControl;
 
   if (!('product' in productResult)) {
     permanentRedirect(
@@ -1250,13 +1299,16 @@ export default async function CategoryProductPage({
   const pagePreloadProductImage = pageOwnsProductPreload
     ? primaryProductImage
     : null;
+  const shouldPreloadProductImage =
+    pagePreloadProductImage &&
+    pagePreloadProductImage !== preloadedProductImage;
   const criticalProduct =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
 
   try {
-    if (pagePreloadProductImage) {
+    if (shouldPreloadProductImage) {
       preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
     }
   } catch (error) {
