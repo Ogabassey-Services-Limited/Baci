@@ -242,7 +242,10 @@ describe('BillForm', () => {
     expect(mockVerifyMutate).toHaveBeenCalledWith(
       {
         billItemIdentifier: 'commercial',
+        billerCode: undefined,
         customerIdentifier: '1234567890',
+        productCode: undefined,
+        provider: 'kuda',
       },
       { onSuccess: expect.any(Function) }
     );
