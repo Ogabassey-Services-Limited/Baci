@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useStorefrontProducts } from './use-storefront-products';
+import { useStorefrontProducts } from '@/hooks/use-storefront-products';
 
 const sampleProduct = {
   id: 'prod-1',

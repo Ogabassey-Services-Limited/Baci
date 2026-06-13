@@ -78,7 +78,11 @@ export default function NegotiationsScreen() {
   const fetchRequests = () => {
     const merchantId = merchant?.id;
     if (!merchantId) {
+      // Clear merchant-scoped state so a sign-out / merchant switch can't leave
+      // the previous merchant's negotiations on screen, then settle the flags.
       return Promise.resolve().then(() => {
+        setRequests([]);
+        setFetchError(null);
         setLoading(false);
         setRefreshing(false);
       });

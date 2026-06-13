@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -154,30 +154,32 @@ async function submitNotification(
 // biome-ignore lint/suspicious/noEmptyBlockStatements: useSyncExternalStore needs a no-op subscribe; the minute-resolution snapshot is computed once per session.
 const subscribeToNothing = () => () => {};
 
-// Cache the client snapshot so useSyncExternalStore reads a stable value across
-// renders (a fresh Date each call would loop). Computed lazily on first client
-// read — equivalent to the previous mount-time effect.
-let cachedMinDateTime: string | null = null;
-function getMinDateTimeClientSnapshot() {
-  if (cachedMinDateTime === null) {
-    cachedMinDateTime = new Date(
-      Date.now() - new Date().getTimezoneOffset() * 60000
-    )
-      .toISOString()
-      .slice(0, 16);
-  }
-  return cachedMinDateTime;
-}
 const getMinDateTimeServerSnapshot = () => '';
 
 // Earliest selectable datetime ("now" in local time). Empty on the server so
 // the first client render matches (a time-based value hydration-mismatches),
 // then filled from the client clock — via useSyncExternalStore so there is no
 // post-paint setState and React Compiler memoization is preserved.
+//
+// The snapshot is cached in an instance-scoped ref (not a module global) so it
+// stays stable across renders within a visit but is recomputed fresh on each
+// mount — a module-level cache would persist a stale "now" across client-side
+// navigations and let users schedule notifications in the past.
 function useMinDateTime() {
+  const cacheRef = useRef<string | null>(null);
+  const getClientSnapshot = () => {
+    if (cacheRef.current === null) {
+      cacheRef.current = new Date(
+        Date.now() - new Date().getTimezoneOffset() * 60000
+      )
+        .toISOString()
+        .slice(0, 16);
+    }
+    return cacheRef.current;
+  };
   return useSyncExternalStore(
     subscribeToNothing,
-    getMinDateTimeClientSnapshot,
+    getClientSnapshot,
     getMinDateTimeServerSnapshot
   );
 }

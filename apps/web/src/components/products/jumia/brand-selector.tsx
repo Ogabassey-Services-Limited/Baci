@@ -41,10 +41,13 @@ export function JumiaBrandSelector({
 }: BrandSelectorProps) {
   const [open, setOpen] = useState(false);
   const [brands, setBrands] = useState<JumiaBrandItem[]>([]);
-  const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
-  // Seed the missing-merchant message from the initial prop so the requirement
-  // is surfaced on mount without an effect (the merchant-change reset below
-  // keeps it in sync afterwards).
+  // Seed both status and message from the initial prop so a missing merchant
+  // shows the requirement (not the loading spinner, which the 'idle' branch
+  // renders) on mount without an effect; the merchant-change reset below keeps
+  // them in sync afterwards.
+  const [fetchStatus, setFetchStatus] = useState<FetchStatus>(
+    merchantId ? 'idle' : 'error'
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(
     merchantId ? null : 'Merchant is required to load Jumia brands.'
   );
@@ -52,6 +55,12 @@ export function JumiaBrandSelector({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchBrands = (currentMerchantId: string) => {
+    // Defensive: never hit the API without a merchant id.
+    if (!currentMerchantId) {
+      setFetchStatus('error');
+      setErrorMessage('Merchant is required to load Jumia brands.');
+      return;
+    }
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -128,7 +137,11 @@ export function JumiaBrandSelector({
     setErrorMessage(
       merchantId ? null : 'Merchant is required to load Jumia brands.'
     );
-    setFetchStatus('idle');
+    setFetchStatus(merchantId ? 'idle' : 'error');
+    // Close the selector on merchant change so it can't sit on a stale
+    // "Loading brands…" frame (fetching happens on open, and no open-change
+    // event fires here); reopening re-fetches for the new merchant.
+    setOpen(false);
   }
 
   // Fetch in response to the user opening the popover. Loading brands is the
@@ -137,7 +150,7 @@ export function JumiaBrandSelector({
   // See https://react.dev/learn/you-might-not-need-an-effect#fetching-data
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
-    if (nextOpen && fetchStatus === 'idle') {
+    if (nextOpen && merchantId && fetchStatus === 'idle') {
       fetchBrands(merchantId);
     }
   };
@@ -164,14 +177,16 @@ export function JumiaBrandSelector({
               <CommandEmpty>
                 <div className="p-4 text-sm text-center">
                   <p className="text-destructive">{errorMessage}</p>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => fetchBrands(merchantId)}
-                    className="mt-2 text-sm underline"
-                  >
-                    Retry
-                  </Button>
+                  {merchantId && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={() => fetchBrands(merchantId)}
+                      className="mt-2 text-sm underline"
+                    >
+                      Retry
+                    </Button>
+                  )}
                 </div>
               </CommandEmpty>
             )}
