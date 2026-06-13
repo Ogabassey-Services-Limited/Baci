@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -168,13 +168,18 @@ export default function CreateNotificationPage() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [expiresEnabled, setExpiresEnabled] = useState(false);
 
-  // Earliest selectable datetime ("now" in local time), computed once per mount
-  // to keep render pure (Date.now()/new Date() are impure during render).
-  const [minDateTime] = useState(() =>
-    new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16)
-  );
+  // Earliest selectable datetime ("now" in local time). Starts empty so the
+  // server and client first render identically (a time-based initializer
+  // hydration-mismatches), then fills in from the client clock after mount —
+  // the documented client-only rendering pattern.
+  const [minDateTime, setMinDateTime] = useState('');
+  useEffect(() => {
+    setMinDateTime(
+      new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16)
+    );
+  }, []);
 
   const updateFormData = (updates: Partial<CreateNotificationInput>) => {
     setFormData((prev) => ({ ...prev, ...updates }));

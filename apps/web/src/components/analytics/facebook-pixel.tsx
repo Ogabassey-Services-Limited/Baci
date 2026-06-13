@@ -10,16 +10,24 @@ interface FacebookPixelProps {
 
 const CONSENT_STORAGE_KEY = 'baci-cookie-consent';
 
-// Subscribe to cross-tab consent changes. React re-reads the snapshot whenever
-// the listener fires, so consent updates flow in without a setState-in-effect.
+// Subscribe to cross-tab and same-tab consent changes. React re-reads the
+// snapshot whenever the listener fires, so consent updates flow in without a
+// setState-in-effect.
 function subscribeToConsent(onChange: () => void): () => void {
+  const handleConsentChange = () => {
+    onChange();
+  };
   const handleStorageChange = (e: StorageEvent) => {
     if (e.key === CONSENT_STORAGE_KEY) {
-      onChange();
+      handleConsentChange();
     }
   };
   window.addEventListener('storage', handleStorageChange);
-  return () => window.removeEventListener('storage', handleStorageChange);
+  window.addEventListener('cookie-consent-updated', handleConsentChange);
+  return () => {
+    window.removeEventListener('storage', handleStorageChange);
+    window.removeEventListener('cookie-consent-updated', handleConsentChange);
+  };
 }
 
 // Server renders with consent denied to stay deterministic during hydration.
