@@ -87,7 +87,7 @@ describe('usePageConfig', () => {
   it('surfaces query errors from the page config request', async () => {
     const queryClient = createQueryClient();
     const error = new Error('page config unavailable');
-    mockFrom.mockReturnValueOnce({
+    mockFrom.mockReturnValue({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({
           eq: jest.fn(() => ({
@@ -113,7 +113,7 @@ describe('usePageConfig', () => {
 
   it('returns null for invalid published page config payloads', async () => {
     const queryClient = createQueryClient();
-    mockFrom.mockReturnValueOnce({
+    mockFrom.mockReturnValue({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({
           eq: jest.fn(() => ({
@@ -141,7 +141,7 @@ describe('usePageConfig', () => {
 
   it('returns null when no published config is present', async () => {
     const queryClient = createQueryClient();
-    mockFrom.mockReturnValueOnce({
+    mockFrom.mockReturnValue({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({
           eq: jest.fn(() => ({
