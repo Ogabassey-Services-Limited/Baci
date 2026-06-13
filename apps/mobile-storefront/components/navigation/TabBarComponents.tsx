@@ -67,7 +67,7 @@ export function TabBarIcon({
   );
 }
 
-export const styles = StyleSheet.create({
+const styles = StyleSheet.create({
   iconContainer: {
     height: 32,
     alignItems: 'center',

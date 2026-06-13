@@ -27,7 +27,7 @@ export type UtilityRouteSuccessData = Omit<
 
 export type UtilityRouteParamKey = keyof UtilityRouteParams;
 
-export const UTILITY_ROUTE_PARAM_KEYS = [
+const UTILITY_ROUTE_PARAM_KEYS = [
   'amount',
   'cashbackAmount',
   'cashbackNewBalance',
