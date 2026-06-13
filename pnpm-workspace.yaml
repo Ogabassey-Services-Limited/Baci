@@ -53,7 +53,8 @@ overrides:
   smol-toml: ">=1.6.1"
   picomatch: ">=4.0.4"
   yaml: ">=2.8.3"
-  esbuild: "^0.25.0"
+  # Pin to the patched esbuild 0.28 line for local dev-server path hardening and binary integrity fixes.
+  esbuild: "^0.28.1"
   # Pin to ^0.34.5 to mitigate security advisories and maintain image scaling stability.
   sharp: "^0.34.5"
   prismjs: "^1.30.0"
