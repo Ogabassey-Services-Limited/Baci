@@ -196,9 +196,9 @@ describe('JumiaBrandSelector', () => {
   });
 
   it('retry triggers a new fetch', async () => {
-    // After the first failed fetch, clicking Retry calls fetchBrands directly
-    // which clears error state. The useEffect also re-fires (error changed),
-    // aborting the direct call and starting a new one. Provide enough mocks.
+    // After the first failed fetch, clicking Retry calls fetchBrands directly,
+    // which aborts the prior controller and starts a new request. Provide
+    // enough mocks to cover the initial failure plus the retry success.
     const successResponse = {
       ok: true,
       json: () => Promise.resolve({ brands: mockBrands }),

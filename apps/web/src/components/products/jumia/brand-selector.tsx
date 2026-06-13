@@ -42,7 +42,12 @@ export function JumiaBrandSelector({
   const [open, setOpen] = useState(false);
   const [brands, setBrands] = useState<JumiaBrandItem[]>([]);
   const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Seed the missing-merchant message from the initial prop so the requirement
+  // is surfaced on mount without an effect (the merchant-change reset below
+  // keeps it in sync afterwards).
+  const [errorMessage, setErrorMessage] = useState<string | null>(
+    merchantId ? null : 'Merchant is required to load Jumia brands.'
+  );
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -96,32 +101,45 @@ export function JumiaBrandSelector({
       });
   };
 
-  // Abort any in-flight request when the component unmounts.
+  // Abort any in-flight request when the component unmounts or the merchant
+  // changes. The ref read stays inside the effect so it is never touched during
+  // render; the merchant-change state reset is derived during render below.
+  // merchantId is an intentional dependency: the cleanup must re-run when the
+  // merchant changes so a stale request can't resolve into the new merchant's
+  // brand list, even though the cleanup body only reads the ref.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: merchantId re-arms the abort cleanup on merchant change; the body reads only the ref
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
     };
-  }, []);
-
-  useEffect(() => {
-    abortControllerRef.current?.abort();
-    setBrands([]);
-    setErrorMessage(null);
-    if (!merchantId) {
-      setErrorMessage('Merchant is required to load Jumia brands.');
-    }
-    setFetchStatus('idle');
   }, [merchantId]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchBrands uses current state setters and is intentionally not memoized under React Compiler
-  useEffect(() => {
-    if (open && fetchStatus === 'idle') {
-      fetchBrands(merchantId);
-    }
-  }, [open, fetchStatus, merchantId]);
+  // Reset the brand list inline during render when the merchant changes,
+  // instead of inside an effect. Routing this reset through useEffect forces an
+  // extra render where the previous merchant's brands are briefly visible, and
+  // re-arming `fetchStatus` inside an effect bails the React Compiler out of
+  // memoizing the component. The stale request is aborted by the effect cleanup
+  // above (keyed on merchantId), keeping every ref read out of render.
+  // See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevMerchantId, setPrevMerchantId] = useState(merchantId);
+  if (merchantId !== prevMerchantId) {
+    setPrevMerchantId(merchantId);
+    setBrands([]);
+    setErrorMessage(
+      merchantId ? null : 'Merchant is required to load Jumia brands.'
+    );
+    setFetchStatus('idle');
+  }
 
+  // Fetch in response to the user opening the popover. Loading brands is the
+  // direct result of a user interaction, so it belongs in the event handler
+  // rather than an effect that re-arms the loading status on every render.
+  // See https://react.dev/learn/you-might-not-need-an-effect#fetching-data
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
+    if (nextOpen && fetchStatus === 'idle') {
+      fetchBrands(merchantId);
+    }
   };
 
   return (

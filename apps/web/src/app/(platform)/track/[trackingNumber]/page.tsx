@@ -50,11 +50,21 @@ function TrackingPageContent({ params }: TrackingPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Reset state synchronously during render when the tracking number changes,
+  // instead of in an effect — the documented "adjusting state when a prop
+  // changes" pattern. Avoids briefly showing the previous shipment's data and
+  // keeps React Compiler memoization intact.
+  const [loadedTrackingNumber, setLoadedTrackingNumber] =
+    useState(trackingNumber);
+  if (trackingNumber !== loadedTrackingNumber) {
+    setLoadedTrackingNumber(trackingNumber);
+    setTracking(null);
     setLoading(true);
     setError(null);
-    setTracking(null);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
 
     fetchTrackingResult(trackingNumber)
       .then((data) => {

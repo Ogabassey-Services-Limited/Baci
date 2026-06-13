@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -151,6 +151,37 @@ async function submitNotification(
   }
 }
 
+// biome-ignore lint/suspicious/noEmptyBlockStatements: useSyncExternalStore needs a no-op subscribe; the minute-resolution snapshot is computed once per session.
+const subscribeToNothing = () => () => {};
+
+// Cache the client snapshot so useSyncExternalStore reads a stable value across
+// renders (a fresh Date each call would loop). Computed lazily on first client
+// read — equivalent to the previous mount-time effect.
+let cachedMinDateTime: string | null = null;
+function getMinDateTimeClientSnapshot() {
+  if (cachedMinDateTime === null) {
+    cachedMinDateTime = new Date(
+      Date.now() - new Date().getTimezoneOffset() * 60000
+    )
+      .toISOString()
+      .slice(0, 16);
+  }
+  return cachedMinDateTime;
+}
+const getMinDateTimeServerSnapshot = () => '';
+
+// Earliest selectable datetime ("now" in local time). Empty on the server so
+// the first client render matches (a time-based value hydration-mismatches),
+// then filled from the client clock — via useSyncExternalStore so there is no
+// post-paint setState and React Compiler memoization is preserved.
+function useMinDateTime() {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    getMinDateTimeClientSnapshot,
+    getMinDateTimeServerSnapshot
+  );
+}
+
 export default function CreateNotificationPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -168,18 +199,7 @@ export default function CreateNotificationPage() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [expiresEnabled, setExpiresEnabled] = useState(false);
 
-  // Earliest selectable datetime ("now" in local time). Starts empty so the
-  // server and client first render identically (a time-based initializer
-  // hydration-mismatches), then fills in from the client clock after mount —
-  // the documented client-only rendering pattern.
-  const [minDateTime, setMinDateTime] = useState('');
-  useEffect(() => {
-    setMinDateTime(
-      new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-    );
-  }, []);
+  const minDateTime = useMinDateTime();
 
   const updateFormData = (updates: Partial<CreateNotificationInput>) => {
     setFormData((prev) => ({ ...prev, ...updates }));

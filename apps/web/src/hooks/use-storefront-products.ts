@@ -100,10 +100,11 @@ export function useStorefrontProducts({
   }
 
   useEffect(() => {
+    // No slug means nothing to fetch. The empty/idle state is already set by
+    // initialization and the render-time prev-slug comparison above, so the
+    // effect must not re-set it here (that would be an effect adjusting state
+    // after a prop change). Just skip the fetch.
     if (!storeSlug) {
-      setProducts([]);
-      setError(null);
-      setLoading(false);
       return;
     }
 

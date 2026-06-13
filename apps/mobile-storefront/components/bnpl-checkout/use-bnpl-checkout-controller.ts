@@ -5,6 +5,7 @@ import type {
   BNPLShouldStartLoadRequest,
   BNPLWebViewHttpErrorEvent,
   BNPLWebViewLoadError,
+  WebViewOpenWindowEventLike,
 } from './BNPLCheckoutWebView';
 import {
   BNPL_UNTRUSTED_POPUP_MESSAGE,
@@ -13,18 +14,18 @@ import {
   parseBNPLParams,
   resolveBNPLDocumentNavigation,
 } from './bnpl-checkout.helpers';
+import { createBNPLCheckoutAppNavigation } from './bnpl-checkout-app-navigation';
 import {
   resolveBNPLNavigationUrlEffect,
   shouldHandleBNPLNavigationMessage,
 } from './bnpl-checkout-controller-actions';
-import { createBNPLOpenWindowHandler } from './bnpl-open-window-handler';
-import { createBNPLCheckoutAppNavigation } from './bnpl-checkout-app-navigation';
 import {
   type BNPLWebViewMessageEvent,
   createBNPLWebViewMessageHandler,
   logBNPLCheckoutDebug,
 } from './bnpl-checkout-message-handler';
 import { createBNPLLoadTimers } from './bnpl-checkout-timers';
+import { createBNPLOpenWindowHandler } from './bnpl-open-window-handler';
 
 type BNPLCheckoutParams = Parameters<typeof parseBNPLParams>[0];
 export type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
@@ -209,16 +210,19 @@ export function useBNPLCheckoutController({
     );
   };
 
-  const handleOpenWindow = createBNPLOpenWindowHandler({
-    apiBaseUrl,
-    merchantDomain,
-    merchantSlug,
-    clearPendingLoadTimeout,
-    scheduleLoadTimeout,
-    setCheckoutStatus,
-    setCurrentUrl,
-    setErrorMessage,
-  });
+  // Build the handler lazily inside the callback so the factory (which closes
+  // over ref-backed timer helpers) is never invoked during render.
+  const handleOpenWindow = (event: WebViewOpenWindowEventLike) =>
+    createBNPLOpenWindowHandler({
+      apiBaseUrl,
+      merchantDomain,
+      merchantSlug,
+      clearPendingLoadTimeout,
+      scheduleLoadTimeout,
+      setCheckoutStatus,
+      setCurrentUrl,
+      setErrorMessage,
+    })(event);
 
   const handleShouldStartLoadWithRequest = (
     request: BNPLShouldStartLoadRequest

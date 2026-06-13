@@ -11,7 +11,14 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useEffectEvent, useRef, useState } from 'react';
+import {
+  Suspense,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -58,8 +65,24 @@ interface InvitationLoadResult {
   error: string | null;
 }
 
+// biome-ignore lint/suspicious/noEmptyBlockStatements: useSyncExternalStore needs a no-op subscribe; the snapshot never changes mid-session.
+const subscribeToNothing = () => () => {};
+
 function detectIsMobileBrowser() {
   return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+// Server renders desktop-first; the client snapshot reads the real UA after
+// hydration. Using useSyncExternalStore (instead of useEffect + setState)
+// avoids the post-paint flicker and keeps React Compiler memoization intact.
+const getMobileBrowserServerSnapshot = () => false;
+
+function useIsMobileBrowser() {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    detectIsMobileBrowser,
+    getMobileBrowserServerSnapshot
+  );
 }
 
 // Module-scope helpers keep the component body free of try/finally and
@@ -178,7 +201,7 @@ function AcceptInvitePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [accepted, setAccepted] = useState(false);
-  const [isMobileBrowser, setIsMobileBrowser] = useState(false);
+  const isMobileBrowser = useIsMobileBrowser();
   const autoAcceptAttemptedRef = useRef(false);
 
   const supabase = createClient();
@@ -198,10 +221,6 @@ function AcceptInvitePageContent() {
     user &&
     invitation &&
     user.email.toLowerCase() !== invitation.email.toLowerCase();
-
-  useEffect(() => {
-    setIsMobileBrowser(detectIsMobileBrowser());
-  }, []);
 
   useEffect(() => {
     let cancelled = false;

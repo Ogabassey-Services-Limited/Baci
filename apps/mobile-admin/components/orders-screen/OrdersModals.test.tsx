@@ -5,6 +5,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { OrdersModals } from './OrdersModals';
 import { mockOrder } from './orders-screen-test-utils';
 
+// Render mock labels through a Text-named host so static analysis treats them as
+// React Native text nodes; in jsdom this is a plain span, so getByText/click
+// behavior is unchanged.
+const Text = ({ children }: { children?: ReactNode }) => (
+  <span>{children}</span>
+);
+
 const exportOrdersRPC = vi.hoisted(() => vi.fn());
 
 vi.mock('@/utils/export-orders', () => ({
@@ -21,7 +28,7 @@ vi.mock('@/components/ui/DateRangePicker', () => ({
   }) =>
     visible ? (
       <button onClick={() => onSelect('Today')} type="button">
-        Select today
+        <Text>Select today</Text>
       </button>
     ) : null,
 }));
@@ -40,10 +47,10 @@ vi.mock('@/components/ui/OrderReportModal', () => ({
     visible ? (
       <div>
         <button onClick={onExport} type="button">
-          Export orders
+          <Text>Export orders</Text>
         </button>
         <button onClick={() => onPresetSelect('Last 7 Days')} type="button">
-          Preset 7 days
+          <Text>Preset 7 days</Text>
         </button>
       </div>
     ) : null,

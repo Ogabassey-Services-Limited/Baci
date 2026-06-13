@@ -101,13 +101,16 @@ export default function NegotiationsScreen() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: this effect is intentionally keyed by merchant ID; fetchRequests is recreated each render and would resubscribe continuously.
   useEffect(() => {
     const merchantId = merchant?.id;
+
+    // fetchRequests resolves the loading/refreshing flags inside promise
+    // callbacks (never synchronously), so calling it here avoids the
+    // set-state-in-effect cascade. Its no-merchant branch defers the flag reset
+    // and skips the network call, matching the prior early-return behavior.
+    fetchRequests();
+
     if (!merchantId) {
-      setLoading(false);
-      setRefreshing(false);
       return;
     }
-
-    fetchRequests();
 
     // Supabase Realtime supports Postgres change filters; scope by merchant to
     // avoid refetching every connected merchant on unrelated inserts.
