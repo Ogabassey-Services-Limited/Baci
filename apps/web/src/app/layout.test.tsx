@@ -100,13 +100,15 @@ describe('RootLayout', () => {
     expect(container.querySelector('head')).toBeNull();
   });
 
-  it('emits a global DNS prefetch hint for Cloudinary images', () => {
+  it('does not emit a stale global DNS prefetch hint for Cloudinary images', () => {
     render(
       <RootLayout>
         <main>Main content</main>
       </RootLayout>
     );
 
-    expect(prefetchDNSSpy).toHaveBeenCalledWith('https://res.cloudinary.com');
+    expect(prefetchDNSSpy).not.toHaveBeenCalledWith(
+      'https://res.cloudinary.com'
+    );
   });
 });
