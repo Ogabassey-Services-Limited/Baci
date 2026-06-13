@@ -121,14 +121,11 @@ beforeEach(() => {
 });
 
 describe('CategoryProductLayout', () => {
-  it('starts OgaBassey PDP image preloads from the custom-domain route params without a product lookup', async () => {
+  it('lets the OgaBassey custom-domain response header own PDP image preloads', async () => {
     await renderLayout({ slug: OGABASSEY_DOMAIN });
 
     expectRenderedPage();
-    expect(mockPreloadOgabasseyPdpProductResources).toHaveBeenCalledWith({
-      productSlug: PRODUCT_SLUG,
-      src: null,
-    });
+    expect(mockPreloadOgabasseyPdpProductResources).not.toHaveBeenCalled();
   });
 
   it('starts OgaBassey PDP image preloads from the slug-routed storefront params', async () => {
@@ -157,7 +154,7 @@ describe('CategoryProductLayout', () => {
       throw preloadError;
     });
 
-    await renderLayout();
+    await renderLayout({ slug: OGABASSEY_TEMPLATE_ID });
 
     expectRenderedPage();
     expect(warnSpy).toHaveBeenCalledWith(
