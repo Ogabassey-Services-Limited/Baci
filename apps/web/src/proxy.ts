@@ -22,6 +22,7 @@ import {
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
   STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
 } from '@/config/storefront-metadata-cache-bots';
+import { getInternalApiSecret } from '@/env';
 import {
   CLICK_ID_PARAMS,
   extractClickIdsFromUrl,
@@ -32,6 +33,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { isStorefrontProductSlugMissing } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -1070,6 +1072,123 @@ function shouldForwardStrictCspNonce(
   return routeType === 'admin' || routeType === 'auth';
 }
 
+/**
+ * Build a real hard-status (404/410) storefront HTML response (PR-B §3.2).
+ *
+ * Under PPR a page-level `notFound()` only yields a soft-404 (200 + noindex)
+ * because the static shell has already committed 200. Returning this from the
+ * proxy gives crawlers a true status code. The body is minimal but valid HTML
+ * (noindex), with full CSP/security headers applied and `Cache-Control:
+ * no-store` set LAST so the cache section inside `applySecurityHeaders` can
+ * never edge-cache a transient hard status.
+ */
+function buildHardStatusStorefrontResponse(
+  status: 404 | 410,
+  request: NextRequest,
+  pathname: string,
+  userAgent: string,
+  hostname: string | undefined
+): NextResponse {
+  const title = status === 410 ? 'Page gone' : 'Page not found';
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="robots" content="noindex, follow"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title></head><body style="font-family:system-ui,-apple-system,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center"><main><h1>${title}</h1><p>The page you’re looking for isn’t here. <a href="/">Go to the homepage</a>.</p></main></body></html>`;
+
+  const response = new NextResponse(html, { status });
+  response.headers.set('Content-Type', 'text/html; charset=utf-8');
+  applySecurityHeaders(
+    response,
+    pathname,
+    userAgent,
+    'storefront',
+    isLocalhost(hostname ?? ''),
+    undefined,
+    request,
+    hostname
+  );
+  // no-store LAST: the cache section runs inside applySecurityHeaders and would
+  // otherwise mark a product-shaped path cacheable, edge-caching a false 404.
+  response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
+  return response;
+}
+
+/**
+ * Crawl-budget hard-404 for a confirmed-missing storefront product (PR-B §3.2).
+ *
+ * Gated tightly to clean, non-prefetch, GET/HEAD HTML navigations to a
+ * 2-segment PDP path (`/{category}/{productSlug}`). It asks the internal
+ * slug-set route whether the product slug exists for this merchant and, only if
+ * positively absent, returns a hard 404. Every uncertain path (params,
+ * RSC/prefetch, non-PDP shape, reserved segment, unavailable/empty slug set)
+ * falls through — fail-open, so a live product is never 404'd.
+ */
+async function resolveStorefrontPdpHardNotFound(
+  request: NextRequest,
+  pathname: string,
+  hostname: string | undefined,
+  userAgent: string,
+  identifier: string
+): Promise<NextResponse | null> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return null;
+  }
+  // Param URLs canonicalize/redirect elsewhere; only judge clean canonical URLs.
+  if (request.nextUrl.search.length > 0) {
+    return null;
+  }
+  // Never hard-404 RSC/prefetch navigations Next expects to succeed.
+  if (
+    request.headers.get('rsc') === '1' ||
+    request.headers.has('next-router-prefetch') ||
+    request.headers.has('next-router-state-tree')
+  ) {
+    return null;
+  }
+  const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
+  if (fetchDest && fetchDest !== 'document') {
+    return null;
+  }
+
+  const routeType = getRouteType(pathname);
+  if (routeType !== 'storefront') {
+    return null;
+  }
+
+  // Only the exact 2-segment PDP shape; category listings, nested subroutes
+  // (compare/best-under), and reserved segments fall through.
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (contentSegments.length !== 2) {
+    return null;
+  }
+  const productSlug = contentSegments[1];
+  if (
+    !productSlug ||
+    RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    return null;
+  }
+
+  const missing = await isStorefrontProductSlugMissing({
+    origin: request.nextUrl.origin,
+    identifier,
+    productSlug,
+    secret: getInternalApiSecret(),
+  });
+  if (!missing) {
+    return null;
+  }
+
+  return buildHardStatusStorefrontResponse(
+    404,
+    request,
+    pathname,
+    userAgent,
+    hostname
+  );
+}
+
 function buildStrictCspResponse(
   request: NextRequest,
   routeType: 'admin' | 'auth',
@@ -1971,6 +2090,20 @@ export async function proxy(request: NextRequest) {
           });
         }
         // Slug lookup failed — fall through to standard domain rewrite
+      }
+
+      // Crawl-budget hard-404 (PR-B §3.2): a confirmed-missing PDP product slug
+      // gets a real 404 instead of a soft-404 shell. Fail-open; runs before the
+      // storefront rewrite so a true typo never reaches the dynamic route.
+      const pdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+        request,
+        pathname,
+        hostname,
+        userAgent,
+        domainMerchantSlug ?? domain
+      );
+      if (pdpHardNotFound) {
+        return pdpHardNotFound;
       }
 
       // First visit: Rewrite to /${domain}${pathname} so the storefront [slug] route handles it

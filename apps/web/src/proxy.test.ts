@@ -8,6 +8,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { isStorefrontProductSlugMissing } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from './config/storefront-metadata-cache-bots';
 import { config, proxy } from './proxy';
@@ -47,6 +48,13 @@ vi.mock('@/lib/domain-cache-simple', () => ({
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://example.supabase.co',
   getSupabaseAnonKey: () => 'anon-key',
+  getInternalApiSecret: () => 'test-internal-secret',
+}));
+
+// Mock the crawl-budget product-slug membership check (PR-B §3.2). Defaults to
+// "present" so it is a no-op for existing tests; individual tests override it.
+vi.mock('@/lib/storefront-product-slug-membership', () => ({
+  isStorefrontProductSlugMissing: vi.fn().mockResolvedValue(false),
 }));
 
 // Mock rate limit
@@ -98,6 +106,10 @@ describe('Middleware Proxy', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks resets call history but not implementations; restore the
+    // crawl-budget membership mock to its "present" default so a per-test
+    // override does not leak into unrelated custom-domain tests.
+    vi.mocked(isStorefrontProductSlugMissing).mockResolvedValue(false);
   });
 
   it('should apply security headers to API routes', async () => {
@@ -500,6 +512,60 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
       'ogabassey'
     );
+  });
+
+  describe('crawl-budget PDP hard-404 (PR-B §3.2)', () => {
+    const missingMock = vi.mocked(isStorefrontProductSlugMissing);
+
+    it('returns a hard 404 for a confirmed-missing product slug on a custom domain', async () => {
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/totally-made-up'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      expect(res.headers.get('Cache-Control')).toContain('no-store');
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+      expect(missingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          productSlug: 'totally-made-up',
+        })
+      );
+    });
+
+    it('falls through (rewrite, not 404) when the product slug exists', async () => {
+      missingMock.mockResolvedValue(false);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/iphone-15'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey.com/smartphones/iphone-15'
+      );
+    });
+
+    it('does not run the check for RSC/prefetch navigations', async () => {
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/totally-made-up'
+      );
+      req.headers.set('host', 'ogabassey.com');
+      req.headers.set('RSC', '1');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(missingMock).not.toHaveBeenCalled();
+    });
   });
 
   it('does not treat root checkout as a merchant slug redirect candidate', async () => {
