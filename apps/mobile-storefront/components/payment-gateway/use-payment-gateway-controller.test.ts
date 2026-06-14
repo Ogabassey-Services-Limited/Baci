@@ -278,6 +278,26 @@ describe('usePaymentGatewayController', () => {
     );
   });
 
+  it('keeps stalled VTU checkout loading retryable instead of confirming unpaid transactions', () => {
+    jest.useFakeTimers();
+    mockSearchParams = { ...vtuParams };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleLoadStart();
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(45_000);
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(result.current.errorMessage).toBe(
+      'Payment page is taking longer than expected. Check your connection and try again.'
+    );
+    expect(mockWaitForVtuConfirmation).not.toHaveBeenCalled();
+  });
+
   it('clears the cart and navigates after order payment completion', () => {
     jest.useFakeTimers();
     const { result } = renderHook(() => usePaymentGatewayController());

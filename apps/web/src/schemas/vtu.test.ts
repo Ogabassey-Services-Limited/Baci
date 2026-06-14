@@ -83,8 +83,8 @@ describe('purchaseSchema', () => {
       expect(result.success).toBe(false);
     });
 
-    it('rejects airtime with explicit Monnify provider', () => {
-      const invalidAirtime = {
+    it('accepts airtime with explicit Monnify provider', () => {
+      const validAirtime = {
         merchantSlug: 'test-merchant',
         amount: 100,
         type: 'airtime' as const,
@@ -93,12 +93,10 @@ describe('purchaseSchema', () => {
         provider: 'monnify' as const,
       };
 
-      const result = purchaseSchema.safeParse(invalidAirtime);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(
-          result.error.issues.some((issue) => issue.path.includes('provider'))
-        ).toBe(true);
+      const result = purchaseSchema.safeParse(validAirtime);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.provider).toBe('monnify');
       }
     });
   });
@@ -146,8 +144,8 @@ describe('purchaseSchema', () => {
       }
     });
 
-    it('rejects data with explicit Monnify provider', () => {
-      const invalidData = {
+    it('accepts data with explicit Monnify provider at the schema boundary', () => {
+      const validData = {
         merchantSlug: 'test-merchant',
         amount: 500,
         type: 'data' as const,
@@ -157,12 +155,10 @@ describe('purchaseSchema', () => {
         provider: 'monnify' as const,
       };
 
-      const result = purchaseSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(
-          result.error.issues.some((issue) => issue.path.includes('provider'))
-        ).toBe(true);
+      const result = purchaseSchema.safeParse(validData);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.provider).toBe('monnify');
       }
     });
   });
