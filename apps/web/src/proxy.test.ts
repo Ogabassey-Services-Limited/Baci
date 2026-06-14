@@ -1113,18 +1113,30 @@ describe('Middleware Proxy', () => {
   it.each([
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
     'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
-    'https://ogabassey.com/steam-deck',
     `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-z-fold-4`,
     `https://${ROOT_DOMAIN}/ogabassey/smartphones/samsung-galaxy-z-fold-4`,
     `https://${ROOT_DOMAIN}/ogabassey/best-under/samsung-galaxy-z-fold-4`,
-  ])('does not CDN-cache streamed storefront HTML for %s', async (url) => {
+  ])('CDN-caches the prerendered PDP shell for %s', async (url) => {
     const req = new NextRequest(url);
     req.headers.set('host', new URL(url).host);
 
     const res = await proxy(req);
 
-    // PDP document caching can replay a streamed loading shell against Next's
-    // internal metadata boundary, producing production resume mismatches.
+    // The Next resume-mismatch that previously required no-store on PDP HTML is
+    // fixed via patches/next@16.2.9.patch (PR #2436), so the prerendered PDP
+    // shell is safe to cache/replay at the edge for the LCP win.
+    expect(res.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
+  });
+
+  it('keeps single-segment storefront home documents out of the CDN cache for https://ogabassey.com/steam-deck', async () => {
+    const url = 'https://ogabassey.com/steam-deck';
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
     expect(res.headers.get('Cache-Control')).toBe(
       'no-cache, no-store, max-age=0, must-revalidate'
     );

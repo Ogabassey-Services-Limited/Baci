@@ -181,6 +181,10 @@ const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
 const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
+// PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
+// the prerendered PPR shell can be served from the edge for the LCP win.
+const STOREFRONT_DOCUMENT_CACHE_CONTROL =
+  's-maxage=300, stale-while-revalidate=3600';
 const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =
   /\.(?:json|jsonl|md|txt|webmanifest|xml)$/i;
 const STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS = new Set(['_next', 'api']);
@@ -2374,25 +2378,26 @@ function applySecurityHeaders(
     return response;
   }
 
-  // Do not CDN-cache PDP HTML. Next 16 Cache Components can stream internal
-  // metadata boundaries ahead of the resolved page tree; replaying a cached
-  // PDP document shell has produced production resume mismatches. Product data
-  // and static assets remain cached below the HTML layer.
+  // CDN-cache PDP HTML. The earlier no-store policy here existed because Next 16
+  // Cache Components could stream internal metadata boundaries ahead of the
+  // resolved page tree, so replaying a cached PDP shell produced resume
+  // mismatches. That upstream bug (vercel/next.js#94630) is now fixed via
+  // patches/next@16.2.9.patch (PR #2436), so the prerendered PDP shell is safe
+  // to cache/replay — which is what delivers the static-hero LCP win.
   if (isStorefrontProductPagePath(pathname, hostname, routeType)) {
-    response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
+    response.headers.set('Cache-Control', STOREFRONT_DOCUMENT_CACHE_CONTROL);
     return response;
   }
 
   // Two-segment storefront documents include custom-domain PDP URLs such as
-  // `/smartphones/samsung-galaxy-z-fold-4`. Keep them out of the CDN document
-  // cache for the same Next resume-safety reason as explicit PDP routes.
+  // `/smartphones/samsung-galaxy-z-fold-4`.
   if (
     routeType === 'storefront' &&
     pathname.match(CATEGORY_PAGE_REGEX) &&
     !pathname.startsWith('/dashboard') &&
     !pathname.startsWith('/api')
   ) {
-    response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
+    response.headers.set('Cache-Control', STOREFRONT_DOCUMENT_CACHE_CONTROL);
     return response;
   }
 

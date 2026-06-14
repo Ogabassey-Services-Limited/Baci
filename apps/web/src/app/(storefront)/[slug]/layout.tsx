@@ -264,8 +264,10 @@ export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  // EXPERIMENT (PDP LCP): removed `await connection()` so concrete prerendered
-  // params (generateStaticParams) can ship a static shell. Tenant validation and
+  // The prior `await connection()` here forced the storefront request-bound to
+  // dodge a Next 16 PPR resume mismatch. That upstream bug
+  // (vercel/next.js#94630) is now fixed via patches/next@16.2.9.patch (PR
+  // #2436), so it is removed to allow static prerendering. Tenant validation and
   // notFound() are retained below.
   const { slug } = await props.params;
 

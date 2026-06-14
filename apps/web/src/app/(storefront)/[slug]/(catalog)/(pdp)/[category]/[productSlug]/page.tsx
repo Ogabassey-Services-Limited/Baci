@@ -27,7 +27,7 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
-import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
+import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
@@ -40,6 +40,7 @@ import {
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
+import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
@@ -957,6 +958,57 @@ function buildCategoryProductMetadata(
     },
     other: socialMetadata.other,
   };
+}
+
+// Prerender OgaBassey's most recent active PDPs at build so the above-fold
+// hero ships inside the static PPR shell (LCP). Without concrete params the
+// product slug is request-time, which keeps the hero in the dynamic resume.
+// Params not listed here keep rendering on demand (the default PPR behavior
+// under cacheComponents — `dynamicParams` cannot be set with cacheComponents).
+const OGABASSEY_PRERENDER_LIMIT = 50;
+
+export async function generateStaticParams(): Promise<
+  Array<{ slug: string; category: string; productSlug: string }>
+> {
+  // cacheComponents requires generateStaticParams to return >= 1 param; this
+  // placeholder keeps the build valid (and renders notFound) if the index is
+  // empty/unavailable. Real, non-listed products still render on demand.
+  const placeholder = [
+    {
+      slug: OGABASSEY_DOMAIN,
+      category: 'smartphones',
+      productSlug: '__prerender_placeholder__',
+    },
+  ];
+
+  const { products, hasError } = await getCachedStorefrontProductIndex(
+    OGABASSEY_MERCHANT_ID,
+    { page: 1, limit: OGABASSEY_PRERENDER_LIMIT }
+  );
+
+  if (hasError) {
+    return placeholder;
+  }
+
+  const seen = new Set<string>();
+  const params: Array<{ slug: string; category: string; productSlug: string }> =
+    [];
+
+  for (const product of products) {
+    const category = product.category_slug?.trim();
+    const productSlug = product.slug?.trim();
+    if (!category || !productSlug) {
+      continue;
+    }
+    const key = `${category}/${productSlug}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    params.push({ slug: OGABASSEY_DOMAIN, category, productSlug });
+  }
+
+  return params.length > 0 ? params : placeholder;
 }
 
 export async function generateMetadata({
