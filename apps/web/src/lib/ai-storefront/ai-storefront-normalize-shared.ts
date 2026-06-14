@@ -49,7 +49,7 @@ export function normalizeCtaButton(value: unknown):
   return label ? { show: true, text: label, url } : undefined;
 }
 
-export function normalizeIcon(value: unknown, fallback: IconName): IconName {
+function normalizeIcon(value: unknown, fallback: IconName): IconName {
   return pickLiteral(value, ICON_NAMES, fallback);
 }
 

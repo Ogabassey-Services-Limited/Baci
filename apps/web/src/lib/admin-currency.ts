@@ -1,6 +1,6 @@
 import { type CurrencyConfig, formatCurrencyWithConfig } from '@/lib/currency';
 
-export const ADMIN_CURRENCY_CONFIG = {
+const ADMIN_CURRENCY_CONFIG = {
   code: 'NGN',
   locale: 'en-NG',
   symbol: '₦',
@@ -9,7 +9,7 @@ export const ADMIN_CURRENCY_CONFIG = {
 /**
  * Switches whole-naira admin metrics to compact notation from ₦1K upward.
  */
-export const ADMIN_COMPACT_CURRENCY_THRESHOLD = 1000;
+const ADMIN_COMPACT_CURRENCY_THRESHOLD = 1000;
 
 function parseCurrencyValue(value: number | string | null | undefined): number {
   if (value === null || value === undefined) {

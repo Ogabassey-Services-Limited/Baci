@@ -9,14 +9,14 @@
  * Default blur placeholder - a small, neutral gray blur
  * Used when no custom placeholder is available
  */
-export const DEFAULT_BLUR_DATA_URL =
+const DEFAULT_BLUR_DATA_URL =
   'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBEQCEAwEPwAB//9k=';
 
 /**
  * Color-based blur placeholders for different product categories
  * These provide contextually appropriate loading states
  */
-export const CATEGORY_BLUR_COLORS: Record<string, string> = {
+const CATEGORY_BLUR_COLORS: Record<string, string> = {
   fashion: '#f5f0eb', // Warm beige
   electronics: '#e8eef4', // Cool blue-gray
   food: '#f0ebe5', // Warm cream
@@ -32,7 +32,7 @@ export const CATEGORY_BLUR_COLORS: Record<string, string> = {
  */
 const colorBlurCache = new Map<string, string>();
 
-export function generateColorBlur(color: string = '#f4f4f5'): string {
+function generateColorBlur(color: string = '#f4f4f5'): string {
   const cached = colorBlurCache.get(color);
   if (cached) return cached;
 

@@ -51,7 +51,7 @@ export const verifySuccess = {
   },
 };
 
-export const defaultRpcResult = {
+const defaultRpcResult = {
   data: {
     canonical_order_id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
     reconciled_at: '2026-05-10T18:00:00Z',

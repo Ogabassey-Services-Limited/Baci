@@ -30,7 +30,7 @@ export const context = {
   identifiers: ['ogabassey', 'ogabassey.com'],
 };
 
-export const merchantZohoSettings = {
+const merchantZohoSettings = {
   zohoCampaigns: {
     enabled: true,
     fromEmail: 'news@merchant.test',

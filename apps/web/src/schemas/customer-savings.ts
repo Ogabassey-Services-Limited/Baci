@@ -54,7 +54,7 @@ const nonNegativeAmountSchema = z.coerce
   .finite('Amount cannot be Infinity or NaN')
   .min(0, 'Amount cannot be negative');
 
-export const customerSavingsMerchantIdentifierSchema =
+const customerSavingsMerchantIdentifierSchema =
   merchantIdentifierObjectSchema.superRefine(requireMerchantIdentifier);
 
 export const customerSavingsGoalsQuerySchema =

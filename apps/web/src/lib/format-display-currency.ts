@@ -50,7 +50,7 @@ function normalizeDisplayCurrencyOptions(options: DisplayCurrencyOptions = {}) {
   return normalizedOptions;
 }
 
-export function getDisplayCurrencyLocale(currency = 'NGN') {
+function getDisplayCurrencyLocale(currency = 'NGN') {
   return CURRENCY_LOCALE_MAP[currency.toUpperCase()] || 'en-US';
 }
 

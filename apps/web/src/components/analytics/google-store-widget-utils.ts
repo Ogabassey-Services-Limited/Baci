@@ -1,7 +1,7 @@
 import type { MerchantData } from '@/hooks/merchant/types';
 
 export const GOOGLE_MERCHANT_CENTER_ID_CUSTOM_SETTING = 'google_merchant_id';
-export const GOOGLE_STORE_WIDGET_ENABLED_CUSTOM_SETTING =
+const GOOGLE_STORE_WIDGET_ENABLED_CUSTOM_SETTING =
   'google_store_widget_enabled';
 
 /**

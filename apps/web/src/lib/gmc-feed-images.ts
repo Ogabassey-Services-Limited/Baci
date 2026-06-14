@@ -6,7 +6,7 @@
  * that were prevalidated by an offline backfill/audit job.
  */
 
-export const GMC_ADDITIONAL_IMAGES_MAX = 10;
+const GMC_ADDITIONAL_IMAGES_MAX = 10;
 
 /**
  * Manifest entry as returned by the feed route query (status = 'verified' filter).
