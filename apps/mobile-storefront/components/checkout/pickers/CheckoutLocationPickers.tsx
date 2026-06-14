@@ -10,7 +10,7 @@ import {
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import type Colors from '@/constants/Colors';
 import { BRAND, palette } from '@/constants/Colors';
-import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
+import { checkoutScreenViewStyles as styles } from '../CheckoutScreenView.styles';
 
 type ColorsScheme = (typeof Colors)['light'];
 
