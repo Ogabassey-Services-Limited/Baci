@@ -17,6 +17,22 @@
       "**/*.mjs",
       "**/test_review.js",
       "**/migrate_images.ts"
+    ],
+    "overrides": [
+      {
+        "files": [
+          "**/apps/mobile-admin/**",
+          "**/apps/mobile-storefront/**"
+        ],
+        "rules": [
+          "nextjs-no-img-element",
+          "nextjs-no-a-element",
+          "nextjs-no-client-side-redirect",
+          "nextjs-no-client-fetch-for-server-data",
+          "nextjs-no-redirect-in-try-catch",
+          "rendering-hydration-mismatch-time"
+        ]
+      }
     ]
   }
 }
