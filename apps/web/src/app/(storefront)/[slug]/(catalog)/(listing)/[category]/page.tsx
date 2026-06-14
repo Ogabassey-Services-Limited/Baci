@@ -70,6 +70,15 @@ export async function generateMetadata({
     notFound();
   }
 
+  // Doorway-trap stopgap (crawl-budget): a genuinely unknown/typo slug resolves
+  // to no collection, no category row, and no fuzzy-matched products — which
+  // previously rendered as an indexable empty page. notFound() flips it to
+  // noindex so it stops bloating the index. (PR-B §3.2 upgrades this to a hard
+  // 404 via the pre-stream proxy existence check.)
+  if (!data.isCollection && !data.category?.id && data.products.length === 0) {
+    notFound();
+  }
+
   const categoryName = resolveCategoryPageName(data, category);
   const normalizedProducts = normalizeCategoryPageProducts(
     data.products as unknown as RawDbProduct[],

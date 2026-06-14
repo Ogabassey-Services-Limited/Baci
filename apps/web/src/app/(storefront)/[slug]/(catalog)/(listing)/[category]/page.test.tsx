@@ -935,6 +935,51 @@ describe('category page route', () => {
     expect(notFound).toHaveBeenCalled();
   });
 
+  it('returns notFound metadata for unknown category slugs with no products (doorway stopgap)', async () => {
+    // Unknown/typo slug: not a collection, no resolved category row, and the
+    // legacy fuzzy fallback matched nothing — previously rendered index,follow
+    // (the doorway trap). isInactiveCategory is FALSE here (distinct from the
+    // inactive-category case above), so only the doorway guard catches it.
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      isCollection: false,
+      category: null,
+      products: [],
+      fallbackName: 'Totally Made Up',
+      fallbackDescription: 'Totally made up',
+      isInactiveCategory: false,
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'test-store',
+          category: 'totally-made-up-slug',
+        }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(notFound).toHaveBeenCalled();
+  });
+
+  it('does not notFound a real category that has products', async () => {
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      isCollection: false,
+      category: { id: 'cat-1', name: 'Smartphones', slug: 'smartphones' },
+      products: [{ id: 'p1', name: 'Phone', slug: 'phone', price: 1000 }],
+      fallbackName: 'Smartphones',
+      fallbackDescription: 'Smartphones',
+      isInactiveCategory: false,
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(metadata.title).toBeTruthy();
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
   it('drops focused storefront filters from category canonical metadata until listing results are filtered', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),

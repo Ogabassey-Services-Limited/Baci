@@ -94,6 +94,13 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     notFound();
   }
 
+  // Doorway-trap stopgap (crawl-budget) — keep in lockstep with generateMetadata
+  // so the rendered shell and the metadata robots agree. Unknown/typo slug:
+  // no collection, no category row, no fuzzy-matched products.
+  if (!data.isCollection && !data.category?.id && data.products.length === 0) {
+    notFound();
+  }
+
   const products = data.products as unknown as RawDbProduct[];
   const totalPages = Math.max(
     1,
