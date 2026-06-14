@@ -72,6 +72,13 @@ const mockBuildProductSemanticModel = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
 const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
 const mockGenerateProductSchema = vi.fn((..._args: unknown[]) => ({}));
+const mockGetCachedStorefrontProductIndex =
+  vi.fn<
+    (...args: unknown[]) => Promise<{
+      hasError: boolean;
+      products: Array<{ slug?: string; category_slug?: string }>;
+    }>
+  >();
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
@@ -311,6 +318,11 @@ vi.mock('@/lib/cached-data', () => ({
       .substring(0, 100),
 }));
 
+vi.mock('@/lib/cached-storefront-product-index', () => ({
+  getCachedStorefrontProductIndex: (...args: unknown[]) =>
+    mockGetCachedStorefrontProductIndex(...args),
+}));
+
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
   buildProductSemanticModel: (...args: unknown[]) =>
     mockBuildProductSemanticModel(...args),
@@ -476,7 +488,10 @@ vi.mock(
   })
 );
 
-import CategoryProductPage, { generateMetadata } from './page';
+import CategoryProductPage, {
+  generateMetadata,
+  generateStaticParams,
+} from './page';
 
 type ResolveRscOptions = {
   pruneSkippedContent?: boolean;
@@ -3204,5 +3219,101 @@ describe('[category]/[productSlug] page render', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/laptops/hp-laptop-14-ep0063nia'
     );
+  });
+});
+
+describe('[category]/[productSlug] generateStaticParams', () => {
+  const PRERENDER_PLACEHOLDER = {
+    slug: OGABASSEY_DOMAIN,
+    category: 'smartphones',
+    productSlug: '__prerender_placeholder__',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCachedStorefrontProductIndex.mockReset();
+  });
+
+  it('maps the newest OgaBassey products to prerender params', async () => {
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      products: [
+        { slug: 'galaxy-z-trifold', category_slug: 'smartphones' },
+        { slug: 'macbook-pro-m3-max', category_slug: 'laptops' },
+      ],
+    });
+
+    const params = await generateStaticParams();
+
+    expect(mockGetCachedStorefrontProductIndex).toHaveBeenCalledWith(
+      OGABASSEY_MERCHANT_ID,
+      { page: 1, limit: 50 }
+    );
+    expect(params).toEqual([
+      {
+        slug: OGABASSEY_DOMAIN,
+        category: 'smartphones',
+        productSlug: 'galaxy-z-trifold',
+      },
+      {
+        slug: OGABASSEY_DOMAIN,
+        category: 'laptops',
+        productSlug: 'macbook-pro-m3-max',
+      },
+    ]);
+  });
+
+  it('deduplicates repeated category/slug pairs and skips incomplete rows', async () => {
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      products: [
+        { slug: 'galaxy-z-trifold', category_slug: 'smartphones' },
+        { slug: 'galaxy-z-trifold', category_slug: 'smartphones' },
+        { slug: '  ', category_slug: 'laptops' },
+        { slug: 'orphan', category_slug: undefined },
+      ],
+    });
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual([
+      {
+        slug: OGABASSEY_DOMAIN,
+        category: 'smartphones',
+        productSlug: 'galaxy-z-trifold',
+      },
+    ]);
+  });
+
+  it('falls back to the prerender placeholder when the index reports an error', async () => {
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: true,
+      products: [],
+    });
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual([PRERENDER_PLACEHOLDER]);
+  });
+
+  it('falls back to the prerender placeholder when the index lookup is empty', async () => {
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      products: [],
+    });
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual([PRERENDER_PLACEHOLDER]);
+  });
+
+  it('falls back to the prerender placeholder when the index lookup rejects', async () => {
+    mockGetCachedStorefrontProductIndex.mockRejectedValue(
+      new Error('supabase unavailable during prerender')
+    );
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual([PRERENDER_PLACEHOLDER]);
   });
 });

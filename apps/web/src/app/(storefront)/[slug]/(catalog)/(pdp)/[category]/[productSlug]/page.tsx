@@ -981,12 +981,24 @@ export async function generateStaticParams(): Promise<
     },
   ];
 
-  const { products, hasError } = await getCachedStorefrontProductIndex(
-    OGABASSEY_MERCHANT_ID,
-    { page: 1, limit: OGABASSEY_PRERENDER_LIMIT }
-  );
-
-  if (hasError) {
+  let products: Awaited<
+    ReturnType<typeof getCachedStorefrontProductIndex>
+  >['products'] = [];
+  try {
+    const result = await getCachedStorefrontProductIndex(
+      OGABASSEY_MERCHANT_ID,
+      {
+        page: 1,
+        limit: OGABASSEY_PRERENDER_LIMIT,
+      }
+    );
+    if (result.hasError) {
+      return placeholder;
+    }
+    products = result.products;
+  } catch {
+    // A rejected index lookup at build/prerender time must fall back to the
+    // placeholder, not throw and fail the whole prerender step.
     return placeholder;
   }
 
