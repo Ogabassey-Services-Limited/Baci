@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { applyWalletRouteAction } from '@/components/wallet/apply-wallet-route-action';
@@ -40,19 +40,20 @@ import {
 } from './wallet-screen-savings.handlers';
 
 interface WalletScreenProps {
+  action?: string | string[];
   presentation?: 'stack' | 'tab';
+  requiredAmount?: string | string[];
+  returnTo?: string | string[];
 }
 export function WalletScreen({
+  action,
   presentation = 'stack',
+  requiredAmount,
+  returnTo,
 }: WalletScreenProps = {}) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { getScrollContentStyle } = useStorefrontInsets();
-  const { action, requiredAmount, returnTo } = useLocalSearchParams<{
-    action?: string;
-    requiredAmount?: string;
-    returnTo?: string;
-  }>();
   const routeAction = Array.isArray(action) ? action[0] : action;
   const routeRequiredAmount = normalizeWalletFundAmountParam(requiredAmount);
   const walletReturnTo = sanitizeWalletReturnTo(returnTo);
