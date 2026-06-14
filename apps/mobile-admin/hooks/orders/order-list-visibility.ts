@@ -9,7 +9,7 @@ export const HIDDEN_CHECKOUT_PAYMENT_STATUS_VALUES = [
   'expired',
 ] as const;
 
-export const ONLINE_CHECKOUT_PAYMENT_METHOD_VALUES = [
+const ONLINE_CHECKOUT_PAYMENT_METHOD_VALUES = [
   'paystack',
   'korapay',
   'bank_transfer',

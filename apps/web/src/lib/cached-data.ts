@@ -1131,6 +1131,7 @@ export interface CachedProductLcpHint {
   schema_markup?: unknown;
   slug?: string | null;
   stock_quantity?: number | null;
+  updated_at?: string | null;
 }
 
 /**
@@ -1176,6 +1177,7 @@ export async function getCachedProductLcpHint(
         canonical_url,
         schema_markup,
         images,
+        updated_at,
         categories:category_id (
           id,
           name,

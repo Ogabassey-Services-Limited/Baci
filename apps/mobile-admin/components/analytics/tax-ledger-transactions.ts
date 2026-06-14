@@ -17,7 +17,7 @@ type JoinedCustomer = Extract<
   { first_name: string | null; last_name: string | null }
 >;
 
-export function mapRowToTransaction(row: TaxLedgerOrderRow): Transaction {
+function mapRowToTransaction(row: TaxLedgerOrderRow): Transaction {
   let joinedCustomer: JoinedCustomer | null;
   if (Array.isArray(row.customer)) {
     if (row.customer.length > 1) {

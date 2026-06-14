@@ -11,16 +11,16 @@ export type PaymentSettings = {
   pay_on_delivery_limit?: number | null;
 } & Partial<Record<PaymentMethodEnabledField, boolean>>;
 
-export const PaymentSettingsRecordSchema = z.record(z.string(), z.unknown());
+const PaymentSettingsRecordSchema = z.record(z.string(), z.unknown());
 
-export const PaymentSettingsBaseSchema = z.object({
+const PaymentSettingsBaseSchema = z.object({
   id: z.string(),
   merchant_id: z.string(),
 });
 
-export const PaymentSettingLimitSchema = z.union([z.number(), z.null()]);
+const PaymentSettingLimitSchema = z.union([z.number(), z.null()]);
 
-export const PaymentSettingEnabledSchema = z
+const PaymentSettingEnabledSchema = z
   .union([z.boolean(), z.null()])
   .optional()
   .transform((value) => value ?? false);
