@@ -119,6 +119,8 @@ export function createBillFormPurchaseHandler({
         selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
       const selectedBillerCode =
         selectedBillItem?.billerCode ?? selectedBiller.billerCode;
+      // Monnify treats the selected bill item identifier as the vend product
+      // code for some normalized products, so keep this fallback provider-scoped.
       const selectedProductCode =
         selectedBillItem?.productCode ??
         (selectedProvider === 'monnify'

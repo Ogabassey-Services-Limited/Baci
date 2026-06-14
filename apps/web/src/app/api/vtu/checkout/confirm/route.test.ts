@@ -443,6 +443,29 @@ describe('POST /api/vtu/checkout/confirm', () => {
     });
   });
 
+  it('rejects gateway confirmations when the verified amount is malformed', async () => {
+    mockVerifyPaystackTransaction.mockResolvedValue({
+      success: true,
+      data: {
+        amount: 100_000.5,
+        status: 'success',
+      },
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Payment amount could not be verified' });
+    expect(mockFulfillPendingVtuTransaction).not.toHaveBeenCalled();
+  });
+
   it('continues to VTU fulfillment when another process already claimed the payment', async () => {
     mockFrom.mockImplementation(
       createMockFrom({ updateResult: { data: null, error: null } })

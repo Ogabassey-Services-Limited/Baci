@@ -145,10 +145,13 @@ export async function POST(request: NextRequest) {
       parsed.data.gateway,
       verification.data
     );
-    if (
-      verifiedAmount != null &&
-      Math.abs(verifiedAmount - Number(transaction.amount)) > 0.01
-    ) {
+    if (verifiedAmount == null) {
+      return NextResponse.json(
+        { error: 'Payment amount could not be verified' },
+        { status: 400 }
+      );
+    }
+    if (Math.abs(verifiedAmount - Number(transaction.amount)) > 0.01) {
       return NextResponse.json(
         { error: 'Payment amount mismatch' },
         { status: 400 }

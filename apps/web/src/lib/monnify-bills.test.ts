@@ -137,6 +137,30 @@ describe('Monnify Bills Client', () => {
       ]);
     });
 
+    it('getBillers rejects current Monnify billers without category references', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: {
+            content: [
+              {
+                code: 'MTN',
+                name: 'MTN',
+                categories: [],
+              },
+            ],
+          },
+        }),
+      });
+
+      await expect(getBillers('AIRTIME')).rejects.toThrow(
+        'At least one Monnify category is required'
+      );
+    });
+
     it('getCachedBillers delegates cached category discovery by category code', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,

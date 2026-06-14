@@ -48,7 +48,13 @@ export function createPaymentGatewayTimers({
       if (refs.statusRef.current !== 'loading') {
         return;
       }
-      if (onLoadTimeout?.()) {
+      let loadTimeoutHandled = false;
+      try {
+        loadTimeoutHandled = onLoadTimeout?.() === true;
+      } catch {
+        // Fall through to the generic load-timeout error state.
+      }
+      if (loadTimeoutHandled) {
         return;
       }
       setErrorMessage(PAYMENT_LOAD_TIMEOUT_MESSAGE);

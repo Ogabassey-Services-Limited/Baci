@@ -160,6 +160,7 @@ export function getPaystackRequestedAmountNgn(
   if (
     typeof rawAmount !== 'number' ||
     !Number.isFinite(rawAmount) ||
+    !Number.isInteger(rawAmount) ||
     rawAmount <= 0
   ) {
     return null;

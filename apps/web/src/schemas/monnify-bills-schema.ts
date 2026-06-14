@@ -94,7 +94,9 @@ export const billerSchema = z
     z.object({
       code: z.string(),
       name: z.string(),
-      categories: z.array(monnifyCategoryRefSchema).optional(),
+      categories: z
+        .array(monnifyCategoryRefSchema)
+        .min(1, 'At least one Monnify category is required'),
     }),
   ])
   .transform((biller) => {
@@ -166,6 +168,9 @@ export const billerProductSchema = z
     return {
       productCode: product.code,
       name: product.name,
+      // Current Monnify product-list responses can omit the nested biller;
+      // callers fetch by billerCode and treat an empty product billerCode as
+      // matching that queried biller before charging.
       billerCode: product.biller?.code ?? '',
       fee: null,
       amount: product.price ?? null,
