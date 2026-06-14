@@ -72,28 +72,3 @@ export function buildOgabasseyPdpMobileImageSrcSet(src: string): string {
       })} ${width}w`
   ).join(', ');
 }
-
-export function buildOgabasseyPdpSameOriginMobileImageSrcSet(
-  productSlug: string,
-  imageVersion?: string | null
-): string {
-  return OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS.map(
-    (width) => {
-      const imageUrl =
-        width === OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_PRELOAD_WIDTH
-          ? buildOgabasseyPdpSameOriginProfileImageUrl(
-              productSlug,
-              'mobile',
-              imageVersion
-            )
-          : buildOgabasseyPdpSameOriginImageUrl({
-              imageVersion,
-              productSlug,
-              quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-              width,
-            });
-
-      return `${imageUrl} ${width}w`;
-    }
-  ).join(', ');
-}
