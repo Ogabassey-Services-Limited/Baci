@@ -71,7 +71,6 @@
         "ascAppId": "6472735367"
       },
       "android": {
-        "serviceAccountKeyPath": "./play-store-service-account.json",
         "track": "internal"
       }
     }

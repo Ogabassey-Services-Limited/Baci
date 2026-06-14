@@ -1,3 +1,22 @@
 {
-  "serverAuthFunctionNames": ["ensurePermission"]
+  "serverAuthFunctionNames": [
+    "ensurePermission"
+  ],
+  "ignore": {
+    "files": [
+      "**/scripts-tmp/**",
+      "**/vps-workers/**",
+      "**/supabase/functions/**",
+      "**/cloudflare-gemini-proxy/**",
+      "**/public/**",
+      "**/with-ios-release-hardening.js",
+      "**/database.types.ts",
+      "**/supabase.ts",
+      "**/types/cac.ts",
+      "**/*.cjs",
+      "**/*.mjs",
+      "**/test_review.js",
+      "**/migrate_images.ts"
+    ]
+  }
 }
