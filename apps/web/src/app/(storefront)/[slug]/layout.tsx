@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import '@/app/(storefront)/storefront-core.css';
 import { notFound } from 'next/navigation';
-import { connection } from 'next/server';
 import type React from 'react';
 import { Suspense } from 'react';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
@@ -265,13 +264,9 @@ export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  // Keep tenant validation and notFound() request-bound. Without this guard,
-  // Next can prerender a placeholder [slug] 404 shell and later resume it with
-  // a real merchant tree, which is the storefront resume-mismatch failure mode.
-  // Do not re-add per-page hidden metadata markers; those create an extra host
-  // slot that can collide with Next's internal metadata boundary during resume.
-  await connection();
-
+  // EXPERIMENT (PDP LCP): removed `await connection()` so concrete prerendered
+  // params (generateStaticParams) can ship a static shell. Tenant validation and
+  // notFound() are retained below.
   const { slug } = await props.params;
 
   if (!isValidMerchantIdentifier(slug)) {
