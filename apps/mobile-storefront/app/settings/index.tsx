@@ -1,5 +1,4 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { Stack } from 'expo-router';
@@ -26,7 +25,10 @@ import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { queryClient } from '@/lib/query-client';
-import { removeStorageItems } from '@/lib/storage';
+import {
+  asyncStorage as AsyncStorage,
+  removeStorageItems,
+} from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
 
 export default function SettingsScreen() {

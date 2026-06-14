@@ -2,6 +2,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
+  getAllKeys: jest.fn(),
   getMany: jest.fn(),
   removeMany: jest.fn(),
   multiGet: jest.fn(),
@@ -18,12 +19,13 @@ jest.mock('./logger', () => ({
 }));
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getStorageEntries, removeStorageItems } from './storage';
+import { asyncStorage, getStorageEntries, removeStorageItems } from './storage';
 
 type AsyncStorageMock = {
   getItem: jest.Mock;
   setItem: jest.Mock;
   removeItem: jest.Mock;
+  getAllKeys: jest.Mock;
   getMany?: jest.Mock;
   removeMany?: jest.Mock;
   multiGet?: jest.Mock;
@@ -305,5 +307,31 @@ describe('storage MMKV migration', () => {
     expect(mmkvRemove).toHaveBeenNthCalledWith(1, 'cart-storage');
     expect(mmkvRemove).toHaveBeenNthCalledWith(2, 'saved-storage');
     expect(removeMany).toHaveBeenCalledWith(['cart-storage', 'saved-storage']);
+  });
+});
+
+describe('asyncStorage.getAllKeys', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // In the Jest env MMKV is disabled (NODE_ENV === 'test'), so the shim reads
+  // through to AsyncStorage — the fallback path used on Web/SSR/Expo Go.
+  it('returns the AsyncStorage keys when MMKV is unavailable', async () => {
+    storageMock.getAllKeys.mockResolvedValueOnce([
+      'cart-storage',
+      'auth-storage',
+    ]);
+
+    await expect(asyncStorage.getAllKeys()).resolves.toEqual([
+      'cart-storage',
+      'auth-storage',
+    ]);
+  });
+
+  it('returns an empty array (and does not throw) when enumeration fails', async () => {
+    storageMock.getAllKeys.mockRejectedValueOnce(new Error('boom'));
+
+    await expect(asyncStorage.getAllKeys()).resolves.toEqual([]);
   });
 });

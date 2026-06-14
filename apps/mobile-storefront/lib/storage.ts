@@ -157,6 +157,24 @@ export const asyncStorage = {
       log.warn('Failed to remove item:', name, error);
     }
   },
+  // Union of MMKV + legacy AsyncStorage keys: migrated data lives in MMKV, but
+  // some keys (e.g. the React Query cache, which intentionally stays on
+  // AsyncStorage) are only in AsyncStorage — both must be visible to callers
+  // that enumerate keys (e.g. "clear cache").
+  getAllKeys: async (): Promise<string[]> => {
+    try {
+      const legacyKeys = await AsyncStorage.getAllKeys();
+      if (mmkvStorage) {
+        return Array.from(
+          new Set<string>([...mmkvStorage.getAllKeys(), ...legacyKeys])
+        );
+      }
+      return [...legacyKeys];
+    } catch (error) {
+      log.warn('Failed to get all keys:', error);
+      return [];
+    }
+  },
 };
 
 /**
