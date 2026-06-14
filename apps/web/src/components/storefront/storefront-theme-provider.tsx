@@ -46,7 +46,7 @@ function decrementStorefrontLightScope(target: HTMLElement) {
  * 1. The `.light` rule in globals.css re-declares all CSS custom properties to
  *    their light-mode values, so `bg-(--background)` and friends resolve
  *    to light tokens inside this subtree.
- * 2. The `darkMode` selector in tailwind.config.ts excludes `.light` and its
+ * 2. The `darkMode` selector in tailwind.config.mjs excludes `.light` and its
  *    descendants from the `dark:` variant, so raw utilities like
  *    `dark:bg-gray-900` also stop firing inside this wrapper. Without this
  *    paired config change, Tailwind `dark:*` variants would still apply

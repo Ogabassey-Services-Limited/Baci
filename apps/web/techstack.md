@@ -40,7 +40,7 @@ This document provides a comprehensive overview of the technology stack used to 
 ### Tailwind CSS
 - **Framework:** [Tailwind CSS](https://tailwindcss.com/)
 - **Why:** A utility-first CSS framework that allows for rapid UI development without writing custom CSS. It's highly configurable and works seamlessly with React components.
-- **Configuration:** `tailwind.config.ts`
+- **Configuration:** `tailwind.config.mjs`
 
 ### shadcn/ui
 - **Component Library:** [shadcn/ui](https://ui.shadcn.com/)
