@@ -352,6 +352,19 @@ describe('preparePendingVtuTransaction', () => {
   });
 
   it('persists Monnify checkout provider fields in transaction metadata', async () => {
+    mockGetMonnifyBillerProducts.mockResolvedValueOnce([
+      {
+        amount: null,
+        billerCode: 'biller1',
+        categoryCode: 'ELECTRICITY',
+        fee: null,
+        isAmountFixed: false,
+        maxAmount: 5000,
+        minAmount: 100,
+        name: 'Product 1',
+        productCode: 'product1',
+      },
+    ]);
     const { insert, supabase } = createMockSupabase();
 
     await preparePendingVtuTransaction({
@@ -387,6 +400,115 @@ describe('preparePendingVtuTransaction', () => {
           validationReference: 'val-ref-123',
           billerCode: 'biller1',
           productCode: 'product1',
+          requireValidationRef: true,
+        }),
+      })
+    );
+  });
+
+  it('rejects Monnify bill payments below the provider minimum before creating a row', async () => {
+    mockGetMonnifyBillerProducts.mockResolvedValueOnce([
+      {
+        amount: null,
+        billerCode: 'IKEDC',
+        categoryCode: 'ELECTRICITY',
+        fee: null,
+        isAmountFixed: false,
+        maxAmount: 100_000,
+        minAmount: 1000,
+        name: 'Ikeja Prepaid',
+        productCode: 'IKEDC_PREPAID',
+      },
+    ]);
+    const { insert, supabase } = createMockSupabase();
+
+    await expect(
+      preparePendingVtuTransaction({
+        supabase,
+        user: {
+          id: 'user-1',
+          email: 'customer@example.com',
+        } as unknown as Parameters<
+          typeof preparePendingVtuTransaction
+        >[0]['user'],
+        input: {
+          merchantSlug: 'ogabassey',
+          type: 'electricity',
+          amount: 500,
+          provider: 'monnify' as const,
+          billerCode: 'IKEDC',
+          productCode: 'IKEDC_PREPAID',
+          customerIdentifier: '43901766923',
+          source: 'checkout',
+        } as unknown as Parameters<
+          typeof preparePendingVtuTransaction
+        >[0]['input'],
+        source: 'checkout',
+        requireCustomer: true,
+      })
+    ).rejects.toThrow('Minimum amount for Ikeja Prepaid is 1000');
+
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('obtains missing Monnify validation references before creating a bill payment row', async () => {
+    mockGetMonnifyBillerProducts.mockResolvedValueOnce([
+      {
+        amount: null,
+        billerCode: 'IKEDC',
+        categoryCode: 'ELECTRICITY',
+        fee: null,
+        isAmountFixed: false,
+        maxAmount: 100_000,
+        minAmount: 100,
+        name: 'Ikeja Prepaid',
+        productCode: 'IKEDC_PREPAID',
+      },
+    ]);
+    mockVerifyMonnifyBillCustomer.mockResolvedValueOnce({
+      verified: true,
+      message: 'success',
+      customerName: 'Meter Owner',
+      requireValidationRef: true,
+      validationReference: 'VAL-123',
+    });
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 2000,
+        provider: 'monnify' as const,
+        billerCode: 'IKEDC',
+        productCode: 'IKEDC_PREPAID',
+        customerIdentifier: '43901766923',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(mockVerifyMonnifyBillCustomer).toHaveBeenCalledWith(
+      'IKEDC',
+      'IKEDC_PREPAID',
+      '43901766923'
+    );
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_name: 'Meter Owner',
+        metadata: expect.objectContaining({
+          provider: 'monnify',
+          validationReference: 'VAL-123',
           requireValidationRef: true,
         }),
       })
@@ -759,6 +881,19 @@ describe('preparePendingVtuTransaction', () => {
       });
 
       it('prices explicit Monnify bill payments with the Monnify biller key', async () => {
+        mockGetMonnifyBillerProducts.mockResolvedValueOnce([
+          {
+            amount: null,
+            billerCode: 'BEDC',
+            categoryCode: 'ELECTRICITY',
+            fee: null,
+            isAmountFixed: false,
+            maxAmount: 100_000,
+            minAmount: 100,
+            name: 'BEDC Prepaid',
+            productCode: 'BEDC-PREPAID',
+          },
+        ]);
         const { insert, supabase } = createMockSupabase();
         await preparePendingVtuTransaction({
           supabase,
@@ -837,6 +972,19 @@ describe('preparePendingVtuTransaction', () => {
       });
 
       it('routes to Monnify when provider is omitted and only Monnify fields are present (even if routing prefers Kuda)', async () => {
+        mockGetMonnifyBillerProducts.mockResolvedValueOnce([
+          {
+            amount: null,
+            billerCode: 'IBEDC',
+            categoryCode: 'ELECTRICITY',
+            fee: null,
+            isAmountFixed: false,
+            maxAmount: 100_000,
+            minAmount: 100,
+            name: 'IBEDC Prepaid',
+            productCode: 'IBEDC-PREPAID',
+          },
+        ]);
         const { insert, supabase } = createMockSupabase();
         await preparePendingVtuTransaction({
           supabase,
@@ -916,6 +1064,19 @@ describe('preparePendingVtuTransaction', () => {
       });
 
       it('routes and prices as Monnify when provider is omitted, both field sets exist, and Monnify is preferred', async () => {
+        mockGetMonnifyBillerProducts.mockResolvedValueOnce([
+          {
+            amount: null,
+            billerCode: 'BEDC',
+            categoryCode: 'ELECTRICITY',
+            fee: null,
+            isAmountFixed: false,
+            maxAmount: 100_000,
+            minAmount: 100,
+            name: 'BEDC Prepaid',
+            productCode: 'BEDC-PREPAID',
+          },
+        ]);
         const { insert, supabase } = createMockSupabase();
         await preparePendingVtuTransaction({
           supabase,

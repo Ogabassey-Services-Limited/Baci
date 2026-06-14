@@ -28,6 +28,8 @@ export interface CreateBillFormPurchaseHandlerInput {
   selectedBillItemPathLabel: string;
   setIsSubmitting: (isSubmitting: boolean) => void;
   type: BillFormProps['type'];
+  requireValidationRef?: boolean;
+  validationReference?: string;
   /**
    * Verified bill customer-of-record name (meter owner / account holder)
    * from the verify step or a previous successful purchase. When present,

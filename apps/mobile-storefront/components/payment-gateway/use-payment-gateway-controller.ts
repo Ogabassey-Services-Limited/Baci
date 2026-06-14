@@ -10,7 +10,6 @@ import { createPaymentGatewayCompletionHandlers } from './payment-gateway-comple
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
 import {
   isPaymentGateway,
-  PAYMENT_KINDS,
   PAYMENT_GATEWAY_LABELS,
 } from './payment-gateway.helpers';
 import {
@@ -57,7 +56,6 @@ export function usePaymentGatewayController() {
   const webViewRef = useRef<WebView>(null);
   const copiedGatewayTextRef = useRef<string | null>(null);
   const paymentCompletionStartedRef = useRef(false);
-  const loadTimeoutCompletionRef = useRef<(() => boolean) | null>(null);
   const savingsAuthorizationAbortRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef(true);
   const vtuConfirmationTokenRef = useRef(0);
@@ -118,7 +116,6 @@ export function usePaymentGatewayController() {
     scheduleDelayedNavigation,
     scheduleLoadTimeout,
   } = usePaymentGatewayTimers({
-    onLoadTimeout: () => loadTimeoutCompletionRef.current?.() ?? false,
     refs: gatewayRefs,
     setErrorMessage,
     setPaymentStatus,
@@ -168,15 +165,6 @@ export function usePaymentGatewayController() {
       trackingToken,
       utilityType,
     });
-
-  loadTimeoutCompletionRef.current = () => {
-    if (paymentKind !== PAYMENT_KINDS.VTU) {
-      return false;
-    }
-
-    beginVtuPaymentCompletion();
-    return true;
-  };
 
   const copyGatewayText = async (
     text: string,

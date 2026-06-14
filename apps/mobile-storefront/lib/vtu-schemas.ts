@@ -9,45 +9,68 @@ export interface BillItem {
   itemFee: number;
   provider?: 'kuda' | 'monnify';
   billerCode?: string;
+  maxAmount?: number;
+  minAmount?: number;
   productCode?: string;
   billItems?: BillItem[];
 }
 
 export const BillItemSchema: z.ZodType<BillItem> = z.lazy(() =>
-  z.object({
-    itemCode: z.string().describe('Unique identifier for a bill item'),
-    itemName: z.string().describe('Display label for the bill item'),
-    amount: z
-      .number()
-      .nonnegative()
-      .describe('Configured amount when fixed by provider'),
-    itemCurrencySymbol: z
-      .string()
-      .describe('Currency symbol returned by the provider'),
-    isAmountFixed: z
-      .boolean()
-      .describe('Whether the provider fixes the amount for this bill item'),
-    itemFee: z
-      .number()
-      .nonnegative()
-      .describe('Provider fee attached to the bill item'),
-    provider: z
-      .enum(['kuda', 'monnify'])
-      .optional()
-      .describe('Backend vending provider for this bill item'),
-    billerCode: z
-      .string()
-      .optional()
-      .describe('Monnify biller code when provider is Monnify'),
-    productCode: z
-      .string()
-      .optional()
-      .describe('Monnify product code when provider is Monnify'),
-    billItems: z
-      .array(BillItemSchema)
-      .optional()
-      .describe('Nested bill items for providers with multi-step selection'),
-  })
+  z
+    .object({
+      itemCode: z.string().describe('Unique identifier for a bill item'),
+      itemName: z.string().describe('Display label for the bill item'),
+      amount: z
+        .number()
+        .nonnegative()
+        .describe('Configured amount when fixed by provider'),
+      itemCurrencySymbol: z
+        .string()
+        .describe('Currency symbol returned by the provider'),
+      isAmountFixed: z
+        .boolean()
+        .describe('Whether the provider fixes the amount for this bill item'),
+      itemFee: z
+        .number()
+        .nonnegative()
+        .describe('Provider fee attached to the bill item'),
+      provider: z
+        .enum(['kuda', 'monnify'])
+        .optional()
+        .describe('Backend vending provider for this bill item'),
+      billerCode: z
+        .string()
+        .optional()
+        .describe('Monnify biller code when provider is Monnify'),
+      maxAmount: z
+        .number()
+        .nonnegative()
+        .optional()
+        .describe('Maximum vend amount accepted by the provider'),
+      minAmount: z
+        .number()
+        .nonnegative()
+        .optional()
+        .describe('Minimum vend amount accepted by the provider'),
+      productCode: z
+        .string()
+        .optional()
+        .describe('Monnify product code when provider is Monnify'),
+      billItems: z
+        .array(BillItemSchema)
+        .optional()
+        .describe('Nested bill items for providers with multi-step selection'),
+    })
+    .refine(
+      (item) =>
+        item.minAmount == null ||
+        item.maxAmount == null ||
+        item.maxAmount >= item.minAmount,
+      {
+        message: 'maxAmount must be greater than or equal to minAmount',
+        path: ['maxAmount'],
+      }
+    )
 );
 
 /**

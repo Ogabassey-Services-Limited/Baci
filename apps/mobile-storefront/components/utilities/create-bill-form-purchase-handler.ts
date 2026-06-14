@@ -50,8 +50,10 @@ export function createBillFormPurchaseHandler({
   selectedBillItem,
   selectedBillItemIdentifier,
   selectedBillItemPathLabel,
+  requireValidationRef,
   setIsSubmitting,
   type,
+  validationReference,
   verifiedCustomerName,
 }: CreateBillFormPurchaseHandlerInput) {
   return async () => {
@@ -84,6 +86,26 @@ export function createBillFormPurchaseHandler({
         Alert.alert(
           'Invalid Amount',
           `Amount must be between ₦${MIN_BILL_PAYMENT_AMOUNT.toLocaleString(AMOUNT_DISPLAY_LOCALE)} and ₦${MAX_BILL_PAYMENT_AMOUNT.toLocaleString(AMOUNT_DISPLAY_LOCALE)}.`
+        );
+        return;
+      }
+      if (
+        selectedBillItem?.minAmount != null &&
+        numericAmount < selectedBillItem.minAmount
+      ) {
+        Alert.alert(
+          'Invalid Amount',
+          `Minimum amount for this product is ₦${selectedBillItem.minAmount.toLocaleString(AMOUNT_DISPLAY_LOCALE)}.`
+        );
+        return;
+      }
+      if (
+        selectedBillItem?.maxAmount != null &&
+        numericAmount > selectedBillItem.maxAmount
+      ) {
+        Alert.alert(
+          'Invalid Amount',
+          `Maximum amount for this product is ₦${selectedBillItem.maxAmount.toLocaleString(AMOUNT_DISPLAY_LOCALE)}.`
         );
         return;
       }
@@ -138,7 +160,9 @@ export function createBillFormPurchaseHandler({
         customerPhone: customer?.phone || undefined,
         productCode: selectedProductCode,
         provider: selectedProvider,
+        ...(requireValidationRef !== undefined ? { requireValidationRef } : {}),
         type: billType,
+        ...(validationReference ? { validationReference } : {}),
         ...(walletAmount > 0 ? { walletAmount } : {}),
       };
 
@@ -155,7 +179,9 @@ export function createBillFormPurchaseHandler({
             customerPhone: payload.customerPhone,
             productCode: payload.productCode,
             provider: payload.provider,
+            requireValidationRef: payload.requireValidationRef,
             type: billType,
+            validationReference: payload.validationReference,
             walletAmount: numericAmount,
             idempotencyKey,
           });

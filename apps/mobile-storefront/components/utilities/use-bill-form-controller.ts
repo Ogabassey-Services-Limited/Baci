@@ -53,6 +53,10 @@ export function useBillFormController({
   const [verifiedCustomerName, setVerifiedCustomerName] = useState<
     string | null
   >(initialCustomerName ?? null);
+  const [verifiedValidationReference, setVerifiedValidationReference] =
+    useState<string | null>(null);
+  const [verifiedRequireValidationRef, setVerifiedRequireValidationRef] =
+    useState<boolean | undefined>(undefined);
   const [shouldScrollToNextStep, setShouldScrollToNextStep] = useState(false);
   const [shouldScrollToPayment, setShouldScrollToPayment] = useState(false);
   const pendingVerificationKeyRef = useRef<string | null>(null);
@@ -68,6 +72,8 @@ export function useBillFormController({
   const resetVerification = () => {
     pendingVerificationKeyRef.current = null;
     setVerifiedSelectionKey(null);
+    setVerifiedValidationReference(null);
+    setVerifiedRequireValidationRef(undefined);
     if (!verify.isPending) {
       verify.reset();
     }
@@ -136,6 +142,8 @@ export function useBillFormController({
     pendingVerificationKeyRef.current = null;
     const customerName = data.customerName?.trim() || null;
     setVerifiedCustomerName(customerName);
+    setVerifiedValidationReference(data.validationReference?.trim() || null);
+    setVerifiedRequireValidationRef(data.requireValidationRef);
 
     const biller = selectedBiller;
     const billItemId = selectedBillItemIdentifier;
@@ -219,8 +227,10 @@ export function useBillFormController({
       selectedBillItem,
       selectedBillItemIdentifier,
       selectedBillItemPathLabel,
+      requireValidationRef: verifiedRequireValidationRef,
       setIsSubmitting: updateSubmitting,
       type,
+      validationReference: verifiedValidationReference ?? undefined,
       verifiedCustomerName,
     })();
 

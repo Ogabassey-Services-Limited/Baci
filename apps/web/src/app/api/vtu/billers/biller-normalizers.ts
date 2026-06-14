@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import type { BillerProduct } from '@/schemas/monnify-bills-schema';
 import {
   type KudaBillItemPayload,
@@ -17,6 +18,8 @@ export interface NormalizedBillItem {
   provider: 'kuda' | 'monnify';
   billerCode?: string;
   billItems?: NormalizedBillItem[];
+  maxAmount?: number;
+  minAmount?: number;
   productCode?: string;
 }
 
@@ -82,15 +85,36 @@ export function normalizeMonnifyProducts({
   billerCode: string;
   products: BillerProduct[];
 }): NormalizedBillItem[] {
-  return products.map((prod) => ({
-    itemCode: prod.productCode,
-    itemName: prod.name,
-    amount: prod.amount ?? prod.minAmount ?? 0,
-    itemCurrencySymbol: MONNIFY_CURRENCY,
-    isAmountFixed: prod.isAmountFixed ?? false,
-    itemFee: prod.fee ?? 0,
-    provider: 'monnify',
-    billerCode,
-    productCode: prod.productCode,
-  }));
+  return products.flatMap((prod) => {
+    if (
+      prod.minAmount != null &&
+      prod.maxAmount != null &&
+      prod.maxAmount < prod.minAmount
+    ) {
+      logger.warn({
+        message: 'Skipping Monnify product with invalid amount range',
+        billerCode,
+        maxAmount: prod.maxAmount,
+        minAmount: prod.minAmount,
+        productCode: prod.productCode,
+      });
+      return [];
+    }
+
+    return [
+      {
+        itemCode: prod.productCode,
+        itemName: prod.name,
+        amount: prod.amount ?? prod.minAmount ?? 0,
+        itemCurrencySymbol: MONNIFY_CURRENCY,
+        isAmountFixed: prod.isAmountFixed ?? false,
+        itemFee: prod.fee ?? 0,
+        provider: 'monnify',
+        billerCode,
+        ...(prod.maxAmount != null ? { maxAmount: prod.maxAmount } : {}),
+        ...(prod.minAmount != null ? { minAmount: prod.minAmount } : {}),
+        productCode: prod.productCode,
+      },
+    ];
+  });
 }

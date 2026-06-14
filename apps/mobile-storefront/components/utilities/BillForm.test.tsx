@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -351,6 +352,68 @@ describe('BillForm', () => {
     );
 
     expect(screen.getByDisplayValue('7,000')).toBeOnTheScreen();
+  });
+
+  it('carries Monnify validation references from verify into checkout', async () => {
+    mockBillers = [
+      mockBiller({
+        billerCode: 'IKEDC',
+        billerId: 'ikedc',
+        billerName: 'IKEDC',
+        provider: 'monnify',
+        billItems: [
+          mockBillItem({
+            billerCode: 'IKEDC',
+            itemCode: 'IKEDC_PREPAID',
+            itemName: 'Prepaid',
+            productCode: 'IKEDC_PREPAID',
+            provider: 'monnify',
+          }),
+        ],
+      }),
+    ];
+
+    render(
+      <BillForm type="power" initialAmount="2500" onSuccess={jest.fn()} />
+    );
+
+    fireEvent.press(screen.getByText('IKEDC'));
+    fireEvent.press(screen.getByText('Prepaid'));
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter meter number'),
+      '43901766923'
+    );
+    fireEvent.press(screen.getByText('Verify'));
+
+    const verifyOptions = mockVerifyMutate.mock.calls[0]?.[1] as
+      | { onSuccess?: (data: unknown) => void }
+      | undefined;
+    act(() => {
+      verifyOptions?.onSuccess?.({
+        verified: true,
+        customerName: 'Meter Owner',
+        message: 'Customer verified',
+        requireValidationRef: true,
+        validationReference: 'VAL-123',
+      });
+    });
+
+    fireEvent.changeText(screen.getByPlaceholderText('Enter amount'), '2500');
+    fireEvent.press(screen.getByText('Continue to Payment'));
+
+    await waitFor(() => {
+      expect(mockInitializeVtuCheckout).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 2500,
+          billerCode: 'IKEDC',
+          customerIdentifier: '43901766923',
+          productCode: 'IKEDC_PREPAID',
+          provider: 'monnify',
+          requireValidationRef: true,
+          validationReference: 'VAL-123',
+        })
+      );
+    });
   });
 
   it('surfaces saved-card bill payments that are still processing', async () => {

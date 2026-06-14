@@ -126,6 +126,94 @@ interface MonnifyTelcoCheckoutFields {
   validationReference?: string;
 }
 
+interface MonnifyValidationFields {
+  customerName?: string;
+  requireValidationRef?: boolean;
+  validationReference?: string;
+}
+
+function validateMonnifyProductAmount({
+  amount,
+  billerName,
+  product,
+}: {
+  amount: number;
+  billerName?: string;
+  product: BillerProduct;
+}) {
+  const productLabel = billerName || product.name || product.productCode;
+  if (product.isAmountFixed === true && product.amount != null) {
+    if (amount !== product.amount) {
+      throw new Error(
+        `Amount for ${productLabel} must be exactly ${product.amount}`
+      );
+    }
+    return;
+  }
+
+  if (product.minAmount != null && amount < product.minAmount) {
+    throw new Error(
+      `Minimum amount for ${productLabel} is ${product.minAmount}`
+    );
+  }
+
+  if (product.maxAmount != null && amount > product.maxAmount) {
+    throw new Error(
+      `Maximum amount for ${productLabel} is ${product.maxAmount}`
+    );
+  }
+}
+
+async function validateMonnifyBillPaymentBeforeCharge({
+  amount,
+  billerCode,
+  billerName,
+  customerIdentifier,
+  productCode,
+  validationReference,
+}: {
+  amount: number;
+  billerCode: string;
+  billerName?: string;
+  customerIdentifier: string;
+  productCode: string;
+  validationReference?: string;
+}): Promise<MonnifyValidationFields | null> {
+  const products = await getMonnifyBillerProducts(billerCode);
+  const product = products.find(
+    (candidate) => candidate.productCode === productCode
+  );
+  if (!product) {
+    throw new Error(`Monnify product not found for ${billerCode}`);
+  }
+
+  validateMonnifyProductAmount({ amount, billerName, product });
+
+  if (validationReference) {
+    return null;
+  }
+
+  const verification = await verifyMonnifyBillCustomer(
+    billerCode,
+    productCode,
+    customerIdentifier
+  );
+
+  if (!verification.verified) {
+    throw new Error(`Monnify validation failed: ${verification.message}`);
+  }
+
+  if (verification.requireValidationRef && !verification.validationReference) {
+    throw new Error('Monnify validation reference is required but missing');
+  }
+
+  return {
+    customerName: verification.customerName,
+    requireValidationRef: verification.requireValidationRef,
+    validationReference: verification.validationReference,
+  };
+}
+
 function isMatchingMonnifyAirtimeProduct(
   product: BillerProduct,
   normalizedNetworkProvider: string,
@@ -196,17 +284,11 @@ async function resolveMonnifyAirtimeCheckoutFields({
     );
   }
 
-  if (product.minAmount != null && amount < product.minAmount) {
-    throw new Error(
-      `Monnify airtime minimum amount for ${normalizedNetworkProvider} is ${product.minAmount}`
-    );
-  }
-
-  if (product.maxAmount != null && amount > product.maxAmount) {
-    throw new Error(
-      `Monnify airtime maximum amount for ${normalizedNetworkProvider} is ${product.maxAmount}`
-    );
-  }
+  validateMonnifyProductAmount({
+    amount,
+    billerName: normalizedNetworkProvider,
+    product,
+  });
 
   const verification = await verifyMonnifyBillCustomer(
     biller.billerCode,
@@ -500,6 +582,7 @@ export async function preparePendingVtuTransaction({
   let resolvedProvider: 'kuda' | 'monnify';
   let commissionProvider: string | undefined;
   let monnifyTelcoFields: MonnifyTelcoCheckoutFields | null = null;
+  let monnifyBillPaymentValidation: MonnifyValidationFields | null = null;
 
   if (isTelco) {
     const routingPreference = resolveVtuProvider(
@@ -633,6 +716,22 @@ export async function preparePendingVtuTransaction({
     throw new Error('Biller name or provider key is required for bill payment');
   }
 
+  if (!isTelco && resolvedProvider === 'monnify') {
+    if (!(input.billerCode && input.productCode && input.customerIdentifier)) {
+      throw new Error('Required Monnify fields are missing');
+    }
+    monnifyBillPaymentValidation = await validateMonnifyBillPaymentBeforeCharge(
+      {
+        amount: purchaseAmount,
+        billerCode: input.billerCode,
+        billerName: input.billerName,
+        customerIdentifier: input.customerIdentifier,
+        productCode: input.productCode,
+        validationReference: input.validationReference,
+      }
+    );
+  }
+
   const commissions = await calculateCommerce('calculate_vtu', {
     amount: purchaseAmount,
     provider: commissionProvider,
@@ -659,13 +758,20 @@ export async function preparePendingVtuTransaction({
   const monnifyCustomerIdentifier =
     monnifyTelcoFields?.customerIdentifier ?? input.customerIdentifier;
   const monnifyCustomerName =
-    input.customerName?.trim() || monnifyTelcoFields?.customerName || null;
+    input.customerName?.trim() ||
+    monnifyTelcoFields?.customerName ||
+    monnifyBillPaymentValidation?.customerName ||
+    null;
   const monnifyValidationReference =
-    monnifyTelcoFields?.validationReference ?? input.validationReference;
+    monnifyTelcoFields?.validationReference ??
+    input.validationReference ??
+    monnifyBillPaymentValidation?.validationReference;
   const monnifyRequireValidationRef =
     typeof monnifyTelcoFields?.requireValidationRef === 'boolean'
       ? monnifyTelcoFields.requireValidationRef
-      : input.requireValidationRef;
+      : typeof input.requireValidationRef === 'boolean'
+        ? input.requireValidationRef
+        : monnifyBillPaymentValidation?.requireValidationRef;
 
   const { data: transaction, error: transactionError } = await supabase
     .from('vtu_transactions')
