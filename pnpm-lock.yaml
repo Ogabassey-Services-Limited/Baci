@@ -154,9 +154,6 @@ importers:
       '@eslint/js':
         specifier: ^10.0.0
         version: 10.0.1(eslint@10.4.1(jiti@2.7.0))
-      '@hono/node-server':
-        specifier: ^2.0.2
-        version: 2.0.2(hono@4.12.23)
       '@next/eslint-plugin-next':
         specifier: ^16.2.9
         version: 16.2.9
@@ -175,9 +172,6 @@ importers:
       globals:
         specifier: ^16.4.0
         version: 16.5.0
-      hono:
-        specifier: ^4.12.23
-        version: 4.12.23
       knip:
         specifier: ^5.83.1
         version: 5.83.1(@types/node@25.9.1)(typescript@5.9.3)
@@ -443,9 +437,6 @@ importers:
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1
-      jsonwebtoken:
-        specifier: ^9.0.3
-        version: 9.0.3
       react-native-svg-transformer:
         specifier: ^1.5.3
         version: 1.5.3(react-native-svg@15.15.4(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(typescript@6.0.3)
@@ -516,12 +507,6 @@ importers:
         specifier: ^2.107.0
         version: 2.107.0
       '@tanstack/query-async-storage-persister':
-        specifier: ^5.101.0
-        version: 5.101.0
-      '@tanstack/query-persist-client-core':
-        specifier: ^5.101.0
-        version: 5.101.0
-      '@tanstack/query-sync-storage-persister':
         specifier: ^5.101.0
         version: 5.101.0
       '@tanstack/react-query':
