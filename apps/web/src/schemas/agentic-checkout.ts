@@ -115,7 +115,7 @@ export const cancelAgenticCheckoutSessionInputSchema =
     agenticCheckoutIdempotencyInputSchema.shape
   );
 
-export const agenticCheckoutBuyerSchema = z.object({
+const agenticCheckoutBuyerSchema = z.object({
   email: z.email(),
   first_name: z.string().trim().min(1),
   last_name: z.string().trim().min(1),
@@ -161,7 +161,7 @@ const payOnDeliveryPaymentDataSchema = z.strictObject({
   provider: z.literal(AGENTIC_PAYMENT_PROVIDER_PAY_ON_DELIVERY),
 });
 
-export const agenticPaymentDataSchema = z.union([
+const agenticPaymentDataSchema = z.union([
   paystackPaymentDataSchema,
   payOnDeliveryPaymentDataSchema,
 ]);

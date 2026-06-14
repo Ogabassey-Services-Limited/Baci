@@ -33,7 +33,7 @@ function appendImageVersionQuery(
   return query ? `${path}?${query}` : path;
 }
 
-export function buildOgabasseyPdpSameOriginImageUrl({
+function buildOgabasseyPdpSameOriginImageUrl({
   imageVersion,
   productSlug,
   quality,

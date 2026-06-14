@@ -2,7 +2,7 @@ import type { GPTLineItem, GPTTotal } from '@/lib/agentic/checkout';
 import type { UcpCartInternalStatus } from '@/lib/agentic/ucp-cart-storage';
 import { UCP_PROFILE_VERSION } from '@/lib/agentic/ucp-discovery-profile';
 
-export const UCP_CART_CAPABILITY = 'dev.ucp.shopping.cart';
+const UCP_CART_CAPABILITY = 'dev.ucp.shopping.cart';
 
 export function buildUcpCartResponse({
   cartId,

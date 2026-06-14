@@ -66,7 +66,7 @@ export const merchantQuizGenerationRequestSchema = z.object({
   topics: z.array(quizTopicSchema).min(1).max(10),
 });
 
-export const merchantQuizPrizeProductSchema = z.object({
+const merchantQuizPrizeProductSchema = z.object({
   defaultVariantId: quizUuidSchema.nullable(),
   id: quizUuidSchema,
   imageUrl: z.string().trim().min(1).nullable(),
@@ -92,8 +92,8 @@ const generatedQuizQuestionBaseSchema = z.object({
   topic: quizTopicSchema,
 });
 
-export const generatedQuizQuestionSchema =
-  generatedQuizQuestionBaseSchema.superRefine((value, context) => {
+const generatedQuizQuestionSchema = generatedQuizQuestionBaseSchema.superRefine(
+  (value, context) => {
     if (!value.options.some((option) => option.id === value.correctOptionId)) {
       context.addIssue({
         code: 'custom',
@@ -101,7 +101,8 @@ export const generatedQuizQuestionSchema =
         path: ['correctOptionId'],
       });
     }
-  });
+  }
+);
 
 export const generatedQuizQuestionsSchema = z.object({
   questions: z.array(generatedQuizQuestionSchema).min(1).max(50),
@@ -122,7 +123,7 @@ export const merchantQuizGenerationResponseSchema = z.object({
   ),
 });
 
-export const quizEventSettingsSchema = z
+const quizEventSettingsSchema = z
   .object({
     prize_name: z.string().optional(),
     prize_product_id: quizUuidSchema.optional(),
@@ -168,12 +169,12 @@ export const quizEventQuestionCountRowSchema = z.object({
   question_count: z.coerce.number().int().nonnegative(),
 });
 
-export const quizOptionResponseSchema = z.object({
+const quizOptionResponseSchema = z.object({
   id: quizNonEmptyIdSchema,
   label: z.string().min(1),
 });
 
-export const quizQuestionResponseSchema = z.object({
+const quizQuestionResponseSchema = z.object({
   id: quizNonEmptyIdSchema,
   index: z.int().positive(),
   options: z.array(quizOptionResponseSchema).min(1),
@@ -182,7 +183,7 @@ export const quizQuestionResponseSchema = z.object({
   total: z.int().positive(),
 });
 
-export const quizEventResponseSchema = z.object({
+const quizEventResponseSchema = z.object({
   endsAt: quizIsoDatetimeSchema.nullable(),
   id: quizNonEmptyIdSchema,
   prizeName: z.string().min(1),

@@ -34,7 +34,7 @@ export function normalizeHttpsUrl(
   }
 }
 
-export function normalizeRootDomain(rootDomain: string): string {
+function normalizeRootDomain(rootDomain: string): string {
   const normalizedUrl = normalizeHttpsUrl(rootDomain);
   if (!normalizedUrl) return PAID_ORDER_EMAIL_FALLBACK_ROOT_DOMAIN;
 
@@ -49,9 +49,7 @@ export function normalizeRootDomain(rootDomain: string): string {
   }
 }
 
-export function normalizeMerchantSlug(
-  slug: string | null | undefined
-): string | null {
+function normalizeMerchantSlug(slug: string | null | undefined): string | null {
   const trimmed = slug?.trim().toLowerCase();
   if (!trimmed) return null;
   if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(trimmed)) {

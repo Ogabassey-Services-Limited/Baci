@@ -8,7 +8,7 @@ export const JumiaFeedCreateResponseSchema = z.object({
   feedId: z.string().min(1),
 });
 
-export const JumiaFeedItemError = z.object({
+const JumiaFeedItemError = z.object({
   globalMessages: z.array(z.string()).optional(),
   businessClients: z
     .object({
@@ -18,7 +18,7 @@ export const JumiaFeedItemError = z.object({
     .optional(),
 });
 
-export const JumiaFeedItem = z.object({
+const JumiaFeedItem = z.object({
   status: z.string().min(1),
   productSid: z.string().min(1),
   sellerSKU: z.string().min(1),

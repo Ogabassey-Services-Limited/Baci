@@ -12,10 +12,8 @@ interface CartValidationResponse {
   }[];
 }
 
-export const createCartValidationKey = (
-  id: string,
-  variantId?: string | null
-) => (variantId ? `${id}::${variantId}` : id);
+const createCartValidationKey = (id: string, variantId?: string | null) =>
+  variantId ? `${id}::${variantId}` : id;
 
 const serializeVariantAttributes = (
   variantAttributes: CartItem['variantAttributes']

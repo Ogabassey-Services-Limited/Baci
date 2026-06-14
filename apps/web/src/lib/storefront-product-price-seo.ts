@@ -127,7 +127,7 @@ export function getProductPriceRange(
   };
 }
 
-export function formatProductPrice(
+function formatProductPrice(
   price: number,
   currency: string,
   locale = getStorefrontLocale()
