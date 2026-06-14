@@ -14,6 +14,7 @@ import {
   BILL_TYPE_MAP,
   IDENTIFIER_LABELS,
 } from './bill-form.constants';
+import { createBillFormVerifyPayload } from './bill-form-verify-payload';
 import { parseUtilityAmount } from './bill-form.helpers';
 import type { BillFormProps } from './bill-form.types';
 import type { BillFormController } from './bill-form-controller.types';
@@ -178,21 +179,13 @@ export function useBillFormController({
       return;
     }
     pendingVerificationKeyRef.current = currentVerificationKey;
-    const selectedProvider =
-      selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
     verify.mutate(
-      {
-        billItemIdentifier: selectedBillItemIdentifier,
-        billerCode:
-          selectedBillItem?.billerCode ?? selectedBiller.billerCode,
+      createBillFormVerifyPayload({
         customerIdentifier: normalizedCustomerId,
-        productCode:
-          selectedBillItem?.productCode ??
-          (selectedProvider === 'monnify'
-            ? selectedBillItemIdentifier
-            : undefined),
-        provider: selectedProvider,
-      },
+        selectedBiller,
+        selectedBillItem,
+        selectedBillItemIdentifier,
+      }),
       { onSuccess: handleVerifySuccess }
     );
   };
@@ -208,9 +201,6 @@ export function useBillFormController({
     setIsSubmitting(nextIsSubmitting);
   };
 
-  // Built at call time: handing a ref-reading getter to a factory invoked
-  // during render would block React Compiler memoization (refs rule). The
-  // factory is pure, so press-time construction is behavior-identical.
   const handlePurchase = () =>
     createBillFormPurchaseHandler({
       amount,

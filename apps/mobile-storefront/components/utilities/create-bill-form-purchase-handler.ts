@@ -15,12 +15,10 @@ import {
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { IDENTIFIER_LABELS } from './bill-form.constants';
+import { getBillPaymentAmountError } from './bill-payment-amount-validation';
 
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
-const MIN_BILL_PAYMENT_AMOUNT = 50;
-const MAX_BILL_PAYMENT_AMOUNT = 500_000;
 const GENERIC_PAYMENT_ERROR_MESSAGE = 'Payment failed. Please try again.';
-const AMOUNT_DISPLAY_LOCALE = 'en-NG';
 
 function getSafePaymentErrorMessage(error: unknown): string {
   if (error instanceof VtuPaymentStillProcessingError) {
@@ -79,34 +77,12 @@ export function createBillFormPurchaseHandler({
         Alert.alert('Missing Amount', 'Please enter an amount.');
         return;
       }
-      if (
-        numericAmount < MIN_BILL_PAYMENT_AMOUNT ||
-        numericAmount > MAX_BILL_PAYMENT_AMOUNT
-      ) {
-        Alert.alert(
-          'Invalid Amount',
-          `Amount must be between ₦${MIN_BILL_PAYMENT_AMOUNT.toLocaleString(AMOUNT_DISPLAY_LOCALE)} and ₦${MAX_BILL_PAYMENT_AMOUNT.toLocaleString(AMOUNT_DISPLAY_LOCALE)}.`
-        );
-        return;
-      }
-      if (
-        selectedBillItem?.minAmount != null &&
-        numericAmount < selectedBillItem.minAmount
-      ) {
-        Alert.alert(
-          'Invalid Amount',
-          `Minimum amount for this product is ₦${selectedBillItem.minAmount.toLocaleString(AMOUNT_DISPLAY_LOCALE)}.`
-        );
-        return;
-      }
-      if (
-        selectedBillItem?.maxAmount != null &&
-        numericAmount > selectedBillItem.maxAmount
-      ) {
-        Alert.alert(
-          'Invalid Amount',
-          `Maximum amount for this product is ₦${selectedBillItem.maxAmount.toLocaleString(AMOUNT_DISPLAY_LOCALE)}.`
-        );
+      const amountError = getBillPaymentAmountError(
+        numericAmount,
+        selectedBillItem
+      );
+      if (amountError) {
+        Alert.alert('Invalid Amount', amountError);
         return;
       }
       const walletAmount = computeVtuWalletAmount(
