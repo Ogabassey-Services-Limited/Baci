@@ -459,6 +459,9 @@ const RESERVED_STOREFRONT_SEGMENTS = new Set([
 // NOT in this set, so it remains cacheable.
 const NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS = new Set<string>([
   ...RESERVED_STOREFRONT_SEGMENTS,
+  // Singular `/product/{slug}` is a legacy redirect-only / noindex route (not in
+  // RESERVED, which only has plural `products`) — keep it no-store.
+  'product',
   'my-account',
   'delete-account',
   'receipts',

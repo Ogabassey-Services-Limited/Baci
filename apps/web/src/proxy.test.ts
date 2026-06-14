@@ -1138,6 +1138,8 @@ describe('Middleware Proxy', () => {
     'https://ogabassey.com/cart/review',
     // Reserved fallback PDP shape stays no-store (uncategorized product path).
     'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
+    // Singular legacy redirect-only route must stay no-store.
+    'https://ogabassey.com/product/samsung-galaxy-z-fold-4',
     // Param / non-canonical PDP URLs (e.g. invalid variant streams a redirect)
     // must not be cached as a non-canonical shell.
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4?storage=128GB',
