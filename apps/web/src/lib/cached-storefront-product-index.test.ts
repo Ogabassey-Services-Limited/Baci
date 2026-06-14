@@ -169,7 +169,10 @@ describe('getCachedStorefrontProductIndex', () => {
       limit: 10,
     });
 
-    const selectArg = String(builder.select.mock.calls.at(-1)?.[0]);
+    const lastSelectCall = builder.select.mock.calls.at(-1) as
+      | [unknown]
+      | undefined;
+    const selectArg = String(lastSelectCall?.[0]);
     expect(selectArg).toMatch(/categories:category_id\(/);
   });
 
