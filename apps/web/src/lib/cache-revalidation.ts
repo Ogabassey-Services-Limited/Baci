@@ -80,6 +80,12 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
   // Invalidate storefront product index (paginated listing)
   revalidateTag(`product-index-${normalizedMerchantId}`, 'products');
 
+  // Invalidate the proxy crawl-budget slug-set (PR-B §3.3 invalidation contract):
+  // a published/unpublished/archived/deleted/slug-changed product must enter or
+  // leave the set so the proxy never hard-404s a live product or serves a stale
+  // 200 for a removed one. Every product mutation path funnels through here.
+  revalidateTag(`product-slug-set-${normalizedMerchantId}`, 'products');
+
   // Invalidate legacy product redirect cache
   revalidateTag('product-legacy-redirect', 'products');
 
