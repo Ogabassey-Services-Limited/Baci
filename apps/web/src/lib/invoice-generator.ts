@@ -692,27 +692,3 @@ export function generateInvoicePDF(data: InvoiceData): jsPDF {
 
   return doc;
 }
-
-/**
- * Generate invoice PDF and return as Blob
- */
-export function generateInvoiceBlob(data: InvoiceData): Blob {
-  const doc = generateInvoicePDF(data);
-  return doc.output('blob');
-}
-
-/**
- * Generate invoice PDF and trigger download
- */
-export function downloadInvoice(data: InvoiceData, filename?: string): void {
-  const doc = generateInvoicePDF(data);
-  doc.save(filename || `invoice-${data.invoice_number}.pdf`);
-}
-
-/**
- * Generate invoice PDF and return as base64 data URL
- */
-export function generateInvoiceDataUrl(data: InvoiceData): string {
-  const doc = generateInvoicePDF(data);
-  return doc.output('dataurlstring');
-}

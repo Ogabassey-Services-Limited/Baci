@@ -321,7 +321,7 @@ export const orderIdParamsSchema = z.object({
   id: z.uuid(),
 });
 
-export const recordPaymentSchema = z.object({
+const recordPaymentSchema = z.object({
   amount: z.coerce.number().positive(),
   payment_method: z
     .string()

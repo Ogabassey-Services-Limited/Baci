@@ -7,8 +7,8 @@ import {
 } from '@/constants/theme';
 
 export const BLOG_EDITOR_AI_COLOR = AI_ACCENT_COLOR;
-export const BLOG_EDITOR_FAB_BOTTOM = 80;
-export const BLOG_EDITOR_FAB_SIZE = 56;
+const BLOG_EDITOR_FAB_BOTTOM = 80;
+const BLOG_EDITOR_FAB_SIZE = 56;
 
 export const blogEditorStyles = StyleSheet.create({
   container: {

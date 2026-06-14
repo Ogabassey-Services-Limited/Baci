@@ -51,7 +51,7 @@ function readPayOnDeliveryEnabled(settings: unknown): boolean | undefined {
   return readBooleanSetting(settings, 'pay_on_delivery_enabled');
 }
 
-export function normalizePaymentCountryCode(
+function normalizePaymentCountryCode(
   country: string | null | undefined
 ): string | null {
   const trimmed = country?.trim();
@@ -109,7 +109,7 @@ export function isBankTransferCheckoutAvailable(
   return isPaystackCheckoutAvailable(merchant);
 }
 
-export function hasPaystackSettlementDetails(
+function hasPaystackSettlementDetails(
   merchant: CheckoutPaymentMerchant | null | undefined
 ): boolean {
   if (!merchant) return false;

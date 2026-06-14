@@ -199,7 +199,7 @@ export function getTotalVariantStock(
   );
 }
 
-export function toVariantAttributeFormValues(
+function toVariantAttributeFormValues(
   attributes: unknown
 ): VariantAttributeFormValue[] {
   if (

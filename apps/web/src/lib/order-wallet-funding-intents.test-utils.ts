@@ -15,7 +15,7 @@ export const customer = {
   phone: '+2348012345678',
 };
 
-export const walletAccount = {
+const walletAccount = {
   accountName: 'Ogabassey/Jane Doe',
   accountNumber: '1234567890',
   bankName: 'Titan Paystack',

@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 // ── Brands ──
 
-export const JumiaBrandSchema = z.object({
+const JumiaBrandSchema = z.object({
   code: z.int(),
   name: z.string(),
 });

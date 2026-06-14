@@ -15,12 +15,12 @@ export const builderConfigSchema = z.looseObject({
   zones: z.record(z.string(), z.unknown()).default({}),
 });
 
-export const builderExpectedLastUpdatedSchema = z.iso
+const builderExpectedLastUpdatedSchema = z.iso
   .datetime({ offset: true })
   .nullable()
   .optional();
 
-export const builderDegradedReasonSchema = z.enum([
+const builderDegradedReasonSchema = z.enum([
   'config_load_failed',
   'default_generation_failed',
 ]);

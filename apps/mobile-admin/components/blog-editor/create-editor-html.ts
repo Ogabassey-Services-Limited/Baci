@@ -10,7 +10,7 @@ interface CreateEditorHtmlOptions {
   content: string;
 }
 
-export function buildEditorTheme(colors: ThemeColors) {
+function buildEditorTheme(colors: ThemeColors) {
   const safeColors = {
     background: sanitizeCssColor(colors.background, '#0F172A'),
     border: sanitizeCssColor(colors.border, '#334155'),

@@ -124,10 +124,3 @@ export function getDeviceImage(modelName: string): string {
 function buildAppleCdnUrl(slug: string): string {
   return `${APPLE_CDN_BASE}/${slug}?wid=400&hei=400&fmt=png&qlt=95`;
 }
-
-/**
- * Check if a device model is supported (has image mapping)
- */
-export function isDeviceSupported(modelName: string): boolean {
-  return getDeviceImage(modelName) !== FALLBACK_IMAGE;
-}

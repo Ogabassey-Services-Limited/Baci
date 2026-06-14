@@ -1,4 +1,4 @@
-export const PLATFORM_SETTINGS_SECRET_FIELDS = [
+const PLATFORM_SETTINGS_SECRET_FIELDS = [
   'ga4_api_secret',
   'facebook_capi_token',
   'tiktok_access_token',

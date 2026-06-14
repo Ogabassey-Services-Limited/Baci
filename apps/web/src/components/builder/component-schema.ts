@@ -117,8 +117,3 @@ export const COMPONENT_SCHEMA = {
     },
   },
 };
-
-/**
- * Helper to get a simplified list of component names for the prompt.
- */
-export const COMPONENT_NAMES = Object.keys(COMPONENT_SCHEMA).join(', ');

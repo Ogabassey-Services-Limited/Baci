@@ -7,7 +7,7 @@ import type {
  * Ordered select list for import_jobs queries. Keep this aligned with the
  * runtime ImportJobRecord shape so route helpers do not cast incomplete rows.
  */
-export const IMPORT_JOB_COLUMNS = [
+const IMPORT_JOB_COLUMNS = [
   'id',
   'merchant_id',
   'created_by',
@@ -31,7 +31,7 @@ export const IMPORT_JOB_COLUMNS = [
 
 export const IMPORT_JOB_SELECT = IMPORT_JOB_COLUMNS.join(', ');
 
-export const PENDING_IMPORT_UPLOAD_COLUMNS = [
+const PENDING_IMPORT_UPLOAD_COLUMNS = [
   'id',
   'merchant_id',
   'created_by',

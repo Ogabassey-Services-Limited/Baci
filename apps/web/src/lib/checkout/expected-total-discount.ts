@@ -2,7 +2,7 @@
  * Maximum auto-negotiation discount cap as a rate (0.03 = 3%).
  * AI-accepted offers stay within 3%; deeper discounts require human review.
  */
-export const MAX_AUTO_NEGOTIATION_DISCOUNT_RATE = 0.03;
+const MAX_AUTO_NEGOTIATION_DISCOUNT_RATE = 0.03;
 /**
  * Allowed total-parity drift in currency units. A <= ₦1 difference covers
  * display/rounding drift and is not treated as a negotiated discount.

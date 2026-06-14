@@ -11,7 +11,7 @@ const SHIPPING_STATUS_FILTER_VALUES = ['All', ...SHIPPING_STATUSES] as const;
 const DashboardOrderMerchantIdSchema = z.string().trim().min(1).max(128);
 const DashboardOrderIdentifierSchema = z.string().trim().min(1).max(128);
 
-export const DashboardOrderFiltersSchema = z.object({
+const DashboardOrderFiltersSchema = z.object({
   paymentStatus: z.enum(PAYMENT_STATUS_FILTER_VALUES).optional(),
   shippingStatus: z.enum(SHIPPING_STATUS_FILTER_VALUES).optional(),
   search: z.string().trim().max(200).optional(),

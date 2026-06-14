@@ -16,7 +16,7 @@ import {
   toFiniteNumberOrNull,
 } from './transaction-review-row-helpers';
 
-export const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export {
   filterOrdersForTransactionTab,

@@ -1,28 +1,20 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { createContext, useContext, useEffect } from 'react';
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type NetworkState, useNetworkState } from '@/hooks/useNetworkState';
+import { useNetworkState } from '@/hooks/useNetworkState';
 import { useTheme } from '@/hooks/useTheme';
-
-interface NetworkContextValue extends NetworkState {
-  refresh: () => Promise<void>;
-  onReconnect: (callback: () => void) => () => void;
-}
-
-const NetworkContext = createContext<NetworkContextValue | undefined>(
-  undefined
-);
 
 interface NetworkProviderProps {
   children: ReactNode;
 }
 
 /**
- * Network Provider component that wraps the app
- * Provides network state context and displays offline banner
+ * Wraps the app to render offline / reconnected banners and invalidate React
+ * Query caches when connectivity is restored. No context is exposed — network
+ * state is observed internally via useNetworkState().
  */
 export function NetworkProvider({ children }: NetworkProviderProps) {
   const networkState = useNetworkState();
@@ -43,10 +35,8 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
     });
   }, [networkState, queryClient]);
 
-  // React Compiler (babel-plugin-react-compiler) auto-memoizes the context value,
-  // so no manual useMemo wrapper is needed. See babel.config.js for compiler config.
   return (
-    <NetworkContext.Provider value={networkState}>
+    <>
       {children}
       {/* Offline Banner - shown when device is offline */}
       {!networkState.isOnline && (
@@ -97,28 +87,8 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
           </Text>
         </View>
       )}
-    </NetworkContext.Provider>
+    </>
   );
-}
-
-/**
- * Hook to access network state from any component
- *
- * @example
- * ```tsx
- * const { isOnline, wasRecentlyReconnected } = useNetwork();
- *
- * if (!isOnline) {
- *   return <Text>Please check your internet connection</Text>;
- * }
- * ```
- */
-export function useNetwork(): NetworkContextValue {
-  const context = useContext(NetworkContext);
-  if (context === undefined) {
-    throw new Error('useNetwork must be used within a NetworkProvider');
-  }
-  return context;
 }
 
 /**

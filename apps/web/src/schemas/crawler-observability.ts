@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const crawlerCacheOutcomeSchema = z.enum([
+const crawlerCacheOutcomeSchema = z.enum([
   'hit',
   'miss',
   'stale',
