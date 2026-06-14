@@ -217,7 +217,9 @@ describe('storefront layout', () => {
     await waitFor(() => {
       expect(getStorefrontShellSnapshotBase).toHaveBeenCalledWith('ogabassey');
     });
-    expect(mockConnection).toHaveBeenCalledOnce();
+    // The connection() guard was removed (PR #2436 patches the resume bug) so
+    // the storefront layout can prerender; it is no longer called.
+    expect(mockConnection).not.toHaveBeenCalled();
     expect(getStorefrontShellSnapshot).toHaveBeenCalledWith(
       baseShellSnapshotWithoutCategories
     );
