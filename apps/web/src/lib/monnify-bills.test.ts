@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockUnstableCache } = vi.hoisted(() => ({
-  mockUnstableCache: vi.fn(
-    <T extends (...args: never[]) => unknown>(fn: T) => fn
-  ),
+const { mockCacheLife, mockCacheTag } = vi.hoisted(() => ({
+  mockCacheLife: vi.fn(),
+  mockCacheTag: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({
-  unstable_cache: mockUnstableCache,
+  cacheLife: mockCacheLife,
+  cacheTag: mockCacheTag,
 }));
 
 import {
@@ -168,6 +168,15 @@ describe('Monnify Bills Client', () => {
           categoryCodes: ['AIRTIME'],
         }),
       ]);
+      expect(mockCacheLife).toHaveBeenCalledWith({
+        stale: 60,
+        revalidate: 300,
+        expire: 3600,
+      });
+      expect(mockCacheTag).toHaveBeenCalledWith(
+        'monnify-discovery',
+        'monnify-billers-AIRTIME'
+      );
     });
 
     it('getBillerProducts returns unwrapped products list', async () => {
@@ -284,6 +293,15 @@ describe('Monnify Bills Client', () => {
           productCode: '13',
         }),
       ]);
+      expect(mockCacheLife).toHaveBeenCalledWith({
+        stale: 60,
+        revalidate: 300,
+        expire: 3600,
+      });
+      expect(mockCacheTag).toHaveBeenCalledWith(
+        'monnify-discovery',
+        'monnify-biller-products-MTN'
+      );
     });
 
     it('removes caller abort listeners after discovery requests settle', async () => {

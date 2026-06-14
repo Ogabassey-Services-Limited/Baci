@@ -48,6 +48,46 @@ describe('computeVtuWalletRequestFingerprint', () => {
     expect(a).not.toBe(b);
   });
 
+  it('produces a different hash when Monnify provider routing fields change', () => {
+    const kuda = computeVtuWalletRequestFingerprint(BASE_AIRTIME);
+    const monnify = computeVtuWalletRequestFingerprint({
+      ...BASE_AIRTIME,
+      billerCode: 'MTN',
+      productCode: '13',
+      provider: 'monnify',
+    });
+
+    expect(kuda).not.toBe(monnify);
+    expect(monnify).not.toBe(
+      computeVtuWalletRequestFingerprint({
+        ...BASE_AIRTIME,
+        billerCode: 'GLO',
+        productCode: '12',
+        provider: 'monnify',
+      })
+    );
+  });
+
+  it('produces a different hash when Monnify validation reference fields change', () => {
+    const withoutValidationReference = computeVtuWalletRequestFingerprint({
+      ...BASE_AIRTIME,
+      billerCode: 'IKEDC',
+      productCode: 'IKEDC_PREPAID',
+      provider: 'monnify',
+    });
+
+    expect(withoutValidationReference).not.toBe(
+      computeVtuWalletRequestFingerprint({
+        ...BASE_AIRTIME,
+        billerCode: 'IKEDC',
+        productCode: 'IKEDC_PREPAID',
+        provider: 'monnify',
+        requireValidationRef: true,
+        validationReference: 'VAL-123',
+      })
+    );
+  });
+
   it('produces the same hash regardless of object key insertion order', () => {
     // Pin determinism: the canonical replacer-array stringification
     // means inserting fields in a different order MUST yield the

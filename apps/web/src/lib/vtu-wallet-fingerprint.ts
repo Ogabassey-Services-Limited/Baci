@@ -17,12 +17,17 @@ import type { VtuWalletOnlyChargeInput } from '@/schemas/vtu';
 const FINGERPRINT_FIELDS = [
   'amount',
   'billItemIdentifier',
+  'billerCode',
   'billerName',
   'customerIdentifier',
   'dataPlanCode',
   'networkProvider',
   'phoneNumber',
+  'productCode',
+  'provider',
+  'requireValidationRef',
   'type',
+  'validationReference',
   'walletAmount',
 ] as const;
 

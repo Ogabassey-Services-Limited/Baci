@@ -30,7 +30,7 @@ describe('biller normalizers', () => {
     expect(getMonnifyCategoryCode('electricity')).toBe('ELECTRICITY');
     expect(getMonnifyCategoryCode('cable_tv')).toBe('CABLE_TV');
     expect(getMonnifyCategoryCode('airtime')).toBe('AIRTIME');
-    expect(getMonnifyCategoryCode('data')).toBe('DATA_BUNDLE');
+    expect(getMonnifyCategoryCode('data')).toBeUndefined();
     expect(getMonnifyCategoryCode('betting')).toBeUndefined();
   });
 

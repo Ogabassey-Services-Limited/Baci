@@ -425,7 +425,7 @@ describe('GET /api/vtu/billers', () => {
     expect(monnifyBiller?.billItems[0]?.productCode).toBe('IKEDC-PREPAID');
   });
 
-  it('uses documented Monnify bill category codes for supported categories only', async () => {
+  it('uses Monnify bill category codes for checkout-supported categories only', async () => {
     const { GET } = await import('./route');
 
     await GET(makeRequest({ type: 'airtime', includeMonnify: 'true' }));
@@ -435,10 +435,7 @@ describe('GET /api/vtu/billers', () => {
     );
 
     await GET(makeRequest({ type: 'data', includeMonnify: 'true' }));
-    expect(mockMonnifyGetBillers).toHaveBeenLastCalledWith(
-      'DATA_BUNDLE',
-      expect.objectContaining({ signal: expect.any(Object) })
-    );
+    expect(mockMonnifyGetBillers).toHaveBeenCalledTimes(1);
 
     await GET(makeRequest({ type: 'electricity', includeMonnify: 'true' }));
     expect(mockMonnifyGetBillers).toHaveBeenLastCalledWith(
@@ -453,7 +450,7 @@ describe('GET /api/vtu/billers', () => {
     );
 
     await GET(makeRequest({ type: 'betting', includeMonnify: 'true' }));
-    expect(mockMonnifyGetBillers).toHaveBeenCalledTimes(4);
+    expect(mockMonnifyGetBillers).toHaveBeenCalledTimes(3);
   });
 
   it('omits Monnify billers that have no usable products', async () => {

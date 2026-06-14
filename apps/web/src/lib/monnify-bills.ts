@@ -1,4 +1,4 @@
-import { unstable_cache } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { getMonnifyBaseUrl } from '@/env';
 import type { PurchaseResult } from '@/lib/kuda';
 import { getMonnifyToken } from '@/lib/monnify';
@@ -21,7 +21,9 @@ import {
 const MONNIFY_SUCCESS_RESPONSE_CODE = '0';
 const MONNIFY_DISCOVERY_TIMEOUT_MS = 10_000;
 const MONNIFY_FINANCIAL_TIMEOUT_MS = 30_000;
+const MONNIFY_DISCOVERY_CACHE_STALE_SECONDS = 60;
 const MONNIFY_DISCOVERY_CACHE_REVALIDATE_SECONDS = 300;
+const MONNIFY_DISCOVERY_CACHE_EXPIRE_SECONDS = 3600;
 const MONNIFY_SUCCESS_STATUSES = new Set(['PAID', 'SUCCESS', 'SUCCESSFUL']);
 const MONNIFY_PROCESSING_STATUSES = new Set([
   'PENDING',
@@ -215,26 +217,26 @@ export async function getBillerProducts(
   return parsed.responseBody ?? [];
 }
 
-export function getCachedBillers(categoryCode: string) {
-  return unstable_cache(
-    async () => getBillers(categoryCode),
-    ['monnify-billers', categoryCode],
-    {
-      revalidate: MONNIFY_DISCOVERY_CACHE_REVALIDATE_SECONDS,
-      tags: ['monnify-billers'],
-    }
-  )();
+export async function getCachedBillers(categoryCode: string) {
+  'use cache: remote';
+  cacheLife({
+    stale: MONNIFY_DISCOVERY_CACHE_STALE_SECONDS,
+    revalidate: MONNIFY_DISCOVERY_CACHE_REVALIDATE_SECONDS,
+    expire: MONNIFY_DISCOVERY_CACHE_EXPIRE_SECONDS,
+  });
+  cacheTag('monnify-discovery', `monnify-billers-${categoryCode}`);
+  return await getBillers(categoryCode);
 }
 
-export function getCachedBillerProducts(billerCode: string) {
-  return unstable_cache(
-    async () => getBillerProducts(billerCode),
-    ['monnify-biller-products', billerCode],
-    {
-      revalidate: MONNIFY_DISCOVERY_CACHE_REVALIDATE_SECONDS,
-      tags: ['monnify-biller-products'],
-    }
-  )();
+export async function getCachedBillerProducts(billerCode: string) {
+  'use cache: remote';
+  cacheLife({
+    stale: MONNIFY_DISCOVERY_CACHE_STALE_SECONDS,
+    revalidate: MONNIFY_DISCOVERY_CACHE_REVALIDATE_SECONDS,
+    expire: MONNIFY_DISCOVERY_CACHE_EXPIRE_SECONDS,
+  });
+  cacheTag('monnify-discovery', `monnify-biller-products-${billerCode}`);
+  return await getBillerProducts(billerCode);
 }
 
 export async function verifyBillCustomer(
