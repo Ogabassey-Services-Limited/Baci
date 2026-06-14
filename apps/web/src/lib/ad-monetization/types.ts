@@ -374,7 +374,7 @@ export interface AdFeaturePricing {
   };
 }
 
-export const AD_FEATURE_TIERS: AdFeaturePricing[] = [
+const AD_FEATURE_TIERS: AdFeaturePricing[] = [
   {
     tier: 'starter',
     name: 'Ad Starter',
@@ -438,26 +438,6 @@ export const AD_FEATURE_TIERS: AdFeaturePricing[] = [
 // ============================================
 
 /**
- * Get the ad unit path for Google Publisher Tag
- */
-export function getAdUnitPath(
-  networkCode: string,
-  placementKey: string,
-  merchantSlug?: string
-): string {
-  const placement = AD_PLACEMENTS[placementKey];
-  if (!placement) {
-    throw new Error(`Unknown placement: ${placementKey}`);
-  }
-
-  // Format: /networkCode/merchantSlug/adUnitId or /networkCode/adUnitId
-  if (merchantSlug) {
-    return `/${networkCode}/${merchantSlug}/${placement.id}`;
-  }
-  return `/${networkCode}/${placement.id}`;
-}
-
-/**
  * Check if a merchant can enable a specific placement based on their tier
  */
 export function canEnablePlacement(
@@ -490,15 +470,4 @@ export function canEnablePlacement(
   }
 
   return true;
-}
-
-/**
- * Calculate merchant revenue after platform fee
- */
-export function calculateNetRevenue(
-  grossRevenue: number,
-  revenueSharePercent: number
-): number {
-  const platformFee = grossRevenue * (revenueSharePercent / 100);
-  return grossRevenue - platformFee;
 }

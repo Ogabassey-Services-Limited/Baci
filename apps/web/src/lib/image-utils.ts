@@ -6,13 +6,6 @@
  */
 
 /**
- * Default blur placeholder - a small, neutral gray blur
- * Used when no custom placeholder is available
- */
-const DEFAULT_BLUR_DATA_URL =
-  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBEQCEAwEPwAB//9k=';
-
-/**
  * Color-based blur placeholders for different product categories
  * These provide contextually appropriate loading states
  */
@@ -48,24 +41,6 @@ function generateColorBlur(color: string = '#f4f4f5'): string {
 }
 
 /**
- * Generate blur placeholder based on dominant color extraction
- * For server-side use - extracts average color from image URL
- */
-// biome-ignore lint/suspicious/useAwait: Future async implementation
-export async function generateBlurFromImage(
-  _imageUrl: string
-): Promise<string> {
-  try {
-    // For external images, we can't process them server-side easily
-    // Return a default blur placeholder
-    // In production, you'd use a service like Cloudinary or imgix
-    return DEFAULT_BLUR_DATA_URL;
-  } catch {
-    return DEFAULT_BLUR_DATA_URL;
-  }
-}
-
-/**
  * Get blur placeholder for a product based on its category
  */
 export function getProductBlurPlaceholder(category?: string): string {
@@ -73,41 +48,6 @@ export function getProductBlurPlaceholder(category?: string): string {
   const color =
     CATEGORY_BLUR_COLORS[normalizedCategory] || CATEGORY_BLUR_COLORS.default;
   return generateColorBlur(color);
-}
-
-/**
- * Image loader configuration for different image sources
- * Helps Next.js optimize images from various CDNs
- */
-export function getImageLoader(src: string) {
-  try {
-    const url = new URL(src);
-    const hostname = url.hostname;
-
-    // Supabase storage - check hostname ends with supabase.co
-    if (hostname.endsWith('.supabase.co') || hostname === 'supabase.co') {
-      return {
-        loader: 'default' as const,
-        quality: 80,
-      };
-    }
-
-    // Placeholder services - check exact hostname match
-    if (hostname === 'placehold.co' || hostname === 'via.placeholder.com') {
-      return {
-        loader: 'default' as const,
-        quality: 75,
-      };
-    }
-  } catch {
-    // Invalid URL, use default
-  }
-
-  // Default
-  return {
-    loader: 'default' as const,
-    quality: 85,
-  };
 }
 
 /**

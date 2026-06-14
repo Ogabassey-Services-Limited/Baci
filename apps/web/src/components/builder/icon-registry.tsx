@@ -234,61 +234,6 @@ const iconRegistry: Record<string, LucideIcon> = {
 };
 
 /**
- * Categories of icons for organized selection in the builder
- */
-const iconCategories = {
-  'Shipping & Delivery': [
-    'truck',
-    'package',
-    'map-pin',
-    'clock',
-    'timer',
-    'calendar',
-  ],
-  'Trust & Security': [
-    'shield',
-    'shield-check',
-    'lock',
-    'check-circle',
-    'verified',
-    'badge-check',
-  ],
-  'Customer Service': [
-    'headphones',
-    'message-circle',
-    'phone',
-    'mail',
-    'help-circle',
-    'users',
-  ],
-  'Quality & Premium': [
-    'star',
-    'award',
-    'crown',
-    'gem',
-    'thumbs-up',
-    'sparkles',
-  ],
-  'Eco & Sustainability': ['leaf', 'recycle', 'tree-pine'],
-  Payment: [
-    'credit-card',
-    'dollar-sign',
-    'percent',
-    'gift',
-    'wallet',
-    'banknote',
-  ],
-  Technology: ['zap', 'wifi', 'smartphone', 'monitor', 'laptop', 'bluetooth'],
-  Shopping: ['shopping-bag', 'shopping-cart', 'store', 'tag', 'tags', 'box'],
-  Returns: ['refresh-cw', 'rotate-ccw', 'arrow-left-right', 'undo'],
-  'Health & Beauty': ['heart', 'smile', 'sun', 'moon', 'droplet'],
-  Home: ['home', 'sofa', 'lamp', 'coffee', 'utensils-crossed'],
-  Fashion: ['shirt', 'glasses', 'watch', 'footprints'],
-  Sports: ['dumbbell', 'bike', 'trophy'],
-  'Art & Creativity': ['palette', 'pen-tool', 'camera', 'music'],
-};
-
-/**
  * Get all icon names as options for Puck select field
  */
 export function getIconOptions() {
@@ -298,22 +243,6 @@ export function getIconOptions() {
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' '),
     value: name,
-  }));
-}
-
-/**
- * Get icon options grouped by category
- */
-export function getGroupedIconOptions() {
-  return Object.entries(iconCategories).map(([category, icons]) => ({
-    label: category,
-    options: icons.map((name) => ({
-      label: name
-        .split('-')
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' '),
-      value: name,
-    })),
   }));
 }
 
@@ -331,32 +260,3 @@ export function renderIcon(
   }
   return <IconComponent {...props} />;
 }
-
-/**
- * Check if an icon name exists in the registry
- */
-export function isValidIcon(name: string): boolean {
-  return name in iconRegistry;
-}
-
-/**
- * Get the default icon names for features based on common use cases
- */
-export const defaultFeatureIcons = {
-  shipping: 'truck',
-  freeShipping: 'truck',
-  fastDelivery: 'zap',
-  returns: 'refresh-cw',
-  easyReturns: 'rotate-ccw',
-  support: 'headphones',
-  customerService: 'phone',
-  security: 'shield',
-  securePayment: 'lock',
-  quality: 'star',
-  premium: 'crown',
-  warranty: 'shield-check',
-  eco: 'leaf',
-  sustainable: 'recycle',
-  gift: 'gift',
-  discount: 'percent',
-};
