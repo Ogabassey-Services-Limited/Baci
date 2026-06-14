@@ -1,9 +1,11 @@
+import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
+
 interface ApplyWalletRouteActionParams {
   routeAction: string | undefined;
   routeRequiredAmount: string;
-  walletReturnTo: string | undefined;
+  walletReturnTo: WalletReturnHref | undefined;
   setFundAmount: (value: string) => void;
-  setFundReturnTo: (value: string | undefined) => void;
+  setFundReturnTo: (value: WalletReturnHref | undefined) => void;
   setShowFundPanel: (value: boolean) => void;
   setShowRedeemPanel: (value: boolean) => void;
   setShowSavingsProgressModal: (value: boolean) => void;
