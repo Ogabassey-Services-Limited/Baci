@@ -155,6 +155,24 @@ describe('getCachedStorefrontProductIndex', () => {
     ]);
   });
 
+  it('selects the canonical category_id relation so prerender params match the PDP canonical category', async () => {
+    // generateStaticParams derives prerender category slugs from this index.
+    // The PDP route treats `categories:category_id` as the canonical category
+    // (canonicalCategory ?? fallbackCategory), and normalizeProduct prepends
+    // that direct relation before product_categories — so the index must select
+    // it, or category_id-only products would prerender a divergent category URL.
+    const builder = createQueryBuilder({ data: [], count: 0 });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
+
+    await getCachedStorefrontProductIndex('merchant-1', {
+      page: 1,
+      limit: 10,
+    });
+
+    const selectArg = String(builder.select.mock.calls.at(-1)?.[0]);
+    expect(selectArg).toMatch(/categories:category_id\(/);
+  });
+
   it('calculates correct offset for page > 1', async () => {
     const builder = createQueryBuilder({ data: [], count: 0 });
     mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
