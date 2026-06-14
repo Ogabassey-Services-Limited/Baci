@@ -449,6 +449,54 @@ const RESERVED_STOREFRONT_SEGMENTS = new Set([
   'wishlist',
 ]);
 
+// First content segments that must NEVER be edge-cached as a public document.
+// = RESERVED_STOREFRONT_SEGMENTS plus the per-user/authenticated route groups
+// not already reserved: (customer) my-account/delete-account/receipts,
+// (commerce) order-success, (utility) member-status/imei-check/quiz/reviews.
+// Keep this in sync with the (customer)/(commerce)/(utility) route groups —
+// caching any of these would leak per-user content (orders, receipts, etc.).
+// The canonical PDP/category shape (`/<category>/<product>`) is intentionally
+// NOT in this set, so it remains cacheable.
+const NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS = new Set<string>([
+  ...RESERVED_STOREFRONT_SEGMENTS,
+  'my-account',
+  'delete-account',
+  'receipts',
+  'order-success',
+  'member-status',
+  'imei-check',
+  'quiz',
+  'reviews',
+]);
+
+// A storefront document is safe to CDN-cache only when it is a genuine public
+// PDP/category shell on a clean (param-free) canonical URL. Per-user route
+// groups and param/non-canonical URLs (e.g. invalid `?variantId=` that streams
+// a redirect) are excluded so the edge never caches private or non-canonical
+// content.
+function isCacheablePublicStorefrontDocument(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api',
+  hasQuery: boolean
+): boolean {
+  if (routeType !== 'storefront' || hasQuery) {
+    return false;
+  }
+  if (!isStorefrontProductPagePath(pathname, hostname, routeType)) {
+    return false;
+  }
+  const firstSegment = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  )[0];
+  return (
+    firstSegment !== undefined &&
+    !NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment)
+  );
+}
+
 function sanitizeProxyRedirectPath(
   rawRedirect: string | null | undefined,
   defaultPath = '/dashboard'
@@ -2378,40 +2426,37 @@ function applySecurityHeaders(
     return response;
   }
 
-  // CDN-cache PDP HTML. The earlier no-store policy here existed because Next 16
-  // Cache Components could stream internal metadata boundaries ahead of the
-  // resolved page tree, so replaying a cached PDP shell produced resume
-  // mismatches. That upstream bug (vercel/next.js#94630) is now fixed via
-  // patches/next@16.2.9.patch (PR #2436), so the prerendered PDP shell is safe
-  // to cache/replay — which is what delivers the static-hero LCP win.
-  if (isStorefrontProductPagePath(pathname, hostname, routeType)) {
-    response.headers.set('Cache-Control', STOREFRONT_DOCUMENT_CACHE_CONTROL);
-    return response;
-  }
-
-  // Two-segment storefront documents include custom-domain PDP URLs such as
-  // `/smartphones/samsung-galaxy-z-fold-4`.
+  // Storefront HTML documents. Only the canonical public PDP/category shell on a
+  // clean URL is CDN-cached — the earlier no-store policy existed because Next 16
+  // could stream internal metadata boundaries ahead of the resolved tree,
+  // producing resume mismatches when a cached shell was replayed; that upstream
+  // bug (vercel/next.js#94630) is now fixed via patches/next@16.2.9.patch (PR
+  // #2436), so the prerendered PDP shell is safe to cache and that delivers the
+  // static-hero LCP win. Everything else (per-user route groups like
+  // account/checkout/receipts/order-success, param/non-canonical URLs, and
+  // single-segment shells) MUST stay no-store so the edge never caches private
+  // or non-canonical content.
   if (
     routeType === 'storefront' &&
-    pathname.match(CATEGORY_PAGE_REGEX) &&
     !pathname.startsWith('/dashboard') &&
-    !pathname.startsWith('/api')
+    !pathname.startsWith('/api') &&
+    (isStorefrontProductPagePath(pathname, hostname, routeType) ||
+      pathname.match(CATEGORY_PAGE_REGEX) !== null ||
+      pathname.match(STOREFRONT_HOME_REGEX) !== null)
   ) {
-    response.headers.set('Cache-Control', STOREFRONT_DOCUMENT_CACHE_CONTROL);
-    return response;
-  }
-
-  // Single-segment storefront documents can be catalog pages on custom domains
-  // (`/steam-deck`) or path-mode merchant shells (`/{slug}`). Keep these HTML
-  // documents out of CDN storage; lower-level product/category data caches
-  // still carry repeat traffic.
-  if (
-    routeType === 'storefront' &&
-    pathname.match(STOREFRONT_HOME_REGEX) &&
-    !pathname.startsWith('/dashboard') &&
-    !pathname.startsWith('/api')
-  ) {
-    response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
+    // Fail safe: if the request is unavailable we cannot confirm the URL is
+    // param-free, so treat it as having a query (not cacheable).
+    const hasQuery = request ? request.nextUrl.search.length > 0 : true;
+    const cacheable = isCacheablePublicStorefrontDocument(
+      pathname,
+      hostname,
+      routeType,
+      hasQuery
+    );
+    response.headers.set(
+      'Cache-Control',
+      cacheable ? STOREFRONT_DOCUMENT_CACHE_CONTROL : PDP_HTML_CACHE_CONTROL
+    );
     return response;
   }
 
