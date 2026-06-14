@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export function preprocessTrimToUndefined(value: unknown) {
+function preprocessTrimToUndefined(value: unknown) {
   if (typeof value !== 'string') {
     return undefined;
   }

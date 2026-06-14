@@ -40,7 +40,7 @@ const VTU_COMMISSION_CATEGORY_ALIASES: Record<string, VtuCommissionCategory> = {
   ISP: 'INTERNET',
 };
 
-export const KUDA_VTU_RATES: Record<string, VtuCommissionRate> = {
+const KUDA_VTU_RATES: Record<string, VtuCommissionRate> = {
   MTN_AIRTIME: { rate: 0.03 },
   AIRTEL_AIRTIME: { rate: 0.03 },
   GLO_AIRTIME: { rate: 0.05 },
@@ -96,7 +96,7 @@ export const KUDA_VTU_RATES: Record<string, VtuCommissionRate> = {
   ACCESSBET_BETTING: { rate: 0.004, cap: 1000 },
 };
 
-export const MONNIFY_VTU_RATES: Record<string, VtuCommissionRate> = {
+const MONNIFY_VTU_RATES: Record<string, VtuCommissionRate> = {
   MTN_AIRTIME: { rate: 0.03 },
   AIRTEL_AIRTIME: { rate: 0.03 },
   GLO_AIRTIME: { rate: 0.04 },
@@ -385,7 +385,7 @@ export function getKudaVtuCommissionRate(
   return { ...rate };
 }
 
-export function getMonnifyVtuCommissionRate(
+function getMonnifyVtuCommissionRate(
   provider: unknown,
   category: unknown = 'AIRTIME'
 ): VtuCommissionRate {

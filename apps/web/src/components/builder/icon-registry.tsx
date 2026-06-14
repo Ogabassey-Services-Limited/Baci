@@ -114,7 +114,7 @@ import type React from 'react';
 /**
  * Registry of all available icons for the builder
  */
-export const iconRegistry: Record<string, LucideIcon> = {
+const iconRegistry: Record<string, LucideIcon> = {
   // Shipping & Delivery
   truck: Truck,
   package: Package,
@@ -236,7 +236,7 @@ export const iconRegistry: Record<string, LucideIcon> = {
 /**
  * Categories of icons for organized selection in the builder
  */
-export const iconCategories = {
+const iconCategories = {
   'Shipping & Delivery': [
     'truck',
     'package',

@@ -7,11 +7,11 @@ import {
   PLATFORM_BLOG_MEDIA_PREFIX,
 } from '@/lib/blog-managed-storage-paths';
 
-export const PLATFORM_STORAGE_SCOPE = { kind: 'platform' } as const;
+const PLATFORM_STORAGE_SCOPE = { kind: 'platform' } as const;
 // Keep featured originals within OG loader limits to avoid publish-time preview drift.
 export const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
-export const INLINE_ALLOWED_TYPES = [
+const INLINE_ALLOWED_TYPES = [
   'image/jpeg',
   'image/png',
   'image/gif',

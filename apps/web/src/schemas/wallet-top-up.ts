@@ -4,7 +4,7 @@ import {
   WALLET_TOP_UP_MIN_AMOUNT,
 } from '@/lib/wallet-top-up-constants';
 
-export const walletTopUpGatewayEnum = z.enum(['paystack', 'korapay']);
+const walletTopUpGatewayEnum = z.enum(['paystack', 'korapay']);
 
 const walletTopUpMerchantSlugSchema = z
   .string()

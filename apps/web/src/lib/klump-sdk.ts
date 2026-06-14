@@ -54,7 +54,7 @@ export function getKlumpPublicKey() {
   return key;
 }
 
-export function exposeKlumpConstructorOnWindow() {
+function exposeKlumpConstructorOnWindow() {
   if (typeof window.Klump === 'function') {
     return;
   }

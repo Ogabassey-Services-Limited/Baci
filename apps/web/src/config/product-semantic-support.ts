@@ -1,4 +1,4 @@
-export const PRODUCT_SEMANTIC_SUPPORT = {
+const PRODUCT_SEMANTIC_SUPPORT = {
   default: {
     alternativesHeading: 'Similar options to consider',
     sameBrandHeading: 'More from this brand',

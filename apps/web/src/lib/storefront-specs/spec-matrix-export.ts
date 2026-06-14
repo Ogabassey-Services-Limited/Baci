@@ -3,7 +3,7 @@ import { buildProductSpecData } from './spec-data';
 import type { ComparableProductKeySpecs } from './spec-taxonomy';
 import type { VariantAttributeSource } from './variant-attributes';
 
-export const COMPARISON_MATRIX_EXPORT_SCHEMA_VERSION = 'comparison-matrix-v1';
+const COMPARISON_MATRIX_EXPORT_SCHEMA_VERSION = 'comparison-matrix-v1';
 
 type ExportAvailability = 'InStock' | 'OutOfStock';
 type ExportInventoryPolicy = 'managed' | 'unmanaged';
