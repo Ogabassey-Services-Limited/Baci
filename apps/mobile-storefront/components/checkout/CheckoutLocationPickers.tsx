@@ -80,6 +80,12 @@ export function CheckoutLocationPickers({
               title="Select State"
             />
             <FlatList
+              // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+              getItemLayout={(data, index) => ({
+                length: 48,
+                offset: 48 * index,
+                index,
+              })}
               data={shippingStates}
               keyExtractor={(item) => item}
               initialNumToRender={15}
@@ -195,6 +201,12 @@ export function CheckoutLocationPickers({
               </Pressable>
             ) : null}
             <FlatList
+              // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+              getItemLayout={(data, index) => ({
+                length: 48,
+                offset: 48 * index,
+                index,
+              })}
               data={filteredCities}
               keyExtractor={(item) => item}
               keyboardShouldPersistTaps="handled"
