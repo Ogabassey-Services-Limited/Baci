@@ -8,7 +8,7 @@ export function StaffAcceptFallback() {
         <div className="text-center mb-8">
           <Logo className="mx-auto" />
         </div>
-        <output className="block text-center" aria-live="polite">
+        <div role="status" className="block text-center" aria-live="polite">
           <div
             aria-hidden="true"
             className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
@@ -17,7 +17,7 @@ export function StaffAcceptFallback() {
           <p className="text-muted-foreground">
             Please wait while we verify your staff invite.
           </p>
-        </output>
+        </div>
       </ThemedCard>
     </div>
   );

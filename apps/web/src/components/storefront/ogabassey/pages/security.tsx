@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 interface LoginSession {
   id: number;
@@ -68,6 +68,10 @@ export const OgabasseyV2Security: React.FC = () => {
     confirm: false,
   });
   const [passwordError, setPasswordError] = useState('');
+  const passwordFormId = useId();
+  const currentPasswordId = `${passwordFormId}-current-password`;
+  const newPasswordId = `${passwordFormId}-new-password`;
+  const confirmPasswordId = `${passwordFormId}-confirm-password`;
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const handleUpdatePassword = (e: React.FormEvent) => {
@@ -343,14 +347,14 @@ export const OgabasseyV2Security: React.FC = () => {
                 {/* Current Password */}
                 <div>
                   <label
-                    htmlFor="security-current-password"
+                    htmlFor={currentPasswordId}
                     className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide"
                   >
                     Current Password
                   </label>
                   <div className="relative">
                     <input
-                      id="security-current-password"
+                      id={currentPasswordId}
                       type={showPassword.current ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
@@ -376,14 +380,14 @@ export const OgabasseyV2Security: React.FC = () => {
                 {/* New Password */}
                 <div>
                   <label
-                    htmlFor="security-new-password"
+                    htmlFor={newPasswordId}
                     className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide"
                   >
                     New Password
                   </label>
                   <div className="relative">
                     <input
-                      id="security-new-password"
+                      id={newPasswordId}
                       type={showPassword.new ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
@@ -409,14 +413,14 @@ export const OgabasseyV2Security: React.FC = () => {
                 {/* Confirm Password */}
                 <div>
                   <label
-                    htmlFor="security-confirm-password"
+                    htmlFor={confirmPasswordId}
                     className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide"
                   >
                     Confirm Password
                   </label>
                   <div className="relative">
                     <input
-                      id="security-confirm-password"
+                      id={confirmPasswordId}
                       type={showPassword.confirm ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}

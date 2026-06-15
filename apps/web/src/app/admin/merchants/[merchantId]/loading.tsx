@@ -7,7 +7,11 @@ const DIRECTORY_ROW_SKELETON_COUNT = 3;
 
 export default function MerchantUsersLoading() {
   return (
-    <output className="block space-y-6" aria-label="Loading merchant users">
+    <div
+      role="status"
+      className="block space-y-6"
+      aria-label="Loading merchant users"
+    >
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-3">
           <Skeleton className="h-9 w-28" />
@@ -65,6 +69,6 @@ export default function MerchantUsersLoading() {
           </CardContent>
         </Card>
       ))}
-    </output>
+    </div>
   );
 }

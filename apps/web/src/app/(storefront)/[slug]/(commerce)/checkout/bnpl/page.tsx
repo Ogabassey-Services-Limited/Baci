@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 
 function BnplCheckoutFallback() {
   return (
-    <output
+    <div
+      role="status"
       aria-label="Loading BNPL checkout"
       className="flex min-h-screen flex-col items-center justify-center bg-store-background p-4 text-store-background-text"
     >
@@ -32,7 +33,7 @@ function BnplCheckoutFallback() {
           Launching payment gateway...
         </p>
       </div>
-    </output>
+    </div>
   );
 }
 

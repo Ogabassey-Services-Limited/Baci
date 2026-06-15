@@ -31,8 +31,10 @@ import { useSaved } from './saved-context'; // We created a stub for this
 
 export const ProductDetails: React.FC = () => {
   const optionGroupId = useId();
-  const colorGroupId = `${optionGroupId}-selection-color`;
-  const storageGroupId = `${optionGroupId}-selection-storage`;
+  const colorSelectionLabelId = `${optionGroupId}-selection-color`;
+  const storageSelectionLabelId = `${optionGroupId}-selection-storage`;
+  const colorRequirementLabelId = `${optionGroupId}-required-color`;
+  const storageRequirementLabelId = `${optionGroupId}-required-storage`;
   const params = useParams();
   const _router = useRouter();
   const { addToCart, cart } = useCart();
@@ -298,7 +300,10 @@ export const ProductDetails: React.FC = () => {
                   {productData.colors && productData.colors.length > 0 && (
                     <div>
                       <div className="flex justify-between mb-3">
-                        <span className="text-sm font-bold text-gray-900">
+                        <span
+                          id={colorSelectionLabelId}
+                          className="text-sm font-bold text-gray-900"
+                        >
                           Select Color
                         </span>
                         <span className="text-sm text-gray-500 font-medium">
@@ -307,7 +312,11 @@ export const ProductDetails: React.FC = () => {
                             : 'Required'}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-3">
+                      <div
+                        className="flex flex-wrap gap-3"
+                        role="group"
+                        aria-labelledby={colorSelectionLabelId}
+                      >
                         {productData.colors.map((color, idx) => {
                           const isSelected = selectedColor === idx;
                           const isLight = [
@@ -360,7 +369,10 @@ export const ProductDetails: React.FC = () => {
                   {productData.storage && productData.storage.length > 0 && (
                     <div>
                       <div className="flex justify-between mb-3">
-                        <span className="text-sm font-bold text-gray-900">
+                        <span
+                          id={storageSelectionLabelId}
+                          className="text-sm font-bold text-gray-900"
+                        >
                           Storage
                         </span>
                         <span className="text-sm text-gray-500 font-medium">
@@ -369,7 +381,11 @@ export const ProductDetails: React.FC = () => {
                             : 'Required'}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-3">
+                      <div
+                        className="flex flex-wrap gap-3"
+                        role="group"
+                        aria-labelledby={storageSelectionLabelId}
+                      >
                         {productData.storage.map((size, idx) => (
                           <button type="button"
                             key={size}
@@ -523,7 +539,7 @@ export const ProductDetails: React.FC = () => {
                 productData.colors && (
                   <div>
                     <span
-                      id={colorGroupId}
+                      id={colorRequirementLabelId}
                       className="text-sm font-bold text-gray-900 block mb-3"
                     >
                       Color
@@ -531,7 +547,7 @@ export const ProductDetails: React.FC = () => {
                     <div
                       className="flex flex-wrap gap-4"
                       role="group"
-                      aria-labelledby={colorGroupId}
+                      aria-labelledby={colorRequirementLabelId}
                     >
                       {productData.colors.map((color, idx) => {
                         const isSelected = selectedColor === idx;
@@ -586,7 +602,7 @@ export const ProductDetails: React.FC = () => {
                 productData.storage && (
                   <div>
                     <span
-                      id={storageGroupId}
+                      id={storageRequirementLabelId}
                       className="text-sm font-bold text-gray-900 block mb-3"
                     >
                       Storage
@@ -594,7 +610,7 @@ export const ProductDetails: React.FC = () => {
                     <div
                       className="flex flex-wrap gap-3"
                       role="group"
-                      aria-labelledby={storageGroupId}
+                      aria-labelledby={storageRequirementLabelId}
                     >
                       {productData.storage.map((size, idx) => (
                         <button type="button"

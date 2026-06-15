@@ -1,6 +1,7 @@
 'use client';
 
 import { CreditCard, Clock, Loader2, X } from 'lucide-react';
+import { useId } from 'react';
 import { CRYPTO_CHAIN_SUPPORT, CHAIN_DISPLAY_NAMES } from '../utils';
 import type { CryptoChain, CryptoCurrency } from '../types';
 
@@ -23,6 +24,10 @@ export function CryptoSelectorModal({
   onInitialize,
   onClose,
 }: CryptoSelectorModalProps) {
+  const cryptoSelectorId = useId();
+  const currencyLabelId = `${cryptoSelectorId}-currency-label`;
+  const networkLabelId = `${cryptoSelectorId}-network-label`;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
@@ -48,7 +53,7 @@ export function CryptoSelectorModal({
           {/* Currency Selection */}
           <div className="space-y-3">
             <p
-              id="crypto-currency-label"
+              id={currencyLabelId}
               className="text-sm font-bold text-gray-700"
             >
               Select Stablecoin
@@ -56,7 +61,7 @@ export function CryptoSelectorModal({
             <div
               className="grid grid-cols-2 gap-3"
               role="group"
-              aria-labelledby="crypto-currency-label"
+              aria-labelledby={currencyLabelId}
             >
               {(['USDT', 'USDC'] as const).map((currency) => (
                 <button
@@ -85,7 +90,7 @@ export function CryptoSelectorModal({
           {/* Network Selection */}
           <div className="space-y-3">
             <p
-              id="crypto-network-label"
+              id={networkLabelId}
               className="text-sm font-bold text-gray-700"
             >
               Select Network
@@ -93,7 +98,7 @@ export function CryptoSelectorModal({
             <div
               className="grid grid-cols-2 gap-3"
               role="group"
-              aria-labelledby="crypto-network-label"
+              aria-labelledby={networkLabelId}
             >
               {CRYPTO_CHAIN_SUPPORT[selectedCryptoCurrency].map((chain) => (
                 <button
