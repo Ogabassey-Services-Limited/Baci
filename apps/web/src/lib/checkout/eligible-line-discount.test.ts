@@ -27,6 +27,15 @@ describe('computeEligibleLineDiscount', () => {
     });
   });
 
+  it('preserves a 1 NGN accepted negotiable discount plus VAT', () => {
+    expect(
+      computeEligibleLineDiscount([line({ clientUnitPrice: 999 })])
+    ).toEqual({
+      totalDiscount: 1.08,
+      rejectionCode: null,
+    });
+  });
+
   it('rejects a negotiable line priced more than 2% below catalog', () => {
     // client 950 → reduction 50 > 2% floor (20) → reject the order
     expect(

@@ -7,6 +7,7 @@ import type {
   DeliveryMethod,
   ShippingQuote,
 } from '@/components/checkout/types';
+import { getCartItemEffectivePrice } from '@/lib/cart-pricing';
 import type { MobileCheckoutOrderItemPayload } from '@/lib/checkout-order-idempotency';
 import type { ShippingAddressInput } from '@/lib/validation';
 import type { CreateOrderRequest } from '@/services/orders';
@@ -43,7 +44,7 @@ export function createCheckoutSnapshot(
   taxAmount: number
 ): CheckoutSnapshot {
   const subtotal = itemsSnapshot.reduce((total, item) => {
-    const effectivePrice = item.negotiatedPrice ?? item.price;
+    const effectivePrice = getCartItemEffectivePrice(item);
     return total + effectivePrice * item.quantity;
   }, 0);
   const assuranceFee = calculateCheckoutAssuranceFee(itemsSnapshot);
@@ -59,7 +60,7 @@ export function createCheckoutSnapshot(
 export function calculateCheckoutAssuranceFee(itemsSnapshot: CartItem[]) {
   return itemsSnapshot.reduce((sum, item) => {
     if (!item.hasAssurance) return sum;
-    const effectivePrice = item.negotiatedPrice ?? item.price;
+    const effectivePrice = getCartItemEffectivePrice(item);
     return (
       sum +
       Math.round(effectivePrice * item.quantity * (item.assuranceRate ?? 0.05))
@@ -94,7 +95,7 @@ export function mapCartItemsToOrderItems(
   itemsSnapshot: CartItem[]
 ): MobileCheckoutOrderItemPayload[] {
   return itemsSnapshot.map((item) => {
-    const effectivePrice = item.negotiatedPrice ?? item.price;
+    const effectivePrice = getCartItemEffectivePrice(item);
     return {
       id: item.product_id,
       product_id: item.product_id,
@@ -134,8 +135,6 @@ export function buildCheckoutOrderRequest({
     subtotal: snapshot.subtotal,
     shipping_fee: snapshot.deliveryFee,
     tax_amount: snapshot.taxAmount,
-    expected_total: snapshot.total,
-    client_total: snapshot.total,
     selected_quote_id:
       deliveryMethod === 'door' && selectedQuote?.id != null
         ? String(selectedQuote.id)

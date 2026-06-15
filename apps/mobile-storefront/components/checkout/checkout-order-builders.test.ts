@@ -17,7 +17,7 @@ const address = {
 };
 
 describe('checkout order builders', () => {
-  it('uses negotiated prices in expected_total and client_total', () => {
+  it('uses negotiated line prices but leaves expected_total to the API tax boundary', () => {
     const itemsSnapshot = [
       {
         id: 'line-1',
@@ -26,6 +26,7 @@ describe('checkout order builders', () => {
         name: 'MacBook Air M1',
         price: 690000,
         negotiatedPrice: 676200,
+        negotiationStatus: 'accepted' as const,
         quantity: 1,
       },
     ];
@@ -44,9 +45,48 @@ describe('checkout order builders', () => {
       snapshot,
     });
 
+    expect(request.items[0].price).toBe(676200);
     expect(request.subtotal).toBe(676200);
-    expect(request.expected_total).toBe(726915);
-    expect(request.client_total).toBe(726915);
+    expect(request.tax_amount).toBe(50715);
+    expect(request.expected_total).toBeUndefined();
+    expect(request.client_total).toBeUndefined();
+  });
+
+  it('ignores stale negotiated prices for best-price items when building orders', () => {
+    const itemsSnapshot = [
+      {
+        id: 'line-1',
+        product_id: 'product-1',
+        slug: 'tecno-spark-50',
+        brand: 'Tecno',
+        name: 'Tecno Spark 50',
+        price: 150000,
+        negotiatedPrice: 147000,
+        negotiationStatus: 'accepted' as const,
+        quantity: 1,
+        hasAssurance: true,
+      },
+    ];
+    const snapshot = createCheckoutSnapshot(itemsSnapshot, 0, 11250);
+
+    const request = buildCheckoutOrderRequest({
+      address,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'door',
+      itemsSnapshot,
+      paymentMethodForOrder: 'paystack',
+      selectedQuote: undefined,
+      shippingProvider: undefined,
+      snapshot,
+    });
+
+    expect(request.items[0].price).toBe(150000);
+    expect(request.items[0].assurance_fee).toBe(7500);
+    expect(request.subtotal).toBe(150000);
+    expect(request.expected_total).toBeUndefined();
+    expect(request.client_total).toBeUndefined();
   });
 
   it('preserves expected_total through validation and payload serialization', () => {

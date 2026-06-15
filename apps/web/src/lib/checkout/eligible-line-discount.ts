@@ -75,8 +75,8 @@ export function computeEligibleLineDiscount(
     }
 
     const reduction = catalogLine - clientLine;
-    if (reduction <= PRICE_TOLERANCE) {
-      // At (or trivially above) catalog → no discount for this line.
+    if (reduction <= 0) {
+      // At or above catalog → no discount for this line.
       continue;
     }
     // The 2% floor is on the price (subtotal) reduction.

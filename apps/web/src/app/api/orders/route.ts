@@ -1298,13 +1298,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Apply the derived discount only for entitled merchants that sent a
-    // trusted expected_total; otherwise the line is charged at catalog
-    // (discount 0).
-    let serverDerivedDiscountAmount = 0;
-    if (merchantCanAutoNegotiate && typeof body.expected_total === 'number') {
-      serverDerivedDiscountAmount = negotiationDiscount?.totalDiscount ?? 0;
-    }
+    // Apply the derived discount for entitled merchants when either:
+    // - the caller supplied an expected_total for RPC parity, or
+    // - the mobile storefront omitted expected_total until it can use the same
+    //   per-line/catalog VAT source as this route. The per-line discount is
+    //   still server-validated and capped before this point; this branch only
+    //   decides whether the validated discount should be charged.
+    const shouldApplyServerDerivedDiscount =
+      merchantCanAutoNegotiate &&
+      (typeof body.expected_total === 'number' || source === 'mobile_app');
+    const serverDerivedDiscountAmount = shouldApplyServerDerivedDiscount
+      ? (negotiationDiscount?.totalDiscount ?? 0)
+      : 0;
 
     const adTrackingPayload = ad_tracking
       ? {

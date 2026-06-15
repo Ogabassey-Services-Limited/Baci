@@ -53,6 +53,28 @@ describe('NegotiationButton', () => {
     expect(openItemNegotiation).toHaveBeenCalledWith(item);
   });
 
+  it('shows best-price instead of stale matched state for non-negotiable accepted items', () => {
+    const item = createItem({
+      brand: 'Tecno',
+      name: 'Tecno Spark 50',
+      negotiatedPrice: 147000,
+      negotiationStatus: 'accepted',
+    });
+
+    render(
+      <NegotiationButton
+        item={item}
+        openItemNegotiation={jest.fn()}
+        colors={Colors.light}
+        negotiateSurface="#fff"
+        negotiateBorder="#f00"
+      />
+    );
+
+    expect(screen.getByText('Best price')).toBeTruthy();
+    expect(screen.queryByText('Matched')).toBeNull();
+  });
+
   it('shows a best-price badge and does not negotiate non-negotiable items', () => {
     const item = createItem({ brand: 'Tecno', name: 'Tecno Spark 50' });
     const openItemNegotiation = jest.fn();

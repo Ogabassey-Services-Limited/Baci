@@ -1,3 +1,4 @@
+import { getCartItemEffectivePrice } from '@/lib/cart-pricing';
 import type { CartItem } from '@/stores/cart-store';
 
 export interface ShippingQuoteLike {
@@ -40,7 +41,7 @@ function buildShippingQuoteItemKey(item: CartItem): string {
     item.product_id ?? '',
     item.variant_id ?? '',
     item.quantity,
-    item.negotiatedPrice ?? item.price,
+    getCartItemEffectivePrice(item),
   ]);
 }
 

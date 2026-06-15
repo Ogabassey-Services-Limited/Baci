@@ -27,7 +27,7 @@ export default function NegotiationButton({
     name: item.name,
   });
 
-  if (item.negotiationStatus !== 'accepted' && !canNegotiateItem) {
+  if (!canNegotiateItem) {
     return (
       <View
         accessibilityLabel={`Best price for ${item.name}`}
