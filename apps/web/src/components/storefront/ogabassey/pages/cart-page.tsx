@@ -97,7 +97,9 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
   const displayCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
 
   const hasNonNegotiableCartItem = displayCart.some(
-    (item) => !isProductNegotiable({ brand: item.brand, name: item.name })
+    (item) =>
+      !isQuizVoucherCartItem(item) &&
+      !isProductNegotiable({ brand: item.brand, name: item.name })
   );
 
   const [negotiationState, setNegotiationState] =

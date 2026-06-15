@@ -1878,7 +1878,7 @@ describe('POST /api/orders — per-line eligible discount enforcement', () => {
 
     const response = await POST(request);
 
-    expect(response.status).not.toBe(400);
+    expect(response.status).toBe(201);
     expect(rpcSpy).toHaveBeenCalledWith(
       expect.objectContaining({ p_discount_amount: 0 })
     );

@@ -76,7 +76,9 @@ export const CartSidebar: React.FC = () => {
   const displayCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
 
   const hasNonNegotiableCartItem = displayCart.some(
-    (item) => !isProductNegotiable({ brand: item.brand, name: item.name })
+    (item) =>
+      !isQuizVoucherCartItem(item) &&
+      !isProductNegotiable({ brand: item.brand, name: item.name })
   );
 
   const getHref = (path: string) =>

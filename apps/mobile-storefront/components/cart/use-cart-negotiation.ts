@@ -80,7 +80,12 @@ export function useCartNegotiation({
       return;
     }
 
-    if (items.some((item) => item.negotiationStatus === 'accepted')) {
+    if (
+      items.some(
+        (item) =>
+          item.negotiationStatus === 'accepted' || item.negotiatedPrice != null
+      )
+    ) {
       Alert.alert(
         'Negotiation Active',
         'Please reset individual item prices before negotiating the total cart.'

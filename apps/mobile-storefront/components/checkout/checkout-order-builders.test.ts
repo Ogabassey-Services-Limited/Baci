@@ -48,6 +48,8 @@ describe('checkout order builders', () => {
     expect(request.items[0].price).toBe(676200);
     expect(request.subtotal).toBe(676200);
     expect(request.tax_amount).toBe(50715);
+    // Mobile submits line prices only; the web API derives the payable total
+    // server-side so tax/payment integrity never depends on client totals.
     expect(request.expected_total).toBeUndefined();
     expect(request.client_total).toBeUndefined();
   });

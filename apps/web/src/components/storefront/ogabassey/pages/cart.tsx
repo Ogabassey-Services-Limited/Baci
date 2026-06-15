@@ -18,6 +18,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { isProductNegotiable } from '@baci/shared/lib';
 import { type CartItem, useCart } from '@/hooks/cart';
+import { isQuizVoucherCartItem } from '@/lib/checkout/cart-entitlement-sanitizer';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { asRoute } from '@/lib/routes';
@@ -60,7 +61,9 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
   const _router = useRouter();
 
   const hasNonNegotiableCartItem = cart.some(
-    (item) => !isProductNegotiable({ brand: item.brand, name: item.name })
+    (item) =>
+      !isQuizVoucherCartItem(item) &&
+      !isProductNegotiable({ brand: item.brand, name: item.name })
   );
 
   // Calculate subtotal

@@ -6,6 +6,13 @@ type CartPriceInput = Pick<
   'brand' | 'name' | 'negotiatedPrice' | 'negotiationStatus' | 'price'
 >;
 
+const isValidCartPrice = (value: number) =>
+  Number.isFinite(value) && value >= 0;
+
+export function getCartItemBasePrice(item: CartPriceInput): number {
+  return isValidCartPrice(item.price) ? item.price : 0;
+}
+
 export function getActiveNegotiatedPrice(
   item: CartPriceInput
 ): number | undefined {
@@ -13,7 +20,16 @@ export function getActiveNegotiatedPrice(
     return undefined;
   }
 
-  if (typeof item.negotiatedPrice !== 'number') {
+  const basePrice = getCartItemBasePrice(item);
+  if (basePrice !== item.price) {
+    return undefined;
+  }
+
+  if (
+    typeof item.negotiatedPrice !== 'number' ||
+    !isValidCartPrice(item.negotiatedPrice) ||
+    item.negotiatedPrice > basePrice
+  ) {
     return undefined;
   }
 
@@ -29,5 +45,5 @@ export function hasActiveNegotiatedPrice(item: CartPriceInput): boolean {
 }
 
 export function getCartItemEffectivePrice(item: CartPriceInput): number {
-  return getActiveNegotiatedPrice(item) ?? item.price;
+  return getActiveNegotiatedPrice(item) ?? getCartItemBasePrice(item);
 }

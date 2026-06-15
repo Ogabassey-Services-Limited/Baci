@@ -142,6 +142,8 @@ export function buildCheckoutOrderRequest({
     shipping_provider: shippingProvider,
     payment_method: paymentMethodForOrder,
     shipping_address: buildOrderShippingAddress(address, deliveryMethod),
+    // Intentionally omit expected_total/client_total here: the web order API
+    // derives and validates the final payable total at the tax boundary.
     source: 'mobile_app',
   };
 }

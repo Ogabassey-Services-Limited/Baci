@@ -249,7 +249,7 @@ describe('CartPage', () => {
         quantity: 1,
         image: '/gift.jpg',
         category: 'phones',
-        brand: 'Brand',
+        brand: 'Tecno',
         quizAwardId: 'award-1',
         quizVoucherToken: 'signed-token',
       },
@@ -264,5 +264,8 @@ describe('CartPage', () => {
     expect(
       screen.getAllByRole('button', { name: /^negotiate$/i })
     ).toHaveLength(1);
+    expect(
+      screen.getByRole('button', { name: /negotiate total/i })
+    ).toBeInTheDocument();
   });
 });

@@ -30,6 +30,8 @@ export default function NegotiationButton({
   if (!canNegotiateItem) {
     return (
       <View
+        accessible
+        accessibilityRole="text"
         accessibilityLabel={`Best price for ${item.name}`}
         style={[
           styles.negotiatedBadge,

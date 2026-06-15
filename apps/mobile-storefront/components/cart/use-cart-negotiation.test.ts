@@ -151,6 +151,50 @@ describe('useCartNegotiation', () => {
     expect(result.current.pendingNegotiateItem).toBeNull();
   });
 
+  it('alerts and skips item negotiation when a bulk discount is active', () => {
+    // Arrange
+    const discountedItem = createItem({
+      cartDiscount: 2500,
+    } as Partial<CartItem>);
+    const { result } = renderHook(() =>
+      useCartNegotiation({ items: [discountedItem], grandTotal: 500000 })
+    );
+
+    // Act
+    act(() => {
+      result.current.openItemNegotiation(discountedItem);
+    });
+
+    // Assert
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Bulk Discount Active',
+      'You already have a bulk discount applied. Remove it before negotiating items individually.'
+    );
+    expect(mockOpenNegotiation).not.toHaveBeenCalled();
+    expect(result.current.showNegotiateWarning).toBe(false);
+    expect(result.current.pendingNegotiateItem).toBeNull();
+  });
+
+  it('alerts and skips cart-wide negotiation when any line has a negotiated price', () => {
+    // Arrange
+    const negotiatedLine = createItem({ negotiatedPrice: 490000 });
+    const { result } = renderHook(() =>
+      useCartNegotiation({ items: [negotiatedLine], grandTotal: 490000 })
+    );
+
+    // Act
+    act(() => {
+      result.current.openTotalNegotiation();
+    });
+
+    // Assert
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Negotiation Active',
+      'Please reset individual item prices before negotiating the total cart.'
+    );
+    expect(mockOpenNegotiation).not.toHaveBeenCalled();
+  });
+
   it('opens cart-wide negotiation when every line is negotiable', () => {
     // Arrange
     const items = [createItem(), createItem({ id: 'cart-2' })];
