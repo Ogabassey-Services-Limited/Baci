@@ -120,6 +120,49 @@ describe('commitBumpaProducts', () => {
     expect(mockRevalidateProducts).toHaveBeenCalledWith('merchant-1');
   });
 
+  it('still succeeds when cache revalidation throws (best-effort, non-fatal)', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
+    loadQuery.range.mockResolvedValue({ data: [], error: null });
+
+    const insertQuery = { insert: vi.fn() };
+    insertQuery.insert.mockResolvedValue({ error: null });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertQuery),
+    } as unknown as SupabaseClient;
+
+    // A background import worker can lack a Next request/store context, so
+    // revalidateTag throws synchronously there — the import must not break.
+    mockRevalidateProducts.mockImplementationOnce(() => {
+      throw new Error('static generation store missing');
+    });
+
+    const result = await commitBumpaProducts({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      products: [createProduct()],
+    });
+
+    expect(result).toEqual({ createdProducts: 1, updatedProducts: 0 });
+    expect(mockRevalidateProducts).toHaveBeenCalledWith('merchant-1');
+    expect(consoleSpy).toHaveBeenCalled();
+  });
+
   it('throws when loading existing products fails', async () => {
     const loadQuery = {
       select: vi.fn(),

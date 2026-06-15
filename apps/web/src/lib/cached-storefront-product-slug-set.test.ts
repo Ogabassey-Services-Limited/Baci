@@ -150,4 +150,26 @@ describe('getCachedStorefrontProductSlugSet', () => {
     expect(result.hasError).toBe(false);
     expect(result.slugs).toEqual([]);
   });
+
+  it('fails open (hasError) when pagination exceeds the page bound (MAX_PAGES)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // Every page is full, so pagination never terminates naturally — it MUST
+    // hit the page bound and fail open rather than 404 live products beyond it.
+    const fullPage = rows(1000, 'x');
+    const builder = {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      not: vi.fn(() => builder),
+      order: vi.fn(() => builder),
+      range: vi.fn(() => Promise.resolve({ data: fullPage, error: null })),
+    };
+    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => builder) });
+
+    const result = await getCachedStorefrontProductSlugSet('merchant-1');
+
+    expect(result.hasError).toBe(true);
+    expect(result.slugs).toEqual([]);
+    // Bounded: it stops at MAX_PAGES (50) instead of looping forever.
+    expect(builder.range.mock.calls.length).toBe(50);
+  });
 });

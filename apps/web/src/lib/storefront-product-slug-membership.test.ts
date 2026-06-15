@@ -18,7 +18,9 @@ describe('isStorefrontProductSlugMissing', () => {
   const originalVercelUrl = process.env.VERCEL_URL;
 
   beforeEach(() => {
-    delete process.env.VERCEL_URL;
+    // Production-like by default so the fetch path is exercised; tests that
+    // need the no-platform-host behavior delete it explicitly.
+    process.env.VERCEL_URL = 'baci-test.vercel.app';
   });
 
   afterEach(() => {
@@ -82,19 +84,38 @@ describe('isStorefrontProductSlugMissing', () => {
     expect(url.host).toBe('baci-abc123.vercel.app');
   });
 
-  it('falls back to the request origin when VERCEL_URL is unset', async () => {
+  it('uses a loopback origin when VERCEL_URL is unset (local dev)', async () => {
+    delete process.env.VERCEL_URL;
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
 
     await isStorefrontProductSlugMissing({
       ...BASE,
+      origin: 'http://localhost:3000',
       productSlug: 'totally-made-up',
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
     const url = new URL(String(fetchImpl.mock.calls[0][0]));
-    expect(url.host).toBe('ogabassey.com');
+    expect(url.host).toBe('localhost:3000');
+  });
+
+  it('fails open WITHOUT sending the secret when VERCEL_URL is unset and the origin is a custom domain', async () => {
+    // Defense-in-depth: `origin` is derived from the spoofable request Host, so
+    // the internal bearer secret must never be sent to a request-derived domain.
+    delete process.env.VERCEL_URL;
+    const fetchImpl = vi.fn();
+
+    const result = await isStorefrontProductSlugMissing({
+      ...BASE,
+      origin: 'https://ogabassey.com',
+      productSlug: 'totally-made-up',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('fails open when the secret is missing (no fetch)', async () => {

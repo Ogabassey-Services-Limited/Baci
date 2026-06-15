@@ -1129,7 +1129,10 @@ function buildHardStatusStorefrontResponse(
   const title = status === 410 ? 'Page gone' : 'Page not found';
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="robots" content="noindex, follow"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title></head><body style="font-family:system-ui,-apple-system,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center"><main><h1>${title}</h1><p>The page you’re looking for isn’t here. <a href="/">Go to the homepage</a>.</p></main></body></html>`;
 
-  const response = new NextResponse(html, { status });
+  // HEAD must not carry a body (RFC 9110 §9.3.2); the noindex signal travels in
+  // the X-Robots-Tag header below so a HEAD crawl still sees it.
+  const body = request.method === 'HEAD' ? null : html;
+  const response = new NextResponse(body, { status });
   response.headers.set('Content-Type', 'text/html; charset=utf-8');
   applySecurityHeaders(
     response,
@@ -1141,6 +1144,9 @@ function buildHardStatusStorefrontResponse(
     request,
     hostname
   );
+  // Header-level noindex (belt-and-suspenders with the body <meta>): crawlers
+  // that only HEAD, or don't parse the body, still get the directive.
+  response.headers.set('X-Robots-Tag', 'noindex, follow');
   // no-store LAST: the cache section runs inside applySecurityHeaders and would
   // otherwise mark a product-shaped path cacheable, edge-caching a false 404.
   response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
@@ -2467,6 +2473,10 @@ export async function proxy(request: NextRequest) {
     if (
       slug &&
       !isMainAppRoute &&
+      // Platform-owned root segments (about, pricing, products, blog, …) are not
+      // storefront slugs — never run the membership check (or send the secret)
+      // for them, even though they pass the generic subdomain-shape test.
+      !PLATFORM_ROOT_ROUTE_SEGMENTS.has(slug.toLowerCase()) &&
       isValidSubdomain(slug) &&
       !RESERVED_SUBDOMAINS.has(slug)
     ) {

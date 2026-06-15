@@ -70,11 +70,12 @@ export async function generateMetadata({
     notFound();
   }
 
-  // Doorway-trap stopgap (crawl-budget): a genuinely unknown/typo slug resolves
-  // to no collection, no category row, and no fuzzy-matched products — which
-  // previously rendered as an indexable empty page. notFound() flips it to
-  // noindex so it stops bloating the index. (PR-B §3.2 upgrades this to a hard
-  // 404 via the pre-stream proxy existence check.)
+  // Doorway-trap stopgap (crawl-budget): a genuinely unknown/typo CATEGORY slug
+  // resolves to no collection, no category row, and no fuzzy-matched products —
+  // which previously rendered as an indexable empty page. notFound() flips it to
+  // noindex so it stops bloating the index. Category pages keep this
+  // soft-404/noindex behavior; the PR-B §3.2 pre-stream proxy hard-404 applies
+  // only to PDP (`/{category}/{product}`) URLs, not category listings.
   if (
     !data.isCollection &&
     !data.category?.id &&

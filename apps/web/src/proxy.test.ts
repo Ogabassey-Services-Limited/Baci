@@ -530,6 +530,8 @@ describe('Middleware Proxy', () => {
       expect(res.headers.get('x-middleware-rewrite')).toBeNull();
       expect(res.headers.get('Cache-Control')).toContain('no-store');
       expect(res.headers.get('Content-Type')).toContain('text/html');
+      // Header-level noindex so HEAD / non-HTML-parsing crawlers still see it.
+      expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
       expect(missingMock).toHaveBeenCalledWith(
         expect.objectContaining({
           identifier: 'ogabassey',

@@ -18,16 +18,38 @@ interface SlugMissingOptions {
   timeoutMs?: number;
 }
 
+function isLoopbackOrigin(origin: string): boolean {
+  try {
+    const { hostname } = new URL(origin);
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '[::1]' ||
+      hostname === '::1'
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Resolve the base URL for the internal membership hop. The route resolves the
- * merchant from the `identifier` PATH param (not the Host header), so the call
- * is host-agnostic — we prefer the platform deployment host (`VERCEL_URL`) to
- * avoid resolving/handshaking the merchant's custom domain on every PDP nav,
- * and fall back to the public origin locally (where `VERCEL_URL` is unset).
+ * Resolve the trusted base URL for the internal membership hop, or `null` when
+ * there is no trusted target. The route resolves the merchant from the
+ * `identifier` PATH param (not the Host header), so the call is host-agnostic —
+ * we prefer the platform deployment host (`VERCEL_URL`).
+ *
+ * SECURITY: the caller sends `Authorization: Bearer ${INTERNAL_API_SECRET}`, and
+ * `origin` is derived from the (spoofable) request Host. We therefore send the
+ * secret ONLY to the platform host, or to a loopback origin in local dev — never
+ * to a request-derived custom domain. Any other origin returns `null`, so the
+ * caller fails open without ever leaking the secret off-platform.
  */
-function resolveInternalBaseUrl(origin: string): string {
+function resolveInternalBaseUrl(origin: string): string | null {
   const platformHost = process.env.VERCEL_URL;
-  return platformHost ? `https://${platformHost}` : origin;
+  if (platformHost) {
+    return `https://${platformHost}`;
+  }
+  return isLoopbackOrigin(origin) ? origin : null;
 }
 
 /**
@@ -50,10 +72,16 @@ export async function isStorefrontProductSlugMissing(
     return false;
   }
 
+  // No trusted base → fail open WITHOUT sending the secret to an untrusted host.
+  const baseUrl = resolveInternalBaseUrl(opts.origin);
+  if (!baseUrl) {
+    return false;
+  }
+
   try {
     const url = new URL(
       `/api/internal/slug-set/${encodeURIComponent(opts.identifier)}`,
-      resolveInternalBaseUrl(opts.origin)
+      baseUrl
     );
     url.searchParams.set('slug', opts.productSlug);
 
