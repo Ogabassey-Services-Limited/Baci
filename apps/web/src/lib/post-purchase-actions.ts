@@ -5,13 +5,14 @@
  * dashboard, web storefront, and mobile storefront share one source of truth
  * (mobile re-exports the same module). Do not fork logic here.
  */
+
+export type { CustomerCancellationReason } from '@baci/shared/storefront';
 export {
   BACI_GOOGLE_REVIEW_URL,
+  CUSTOMER_CANCELLATION_REASONS,
   canCancelStorefrontOrder,
   canLeaveStorefrontGoogleReview,
   canRequestStorefrontOrderReturn,
   canShowStorefrontRiderContact,
-  CUSTOMER_CANCELLATION_REASONS,
   isStorefrontReceiptAvailable,
 } from '@baci/shared/storefront';
-export type { CustomerCancellationReason } from '@baci/shared/storefront';
