@@ -1,6 +1,6 @@
 import {
-  PAYMENT_METHOD_SETTING_DEFINITIONS,
   getPaymentMethodSettingSelectColumns,
+  PAYMENT_METHOD_SETTING_DEFINITIONS,
   type PaymentMethodEnabledField,
   type PaymentMethodSettingCategory,
   type PaymentMethodSettingDefinition,
@@ -66,9 +66,7 @@ export function getRenderablePaymentMethods(
 ): readonly Readonly<PaymentMethod>[] {
   if (!settings) return [];
 
-  return methods.filter((method) =>
-    Object.prototype.hasOwnProperty.call(settings, method.dbField)
-  );
+  return methods.filter((method) => Object.hasOwn(settings, method.dbField));
 }
 
 export const paymentMethods = buildPaymentMethods();

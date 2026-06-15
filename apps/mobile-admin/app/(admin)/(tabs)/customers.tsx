@@ -10,24 +10,27 @@ import { FlashList } from '@shopify/flash-list';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React, { useRef } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Animated,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useDebounce } from '@/hooks/useDebounce';
 import {
   type Customer,
   useCustomerStats,
   useCustomers,
 } from '@/hooks/useCustomers';
+import { useDebounce } from '@/hooks/useDebounce';
 import { type FailedOrder, useFailedOrders } from '@/hooks/useFailedOrders';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';

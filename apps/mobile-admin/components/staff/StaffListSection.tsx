@@ -14,6 +14,7 @@ import {
 import type { ThemeColors } from '@/constants/theme';
 import { ROLE_LABELS, type StaffMember } from '@/lib/types/staff';
 import { styles } from './StaffListSection.styles';
+
 const EMPTY_EMAIL_LABEL = 'Email unavailable';
 
 interface StaffListSectionProps {
