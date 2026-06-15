@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import type React from 'react';
 import { SheetContent } from '@/components/ui/sheet';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { getContrastingTextColor } from '@/lib/color-utils';
@@ -20,10 +20,10 @@ import { getContrastingTextColor } from '@/lib/color-utils';
  *   </ThemedSheetContent>
  * </Sheet>
  */
-export const ThemedSheetContent = React.forwardRef<
-  React.ElementRef<typeof SheetContent>,
-  React.ComponentPropsWithoutRef<typeof SheetContent>
->(({ style, ...props }, ref) => {
+export const ThemedSheetContent = ({
+  style,
+  ...props
+}: React.ComponentProps<typeof SheetContent>) => {
   const { merchant } = useMerchant();
 
   // Define CSS variables for themed components within the Sheet portal
@@ -45,7 +45,7 @@ export const ThemedSheetContent = React.forwardRef<
       } as React.CSSProperties)
     : style;
 
-  return <SheetContent ref={ref} style={themeStyle} {...props} />;
-});
+  return <SheetContent style={themeStyle} {...props} />;
+};
 
 ThemedSheetContent.displayName = 'ThemedSheetContent';
