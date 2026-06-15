@@ -16,7 +16,10 @@
       "**/*.cjs",
       "**/*.mjs",
       "**/test_review.js",
-      "**/migrate_images.ts"
+      "**/migrate_images.ts",
+      "**/supabase/migrations-archive/**",
+      "**/apps/web/supabase/**",
+      "**/supabase/patches/**"
     ],
     "overrides": [
       {
