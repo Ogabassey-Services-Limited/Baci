@@ -10,6 +10,7 @@ import {
 } from '@/schemas/monnify-bills-schema';
 import { kudaBillerSchema } from '@/schemas/vtu-billers';
 import {
+  getMonnifyCategoryAliases,
   type NormalizedBiller,
   type NormalizedBillItem,
   normalizeKudaBillItem,
@@ -152,9 +153,16 @@ async function getBillersWithProducts({
   if (!validatedBillers.success) {
     throw new Error('Monnify biller payload failed validation');
   }
+  const categoryAliases = getMonnifyCategoryAliases(monnifyCategory);
+  const categoryAliasSet = new Set(categoryAliases);
+  const billersInCategory = validatedBillers.data.filter((biller) =>
+    biller.categoryCodes.some((categoryCode) =>
+      categoryAliasSet.has(categoryCode)
+    )
+  );
 
   const normalizedMonnifyBillers = await mapWithConcurrency(
-    validatedBillers.data,
+    billersInCategory,
     MONNIFY_PRODUCT_LOOKUP_CONCURRENCY,
     async (biller) => {
       let billItems: NormalizedBillItem[] = [];
@@ -169,7 +177,14 @@ async function getBillersWithProducts({
         if (validatedProducts.success) {
           billItems = normalizeMonnifyProducts({
             billerCode: biller.billerCode,
-            products: validatedProducts.data,
+            products: validatedProducts.data.filter(
+              (product) =>
+                (product.categoryCode
+                  ? categoryAliasSet.has(product.categoryCode)
+                  : true) &&
+                (!product.billerCode ||
+                  product.billerCode === biller.billerCode)
+            ),
           });
         } else {
           captureMonnifyProductError(
