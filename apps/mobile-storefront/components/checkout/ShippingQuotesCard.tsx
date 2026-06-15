@@ -1,5 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
+import { useEffect } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Pressable,
   StyleSheet,
@@ -33,6 +35,12 @@ export function ShippingQuotesCard({
   onSelectQuote,
   onRetryQuotes,
 }: ShippingQuotesCardProps) {
+  useEffect(() => {
+    if (isLoadingQuotes) {
+      AccessibilityInfo.announceForAccessibility('Fetching delivery options…');
+    }
+  }, [isLoadingQuotes]);
+
   return (
     <View
       style={[
