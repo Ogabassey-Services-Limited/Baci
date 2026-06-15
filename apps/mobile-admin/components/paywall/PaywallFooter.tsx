@@ -5,9 +5,9 @@ import {
   Text,
   View,
 } from 'react-native';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { isRuntimePlatform } from '@/config/runtime-platform';
 import type { ThemeColors } from '@/constants/theme';
-import type { PurchasesPackage } from 'react-native-purchases';
 import { paywallStyles } from './paywall.styles';
 
 interface PaywallFooterProps {

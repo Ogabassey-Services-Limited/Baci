@@ -1,11 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
+  StatusBar,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/components/analytics/analytics-insights.styles';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
