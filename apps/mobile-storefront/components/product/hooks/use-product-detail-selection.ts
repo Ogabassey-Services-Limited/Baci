@@ -174,8 +174,21 @@ export function useProductDetailSelection({
       };
       const resolvedLegacyColor =
         nextSelection?.attributes?.colour?.trim() || undefined;
+      // Preserve a user-selected image-driven color: one that exists in
+      // color_images but is NOT a variant axis (e.g. a phone whose variants
+      // differ by storage only). Without this, the repair below would revert
+      // the color to the product default and snap the gallery image back,
+      // making such colors unselectable.
+      const imageDrivenSelectedColor =
+        selectedColor &&
+        Object.keys(resolvedColorImages ?? {}).includes(selectedColor)
+          ? selectedColor
+          : undefined;
       const syncedColor =
-        nextSelection?.color ?? resolvedLegacyColor ?? fallbackSelection.color;
+        nextSelection?.color ??
+        resolvedLegacyColor ??
+        imageDrivenSelectedColor ??
+        fallbackSelection.color;
 
       if (shouldSeedSelection || shouldRepairInvalidSelection) {
         // Guard every setter behind value equality: a repair that cannot

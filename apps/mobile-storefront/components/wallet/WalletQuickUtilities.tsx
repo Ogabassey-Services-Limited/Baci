@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { WALLET_COLORS } from './wallet.colors';
+import { BRAND } from '@/constants/Colors';
 import { styles } from './wallet.styles';
 
 type UtilityRoute =
@@ -73,7 +73,7 @@ export function WalletQuickUtilities() {
             <Ionicons
               name={utility.icon}
               size={14}
-              color={WALLET_COLORS.white}
+              color={BRAND.primary}
             />
             <Text style={styles.utilityPillText}>{utility.label}</Text>
           </Pressable>

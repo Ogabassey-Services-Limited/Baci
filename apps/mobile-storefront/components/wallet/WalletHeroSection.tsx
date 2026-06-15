@@ -100,7 +100,8 @@ export function WalletHeroSection({
           accessibilityRole="button"
           accessibilityLabel="Add money"
           accessibilityHint="Opens wallet funding options"
-          style={styles.addMoneyButton}
+          // Red accent border on the Add Money button.
+          style={[styles.addMoneyButton, { borderColor: 'red', borderWidth: 2 }]}
           onPress={onOpenFundPanel}
         >
           <Ionicons
@@ -108,7 +109,7 @@ export function WalletHeroSection({
             importantForAccessibility="no"
             name="add-circle-outline"
             size={16}
-            color={WALLET_COLORS.white}
+            color={BRAND.primary}
           />
           <Text style={styles.addMoneyButtonText}>Add Money</Text>
         </Pressable>
