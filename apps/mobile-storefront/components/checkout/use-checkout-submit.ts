@@ -19,7 +19,7 @@ import {
 import { trackCheckoutStep } from '@/services/analytics';
 import { createOrder } from '@/services/orders';
 import { trackCheckoutRoutePurchaseCompleted } from '@/services/tiktok-checkout-route-tracking';
-import { useCartStore, type CartItem } from '@/stores/cart-store';
+import { type CartItem, useCartStore } from '@/stores/cart-store';
 import { submitBnplCheckout } from './checkout-bnpl-submit';
 import {
   buildCheckoutOrderRequest,
@@ -27,8 +27,8 @@ import {
 } from './checkout-order-builders';
 import { finalizeCheckoutPayment } from './checkout-payment-finalization';
 import { runCheckoutPostOrderSideEffects } from './checkout-post-order-side-effects';
-import { resolveCheckoutStoreCreditSelections } from './checkout-store-credit';
 import type { PendingCryptoOrder } from './checkout-screen.constants';
+import { resolveCheckoutStoreCreditSelections } from './checkout-store-credit';
 import { handleCheckoutSubmitError } from './checkout-submit-error';
 import { validateCheckoutSubmission } from './checkout-submit-validation';
 
@@ -43,6 +43,7 @@ interface CheckoutUser {
 
 export interface UseCheckoutSubmitParams {
   accountPassword: string;
+  appliedDiscountCode?: string | null;
   availablePaymentMethods: PaymentMethodType[];
   clearCart: () => void;
   currentShippingQuoteContextKey: string;
@@ -81,6 +82,7 @@ export interface UseCheckoutSubmitParams {
 
 export function useCheckoutSubmit({
   accountPassword,
+  appliedDiscountCode,
   availablePaymentMethods,
   clearCart,
   currentShippingQuoteContextKey,
@@ -167,6 +169,7 @@ export function useCheckoutSubmit({
       if (isBNPL) {
         await submitBnplCheckout({
           address,
+          appliedDiscountCode,
           customerEmail,
           customerName,
           customerPhone,
@@ -194,13 +197,18 @@ export function useCheckoutSubmit({
           customerName,
           customerPhone,
           deliveryMethod,
+          discountCode: appliedDiscountCode,
           itemsSnapshot,
           paymentMethodForOrder,
           selectedQuote,
           shippingProvider: getShippingProvider(),
           snapshot,
         }),
-        ...buildSavingsOrderFields(liveSavingsSelection),
+        // Discount codes and savings credit are mutually exclusive (the route
+        // dispatches a single wrapper RPC). Wallet credit still stacks.
+        ...(appliedDiscountCode
+          ? {}
+          : buildSavingsOrderFields(liveSavingsSelection)),
         ...buildWalletOrderFields(liveWalletSelection),
       });
       const { order } = orderResponse;

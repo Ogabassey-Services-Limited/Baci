@@ -39,6 +39,7 @@ const BNPL_PAYMENT_INIT_TIMEOUT_MS = 10_000;
 
 interface SubmitBnplCheckoutParams {
   address: ShippingAddressInput;
+  appliedDiscountCode?: string | null;
   customerEmail: string;
   customerName: string;
   customerPhone: string;
@@ -59,6 +60,7 @@ interface SubmitBnplCheckoutParams {
 
 export async function submitBnplCheckout({
   address,
+  appliedDiscountCode,
   customerEmail,
   customerName,
   customerPhone,
@@ -101,6 +103,7 @@ export async function submitBnplCheckout({
     customerName,
     customerPhone,
     deliveryMethod,
+    discountCode: appliedDiscountCode,
     itemsSnapshot,
     paymentMethodForOrder,
     selectedQuote,
@@ -113,6 +116,7 @@ export async function submitBnplCheckout({
     customerPhone,
     deliveryMethod,
     discountAmount: 0,
+    discountCode: appliedDiscountCode,
     items: orderRequest.items,
     selectedQuoteId: orderRequest.selected_quote_id,
     shippingAddress: orderRequest.shipping_address,

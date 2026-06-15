@@ -1,10 +1,11 @@
 import { Stack } from 'expo-router';
 import React, { useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
 import { CheckoutCryptoPaymentModal } from '@/components/checkout/CheckoutCryptoPaymentModal';
 import { CheckoutHeader } from '@/components/checkout/CheckoutHeader';
@@ -19,7 +20,6 @@ import { PatternedBackground } from '@/components/storefront/PatternedBackground
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { useShallow } from 'zustand/react/shallow';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useCartStore } from '@/stores/cart-store';
@@ -29,6 +29,7 @@ import {
   CHECKOUT_MERCHANT_ID,
   CHECKOUT_MERCHANT_SLUG,
 } from './checkout-screen.constants';
+import { type AppliedDiscount, DiscountCodeInput } from './DiscountCodeInput';
 import { useCheckoutAddressState } from './use-checkout-address-state';
 import { useCheckoutCryptoPayment } from './use-checkout-crypto-payment';
 import { useCheckoutCtaAnimation } from './use-checkout-cta-animation';
@@ -53,6 +54,8 @@ export function CheckoutScreenView() {
 
   const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [appliedDiscount, setAppliedDiscount] =
+    React.useState<AppliedDiscount | null>(null);
   const isOrderInFlight = useRef(false);
   const mobileCheckoutIdempotencyRef =
     useRef<MobileCheckoutIdempotencyState | null>(null);
@@ -151,6 +154,7 @@ export function CheckoutScreenView() {
 
   const { handleContinue, handlePlaceOrder } = useCheckoutStepActions({
     accountPassword,
+    appliedDiscountCode: appliedDiscount?.code ?? null,
     availablePaymentMethods,
     clearCart,
     currentShippingQuoteContextKey,
@@ -229,6 +233,19 @@ export function CheckoutScreenView() {
             step={step}
             subtotal={subtotal}
           />
+
+          {step === 'payment' ? (
+            <View style={styles.discountSection}>
+              <DiscountCodeInput
+                merchantId={CHECKOUT_MERCHANT_ID}
+                cartTotal={subtotal}
+                productIds={items.map((item) => item.product_id)}
+                appliedDiscount={appliedDiscount}
+                onApply={setAppliedDiscount}
+                onRemove={() => setAppliedDiscount(null)}
+              />
+            </View>
+          ) : null}
 
           <CheckoutBottomAction
             animatedCtaArrowStyle={animatedCtaArrowStyle}
