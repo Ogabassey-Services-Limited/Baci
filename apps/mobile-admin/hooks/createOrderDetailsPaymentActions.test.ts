@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createOrderDetailsPaymentActions } from './createOrderDetailsPaymentActions';
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Alert: { alert: vi.fn() },
 }));
 
