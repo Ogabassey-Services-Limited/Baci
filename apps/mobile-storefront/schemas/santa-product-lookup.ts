@@ -4,10 +4,10 @@ const santaProductLookupResultSchema = z.object({
   id: z.string(),
   name: z.string(),
   price: z.number().finite().nonnegative(),
-  image: z.nullish(z.string()),
-  manage_stock: z.nullish(z.boolean()),
-  slug: z.nullish(z.string()),
-  stock: z.nullish(z.number().finite().nonnegative()),
+  image: z.string().nullish(),
+  manage_stock: z.boolean().nullish(),
+  slug: z.string().nullish(),
+  stock: z.number().finite().nonnegative().nullish(),
 });
 
 export const santaProductLookupResponseSchema = z.object({
