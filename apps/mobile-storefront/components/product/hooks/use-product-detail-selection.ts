@@ -7,13 +7,11 @@ import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axe
 import { computeProductSelectionState } from '@/lib/product-route/product-selection';
 import type { Product, ProductCondition } from '@/types/product';
 import { resolveAvailableProductCondition } from './product-condition-selection';
-
 type FirstImageIndexForColorInput = {
   color: string | null | undefined;
   colorImages?: Record<string, string[]>;
   images: string[];
 };
-
 type UseProductDetailSelectionArgs = {
   getFallbackVariantSelections: (product: Product | null) => {
     attributes: Record<string, string>;
@@ -31,7 +29,6 @@ type UseProductDetailSelectionArgs = {
   routeSelectionSignature: string;
   routeVariantId: string | null;
 };
-
 function shallowEqualRecord(
   a: Record<string, string>,
   b: Record<string, string>
@@ -41,7 +38,6 @@ function shallowEqualRecord(
   if (aKeys.length !== bKeys.length) return false;
   return aKeys.every((key) => a[key] === b[key]);
 }
-
 export function useProductDetailSelection({
   getFallbackVariantSelections,
   getFirstImageIndexForColor,
