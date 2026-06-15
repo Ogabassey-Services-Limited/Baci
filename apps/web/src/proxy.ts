@@ -22,19 +22,16 @@ import {
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
   STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
 } from '@/config/storefront-metadata-cache-bots';
-import { getInternalApiSecret } from '@/env';
 import {
   CLICK_ID_PARAMS,
   extractClickIdsFromUrl,
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   getCustomDomainForSlug,
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
-import { isStorefrontProductSlugMissing } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -184,42 +181,6 @@ const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
 const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
-
-// UUID-shaped product URL segment — resolved by the PDP route's id lookup, so
-// the crawl-budget slug-set check (which holds slugs, not ids) must skip it.
-const UUID_SHAPED_SLUG =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// Decode a raw URL path segment for slug comparison. Path segments arrive
-// percent-encoded while DB slugs are decoded; a malformed sequence (e.g. a lone
-// `%`) throws — fall back to the raw value so a bad encoding never crashes the
-// proxy (worst case: it simply won't match and falls through, never 404ing).
-function safeDecodeSegment(segment: string | undefined): string {
-  if (!segment) {
-    return '';
-  }
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return segment;
-  }
-}
-
-// True only for an internal request bearing the correct `INTERNAL_API_SECRET`
-// (timing-safe). Used to scope the rate-limit exemption to AUTHENTICATED
-// self-calls — an unauthenticated/forged request to `/api/internal/*` stays
-// rate-limited, so the secret cannot be flooded/guessed without a 429.
-function isAuthenticatedInternalRequest(request: NextRequest): boolean {
-  const secret = getInternalApiSecret();
-  if (!secret) {
-    return false;
-  }
-  const authHeader = request.headers.get('Authorization');
-  return (
-    Boolean(authHeader) &&
-    constantTimeEqual(authHeader ?? '', `Bearer ${secret}`)
-  );
-}
 // PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
 // the prerendered PPR shell can be served from the edge for the LCP win.
 const STOREFRONT_DOCUMENT_CACHE_CONTROL =
@@ -1109,156 +1070,6 @@ function shouldForwardStrictCspNonce(
   return routeType === 'admin' || routeType === 'auth';
 }
 
-/**
- * Build a real hard-status (404/410) storefront HTML response (PR-B §3.2).
- *
- * Under PPR a page-level `notFound()` only yields a soft-404 (200 + noindex)
- * because the static shell has already committed 200. Returning this from the
- * proxy gives crawlers a true status code. The body is minimal but valid HTML
- * (noindex), with full CSP/security headers applied and `Cache-Control:
- * no-store` set LAST so the cache section inside `applySecurityHeaders` can
- * never edge-cache a transient hard status.
- */
-function buildHardStatusStorefrontResponse(
-  status: 404 | 410,
-  request: NextRequest,
-  pathname: string,
-  userAgent: string,
-  hostname: string | undefined
-): NextResponse {
-  const title = status === 410 ? 'Page gone' : 'Page not found';
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="robots" content="noindex, follow"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title></head><body style="font-family:system-ui,-apple-system,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center"><main><h1>${title}</h1><p>The page you’re looking for isn’t here. <a href="/">Go to the homepage</a>.</p></main></body></html>`;
-
-  // HEAD must not carry a body (RFC 9110 §9.3.2); the noindex signal travels in
-  // the X-Robots-Tag header below so a HEAD crawl still sees it.
-  const body = request.method === 'HEAD' ? null : html;
-  const response = new NextResponse(body, { status });
-  response.headers.set('Content-Type', 'text/html; charset=utf-8');
-  applySecurityHeaders(
-    response,
-    pathname,
-    userAgent,
-    'storefront',
-    isLocalhost(hostname ?? ''),
-    undefined,
-    request,
-    hostname
-  );
-  // Header-level noindex (belt-and-suspenders with the body <meta>): crawlers
-  // that only HEAD, or don't parse the body, still get the directive.
-  response.headers.set('X-Robots-Tag', 'noindex, follow');
-  // no-store LAST: the cache section runs inside applySecurityHeaders and would
-  // otherwise mark a product-shaped path cacheable, edge-caching a false 404.
-  response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
-  return response;
-}
-
-/**
- * Crawl-budget hard-404 for a confirmed-missing storefront product (PR-B §3.2).
- *
- * Gated tightly to clean, non-prefetch, GET/HEAD HTML navigations to a
- * 2-segment PDP path (`/{category}/{productSlug}`). It asks the internal
- * slug-set route whether the product slug exists for this merchant and, only if
- * positively absent, returns a hard 404. Every uncertain path (params,
- * RSC/prefetch, non-PDP shape, reserved segment, unavailable/empty slug set)
- * falls through — fail-open, so a live product is never 404'd.
- */
-async function resolveStorefrontPdpHardNotFound(
-  request: NextRequest,
-  pathname: string,
-  hostname: string | undefined,
-  userAgent: string,
-  identifier: string
-): Promise<NextResponse | null> {
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return null;
-  }
-  // Param URLs canonicalize/redirect elsewhere; only judge clean canonical URLs.
-  if (request.nextUrl.search.length > 0) {
-    return null;
-  }
-  // Never hard-404 RSC/prefetch navigations Next expects to succeed.
-  if (
-    request.headers.get('rsc') === '1' ||
-    request.headers.has('next-router-prefetch') ||
-    request.headers.has('next-router-state-tree')
-  ) {
-    return null;
-  }
-  const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
-  if (fetchDest && fetchDest !== 'document') {
-    return null;
-  }
-
-  const routeType = getRouteType(pathname);
-  if (routeType !== 'storefront') {
-    return null;
-  }
-
-  // Only the exact 2-segment PDP shape; category listings, nested subroutes
-  // (compare/best-under), and reserved segments fall through.
-  const contentSegments = getStorefrontContentSegments(
-    pathname,
-    hostname,
-    routeType
-  );
-  if (contentSegments.length !== 2) {
-    return null;
-  }
-  // Path segments arrive percent-encoded (e.g. `dell-%E2%80%93-xps`); the DB
-  // slug is decoded, so we MUST decode before comparing membership/reserved —
-  // otherwise an encoded-but-real slug looks absent and gets falsely 404ed.
-  const firstSegment = safeDecodeSegment(contentSegments[0]).toLowerCase();
-  const productSlug = safeDecodeSegment(contentSegments[1]);
-  // `/products/{slug}` (plural) is the categoryless PDP fallback that
-  // getProductUrl emits and the `(pdp)/products/[productSlug]` route serves — a
-  // real PDP surface, so it MUST be checked even though `products` is a reserved
-  // first segment. (The singular `/product/{slug}` is a legacy redirect, not a
-  // PDP, so it stays excluded below.)
-  const isProductsFallbackPdp = firstSegment === 'products';
-  // Otherwise the first segment must be a real category — non-PDP first segments
-  // (blog, account, my-account, receipts, pages, cart, checkout, …) have their
-  // own App Router pages (incl. `/my-account/[...path]` catch-alls) and must
-  // never be hard-404ed. Use the BROADER non-cacheable first-segment set, not
-  // just RESERVED, so authenticated route groups are excluded too.
-  if (
-    !isProductsFallbackPdp &&
-    (!firstSegment || NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment))
-  ) {
-    return null;
-  }
-  if (
-    !productSlug ||
-    RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
-  ) {
-    return null;
-  }
-  // UUID product URLs (`/{category}/{productId}`) resolve through the page's
-  // id-based lookup + canonical 308; the slug set only holds slugs, so a
-  // UUID-shaped segment must never be hard-404ed.
-  if (UUID_SHAPED_SLUG.test(productSlug)) {
-    return null;
-  }
-
-  const missing = await isStorefrontProductSlugMissing({
-    origin: request.nextUrl.origin,
-    identifier,
-    productSlug,
-    secret: getInternalApiSecret(),
-  });
-  if (!missing) {
-    return null;
-  }
-
-  return buildHardStatusStorefrontResponse(
-    404,
-    request,
-    pathname,
-    userAgent,
-    hostname
-  );
-}
-
 function buildStrictCspResponse(
   request: NextRequest,
   routeType: 'admin' | 'auth',
@@ -1347,19 +1158,8 @@ export async function proxy(request: NextRequest) {
   // ==== RATE LIMITING (API Routes) ====
   // Protect API endpoints from abuse
   if (apiSecurityPathname.startsWith('/api')) {
-    // Internal, Bearer-authed self-calls (e.g. the proxy's own slug-set lookup
-    // for the crawl-budget hard-404) must NOT count against the public per-IP
-    // rate limiter — a crawler burst would otherwise 429 the internal fetch and
-    // silently disable hard-404s for the window. ONLY exempt requests that carry
-    // the valid internal secret; an unauthenticated/forged `/api/internal/*` hit
-    // stays rate-limited so the secret cannot be flood-guessed without a 429.
-    const isExemptInternalCall =
-      apiSecurityPathname.startsWith('/api/internal/') &&
-      isAuthenticatedInternalRequest(request);
-    const rateLimitResult = isExemptInternalCall
-      ? null
-      : await checkRateLimit(request);
-    if (rateLimitResult && !rateLimitResult.allowed) {
+    const rateLimitResult = await checkRateLimit(request);
+    if (!rateLimitResult.allowed) {
       return createRateLimitResponse(
         rateLimitResult.limit,
         rateLimitResult.remaining,
@@ -2173,20 +1973,6 @@ export async function proxy(request: NextRequest) {
         // Slug lookup failed — fall through to standard domain rewrite
       }
 
-      // Crawl-budget hard-404 (PR-B §3.2): a confirmed-missing PDP product slug
-      // gets a real 404 instead of a soft-404 shell. Fail-open; runs before the
-      // storefront rewrite so a true typo never reaches the dynamic route.
-      const pdpHardNotFound = await resolveStorefrontPdpHardNotFound(
-        request,
-        pathname,
-        hostname,
-        userAgent,
-        domainMerchantSlug ?? domain
-      );
-      if (pdpHardNotFound) {
-        return pdpHardNotFound;
-      }
-
       // First visit: Rewrite to /${domain}${pathname} so the storefront [slug] route handles it
       const url = request.nextUrl.clone();
       url.pathname = `/${domain}${pathname}`;
@@ -2358,21 +2144,6 @@ export async function proxy(request: NextRequest) {
       });
     }
 
-    // Crawl-budget hard-404 (PR-B §3.2) for SUBDOMAIN storefronts
-    // (`{slug}.usebaci.com/{category}/{product}`). Same fail-open guard as the
-    // custom-domain branch; identifier is the subdomain. The subdomain host is
-    // not a platform host, so content segments are not slug-sliced here.
-    const subdomainPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
-      request,
-      pathname,
-      hostname,
-      userAgent,
-      subdomain as string
-    );
-    if (subdomainPdpHardNotFound) {
-      return subdomainPdpHardNotFound;
-    }
-
     const url = request.nextUrl.clone();
     url.pathname = `/${subdomain}${pathname}`;
     const routeType = getRouteType(pathname);
@@ -2456,45 +2227,6 @@ export async function proxy(request: NextRequest) {
         routeIdentifier: pathSegments[0],
         merchantSlug: pathSegments[0],
       });
-    }
-  }
-
-  // Crawl-budget hard-404 (PR-B §3.2) for slug-prefixed root-domain / preview
-  // storefronts (`usebaci.com/{slug}/{category}/{product}`). Runs AFTER the
-  // slug→custom-domain redirect above (so a slug with a custom domain 301s
-  // instead of 404ing) and is gated to real storefront slugs — never main-app
-  // routes. Platform hosts are slug-prefixed, so the helper strips the slug and
-  // judges `{category}/{product}`. Fail-open as everywhere else.
-  if (
-    (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname)) &&
-    !isLocalhost(hostname)
-  ) {
-    const pathSegments = pathname.split('/').filter(Boolean);
-    const slug = pathSegments[0];
-    const isMainAppRoute =
-      ROOT_DOMAIN_ONLY_MAIN_APP_ROUTES.some(
-        (route) => pathname === route || pathname.startsWith(`${route}/`)
-      ) || MAIN_APP_ROUTES.some((route) => pathname.startsWith(route));
-    if (
-      slug &&
-      !isMainAppRoute &&
-      // Platform-owned root segments (about, pricing, products, blog, …) are not
-      // storefront slugs — never run the membership check (or send the secret)
-      // for them, even though they pass the generic subdomain-shape test.
-      !PLATFORM_ROOT_ROUTE_SEGMENTS.has(slug.toLowerCase()) &&
-      isValidSubdomain(slug) &&
-      !RESERVED_SUBDOMAINS.has(slug)
-    ) {
-      const rootPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
-        request,
-        pathname,
-        hostname,
-        userAgent,
-        slug
-      );
-      if (rootPdpHardNotFound) {
-        return rootPdpHardNotFound;
-      }
     }
   }
 
