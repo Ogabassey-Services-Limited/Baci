@@ -1,0 +1,116 @@
+import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { authenticateApiRequest } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
+import { logger } from '@/lib/logger';
+import { sendOrderCancellationEmail } from '@/lib/order-cancellation-email';
+import { storefrontOrderCancellationSchema } from '@/schemas/storefront-order-cancellation';
+
+const orderIdSchema = z.uuid();
+
+/**
+ * POST /api/storefront/account/orders/[id]/cancel
+ *
+ * Lets an authenticated storefront customer cancel their own order while it is
+ * still unpaid and not yet shipped. Serves both web (cookie) and mobile (Bearer)
+ * via authenticateApiRequest. The state transition + restock + instrument
+ * voiding happen atomically in the cancel_order_as_customer RPC; the email is
+ * best-effort.
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  // 1. Auth first (cookie for web, Bearer for mobile).
+  const auth = await authenticateApiRequest(request);
+  if (auth.error || !auth.user || !auth.supabase) {
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  // 2. CSRF (auto-skipped for Bearer requests inside checkCsrfProtection).
+  const { valid: csrfValid, response: csrfResponse } =
+    await checkCsrfProtection(request);
+  if (!csrfValid) {
+    return (
+      csrfResponse ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
+  // 3. Validate the order id and body.
+  const { id } = await params;
+  if (!orderIdSchema.safeParse(id).success) {
+    return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+  }
+
+  let rawBody: unknown = {};
+  try {
+    rawBody = await request.json();
+  } catch {
+    rawBody = {};
+  }
+  const parsed = storefrontOrderCancellationSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  // 4. Perform the cancellation via the SECURITY DEFINER RPC.
+  const { data, error } = await auth.supabase.rpc('cancel_order_as_customer', {
+    p_order_id: id,
+    p_reason: parsed.data.reason ?? null,
+  });
+
+  if (error) {
+    const message = error.message || '';
+    if (message.includes('order_not_found')) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+    if (message.includes('order_not_cancellable')) {
+      return NextResponse.json(
+        {
+          error: 'This order can no longer be cancelled',
+          code: 'order_not_cancellable',
+        },
+        { status: 409 }
+      );
+    }
+    logger.error({
+      message: 'cancel_order_as_customer RPC failed',
+      orderId: id,
+      error,
+    });
+    return NextResponse.json(
+      { error: 'Failed to cancel order' },
+      { status: 500 }
+    );
+  }
+
+  const didCancel = data === true;
+
+  // 5. Best-effort cancellation email. The order is already cancelled, so an
+  // email failure must NOT fail the request.
+  if (didCancel) {
+    const emailResult = await sendOrderCancellationEmail({
+      supabase: auth.supabase,
+      orderId: id,
+      cancelledBy: 'customer',
+      reason: parsed.data.reason,
+      refundAmount: 0,
+    });
+    if (!emailResult.success) {
+      logger.error({
+        message: 'Order cancelled but cancellation email failed',
+        orderId: id,
+        error: emailResult.error,
+      });
+    }
+  }
+
+  return NextResponse.json({ success: true, cancelled: didCancel });
+}
