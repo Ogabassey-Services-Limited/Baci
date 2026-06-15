@@ -1,5 +1,5 @@
 import type React from 'react';
-import { createContext, useContext, useState } from 'react';
+import { createContext, use, useState } from 'react';
 
 const SavedContext = createContext<any>(null);
 
@@ -31,7 +31,7 @@ export const SavedProvider: React.FC<{ children: React.ReactNode }> = ({
 };
 
 export const useSaved = () => {
-  const context = useContext(SavedContext);
+  const context = use(SavedContext);
   if (!context) {
     throw new Error('useSaved must be used within a SavedProvider');
   }
