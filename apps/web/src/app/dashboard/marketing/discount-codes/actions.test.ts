@@ -183,3 +183,72 @@ describe('discount code actions staff access', () => {
     expect(mockEnsurePermission).not.toHaveBeenCalled();
   });
 });
+
+function chainTo(single: ReturnType<typeof vi.fn>) {
+  const c: Record<string, unknown> = {
+    eq: vi.fn(() => c),
+    select: vi.fn(() => c),
+    single,
+  };
+  return c;
+}
+
+describe('preserve used discount codes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    mockEnsurePermission.mockResolvedValue({
+      merchant: { id: 'merchant-1', country: 'NG' },
+      staffAccess: { isOwner: true, isStaff: false, role: 'owner' },
+    });
+  });
+
+  it('deactivates a used code instead of hard-deleting it', async () => {
+    const deleteSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: 'P0001', message: 'discount_code_delete_not_allowed' },
+    });
+    const updateSingle = vi
+      .fn()
+      .mockResolvedValue({ data: { id: 'dc-1' }, error: null });
+
+    mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
+      from: vi.fn(() => ({
+        delete: vi.fn(() => chainTo(deleteSingle)),
+        update: vi.fn(() => chainTo(updateSingle)),
+      })),
+    });
+
+    const result = await deleteDiscountCode('dc-1');
+
+    expect(result).toEqual({ success: true, deactivated: true });
+    expect(updateSingle).toHaveBeenCalled();
+  });
+
+  it('rejects renaming a used code with a clear message', async () => {
+    const updateSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: 'P0001', message: 'discount_code_rename_not_allowed' },
+    });
+
+    mockCreateClient.mockReturnValue({
+      auth: { getUser: mockGetUser },
+      from: vi.fn(() => ({
+        update: vi.fn(() => chainTo(updateSingle)),
+      })),
+    });
+
+    await expect(
+      upsertDiscountCode({
+        id: 'dc-1',
+        code: 'NEWNAME',
+        discount_type: 'percentage',
+        discount_value: 10,
+      })
+    ).rejects.toThrow('cannot be renamed');
+  });
+});
