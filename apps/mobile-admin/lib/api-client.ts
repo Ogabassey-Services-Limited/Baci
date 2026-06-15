@@ -1,6 +1,7 @@
 import { BASE_URL, IS_DEV, resolveBaseUrl } from './api-base-url';
 import { getResponseErrorMessage, NetworkError } from './api-errors';
 import { supabase } from './supabase';
+
 export { BASE_URL, NetworkError, resolveBaseUrl };
 
 /** Default request timeout in milliseconds (20 seconds) */

@@ -147,8 +147,8 @@ vi.mock('react-native', () => {
   };
 });
 
-import NegotiationsScreen from './negotiations';
 import { Alert } from 'react-native';
+import NegotiationsScreen from './negotiations';
 
 describe('NegotiationsScreen', () => {
   beforeEach(() => {
