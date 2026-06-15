@@ -28,6 +28,7 @@ import { EmptyState } from './empty-state';
 import Image from 'next/image';
 import { NegotiationModal } from './NegotiationModal';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { isProductNegotiable } from '@baci/shared/lib';
 import {
   calculateCartTotal,
   getCartItemCheckoutUnitPrice,
@@ -73,6 +74,10 @@ export const CartSidebar: React.FC = () => {
   const displayCart = sanitizeCartItems(cart, hasPriceNegotiation);
 
   const displayCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
+
+  const hasNonNegotiableCartItem = displayCart.some(
+    (item) => !isProductNegotiable({ brand: item.brand, name: item.name })
+  );
 
   const getHref = (path: string) =>
     path.startsWith('http') ? path : `${basePath || ''}${path === '/' ? '' : path}`;
@@ -121,6 +126,10 @@ export const CartSidebar: React.FC = () => {
   };
 
   const openItemNegotiation = (item: CartItem) => {
+    if (!isProductNegotiable({ brand: item.brand, name: item.name })) {
+      return;
+    }
+
     const currentUnitPrice = item.negotiatedPrice || item.price || 0;
     const currentTotal = currentUnitPrice * item.quantity;
 
@@ -134,6 +143,10 @@ export const CartSidebar: React.FC = () => {
   };
 
   const openTotalNegotiation = () => {
+    if (hasNonNegotiableCartItem) {
+      return;
+    }
+
     setNegotiationState({
       isOpen: true,
       type: 'total',
@@ -336,7 +349,10 @@ export const CartSidebar: React.FC = () => {
                                       {item.negotiatedPrice?.toLocaleString()}
                                     </span>
                                   </div>
-                                ) : (
+                                ) : isProductNegotiable({
+                                    brand: item.brand,
+                                    name: item.name,
+                                  }) ? (
                                   <button type="button"
                                     onClick={() => openItemNegotiation(item)}
                                     className="flex items-center gap-1.5 text-[10px] font-bold text-store-primary hover:text-store-primary transition-colors"
@@ -344,6 +360,11 @@ export const CartSidebar: React.FC = () => {
                                     <HandCoins size={14} />
                                     <span>Negotiate</span>
                                   </button>
+                                ) : (
+                                  <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded-md w-fit border border-gray-200">
+                                    <Check size={10} strokeWidth={3} />
+                                    <span>Best price</span>
+                                  </div>
                                 )
                               )}
                             </div>
@@ -456,7 +477,7 @@ export const CartSidebar: React.FC = () => {
                 </div>
 
                 {/* Negotiate Total Button */}
-                {hasPriceNegotiation && (
+                {hasPriceNegotiation && !hasNonNegotiableCartItem && (
                   <button type="button"
                     onClick={openTotalNegotiation}
                     className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200"

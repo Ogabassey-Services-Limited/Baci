@@ -21,6 +21,7 @@ interface CartLoadedViewProps {
   handleReturnHome: () => void;
   handleQuantityChange: (item: CartItem, delta: number) => void;
   handleRemoveItem: (item: CartItem) => void;
+  hasNonNegotiableCartItem: boolean;
   insetsTop: number;
   isIdentityModalOpen: boolean;
   itemCount: number;
@@ -64,6 +65,7 @@ export default function CartLoadedView({
   handleReturnHome,
   handleQuantityChange,
   handleRemoveItem,
+  hasNonNegotiableCartItem,
   insetsTop,
   isIdentityModalOpen,
   itemCount,
@@ -198,6 +200,7 @@ export default function CartLoadedView({
         formatPrice={formatPrice}
         grandTotal={grandTotal}
         hasAcceptedNegotiation={hasAcceptedNegotiation}
+        hasNonNegotiableItem={hasNonNegotiableCartItem}
         onCheckout={handleCheckout}
         onCheckoutPressIn={onCheckoutPressIn}
         onNegotiateTotal={onNegotiateTotal}
@@ -211,6 +214,7 @@ export default function CartLoadedView({
       <NegotiationWarningModal
         visible={showNegotiateWarning}
         pendingItem={pendingNegotiateItem}
+        hasNonNegotiableCartItem={hasNonNegotiableCartItem}
         onClose={onCloseNegotiateWarning}
         onNegotiateItem={onNegotiateItem}
         onBulkNegotiate={onBulkNegotiate}

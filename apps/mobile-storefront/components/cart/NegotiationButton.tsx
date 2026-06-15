@@ -1,3 +1,4 @@
+import { isProductNegotiable } from '@baci/shared/lib';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
@@ -20,6 +21,37 @@ export default function NegotiationButton({
   negotiateBorder,
 }: NegotiationButtonProps) {
   if (!openItemNegotiation) return null;
+
+  const canNegotiateItem = isProductNegotiable({
+    brand: item.brand,
+    name: item.name,
+  });
+
+  if (item.negotiationStatus !== 'accepted' && !canNegotiateItem) {
+    return (
+      <View
+        accessibilityLabel={`Best price for ${item.name}`}
+        style={[
+          styles.negotiatedBadge,
+          {
+            backgroundColor: colors.background,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Ionicons
+          name="pricetag-outline"
+          size={12}
+          color={colors.textSecondary}
+        />
+        <Text
+          style={[styles.negotiatedBadgeText, { color: colors.textSecondary }]}
+        >
+          Best price
+        </Text>
+      </View>
+    );
+  }
 
   if (item.negotiationStatus === 'accepted') {
     return (

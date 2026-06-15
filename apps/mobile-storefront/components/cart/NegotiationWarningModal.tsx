@@ -8,6 +8,7 @@ import styles from './styles';
 interface NegotiationWarningModalProps {
   visible: boolean;
   pendingItem: CartItem | null;
+  hasNonNegotiableCartItem?: boolean;
   onClose: () => void;
   onNegotiateItem: (item: CartItem) => void;
   onBulkNegotiate: () => void;
@@ -18,6 +19,7 @@ interface NegotiationWarningModalProps {
 export default function NegotiationWarningModal({
   visible,
   pendingItem,
+  hasNonNegotiableCartItem = false,
   onClose,
   onNegotiateItem,
   onBulkNegotiate,
@@ -25,6 +27,7 @@ export default function NegotiationWarningModal({
   colors,
 }: NegotiationWarningModalProps): React.JSX.Element {
   const canNegotiateItem = !!pendingItem;
+  const canBulkNegotiate = !hasNonNegotiableCartItem;
   const handleNegotiateItemPress = () => {
     if (!pendingItem) {
       return;
@@ -100,14 +103,20 @@ export default function NegotiationWarningModal({
               style={({ pressed }) => [
                 styles.warningSecondaryButton,
                 { backgroundColor: colors.muted, borderColor: colors.border },
-                pressed && styles.warningButtonPressed,
+                !canBulkNegotiate && styles.warningButtonDisabled,
+                pressed && canBulkNegotiate && styles.warningButtonPressed,
               ]}
               onPress={() => {
+                if (!canBulkNegotiate) {
+                  return;
+                }
                 triggerHaptic();
                 onBulkNegotiate();
               }}
+              disabled={!canBulkNegotiate}
               accessibilityRole="button"
               accessibilityLabel="Bulk negotiate entire cart"
+              accessibilityState={{ disabled: !canBulkNegotiate }}
             >
               <Ionicons name="cash-outline" size={18} color={colors.text} />
               <Text

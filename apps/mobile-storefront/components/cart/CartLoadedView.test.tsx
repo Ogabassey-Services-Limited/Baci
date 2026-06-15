@@ -82,6 +82,7 @@ function renderView(
     handleReturnHome: jest.fn(),
     handleQuantityChange: jest.fn(),
     handleRemoveItem: jest.fn(),
+    hasNonNegotiableCartItem: false,
     insetsTop: 16,
     isIdentityModalOpen: false,
     itemCount: 1,

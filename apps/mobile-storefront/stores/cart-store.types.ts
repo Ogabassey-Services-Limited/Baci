@@ -5,6 +5,7 @@ export interface CartItem {
   variant_id?: string;
   variant_attributes?: Record<string, string>;
   name: string;
+  brand?: string;
   price: number;
   compare_at_price?: number;
   quantity: number;

@@ -107,6 +107,28 @@ describe('CartCheckoutFooter', () => {
     expect(onNegotiateTotal).toHaveBeenCalledTimes(1);
   });
 
+  it('hides the cart-total negotiation action when a best-price item is present', () => {
+    render(
+      <CartCheckoutFooter
+        checkoutDotColor="#fff"
+        colors={Colors.light}
+        enableNegotiationModal
+        formatPrice={formatPrice}
+        grandTotal={500000}
+        hasAcceptedNegotiation={false}
+        hasNonNegotiableItem
+        onCheckout={jest.fn()}
+        onCheckoutPressIn={jest.fn()}
+        onNegotiateTotal={jest.fn()}
+        surfaceInset={Colors.light.background}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Negotiate cart total' })
+    ).toBeNull();
+  });
+
   it('warms checkout when the checkout action receives press-in', () => {
     const onCheckoutPressIn = jest.fn();
 

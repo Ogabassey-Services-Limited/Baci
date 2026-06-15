@@ -206,6 +206,31 @@ describe('CartSidebar', () => {
     expect(screen.getAllByText('₦15,000')[0]).toBeInTheDocument();
   });
 
+  it('hides item and total negotiation for best-price cart lines', () => {
+    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(true);
+    mockCartItems = [
+      {
+        id: 'p1',
+        cartItemId: 'ci-1',
+        name: 'Tecno Spark 50',
+        price: 120000,
+        quantity: 1,
+        image: '/tecno.jpg',
+        category: 'electronics',
+        brand: 'Tecno',
+      },
+    ];
+
+    render(<CartSidebar />);
+
+    expect(
+      screen.queryByRole('button', { name: /^negotiate$/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /negotiate total amount/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('shows signed quiz voucher items as free gifts in the sidebar total', () => {
     mockCartItems = [
       {

@@ -204,6 +204,31 @@ describe('CartPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('hides item and total negotiation for best-price cart lines', () => {
+    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(true);
+    mockCartItems = [
+      {
+        id: 'p1',
+        cartItemId: 'ci-1',
+        name: 'Tecno Spark 50',
+        price: 120000,
+        quantity: 1,
+        image: '/tecno.jpg',
+        category: 'electronics',
+        brand: 'Tecno',
+      },
+    ];
+
+    render(<CartPage />);
+
+    expect(
+      screen.queryByRole('button', { name: /^negotiate$/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /negotiate total/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('shows signed quiz voucher items as free gifts in the cart total', () => {
     mockCartItems = [
       {

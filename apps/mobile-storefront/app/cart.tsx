@@ -1,3 +1,4 @@
+import { isProductNegotiable } from '@baci/shared/lib';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -90,6 +91,9 @@ export default function CartScreen() {
   const enableNegotiationModal =
     getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID).features
       ?.negotiationModal ?? true;
+  const hasNonNegotiableCartItem = items.some(
+    (item) => !isProductNegotiable({ brand: item.brand, name: item.name })
+  );
 
   const handleQuantityChange = (item: CartItem, delta: number) => {
     if (pendingOperations.current.has(item.id)) return;
@@ -149,12 +153,19 @@ export default function CartScreen() {
       productName:
         item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name,
       currentPrice: priceToUse * item.quantity,
+      brand: item.brand,
+      isNegotiable: isProductNegotiable({ brand: item.brand, name: item.name }),
     });
     setShowNegotiateWarning(false);
     setPendingNegotiateItem(null);
   };
 
   const openItemNegotiation = (item: CartItem) => {
+    if (!isProductNegotiable({ brand: item.brand, name: item.name })) {
+      Alert.alert('Best Price', 'This item is already at the best price.');
+      return;
+    }
+
     const hasAnyIndividualNegotiation = items.some(
       (cartItem) => cartItem.negotiatedPrice != null
     );
@@ -188,6 +199,14 @@ export default function CartScreen() {
   }, 0);
   const grandTotal = subtotal + assuranceTotal;
   const openTotalNegotiation = () => {
+    if (hasNonNegotiableCartItem) {
+      Alert.alert(
+        'Best Price Item in Cart',
+        'Cart-wide negotiation is unavailable while your cart includes a best-price item.'
+      );
+      return;
+    }
+
     if (items.some((item) => item.negotiationStatus === 'accepted')) {
       Alert.alert(
         'Negotiation Active',
@@ -200,6 +219,7 @@ export default function CartScreen() {
       type: 'total',
       productName: 'Total Cart',
       currentPrice: grandTotal,
+      isNegotiable: true,
     });
     setShowNegotiateWarning(false);
     setPendingNegotiateItem(null);
@@ -263,6 +283,7 @@ export default function CartScreen() {
       handleReturnHome={handleReturnHome}
       handleQuantityChange={handleQuantityChange}
       handleRemoveItem={handleRemoveItem}
+      hasNonNegotiableCartItem={hasNonNegotiableCartItem}
       insetsTop={insets.top}
       isIdentityModalOpen={isIdentityModalOpen}
       itemCount={itemCount}

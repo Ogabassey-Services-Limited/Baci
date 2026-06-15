@@ -88,6 +88,25 @@ describe('NegotiationWarningModal', () => {
     expect(triggerHaptic).not.toHaveBeenCalled();
   });
 
+  it('disables bulk cart negotiation when a best-price item is in the cart', () => {
+    const onBulkNegotiate = jest.fn();
+    render(
+      <NegotiationWarningModal
+        visible
+        pendingItem={cartItem}
+        hasNonNegotiableCartItem
+        onClose={jest.fn()}
+        onNegotiateItem={jest.fn()}
+        onBulkNegotiate={onBulkNegotiate}
+        triggerHaptic={jest.fn()}
+        colors={Colors.light}
+      />
+    );
+
+    fireEvent.press(screen.getByText('Bulk Negotiate Entire Cart'));
+    expect(onBulkNegotiate).not.toHaveBeenCalled();
+  });
+
   it('disables the item negotiation button when pending item is missing', () => {
     const onClose = jest.fn();
     const onNegotiateItem = jest.fn();
