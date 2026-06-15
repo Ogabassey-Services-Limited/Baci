@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, use, useEffect, useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -434,7 +428,7 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
 // ============================================
 
 export function useAdSettings(): AdSettingsContextType {
-  const context = useContext(AdSettingsContext);
+  const context = use(AdSettingsContext);
   if (context === undefined) {
     throw new Error('useAdSettings must be used within an AdSettingsProvider');
   }
@@ -445,6 +439,6 @@ export function useAdSettings(): AdSettingsContextType {
  * Safe version that returns null outside provider (for storefronts)
  */
 export function useAdSettingsSafe(): AdSettingsContextType | null {
-  const context = useContext(AdSettingsContext);
+  const context = use(AdSettingsContext);
   return context === undefined ? null : context;
 }
