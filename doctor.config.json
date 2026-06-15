@@ -1,0 +1,72 @@
+{
+  "serverAuthFunctionNames": ["ensurePermission"],
+  "ignore": {
+    "files": [
+      "**/scripts-tmp/**",
+      "**/vps-workers/**",
+      "**/supabase/functions/**",
+      "**/cloudflare-gemini-proxy/**",
+      "**/public/**",
+      "**/with-ios-release-hardening.js",
+      "**/database.types.ts",
+      "**/supabase.ts",
+      "**/types/cac.ts",
+      "**/*.cjs",
+      "**/*.mjs",
+      "**/test_review.js",
+      "**/migrate_images.ts",
+      "**/supabase/migrations-archive/**",
+      "**/apps/web/supabase/**",
+      "**/supabase/patches/**"
+    ],
+    "overrides": [
+      {
+        "files": ["**/apps/mobile-admin/**", "**/apps/mobile-storefront/**"],
+        "rules": [
+          "react-doctor/nextjs-no-img-element",
+          "react-doctor/nextjs-no-a-element",
+          "react-doctor/nextjs-no-client-side-redirect",
+          "react-doctor/nextjs-no-client-fetch-for-server-data",
+          "react-doctor/nextjs-no-redirect-in-try-catch",
+          "react-doctor/rendering-hydration-mismatch-time"
+        ]
+      },
+      {
+        "files": [
+          "**/color-picker.tsx",
+          "**/search-autocomplete.tsx",
+          "**/merchant-bank-form.tsx",
+          "**/password-strength-indicator.tsx",
+          "**/ui/carousel.tsx",
+          "**/BannerCarousel.tsx",
+          "**/hero-mobile-carousel.tsx",
+          "**/CryptoSelectorModal.tsx",
+          "**/product-summary-panel.tsx",
+          "**/ProductRatingRow.tsx",
+          "**/critical-shell.tsx",
+          "**/product-index-card.tsx",
+          "**/order-source-icon.tsx",
+          "**/builder/config.tsx",
+          "**/track-order/page.tsx",
+          "**/pages/quiz.tsx"
+        ],
+        "rules": ["react-doctor/prefer-tag-over-role"]
+      },
+      {
+        "files": [
+          "**/onboarding-puck-preview.tsx",
+          "**/cookie-consent.tsx",
+          "**/NegotiationModal.tsx",
+          "**/ReceiptModal.tsx",
+          "**/pages/category-page.tsx",
+          "**/selection-required-modal.tsx",
+          "**/santa-widget.tsx"
+        ],
+        "rules": [
+          "react-doctor/prefer-html-dialog",
+          "react-doctor/prefer-tag-over-role"
+        ]
+      }
+    ]
+  }
+}
