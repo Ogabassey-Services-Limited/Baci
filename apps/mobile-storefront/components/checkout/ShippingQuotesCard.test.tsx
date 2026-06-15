@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { ShippingQuotesCard } from './ShippingQuotesCard';
@@ -23,10 +22,11 @@ const baseProps = {
 };
 
 describe('ShippingQuotesCard', () => {
-  let announceSpy: ReturnType<typeof jest.spyOn>;
+  let announceSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.clearAllMocks();
     announceSpy = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
   });
 
