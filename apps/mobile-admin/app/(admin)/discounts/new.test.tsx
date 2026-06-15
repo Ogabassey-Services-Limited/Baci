@@ -70,7 +70,7 @@ vi.mock('react-native', async () => {
       return Object.assign(
         {},
         ...style
-          .flat(Infinity)
+          .flat(Number.POSITIVE_INFINITY)
           .map(toDomStyle)
           .filter((entry): entry is React.CSSProperties => Boolean(entry))
       );

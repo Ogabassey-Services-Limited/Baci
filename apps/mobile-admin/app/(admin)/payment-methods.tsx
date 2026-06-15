@@ -1,23 +1,26 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
-import { Alert,
+import {
+  Alert,
   Linking,
   Pressable,
   ScrollView,
+  StatusBar,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PaymentMethodsSection } from '@/components/payment-methods/PaymentMethodsSection';
 import {
+  getRenderablePaymentMethods,
   type PaymentMethodCategory,
   type PaymentMethodField,
-  getRenderablePaymentMethods,
   paymentMethods,
   paymentSettingsSelectColumns,
 } from '@/components/payment-methods/payment-methods';
-import { fetchPaymentSettings } from '@/components/payment-methods/payment-settings-query';
 import { styles } from '@/components/payment-methods/payment-methods.styles';
+import { fetchPaymentSettings } from '@/components/payment-methods/payment-settings-query';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
