@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   isAirportDeliveryEligible,
   isPickupEligible,
+  isWebStorefrontDeliveryMethodEligible,
+  resolveEligibleWebStorefrontDeliveryMethod,
 } from './delivery-method-eligibility';
 
 describe('isPickupEligible', () => {
@@ -41,5 +43,45 @@ describe('isAirportDeliveryEligible', () => {
     expect(isAirportDeliveryEligible('')).toBe(false);
     expect(isAirportDeliveryEligible(undefined)).toBe(false);
     expect(isAirportDeliveryEligible(null)).toBe(false);
+  });
+});
+
+describe('web storefront delivery method eligibility', () => {
+  it('keeps only methods valid for the current customer state', () => {
+    expect(isWebStorefrontDeliveryMethodEligible('door', '')).toBe(true);
+    expect(isWebStorefrontDeliveryMethodEligible('pickup', 'Lagos')).toBe(true);
+    expect(isWebStorefrontDeliveryMethodEligible('pickup', 'Abuja')).toBe(
+      false
+    );
+    expect(isWebStorefrontDeliveryMethodEligible('airport', 'Abuja')).toBe(
+      true
+    );
+    expect(isWebStorefrontDeliveryMethodEligible('airport', 'Lagos')).toBe(
+      false
+    );
+  });
+
+  it('falls back to door delivery when a selected method becomes ineligible', () => {
+    expect(resolveEligibleWebStorefrontDeliveryMethod('pickup', 'Oyo')).toBe(
+      'door'
+    );
+    expect(resolveEligibleWebStorefrontDeliveryMethod('airport', 'Lagos')).toBe(
+      'door'
+    );
+    expect(resolveEligibleWebStorefrontDeliveryMethod('airport', '')).toBe(
+      'door'
+    );
+  });
+
+  it('preserves a selected method while it remains eligible', () => {
+    expect(resolveEligibleWebStorefrontDeliveryMethod('door', 'Lagos')).toBe(
+      'door'
+    );
+    expect(resolveEligibleWebStorefrontDeliveryMethod('pickup', 'Lagos')).toBe(
+      'pickup'
+    );
+    expect(resolveEligibleWebStorefrontDeliveryMethod('airport', 'FCT')).toBe(
+      'airport'
+    );
   });
 });

@@ -3,6 +3,7 @@
 import {
   isAirportDeliveryEligible,
   isPickupEligible,
+  resolveEligibleWebStorefrontDeliveryMethod,
 } from '@baci/shared';
 import {
   AlertCircle,
@@ -1010,6 +1011,13 @@ export const CheckoutPage: React.FC = () => {
   const [deliveryMethod, setDeliveryMethod] = useState<
     'pickup' | 'door' | 'airport'
   >('door');
+  const eligibleDeliveryMethod = resolveEligibleWebStorefrontDeliveryMethod(
+    deliveryMethod,
+    newAddressState,
+  );
+  if (eligibleDeliveryMethod !== deliveryMethod) {
+    setDeliveryMethod(eligibleDeliveryMethod);
+  }
   const [airportType, setAirportType] = useState<'delivery' | 'pickup'>('delivery');
 
   // Shipping State
@@ -1023,11 +1031,12 @@ export const CheckoutPage: React.FC = () => {
   // Delivery step validation (hydration-safe)
   const rawIsDeliveryValid = (() => {
     if (!deliveryMethod) return false;
+    if (eligibleDeliveryMethod !== deliveryMethod) return false;
     // For door delivery, a shipping quote MUST be selected
     if (deliveryMethod === 'door') return !!selectedQuoteId;
     // For airport, a type (pickup/delivery) must be selected
     if (deliveryMethod === 'airport') return !!airportType;
-    // Pickup is valid as long as the state matches (handled by UI selection enforcement)
+    // Pickup is valid as long as the current state is eligible.
     return true;
   })();
   const isDeliveryValid = isHydrated ? rawIsDeliveryValid : false;

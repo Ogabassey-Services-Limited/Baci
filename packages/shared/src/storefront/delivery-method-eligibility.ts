@@ -12,6 +12,8 @@
  * (web uses `pickup`; mobile uses `pickup_station`).
  */
 
+export type WebStorefrontDeliveryMethod = 'pickup' | 'door' | 'airport';
+
 /** Nigerian states (incl. FCT) with an airport that supports air-cargo delivery. */
 export const AIRPORT_DELIVERY_STATES = [
   'Abuja',
@@ -69,4 +71,24 @@ export function isAirportDeliveryEligible(state?: string | null): boolean {
   return AIRPORT_DELIVERY_STATES.some(
     (candidate) => candidate.toLowerCase() === normalized
   );
+}
+
+export function isWebStorefrontDeliveryMethodEligible(
+  method: WebStorefrontDeliveryMethod,
+  state?: string | null
+): boolean {
+  if (method === 'door') {
+    return true;
+  }
+  if (method === 'pickup') {
+    return isPickupEligible(state);
+  }
+  return isAirportDeliveryEligible(state);
+}
+
+export function resolveEligibleWebStorefrontDeliveryMethod(
+  method: WebStorefrontDeliveryMethod,
+  state?: string | null
+): WebStorefrontDeliveryMethod {
+  return isWebStorefrontDeliveryMethodEligible(method, state) ? method : 'door';
 }
