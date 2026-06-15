@@ -213,6 +213,11 @@ jobs:
         # Tolerate flaky Gemini-API runs so the workflow still posts a fallback
         # review and resolves the commit status instead of hard-failing here.
         continue-on-error: true
+        env:
+          # The Gemini CLI refuses to run in an "untrusted" workspace (the CI
+          # checkout) and exits 1 without this. The official PR-review workflow
+          # sets it too.
+          GEMINI_CLI_TRUST_WORKSPACE: 'true'
         uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
