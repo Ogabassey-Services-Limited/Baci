@@ -2,7 +2,7 @@
 // Template preview
 
 import type React from 'react';
-import { createContext, useContext, useSyncExternalStore } from 'react';
+import { createContext, use, useSyncExternalStore } from 'react';
 import type { Product } from '../types';
 
 interface ComparisonContextType {
@@ -84,7 +84,7 @@ function clearCompare() {
 }
 
 export const useComparison = () => {
-  const context = useContext(ComparisonContext);
+  const context = use(ComparisonContext);
   if (!context) {
     throw new Error('useComparison must be used within a ComparisonProvider');
   }
