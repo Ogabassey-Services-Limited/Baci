@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, type ReactNode, useContext, useState } from 'react';
+import { createContext, type ReactNode, use, useState } from 'react';
 
 interface StorefrontContextType {
   searchQuery: string;
@@ -32,7 +32,7 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
 }
 
 export function useStorefront() {
-  const context = useContext(StorefrontContext);
+  const context = use(StorefrontContext);
   if (context === undefined) {
     throw new Error('useStorefront must be used within a StorefrontProvider');
   }
@@ -44,6 +44,6 @@ export function useStorefront() {
  * Use this in components that might render outside of StorefrontProvider (e.g., previews)
  */
 export function useStorefrontSafe(): StorefrontContextType | null {
-  const context = useContext(StorefrontContext);
+  const context = use(StorefrontContext);
   return context === undefined ? null : context;
 }

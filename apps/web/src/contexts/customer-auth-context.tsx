@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, use, useEffect, useState } from 'react';
 import { clearCartStorage } from '@/hooks/use-cart';
 
 export interface CustomerUser {
@@ -455,7 +449,7 @@ export function CustomerAuthProvider({
 }
 
 export function useCustomerAuth() {
-  const context = useContext(CustomerAuthContext);
+  const context = use(CustomerAuthContext);
   if (!context) {
     throw new Error(
       'useCustomerAuth must be used within a CustomerAuthProvider'
