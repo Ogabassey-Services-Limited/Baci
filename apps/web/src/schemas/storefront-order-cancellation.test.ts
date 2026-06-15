@@ -48,6 +48,14 @@ describe('storefrontOrderCancellationSchema', () => {
     ).toBe(false);
   });
 
+  it('accepts a reason at the max length boundary', () => {
+    expect(
+      storefrontOrderCancellationSchema.safeParse({
+        reason: 'x'.repeat(MAX_CANCELLATION_REASON_LENGTH),
+      }).success
+    ).toBe(true);
+  });
+
   it('rejects a reason longer than the max length', () => {
     expect(
       storefrontOrderCancellationSchema.safeParse({

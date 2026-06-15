@@ -251,6 +251,37 @@ describe('useOrderDetailsController', () => {
     alertSpy.mockRestore();
   });
 
+
+  it('alerts when cancellation fails for a non-conflict reason', async () => {
+    mockCancelOrder.mockRejectedValue(new Error('network down'));
+    const alertMessages: string[] = [];
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((title, _message, buttons) => {
+        alertMessages.push(String(title));
+        const confirmButton = buttons?.find(
+          (button) => button.style === 'destructive'
+        );
+        confirmButton?.onPress?.();
+      });
+
+    const { result } = renderHook(() => useOrderDetailsController());
+    await waitFor(() => expect(result.current.canCancel).toBe(true));
+
+    await act(async () => {
+      result.current.handleCancelOrder();
+    });
+
+    await waitFor(() => expect(mockCancelOrder).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        alertMessages.some((title) => /could not cancel order/i.test(title))
+      ).toBe(true)
+    );
+
+    alertSpy.mockRestore();
+  });
+
   it('alerts and refetches when the order can no longer be cancelled', async () => {
     mockNotCancellableRef.current = true;
     mockCancelOrder.mockResolvedValue(false);

@@ -57,16 +57,16 @@ describe('useCancelOrder', () => {
     });
   });
 
-  it('surfaces a generic error and resolves false on transport failure', async () => {
+  it('surfaces a generic error and rejects on transport failure', async () => {
     mockFetchJson.mockRejectedValueOnce(new Error('network down'));
     const { result } = renderHook(() => useCancelOrder(orderId));
 
-    let outcome: boolean | undefined;
     await act(async () => {
-      outcome = await result.current.cancelOrder('Ordered by mistake');
+      await expect(
+        result.current.cancelOrder('Ordered by mistake')
+      ).rejects.toThrow('network down');
     });
 
-    expect(outcome).toBe(false);
     await waitFor(() => expect(result.current.error).toBe('network down'));
     expect(result.current.isCancelling).toBe(false);
   });

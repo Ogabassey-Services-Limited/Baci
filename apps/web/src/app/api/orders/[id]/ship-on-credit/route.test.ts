@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('server-only', () => ({}));
+
 const {
   mockAuthenticateApiRequest,
   mockGetMerchantIdForApiUser,
@@ -104,6 +106,8 @@ function createUpdateQuery(
   return {
     update: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
+    neq: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data: updatedOrder, error }),
     error,

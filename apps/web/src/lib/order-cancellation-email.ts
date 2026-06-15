@@ -120,29 +120,38 @@ export async function sendOrderCancellationEmail({
     `support@${merchant.slug}.${rootDomain}`;
   const fromName = merchant.email_sender_name || merchant.business_name;
 
-  const emailResult = await sendEmail({
-    to: order.customer_email,
-    toName: order.customer_name ?? undefined,
-    subject: `Order #${cancellationData.orderNumber} Has Been Cancelled`,
-    htmlContent,
-    textContent,
-    replyTo,
-    emailType: 'orders',
-    fromName,
-    auditContext: {
-      merchantId: merchant.id,
-      orderId: order.id,
-      customerId: order.customer_id,
-      metadata: {
-        trigger: 'order_cancelled_notification',
-        cancelledBy,
+  try {
+    const emailResult = await sendEmail({
+      to: order.customer_email,
+      toName: order.customer_name ?? undefined,
+      subject: `Order #${cancellationData.orderNumber} Has Been Cancelled`,
+      htmlContent,
+      textContent,
+      replyTo,
+      emailType: 'orders',
+      fromName,
+      auditContext: {
+        merchantId: merchant.id,
+        orderId: order.id,
+        customerId: order.customer_id,
+        metadata: {
+          trigger: 'order_cancelled_notification',
+          cancelledBy,
+        },
       },
-    },
-  });
+    });
 
-  return {
-    success: emailResult.success,
-    error: emailResult.error,
-    messageId: emailResult.messageId,
-  };
+    return {
+      success: emailResult.success,
+      error: emailResult.error,
+      messageId: emailResult.messageId,
+    };
+  } catch (error) {
+    logger.error({
+      message: 'Cancellation email: sendEmail threw',
+      orderId,
+      error,
+    });
+    return { success: false, error: 'email_send_failed' };
+  }
 }

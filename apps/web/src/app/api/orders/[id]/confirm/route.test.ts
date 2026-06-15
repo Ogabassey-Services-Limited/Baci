@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('server-only', () => ({}));
+
 const {
   mockAuthenticateApiRequest,
   mockGetMerchantIdForApiUser,
@@ -90,6 +92,7 @@ describe('POST /api/orders/[id]/confirm', () => {
       supabase: mockSupabaseClient,
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
+    mockPurchaseOrderInsurance.mockResolvedValue({ policyId: 'policy-1' });
   });
 
   it('confirms the order when the update advances shipping to processing', async () => {
@@ -104,7 +107,10 @@ describe('POST /api/orders/[id]/confirm', () => {
       throw new Error(`Unexpected table: ${table}`);
     });
 
-    const response = await POST(createRequest(), createParams());
+    const response = await POST(
+      createRequest({ imei: '123456789012345', devicePhotos: ['photo'] }),
+      createParams()
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -113,6 +119,10 @@ describe('POST /api/orders/[id]/confirm', () => {
       message: 'Order confirmed successfully',
     });
     expect(mockReconciliationInsert).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).toHaveBeenCalledWith(
+      ORDER_ID,
+      expect.objectContaining({ imei: '123456789012345' })
+    );
   });
 
   it('files reconciliation and rejects with 409 when the order was clamped as cancelled', async () => {
@@ -127,7 +137,10 @@ describe('POST /api/orders/[id]/confirm', () => {
       throw new Error(`Unexpected table: ${table}`);
     });
 
-    const response = await POST(createRequest(), createParams());
+    const response = await POST(
+      createRequest({ imei: '123456789012345', devicePhotos: ['photo'] }),
+      createParams()
+    );
     const body = await response.json();
 
     expect(response.status).toBe(409);
@@ -135,6 +148,7 @@ describe('POST /api/orders/[id]/confirm', () => {
       error: 'Order was cancelled and cannot be confirmed',
       code: 'ORDER_CANCELLED',
     });
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
     // The reconciliation row is filed through the service-role admin client.
     expect(mockReconciliationInsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -142,6 +156,22 @@ describe('POST /api/orders/[id]/confirm', () => {
         order_id: ORDER_ID,
       })
     );
+  });
+
+  it('returns 404 when the update matches no order row', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'orders') {
+        return createOrdersTable(null);
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Order not found' });
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
   });
 
   it('returns 500 when the order update fails', async () => {

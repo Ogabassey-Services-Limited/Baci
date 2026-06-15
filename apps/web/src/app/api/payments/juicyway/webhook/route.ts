@@ -160,6 +160,24 @@ export async function POST(request: NextRequest) {
 
     // Check if already processed (idempotency)
     if (transaction.status === 'completed') {
+      if (transaction.order_id) {
+        const { data: completedOrder } = await supabase
+          .from('orders')
+          .select('id, shipping_status, cancelled_at')
+          .eq('id', transaction.order_id)
+          .maybeSingle();
+
+        if (isOrderClampedAsCancelled(completedOrder)) {
+          await handlePaymentForCancelledOrder({
+            gatewayReference: reference,
+            order: completedOrder ?? { id: transaction.order_id },
+            reason:
+              'Juicyway completed-transaction retry observed a cancelled order',
+            transactionId: transaction.id,
+          });
+        }
+      }
+
       logger.info({ message: 'Transaction already processed', reference });
       return NextResponse.json({ message: 'Already processed' });
     }
@@ -193,7 +211,9 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
-        .select('*, order_items(*), ad_tracking')
+        .select(
+          'id, merchant_id, order_number, customer_name, customer_email, customer_phone, customer_id, subtotal, shipping_fee, total, shipping_address, currency, shipping_status, cancelled_at, ad_tracking, order_items(id, product_id, name, quantity, price)'
+        )
         .single();
 
       if (orderError) {

@@ -25,7 +25,13 @@ ALTER TABLE public.orders
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'orders_cancelled_by_check'
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE c.conname = 'orders_cancelled_by_check'
+      AND n.nspname = 'public'
+      AND t.relname = 'orders'
   ) THEN
     ALTER TABLE public.orders
       ADD CONSTRAINT orders_cancelled_by_check

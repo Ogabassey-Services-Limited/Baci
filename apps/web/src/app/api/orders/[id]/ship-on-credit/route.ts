@@ -69,7 +69,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, total, customer_name, customer_email, payment_status, shipping_status'
+        'id, order_number, total, customer_name, customer_email, payment_status, shipping_status, cancelled_at'
       )
       .eq('id', orderId)
       .eq('merchant_id', merchantId)
@@ -101,6 +101,8 @@ export async function POST(
       })
       .eq('id', orderId)
       .eq('merchant_id', merchantId)
+      .is('cancelled_at', null)
+      .neq('shipping_status', 'cancelled')
       .select('id, shipping_status, cancelled_at')
       .maybeSingle();
 
@@ -113,6 +115,35 @@ export async function POST(
         { error: 'Failed to update order' },
         { status: 500 }
       );
+    }
+
+    if (!updatedOrder) {
+      const { data: currentOrder, error: currentOrderError } = await supabase
+        .from('orders')
+        .select('id, shipping_status, cancelled_at')
+        .eq('id', orderId)
+        .eq('merchant_id', merchantId)
+        .maybeSingle();
+
+      if (!currentOrderError && isOrderClampedAsCancelled(currentOrder)) {
+        await handlePaymentForCancelledOrder({
+          gatewayReference: null,
+          order: currentOrder ?? { id: orderId },
+          reason:
+            'Ship-on-credit attempted on an order cancelled by the customer',
+          transactionId: null,
+        });
+
+        return NextResponse.json(
+          {
+            error: 'Order was cancelled and cannot be shipped on credit',
+            code: 'ORDER_CANCELLED',
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // The prevent_cancelled_order_reopen trigger clamped this: the order was

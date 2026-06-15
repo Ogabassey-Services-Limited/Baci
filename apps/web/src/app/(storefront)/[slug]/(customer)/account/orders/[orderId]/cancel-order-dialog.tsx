@@ -15,6 +15,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { MAX_CANCELLATION_REASON_LENGTH } from '@/config/order-cancellation';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { CUSTOMER_CANCELLATION_REASONS } from '@/lib/post-purchase-actions';
 
@@ -97,6 +98,9 @@ export function CancelOrderDialog({
       );
 
       if (response.ok) {
+        setState({ status: 'idle' });
+        setSelectedReason('');
+        setOtherReason('');
         setOpen(false);
         onCancelled?.();
         return;
@@ -163,7 +167,7 @@ export function CancelOrderDialog({
               <Textarea
                 disabled={isSubmitting}
                 id={otherFieldId}
-                maxLength={500}
+                maxLength={MAX_CANCELLATION_REASON_LENGTH}
                 onChange={(event) => setOtherReason(event.target.value)}
                 placeholder="Add an optional note"
                 value={otherReason}

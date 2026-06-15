@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
@@ -23,11 +26,13 @@ const { logger } = await import('@/lib/logger');
 // table is RLS-locked to service_role; assert it uses createAdminClient, not a
 // caller-supplied client.
 function mockAdminInsert(insertResult: { error: unknown }): {
+  from: ReturnType<typeof vi.fn>;
   insert: ReturnType<typeof vi.fn>;
 } {
   const insert = vi.fn().mockResolvedValue(insertResult);
-  mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => ({ insert })) });
-  return { insert };
+  const from = vi.fn(() => ({ insert }));
+  mockCreateAdminClient.mockReturnValue({ from });
+  return { from, insert };
 }
 
 describe('isOrderClampedAsCancelled', () => {
@@ -69,7 +74,7 @@ describe('handlePaymentForCancelledOrder', () => {
   });
 
   it('inserts a payment_received_after_cancellation reconciliation row and warns', async () => {
-    const { insert } = mockAdminInsert({ error: null });
+    const { from, insert } = mockAdminInsert({ error: null });
 
     await handlePaymentForCancelledOrder({
       gatewayReference: 'BAC-123',
@@ -79,6 +84,7 @@ describe('handlePaymentForCancelledOrder', () => {
     });
 
     expect(mockCreateAdminClient).toHaveBeenCalled();
+    expect(from).toHaveBeenCalledWith('reconciliation_review');
     expect(insert).toHaveBeenCalledWith({
       candidates: null,
       issue_type: 'payment_received_after_cancellation',
@@ -112,6 +118,29 @@ describe('handlePaymentForCancelledOrder', () => {
       expect.objectContaining({ orderId: 'order-1' })
     );
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('logs an error but does not throw when admin client setup throws', async () => {
+    mockCreateAdminClient.mockImplementation(() => {
+      throw new Error('missing env');
+    });
+
+    await expect(
+      handlePaymentForCancelledOrder({
+        gatewayReference: 'BAC-123',
+        order: { id: 'order-1', shipping_status: 'cancelled' },
+        reason: 'setup failure',
+        transactionId: 'txn-1',
+      })
+    ).resolves.toBeUndefined();
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'Failed to file payment_received_after_cancellation reconciliation (threw)',
+        orderId: 'order-1',
+      })
+    );
   });
 
   it('logs an error (but does not throw) when the insert fails for a non-duplicate reason', async () => {

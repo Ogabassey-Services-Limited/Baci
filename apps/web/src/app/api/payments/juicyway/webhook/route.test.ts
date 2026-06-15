@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+
 import type { JuicywayWebhookPayload } from '@/lib/juicyway';
 import { POST } from './route';
 
@@ -50,6 +53,7 @@ const mockSupabase = {
     delete: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn(),
+    maybeSingle: vi.fn(),
   })),
   rpc: vi.fn(),
 };
@@ -338,6 +342,7 @@ describe('POST /api/payments/juicyway/webhook', () => {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       };
     });
 
@@ -351,6 +356,63 @@ describe('POST /api/payments/juicyway/webhook', () => {
 
     expect(response.status).toBe(200);
     expect(data).toEqual({ message: 'Already processed' });
+  });
+
+  it('files reconciliation before acknowledging an already-completed transaction for a cancelled order', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const fromMock = vi.fn((table) => {
+      if (table === 'transactions') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              id: 'txn-123',
+              status: 'completed',
+              gateway_reference: 'TXN-123456',
+              amount: '10000',
+              merchant_id: 'merchant-123',
+              order_id: 'order-123',
+            },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: {
+              id: 'order-123',
+              shipping_status: 'cancelled',
+              cancelled_at: '2026-06-15T00:00:00Z',
+            },
+            error: null,
+          }),
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    (mockSupabase as Record<string, unknown>).from = fromMock;
+
+    const payload = createSuccessPayload();
+    const request = createWebhookRequest(payload);
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({ message: 'Already processed' });
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: 'order-123',
+        txn_id: 'txn-123',
+      })
+    );
   });
 
   // ---------------------------------------------------------------------------

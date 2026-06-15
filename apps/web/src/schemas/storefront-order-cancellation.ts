@@ -1,7 +1,7 @@
 import { z } from 'zod';
+import { MAX_CANCELLATION_REASON_LENGTH } from '@/config/order-cancellation';
 
-/** Upper bound on the free-text cancellation reason a customer can submit. */
-export const MAX_CANCELLATION_REASON_LENGTH = 500;
+export { MAX_CANCELLATION_REASON_LENGTH };
 
 /**
  * Body schema for `POST /api/storefront/account/orders/[id]/cancel`.

@@ -178,7 +178,12 @@ export function useOrderDetailsController() {
             }
           })
           .catch((err) => {
+            const message =
+              err instanceof Error && err.message
+                ? err.message
+                : 'Could not cancel this order. Please try again.';
             log.error('Unexpected cancellation failure:', err);
+            Alert.alert('Could not cancel order', message);
           });
       },
       reasons: CUSTOMER_CANCELLATION_REASONS,

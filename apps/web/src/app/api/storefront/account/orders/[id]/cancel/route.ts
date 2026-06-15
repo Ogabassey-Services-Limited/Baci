@@ -72,7 +72,7 @@ export async function POST(
   const parsed = storefrontOrderCancellationSchema.safeParse(rawBody);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid input', details: parsed.error.flatten() },
+      { error: 'Invalid input', code: 'invalid_input' },
       { status: 400 }
     );
   }

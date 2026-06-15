@@ -20,10 +20,12 @@ function getErrorMessage(error: unknown) {
 /**
  * Wraps the customer-facing cancel-order API call with loading/error state.
  *
- * `cancelOrder` resolves `true` on success and `false` on any failure. The
- * server returns a 409 with `code === 'order_not_cancellable'` once an order can
- * no longer be cancelled (e.g. a payment is in flight); that case is surfaced
- * separately via `notCancellable` so the UI can prompt a refresh.
+ * `cancelOrder` resolves `true` on success. The server returns a 409 with
+ * `code === 'order_not_cancellable'` once an order can no longer be cancelled
+ * (e.g. a payment is in flight); that expected conflict resolves `false` and is
+ * surfaced via `notCancellable` so the UI can prompt a refresh. Other failures
+ * are re-thrown after local error state is updated so callers can show explicit
+ * feedback instead of silently ignoring the failed attempt.
  */
 export function useCancelOrder(orderId: string) {
   const [isCancelling, setIsCancelling] = useState(false);
@@ -44,11 +46,17 @@ export function useCancelOrder(orderId: string) {
       });
       return true;
     } catch (cancelError) {
+      const errorMessage = getErrorMessage(cancelError);
+      setError(errorMessage);
+
       if (getErrorCode(cancelError) === ORDER_NOT_CANCELLABLE_CODE) {
         setNotCancellable(true);
+        return false;
       }
-      setError(getErrorMessage(cancelError));
-      return false;
+
+      throw cancelError instanceof Error
+        ? cancelError
+        : new Error(errorMessage);
     } finally {
       setIsCancelling(false);
     }

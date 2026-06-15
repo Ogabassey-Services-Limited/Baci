@@ -292,7 +292,7 @@ export async function POST(
     // The pre-insert duplicate guard above catches known duplicates.
     // The partial unique index (migration 20260504120000) enforces uniqueness
     // at the DB level for concurrent inserts with the same reference.
-    const { error: transactionError } = await supabase
+    const { data: createdTransaction, error: transactionError } = await supabase
       .from('transactions')
       .insert({
         merchant_id: merchant.id,
@@ -312,7 +312,9 @@ export async function POST(
           payment_method: payment_method || 'manual',
           recorded_by: user.email,
         },
-      });
+      })
+      .select('id')
+      .single();
 
     if (transactionError) {
       // Detect duplicate reference conflict (unique constraint violation = code 23505)
@@ -384,23 +386,31 @@ export async function POST(
         .select('id, shipping_status, cancelled_at')
         .maybeSingle();
 
-      if (updateError) {
+      if (updateError || !updatedOrder) {
         logger.error({
           message:
             'CRITICAL: RecordPayment failed to update order status after transaction created',
-          error: updateError,
+          error: updateError ?? 'updated_order_missing',
           orderId: id,
           inconsistentState: true,
         });
-        // Note: Transaction was already created, so we don't fail the request
-        // entirely, but it's an inconsistent state.
-      } else if (isOrderClampedAsCancelled(updatedOrder)) {
+        return NextResponse.json({
+          success: true,
+          amount_paid: parsedAmount,
+          new_balance: remainingBalance,
+          updated_status: {},
+          status_update_failed: true,
+        });
+      }
+
+      if (isOrderClampedAsCancelled(updatedOrder)) {
         orderCancelledByClamp = true;
         // Link the reconciliation row to the transaction just recorded (matched
         // by reference) so ops can trace the captured money. Falls back to null
         // for a referenceless manual/cash payment.
-        let recordedTransactionId: string | null = null;
-        if (reference) {
+        let recordedTransactionId: string | null =
+          createdTransaction?.id ?? null;
+        if (!recordedTransactionId && reference) {
           const { data: recordedTransaction } = await supabase
             .from('transactions')
             .select('id')

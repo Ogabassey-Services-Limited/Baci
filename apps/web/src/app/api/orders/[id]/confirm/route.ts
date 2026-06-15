@@ -58,41 +58,7 @@ export async function POST(
 
     // TODO: Verify order ownership
 
-    // 1. Trigger Insurance Purchase (if strictly required)
-    // We do this BEFORE confirming to ensure we don't confirm if purchase fails?
-    // OR we do it loosely and log failures.
-    // Decision: Do it and return success/partial success.
-
-    let insuranceResult = null;
-
-    // Check if we have insurance inputs (only if assurance is expected)
-    if (imei && devicePhotos) {
-      const deviceDetails: DeviceInsuranceDetails = {
-        imei,
-        serialNumber,
-        deviceColor,
-        deviceModel,
-        deviceMake,
-        deviceType,
-        deviceValue,
-        purchaseDate,
-        devicePhotos,
-        customerPhoto,
-      };
-
-      try {
-        insuranceResult = await purchaseOrderInsurance(id, deviceDetails);
-      } catch (err: unknown) {
-        logger.error({
-          message: 'Insurance purchase error during confirm',
-          error: err,
-        });
-        // We might return 400 here if insurance is mandatory for this confirmation
-        // For now, let's allow it to proceed but return warning
-      }
-    }
-
-    // 2. Update Order Status
+    // 1. Update Order Status
     const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
       .update({
@@ -110,6 +76,10 @@ export async function POST(
         { error: 'Failed to update order status' },
         { status: 500 }
       );
+    }
+
+    if (!updatedOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // The prevent_cancelled_order_reopen trigger clamped this confirm: the
@@ -131,6 +101,35 @@ export async function POST(
         },
         { status: 409 }
       );
+    }
+
+    // 2. Trigger Insurance Purchase after the order status transition succeeds.
+    // External side effects must not run until cancellation clamps/null updates
+    // have been excluded.
+    let insuranceResult = null;
+
+    if (imei && devicePhotos) {
+      const deviceDetails: DeviceInsuranceDetails = {
+        imei,
+        serialNumber,
+        deviceColor,
+        deviceModel,
+        deviceMake,
+        deviceType,
+        deviceValue,
+        purchaseDate,
+        devicePhotos,
+        customerPhoto,
+      };
+
+      try {
+        insuranceResult = await purchaseOrderInsurance(id, deviceDetails);
+      } catch (err: unknown) {
+        logger.error({
+          message: 'Insurance purchase error during confirm',
+          error: err,
+        });
+      }
     }
 
     return NextResponse.json({

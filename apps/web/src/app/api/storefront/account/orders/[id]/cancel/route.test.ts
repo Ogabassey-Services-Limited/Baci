@@ -136,6 +136,10 @@ describe('POST /api/storefront/account/orders/[id]/cancel', () => {
     const res = await POST(makeRequest({ reason: 123 }), { params });
 
     expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Invalid input',
+      code: 'invalid_input',
+    });
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
@@ -164,6 +168,24 @@ describe('POST /api/storefront/account/orders/[id]/cancel', () => {
     });
 
     expect(res.status).toBe(409);
+    expect(mockSendOrderCancellationEmail).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 and skips email for an unexpected RPC failure', async () => {
+    authOk();
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'database unavailable', code: 'XX000' },
+    });
+
+    const res = await POST(makeRequest({ reason: 'Changed my mind' }), {
+      params,
+    });
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Failed to cancel order',
+    });
     expect(mockSendOrderCancellationEmail).not.toHaveBeenCalled();
   });
 
