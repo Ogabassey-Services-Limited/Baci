@@ -9,13 +9,8 @@ const config = {
   preset: 'jest-expo',
   testPathIgnorePatterns: ['/node_modules/', '\\.test-utils\\.(t|j)sx?$'],
   // React Native native-module mocks can leave idle handles after every suite
-  // has passed; exit explicitly so the run terminates instead of hanging on
-  // teardown. This must apply everywhere (CI *and* the local lefthook pre-push
-  // gate) — gating it on CI alone made `pnpm turbo test` hang indefinitely
-  // locally, blocking every push and spawning zombie `jest --runInBand`
-  // processes. The handles are idle and only surface once suites are green, so
-  // forcing exit is always safe here.
-  forceExit: true,
+  // has passed in CI; exit explicitly so GitHub does not cancel a green run.
+  forceExit: process.env.CI === 'true',
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-native-vector-icons/.*)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@shopify/flash-list|@supabase/.*|react-native-worklets|zustand|nativewind)',
   ],

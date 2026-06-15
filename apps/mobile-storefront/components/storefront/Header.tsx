@@ -105,7 +105,7 @@ export function Header({
                 <Ionicons
                   name="menu-outline"
                   size={28}
-                  color={colors.white}
+                  color={colors.primaryForeground}
                 />
               </Pressable>
 
@@ -118,7 +118,7 @@ export function Header({
                 <Logo
                   width={140}
                   height={25}
-                  color={colors.white}
+                  color={colors.primaryForeground}
                 />
               </Pressable>
             </View>
@@ -138,7 +138,7 @@ export function Header({
                 <Ionicons
                   name="cart-outline"
                   size={26}
-                  color={colors.white}
+                  color={colors.primaryForeground}
                 />
                 {itemCount > 0 && (
                   <View style={styles.badge} accessibilityElementsHidden={true}>

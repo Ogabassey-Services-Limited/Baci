@@ -4,6 +4,7 @@ import {
   getMockFilterBarProps,
   mockGetProductGridCategoriesFactory,
   mockProductBrandsHook,
+  mockPrioritizeSmartphoneProductsFactory,
   mockProductCard,
   mockProductGridSkeleton,
   mockProductsHook,
@@ -77,7 +78,7 @@ describe('ProductGrid', () => {
     ).toEqual(['iPhone 13 Pro', 'Pixel 8']);
   });
 
-  it('derives curated product-grid categories from loaded products', () => {
+  it('applies prioritizeSmartphoneProducts and curated product-grid categories', () => {
     render(
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
     );
@@ -86,6 +87,9 @@ describe('ProductGrid', () => {
       'Phones',
       'Laptops',
     ]);
+    expect(mockPrioritizeSmartphoneProductsFactory).toHaveBeenCalledWith(
+      sampleProducts
+    );
   });
 
   it('restores category chips from loaded products when the categories query is unavailable', () => {

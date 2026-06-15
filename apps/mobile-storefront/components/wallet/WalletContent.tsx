@@ -1,10 +1,16 @@
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Alert, RefreshControl, Text, TextInput } from 'react-native';
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+} from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useProducts } from '@/hooks/use-products';
 import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
@@ -148,7 +154,7 @@ export function WalletContent({
 
   return (
     <>
-      <AppKeyboardAwareScrollView
+      <ScrollView
         testID="wallet-scroll"
         contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
@@ -158,12 +164,11 @@ export function WalletContent({
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
+            tintColor={BRAND.primary}
           />
         }
       >
         <WalletHeroSection
-          accentColor={colors.primary}
           canCreateFundingAccount={canCreateFundingAccount}
           createFundingAccountUnavailableMessage={
             createFundingAccountUnavailableMessage
@@ -215,9 +220,7 @@ export function WalletContent({
                 styles.redeemInput,
                 {
                   backgroundColor: colors.muted,
-                  // Brand accent border on the amount input (matches Add Money).
-                  borderColor: colors.primary,
-                  borderWidth: 2,
+                  borderColor: colors.border,
                   color: colors.text,
                 },
               ]}
@@ -253,7 +256,7 @@ export function WalletContent({
           />
         ) : null}
         <WalletTransactionHistory colors={colors} transactions={transactions} />
-      </AppKeyboardAwareScrollView>
+      </ScrollView>
       <WalletSavingsProgressModal
         addAmount={savingsContributionAmount}
         colors={colors}

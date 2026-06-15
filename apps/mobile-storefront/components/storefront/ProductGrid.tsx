@@ -1,3 +1,4 @@
+import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { dedupeById } from '@baci/shared/lib';
 import { useEffect, useState } from 'react';
 import { PRODUCT_GRID_MAX_PRICE_LIMIT } from '@/constants/product-grid';
@@ -75,7 +76,13 @@ export default function ProductGrid({
     selectedCategorySlug,
   });
   const displayLimit = block.props.limit ?? 12;
-  const fetchLimit = displayLimit;
+  const shouldPrioritizeSmartphones =
+    !selectedCategoryIdFromFilter &&
+    !normalizedCategoryId &&
+    selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG;
+  const fetchLimit = shouldPrioritizeSmartphones
+    ? displayLimit * 4
+    : displayLimit;
 
   const {
     products,
@@ -173,7 +180,9 @@ export default function ProductGrid({
     );
   };
 
-  const orderedProducts = filteredProducts;
+  const orderedProducts = shouldPrioritizeSmartphones
+    ? prioritizeSmartphoneProducts(filteredProducts)
+    : filteredProducts;
   const { visibleProducts } = useProductGridPagination({
     displayLimit,
     hasMore,

@@ -44,7 +44,6 @@ jest.mock('@/hooks/use-haptics', () => ({
 const mockSetClipboardString = jest.mocked(setClipboardString);
 
 const baseProps = {
-  accentColor: '#2563EB',
   canCreateFundingAccount: true,
   earningsBalance: 125000,
   fundingAccount: {
