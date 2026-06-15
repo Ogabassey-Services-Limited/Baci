@@ -1,7 +1,15 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import { Alert, Pressable, ScrollView, Switch, Text, View, StatusBar } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/components/notifications/notifications.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';

@@ -16,7 +16,6 @@ vi.mock('react-native-svg', () => ({
   SvgXml: () => <svg />,
 }));
 
-
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     chartColors: {},
