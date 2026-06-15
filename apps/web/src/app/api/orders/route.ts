@@ -15,11 +15,10 @@ import {
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
-  computeCanonicalOrderSubtotal,
+  computeOrderNegotiationDiscount,
   isCanonicalOrderSubtotalUuidError,
 } from '@/lib/checkout/canonical-order-subtotal';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
-import { computeExpectedTotalDiscount } from '@/lib/checkout/expected-total-discount';
 import {
   buildOrderIdempotencyPayload,
   hashOrderIdempotencyPayload,
@@ -1246,58 +1245,67 @@ export async function POST(request: NextRequest) {
       merchant.plan_tier,
       merchant.slug
     );
+    const vatRegistered = merchant.vat_registration_status === 'registered';
 
-    let serverDerivedDiscountAmount = 0;
-    if (merchantCanAutoNegotiate && typeof body.expected_total === 'number') {
-      let canonicalSubtotal: number | null;
-      try {
-        canonicalSubtotal = await computeCanonicalOrderSubtotal({
-          items: orderItemsPayload,
+    // ALWAYS validate per-line client prices — even for non-entitled merchants
+    // and callers that omit expected_total. The RPC charges the catalog line
+    // price, but it adds the route-recomputed `assurance_fee` (derived from the
+    // client line price) into the subtotal, so an unvalidated below-catalog
+    // price would leak an uncapped assurance discount. The derived discount is
+    // only APPLIED below.
+    let negotiationDiscount: Awaited<
+      ReturnType<typeof computeOrderNegotiationDiscount>
+    >;
+    try {
+      negotiationDiscount = await computeOrderNegotiationDiscount({
+        items: orderItemsPayload,
+        merchantId: merchant_id,
+        supabase,
+        vatRegistered,
+      });
+    } catch (negotiationDiscountError) {
+      if (isCanonicalOrderSubtotalUuidError(negotiationDiscountError)) {
+        logger.warn({
+          error: negotiationDiscountError,
           merchantId: merchant_id,
-          supabase,
-        });
-      } catch (canonicalSubtotalError) {
-        if (isCanonicalOrderSubtotalUuidError(canonicalSubtotalError)) {
-          logger.warn({
-            error: canonicalSubtotalError,
-            merchantId: merchant_id,
-            message:
-              'Storefront order received malformed identifier during subtotal parity lookup',
-          });
-          return NextResponse.json(
-            {
-              error: 'Failed to create order',
-              details: 'invalid_items',
-            },
-            { status: 400 }
-          );
-        }
-
-        logger.error({
-          error: canonicalSubtotalError,
-          merchantId: merchant_id,
-          message: 'Storefront order canonical subtotal recompute failed',
+          message:
+            'Storefront order received malformed identifier during negotiation discount lookup',
         });
         return NextResponse.json(
-          { error: 'Internal server error' },
-          { status: 500 }
+          { error: 'Failed to create order', details: 'invalid_items' },
+          { status: 400 }
         );
       }
+      logger.error({
+        error: negotiationDiscountError,
+        merchantId: merchant_id,
+        message: 'Storefront order negotiation discount recompute failed',
+      });
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
 
-      if (canonicalSubtotal !== null) {
-        const expectedTotalInput = {
-          canonicalSubtotal,
-          canonicalTaxAmount: serverComputedTaxAmount,
-          shippingFee: shippingFeeValue,
-          giftWrappingFee: giftWrappingFeeValue,
-          expectedTotal: body.expected_total,
-        };
+    // Reject tampered lines before any side effects (non-negotiable below
+    // catalog, or negotiable > 2% below catalog), regardless of entitlement /
+    // expected_total.
+    if (negotiationDiscount?.rejectionCode) {
+      return NextResponse.json(
+        {
+          error: 'Failed to create order',
+          details: negotiationDiscount.rejectionCode,
+        },
+        { status: 400 }
+      );
+    }
 
-        if (merchantCanAutoNegotiate) {
-          serverDerivedDiscountAmount =
-            computeExpectedTotalDiscount(expectedTotalInput);
-        }
-      }
+    // Apply the derived discount only for entitled merchants that sent a
+    // trusted expected_total; otherwise the line is charged at catalog
+    // (discount 0).
+    let serverDerivedDiscountAmount = 0;
+    if (merchantCanAutoNegotiate && typeof body.expected_total === 'number') {
+      serverDerivedDiscountAmount = negotiationDiscount?.totalDiscount ?? 0;
     }
 
     const adTrackingPayload = ad_tracking

@@ -197,6 +197,11 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
     // returns 0.
     in: vi.fn().mockReturnThis(),
     returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+    // The per-line negotiation loader reads the products catalog via the
+    // modern `.overrideTypes()` idiom (postgrest deprecated `.returns()`).
+    // Mirror `returns` so every order-create test resolves the products
+    // select; an empty catalog → loader returns null (no-op, no rejection).
+    overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
     insert: vi.fn().mockResolvedValue({ error: null }),
     update: vi.fn().mockReturnThis(),
     // biome-ignore lint/suspicious/noThenProperty: thenable mock
@@ -1568,6 +1573,373 @@ describe('POST /api/orders — discount guard', () => {
   });
 });
 
+describe('POST /api/orders — per-line eligible discount enforcement', () => {
+  // Returns { rpcSpy }. `products` is the catalog rows the discount loader sees.
+  async function setupOrdersDiscountMock(products: Record<string, unknown>[]) {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'order_total_mismatch' },
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: MERCHANT_ID,
+                      business_name: 'Test',
+                      plan_tier: 'pro',
+                      slug: 'ogabassey',
+                      vat_registration_status: 'registered',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({ data: products, error: null }),
+                  overrideTypes: () =>
+                    Promise.resolve({ data: products, error: null }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+    return { rpcSpy };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+  });
+
+  it('rejects a non-negotiable line priced below catalog before calling the RPC', async () => {
+    const { rpcSpy } = await setupOrdersDiscountMock([
+      {
+        id: 'p-tecno',
+        brand: 'Tecno',
+        name: 'Tecno Spark 50',
+        price: 500,
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+      },
+    ]);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-tecno',
+            quantity: 1,
+            price: 480,
+            name: 'Tecno Spark 50',
+          },
+        ],
+        subtotal: 480,
+        tax_amount: 36,
+        expected_total: 516,
+        client_total: 516,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.details).toBe('non_negotiable_line_discounted');
+    expect(rpcSpy).not.toHaveBeenCalled();
+  });
+
+  it('derives the eligible-line discount for a mixed negotiable/non-negotiable cart', async () => {
+    // MacBook 1000 (negotiable) → client 980; Tecno 500 (non-negotiable) at catalog.
+    // Per-line: MacBook reduction 20 +7.5% VAT = 21.5 (≤ cap 21.5); Tecno 0 →
+    // p_discount_amount 21.5. RPC stubbed to error after arg capture.
+    const { rpcSpy } = await setupOrdersDiscountMock([
+      {
+        id: 'p-mac',
+        brand: 'Apple',
+        name: 'MacBook Air M1',
+        price: 1000,
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+      },
+      {
+        id: 'p-tecno',
+        brand: 'Tecno',
+        name: 'Tecno Spark 50',
+        price: 500,
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+      },
+    ]);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-mac',
+            quantity: 1,
+            price: 980,
+            name: 'MacBook Air M1',
+          },
+          {
+            product_id: 'p-tecno',
+            quantity: 1,
+            price: 500,
+            name: 'Tecno Spark 50',
+          },
+        ],
+        subtotal: 1480,
+        tax_amount: 112.5,
+        expected_total: 1591,
+        client_total: 1591,
+      }),
+    });
+
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_discount_amount: 21.5,
+        p_expected_total: 1591,
+      })
+    );
+  });
+
+  it('rejects a negotiable line priced below the 2% floor, closing the assurance channel', async () => {
+    // 5% below catalog WITH assurance on the line. /api/orders derives assurance
+    // from the line price, so without the floor reject the assurance fee would be
+    // an uncapped discount. The reject blocks the order before the RPC.
+    const { rpcSpy } = await setupOrdersDiscountMock([
+      {
+        id: 'p-mac',
+        brand: 'Apple',
+        name: 'MacBook Air M1',
+        price: 1000,
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+      },
+    ]);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-mac',
+            quantity: 1,
+            price: 950,
+            name: 'MacBook Air M1',
+            has_assurance: true,
+          },
+        ],
+        subtotal: 950,
+        tax_amount: 71.25,
+        expected_total: 1069.5,
+        client_total: 1069.5,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.details).toBe('negotiated_price_below_floor');
+    expect(rpcSpy).not.toHaveBeenCalled();
+  });
+
+  it('validates per-line prices even when expected_total is omitted', async () => {
+    // The assurance-fee bypass: a direct caller omits expected_total, under-prices
+    // an assurance-bearing line, and the RPC would otherwise charge a reduced
+    // assurance fee. Validation must run regardless of expected_total.
+    const { rpcSpy } = await setupOrdersDiscountMock([
+      {
+        id: 'p-mac',
+        brand: 'Apple',
+        name: 'MacBook Air M1',
+        price: 1000,
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+      },
+    ]);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-mac',
+            quantity: 1,
+            price: 950,
+            name: 'MacBook Air M1',
+            has_assurance: true,
+          },
+        ],
+        subtotal: 950,
+        tax_amount: 71.25,
+        expected_total: undefined, // omitted on the wire
+        client_total: undefined,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.details).toBe('negotiated_price_below_floor');
+    expect(rpcSpy).not.toHaveBeenCalled();
+  });
+
+  it('skips negotiation validation for a verified voucher line even when its product is loaded', async () => {
+    // Sibling of the voucher success test: the products select WOULD return the
+    // award product (price 5000 ≫ client 0), but the loader exempts
+    // voucher_award_id lines, so the negotiation reject never fires and the
+    // voucher RPC still runs.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
+    const productId = '22222222-2222-4222-8222-222222222222';
+    supabase.from = vi.fn((table: string) => {
+      if (table === 'products') {
+        const productsChain: Record<string, unknown> = {
+          select: () => productsChain,
+          eq: () => productsChain,
+          in: () => productsChain,
+          returns: () =>
+            Promise.resolve({
+              data: [
+                {
+                  id: productId,
+                  brand: 'Apple',
+                  name: 'Free Gift',
+                  price: 5000,
+                  vat_category_code: 'S',
+                  vat_rate: 7.5,
+                },
+              ],
+              error: null,
+            }),
+          overrideTypes: () =>
+            Promise.resolve({
+              data: [
+                {
+                  id: productId,
+                  brand: 'Apple',
+                  name: 'Free Gift',
+                  price: 5000,
+                  vat_category_code: 'S',
+                  vat_rate: 7.5,
+                },
+              ],
+              error: null,
+            }),
+        };
+        return productsChain;
+      }
+      return buildMockSupabase().from(table);
+    }) as typeof supabase.from;
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    mockEnforcePrizeProductionGuard.mockImplementation(
+      (_event, complianceVerified) => {
+        if (!complianceVerified) {
+          throw new MockQuizProductionNotApprovedError();
+        }
+      }
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId: '11111111-1111-4111-8111-111111111111',
+        condition: null,
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            product_id: productId,
+            price: 0,
+            voucher_token: token,
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order_with_quiz_voucher',
+      expect.any(Object)
+    );
+  });
+});
+
 describe('POST /api/orders — B3.5 client/server total parity', () => {
   // Codex P1 (PR #1622): the parity check moved INTO the RPC so a
   // mismatch rolls back the transaction atomically BEFORE the order
@@ -2006,6 +2378,20 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                       ],
                       error: null,
                     }),
+                  overrideTypes: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          name: 'Widget',
+                          brand: null,
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
                 }),
               }),
             }),
@@ -2083,6 +2469,7 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                       id: MERCHANT_ID,
                       business_name: 'Test',
                       plan_tier: 'pro',
+                      vat_registration_status: 'registered',
                     },
                     error: null,
                   }),
@@ -2100,6 +2487,20 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                       data: [
                         {
                           id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                  overrideTypes: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          name: 'Widget',
+                          brand: null,
                           price: 1000,
                           vat_category_code: 'S',
                           vat_rate: 7.5,
@@ -2142,22 +2543,24 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
           {
             product_id: 'p-1',
             quantity: 1,
-            price: 970,
+            price: 980,
             name: 'Widget',
           },
         ],
-        subtotal: 970,
-        tax_amount: 72.75,
-        expected_total: 1045,
-        client_total: 1045,
+        subtotal: 980,
+        tax_amount: 73.5,
+        expected_total: 1053.5,
+        client_total: 1053.5,
       }),
     });
     await POST(request);
 
+    // Per-line: catalog 1000, client 980 → reduction 20 (= 2% cap),
+    // + 7.5% VAT on the reduction = 1.5 → discount 21.5.
     expect(rpcSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        p_discount_amount: 30,
-        p_expected_total: 1045,
+        p_discount_amount: 21.5,
+        p_expected_total: 1053.5,
         p_tax_amount: 75,
       })
     );
@@ -2197,6 +2600,7 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                       business_name: 'Test',
                       plan_tier: null,
                       slug: 'ogabassey',
+                      vat_registration_status: 'registered',
                     },
                     error: null,
                   }),
@@ -2214,6 +2618,20 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                       data: [
                         {
                           id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                  overrideTypes: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          name: 'Widget',
+                          brand: null,
                           price: 1000,
                           vat_category_code: 'S',
                           vat_rate: 7.5,
@@ -2256,22 +2674,24 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
           {
             product_id: 'p-1',
             quantity: 1,
-            price: 970,
+            price: 980,
             name: 'Widget',
           },
         ],
-        subtotal: 970,
-        tax_amount: 72.75,
-        expected_total: 1045,
-        client_total: 1045,
+        subtotal: 980,
+        tax_amount: 73.5,
+        expected_total: 1053.5,
+        client_total: 1053.5,
       }),
     });
     await POST(request);
 
+    // Per-line: catalog 1000, client 980 → reduction 20 (= 2% cap),
+    // + 7.5% VAT on the reduction = 1.5 → discount 21.5.
     expect(rpcSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        p_discount_amount: 30,
-        p_expected_total: 1045,
+        p_discount_amount: 21.5,
+        p_expected_total: 1053.5,
         p_tax_amount: 75,
       })
     );
@@ -2327,6 +2747,20 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                       ],
                       error: null,
                     }),
+                  overrideTypes: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          name: 'Widget',
+                          brand: null,
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
                 }),
               }),
             }),
@@ -2362,12 +2796,12 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
           {
             product_id: 'p-1',
             quantity: 1,
-            price: 970,
+            price: 980,
             name: 'Widget',
           },
         ],
-        subtotal: 970,
-        tax_amount: 72.75,
+        subtotal: 980,
+        tax_amount: 73.5,
         expected_total: 1042.75,
         client_total: 1042.75,
       }),
@@ -2437,6 +2871,20 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                       ],
                       error: null,
                     }),
+                  overrideTypes: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          name: 'Widget',
+                          brand: null,
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
                 }),
               }),
             }),
@@ -2472,12 +2920,12 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
           {
             product_id: 'p-1',
             quantity: 1,
-            price: 970,
+            price: 980,
             name: 'Widget',
           },
         ],
-        subtotal: 970,
-        tax_amount: 72.75,
+        subtotal: 980,
+        tax_amount: 73.5,
         expected_total: 1042.75,
         client_total: 1042.75,
       }),
@@ -2503,7 +2951,6 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
         message: 'order_total_mismatch',
       },
     });
-    let productLoadCount = 0;
 
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation((() => {
@@ -2524,6 +2971,7 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                       id: MERCHANT_ID,
                       business_name: 'Test',
                       plan_tier: 'pro',
+                      vat_registration_status: 'registered',
                     },
                     error: null,
                   }),
@@ -2536,27 +2984,26 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
             select: () => ({
               eq: () => ({
                 in: () => ({
-                  returns: () => {
-                    productLoadCount += 1;
-                    if (productLoadCount === 1) {
-                      return Promise.resolve({
-                        data: [
-                          {
-                            id: 'p-1',
-                            price: 1000,
-                            vat_category_code: 'S',
-                            vat_rate: 7.5,
-                          },
-                        ],
-                        error: null,
-                      });
-                    }
-
-                    return Promise.resolve({
+                  // Tax helper's load (`.returns()`) succeeds; the
+                  // per-line negotiation loader's load (`.overrideTypes()`)
+                  // fails with a non-UUID db error → route returns 500.
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                  overrideTypes: () =>
+                    Promise.resolve({
                       data: null,
                       error: { message: 'db unavailable' },
-                    });
-                  },
+                    }),
                 }),
               }),
             }),
@@ -2592,12 +3039,12 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
           {
             product_id: 'p-1',
             quantity: 1,
-            price: 970,
+            price: 980,
             name: 'Widget',
           },
         ],
-        subtotal: 970,
-        tax_amount: 72.75,
+        subtotal: 980,
+        tax_amount: 73.5,
         expected_total: 1042.75,
         client_total: 1042.75,
       }),
@@ -2731,6 +3178,7 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                       id: MERCHANT_ID,
                       business_name: 'Test',
                       plan_tier: 'pro',
+                      vat_registration_status: 'registered',
                     },
                     error: null,
                   }),
@@ -2744,6 +3192,18 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
               eq: () => ({
                 in: () => ({
                   returns: () =>
+                    Promise.resolve({
+                      data: null,
+                      error: {
+                        code: '22P02',
+                        message:
+                          'invalid input syntax for type uuid: "not-a-uuid"',
+                      },
+                    }),
+                  // Non-registered merchant → tax helper returns 0 without
+                  // loading products, so the 22P02 surfaces from the
+                  // per-line negotiation loader's `.overrideTypes()` read.
+                  overrideTypes: () =>
                     Promise.resolve({
                       data: null,
                       error: {
@@ -3080,6 +3540,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         }),
         in: vi.fn().mockReturnThis(),
         returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+        overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
         insert: vi.fn().mockResolvedValue({ error: null }),
         update: vi.fn().mockReturnThis(),
         // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
@@ -3261,6 +3722,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
       in: vi.fn().mockReturnThis(),
       returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
       insert: vi.fn().mockResolvedValue({ error: null }),
       update: vi.fn().mockReturnThis(),
       // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
@@ -3367,6 +3829,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
       in: vi.fn().mockReturnThis(),
       returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
       insert: vi.fn().mockResolvedValue({ error: null }),
       update: vi.fn().mockReturnThis(),
       // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
@@ -3463,6 +3926,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
       in: vi.fn().mockReturnThis(),
       returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
       insert: vi.fn().mockResolvedValue({ error: null }),
       update: vi.fn().mockReturnThis(),
       // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
@@ -3559,6 +4023,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
       in: vi.fn().mockReturnThis(),
       returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
       insert: vi.fn().mockResolvedValue({ error: null }),
       update: vi.fn().mockReturnThis(),
       // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
@@ -3687,6 +4152,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
       in: vi.fn().mockReturnThis(),
       returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
       insert: vi.fn().mockResolvedValue({ error: null }),
       update: vi.fn().mockReturnThis(),
       // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
