@@ -1,33 +1,15 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
-import type Colors from '@/constants/Colors';
 import { BRAND, palette } from '@/constants/Colors';
 import { checkoutScreenViewStyles as styles } from '../CheckoutScreenView.styles';
+import type { ColorsScheme } from './LocationPickerColors';
 
-export type ColorsScheme = (typeof Colors)['light'];
-
-export function PickerHeader({
-  colors,
-  onClose,
-  title,
-}: {
+interface PickerRowProps {
   colors: ColorsScheme;
-  onClose: () => void;
-  title: string;
-}) {
-  return (
-    <View style={styles.pickerHeader}>
-      <Text style={[styles.pickerTitle, { color: colors.text }]}>{title}</Text>
-      <Pressable
-        onPress={onClose}
-        hitSlop={12}
-        accessibilityRole="button"
-        accessibilityLabel={`Close ${title} picker`}
-      >
-        <Ionicons name="close" size={22} color={colors.textSecondary} />
-      </Pressable>
-    </View>
-  );
+  isDark: boolean;
+  isSelected: boolean;
+  item: string;
+  onSelect: (item: string) => void;
 }
 
 export function PickerRow({
@@ -36,13 +18,7 @@ export function PickerRow({
   isSelected,
   item,
   onSelect,
-}: {
-  colors: ColorsScheme;
-  isDark: boolean;
-  isSelected: boolean;
-  item: string;
-  onSelect: (item: string) => void;
-}) {
+}: PickerRowProps) {
   return (
     <Pressable
       style={[

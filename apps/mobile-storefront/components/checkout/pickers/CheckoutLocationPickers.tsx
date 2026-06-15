@@ -10,11 +10,9 @@ import {
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { BRAND } from '@/constants/Colors';
 import { checkoutScreenViewStyles as styles } from '../CheckoutScreenView.styles';
-import {
-  type ColorsScheme,
-  PickerHeader,
-  PickerRow,
-} from './LocationPickerPrimitives';
+import type { ColorsScheme } from './LocationPickerColors';
+import { PickerHeader } from './PickerHeader';
+import { PickerRow } from './PickerRow';
 
 interface CheckoutLocationPickersProps {
   citySearch: string;
@@ -85,7 +83,7 @@ export function CheckoutLocationPickers({
             />
             <FlatList
               // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
-              getItemLayout={(data, index) => ({
+              getItemLayout={(_data, index) => ({
                 length: 48,
                 offset: 48 * index,
                 index,
@@ -206,7 +204,7 @@ export function CheckoutLocationPickers({
             ) : null}
             <FlatList
               // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
-              getItemLayout={(data, index) => ({
+              getItemLayout={(_data, index) => ({
                 length: 48,
                 offset: 48 * index,
                 index,
