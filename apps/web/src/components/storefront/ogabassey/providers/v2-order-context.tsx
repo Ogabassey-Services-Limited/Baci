@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useSyncExternalStore } from 'react';
+import { createContext, use, useSyncExternalStore } from 'react';
 import type { Order } from '../types';
 
 interface OrderContextType {
@@ -86,7 +86,7 @@ export const V2OrderProvider: React.FC<{ children: React.ReactNode }> = ({
 };
 
 export const useV2Order = () => {
-  const context = useContext(OrderContext);
+  const context = use(OrderContext);
   if (context === undefined) {
     throw new Error('useV2Order must be used within a V2OrderProvider');
   }

@@ -3,7 +3,7 @@
 import type React from 'react';
 import {
   createContext,
-  useContext,
+  use,
   useEffect,
   useState,
   useSyncExternalStore,
@@ -79,7 +79,7 @@ function resolveClientDefaultTheme(
 }
 
 export const useV2Theme = () => {
-  const context = useContext(V2ThemeContext);
+  const context = use(V2ThemeContext);
   if (!context) {
     throw new Error('useV2Theme must be used within a V2ThemeProvider');
   }
