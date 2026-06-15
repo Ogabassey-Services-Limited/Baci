@@ -59,11 +59,11 @@ vi.mock('./useBranchScope', () => ({
   useBranchScope: () => ({ scope: { type: 'all' } }),
 }));
 
-import { fetchOrderCounts } from './useOrderCounts';
 import {
   HIDDEN_CHECKOUT_PAYMENT_STATUSES,
   VISIBLE_PENDING_ORDER_FILTER,
 } from './orders/order-list-visibility';
+import { fetchOrderCounts } from './useOrderCounts';
 
 describe('fetchOrderCounts', () => {
   beforeEach(() => {

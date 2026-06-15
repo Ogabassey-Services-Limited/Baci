@@ -33,7 +33,7 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   ActivityIndicator: () => <output aria-label="loading" />,
   Pressable: ({
     accessibilityLabel,
