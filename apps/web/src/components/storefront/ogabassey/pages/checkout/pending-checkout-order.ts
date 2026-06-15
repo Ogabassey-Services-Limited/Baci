@@ -36,6 +36,9 @@ export interface PendingCheckoutFingerprintInput {
   items: PendingCheckoutOrderItem[];
   useWalletCredit: boolean;
   walletAmountUsed: number;
+  // Applied discount code identity: changing/removing it must produce a
+  // different fingerprint so a reused pending order can't drop the discount.
+  discountCode?: string | null;
 }
 
 export interface PendingCheckoutOrderSnapshot {
@@ -175,6 +178,7 @@ export function buildPendingCheckoutFingerprint(
     items: normalizedItems,
     useWalletCredit: input.useWalletCredit,
     walletAmountUsed: input.walletAmountUsed,
+    discountCode: normalizeText(input.discountCode) || null,
   });
 }
 

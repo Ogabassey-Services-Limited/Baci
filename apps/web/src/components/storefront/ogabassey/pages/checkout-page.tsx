@@ -1306,7 +1306,26 @@ export const CheckoutPage: React.FC = () => {
           : 0 // Fallback: 0 if loading or no quote selected
         : airportType === 'delivery' ? 25000 : 20000; // Airport Delivery: ₦25,000, Airport Pickup: ₦20,000
 
-  const total = effectiveCheckoutCartTotal + deliveryCost + giftWrappingCost + (orderTotals?.taxAmount ?? 0);
+  // Server-computed discount amount (the route re-validates against the
+  // canonical subtotal); fall back to a local estimate only if it's missing.
+  const discountAmount = appliedDiscount
+    ? (appliedDiscount.discount_amount ??
+      (appliedDiscount.discount_type === 'percentage'
+        ? Math.round(
+            effectiveCheckoutCartTotal * (appliedDiscount.discount_value / 100)
+          )
+        : Math.min(appliedDiscount.discount_value, effectiveCheckoutCartTotal)))
+    : 0;
+  // `total` is NET of the discount so wallet credit, remaining-amount gating,
+  // the displayed total, and the order payload all agree.
+  const total = Math.max(
+    0,
+    effectiveCheckoutCartTotal +
+      deliveryCost +
+      giftWrappingCost +
+      (orderTotals?.taxAmount ?? 0) -
+      discountAmount
+  );
 
   // Wallet credit calculation (2025: can't redeem more than order total)
   const walletAmountUsed = payWithWallet ? Math.min(walletBalance, total) : 0;
@@ -1712,6 +1731,7 @@ export const CheckoutPage: React.FC = () => {
       })),
       useWalletCredit: payWithWallet && walletAmountUsed > 0,
       walletAmountUsed,
+      discountCode: appliedDiscount?.code ?? null,
     });
 
     try {

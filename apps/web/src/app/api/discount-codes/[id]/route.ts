@@ -221,7 +221,9 @@ export async function DELETE(
           .from('discount_codes')
           .update({ is_active: false })
           .eq('id', id)
-          .eq('merchant_id', merchantId);
+          .eq('merchant_id', merchantId)
+          .select('id')
+          .single();
 
         if (deactivateError) {
           throw deactivateError;

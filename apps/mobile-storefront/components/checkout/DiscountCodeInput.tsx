@@ -7,8 +7,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BRAND } from '@/constants/Colors';
+import { BRAND, palette } from '@/constants/Colors';
+import { createLogger } from '@/lib/logger';
 import { validateDiscountCode } from '@/services/discount';
+
+const logger = createLogger('DiscountCodeInput');
 
 export interface AppliedDiscount {
   code: string;
@@ -60,7 +63,8 @@ export function DiscountCodeInput({
       }
       onApply({ code: result.code, discountAmount: result.discount_amount });
       setCode('');
-    } catch {
+    } catch (err) {
+      logger.error('Discount code validation failed', err);
       setError('Could not validate code. Please try again.');
     } finally {
       setLoading(false);
@@ -127,7 +131,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: palette.gray[300],
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -148,14 +152,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#ecfdf5',
+    backgroundColor: palette.emerald[50],
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: palette.emerald[200],
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  appliedText: { color: '#047857', fontWeight: '600', fontSize: 14 },
-  removeText: { color: '#dc2626', fontWeight: '600', fontSize: 13 },
-  errorText: { color: '#dc2626', fontSize: 12, marginTop: 4 },
+  appliedText: { color: palette.emerald[700], fontWeight: '600', fontSize: 14 },
+  removeText: { color: palette.red[600], fontWeight: '600', fontSize: 13 },
+  errorText: { color: palette.red[600], fontSize: 12, marginTop: 4 },
 });

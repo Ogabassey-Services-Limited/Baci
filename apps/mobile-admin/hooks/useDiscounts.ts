@@ -104,7 +104,9 @@ export function useDiscounts() {
             .from('discount_codes')
             .update({ is_active: false })
             .eq('id', id)
-            .eq('merchant_id', merchant.id);
+            .eq('merchant_id', merchant.id)
+            .select('id')
+            .single();
 
           if (deactivateError) throw deactivateError;
           return { deactivated: true };

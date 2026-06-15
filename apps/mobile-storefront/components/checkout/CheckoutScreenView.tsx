@@ -250,7 +250,10 @@ export function CheckoutScreenView() {
           <CheckoutBottomAction
             animatedCtaArrowStyle={animatedCtaArrowStyle}
             colors={colors}
-            displayTotal={displayTotal}
+            displayTotal={Math.max(
+              0,
+              displayTotal - (appliedDiscount?.discountAmount ?? 0)
+            )}
             insetsBottom={insets.bottom}
             isProcessing={isProcessing}
             itemCount={items.length}
@@ -258,7 +261,7 @@ export function CheckoutScreenView() {
             onPlaceOrder={handlePlaceOrder}
             selectedPayment={selectedPayment}
             step={step}
-            total={total}
+            total={Math.max(0, total - (appliedDiscount?.discountAmount ?? 0))}
           />
         </AppKeyboardContainer>
       </SafeAreaView>
