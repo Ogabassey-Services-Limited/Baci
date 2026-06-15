@@ -134,6 +134,8 @@ export function buildCheckoutOrderRequest({
     subtotal: snapshot.subtotal,
     shipping_fee: snapshot.deliveryFee,
     tax_amount: snapshot.taxAmount,
+    expected_total: snapshot.total,
+    client_total: snapshot.total,
     selected_quote_id:
       deliveryMethod === 'door' && selectedQuote?.id != null
         ? String(selectedQuote.id)
