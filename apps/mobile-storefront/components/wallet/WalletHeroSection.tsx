@@ -1,17 +1,17 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { BRAND } from '@/constants/Colors';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import { WalletQuickUtilities } from './WalletQuickUtilities';
 import { WALLET_COLORS } from './wallet.colors';
+import { WalletQuickUtilities } from './WalletQuickUtilities';
 import { styles } from './wallet.styles';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
 type WalletHeroSectionProps = {
   canCreateFundingAccount: boolean;
   createFundingAccountUnavailableMessage?: string;
-  accentColor: string;
   earningsBalance: number;
   fundingAccount: WalletDisplayFundingAccount | null;
   isCreatingFundingAccount: boolean;
@@ -43,7 +43,6 @@ function getTierColor(tier: string) {
 }
 
 export function WalletHeroSection({
-  accentColor,
   canCreateFundingAccount,
   createFundingAccountUnavailableMessage,
   earningsBalance,
@@ -101,11 +100,7 @@ export function WalletHeroSection({
           accessibilityRole="button"
           accessibilityLabel="Add money"
           accessibilityHint="Opens wallet funding options"
-          // Brand accent border on the Add Money button.
-          style={[
-            styles.addMoneyButton,
-            { borderColor: accentColor, borderWidth: 2 },
-          ]}
+          style={styles.addMoneyButton}
           onPress={onOpenFundPanel}
         >
           <Ionicons
@@ -113,7 +108,7 @@ export function WalletHeroSection({
             importantForAccessibility="no"
             name="add-circle-outline"
             size={16}
-            color={accentColor}
+            color={WALLET_COLORS.white}
           />
           <Text style={styles.addMoneyButtonText}>Add Money</Text>
         </Pressable>
@@ -138,7 +133,7 @@ export function WalletHeroSection({
               style={styles.fundingAccountCopyButton}
               onPress={handleCopyFundingAccount}
             >
-              <Ionicons name="copy-outline" size={16} color={accentColor} />
+              <Ionicons name="copy-outline" size={16} color={BRAND.primary} />
             </Pressable>
           </View>
           {copyFeedback ? (
@@ -164,7 +159,7 @@ export function WalletHeroSection({
             disabled={isCreateAccountDisabled}
           >
             {isCreatingFundingAccount ? (
-              <ActivityIndicator size="small" color={accentColor} />
+              <ActivityIndicator size="small" color={BRAND.primary} />
             ) : (
               <Text style={styles.createAccountButtonText}>
                 Create account number
@@ -226,7 +221,7 @@ export function WalletHeroSection({
           <View
             style={[
               styles.loyaltyTierBadgeCompact,
-              { backgroundColor: accentColor },
+              { backgroundColor: BRAND.primary },
             ]}
           >
             <Ionicons
@@ -241,7 +236,7 @@ export function WalletHeroSection({
         </Pressable>
       </View>
 
-      <WalletQuickUtilities accentColor={accentColor} />
+      <WalletQuickUtilities />
     </Animated.View>
   );
 }

@@ -7,11 +7,13 @@ import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axe
 import { computeProductSelectionState } from '@/lib/product-route/product-selection';
 import type { Product, ProductCondition } from '@/types/product';
 import { resolveAvailableProductCondition } from './product-condition-selection';
+
 type FirstImageIndexForColorInput = {
   color: string | null | undefined;
   colorImages?: Record<string, string[]>;
   images: string[];
 };
+
 type UseProductDetailSelectionArgs = {
   getFallbackVariantSelections: (product: Product | null) => {
     attributes: Record<string, string>;
@@ -29,6 +31,7 @@ type UseProductDetailSelectionArgs = {
   routeSelectionSignature: string;
   routeVariantId: string | null;
 };
+
 function shallowEqualRecord(
   a: Record<string, string>,
   b: Record<string, string>
@@ -38,6 +41,7 @@ function shallowEqualRecord(
   if (aKeys.length !== bKeys.length) return false;
   return aKeys.every((key) => a[key] === b[key]);
 }
+
 export function useProductDetailSelection({
   getFallbackVariantSelections,
   getFirstImageIndexForColor,
@@ -170,21 +174,8 @@ export function useProductDetailSelection({
       };
       const resolvedLegacyColor =
         nextSelection?.attributes?.colour?.trim() || undefined;
-      // Preserve a user-selected image-driven color: one that exists in
-      // color_images but is NOT a variant axis (e.g. a phone whose variants
-      // differ by storage only). Without this, the repair below would revert
-      // the color to the product default and snap the gallery image back,
-      // making such colors unselectable.
-      const imageDrivenSelectedColor =
-        selectedColor &&
-        Object.keys(resolvedColorImages ?? {}).includes(selectedColor)
-          ? selectedColor
-          : undefined;
       const syncedColor =
-        nextSelection?.color ??
-        resolvedLegacyColor ??
-        imageDrivenSelectedColor ??
-        fallbackSelection.color;
+        nextSelection?.color ?? resolvedLegacyColor ?? fallbackSelection.color;
 
       if (shouldSeedSelection || shouldRepairInvalidSelection) {
         // Guard every setter behind value equality: a repair that cannot

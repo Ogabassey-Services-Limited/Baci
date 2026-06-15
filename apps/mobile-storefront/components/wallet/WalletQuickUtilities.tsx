@@ -1,7 +1,8 @@
+import type { ComponentProps } from 'react';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
-import type { ComponentProps } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { WALLET_COLORS } from './wallet.colors';
 import { styles } from './wallet.styles';
 
 type UtilityRoute =
@@ -51,13 +52,7 @@ const QUICK_UTILITIES: readonly WalletQuickUtility[] = [
   },
 ];
 
-interface WalletQuickUtilitiesProps {
-  accentColor: string;
-}
-
-export function WalletQuickUtilities({
-  accentColor,
-}: WalletQuickUtilitiesProps) {
+export function WalletQuickUtilities() {
   return (
     <>
       <View style={styles.utilityPillsDivider} />
@@ -75,7 +70,11 @@ export function WalletQuickUtilities({
             style={styles.utilityPill}
             onPress={() => router.push(utility.route)}
           >
-            <Ionicons name={utility.icon} size={14} color={accentColor} />
+            <Ionicons
+              name={utility.icon}
+              size={14}
+              color={WALLET_COLORS.white}
+            />
             <Text style={styles.utilityPillText}>{utility.label}</Text>
           </Pressable>
         ))}

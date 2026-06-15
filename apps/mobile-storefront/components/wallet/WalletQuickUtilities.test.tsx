@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { WalletQuickUtilities } from './WalletQuickUtilities';
 
@@ -15,7 +14,7 @@ describe('WalletQuickUtilities', () => {
   });
 
   it('renders utility pills and routes each button to its utility screen', () => {
-    render(<WalletQuickUtilities accentColor="#2563EB" />);
+    render(<WalletQuickUtilities />);
 
     expect(screen.getByText('Quick Utilities')).toBeOnTheScreen();
 
