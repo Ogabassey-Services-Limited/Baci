@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useSyncExternalStore } from 'react';
+import { createContext, use, useSyncExternalStore } from 'react';
 
 interface WalletContextType {
   earningsBalance: number;
@@ -76,7 +76,7 @@ export const V2WalletProvider: React.FC<{ children: React.ReactNode }> = ({
 };
 
 export const useV2Wallet = () => {
-  const context = useContext(WalletContext);
+  const context = use(WalletContext);
   if (context === undefined) {
     throw new Error('useV2Wallet must be used within a V2WalletProvider');
   }
