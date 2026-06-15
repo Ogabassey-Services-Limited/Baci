@@ -99,7 +99,12 @@ export function SafeImage({
   if (hasError && showFallbackIcon) {
     return (
       <View
-        style={[styles.fallbackContainer, { backgroundColor: colors.muted }, style, fallbackStyle]}
+        style={[
+          styles.fallbackContainer,
+          { backgroundColor: colors.muted },
+          style,
+          fallbackStyle,
+        ]}
         accessibilityLabel="Image unavailable"
       >
         <Ionicons
