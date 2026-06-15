@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('expo-haptics', () => mocks.haptics);
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Alert: { alert: mocks.alert },
 }));
 
