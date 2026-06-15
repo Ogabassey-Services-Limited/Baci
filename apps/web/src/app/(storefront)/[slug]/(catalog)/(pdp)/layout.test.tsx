@@ -16,7 +16,7 @@ describe('StorefrontPdpLayout', () => {
     mockConnection.mockClear();
   });
 
-  it('keeps the PDP segment hostless and request-bound so metadata boundaries cannot displace content slots', async () => {
+  it('renders children without forcing the PDP segment request-bound (connection guard removed)', async () => {
     const child = <main data-testid="pdp-content" />;
     const tree = await StorefrontPdpLayout({ children: child });
 
@@ -28,6 +28,8 @@ describe('StorefrontPdpLayout', () => {
     expect(children).toHaveLength(1);
     expect(isValidElement(children[0])).toBe(true);
     expect((children[0] as ReactElement).type).toBe('main');
-    expect(mockConnection).toHaveBeenCalledTimes(1);
+    // The connection() guard was removed now that the resume bug is patched
+    // (PR #2436); the PDP segment must prerender statically.
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
-import type { Config } from 'tailwindcss';
-import baseConfig from './tailwind.config';
+// @ts-check
+
+import baseConfig from './tailwind.config.mjs';
 
 /*
  * OgaBassey's dedicated homepage owns its Tailwind source graph in
@@ -9,7 +10,10 @@ import baseConfig from './tailwind.config';
  * here; those globs put non-home utilities back on the homepage critical CSS
  * path.
  */
-export default {
+/** @type {import('tailwindcss').Config} */
+const config = {
   ...baseConfig,
   content: [],
-} satisfies Config;
+};
+
+export default config;

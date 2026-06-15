@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import type { BillerProduct } from '@/schemas/monnify-bills-schema';
 import {
   type KudaBillItemPayload,
@@ -17,6 +18,8 @@ export interface NormalizedBillItem {
   provider: 'kuda' | 'monnify';
   billerCode?: string;
   billItems?: NormalizedBillItem[];
+  maxAmount?: number;
+  minAmount?: number;
   productCode?: string;
 }
 
@@ -53,13 +56,24 @@ export function normalizeKudaBillItem(
 }
 
 const BACI_TO_MONNIFY_CATEGORY: Record<MonnifySupportedCategory, string> = {
+  airtime: 'AIRTIME',
   electricity: 'ELECTRICITY',
   cable_tv: 'CABLE_TV',
+};
+
+const MONNIFY_CATEGORY_ALIASES: Record<string, string[]> = {
+  AIRTIME: ['AIRTIME'],
+  CABLE_TV: ['CABLE_TV'],
+  ELECTRICITY: ['ELECTRICITY'],
 };
 
 export function getMonnifyCategoryCode(type: string) {
   const parsed = monnifySupportedCategorySchema.safeParse(type);
   return parsed.success ? BACI_TO_MONNIFY_CATEGORY[parsed.data] : undefined;
+}
+
+export function getMonnifyCategoryAliases(categoryCode: string) {
+  return MONNIFY_CATEGORY_ALIASES[categoryCode] ?? [categoryCode];
 }
 
 export function normalizeMonnifyProducts({
@@ -69,15 +83,36 @@ export function normalizeMonnifyProducts({
   billerCode: string;
   products: BillerProduct[];
 }): NormalizedBillItem[] {
-  return products.map((prod) => ({
-    itemCode: prod.productCode,
-    itemName: prod.name,
-    amount: prod.amount ?? 0,
-    itemCurrencySymbol: MONNIFY_CURRENCY,
-    isAmountFixed: prod.isAmountFixed ?? false,
-    itemFee: prod.fee ?? 0,
-    provider: 'monnify',
-    billerCode,
-    productCode: prod.productCode,
-  }));
+  return products.flatMap((prod) => {
+    if (
+      prod.minAmount != null &&
+      prod.maxAmount != null &&
+      prod.maxAmount < prod.minAmount
+    ) {
+      logger.warn({
+        message: 'Skipping Monnify product with invalid amount range',
+        billerCode,
+        maxAmount: prod.maxAmount,
+        minAmount: prod.minAmount,
+        productCode: prod.productCode,
+      });
+      return [];
+    }
+
+    return [
+      {
+        itemCode: prod.productCode,
+        itemName: prod.name,
+        amount: prod.amount ?? prod.minAmount ?? 0,
+        itemCurrencySymbol: MONNIFY_CURRENCY,
+        isAmountFixed: prod.isAmountFixed ?? false,
+        itemFee: prod.fee ?? 0,
+        provider: 'monnify',
+        billerCode,
+        ...(prod.maxAmount != null ? { maxAmount: prod.maxAmount } : {}),
+        ...(prod.minAmount != null ? { minAmount: prod.minAmount } : {}),
+        productCode: prod.productCode,
+      },
+    ];
+  });
 }

@@ -15,12 +15,10 @@ import {
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { IDENTIFIER_LABELS } from './bill-form.constants';
+import { getBillPaymentAmountError } from './bill-payment-amount-validation';
 
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
-const MIN_BILL_PAYMENT_AMOUNT = 50;
-const MAX_BILL_PAYMENT_AMOUNT = 500_000;
 const GENERIC_PAYMENT_ERROR_MESSAGE = 'Payment failed. Please try again.';
-const AMOUNT_DISPLAY_LOCALE = 'en-NG';
 
 function getSafePaymentErrorMessage(error: unknown): string {
   if (error instanceof VtuPaymentStillProcessingError) {
@@ -47,10 +45,13 @@ export function createBillFormPurchaseHandler({
   onSuccess,
   payment,
   selectedBiller,
+  selectedBillItem,
   selectedBillItemIdentifier,
   selectedBillItemPathLabel,
+  requireValidationRef,
   setIsSubmitting,
   type,
+  validationReference,
   verifiedCustomerName,
 }: CreateBillFormPurchaseHandlerInput) {
   return async () => {
@@ -76,14 +77,12 @@ export function createBillFormPurchaseHandler({
         Alert.alert('Missing Amount', 'Please enter an amount.');
         return;
       }
-      if (
-        numericAmount < MIN_BILL_PAYMENT_AMOUNT ||
-        numericAmount > MAX_BILL_PAYMENT_AMOUNT
-      ) {
-        Alert.alert(
-          'Invalid Amount',
-          `Amount must be between ₦${MIN_BILL_PAYMENT_AMOUNT.toLocaleString(AMOUNT_DISPLAY_LOCALE)} and ₦${MAX_BILL_PAYMENT_AMOUNT.toLocaleString(AMOUNT_DISPLAY_LOCALE)}.`
-        );
+      const amountError = getBillPaymentAmountError(
+        numericAmount,
+        selectedBillItem
+      );
+      if (amountError) {
+        Alert.alert('Invalid Amount', amountError);
         return;
       }
       const walletAmount = computeVtuWalletAmount(
@@ -116,16 +115,32 @@ export function createBillFormPurchaseHandler({
       // have it. Falls back to the buyer name only when verification produced
       // no name — keeps existing legacy receipts from going blank.
       const customerName = verifiedCustomerName?.trim() || buyerName;
+      const selectedProvider =
+        selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
+      const selectedBillerCode =
+        selectedBillItem?.billerCode ?? selectedBiller.billerCode;
+      // Monnify treats the selected bill item identifier as the vend product
+      // code for some normalized products, so keep this fallback provider-scoped.
+      const selectedProductCode =
+        selectedBillItem?.productCode ??
+        (selectedProvider === 'monnify'
+          ? selectedBillItemIdentifier ?? undefined
+          : undefined);
       const payload = {
         amount: numericAmount,
         billItemIdentifier: selectedBillItemIdentifier ?? undefined,
+        billerCode: selectedBillerCode,
         billerName: selectedBillItemPathLabel
           ? `${selectedBiller.billerName} - ${selectedBillItemPathLabel}`
           : selectedBiller.billerName,
         customerIdentifier: customerId,
         customerName,
         customerPhone: customer?.phone || undefined,
+        productCode: selectedProductCode,
+        provider: selectedProvider,
+        ...(requireValidationRef !== undefined ? { requireValidationRef } : {}),
         type: billType,
+        ...(validationReference ? { validationReference } : {}),
         ...(walletAmount > 0 ? { walletAmount } : {}),
       };
 
@@ -135,11 +150,16 @@ export function createBillFormPurchaseHandler({
           const result = await chargeWalletForVtu({
             amount: numericAmount,
             billItemIdentifier: payload.billItemIdentifier,
+            billerCode: payload.billerCode,
             billerName: payload.billerName,
             customerIdentifier: customerId,
             customerName,
             customerPhone: payload.customerPhone,
+            productCode: payload.productCode,
+            provider: payload.provider,
+            requireValidationRef: payload.requireValidationRef,
             type: billType,
+            validationReference: payload.validationReference,
             walletAmount: numericAmount,
             idempotencyKey,
           });

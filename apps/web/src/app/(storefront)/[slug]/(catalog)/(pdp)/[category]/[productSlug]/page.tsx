@@ -3,7 +3,6 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
@@ -28,8 +27,7 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
-import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
-import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
+import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
@@ -42,6 +40,7 @@ import {
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
+import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
@@ -377,32 +376,6 @@ function shouldRedirectVariantSelectionParams(
     selectionResolution.type === 'invalid_variant_id' ||
     selectionResolution.type === 'zero_match'
   );
-}
-
-const NON_SELECTION_TRACKING_PARAMS = new Set([
-  // Internal middleware-only cache partition key. Treat it like tracking noise
-  // so metadata cache safety cannot disable the PDP early image hint path.
-  STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
-  'dclid',
-  'fbclid',
-  'gbraid',
-  'gclid',
-  'msclkid',
-  'ttclid',
-  'wbraid',
-]);
-
-function mayContainVariantSelectionParams(
-  searchParams: Awaited<PageProps['searchParams']>
-) {
-  return Object.keys(searchParams).some((key) => {
-    const normalizedKey = key.trim().toLowerCase();
-
-    return !(
-      normalizedKey.startsWith('utm_') ||
-      NON_SELECTION_TRACKING_PARAMS.has(normalizedKey)
-    );
-  });
 }
 
 type CategoryProductResult =
@@ -987,6 +960,69 @@ function buildCategoryProductMetadata(
   };
 }
 
+// Prerender OgaBassey's most recent active PDPs at build so the above-fold
+// hero ships inside the static PPR shell (LCP). Without concrete params the
+// product slug is request-time, which keeps the hero in the dynamic resume.
+// Params not listed here keep rendering on demand (the default PPR behavior
+// under cacheComponents — `dynamicParams` cannot be set with cacheComponents).
+const OGABASSEY_PRERENDER_LIMIT = 50;
+
+export async function generateStaticParams(): Promise<
+  Array<{ slug: string; category: string; productSlug: string }>
+> {
+  // cacheComponents requires generateStaticParams to return >= 1 param; this
+  // placeholder keeps the build valid (and renders notFound) if the index is
+  // empty/unavailable. Real, non-listed products still render on demand.
+  const placeholder = [
+    {
+      slug: OGABASSEY_DOMAIN,
+      category: 'smartphones',
+      productSlug: '__prerender_placeholder__',
+    },
+  ];
+
+  let products: Awaited<
+    ReturnType<typeof getCachedStorefrontProductIndex>
+  >['products'] = [];
+  try {
+    const result = await getCachedStorefrontProductIndex(
+      OGABASSEY_MERCHANT_ID,
+      {
+        page: 1,
+        limit: OGABASSEY_PRERENDER_LIMIT,
+      }
+    );
+    if (result.hasError) {
+      return placeholder;
+    }
+    products = result.products;
+  } catch {
+    // A rejected index lookup at build/prerender time must fall back to the
+    // placeholder, not throw and fail the whole prerender step.
+    return placeholder;
+  }
+
+  const seen = new Set<string>();
+  const params: Array<{ slug: string; category: string; productSlug: string }> =
+    [];
+
+  for (const product of products) {
+    const category = product.category_slug?.trim();
+    const productSlug = product.slug?.trim();
+    if (!category || !productSlug) {
+      continue;
+    }
+    const key = `${category}/${productSlug}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    params.push({ slug: OGABASSEY_DOMAIN, category, productSlug });
+  }
+
+  return params.length > 0 ? params : placeholder;
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -1274,10 +1310,6 @@ export default async function CategoryProductPage({
   params,
   searchParams,
 }: PageProps) {
-  // Keep the PDP leaf segment request-time. A cacheable PDP shell can resume
-  // with Next's metadata boundary in the first host slot on Vercel/Next 16.
-  await connection();
-
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -1310,24 +1342,6 @@ export default async function CategoryProductPage({
 
   if (categoryMismatch || needsValuesRedirect) {
     permanentRedirect(getRedirectTargetPath(slug, product));
-  }
-
-  const resolvedSearchParams = await searchParams;
-  let productResultPromise: Promise<CategoryProductResult> | null = null;
-
-  // Unknown query keys can be dynamic variant axes, while campaign-only URLs
-  // cannot affect selection and should still receive the early image hint.
-  if (mayContainVariantSelectionParams(resolvedSearchParams)) {
-    productResultPromise = loadProductResult();
-    const detailedProductResult = await productResultPromise;
-
-    if (detailedProductResult && 'product' in detailedProductResult) {
-      redirectInvalidVariantSelectionParams(
-        slug,
-        detailedProductResult.product,
-        resolvedSearchParams
-      );
-    }
   }
 
   const primaryProductImage = product.imageLarge || product.image || null;
@@ -1390,9 +1404,7 @@ export default async function CategoryProductPage({
     ? getRequestScopedCategoryProductBasePath(slug)
     : Promise.resolve<'' | `/${string}`>('');
 
-  if (!productResultPromise) {
-    productResultPromise = loadProductResult();
-  }
+  const productResultPromise = loadProductResult();
 
   return (
     <>
@@ -1410,7 +1422,7 @@ export default async function CategoryProductPage({
               <CategoryProductPageCriticalCommerceControls
                 basePathPromise={criticalBasePathPromise}
                 slug={slug}
-                searchParams={Promise.resolve(resolvedSearchParams)}
+                searchParams={searchParams}
                 productResultPromise={productResultPromise}
               />
             </Suspense>
@@ -1419,7 +1431,7 @@ export default async function CategoryProductPage({
             <CategoryProductPageContent
               renderMode="belowFold"
               slug={slug}
-              searchParams={Promise.resolve(resolvedSearchParams)}
+              searchParams={searchParams}
               productResultPromise={productResultPromise}
             />
           </Suspense>
@@ -1441,7 +1453,7 @@ export default async function CategoryProductPage({
           <CategoryProductPageContent
             renderMode="full"
             slug={slug}
-            searchParams={Promise.resolve(resolvedSearchParams)}
+            searchParams={searchParams}
             productResultPromise={productResultPromise}
           />
         </Suspense>
