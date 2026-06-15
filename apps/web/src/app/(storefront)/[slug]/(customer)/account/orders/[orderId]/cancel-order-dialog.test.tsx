@@ -107,6 +107,18 @@ describe('CancelOrderDialog', () => {
     });
   });
 
+  it('uses whitespace-free unique ids for cancellation reason radio items', () => {
+    render(<CancelOrderDialog orderId="order-1" />);
+    openDialog();
+
+    const ids = screen.getAllByRole('radio').map((radio) => radio.id);
+
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ids) {
+      expect(id).not.toMatch(/\s/);
+    }
+  });
+
   it('cancels without a reason when none is selected (skippable)', async () => {
     mockFetchWithCsrf.mockResolvedValue(
       jsonResponse(200, { success: true, cancelled: true })
@@ -122,7 +134,7 @@ describe('CancelOrderDialog', () => {
     await waitFor(() => {
       expect(mockFetchWithCsrf).toHaveBeenCalledWith(
         '/api/storefront/account/orders/order-1/cancel',
-        expect.objectContaining({ body: undefined })
+        expect.objectContaining({ body: JSON.stringify({}) })
       );
     });
   });

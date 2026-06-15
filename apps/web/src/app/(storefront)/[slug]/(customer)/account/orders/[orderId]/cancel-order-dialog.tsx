@@ -33,6 +33,10 @@ const NOT_CANCELLABLE_MESSAGE = 'This order can no longer be cancelled.';
 const GENERIC_ERROR_MESSAGE =
   "We couldn't cancel this order. Please try again.";
 
+function buildCancellationReasonItemId(baseId: string, index: number) {
+  return `${baseId}-reason-${index}`;
+}
+
 type CancelState =
   | { status: 'idle' }
   | { status: 'submitting' }
@@ -88,7 +92,7 @@ export function CancelOrderDialog({
         `/api/storefront/account/orders/${orderId}/cancel`,
         {
           method: 'POST',
-          body: reason ? JSON.stringify({ reason }) : undefined,
+          body: JSON.stringify(reason ? { reason } : {}),
         }
       );
 
@@ -137,8 +141,11 @@ export function CancelOrderDialog({
             onValueChange={setSelectedReason}
             disabled={isSubmitting}
           >
-            {CUSTOMER_CANCELLATION_REASONS.map((reason) => {
-              const itemId = `${radioGroupLabelId}-${reason}`;
+            {CUSTOMER_CANCELLATION_REASONS.map((reason, index) => {
+              const itemId = buildCancellationReasonItemId(
+                radioGroupLabelId,
+                index
+              );
               return (
                 <div className="flex items-center gap-2" key={reason}>
                   <RadioGroupItem id={itemId} value={reason} />

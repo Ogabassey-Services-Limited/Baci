@@ -122,7 +122,7 @@ export async function sendOrderCancellationEmail({
 
   const emailResult = await sendEmail({
     to: order.customer_email,
-    toName: order.customer_name,
+    toName: order.customer_name ?? undefined,
     subject: `Order #${cancellationData.orderNumber} Has Been Cancelled`,
     htmlContent,
     textContent,

@@ -1,8 +1,15 @@
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { presentOrderCancellationPrompt } from './order-cancellation-prompt';
 
+const originalPlatformOS = Platform.OS;
+
 describe('presentOrderCancellationPrompt', () => {
+  beforeEach(() => {
+    Platform.OS = 'ios';
+  });
+
   afterEach(() => {
+    Platform.OS = originalPlatformOS;
     jest.restoreAllMocks();
   });
 
@@ -24,6 +31,54 @@ describe('presentOrderCancellationPrompt', () => {
       true
     );
     expect(buttons?.some((button) => button.style === 'cancel')).toBe(true);
+  });
+
+
+  it('keeps Android prompts within the native three-button Alert limit', () => {
+    Platform.OS = 'android';
+    const onConfirm = jest.fn();
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+    presentOrderCancellationPrompt({
+      onConfirm,
+      reasons: [
+        'Changed my mind',
+        'Ordered by mistake',
+        'Found a better price',
+        'Other',
+      ],
+    });
+
+    const firstPromptButtons = alertSpy.mock.calls[0][2] ?? [];
+    expect(firstPromptButtons).toHaveLength(3);
+    expect(firstPromptButtons.map((button) => button.text)).toEqual([
+      'Choose a reason',
+      'Cancel without a reason',
+      'Keep Order',
+    ]);
+
+    firstPromptButtons[0]?.onPress?.();
+
+    const firstReasonPageButtons = alertSpy.mock.calls[1][2] ?? [];
+    expect(firstReasonPageButtons).toHaveLength(3);
+    expect(firstReasonPageButtons.map((button) => button.text)).toEqual([
+      'Changed my mind',
+      'Ordered by mistake',
+      'More reasons',
+    ]);
+
+    firstReasonPageButtons[2]?.onPress?.();
+
+    const secondReasonPageButtons = alertSpy.mock.calls[2][2] ?? [];
+    expect(secondReasonPageButtons).toHaveLength(3);
+    expect(secondReasonPageButtons.map((button) => button.text)).toEqual([
+      'Found a better price',
+      'Other',
+      'Back',
+    ]);
+
+    secondReasonPageButtons[0]?.onPress?.();
+    expect(onConfirm).toHaveBeenCalledWith('Found a better price');
   });
 
   it('confirms with the chosen reason when a reason button is pressed', () => {
