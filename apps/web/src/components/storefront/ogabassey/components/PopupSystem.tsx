@@ -133,6 +133,7 @@ export const PopupSystem: React.FC = () => {
                   id="newsletter-email"
                   name="email"
                   autoComplete="email"
+                  aria-label="Email address"
                   placeholder="Enter your email address"
                   className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600/20 focus:border-red-600 transition-all text-white placeholder:text-white/40 text-sm"
                 />

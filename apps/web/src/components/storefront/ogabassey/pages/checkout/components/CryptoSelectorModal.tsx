@@ -47,10 +47,17 @@ export function CryptoSelectorModal({
         <div className="p-6 space-y-6">
           {/* Currency Selection */}
           <div className="space-y-3">
-            <label className="text-sm font-bold text-gray-700">
+            <p
+              id="crypto-currency-label"
+              className="text-sm font-bold text-gray-700"
+            >
               Select Stablecoin
-            </label>
-            <div className="grid grid-cols-2 gap-3">
+            </p>
+            <div
+              className="grid grid-cols-2 gap-3"
+              role="group"
+              aria-labelledby="crypto-currency-label"
+            >
               {(['USDT', 'USDC'] as const).map((currency) => (
                 <button
                   key={currency}
@@ -77,10 +84,17 @@ export function CryptoSelectorModal({
 
           {/* Network Selection */}
           <div className="space-y-3">
-            <label className="text-sm font-bold text-gray-700">
+            <p
+              id="crypto-network-label"
+              className="text-sm font-bold text-gray-700"
+            >
               Select Network
-            </label>
-            <div className="grid grid-cols-2 gap-3">
+            </p>
+            <div
+              className="grid grid-cols-2 gap-3"
+              role="group"
+              aria-labelledby="crypto-network-label"
+            >
               {CRYPTO_CHAIN_SUPPORT[selectedCryptoCurrency].map((chain) => (
                 <button
                   key={chain}

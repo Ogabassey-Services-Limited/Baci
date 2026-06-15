@@ -472,6 +472,7 @@ function ColorSwatch({
             onChange={(e) => onChange(e.target.value)}
             className="size-10 rounded border cursor-pointer"
             style={{ padding: '2px' }}
+            aria-label={label}
           />
         </div>
         <Input

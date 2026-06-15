@@ -519,9 +519,9 @@ export const ProductDetails: React.FC = () => {
                 missingFields.length === 0) &&
                 productData.colors && (
                   <div>
-                    <label className="text-sm font-bold text-gray-900 block mb-3">
+                    <span className="text-sm font-bold text-gray-900 block mb-3">
                       Color
-                    </label>
+                    </span>
                     <div className="flex flex-wrap gap-4">
                       {productData.colors.map((color, idx) => {
                         const isSelected = selectedColor === idx;
@@ -575,9 +575,9 @@ export const ProductDetails: React.FC = () => {
                 missingFields.length === 0) &&
                 productData.storage && (
                   <div>
-                    <label className="text-sm font-bold text-gray-900 block mb-3">
+                    <span className="text-sm font-bold text-gray-900 block mb-3">
                       Storage
-                    </label>
+                    </span>
                     <div className="flex flex-wrap gap-3">
                       {productData.storage.map((size, idx) => (
                         <button type="button"

@@ -139,6 +139,7 @@ function TradeInModal({
                   className="hidden"
                   ref={fileInputRef}
                   onChange={handleFileChange}
+                  aria-label="Upload a video of your device"
                 />
 
                 {!videoFile ? (

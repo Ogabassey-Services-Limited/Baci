@@ -176,6 +176,7 @@ export const Navbar: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Search for phones, laptops, accessories..."
+                  aria-label="Search products"
                   className="w-full h-12 pl-12 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-store-primary focus:ring-2 focus:ring-store-primary/20 transition-all text-sm font-medium"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}

@@ -152,6 +152,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   merchantId,
 }) => {
   const offerInputId = useId();
+  const uploadFileInputId = useId();
+  const uploadLinkInputId = useId();
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
   const [message, setMessage] = useState('');
@@ -664,11 +666,15 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
               {/* File Upload */}
               <div>
-                <label className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2">
+                <label
+                  htmlFor={uploadFileInputId}
+                  className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
+                >
                   Upload Proof (Required)
                 </label>
                 <div className="relative">
                   <input
+                    id={uploadFileInputId}
                     type="file"
                     accept="image/*"
                     aria-label="Upload proof"
@@ -687,10 +693,14 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
               {/* Link (Optional) */}
               <div>
-                <label className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2">
+                <label
+                  htmlFor={uploadLinkInputId}
+                  className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
+                >
                   Link (Optional)
                 </label>
                 <input
+                  id={uploadLinkInputId}
                   type="url"
                   value={uploadLink}
                   onChange={(e) => setUploadLink(e.target.value)}

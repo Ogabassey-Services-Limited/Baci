@@ -32,7 +32,7 @@ const DeferredProductDetailsSections = dynamic(
 export function DeferredProductDetailsSectionsLoader(
   props: DeferredProductDetailsSectionsLoaderProps
 ) {
-  const { ref, isActive } = useViewportActivation<HTMLDivElement>({
+  const { ref, isActive } = useViewportActivation<HTMLOutputElement>({
     rootMargin: '200px 0px',
     timeoutMs: 0,
   });
@@ -40,13 +40,12 @@ export function DeferredProductDetailsSectionsLoader(
   const [isLoaded, setIsLoaded] = useState(false);
 
   return (
-    <div
+    <output
       ref={ref}
-      role="status"
       aria-live="polite"
       aria-busy={!isLoaded}
       aria-label={isLoaded ? 'Product details loaded' : 'Loading product details...'}
-      className="w-full"
+      className="block w-full"
     >
       {isActive ? (
         <DeferredProductDetailsSections
@@ -61,6 +60,6 @@ export function DeferredProductDetailsSectionsLoader(
           aria-label=""
         />
       )}
-    </div>
+    </output>
   );
 }

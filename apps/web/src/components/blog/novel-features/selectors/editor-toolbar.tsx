@@ -596,6 +596,7 @@ export const EditorToolbar = ({
       <input
         type="file"
         ref={fileInputRef}
+        aria-label="Upload image"
         className="hidden"
         accept="image/*"
         onChange={(e) => {

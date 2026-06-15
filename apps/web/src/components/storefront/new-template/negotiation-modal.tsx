@@ -109,11 +109,15 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'input' && (
             <form onSubmit={handleSubmit}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="negotiation-offer"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Your Offer (₦)
               </label>
               <div className="relative mb-6">
                 <input
+                  id="negotiation-offer"
                   type="number"
                   value={offer}
                   onChange={(e) => setOffer(e.target.value)}

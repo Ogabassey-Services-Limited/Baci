@@ -188,6 +188,9 @@ export const OgabasseyV2Security: React.FC = () => {
 
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={twoFactorEnabled}
+                  aria-label="Two-factor authentication via SMS"
                   onClick={() => setTwoFactorEnabled(!twoFactorEnabled)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${twoFactorEnabled ? 'bg-green-600' : 'bg-gray-200'}`}
                 >
@@ -339,11 +342,15 @@ export const OgabasseyV2Security: React.FC = () => {
               <form onSubmit={handleUpdatePassword} className="space-y-4">
                 {/* Current Password */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  <label
+                    htmlFor="security-current-password"
+                    className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide"
+                  >
                     Current Password
                   </label>
                   <div className="relative">
                     <input
+                      id="security-current-password"
                       type={showPassword.current ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
@@ -368,11 +375,15 @@ export const OgabasseyV2Security: React.FC = () => {
 
                 {/* New Password */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  <label
+                    htmlFor="security-new-password"
+                    className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide"
+                  >
                     New Password
                   </label>
                   <div className="relative">
                     <input
+                      id="security-new-password"
                       type={showPassword.new ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
@@ -397,11 +408,15 @@ export const OgabasseyV2Security: React.FC = () => {
 
                 {/* Confirm Password */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  <label
+                    htmlFor="security-confirm-password"
+                    className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide"
+                  >
                     Confirm Password
                   </label>
                   <div className="relative">
                     <input
+                      id="security-confirm-password"
                       type={showPassword.confirm ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}

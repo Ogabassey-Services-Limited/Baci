@@ -83,10 +83,14 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
               </p>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                <label
+                  htmlFor="source-request-product-name"
+                  className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5"
+                >
                   Product Name
                 </label>
                 <input
+                  id="source-request-product-name"
                   type="text"
                   required
                   value={formData.productName}
@@ -99,10 +103,14 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                <label
+                  htmlFor="source-request-details"
+                  className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5"
+                >
                   Additional Details
                 </label>
                 <textarea
+                  id="source-request-details"
                   value={formData.details}
                   onChange={(e) =>
                     setFormData({ ...formData, details: e.target.value })
@@ -113,10 +121,14 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                <label
+                  htmlFor="source-request-contact"
+                  className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5"
+                >
                   Contact Info
                 </label>
                 <input
+                  id="source-request-contact"
                   type="text"
                   required
                   value={formData.contact}

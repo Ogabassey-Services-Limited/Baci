@@ -809,6 +809,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
+                      aria-label="Quantity"
                       value={inputValue}
                       onChange={handleQuantityChange}
                       onBlur={handleQuantityBlur}
