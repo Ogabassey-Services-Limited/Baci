@@ -24,11 +24,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
-import { queryClient } from '@/lib/query-client';
-import {
-  asyncStorage as AsyncStorage,
-  removeStorageItems,
-} from '@/lib/storage';
+import { QUERY_CACHE_STORAGE_KEY, queryClient } from '@/lib/query-client';
+import { removeStorageItems } from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
 
 export default function SettingsScreen() {
@@ -87,18 +84,7 @@ export default function SettingsScreen() {
             try {
               queryClient.clear();
 
-              const allKeys = await AsyncStorage.getAllKeys();
-              const cacheKeys = allKeys.filter(
-                (key) =>
-                  !key.startsWith('supabase') &&
-                  key !== 'app-settings-storage' &&
-                  key !== 'app-theme-storage' &&
-                  key !== 'auth-storage'
-              );
-
-              if (cacheKeys.length > 0) {
-                await removeStorageItems(cacheKeys);
-              }
+              await removeStorageItems([QUERY_CACHE_STORAGE_KEY]);
 
               toast.success('Cache cleared successfully.');
             } catch {
