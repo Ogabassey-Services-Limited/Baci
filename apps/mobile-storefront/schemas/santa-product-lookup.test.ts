@@ -63,4 +63,36 @@ describe('santaProductLookupResponseSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects negative numeric product values', () => {
+    expect(
+      santaProductLookupResponseSchema.safeParse({
+        product: { id: 'prod-1', name: 'iPhone 15', price: -1, stock: 1 },
+      }).success
+    ).toBe(false);
+    expect(
+      santaProductLookupResponseSchema.safeParse({
+        product: { id: 'prod-1', name: 'iPhone 15', price: 1, stock: -1 },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects non-finite numeric product values', () => {
+    for (const value of [
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      Number.NaN,
+    ]) {
+      expect(
+        santaProductLookupResponseSchema.safeParse({
+          product: { id: 'prod-1', name: 'iPhone 15', price: value, stock: 1 },
+        }).success
+      ).toBe(false);
+      expect(
+        santaProductLookupResponseSchema.safeParse({
+          product: { id: 'prod-1', name: 'iPhone 15', price: 1, stock: value },
+        }).success
+      ).toBe(false);
+    }
+  });
 });

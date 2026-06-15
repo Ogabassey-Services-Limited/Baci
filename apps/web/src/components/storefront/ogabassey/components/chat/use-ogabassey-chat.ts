@@ -206,8 +206,9 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
 
   const handleAddSantaWishToCart = (messageIndex: number, actionIndex = 0) => {
     const message = messages[messageIndex];
-    const santaAction =
-      message?.santaActions?.[actionIndex] ?? message?.santaAction;
+    const santaAction = Array.isArray(message?.santaActions)
+      ? message.santaActions[actionIndex]
+      : message?.santaAction;
     if (!santaAction || santaAction.added) return;
 
     const santaProduct = {
@@ -238,7 +239,7 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
               ...msg,
               // TODO(santa-actions): remove the legacy singular update once
               // all Ogabassey chat consumers read only `santaActions`.
-              santaAction: msg.santaAction
+              santaAction: !msg.santaActions && msg.santaAction
                 ? { ...msg.santaAction, added: true }
                 : msg.santaAction,
               santaActions: msg.santaActions?.map((action, index) =>

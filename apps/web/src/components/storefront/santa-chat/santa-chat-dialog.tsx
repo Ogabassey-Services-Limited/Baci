@@ -102,9 +102,20 @@ async function streamSantaReply({
     const actions = parseSantaActions(assistantContent);
     if (actions.length > 0 && !processedActionsRef.current.has(assistantId)) {
       processedActionsRef.current.add(assistantId);
-      for (const action of actions) {
-        await onCartAction(action.productName, action.price);
-      }
+      const actionResults = await Promise.allSettled(
+        actions.map((action) => onCartAction(action.productName, action.price))
+      );
+
+      actionResults.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const action = actions[index];
+          console.error('[Santa Cart] Action failed:', {
+            productName: action?.productName,
+            price: action?.price,
+            reason: result.reason,
+          });
+        }
+      });
     }
   }
 }

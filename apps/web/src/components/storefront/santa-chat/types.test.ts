@@ -73,4 +73,9 @@ describe('parseSantaActions', () => {
       { type: 'ADD_TO_CART', productName: 'Case', price: 12000 },
     ]);
   });
+
+  it('returns an empty array when directives are missing or malformed', () => {
+    expect(parseSantaActions('Hello Santa!')).toEqual([]);
+    expect(parseSantaActions('ACTION:ADD_TO_CART|PRODUCT:Phone')).toEqual([]);
+  });
 });

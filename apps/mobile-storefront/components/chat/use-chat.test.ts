@@ -381,7 +381,7 @@ describe('useChat', () => {
       const aiMsg = result.current.messages.find(
         (m) => m.role === 'model' && m.id.startsWith('ai-')
       );
-      expect(aiMsg?.text).toBe('Granted  and');
+      expect(aiMsg?.text).toBe('Granted and');
     });
   });
 

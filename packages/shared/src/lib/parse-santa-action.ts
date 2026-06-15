@@ -31,7 +31,7 @@ const SANTA_ACTION_CURRENCY_CODES = [
 
 const SANTA_ACTION_CURRENCY_PATTERN = SANTA_ACTION_CURRENCY_CODES.join('|');
 
-const SANTA_ACTION_PATTERN_SOURCE = String.raw`ACTION:ADD_TO_CART\|PRODUCT:([^|]+)\|PRICE:\s*(\d[\d,]*(?:\.\d+)?)(?:\s*(?:${SANTA_ACTION_CURRENCY_PATTERN}))?[.,!?;:]*`;
+const SANTA_ACTION_PATTERN_SOURCE = String.raw`ACTION:ADD_TO_CART\|PRODUCT:([^|]+)\|PRICE:\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(?:\s*(?:${SANTA_ACTION_CURRENCY_PATTERN}))?[.,!?;:]*(?![\d,])`;
 
 const SANTA_ACTION_PATTERN = new RegExp(SANTA_ACTION_PATTERN_SOURCE, 'i');
 const SANTA_ACTION_GLOBAL_PATTERN = new RegExp(
@@ -79,5 +79,9 @@ export function parseSantaAction(content: string): SantaAction | null {
  * never shows the raw `ACTION:...` machinery.
  */
 export function stripSantaActions(content: string): string {
-  return content.replace(SANTA_ACTION_GLOBAL_PATTERN, '').trim();
+  return content
+    .replace(SANTA_ACTION_GLOBAL_PATTERN, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([.,!?;:])/g, '$1')
+    .trim();
 }

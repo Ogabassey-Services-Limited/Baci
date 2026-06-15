@@ -67,6 +67,12 @@ describe('parseSantaAction', () => {
       parseSantaAction('ACTION:ADD_TO_CART|PRODUCT:Samsung Galaxy S24')
     ).toBeNull();
   });
+
+  it('returns null for malformed thousands grouping', () => {
+    expect(
+      parseSantaAction('ACTION:ADD_TO_CART|PRODUCT:Case|PRICE:12,34')
+    ).toBeNull();
+  });
 });
 
 describe('parseSantaActions', () => {
@@ -81,8 +87,12 @@ describe('parseSantaActions', () => {
     ]);
   });
 
-  it('returns an empty array when no directives are present', () => {
+  it('returns an empty array when directives are missing or malformed', () => {
     expect(parseSantaActions('Just a friendly reply')).toEqual([]);
+    expect(parseSantaActions('ACTION:ADD_TO_CART|PRODUCT:Phone')).toEqual([]);
+    expect(
+      parseSantaActions('ACTION:ADD_TO_CART|PRODUCT:Case|PRICE:12,34')
+    ).toEqual([]);
   });
 });
 
@@ -105,21 +115,21 @@ describe('stripSantaActions', () => {
     const stripped = stripSantaActions(
       'Granted ACTION:ADD_TO_CART|PRODUCT:iPhone 15|PRICE:850000NGN. Enjoy it.'
     );
-    expect(stripped).toBe('Granted  Enjoy it.');
+    expect(stripped).toBe('Granted Enjoy it.');
   });
 
   it('removes directives with decimal prices and lowercase spaced currency text', () => {
     const stripped = stripSantaActions(
       'Granted ACTION:ADD_TO_CART|PRODUCT:iPhone 15|PRICE:850000.00 ngn. Enjoy it.'
     );
-    expect(stripped).toBe('Granted  Enjoy it.');
+    expect(stripped).toBe('Granted Enjoy it.');
   });
 
   it('removes directives with decimal prices and uppercase spaced currency text', () => {
     const stripped = stripSantaActions(
       'Granted ACTION:ADD_TO_CART|PRODUCT:iPhone 15|PRICE:850000.00 NGN. Enjoy it.'
     );
-    expect(stripped).toBe('Granted  Enjoy it.');
+    expect(stripped).toBe('Granted Enjoy it.');
   });
 
   it('preserves attached prose after a directive when Santa omits a space', () => {
