@@ -5,7 +5,6 @@ import {
   isRemoteEvidenceUrl,
   MAX_NEGOTIATION_EVIDENCE_BYTES,
   NEGOTIATION_EVIDENCE_BUCKET,
-  NEGOTIATION_EVIDENCE_SIGNED_URL_TTL_SECONDS,
   uploadNegotiationEvidence,
 } from './negotiation-evidence';
 
@@ -59,13 +58,6 @@ describe('negotiation evidence helpers', () => {
 
 describe('uploadNegotiationEvidence', () => {
   const upload = jest.fn<() => Promise<{ error: Error | null }>>();
-  const createSignedUrl =
-    jest.fn<
-      () => Promise<{
-        data: { signedUrl: string } | null;
-        error: Error | null;
-      }>
-    >();
   const from = supabase.storage.from as jest.MockedFunction<
     typeof supabase.storage.from
   >;
@@ -73,11 +65,7 @@ describe('uploadNegotiationEvidence', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     upload.mockResolvedValue({ error: null });
-    createSignedUrl.mockResolvedValue({
-      data: { signedUrl: 'https://signed.example.com/proof.png?token=abc' },
-      error: null,
-    });
-    from.mockReturnValue({ upload, createSignedUrl } as never);
+    from.mockReturnValue({ upload } as never);
     globalThis.fetch = jest.fn(async () => ({
       ok: true,
       blob: async () => createBlobLike(),
@@ -102,10 +90,10 @@ describe('uploadNegotiationEvidence', () => {
     expect(from).not.toHaveBeenCalled();
   });
 
-  it('uploads local image evidence and returns a signed URL', async () => {
+  it('uploads local image evidence and returns the durable storage path', async () => {
     await expect(
       uploadNegotiationEvidence('file:///tmp/proof.png', 'merchant-1')
-    ).resolves.toBe('https://signed.example.com/proof.png?token=abc');
+    ).resolves.toMatch(/^merchant-1\/\d+-[a-z0-9]+\.png$/);
 
     expect(fetch).toHaveBeenCalledWith('file:///tmp/proof.png');
     expect(from).toHaveBeenCalledWith(NEGOTIATION_EVIDENCE_BUCKET);
@@ -113,10 +101,6 @@ describe('uploadNegotiationEvidence', () => {
       expect.stringMatching(/^merchant-1\/\d+-[a-z0-9]+\.png$/),
       expect.any(ArrayBuffer),
       { contentType: 'image/png', upsert: false }
-    );
-    expect(createSignedUrl).toHaveBeenCalledWith(
-      expect.stringMatching(/^merchant-1\/\d+-[a-z0-9]+\.png$/),
-      NEGOTIATION_EVIDENCE_SIGNED_URL_TTL_SECONDS
     );
   });
 
@@ -186,17 +170,6 @@ describe('uploadNegotiationEvidence', () => {
       uploadNegotiationEvidence('file:///tmp/proof.png', 'merchant-1')
     ).rejects.toThrow('upload failed');
 
-    expect(createSignedUrl).not.toHaveBeenCalled();
   });
 
-  it('throws when signed URL creation fails', async () => {
-    createSignedUrl.mockResolvedValue({
-      data: null,
-      error: new Error('signed URL failed'),
-    });
-
-    await expect(
-      uploadNegotiationEvidence('file:///tmp/proof.png', 'merchant-1')
-    ).rejects.toThrow('signed URL failed');
-  });
 });

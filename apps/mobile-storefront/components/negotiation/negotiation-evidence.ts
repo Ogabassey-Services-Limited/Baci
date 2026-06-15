@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase';
 
 export const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
-export const NEGOTIATION_EVIDENCE_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
 export const MAX_NEGOTIATION_EVIDENCE_BYTES = 10 * 1024 * 1024;
 
 const ALLOWED_NEGOTIATION_EVIDENCE_TYPES = new Set([
@@ -93,17 +92,8 @@ export async function uploadNegotiationEvidence(
     throw uploadError;
   }
 
-  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-    .from(NEGOTIATION_EVIDENCE_BUCKET)
-    .createSignedUrl(filePath, NEGOTIATION_EVIDENCE_SIGNED_URL_TTL_SECONDS);
-
-  if (signedUrlError) {
-    throw signedUrlError;
-  }
-
-  if (!signedUrlData?.signedUrl) {
-    throw new Error('Failed to create evidence access URL');
-  }
-
-  return signedUrlData.signedUrl;
+  // Persist the durable Storage object path, not a Supabase signed URL.
+  // Signed URLs expire by design; merchant review screens should mint a fresh
+  // URL from this path when evidence viewing is implemented.
+  return filePath;
 }
