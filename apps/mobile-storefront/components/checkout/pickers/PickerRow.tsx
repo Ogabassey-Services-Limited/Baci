@@ -43,6 +43,8 @@ export function PickerRow({
               fontWeight: isSelected ? '700' : '500',
             },
           ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           {item}
         </Text>
