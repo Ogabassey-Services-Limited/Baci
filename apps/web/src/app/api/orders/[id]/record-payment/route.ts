@@ -396,12 +396,25 @@ export async function POST(
         // entirely, but it's an inconsistent state.
       } else if (isOrderClampedAsCancelled(updatedOrder)) {
         orderCancelledByClamp = true;
+        // Link the reconciliation row to the transaction just recorded (matched
+        // by reference) so ops can trace the captured money. Falls back to null
+        // for a referenceless manual/cash payment.
+        let recordedTransactionId: string | null = null;
+        if (reference) {
+          const { data: recordedTransaction } = await supabase
+            .from('transactions')
+            .select('id')
+            .eq('order_id', id)
+            .eq('gateway_reference', reference)
+            .maybeSingle();
+          recordedTransactionId = recordedTransaction?.id ?? null;
+        }
         await handlePaymentForCancelledOrder({
           gatewayReference: reference ?? null,
           order: updatedOrder ?? { id },
           reason:
             'Manual payment recorded for an order cancelled by the customer before finalization',
-          transactionId: null,
+          transactionId: recordedTransactionId,
         });
       }
     }

@@ -315,25 +315,10 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // The prevent_cancelled_order_reopen trigger clamped this reopen:
-        // suppress the paid transaction record, push, and confirmation email,
-        // and file a reconciliation row. Ack Credit Direct with 200.
-        if (updatedOrder && isOrderClampedAsCancelled(updatedOrder)) {
-          await handlePaymentForCancelledOrder({
-            gatewayReference: payload.checkoutTransactionId,
-            order: updatedOrder,
-            reason:
-              'Credit Direct payment captured for an order cancelled before finalization',
-            transactionId: null,
-          });
-
-          return NextResponse.json({
-            received: true,
-            message: 'Order was cancelled; payment filed for review',
-          });
-        }
-
-        // Idempotency check: Skip if transaction already exists (webhook retry)
+        // Record the captured Credit Direct money first (idempotent), so the
+        // disbursed BNPL funds are persisted whether or not the order was
+        // cancelled before this webhook landed.
+        let recordedTransactionId: string | null = null;
         const { data: existingTx } = await supabase
           .from('transactions')
           .select('id')
@@ -342,6 +327,7 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (existingTx) {
+          recordedTransactionId = existingTx.id;
           logger.info({
             message: 'Credit Direct transaction already processed (idempotent)',
             transactionId: payload.checkoutTransactionId,
@@ -349,7 +335,7 @@ export async function POST(request: NextRequest) {
           });
         } else {
           // Create transaction record
-          const { error: txError } = await supabase
+          const { data: insertedTx, error: txError } = await supabase
             .from('transactions')
             .insert({
               merchant_id: order.merchant_id,
@@ -363,7 +349,9 @@ export async function POST(request: NextRequest) {
               gateway_response: payload,
               platform_fee: platformFee,
               merchant_amount: merchantAmount,
-            });
+            })
+            .select('id')
+            .single();
 
           if (txError) {
             logger.error({
@@ -371,7 +359,27 @@ export async function POST(request: NextRequest) {
               error: txError,
             });
             // Don't fail the webhook - order is already updated
+          } else {
+            recordedTransactionId = insertedTx?.id ?? null;
           }
+        }
+
+        // The prevent_cancelled_order_reopen trigger clamped this reopen:
+        // suppress the push + confirmation email and file a reconciliation row
+        // linked to the recorded (disbursed) transaction. Ack Credit Direct 200.
+        if (updatedOrder && isOrderClampedAsCancelled(updatedOrder)) {
+          await handlePaymentForCancelledOrder({
+            gatewayReference: payload.checkoutTransactionId,
+            order: updatedOrder,
+            reason:
+              'Credit Direct payment captured for an order cancelled before finalization',
+            transactionId: recordedTransactionId,
+          });
+
+          return NextResponse.json({
+            received: true,
+            message: 'Order was cancelled; payment filed for review',
+          });
         }
 
         // Notify merchant of new order and payment (non-blocking)

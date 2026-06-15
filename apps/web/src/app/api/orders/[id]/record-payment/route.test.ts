@@ -1739,6 +1739,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
           eq: vi.fn().mockReturnThis(),
           in: vi.fn().mockReturnThis(),
           insert: vi.fn().mockReturnThis(),
+          // The clamp path looks up the recorded transaction id by reference.
+          maybeSingle: vi
+            .fn()
+            .mockResolvedValue({ data: { id: 'txn-new' }, error: null }),
         };
         if (txnQueryCount === 1) {
           Object.assign(chain, Promise.resolve({ data: [], error: null }));
@@ -1772,6 +1776,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
       expect.objectContaining({
         issue_type: 'payment_received_after_cancellation',
         order_id: mockOrderId,
+        // N5: the reconciliation row is linked to the recorded transaction.
+        txn_id: 'txn-new',
       })
     );
   });

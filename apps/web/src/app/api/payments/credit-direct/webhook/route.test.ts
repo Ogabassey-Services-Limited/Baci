@@ -816,10 +816,12 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           });
           return txCheckChain;
         } else if (fromCallCount === 4) {
-          // Fourth from('transactions') - insert tx
+          // Fourth from('transactions') - insert tx (chains .select('id').single())
           const txInsertChain = { ...mockChain };
-          txInsertChain.insert = vi.fn().mockResolvedValue({
-            data: null,
+          txInsertChain.insert = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.select = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.single = vi.fn().mockResolvedValue({
+            data: { id: 'cd-txn-1' },
             error: null,
           });
           return txInsertChain;
@@ -854,9 +856,7 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       const supabaseMock = createMockSupabaseClient();
       vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
 
-      const transactionInsert = vi
-        .fn()
-        .mockResolvedValue({ data: null, error: null });
+      const transactionInsert = vi.fn().mockReturnThis();
       const mockChain = supabaseMock.from('orders');
 
       let fromCallCount = 0;
@@ -889,8 +889,26 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           });
           return updateChain;
         }
+        if (fromCallCount === 3) {
+          // existing-transaction idempotency check (none found)
+          const txCheckChain = { ...mockChain };
+          txCheckChain.select = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.eq = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.single = vi
+            .fn()
+            .mockResolvedValue({ data: null, error: null });
+          return txCheckChain;
+        }
         if (table === 'transactions') {
-          return { ...mockChain, insert: transactionInsert };
+          // insert tx — the disbursed BNPL money is recorded even though the
+          // order is cancelled; chains .select('id').single().
+          const txInsertChain = { ...mockChain };
+          txInsertChain.insert = transactionInsert;
+          txInsertChain.select = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.single = vi
+            .fn()
+            .mockResolvedValue({ data: { id: 'cd-txn-1' }, error: null });
+          return txInsertChain;
         }
         return mockChain;
       });
@@ -904,13 +922,15 @@ describe('POST /api/payments/credit-direct/webhook', () => {
         received: true,
         message: 'Order was cancelled; payment filed for review',
       });
-      // No paid transaction record was inserted
-      expect(transactionInsert).not.toHaveBeenCalled();
-      // Reconciliation row WAS filed through the service-role admin client.
+      // The disbursed BNPL transaction IS recorded (N4) so the money is tracked.
+      expect(transactionInsert).toHaveBeenCalled();
+      // Reconciliation row WAS filed through the service-role admin client,
+      // linked to the recorded transaction.
       expect(mockReconciliationInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           issue_type: 'payment_received_after_cancellation',
           order_id: 'order_abc',
+          txn_id: 'cd-txn-1',
         })
       );
     });
