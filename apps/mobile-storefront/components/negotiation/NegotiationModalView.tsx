@@ -5,7 +5,6 @@ import {
   Modal,
   Pressable,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
@@ -20,6 +19,7 @@ import type {
 } from './NegotiationModalView.types';
 import { NegotiationOfferForm } from './NegotiationOfferForm';
 import { NegotiationProductSummary } from './NegotiationProductSummary';
+import { NegotiationUploadForm } from './NegotiationUploadForm';
 import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
 import { validateNegotiationOffer } from './negotiation-validators';
 
@@ -236,52 +236,15 @@ export function NegotiationModalView({
             )}
 
             {status === 'upload' && (
-              <Animated.View entering={FadeIn.duration(200)}>
-                <Text style={styles.inputLabel}>
-                  Share proof of a lower price
-                </Text>
-                <Text style={styles.uploadHelp}>{message}</Text>
-                <View style={styles.uploadInfoBox}>
-                  <Text style={styles.uploadInfoText}>
-                    Add a screenshot or link and the merchant will review it.
-                  </Text>
-                </View>
-                <Pressable style={styles.uploadButton} onPress={onPickImage}>
-                  <Ionicons name="image-outline" size={18} color="#111827" />
-                  <Text style={styles.uploadButtonText}>
-                    {uploadFile ? 'Change Photo' : 'Upload Photo'}
-                  </Text>
-                </Pressable>
-                {uploadFile ? (
-                  <Text style={styles.selectedFileText}>Photo attached</Text>
-                ) : null}
-                <Text style={styles.orText}>OR</Text>
-                <TextInput
-                  style={styles.linkInput}
-                  value={uploadLink}
-                  onChangeText={onUploadLinkChange}
-                  placeholder="Paste competitor product URL"
-                  placeholderTextColor={palette.gray[400]}
-                  autoCapitalize="none"
-                />
-                <View style={styles.uploadActions}>
-                  <Pressable
-                    style={styles.backButton}
-                    onPress={onBackFromUpload}
-                  >
-                    <Text style={styles.backButtonText}>Back</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.sendReviewButton}
-                    onPress={onUploadSubmit}
-                  >
-                    <Ionicons name="cloud-upload" size={16} color="#FFF" />
-                    <Text style={styles.sendReviewButtonText}>
-                      Send for Review
-                    </Text>
-                  </Pressable>
-                </View>
-              </Animated.View>
+              <NegotiationUploadForm
+                message={message}
+                uploadFile={uploadFile}
+                uploadLink={uploadLink}
+                onPickImage={onPickImage}
+                onUploadLinkChange={onUploadLinkChange}
+                onBackFromUpload={onBackFromUpload}
+                onUploadSubmit={onUploadSubmit}
+              />
             )}
 
             {status === 'submitted' && (

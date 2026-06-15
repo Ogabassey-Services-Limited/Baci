@@ -11,9 +11,7 @@ import type { NegotiationStatus } from './NegotiationModalView';
 import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
 import {
   createNegotiationSessionId,
-  extractNegotiationFileExtension,
-  isRemoteEvidenceUrl,
-  NEGOTIATION_EVIDENCE_BUCKET,
+  uploadNegotiationEvidence,
 } from './negotiation-evidence';
 import {
   ensureNegotiationNativeModules,
@@ -155,43 +153,6 @@ export function useNegotiationModalController({
     onAcceptedPrice?.(counterOffer);
   };
 
-  const uploadEvidenceImage = async (fileUri: string) => {
-    if (isRemoteEvidenceUrl(fileUri)) {
-      return fileUri;
-    }
-
-    if (!merchantId) {
-      throw new Error('Missing merchant id');
-    }
-
-    const response = await fetch(fileUri);
-    if (!response.ok) {
-      throw new Error(`Failed to read evidence file: ${response.status}`);
-    }
-
-    const blob = await response.blob();
-    const extension = extractNegotiationFileExtension(fileUri, blob.type);
-    const filePath = `${merchantId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
-    const body = await blob.arrayBuffer();
-
-    const { error: uploadError } = await supabase.storage
-      .from(NEGOTIATION_EVIDENCE_BUCKET)
-      .upload(filePath, body, {
-        contentType: blob.type || 'image/jpeg',
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    const { data } = supabase.storage
-      .from(NEGOTIATION_EVIDENCE_BUCKET)
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
-  };
-
   const submitMerchantRequest = async (evidenceUrl?: string) => {
     if (!merchantId) {
       Alert.alert('Error', 'Unable to identify merchant. Please try again.');
@@ -256,7 +217,7 @@ export function useNegotiationModalController({
     try {
       let evidenceUrl = normalizedLink;
       if (!evidenceUrl && uploadFile) {
-        evidenceUrl = await uploadEvidenceImage(uploadFile);
+        evidenceUrl = await uploadNegotiationEvidence(uploadFile, merchantId);
       }
       await submitMerchantRequest(evidenceUrl || undefined);
     } catch (error) {
