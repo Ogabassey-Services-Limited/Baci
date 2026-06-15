@@ -26,7 +26,7 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { queryClient } from '@/lib/query-client';
 import { asyncStorage, removeStorageItems } from '@/lib/storage';
-import { getClearableCacheStorageKeys } from './clear-cache-keys';
+import { getClearableCacheStorageKeys } from '@/components/settings/clear-cache-keys';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
 
 export default function SettingsScreen() {
