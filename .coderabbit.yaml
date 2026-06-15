@@ -26,7 +26,6 @@ reviews:
     - "!**/*.gen.ts"
     - "!**/database.types.ts"
     - "!**/*.d.ts"
-    - "!supabase/migrations-archive/**"
     - "!apps/**/android/app/build/**"
     - "!apps/**/ios/Pods/**"
     - "!apps/**/ios/build/**"
