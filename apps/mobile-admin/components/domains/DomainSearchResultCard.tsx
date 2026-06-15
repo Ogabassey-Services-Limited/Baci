@@ -10,21 +10,46 @@ const DOMAIN_PRICE_LOCALE_BY_CURRENCY: Record<string, string> = {
   USD: 'en-US',
 };
 
-function formatDomainPrice(price: number, currency: string): string {
-  const locale = DOMAIN_PRICE_LOCALE_BY_CURRENCY[currency] ?? 'en-US';
+const domainCurrencyFormatterCache = new Map<string, Intl.NumberFormat>();
+const domainNumberFormatterCache = new Map<string, Intl.NumberFormat>();
 
-  try {
-    return new Intl.NumberFormat(locale, {
+function getDomainCurrencyFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = domainCurrencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(price);
-  } catch {
-    const formattedNumber = new Intl.NumberFormat(locale, {
+    });
+    domainCurrencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
+function getDomainNumberFormatter(locale: string): Intl.NumberFormat {
+  let formatter = domainNumberFormatterCache.get(locale);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(price);
+    });
+    domainNumberFormatterCache.set(locale, formatter);
+  }
+  return formatter;
+}
+
+function formatDomainPrice(price: number, currency: string): string {
+  const locale = DOMAIN_PRICE_LOCALE_BY_CURRENCY[currency] ?? 'en-US';
+
+  try {
+    return getDomainCurrencyFormatter(locale, currency).format(price);
+  } catch {
+    const formattedNumber = getDomainNumberFormatter(locale).format(price);
     return currency ? `${currency} ${formattedNumber}` : formattedNumber;
   }
 }

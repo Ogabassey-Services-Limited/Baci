@@ -2,6 +2,8 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 
+const quantityFormatter = new Intl.NumberFormat();
+
 interface ProductStockControlsProps {
   colors: ThemeColors;
   lowStockThreshold: number;
@@ -38,9 +40,7 @@ export function ProductStockControls({
               },
             ]}
             value={
-              stockQuantity === 0
-                ? ''
-                : new Intl.NumberFormat().format(stockQuantity)
+              stockQuantity === 0 ? '' : quantityFormatter.format(stockQuantity)
             }
             onChangeText={(text) => {
               const nextValue = Number.parseInt(text.replace(/,/g, ''), 10);

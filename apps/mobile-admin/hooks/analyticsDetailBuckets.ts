@@ -38,6 +38,22 @@ interface BucketDateParts {
 
 const validTimezones = new Set<string>();
 const invalidTimezones = new Set<string>();
+const bucketFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getBucketFormatter(timezone: string): Intl.DateTimeFormat {
+  let formatter = bucketFormatterCache.get(timezone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      weekday: 'short',
+      month: 'short',
+      hourCycle: 'h23',
+    });
+    bucketFormatterCache.set(timezone, formatter);
+  }
+  return formatter;
+}
 
 function getBucketDateParts(
   date: Date,
@@ -57,13 +73,7 @@ function getBucketDateParts(
 
   try {
     validTimezones.add(timezone);
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      hour: 'numeric',
-      weekday: 'short',
-      month: 'short',
-      hourCycle: 'h23',
-    });
+    const formatter = getBucketFormatter(timezone);
     const parts = formatter.formatToParts(date);
     const hour = Number(parts.find((part) => part.type === 'hour')?.value);
     const weekdayLabel = parts.find((part) => part.type === 'weekday')?.value;

@@ -3,6 +3,8 @@ import type { ThemeColors } from '@/constants/theme';
 import { PriceInput } from './PriceInput';
 import { calculateProfitMargin } from './product-edit.helpers';
 
+const profitNumberFormatter = new Intl.NumberFormat();
+
 interface ProductPricingCardProps {
   colors: ThemeColors;
   costPrice: number;
@@ -65,7 +67,7 @@ export function ProductPricingCard({
         {profit.active ? (
           <Text style={[styles.profitValue, { color: profit.color }]}>
             {currencySymbol}
-            {new Intl.NumberFormat().format(price - costPrice)} (
+            {profitNumberFormatter.format(price - costPrice)} (
             {profit.percentage})
           </Text>
         ) : (
