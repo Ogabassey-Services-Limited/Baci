@@ -8,17 +8,24 @@ export interface VerifyResult {
   verified: boolean;
   customerName?: string;
   message: string;
+  requireValidationRef?: boolean;
+  validationReference?: string;
 }
 
 const VerifyResultSchema = z.object({
   verified: z.boolean(),
   customerName: z.string().optional(),
   message: z.string(),
+  requireValidationRef: z.boolean().optional(),
+  validationReference: z.string().optional(),
 });
 
 interface VerifyParams {
   billItemIdentifier: string;
+  billerCode?: string;
   customerIdentifier: string;
+  productCode?: string;
+  provider?: 'kuda' | 'monnify';
 }
 
 /**

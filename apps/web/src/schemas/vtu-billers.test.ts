@@ -136,6 +136,9 @@ describe('vtu biller schemas', () => {
     expect(
       monnifySupportedCategorySchema.safeParse('electricity').success
     ).toBe(true);
+    expect(monnifySupportedCategorySchema.safeParse('data').success).toBe(
+      false
+    );
     expect(monnifySupportedCategorySchema.safeParse('betting').success).toBe(
       false
     );

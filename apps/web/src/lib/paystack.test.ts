@@ -117,6 +117,18 @@ describe('paystack helpers', () => {
     }
   });
 
+  it('rejects non-integer Paystack kobo amounts before converting to NGN', async () => {
+    const { getPaystackRequestedAmountNgn } = await import('@/lib/paystack');
+
+    expect(getPaystackRequestedAmountNgn({ amount: 100_000.5 })).toBeNull();
+    expect(
+      getPaystackRequestedAmountNgn({
+        amount: 314_721,
+        requested_amount: 300_000.5,
+      })
+    ).toBeNull();
+  });
+
   it('creates wallet DVAs with merchant subaccount and explicit test-bank flag', async () => {
     // The explicit flag keeps test-bank routing intentional instead of inferring it from the secret-key prefix.
     vi.stubEnv('PAYSTACK_WALLET_DVA_USE_TEST_BANK', 'true');

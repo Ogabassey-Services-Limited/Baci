@@ -6,7 +6,10 @@ import {
   upsertPaystackAuthorization,
 } from '@/lib/customer-saved-payment-methods';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
-import { verifyTransaction as verifyPaystackTransaction } from '@/lib/paystack';
+import {
+  getPaystackRequestedAmountNgn,
+  verifyTransaction as verifyPaystackTransaction,
+} from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
@@ -22,12 +25,16 @@ function getVerifiedAmount(
   gateway: 'paystack' | 'korapay',
   payload: Record<string, unknown>
 ) {
+  if (gateway === 'paystack') {
+    return getPaystackRequestedAmountNgn(payload);
+  }
+
   const rawAmount = payload.amount;
   if (typeof rawAmount !== 'number' || !Number.isFinite(rawAmount)) {
     return null;
   }
 
-  return gateway === 'paystack' ? rawAmount / 100 : rawAmount;
+  return rawAmount;
 }
 
 export async function POST(request: NextRequest) {
@@ -138,10 +145,13 @@ export async function POST(request: NextRequest) {
       parsed.data.gateway,
       verification.data
     );
-    if (
-      verifiedAmount != null &&
-      Math.abs(verifiedAmount - Number(transaction.amount)) > 0.01
-    ) {
+    if (verifiedAmount == null) {
+      return NextResponse.json(
+        { error: 'Payment amount could not be verified' },
+        { status: 400 }
+      );
+    }
+    if (Math.abs(verifiedAmount - Number(transaction.amount)) > 0.01) {
       return NextResponse.json(
         { error: 'Payment amount mismatch' },
         { status: 400 }
@@ -292,39 +302,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (fulfillment.status === 'processing') {
-      after(async () => {
-        try {
-          const { data: vtuTx, error: vtuTxError } = await supabase
-            .from('vtu_transactions')
-            .select(
-              'id, created_at, type, status, amount, network_provider, phone_number, biller_name, biller_item_code, customer_identifier, customer_name, request_reference, transaction_id, error_message, customer_cashback, metadata'
-            )
-            .eq('id', vtuTransactionId)
-            .single();
-
-          if (vtuTx && !vtuTxError) {
-            const txMetadata = normalizeMetadata(vtuTx.metadata);
-            const voucherPin = extractMetadataField(
-              txMetadata,
-              'voucherPin',
-              isString
-            );
-            await scheduleVoucherPinBackfill({
-              metadata: txMetadata,
-              originalMetadata: vtuTx.metadata,
-              supabase,
-              transaction: vtuTx,
-              voucherPin,
-            });
-          }
-        } catch (err) {
-          console.error(
-            'Failed to trigger background backfill in confirm/route.ts:',
-            err
-          );
-        }
-      });
-
       return NextResponse.json(
         { reference: fulfillment.reference, status: 'processing' },
         { status: 202 }
