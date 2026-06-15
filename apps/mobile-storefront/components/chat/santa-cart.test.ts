@@ -2,6 +2,7 @@ import type { SantaAction } from '@baci/shared/lib';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const mockAddItem = jest.fn();
+const mockLoggerError = jest.fn();
 const mockShowCartToast = jest.fn();
 const mockAbortSignal = new AbortController().signal;
 
@@ -16,7 +17,7 @@ jest.mock('@/hooks/cart-notifications', () => ({
 jest.mock('@/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
-    error: jest.fn(),
+    error: (...args: unknown[]) => mockLoggerError(...args),
     info: jest.fn(),
     warn: jest.fn(),
   }),
@@ -166,6 +167,21 @@ describe('addSantaWishToCart', () => {
       expect.stringContaining("couldn't find"),
       'error'
     );
+  });
+
+  it('returns false without a toast when the lookup request is aborted', async () => {
+    global.fetch = jest.fn(async () => {
+      const error = new Error('The request was aborted');
+      error.name = 'AbortError';
+      throw error;
+    }) as unknown as typeof fetch;
+
+    const result = await addSantaWishToCart(action, mockAbortSignal);
+
+    expect(result).toBe(false);
+    expect(mockAddItem).not.toHaveBeenCalled();
+    expect(mockLoggerError).not.toHaveBeenCalled();
+    expect(mockShowCartToast).not.toHaveBeenCalled();
   });
 
   it('returns false and surfaces an error toast when the lookup request fails', async () => {

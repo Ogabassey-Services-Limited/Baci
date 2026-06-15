@@ -16,7 +16,7 @@ export interface SantaAction {
   price: number;
 }
 
-const SANTA_ACTION_PATTERN_SOURCE = String.raw`ACTION:ADD_TO_CART\|PRODUCT:([^|]+)\|PRICE:(\d+(?:,\d+)*)(?:[^\s]*)?`;
+const SANTA_ACTION_PATTERN_SOURCE = String.raw`ACTION:ADD_TO_CART\|PRODUCT:([^|]+)\|PRICE:(\d+(?:,\d+)*)(?:[A-Z]{2,3})?[.,!?;:]*`;
 
 const SANTA_ACTION_PATTERN = new RegExp(SANTA_ACTION_PATTERN_SOURCE);
 const SANTA_ACTION_GLOBAL_PATTERN = new RegExp(

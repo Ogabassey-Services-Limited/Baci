@@ -86,6 +86,13 @@ describe('stripSantaActions', () => {
     expect(stripped).toBe('Granted  Enjoy it.');
   });
 
+  it('preserves attached prose after a directive when Santa omits a space', () => {
+    const stripped = stripSantaActions(
+      'Granted ACTION:ADD_TO_CART|PRODUCT:iPhone 15|PRICE:850000.Enjoy it.'
+    );
+    expect(stripped).toBe('Granted Enjoy it.');
+  });
+
   it('leaves text without a directive unchanged', () => {
     expect(stripSantaActions('Just a friendly reply')).toBe(
       'Just a friendly reply'

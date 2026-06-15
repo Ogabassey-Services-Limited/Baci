@@ -35,6 +35,10 @@ async function lookupSantaProduct(
   return parsed.data.product;
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
 function buildSantaCartItem(
   product: SantaProductLookupResult,
   grantedPrice: number
@@ -80,6 +84,10 @@ export async function addSantaWishToCart(
     showCartToast(`🎁 ${product.name} added to your cart`, 'success');
     return true;
   } catch (error) {
+    if (isAbortError(error)) {
+      return false;
+    }
+
     log.error('Failed to add Santa wish to cart:', error);
     showCartToast('Could not add Santa’s gift to your cart', 'error');
     return false;
