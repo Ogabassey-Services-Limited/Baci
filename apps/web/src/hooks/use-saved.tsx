@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, type ReactNode, useContext, useState } from 'react';
+import { createContext, type ReactNode, use, useState } from 'react';
 
 interface SavedContextType {
   savedIds: Set<string>;
@@ -51,7 +51,7 @@ export function SavedProvider({ children }: { children: ReactNode }) {
 }
 
 export function useSaved() {
-  const context = useContext(SavedContext);
+  const context = use(SavedContext);
   if (context === undefined) {
     throw new Error('useSaved must be used within a SavedProvider');
   }
