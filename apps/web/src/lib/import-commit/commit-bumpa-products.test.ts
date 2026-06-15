@@ -166,6 +166,53 @@ describe('commitBumpaProducts', () => {
     consoleSpy.mockRestore();
   });
 
+  it('revalidates committed mutations even when a later row fails (partial import)', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
+    loadQuery.range.mockResolvedValue({ data: [], error: null });
+
+    // First insert commits; the second throws — the first slug is already live.
+    const insertOk = { insert: vi.fn().mockResolvedValue({ error: null }) };
+    const insertFail = {
+      insert: vi.fn().mockResolvedValue({ error: { message: 'boom' } }),
+    };
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertOk)
+        .mockReturnValueOnce(insertFail),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      commitBumpaProducts({
+        supabase,
+        merchantId: 'merchant-1',
+        importJobId: 'job-1',
+        products: [
+          createProduct({ externalSourceId: 'prod-1', title: 'Phone One' }),
+          createProduct({
+            externalSourceId: 'prod-2',
+            title: 'Phone Two',
+            sku: 'SKU-2',
+          }),
+        ],
+      })
+    ).rejects.toThrow('Failed to create imported product');
+
+    // The committed first product MUST still trigger revalidation (finally) so
+    // its live slug isn't left out of the slug-set until TTL and hard-404ed.
+    expect(mockRevalidateProducts).toHaveBeenCalledWith('merchant-1');
+  });
+
   it('throws when loading existing products fails', async () => {
     const loadQuery = {
       select: vi.fn(),

@@ -96,84 +96,90 @@ export async function commitBumpaProducts({
   let createdProducts = 0;
   let updatedProducts = 0;
 
-  for (const product of products) {
-    const existingProduct = productsByExternalId.get(product.externalSourceId);
-    const baseSlug =
-      generateProductSlug(product.title) || product.externalSourceId;
-    const slug = resolveUniqueSlug(
-      baseSlug,
-      usedSlugs,
-      existingProduct?.slug || null
-    );
-    const payload = {
-      merchant_id: merchantId,
-      name: product.title,
-      description: product.description,
-      price: product.price,
-      stock_quantity: product.stock,
-      stock: product.stock,
-      manage_stock: product.manageStock,
-      category: product.category,
-      sku: product.sku,
-      status: product.status,
-      slug,
-      images: buildProductImages(product),
-      image_small: product.images[0] || null,
-      image_large: product.images[0] || null,
-      external_source: product.sourcePlatform,
-      external_id: product.externalSourceId,
-      import_job_id: importJobId,
-      imported_at: new Date().toISOString(),
-      metadata: {
-        import_metadata: product.importMetadata,
-      },
-      created_at: product.sourceCreatedAt || undefined,
-      updated_at: product.sourceUpdatedAt || undefined,
-    };
+  try {
+    for (const product of products) {
+      const existingProduct = productsByExternalId.get(
+        product.externalSourceId
+      );
+      const baseSlug =
+        generateProductSlug(product.title) || product.externalSourceId;
+      const slug = resolveUniqueSlug(
+        baseSlug,
+        usedSlugs,
+        existingProduct?.slug || null
+      );
+      const payload = {
+        merchant_id: merchantId,
+        name: product.title,
+        description: product.description,
+        price: product.price,
+        stock_quantity: product.stock,
+        stock: product.stock,
+        manage_stock: product.manageStock,
+        category: product.category,
+        sku: product.sku,
+        status: product.status,
+        slug,
+        images: buildProductImages(product),
+        image_small: product.images[0] || null,
+        image_large: product.images[0] || null,
+        external_source: product.sourcePlatform,
+        external_id: product.externalSourceId,
+        import_job_id: importJobId,
+        imported_at: new Date().toISOString(),
+        metadata: {
+          import_metadata: product.importMetadata,
+        },
+        created_at: product.sourceCreatedAt || undefined,
+        updated_at: product.sourceUpdatedAt || undefined,
+      };
 
-    if (existingProduct) {
-      const { error: updateError } = await supabase
+      if (existingProduct) {
+        const { error: updateError } = await supabase
+          .from('products')
+          .update(payload)
+          .eq('id', existingProduct.id);
+
+        if (updateError) {
+          throw new Error(
+            `Failed to update imported product: ${updateError.message}`
+          );
+        }
+
+        updatedProducts += 1;
+        continue;
+      }
+
+      const { error: insertError } = await supabase
         .from('products')
-        .update(payload)
-        .eq('id', existingProduct.id);
-
-      if (updateError) {
+        .insert(payload);
+      if (insertError) {
         throw new Error(
-          `Failed to update imported product: ${updateError.message}`
+          `Failed to create imported product: ${insertError.message}`
         );
       }
 
-      updatedProducts += 1;
-      continue;
+      createdProducts += 1;
     }
-
-    const { error: insertError } = await supabase
-      .from('products')
-      .insert(payload);
-    if (insertError) {
-      throw new Error(
-        `Failed to create imported product: ${insertError.message}`
-      );
-    }
-
-    createdProducts += 1;
-  }
-
-  // Invalidate product caches so imported products are immediately reflected —
-  // including the crawl-budget product slug-set the proxy hard-404 relies on,
-  // which would otherwise omit freshly imported live slugs until the cache
-  // expires and 404 their PDPs. (This path bypassed revalidateProducts before.)
-  if (createdProducts > 0 || updatedProducts > 0) {
-    // Best-effort: revalidateTag requires a Next request/store context, which a
-    // background import worker may lack. Never let a missing context break the
-    // import — the slug-set still self-heals on its cacheLife expiry.
-    try {
-      revalidateProducts(merchantId);
-    } catch (error) {
-      console.error(
-        'Failed to revalidate product caches after import (non-fatal):',
-        error
-      );
+  } finally {
+    // Invalidate product caches so imported products are immediately reflected —
+    // including the crawl-budget product slug-set the proxy hard-404 relies on.
+    // In `finally` so that if a LATER row throws after earlier rows already
+    // committed, those committed slugs are still revalidated — otherwise a
+    // partially-imported live product would be absent from the slug-set (which
+    // the proxy hard-404 reads) and 404ed until the cacheLife TTL expires.
+    if (createdProducts > 0 || updatedProducts > 0) {
+      // Best-effort: revalidateTag requires a Next request/store context, which
+      // a background import worker may lack. Never let a missing context break
+      // the import — the slug-set still self-heals on its cacheLife expiry.
+      try {
+        revalidateProducts(merchantId);
+      } catch (error) {
+        console.error(
+          'Failed to revalidate product caches after import (non-fatal):',
+          error
+        );
+      }
     }
   }
 

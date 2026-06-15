@@ -601,6 +601,40 @@ describe('Middleware Proxy', () => {
       expect(missingMock).not.toHaveBeenCalled();
     });
 
+    it('hard-404s a confirmed-missing categoryless /products/{slug} PDP (getProductUrl fallback)', async () => {
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest('https://ogabassey.com/products/not-real');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(missingMock).toHaveBeenCalledWith(
+        expect.objectContaining({ productSlug: 'not-real' })
+      );
+    });
+
+    it('does not hard-404 an existing /products/{slug} PDP', async () => {
+      missingMock.mockResolvedValue(false);
+      const req = new NextRequest('https://ogabassey.com/products/iphone-15');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+    });
+
+    it('does not hard-404 the singular /product/{slug} legacy redirect route', async () => {
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest('https://ogabassey.com/product/whatever');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(missingMock).not.toHaveBeenCalled();
+    });
+
     it('does not hard-404 a UUID product URL (resolved by the page id lookup)', async () => {
       missingMock.mockResolvedValue(true);
       const req = new NextRequest(

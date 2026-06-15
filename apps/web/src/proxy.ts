@@ -1208,17 +1208,22 @@ async function resolveStorefrontPdpHardNotFound(
   // Path segments arrive percent-encoded (e.g. `dell-%E2%80%93-xps`); the DB
   // slug is decoded, so we MUST decode before comparing membership/reserved —
   // otherwise an encoded-but-real slug looks absent and gets falsely 404ed.
-  const categorySlug = safeDecodeSegment(contentSegments[0]);
+  const firstSegment = safeDecodeSegment(contentSegments[0]).toLowerCase();
   const productSlug = safeDecodeSegment(contentSegments[1]);
-  // The first segment must be a real category — non-PDP first segments (blog,
-  // account, my-account, receipts, pages, cart, checkout, …) have their own App
-  // Router pages (incl. `/my-account/[...path]` catch-alls) and must never be
-  // hard-404ed by the product membership check. Use the BROADER non-cacheable
-  // first-segment set, not just RESERVED, so authenticated route groups are
-  // excluded too.
+  // `/products/{slug}` (plural) is the categoryless PDP fallback that
+  // getProductUrl emits and the `(pdp)/products/[productSlug]` route serves — a
+  // real PDP surface, so it MUST be checked even though `products` is a reserved
+  // first segment. (The singular `/product/{slug}` is a legacy redirect, not a
+  // PDP, so it stays excluded below.)
+  const isProductsFallbackPdp = firstSegment === 'products';
+  // Otherwise the first segment must be a real category — non-PDP first segments
+  // (blog, account, my-account, receipts, pages, cart, checkout, …) have their
+  // own App Router pages (incl. `/my-account/[...path]` catch-alls) and must
+  // never be hard-404ed. Use the BROADER non-cacheable first-segment set, not
+  // just RESERVED, so authenticated route groups are excluded too.
   if (
-    !categorySlug ||
-    NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(categorySlug.toLowerCase())
+    !isProductsFallbackPdp &&
+    (!firstSegment || NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment))
   ) {
     return null;
   }
