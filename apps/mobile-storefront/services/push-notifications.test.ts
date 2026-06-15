@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const mockUpsert =
+const mockRpc =
   jest.fn<
     (...args: unknown[]) => Promise<{ error: null | { message: string } }>
   >();
-const mockFrom = jest.fn((_table: string) => ({ upsert: mockUpsert }));
 const mockLogger = {
   debug: jest.fn(),
   error: jest.fn(),
@@ -59,7 +58,7 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: mockFrom },
+  supabase: { rpc: mockRpc },
 }));
 
 const {
@@ -78,10 +77,10 @@ describe('savePushTokenToServer', () => {
     jest.clearAllMocks();
     mockCallOrder.length = 0;
     mockPlatformOS = 'ios';
-    mockUpsert.mockResolvedValue({ error: null });
+    mockRpc.mockResolvedValue({ error: null });
   });
 
-  it('trims token, user id, and merchant id before upserting', async () => {
+  it('trims the token and merchant id and registers via the RPC', async () => {
     const saved = await savePushTokenToServer(
       '  ExponentPushToken[fresh]  ',
       '  user-1  ',
@@ -89,14 +88,32 @@ describe('savePushTokenToServer', () => {
     );
 
     expect(saved).toBe(true);
-    expect(mockFrom).toHaveBeenCalledWith('push_tokens');
-    expect(mockUpsert).toHaveBeenCalledWith(
+    // user_id is intentionally not sent: the SECURITY DEFINER RPC pins it to
+    // auth.uid() server-side, so the client cannot register for another user.
+    expect(mockRpc).toHaveBeenCalledWith(
+      'register_push_token',
       expect.objectContaining({
-        token: 'ExponentPushToken[fresh]',
-        user_id: 'user-1',
-        merchant_id: 'merchant-1',
-      }),
-      { onConflict: 'token' }
+        p_token: 'ExponentPushToken[fresh]',
+        p_merchant_id: 'merchant-1',
+        p_platform: 'ios',
+        p_app_type: 'storefront',
+      })
+    );
+  });
+
+  it('returns false when the RPC reports an error', async () => {
+    mockRpc.mockResolvedValue({ error: { message: 'rls denied' } });
+
+    const saved = await savePushTokenToServer(
+      'ExponentPushToken[fresh]',
+      'user-1',
+      'merchant-1'
+    );
+
+    expect(saved).toBe(false);
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Failed to save push token:',
+      { message: 'rls denied' }
     );
   });
 
@@ -104,11 +121,11 @@ describe('savePushTokenToServer', () => {
     ['token', '', 'user-1', 'merchant-1'],
     ['user id', 'ExponentPushToken[fresh]', '   ', 'merchant-1'],
     ['merchant id', 'ExponentPushToken[fresh]', 'user-1', '\n\t'],
-  ])('returns false and skips upsert when %s is blank', async (_field, token, userId, merchantId) => {
+  ])('returns false and skips the RPC when %s is blank', async (_field, token, userId, merchantId) => {
     const saved = await savePushTokenToServer(token, userId, merchantId);
 
     expect(saved).toBe(false);
-    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
     expect(mockLogger.error).toHaveBeenCalledWith(
       'Refusing to save push token: empty token/userId/merchantId'
     );
