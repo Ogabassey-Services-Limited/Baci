@@ -92,4 +92,41 @@ describe('computeEligibleLineDiscount', () => {
       computeEligibleLineDiscount([line({ clientUnitPrice: 980, quantity: 2 })])
     ).toEqual({ totalDiscount: 43, rejectionCode: null });
   });
+
+  it('allows a non-negotiable line exactly 1 NGN below catalog (tolerance boundary)', () => {
+    // catalog 1000, client 999 → reduction 1 = PRICE_TOLERANCE (not > 1) → allowed
+    expect(
+      computeEligibleLineDiscount([
+        line({ negotiable: false, clientUnitPrice: 999 }),
+      ])
+    ).toEqual({ totalDiscount: 0, rejectionCode: null });
+  });
+
+  it('rejects a non-negotiable line 2 NGN below catalog (just past tolerance)', () => {
+    // catalog 1000, client 998 → reduction 2 > PRICE_TOLERANCE (1) → reject
+    expect(
+      computeEligibleLineDiscount([
+        line({ negotiable: false, clientUnitPrice: 998 }),
+      ])
+    ).toEqual({
+      totalDiscount: 0,
+      rejectionCode: 'non_negotiable_line_discounted',
+    });
+  });
+
+  it('returns a zero, non-rejecting result for an empty cart', () => {
+    expect(computeEligibleLineDiscount([])).toEqual({
+      totalDiscount: 0,
+      rejectionCode: null,
+    });
+  });
+
+  it('honors a custom maxRate override that admits a ~5% reduction', () => {
+    // catalog 1000, client 950 → reduction 50; maxReduction = 1000 * 0.05 = 50,
+    // so reduction - maxReduction = 0 (not > tolerance) → allowed.
+    // +7.5% VAT on the 50 reduction = 3.75 → discount 53.75.
+    expect(
+      computeEligibleLineDiscount([line({ clientUnitPrice: 950 })], 0.05)
+    ).toEqual({ totalDiscount: 53.75, rejectionCode: null });
+  });
 });

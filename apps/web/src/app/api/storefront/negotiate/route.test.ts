@@ -113,4 +113,119 @@ describe('POST /api/storefront/negotiate', () => {
     expect(body.status).toBe('counter');
     expect(body.counterOffer).toBeGreaterThanOrEqual(980); // ≥ 1000 * (1 - 0.02)
   });
+
+  it('counters at the 1.5% tier on the second attempt', async () => {
+    // attempt 2 tier = 1.5% → counter = max(floor 980, 1000 * 0.985 = 985) = 985.
+    const { body } = await callNegotiate(
+      {
+        id: PRODUCT_ID,
+        name: 'MacBook Air M1',
+        brand: 'Apple',
+        price: 1000,
+        cost_price: 600,
+        merchant_id: MERCHANT_ID,
+      },
+      850,
+      2
+    );
+    expect(body.status).toBe('counter');
+    expect(body.counterOffer).toBeGreaterThanOrEqual(985);
+  });
+
+  it('returns a final 2% offer on the third attempt', async () => {
+    // attempt 3 → finalPrice = max(floor 980, 1000 * 0.98 = 980) = 980; offer
+    // 850 < 980 → status 'final', counterOffer 980.
+    const { body } = await callNegotiate(
+      {
+        id: PRODUCT_ID,
+        name: 'MacBook Air M1',
+        brand: 'Apple',
+        price: 1000,
+        cost_price: 600,
+        merchant_id: MERCHANT_ID,
+      },
+      850,
+      3
+    );
+    expect(body.status).toBe('final');
+    expect(body.counterOffer).toBe(980);
+  });
+
+  it('accepts an offer at or above the original price', async () => {
+    const { body } = await callNegotiate(
+      {
+        id: PRODUCT_ID,
+        name: 'MacBook Air M1',
+        brand: 'Apple',
+        price: 1000,
+        cost_price: 600,
+        merchant_id: MERCHANT_ID,
+      },
+      1000
+    );
+    expect(body.status).toBe('accepted');
+  });
+
+  it('uses the 40% margin fallback when cost_price is null', async () => {
+    // No cost_price → costPrice = 1000 * 0.6 = 600; minAcceptable =
+    // max(600 * 1.1 = 660, 1000 * 0.98 = 980) = 980; offer 985 ≥ 980 → accepted.
+    const { body } = await callNegotiate(
+      {
+        id: PRODUCT_ID,
+        name: 'MacBook Air M1',
+        brand: 'Apple',
+        price: 1000,
+        cost_price: null,
+        merchant_id: MERCHANT_ID,
+      },
+      985
+    );
+    expect(body.status).toBe('accepted');
+  });
+
+  it('returns 404 when the product is not found', async () => {
+    const { response, body } = await callNegotiate(null, 90000);
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Product not found' });
+  });
+
+  it('returns 400 for an invalid productId UUID', async () => {
+    const { createClient } = await import('@/lib/supabase/server');
+    vi.mocked(createClient).mockReturnValue({} as never);
+    const request = new NextRequest(
+      'http://localhost/api/storefront/negotiate',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          productId: 'invalid-uuid',
+          merchantId: MERCHANT_ID,
+          offeredPrice: 900,
+        }),
+      }
+    );
+    const response = await POST(request);
+    const body = await response.json();
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid request');
+  });
+
+  it('returns 400 for a non-positive offeredPrice', async () => {
+    const { createClient } = await import('@/lib/supabase/server');
+    vi.mocked(createClient).mockReturnValue({} as never);
+    const request = new NextRequest(
+      'http://localhost/api/storefront/negotiate',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          productId: PRODUCT_ID,
+          merchantId: MERCHANT_ID,
+          offeredPrice: -50,
+        }),
+      }
+    );
+    const response = await POST(request);
+    const body = await response.json();
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid request');
+  });
 });

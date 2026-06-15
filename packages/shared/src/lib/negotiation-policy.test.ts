@@ -40,4 +40,19 @@ describe('negotiation policy', () => {
   ])('keeps non-budget products negotiable', (brand, name) => {
     expect(isProductNegotiable({ brand, name })).toBe(true);
   });
+
+  it('returns true for empty/null/undefined inputs', () => {
+    expect(isProductNegotiable({ brand: null, name: null })).toBe(true);
+    expect(isProductNegotiable({ brand: '', name: '' })).toBe(true);
+    expect(isProductNegotiable({ brand: undefined, name: undefined })).toBe(
+      true
+    );
+  });
+
+  it('normalizes special characters when matching budget brands', () => {
+    expect(isProductNegotiable({ brand: 'OPPO', name: 'A-58' })).toBe(false);
+    expect(
+      isProductNegotiable({ brand: 'Samsung', name: 'Galaxy A16-5G' })
+    ).toBe(false);
+  });
 });

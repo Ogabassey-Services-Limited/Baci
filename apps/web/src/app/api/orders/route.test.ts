@@ -1838,6 +1838,52 @@ describe('POST /api/orders — per-line eligible discount enforcement', () => {
     expect(rpcSpy).not.toHaveBeenCalled();
   });
 
+  it('does not reject a within-floor assurance line and carries no discount when expected_total is omitted', async () => {
+    // A negotiable line priced exactly 2% below catalog (within floor) WITH
+    // assurance, but expected_total OMITTED. The loader returns a valid 21.5
+    // discount (no rejection), yet the route only APPLIES a derived discount
+    // when expected_total is a number — so the order is NOT rejected and the
+    // RPC receives p_discount_amount: 0 (the line is charged at catalog).
+    const { rpcSpy } = await setupOrdersDiscountMock([
+      {
+        id: 'p-mac',
+        brand: 'Apple',
+        name: 'MacBook Air M1',
+        price: 1000,
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+      },
+    ]);
+    // Let the order succeed so we can assert the request is NOT rejected.
+    rpcSpy.mockResolvedValue({ data: [baseOrderRow], error: null });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-mac',
+            quantity: 1,
+            price: 980,
+            name: 'MacBook Air M1',
+            has_assurance: true,
+          },
+        ],
+        subtotal: 980,
+        tax_amount: 73.5,
+        // expected_total intentionally omitted on the wire.
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).not.toBe(400);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ p_discount_amount: 0 })
+    );
+  });
+
   it('skips negotiation validation for a verified voucher line even when its product is loaded', async () => {
     // Sibling of the voucher success test: the products select WOULD return the
     // award product (price 5000 ≫ client 0), but the loader exempts
