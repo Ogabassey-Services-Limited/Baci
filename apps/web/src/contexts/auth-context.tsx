@@ -4,7 +4,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import {
   createContext,
   type ReactNode,
-  useContext,
+  use,
   useEffect,
   useRef,
   useState,
@@ -100,7 +100,7 @@ export function AuthProvider({
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context = use(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
@@ -112,6 +112,6 @@ export function useAuth() {
  * Useful for components that may render in preview/demo mode without auth
  */
 export function useAuthSafe(): AuthContextType | null {
-  const context = useContext(AuthContext);
+  const context = use(AuthContext);
   return context ?? null;
 }
