@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockRevalidateProductsReliable = vi.fn();
+vi.mock('@/lib/revalidate-products-reliable', () => ({
+  revalidateProductsReliable: (...args: unknown[]) =>
+    mockRevalidateProductsReliable(...args),
+}));
+
 import { commitBumpaProducts } from '@/lib/import-commit/commit-bumpa-products';
 import type { NormalizedImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
 
@@ -64,7 +71,10 @@ describe('commitBumpaProducts', () => {
       eq: vi.fn(),
     };
     updateQuery.update.mockReturnValue(updateQuery);
-    updateQuery.eq.mockResolvedValue({ error: null });
+    // Chained .eq('id', …).eq('merchant_id', …): first is chainable, last resolves.
+    updateQuery.eq
+      .mockReturnValueOnce(updateQuery)
+      .mockResolvedValueOnce({ error: null });
 
     const insertQuery = {
       insert: vi.fn(),
@@ -103,12 +113,111 @@ describe('commitBumpaProducts', () => {
         slug: 'imported-phone',
       })
     );
+    // Mutation is tenant-scoped (defense-in-depth under a service-role client).
+    expect(updateQuery.eq).toHaveBeenCalledWith('id', 'existing-product');
+    expect(updateQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(insertQuery.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         external_id: 'prod-2',
         slug: 'fresh-phone-2',
       })
     );
+    // Imported products must invalidate product caches (incl. the proxy
+    // crawl-budget slug-set) so their PDPs aren't hard-404ed until TTL expiry.
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1');
+  });
+
+  it('still succeeds when reliable revalidation rejects (best-effort, non-fatal)', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
+    loadQuery.range.mockResolvedValue({ data: [], error: null });
+
+    const insertQuery = { insert: vi.fn() };
+    insertQuery.insert.mockResolvedValue({ error: null });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertQuery),
+    } as unknown as SupabaseClient;
+
+    // The reliable helper is fail-safe, but even if it rejected the import must
+    // not break (the finally swallows it).
+    mockRevalidateProductsReliable.mockRejectedValueOnce(
+      new Error('revalidation unavailable')
+    );
+
+    const result = await commitBumpaProducts({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      products: [createProduct()],
+    });
+
+    expect(result).toEqual({ createdProducts: 1, updatedProducts: 0 });
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1');
+    expect(consoleSpy).toHaveBeenCalled();
+    // Restore so the suppressed console.error doesn't leak into later tests
+    // (the suite uses clearAllMocks, which does not restore spy implementations).
+    consoleSpy.mockRestore();
+  });
+
+  it('revalidates committed mutations even when a later row fails (partial import)', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
+    loadQuery.range.mockResolvedValue({ data: [], error: null });
+
+    // First insert commits; the second throws — the first slug is already live.
+    const insertOk = { insert: vi.fn().mockResolvedValue({ error: null }) };
+    const insertFail = {
+      insert: vi.fn().mockResolvedValue({ error: { message: 'boom' } }),
+    };
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertOk)
+        .mockReturnValueOnce(insertFail),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      commitBumpaProducts({
+        supabase,
+        merchantId: 'merchant-1',
+        importJobId: 'job-1',
+        products: [
+          createProduct({ externalSourceId: 'prod-1', title: 'Phone One' }),
+          createProduct({
+            externalSourceId: 'prod-2',
+            title: 'Phone Two',
+            sku: 'SKU-2',
+          }),
+        ],
+      })
+    ).rejects.toThrow('Failed to create imported product');
+
+    // The committed first product MUST still trigger revalidation (finally) so
+    // its live slug isn't left out of the slug-set until TTL and hard-404ed.
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1');
   });
 
   it('throws when loading existing products fails', async () => {
@@ -167,7 +276,8 @@ describe('commitBumpaProducts', () => {
       eq: vi.fn(),
     };
     updateQuery.update.mockReturnValue(updateQuery);
-    updateQuery.eq.mockResolvedValue({
+    // Chained .eq('id', …).eq('merchant_id', …): first is chainable, last resolves.
+    updateQuery.eq.mockReturnValueOnce(updateQuery).mockResolvedValueOnce({
       error: { message: 'update failed' },
     });
 
