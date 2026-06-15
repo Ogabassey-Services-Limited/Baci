@@ -147,7 +147,7 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 
 | File | Purpose |
 |------|---------|
-| `/tailwind.config.ts` | Tailwind CSS configuration (colors, fonts, plugins) |
+| `/tailwind.config.mjs` | Tailwind CSS configuration (colors, fonts, plugins) |
 | `/src/app/globals.css` | CSS variables for theming (lines 6-70) |
 | `/src/ai/genkit.ts` | Genkit initialization and model configuration |
 | `/docs/blueprint.md` | 2100+ line comprehensive architecture documentation |
@@ -259,7 +259,7 @@ Step 3: Account Creation
 ### Modifying the Design System
 
 1. **Colors:** Edit CSS variables in `/src/app/globals.css:6-70`
-2. **Fonts:** Edit Tailwind config in `/tailwind.config.ts:12-16`
+2. **Fonts:** Edit the `fontFamily` group in `/tailwind.config.mjs`
 3. **Spacing/Radius:** Edit CSS variables in `/src/app/globals.css:31`
 4. **Dark mode:** Edit `.dark` class in `/src/app/globals.css:41-70`
 
