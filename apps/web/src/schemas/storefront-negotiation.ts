@@ -6,7 +6,7 @@ export const storefrontNegotiationSchema = z.object({
   offeredPrice: z.number().positive(),
   customerEmail: z.email().optional(),
   customerPhone: z.string().optional(),
-  attemptNumber: z.number().min(1).max(3).default(1),
+  attemptNumber: z.int().min(1).max(3).default(1),
   evidenceUrl: z.url().optional(),
   evidenceNote: z.string().max(500).optional(),
 });

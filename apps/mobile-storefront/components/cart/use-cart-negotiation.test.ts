@@ -116,6 +116,31 @@ describe('useCartNegotiation', () => {
     expect(mockOpenNegotiation).not.toHaveBeenCalled();
   });
 
+  it('uses the validated cart effective price when reopening item negotiation', () => {
+    // Arrange
+    const acceptedItem = createItem({
+      brand: 'Tecno',
+      name: 'Tecno Spark 50',
+      negotiatedPrice: 490000,
+      negotiationStatus: 'accepted',
+    });
+    const { result } = renderHook(() =>
+      useCartNegotiation({ items: [acceptedItem], grandTotal: 490000 })
+    );
+
+    // Act
+    act(() => {
+      result.current.actuallyOpenItemNegotiation(acceptedItem);
+    });
+
+    // Assert
+    expect(mockOpenNegotiation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentPrice: 500000,
+      })
+    );
+  });
+
   it('routes a negotiable item to openNegotiation via the warning confirmation', () => {
     // Arrange
     const negotiable = createItem();

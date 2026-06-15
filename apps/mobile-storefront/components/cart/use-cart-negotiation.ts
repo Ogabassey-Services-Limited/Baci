@@ -1,6 +1,7 @@
 import { isProductNegotiable } from '@baci/shared/lib';
 import { useState } from 'react';
 import { Alert } from 'react-native';
+import { getCartItemEffectivePrice } from '@/lib/cart-pricing';
 import { useShallow } from 'zustand/react/shallow';
 import type { CartItem } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
@@ -27,7 +28,7 @@ export function useCartNegotiation({
   );
 
   const actuallyOpenItemNegotiation = (item: CartItem) => {
-    const priceToUse = item.negotiatedPrice ?? item.price;
+    const priceToUse = getCartItemEffectivePrice(item);
     openNegotiation({
       type: 'single',
       itemId: item.id,

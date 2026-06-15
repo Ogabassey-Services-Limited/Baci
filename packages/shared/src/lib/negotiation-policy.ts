@@ -43,6 +43,7 @@ function isSamsungASeriesProduct(
   const hasASeriesModel =
     /\bgalaxy\s+a\s?series\b/.test(normalizedText) ||
     /\bsamsung\s+galaxy\s+a\s?series\b/.test(normalizedText) ||
+    /\bsamsung\s+a\s?series\b/.test(normalizedText) ||
     /\bgalaxy\s+a\s?\d{1,3}[a-z]*\b/.test(normalizedText) ||
     /\bsamsung\s+a\s?\d{1,3}[a-z]*\b/.test(normalizedText) ||
     (/\bsamsung\b/.test(normalizedText) &&

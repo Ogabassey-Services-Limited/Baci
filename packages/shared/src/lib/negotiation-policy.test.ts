@@ -28,6 +28,7 @@ describe('negotiation policy', () => {
     ['Samsung', 'Samsung Galaxy A16 5G'],
     ['Samsung', 'Galaxy A55'],
     ['Samsung', 'Samsung Galaxy A Series'],
+    ['Samsung', 'Samsung A Series'],
     [undefined, 'Samsung A05s'],
   ])('marks Samsung A-series products as non-negotiable', (brand, name) => {
     expect(isProductNegotiable({ brand, name })).toBe(false);

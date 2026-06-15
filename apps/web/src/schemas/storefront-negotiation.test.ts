@@ -44,4 +44,13 @@ describe('storefrontNegotiationSchema', () => {
       })
     ).toThrow();
   });
+
+  it('rejects fractional attempt numbers before counter-offer lookup', () => {
+    expect(() =>
+      storefrontNegotiationSchema.parse({
+        ...validPayload,
+        attemptNumber: 1.5,
+      })
+    ).toThrow();
+  });
 });
