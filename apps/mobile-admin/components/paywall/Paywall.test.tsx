@@ -93,7 +93,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   ActivityIndicator: () => <span aria-label="loading" role="progressbar" />,
   Alert: { alert: mocks.alert },
   Dimensions: { get: () => ({ width: 390 }) },

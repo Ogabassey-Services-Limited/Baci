@@ -1,6 +1,13 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View, StatusBar } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { JumiaChannelCard } from '@/components/marketplace/JumiaChannelCard';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';

@@ -15,8 +15,9 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { fetchCustomers, fetchCustomerStats } from './customers-data';
+import { fetchCustomerStats, fetchCustomers } from './customers-data';
 import { useMerchant } from './useMerchant';
+
 export type { Customer } from './customers-data';
 
 export function useCustomers(filters?: {
