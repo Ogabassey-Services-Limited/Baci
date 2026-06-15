@@ -1,3 +1,13 @@
+const isNodeModule = (filename) =>
+  filename.includes('/node_modules/') || filename.includes('\\node_modules\\');
+
+const shouldCompileSource = (filename) =>
+  !isNodeModule(filename) &&
+  !/\.(test|spec)\.[jt]sx?$/.test(filename) &&
+  !/\.test-utils\.[jt]sx?$/.test(filename) &&
+  !filename.includes('/__tests__/') &&
+  !filename.includes('/__mocks__/');
+
 module.exports = (api) => {
   const isTest = api.env('test');
 
@@ -24,11 +34,7 @@ module.exports = (api) => {
         'babel-plugin-react-compiler',
         {
           target: '19',
-          sources: (filename) =>
-            !/\.(test|spec)\.[jt]sx?$/.test(filename) &&
-            !/\.test-utils\.[jt]sx?$/.test(filename) &&
-            !filename.includes('/__tests__/') &&
-            !filename.includes('/__mocks__/'),
+          sources: shouldCompileSource,
         },
       ],
       [
