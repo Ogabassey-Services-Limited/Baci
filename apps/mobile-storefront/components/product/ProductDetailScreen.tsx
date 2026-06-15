@@ -134,8 +134,8 @@ export function ProductDetailScreen() {
           const negotiableProduct = routeData.displayProduct ?? product;
           if (
             !isProductNegotiable({
-              brand: negotiableProduct.brand,
-              name: negotiableProduct.name,
+              brand: negotiableProduct?.brand,
+              name: negotiableProduct?.name,
             })
           ) {
             return;
