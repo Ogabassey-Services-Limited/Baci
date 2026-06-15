@@ -8,7 +8,7 @@
  */
 
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
-import { forwardRef, type ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { cn } from '@/lib/utils';
 
 // Animation variants for different icon types
@@ -91,71 +91,64 @@ interface AnimatedIconWrapperProps {
  * Animated Icon Wrapper
  * Wraps any icon with animation effects
  */
-export const AnimatedIcon = forwardRef<
-  HTMLDivElement,
-  AnimatedIconWrapperProps
->(
-  (
-    {
-      children,
-      animation = 'none',
-      hoverEffect = 'scale',
-      className,
-      onClick,
-      ariaLabel,
-    },
-    ref
-  ) => {
-    const getAnimationVariants = () => {
-      switch (animation) {
-        case 'spin':
-          return spinVariants;
-        case 'pulse':
-          return pulseVariants;
-        case 'bounce':
-          return bounceVariants;
-        case 'shake':
-          return shakeVariants;
-        default:
-          return {};
-      }
-    };
+export const AnimatedIcon = ({
+  ref,
+  children,
+  animation = 'none',
+  hoverEffect = 'scale',
+  className,
+  onClick,
+  ariaLabel,
+}: AnimatedIconWrapperProps & { ref?: Ref<HTMLDivElement> }) => {
+  const getAnimationVariants = () => {
+    switch (animation) {
+      case 'spin':
+        return spinVariants;
+      case 'pulse':
+        return pulseVariants;
+      case 'bounce':
+        return bounceVariants;
+      case 'shake':
+        return shakeVariants;
+      default:
+        return {};
+    }
+  };
 
-    const getHoverVariants = () => {
-      switch (hoverEffect) {
-        case 'scale':
-          return hoverScaleVariants;
-        case 'rotate':
-          return hoverRotateVariants;
-        default:
-          return {};
-      }
-    };
+  const getHoverVariants = () => {
+    switch (hoverEffect) {
+      case 'scale':
+        return hoverScaleVariants;
+      case 'rotate':
+        return hoverRotateVariants;
+      default:
+        return {};
+    }
+  };
 
-    const combinedVariants = {
-      ...getAnimationVariants(),
-      ...getHoverVariants(),
-    };
+  const combinedVariants = {
+    ...getAnimationVariants(),
+    ...getHoverVariants(),
+  };
 
-    return (
-      <motion.div
-        ref={ref}
-        className={cn('inline-flex items-center justify-center', className)}
-        variants={combinedVariants}
-        initial="initial"
-        animate={animation !== 'none' ? 'animate' : 'initial'}
-        whileHover={hoverEffect !== 'none' ? 'hover' : undefined}
-        whileTap={hoverEffect !== 'none' ? 'tap' : undefined}
-        onClick={onClick}
-        aria-label={ariaLabel}
-        role={onClick ? 'button' : undefined}
-        tabIndex={onClick ? 0 : undefined}
-      >
-        {children}
-      </motion.div>
-    );
-  }
-);
+  return (
+    <motion.div
+      ref={ref}
+      className={cn('inline-flex items-center justify-center', className)}
+      variants={combinedVariants}
+      initial="initial"
+      animate={animation !== 'none' ? 'animate' : 'initial'}
+      whileHover={hoverEffect !== 'none' ? 'hover' : undefined}
+      whileTap={hoverEffect !== 'none' ? 'tap' : undefined}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
+      {children}
+    </motion.div>
+  );
+};
 AnimatedIcon.displayName = 'AnimatedIcon';
 
 /**
