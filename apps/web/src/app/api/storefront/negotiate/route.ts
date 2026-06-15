@@ -3,6 +3,11 @@
  * Allows customers to submit price offers and receive counter-offers
  */
 
+import {
+  COUNTER_NEGOTIATION_DISCOUNT_STEPS,
+  isProductNegotiable,
+  MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
+} from '@baci/shared/lib';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -20,11 +25,11 @@ const NegotiationSchema = z.object({
   evidenceNote: z.string().max(500).optional(),
 });
 
-// Counter-offer discount tiers
+// Counter-offer discount tiers — capped by the shared 2% auto-negotiation policy
 const DISCOUNT_TIERS = {
-  1: 0.02, // 2% discount on first attempt
-  2: 0.04, // 4% discount on second attempt
-  3: 0.05, // 5% hard floor on third attempt (final offer)
+  1: COUNTER_NEGOTIATION_DISCOUNT_STEPS[0], // 1% discount on first attempt
+  2: COUNTER_NEGOTIATION_DISCOUNT_STEPS[1], // 1.5% discount on second attempt
+  3: COUNTER_NEGOTIATION_DISCOUNT_STEPS[2], // 2% hard floor on third attempt (final offer)
 };
 
 // Minimum profit margin (don't go below this)
@@ -51,7 +56,7 @@ export async function POST(request: NextRequest) {
     // Fetch product details
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, name, price, cost_price, merchant_id')
+      .select('id, name, brand, price, cost_price, merchant_id')
       .eq('id', validatedData.productId)
       .eq('merchant_id', validatedData.merchantId)
       .eq('status', 'active')
@@ -63,15 +68,35 @@ export async function POST(request: NextRequest) {
 
     const originalPrice = product.price;
     const costPrice = product.cost_price || originalPrice * 0.6; // Estimate 40% margin if no cost
-    const minAcceptablePrice = costPrice * (1 + MIN_PROFIT_MARGIN);
+    // Auto-accept floor: never below cost margin, and never deeper than the
+    // shared 2% auto-negotiation cap.
+    const minAcceptablePrice = Math.max(
+      costPrice * (1 + MIN_PROFIT_MARGIN),
+      originalPrice * (1 - MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
+    );
 
     const attemptNumber = validatedData.attemptNumber;
     const offeredPrice = validatedData.offeredPrice;
 
+    const isNegotiable = isProductNegotiable({
+      brand: product.brand,
+      name: product.name,
+    });
+
     let result: NegotiationResult;
 
-    // Check if offered price is acceptable
-    if (offeredPrice >= originalPrice) {
+    if (!isNegotiable) {
+      // Non-negotiable products (budget brands, Samsung A-series) are already
+      // priced at their best — no auto-accept, counter, or margin branches.
+      result = {
+        status: 'final',
+        originalPrice,
+        offeredPrice,
+        message: 'This is already the best price.',
+        attemptNumber,
+        canContinue: false,
+      };
+    } else if (offeredPrice >= originalPrice) {
       // Customer offered full price or more
       result = {
         status: 'accepted',
@@ -82,7 +107,7 @@ export async function POST(request: NextRequest) {
         canContinue: false,
       };
     } else if (offeredPrice >= minAcceptablePrice) {
-      // Offer is within acceptable range
+      // Offer is within acceptable range (cost margin + 2% cap)
       result = {
         status: 'accepted',
         originalPrice,
