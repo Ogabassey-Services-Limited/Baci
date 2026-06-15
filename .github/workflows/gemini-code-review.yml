@@ -35,7 +35,12 @@ permissions:
   statuses: write
 
 concurrency:
-  group: gemini-code-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  # Scope per event type. Without the event-name suffix, a PR comment's
+  # issue_comment run shares this group with the in-progress automatic
+  # pull_request review and cancel-in-progress kills the auto-run (e.g. a
+  # CodeRabbit comment seconds after a PR opens). Keep them in separate groups
+  # so only a newer push supersedes an in-progress auto-review.
+  group: gemini-code-review-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
