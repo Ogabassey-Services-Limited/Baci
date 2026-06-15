@@ -1,6 +1,10 @@
 'use client';
 
 import {
+  isAirportDeliveryEligible,
+  isPickupEligible,
+} from '@baci/shared';
+import {
   AlertCircle,
   Building2,
   ChevronRight,
@@ -3202,26 +3206,17 @@ export const CheckoutPage: React.FC = () => {
                           </label>
                           <div className="flex gap-3 overflow-x-auto pb-1">
                             {(['door', 'pickup', 'airport'] as const).map((method) => {
-                              // Filter out Pickup if not in Lagos (store is in Lagos)
-                              if (method === 'pickup') {
-                                const currentState = newAddressState;
-                                const isLagos = currentState && currentState.toLowerCase() === 'lagos';
-                                if (!isLagos) return null;
+                              // Store ships from Lagos: pickup is Lagos-only and
+                              // airport is for non-Lagos states with an airport.
+                              // Shared with the mobile storefront so they can't drift.
+                              if (method === 'pickup' && !isPickupEligible(newAddressState)) {
+                                return null;
                               }
-
-                              // Filter out Airport if not eligible (non-Lagos states only)
-                              if (method === 'airport') {
-                                const AIRPORT_STATES = [
-                                  'Abuja', 'FCT', 'Federal Capital Territory', 'FCT - Abuja',
-                                  'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue',
-                                  'Borno', 'Cross River', 'Delta', 'Edo', 'Enugu', 'Gombe',
-                                  'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi',
-                                  'Kwara', 'Niger', 'Ondo', 'Oyo', 'Plateau', 'Rivers',
-                                  'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
-                                ];
-                                const currentState = newAddressState;
-                                const isEligible = currentState && AIRPORT_STATES.some(s => s.toLowerCase() === currentState.toLowerCase()) && currentState.toLowerCase() !== 'lagos';
-                                if (!isEligible) return null;
+                              if (
+                                method === 'airport' &&
+                                !isAirportDeliveryEligible(newAddressState)
+                              ) {
+                                return null;
                               }
 
                               const Icon = method === 'door' ? Truck : method === 'pickup' ? Building2 : Plane;

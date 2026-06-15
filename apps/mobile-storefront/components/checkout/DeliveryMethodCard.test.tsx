@@ -24,15 +24,35 @@ describe('DeliveryMethodCard', () => {
     jest.clearAllMocks();
   });
 
-  it('renders all three delivery options', () => {
-    render(<DeliveryMethodCard {...baseProps} />);
+  it('offers door and pickup (not airport) for a Lagos address', () => {
+    render(<DeliveryMethodCard {...baseProps} deliveryState="Lagos" />);
+    expect(screen.getByText('Door delivery')).toBeTruthy();
+    expect(screen.getByText('Pick Up Station')).toBeTruthy();
+    expect(screen.queryByText('Airport Delivery (Outside Lagos)')).toBeNull();
+  });
+
+  it('offers door and airport (not pickup) for a non-Lagos airport state', () => {
+    render(<DeliveryMethodCard {...baseProps} deliveryState="Rivers" />);
     expect(screen.getByText('Door delivery')).toBeTruthy();
     expect(screen.getByText('Airport Delivery (Outside Lagos)')).toBeTruthy();
-    expect(screen.getByText('Pick Up Station')).toBeTruthy();
+    expect(screen.queryByText('Pick Up Station')).toBeNull();
+  });
+
+  it('offers only door for a non-Lagos state with no airport', () => {
+    render(<DeliveryMethodCard {...baseProps} deliveryState="Ekiti" />);
+    expect(screen.getByText('Door delivery')).toBeTruthy();
+    expect(screen.queryByText('Airport Delivery (Outside Lagos)')).toBeNull();
+    expect(screen.queryByText('Pick Up Station')).toBeNull();
   });
 
   it('calls onSelectMethod with "door" when door option is pressed', () => {
-    render(<DeliveryMethodCard {...baseProps} selectedMethod="airport" />);
+    render(
+      <DeliveryMethodCard
+        {...baseProps}
+        selectedMethod="airport"
+        deliveryState="Rivers"
+      />
+    );
     fireEvent.press(
       screen.getByRole('button', { name: /select door delivery/i })
     );
@@ -40,7 +60,7 @@ describe('DeliveryMethodCard', () => {
   });
 
   it('calls onSelectMethod with "airport" when airport option is pressed', () => {
-    render(<DeliveryMethodCard {...baseProps} />);
+    render(<DeliveryMethodCard {...baseProps} deliveryState="Rivers" />);
     fireEvent.press(
       screen.getByRole('button', { name: /select airport delivery/i })
     );
@@ -48,7 +68,7 @@ describe('DeliveryMethodCard', () => {
   });
 
   it('calls onSelectMethod with "pickup_station" when pickup option is pressed', () => {
-    render(<DeliveryMethodCard {...baseProps} />);
+    render(<DeliveryMethodCard {...baseProps} deliveryState="Lagos" />);
     fireEvent.press(
       screen.getByRole('button', { name: /select pick up station/i })
     );
@@ -56,7 +76,13 @@ describe('DeliveryMethodCard', () => {
   });
 
   it('shows expanded airport info when airport is selected', () => {
-    render(<DeliveryMethodCard {...baseProps} selectedMethod="airport" />);
+    render(
+      <DeliveryMethodCard
+        {...baseProps}
+        selectedMethod="airport"
+        deliveryState="Rivers"
+      />
+    );
     expect(screen.getByText('Airport Delivery')).toBeTruthy();
     expect(screen.getAllByText(/24-48 working hours/i).length).toBeGreaterThan(
       0
@@ -65,13 +91,17 @@ describe('DeliveryMethodCard', () => {
 
   it('shows pickup station address lines when pickup_station is selected', () => {
     render(
-      <DeliveryMethodCard {...baseProps} selectedMethod="pickup_station" />
+      <DeliveryMethodCard
+        {...baseProps}
+        selectedMethod="pickup_station"
+        deliveryState="Lagos"
+      />
     );
     expect(screen.getByText('Taiyelolu Towers')).toBeTruthy();
   });
 
   it('shows Free price for pickup station', () => {
-    render(<DeliveryMethodCard {...baseProps} />);
+    render(<DeliveryMethodCard {...baseProps} deliveryState="Lagos" />);
     expect(screen.getByText('Free')).toBeTruthy();
   });
 });

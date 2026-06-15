@@ -203,9 +203,7 @@ describe('useCheckoutShipping', () => {
       { initialProps: createParams() }
     );
 
-    await waitFor(() =>
-      expect(result.current.isLoadingLocations).toBe(false)
-    );
+    await waitFor(() => expect(result.current.isLoadingLocations).toBe(false));
     expect(result.current.shippingStates).toEqual([]);
   });
 
@@ -300,5 +298,37 @@ describe('useCheckoutShipping', () => {
     expect(result.current.shippingQuotes).toEqual([]);
     expect(result.current.selectedQuoteId).toBe('');
     expect(result.current.isLoadingQuotes).toBe(false);
+  });
+
+  it('falls back to door when the address state no longer supports airport', () => {
+    const { rerender, result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams({ watchedState: 'Rivers' }) }
+    );
+
+    act(() => {
+      result.current.handleSelectDeliveryMethod('airport');
+    });
+    expect(result.current.deliveryMethod).toBe('airport');
+
+    // Switching to Lagos (no airport delivery) must reset the method.
+    rerender(createParams({ watchedState: 'Lagos' }));
+    expect(result.current.deliveryMethod).toBe('door');
+  });
+
+  it('falls back to door when the address state no longer supports pickup', () => {
+    const { rerender, result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams({ watchedState: 'Lagos' }) }
+    );
+
+    act(() => {
+      result.current.handleSelectDeliveryMethod('pickup_station');
+    });
+    expect(result.current.deliveryMethod).toBe('pickup_station');
+
+    // Pickup is Lagos-only; moving to another state must reset the method.
+    rerender(createParams({ watchedState: 'Oyo' }));
+    expect(result.current.deliveryMethod).toBe('door');
   });
 });
