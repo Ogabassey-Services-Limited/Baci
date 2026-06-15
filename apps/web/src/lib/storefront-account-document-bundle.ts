@@ -45,6 +45,7 @@ interface BuildStorefrontAccountDocumentBundleInput {
   paymentStatus: string;
   shippingStatus: string;
   currentDocumentKind: 'invoice' | 'receipt';
+  canCancel?: boolean;
 }
 
 function resolveMoneyValue(
@@ -82,6 +83,7 @@ export function buildStorefrontAccountDocumentBundle({
   paymentStatus,
   shippingStatus,
   currentDocumentKind,
+  canCancel = false,
 }: BuildStorefrontAccountDocumentBundleInput) {
   const currency = asString(order.currency) || 'NGN';
   const total = asNumber(order.total);
@@ -312,6 +314,7 @@ export function buildStorefrontAccountDocumentBundle({
     balance,
     current_document_kind: currentDocumentKind,
     receipt_eligible: receiptEligible,
+    can_cancel: canCancel,
     customer_name: customerName,
     customer_email: customerEmail,
     customer_phone: customerPhone,
