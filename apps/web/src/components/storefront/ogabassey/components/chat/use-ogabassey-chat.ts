@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/cart';
-import { parseSantaAction } from '@/components/storefront/santa-chat/types';
+import {
+  parseSantaAction,
+  stripSantaActions,
+} from '@/components/storefront/santa-chat/types';
 import type { ChatMessage, SantaCartAction } from './types';
 import { PROACTIVE_MESSAGES } from './types';
 
@@ -177,10 +180,8 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
         }
       }
 
-      // Clean the response text by removing the ACTION pattern for display
-      const displayText = aiResponseText
-        .replace(/ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:[^\s]+/g, '')
-        .trim();
+      // Clean the response text by removing Santa action directives for display.
+      const displayText = stripSantaActions(aiResponseText);
 
       setMessages((prev) => [...prev, { role: 'model', text: displayText, santaAction }]);
     } catch (error) {

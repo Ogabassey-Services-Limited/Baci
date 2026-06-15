@@ -15,7 +15,7 @@ import type { Product } from '@/lib/products';
 import { ChatInput } from './chat-input';
 import { ChatMessage } from './chat-message';
 import type { ChatMessage as ChatMessageType } from './types';
-import { parseSantaAction } from './types';
+import { parseSantaActions } from './types';
 import { WelcomeScreen } from './welcome-screen';
 
 interface Message {
@@ -97,11 +97,14 @@ async function streamSantaReply({
       );
     }
 
-    // After streaming completes, check for cart action
-    const action = parseSantaAction(assistantContent);
-    if (action && !processedActionsRef.current.has(assistantId)) {
+    // After streaming completes, check for cart actions. Process every
+    // directive once so display stripping cannot hide unfulfilled wishes.
+    const actions = parseSantaActions(assistantContent);
+    if (actions.length > 0 && !processedActionsRef.current.has(assistantId)) {
       processedActionsRef.current.add(assistantId);
-      await onCartAction(action.productName, action.price);
+      for (const action of actions) {
+        await onCartAction(action.productName, action.price);
+      }
     }
   }
 }

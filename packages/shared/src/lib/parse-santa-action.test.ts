@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseSantaAction, stripSantaActions } from './parse-santa-action';
+import {
+  parseSantaAction,
+  parseSantaActions,
+  stripSantaActions,
+} from './parse-santa-action';
 
 describe('parseSantaAction', () => {
   it('parses a directive with a plain integer price', () => {
@@ -43,6 +47,23 @@ describe('parseSantaAction', () => {
   });
 });
 
+describe('parseSantaActions', () => {
+  it('parses every directive in a response', () => {
+    const result = parseSantaActions(
+      'ACTION:ADD_TO_CART|PRODUCT:A|PRICE:1000 and ACTION:ADD_TO_CART|PRODUCT:B|PRICE:2,000'
+    );
+
+    expect(result).toEqual([
+      { type: 'ADD_TO_CART', productName: 'A', price: 1000 },
+      { type: 'ADD_TO_CART', productName: 'B', price: 2000 },
+    ]);
+  });
+
+  it('returns an empty array when no directives are present', () => {
+    expect(parseSantaActions('Just a friendly reply')).toEqual([]);
+  });
+});
+
 describe('stripSantaActions', () => {
   it('removes the directive and trims the remaining message', () => {
     const stripped = stripSantaActions(
@@ -56,6 +77,13 @@ describe('stripSantaActions', () => {
       'ACTION:ADD_TO_CART|PRODUCT:A|PRICE:1000 and ACTION:ADD_TO_CART|PRODUCT:B|PRICE:2000'
     );
     expect(stripped).toBe('and');
+  });
+
+  it('removes trailing price punctuation and currency text', () => {
+    const stripped = stripSantaActions(
+      'Granted ACTION:ADD_TO_CART|PRODUCT:iPhone 15|PRICE:850000NGN. Enjoy it.'
+    );
+    expect(stripped).toBe('Granted  Enjoy it.');
   });
 
   it('leaves text without a directive unchanged', () => {

@@ -1,4 +1,4 @@
-import { parseSantaAction, stripSantaActions } from '@baci/shared/lib';
+import { parseSantaActions, stripSantaActions } from '@baci/shared/lib';
 import type { FlashListRef } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import {
@@ -114,8 +114,9 @@ async function requestChatReply({
       // stripped from the displayed text. Fire-and-forget so the reply renders
       // immediately; addSantaWishToCart surfaces its own success/error toast.
       if (santaMode) {
-        const action = parseSantaAction(aiResponseText);
-        if (action) void addSantaWishToCart(action);
+        for (const action of parseSantaActions(aiResponseText)) {
+          void addSantaWishToCart(action, controller.signal);
+        }
       }
 
       // Clean response text (sanitizeHtml not needed — RN <Text> doesn't execute HTML)

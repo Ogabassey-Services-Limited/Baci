@@ -6,6 +6,7 @@
 // both parse `ACTION:ADD_TO_CART|...` identically.
 export {
   parseSantaAction,
+  parseSantaActions,
   type SantaAction,
   stripSantaActions,
 } from '@baci/shared/lib';

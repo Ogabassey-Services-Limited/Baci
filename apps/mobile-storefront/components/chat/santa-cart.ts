@@ -1,4 +1,6 @@
 import type { SantaAction } from '@baci/shared/lib';
+import { santaProductLookupResponseSchema } from '@/schemas/santa-product-lookup';
+import type { SantaProductLookupResult } from '@/schemas/santa-product-lookup';
 import { showCartToast } from '@/hooks/cart-notifications';
 import { createLogger } from '@/lib/logger';
 import { useCartStore } from '@/stores/cart-store';
@@ -6,18 +8,6 @@ import type { CartItem } from '@/stores/cart-store.types';
 import { API_BASE_URL } from './constants';
 
 const log = createLogger('santa-cart');
-
-// Shape returned by POST /api/chat/santa/product (shared with the web
-// storefront). `id` is an empty string for "synthetic" products that Santa
-// knows about but that have no full catalog row.
-interface SantaProductLookupResult {
-  id: string;
-  name: string;
-  price: number;
-  image?: string;
-  manage_stock?: boolean;
-  stock?: number;
-}
 
 async function lookupSantaProduct(
   productName: string,
@@ -34,10 +24,15 @@ async function lookupSantaProduct(
     throw new Error(`Santa product lookup failed (${response.status})`);
   }
 
-  const data = (await response.json()) as {
-    product: SantaProductLookupResult | null;
-  };
-  return data.product ?? null;
+  const parsed = santaProductLookupResponseSchema.safeParse(
+    await response.json()
+  );
+
+  if (!parsed.success) {
+    throw new Error('Santa product lookup returned an invalid payload');
+  }
+
+  return parsed.data.product;
 }
 
 function buildSantaCartItem(
@@ -46,7 +41,7 @@ function buildSantaCartItem(
 ): Omit<CartItem, 'id'> {
   // Santa already negotiated the price the customer should pay. Only treat it as
   // a negotiated price when it actually beats the catalog price (mirrors web).
-  const hasDiscount = grantedPrice > 0 && grantedPrice < product.price;
+  const hasDiscount = grantedPrice >= 0 && grantedPrice < product.price;
   const managesStock = product.manage_stock === true;
 
   return {

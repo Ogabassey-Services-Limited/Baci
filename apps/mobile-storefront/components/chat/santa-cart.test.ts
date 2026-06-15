@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const mockAddItem = jest.fn();
 const mockShowCartToast = jest.fn();
+const mockAbortSignal = new AbortController().signal;
 
 jest.mock('@/stores/cart-store', () => ({
   useCartStore: { getState: () => ({ addItem: mockAddItem }) },
@@ -26,8 +27,7 @@ jest.mock('./constants', () => ({
   CHAT_REQUEST_TIMEOUT_MS: 1000,
 }));
 
-const { addSantaWishToCart } =
-  require('./santa-cart') as typeof import('./santa-cart');
+import { addSantaWishToCart } from './santa-cart';
 
 const action: SantaAction = {
   type: 'ADD_TO_CART',
@@ -104,6 +104,55 @@ describe('addSantaWishToCart', () => {
         negotiationStatus: undefined,
       })
     );
+  });
+
+  it('applies a free Santa grant as a negotiated price', async () => {
+    mockLookup({
+      id: 'prod-free',
+      name: 'Free Gift',
+      price: 500_000,
+      manage_stock: false,
+    });
+
+    const result = await addSantaWishToCart({
+      type: 'ADD_TO_CART',
+      productName: 'Free Gift',
+      price: 0,
+    });
+
+    expect(result).toBe(true);
+    expect(mockAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        negotiatedPrice: 0,
+        negotiationStatus: 'accepted',
+      })
+    );
+  });
+
+  it('passes an abort signal to the product lookup request', async () => {
+    mockLookup({
+      id: 'prod-1',
+      name: 'iPhone 15',
+      price: 950_000,
+      manage_stock: false,
+    });
+
+    await addSantaWishToCart(action, mockAbortSignal);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: mockAbortSignal })
+    );
+  });
+
+  it('rejects malformed product lookup responses', async () => {
+    mockLookup({ id: 'prod-1', name: 'iPhone 15', price: '950000' });
+
+    const result = await addSantaWishToCart(action);
+
+    expect(result).toBe(false);
+    expect(mockAddItem).not.toHaveBeenCalled();
+    expect(mockShowCartToast).toHaveBeenCalledWith(expect.any(String), 'error');
   });
 
   it('returns false and warns when the product is not found', async () => {
