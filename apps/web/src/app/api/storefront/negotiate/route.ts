@@ -10,20 +10,9 @@ import {
 } from '@baci/shared/lib';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { ZodError } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-
-// Validation schema
-const NegotiationSchema = z.object({
-  productId: z.uuid(),
-  merchantId: z.uuid(),
-  offeredPrice: z.number().positive(),
-  customerEmail: z.email().optional(),
-  customerPhone: z.string().optional(),
-  attemptNumber: z.number().min(1).max(3).default(1),
-  evidenceUrl: z.url().optional(),
-  evidenceNote: z.string().max(500).optional(),
-});
+import { storefrontNegotiationSchema } from '@/schemas/storefront-negotiation';
 
 // Counter-offer discount tiers — capped by the shared 2% auto-negotiation policy
 const DISCOUNT_TIERS = {
@@ -48,7 +37,7 @@ interface NegotiationResult {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const validatedData = NegotiationSchema.parse(body);
+    const validatedData = storefrontNegotiationSchema.parse(body);
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -189,7 +178,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Negotiation API error:', error);
 
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       return NextResponse.json(
         { error: 'Invalid request', details: error.issues },
         { status: 400 }
