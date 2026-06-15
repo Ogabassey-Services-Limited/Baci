@@ -145,7 +145,7 @@ jobs:
           diff_file="${RUNNER_TEMP}/gemini.diff"
           gh pr diff "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" > "${diff_file}" || true
 
-          budget=100000
+          budget=60000
           diff_len="$(wc -c < "${diff_file}")"
           diff_note=""
           if (( diff_len > budget )); then
@@ -158,6 +158,53 @@ jobs:
             printf '(No textual diff was returned by the GitHub API.)\n' > "${diff_file}"
           fi
 
+          # Full current content of each changed (non-removed) file at the head
+          # SHA. Reviewing complete files — not just the diff — stops the model
+          # from flagging code/config it simply could not see as "missing".
+          full_files_file="${RUNNER_TEMP}/gemini-full-files.md"
+          : > "${full_files_file}"
+          files_budget=150000
+          per_file_budget=40000
+          content_file="${RUNNER_TEMP}/gemini-file-content"
+          while IFS=$'\t' read -r path file_status; do
+            if [[ "${file_status}" == "removed" ]]; then
+              continue
+            fi
+            if (( files_budget <= 0 )); then
+              printf '\n### %s\n_(omitted: full-content budget exhausted; see diff above)_\n' "${path}" >> "${full_files_file}"
+              continue
+            fi
+            if ! gh api "repos/${GITHUB_REPOSITORY}/contents/${path}?ref=${head_sha}" \
+                -H "Accept: application/vnd.github.raw" > "${content_file}" 2>/dev/null; then
+              printf '\n### %s\n_(content could not be fetched)_\n' "${path}" >> "${full_files_file}"
+              continue
+            fi
+            if [[ "$(file --mime-encoding -b "${content_file}")" == "binary" ]]; then
+              printf '\n### %s\n_(binary file omitted)_\n' "${path}" >> "${full_files_file}"
+              continue
+            fi
+            cap=${per_file_budget}
+            if (( cap > files_budget )); then
+              cap=${files_budget}
+            fi
+            file_note=""
+            if (( $(wc -c < "${content_file}") > cap )); then
+              head -c "${cap}" "${content_file}" > "${content_file}.trunc"
+              mv "${content_file}.trunc" "${content_file}"
+              file_note=" (truncated)"
+            fi
+            files_budget=$(( files_budget - $(wc -c < "${content_file}") ))
+            {
+              printf '\n### %s%s\n' "${path}" "${file_note}"
+              printf '```\n'
+              cat "${content_file}"
+              printf '\n```\n'
+            } >> "${full_files_file}"
+          done < <(jq -r '.[] | [.filename, .status] | @tsv' "${files_file}")
+          if [[ ! -s "${full_files_file}" ]]; then
+            printf '(No changed-file contents were available.)\n' > "${full_files_file}"
+          fi
+
           prompt_file="${RUNNER_TEMP}/gemini-prompt.md"
           {
             printf 'Review GitHub pull request #%s for repository %s.\n' "${PR_NUMBER}" "${GITHUB_REPOSITORY}"
@@ -166,11 +213,23 @@ jobs:
             printf 'PR description:\n%s\n\n' "$(if [[ -n "${pr_body}" ]]; then printf '%s' "${pr_body}"; else printf '(empty)'; fi)"
 
             cat <<'CONTRACT'
-          You are reviewing only the diff and metadata included in this prompt. Do
-          not use any tools, do not read other files, do not modify code, do not
-          create commits, and do not ask follow-up questions. Only report issues you
-          can justify from the provided diff; if context is truncated, do not
-          speculate.
+          You are reviewing GitHub pull request changes. Below are the changed-file
+          list, the unified diff (what changed), and the FULL current content of each
+          changed file at the head commit. Base every finding on this material.
+
+          Accuracy rules (this is critical — prior reviews hallucinated):
+          - The complete content of each changed file is provided. Do NOT claim that
+            code, imports, permissions, configuration, error handling, or auth checks
+            are "missing" unless you can see they are absent in the full file shown.
+            Quote the relevant line when you flag something.
+          - You may use web search to verify framework, library, API, model, or
+            version facts against current official documentation before reporting
+            them (e.g. default GitHub Actions token scopes, Next.js 16 / React 19
+            behavior, valid model IDs). Never report a claim you cannot confirm from
+            the shown files or authoritative docs — when unsure, lower the severity
+            or omit it.
+          - Reserve "critical"/"high" for issues you have concretely verified.
+          - Do not modify code, create commits, or ask follow-up questions.
 
           Review contract:
           - Prioritize correctness, security, data safety, auth/tenant isolation, payment safety, regressions, and missing tests.
@@ -194,6 +253,8 @@ jobs:
             printf '\n## Unified diff%s\n\n```diff\n' "${diff_note}"
             cat "${diff_file}"
             printf '\n```\n'
+            printf '\n## Full content of changed files\n'
+            cat "${full_files_file}"
           } > "${prompt_file}"
 
           # The prompt embeds attacker-controlled PR text and the diff, so use a
