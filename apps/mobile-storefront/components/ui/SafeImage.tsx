@@ -2,6 +2,8 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image, type ImageProps } from 'expo-image';
 import { useState } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
 
 // Default blurhash for smooth loading placeholder
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
@@ -28,7 +30,7 @@ export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
    */
   fallbackIconSize?: number;
   /**
-   * Fallback icon color (default: #9CA3AF - gray-400)
+   * Fallback icon color (defaults to colors.textSecondary)
    */
   fallbackIconColor?: string;
 }
@@ -45,10 +47,13 @@ export function SafeImage({
   showFallbackIcon = true,
   fallbackStyle,
   fallbackIconSize = 32,
-  fallbackIconColor = '#9CA3AF',
+  fallbackIconColor,
   ...rest
 }: SafeImageProps) {
   const [hasError, setHasError] = useState(false);
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const actualIconColor = fallbackIconColor ?? colors.textSecondary;
   const [errorCount, setErrorCount] = useState(0);
 
   // Handle image load errors gracefully. React Compiler keeps this handler
@@ -94,13 +99,13 @@ export function SafeImage({
   if (hasError && showFallbackIcon) {
     return (
       <View
-        style={[styles.fallbackContainer, style, fallbackStyle]}
+        style={[styles.fallbackContainer, { backgroundColor: colors.muted }, style, fallbackStyle]}
         accessibilityLabel="Image unavailable"
       >
         <Ionicons
           name="image-outline"
           size={fallbackIconSize}
-          color={fallbackIconColor}
+          color={actualIconColor}
         />
       </View>
     );
@@ -138,7 +143,6 @@ export function useSafeImageProps(blurhash?: string) {
 
 const styles = StyleSheet.create({
   fallbackContainer: {
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
