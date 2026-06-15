@@ -5,7 +5,7 @@ import { LIGHT_COLORS, SHADOWS } from '@/constants/theme';
 import { StaffSummaryCards } from './StaffSummaryCards';
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },
