@@ -4,7 +4,7 @@
 import type React from 'react';
 import {
   createContext,
-  useContext,
+  use,
   useState,
   useSyncExternalStore,
 } from 'react';
@@ -27,7 +27,7 @@ interface SavedContextType {
 const SavedContext = createContext<SavedContextType | undefined>(undefined);
 
 export const useSaved = () => {
-  const context = useContext(SavedContext);
+  const context = use(SavedContext);
   if (!context) {
     throw new Error('useSaved must be used within a SavedProvider');
   }
