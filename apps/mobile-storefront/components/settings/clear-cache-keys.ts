@@ -8,17 +8,15 @@ const CLEAR_CACHE_PRESERVED_KEYS = new Set([
   'comparison-storage',
   'saved-storage',
   'search_history',
+  '@baci_storefront_push_token',
+  'baci_offline_mutation_queue',
+  'permission-booster-storage',
 ]);
 
 const CLEAR_CACHE_PRESERVED_PREFIXES = [
   'supabase',
   'baci:savings-reminder-',
-] as const;
-
-const CLEAR_CACHE_PREFIXES = [
-  'cache:',
-  'image-cache:',
-  'product-cache:',
+  '@baci_storefront_push_opt_out_',
 ] as const;
 
 function isClearableCacheStorageKey(key: string): boolean {
@@ -30,10 +28,7 @@ function isClearableCacheStorageKey(key: string): boolean {
     return false;
   }
 
-  return (
-    key === QUERY_CACHE_STORAGE_KEY ||
-    CLEAR_CACHE_PREFIXES.some((prefix) => key.startsWith(prefix))
-  );
+  return true;
 }
 
 export function getClearableCacheStorageKeys(

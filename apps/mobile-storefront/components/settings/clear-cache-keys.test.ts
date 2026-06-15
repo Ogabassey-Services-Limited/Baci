@@ -8,12 +8,16 @@ describe('getClearableCacheStorageKeys', () => {
         'cache:product-list',
         'image-cache:hero',
         'product-cache:featured',
+        'legacy-product-results',
+        'recent-products-cache',
       ])
     ).toEqual([
       'REACT_QUERY_OFFLINE_CACHE',
       'cache:product-list',
       'image-cache:hero',
       'product-cache:featured',
+      'legacy-product-results',
+      'recent-products-cache',
     ]);
   });
 
@@ -29,6 +33,10 @@ describe('getClearableCacheStorageKeys', () => {
         'app-theme-storage',
         'auth-storage',
         'baci:savings-reminder-goal-id',
+        '@baci_storefront_push_token',
+        '@baci_storefront_push_opt_out_user-id',
+        'baci_offline_mutation_queue',
+        'permission-booster-storage',
       ])
     ).toEqual(['REACT_QUERY_OFFLINE_CACHE']);
   });
