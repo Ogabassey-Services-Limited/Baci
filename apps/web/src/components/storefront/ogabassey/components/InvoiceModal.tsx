@@ -207,8 +207,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {dummyOrder.items.map((item, index) => (
-                    <tr key={index}>
+                  {dummyOrder.items.map((item) => (
+                    <tr key={item.id}>
                       <td className="py-6 pr-4 align-top">
                         <p className="font-bold text-gray-900 text-base mb-1">
                           {item.name}

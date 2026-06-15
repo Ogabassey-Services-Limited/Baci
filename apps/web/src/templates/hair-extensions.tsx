@@ -129,10 +129,10 @@ export function HairExtensionsHome(props: TemplatePageProps) {
             <section className="bg-[#1A1A1A] border-y border-[#333] py-8">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        {trustBadges.map((badge, index) => {
+                        {trustBadges.map((badge) => {
                             const Icon = badge.icon;
                             return (
-                                <div key={index} className="flex items-center gap-3">
+                                <div key={badge.title} className="flex items-center gap-3">
                                     <div className="size-12 bg-linear-to-br from-[#B76E79]/20 to-[#B76E79]/10 rounded-full flex items-center justify-center shrink-0 border border-[#B76E79]/30">
                                         <Icon className="size-5 text-[#B76E79]" />
                                     </div>
@@ -289,8 +289,8 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                         </p>
                     </div>
                     <div className="grid md:grid-cols-3 gap-8">
-                        {transformations.map((t, idx) => (
-                            <div key={idx} className="bg-[#222] rounded-2xl overflow-hidden border border-[#333] hover:border-[#B76E79]/50 transition-colors group">
+                        {transformations.map((t) => (
+                            <div key={t.name} className="bg-[#222] rounded-2xl overflow-hidden border border-[#333] hover:border-[#B76E79]/50 transition-colors group">
                                 <div className="grid grid-cols-2 h-48">
                                     <div className="bg-linear-to-br from-gray-700 to-gray-800 flex items-center justify-center text-gray-500">
                                         {t.before}
@@ -330,7 +330,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                             { name: 'Glam Bundle', items: '4 bundles + frontal', price: '$449', save: '25%' },
                             { name: 'Queen Bundle', items: '5 bundles + frontal + care kit', price: '$599', save: '30%' },
                         ].map((bundle, idx) => (
-                            <div key={idx} className={`p-6 rounded-2xl border transition-all ${idx === 1
+                            <div key={bundle.name} className={`p-6 rounded-2xl border transition-all ${idx === 1
                                     ? 'bg-linear-to-br from-[#B76E79]/20 to-[#F5D0C5]/10 border-[#B76E79]'
                                     : 'bg-[#1A1A1A] border-[#333] hover:border-[#B76E79]/50'
                                 }`}>

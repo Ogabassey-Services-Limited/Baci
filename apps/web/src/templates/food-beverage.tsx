@@ -144,7 +144,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                         {trustBadges.map((badge, index) => {
                             const Icon = badge.icon;
                             return (
-                                <div key={index} className="flex items-center gap-3">
+                                <div key={badge.title} className="flex items-center gap-3">
                                     <div className="size-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
                                         <Icon className="size-6 text-store-primary" />
                                     </div>
@@ -289,7 +289,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                     </div>
                     <div className="grid md:grid-cols-3 gap-8">
                         {recipes.map((recipe, idx) => (
-                            <div key={idx} className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
+                            <div key={recipe.name} className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
                                 <div className="h-48 bg-linear-to-br from-orange-100 to-amber-50 flex items-center justify-center">
                                     <span className="text-7xl group-hover:scale-110 transition-transform">{recipe.image}</span>
                                 </div>

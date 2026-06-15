@@ -251,7 +251,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
 
           return (
             <button
-              key={idx}
+              key={slide.id}
               type="button"
               aria-label={`Go to banner slide ${idx + 1}: ${slide.title ?? 'Sponsored placement'}`}
               aria-current={isCurrentSlide ? 'true' : undefined}

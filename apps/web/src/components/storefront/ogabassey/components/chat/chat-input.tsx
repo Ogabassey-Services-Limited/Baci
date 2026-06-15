@@ -33,7 +33,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           {SUGGESTIONS.map((s, i) => (
             <button
               type="button"
-              key={i}
+              key={s.label}
               onClick={() => onSuggestionClick(s.label)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-gray-200 rounded-full text-xs font-medium text-gray-600 transition-colors whitespace-nowrap shrink-0"
             >

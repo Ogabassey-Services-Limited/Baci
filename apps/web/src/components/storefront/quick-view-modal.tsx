@@ -193,8 +193,7 @@ export function QuickViewModal({
             {allImages.length > 1 && (
               <ul className="flex gap-2 mt-4 overflow-x-auto pb-2 list-none m-0 p-0">
                 {allImages.map((img, idx) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
-                  <li key={idx} className="shrink-0">
+                  <li key={img.url} className="shrink-0">
                     <button
                       type="button"
                       onClick={() => setSelectedImage(img.url)}

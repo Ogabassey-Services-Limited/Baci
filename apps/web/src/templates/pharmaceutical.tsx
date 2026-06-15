@@ -110,7 +110,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                         {trustBadges.map((badge, index) => {
                             const Icon = badge.icon;
                             return (
-                                <div key={index} className="flex items-center gap-3">
+                                <div key={badge.title} className="flex items-center gap-3">
                                     <div className="size-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
                                         <Icon className="size-6 text-blue-600" />
                                     </div>
@@ -276,7 +276,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                         ].map((resource, idx) => {
                             const Icon = resource.icon;
                             return (
-                                <div key={idx} className="p-6 border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-lg transition-all">
+                                <div key={resource.title} className="p-6 border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-lg transition-all">
                                     <div className="size-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
                                         <Icon className="size-6 text-blue-600" />
                                     </div>
