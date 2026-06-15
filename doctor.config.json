@@ -14,10 +14,7 @@
       "**/*.cjs",
       "**/*.mjs",
       "**/test_review.js",
-      "**/migrate_images.ts",
-      "**/supabase/migrations-archive/**",
-      "**/apps/web/supabase/**",
-      "**/supabase/patches/**"
+      "**/migrate_images.ts"
     ],
     "overrides": [
       {
@@ -66,6 +63,13 @@
           "react-doctor/prefer-html-dialog",
           "react-doctor/prefer-tag-over-role"
         ]
+      },
+      {
+        "files": [
+          "**/supabase/migrations-archive/**",
+          "**/supabase/patches/**"
+        ],
+        "rules": ["react-doctor/supabase-rls-policy-risk"]
       }
     ]
   }
