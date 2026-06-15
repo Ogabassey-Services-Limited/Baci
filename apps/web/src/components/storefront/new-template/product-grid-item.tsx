@@ -181,7 +181,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               return (
                 <button
                   type="button"
-                  key={colorValue}
+                  key={`${colorName}-${colorValue}-${idx}`}
                   onClick={(e) => handleColorSelect(e, idx)}
                   onKeyDown={(e) => handleColorKeyDown(e, idx)}
                   className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${

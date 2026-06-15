@@ -152,8 +152,15 @@ export function QuickViewModal({
 
   // Get all images (main + additional)
   const allImages = [
-    { url: product.imageLarge || product.image, alt: product.name },
-    ...(product.images || []),
+    {
+      key: `primary-${product.imageLarge || product.image}`,
+      url: product.imageLarge || product.image,
+      alt: product.name,
+    },
+    ...(product.images || []).map((img) => ({
+      ...img,
+      key: `additional-${img.order}-${img.url}`,
+    })),
   ];
 
   return (
@@ -193,7 +200,7 @@ export function QuickViewModal({
             {allImages.length > 1 && (
               <ul className="flex gap-2 mt-4 overflow-x-auto pb-2 list-none m-0 p-0">
                 {allImages.map((img, idx) => (
-                  <li key={img.url} className="shrink-0">
+                  <li key={img.key} className="shrink-0">
                     <button
                       type="button"
                       onClick={() => setSelectedImage(img.url)}
