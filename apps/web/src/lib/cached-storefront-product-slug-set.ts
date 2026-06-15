@@ -4,12 +4,12 @@ import { createPublicClient } from '@/lib/supabase/public';
 export interface StorefrontProductSlugSetResult {
   hasError: boolean;
   /**
-   * The merchant's publicly-resolvable product slugs (status active or
-   * archived). This is a membership set, NOT a content fetch: the proxy uses it
-   * to hard-404 only slugs that match NO resolvable product (true typos).
-   * Archived slugs are included so the proxy never 404s a slug the page would
-   * legacy-308; draft/unpublished slugs are excluded (their URLs are not public
-   * and correctly hard-404).
+   * The merchant's publicly-resolvable product slugs. This is a membership set,
+   * NOT a content fetch: the proxy uses it to hard-404 only slugs that match NO
+   * resolvable product (true typos). Includes active slugs (render the PDP) and
+   * archived slugs ONLY when they legacy-308 to an active parent — so the proxy
+   * never 404s a redirectable URL. Draft/unpublished AND non-redirectable
+   * archived slugs are excluded so their URLs correctly hard-404.
    */
   slugs: string[];
 }
@@ -21,11 +21,11 @@ export interface StorefrontProductSlugSetResult {
  *
  * Uses the anon `createPublicClient` (NOT a service-role client — that is
  * forbidden in user-request-path helpers) plus the `get_merchant_product_slug_set`
- * SECURITY DEFINER RPC. The RPC returns active+archived slugs for the passed
- * merchant only (and nothing else), so it can include archived slugs — which
- * anon RLS would otherwise hide — without the broad privileges of a service-role
- * client. It returns a single `text[]`, so there is no PostgREST 1000-row cap to
- * paginate around.
+ * SECURITY DEFINER RPC. The RPC returns the passed merchant's resolvable slugs
+ * only (active, plus archived that legacy-308 to an active parent — and nothing
+ * else), so it can include redirectable archived slugs (which anon RLS would
+ * otherwise hide) without the broad privileges of a service-role client. It
+ * returns a single `text[]`, so there is no PostgREST 1000-row cap to paginate.
  *
  * Tagged with a DEDICATED `product-slug-set-${merchantId}` tag so it is
  * invalidated on every product mutation via `revalidateProductsReliable` — which

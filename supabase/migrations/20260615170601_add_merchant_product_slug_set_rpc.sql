@@ -8,12 +8,17 @@
 -- the critical rules), this SECURITY DEFINER function returns the membership set
 -- for a single merchant via the anon-callable public client.
 --
--- Least-privilege: returns ONLY slugs (no other columns), ONLY for the explicitly
--- passed merchant, and ONLY for publicly-resolvable statuses (active + archived)
--- — draft/unpublished slugs are intentionally excluded so they are not leaked to
--- anon and their URLs hard-404 (correct: they are not public pages). Returns a
--- single `text[]` (not a row set) so the PostgREST 1000-row cap does not truncate
--- large catalogs.
+-- Least-privilege: returns ONLY slugs (no other columns) and ONLY for the
+-- explicitly passed merchant. A slug is included only if its URL actually
+-- resolves to a non-404 on the storefront:
+--   * status = 'active'   -> renders the PDP, OR
+--   * status = 'archived' -> ONLY when it legacy-308s, i.e. its
+--                            parent_product_id points to an ACTIVE parent WITH a
+--                            slug (mirrors getCachedLegacyProductRedirectTarget).
+-- Draft/unpublished AND non-redirectable archived slugs (discontinued standalones
+-- with no active parent) are EXCLUDED, so the proxy hard-404s them (correct — the
+-- page already notFound()s them) instead of leaving them as soft-404s. Returns a
+-- single `text[]` (not a row set) so the PostgREST 1000-row cap cannot truncate.
 
 CREATE OR REPLACE FUNCTION private.get_merchant_product_slug_set(
   p_merchant_id uuid
@@ -28,7 +33,20 @@ AS $$
   FROM public.products AS p
   WHERE p.merchant_id = p_merchant_id
     AND p.slug IS NOT NULL
-    AND p.status IN ('active', 'archived');
+    AND (
+      p.status = 'active'
+      OR (
+        p.status = 'archived'
+        AND EXISTS (
+          SELECT 1
+          FROM public.products AS parent
+          WHERE parent.id = p.parent_product_id
+            AND parent.merchant_id = p_merchant_id
+            AND parent.status = 'active'
+            AND parent.slug IS NOT NULL
+        )
+      )
+    );
 $$;
 
 REVOKE ALL ON FUNCTION private.get_merchant_product_slug_set(uuid)
