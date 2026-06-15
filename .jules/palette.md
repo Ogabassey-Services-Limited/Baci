@@ -95,6 +95,6 @@
 **Action:** Always ensure icon-only buttons that toggle visibility state have dynamic `aria-label` attributes reflecting the current action (e.g., `aria-label={showSecret ? 'Hide secret' : 'Show secret'}`).
 
 ## 2026-06-15 - [Screen Reader Announcement for Mobile Loading States]
-**Learning:** [React Native views that contain dynamic loading indicators and text during an asynchronous transition must combine `accessibilityLiveRegion="polite"` and `accessibilityState={{ busy: true }}` to ensure the screen reader announces the status text when the container is rendered.]
-**Action:** [When implementing fetching/loading UI states (like shipping quotes) in React Native, wrap the loading spinner and accompanying text in a container with `accessibilityLiveRegion="polite"` and `accessibilityState={{ busy: true }}`.]
-**Source:** [React Native Accessibility API / APG pattern for aria-live and aria-busy]
+**Learning:** [Conditionally rendering a `View` with `accessibilityLiveRegion="polite"` typically fails to trigger screen reader announcements. Live regions must be persistently mounted in the component tree *before* their content changes so the screen reader can detect the injection of new text. Also, `accessibilityState={{ busy: true }}` explicitly instructs screen readers to suppress announcements until the element is no longer busy. Because conditionally rendered loading components completely unmount when the fetch finishes, they never transition to `busy: false`, causing the text to be skipped permanently.]
+**Action:** [Use a reliable cross-platform approach for transient loading announcements in React Native. The most robust method is to use a `useEffect` hook that triggers `AccessibilityInfo.announceForAccessibility('Fetching delivery options…')` when the loading state evaluates to `true`.]
+**Source:** [React Native Accessibility API / WCAG 4.1.3 Status Messages]
