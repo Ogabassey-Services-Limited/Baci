@@ -23,6 +23,10 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
+import {
+  DiscountCodeInput,
+  type DiscountResult,
+} from '@/components/storefront/checkout/discount-code-input';
 import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -1217,6 +1221,8 @@ export const CheckoutPage: React.FC = () => {
   const [payWithWallet, setPayWithWallet] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderTotals, setOrderTotals] = useState<{ total: number; taxAmount: number } | null>(null);
+  const [appliedDiscount, setAppliedDiscount] =
+    useState<DiscountResult | null>(null);
 
   // Note: currentStep and completedSteps are now part of checkoutForm (persisted)
 
@@ -1785,16 +1791,28 @@ export const CheckoutPage: React.FC = () => {
             // `giftWrappingCost > 1`. Compose the snapshot from the
             // explicit components instead so it always matches the
             // server side (Codex P1 on PR #1622).
-            expected_total:
+            // Net of the applied discount so the RPC parity formula
+            // (subtotal + shipping + gift + tax - discount) matches; the route
+            // recomputes + validates the discount from the canonical subtotal.
+            expected_total: Math.max(
+              0,
               checkoutCartTotal +
-              deliveryCost +
-              giftWrappingCost +
-              (orderTotals?.taxAmount ?? 0),
-            client_total:
+                deliveryCost +
+                giftWrappingCost +
+                (orderTotals?.taxAmount ?? 0) -
+                (appliedDiscount?.discount_amount ?? 0)
+            ),
+            client_total: Math.max(
+              0,
               checkoutCartTotal +
-              deliveryCost +
-              giftWrappingCost +
-              (orderTotals?.taxAmount ?? 0),
+                deliveryCost +
+                giftWrappingCost +
+                (orderTotals?.taxAmount ?? 0) -
+                (appliedDiscount?.discount_amount ?? 0)
+            ),
+            ...(appliedDiscount?.code
+              ? { discount_code: appliedDiscount.code }
+              : {}),
             payment_method: normalizedPaymentMethod,
             payment_status: 'unpaid',
             shipping_status: 'pending',
@@ -2847,6 +2865,17 @@ export const CheckoutPage: React.FC = () => {
           walletAmountUsed={walletAmountUsed}
           remainingAmount={remainingAmount > 0 ? remainingAmount : resumedOrder?.total || remainingAmount}
         />
+
+        <div className="mt-4">
+          <DiscountCodeInput
+            merchantId={merchant?.id || ''}
+            cartTotal={effectiveCheckoutCartTotal}
+            productIds={checkoutCart.map((item) => item.id)}
+            appliedDiscount={appliedDiscount}
+            onApply={setAppliedDiscount}
+            onRemove={() => setAppliedDiscount(null)}
+          />
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           {/* LEFT COLUMN: Accordion Steps */}

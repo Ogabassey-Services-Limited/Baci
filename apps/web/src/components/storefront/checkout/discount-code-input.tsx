@@ -14,7 +14,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { buildCsrfHeaders } from '@/lib/csrf';
 
-interface DiscountResult {
+export interface DiscountResult {
   valid: boolean;
   code: string;
   discount_type: 'percentage' | 'fixed';

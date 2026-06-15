@@ -60,6 +60,7 @@ vi.mock('@/contexts/auth-context', () => ({
 
 vi.mock('@/hooks/use-toast', () => ({
   toast: vi.fn(),
+  useToast: () => ({ toast: vi.fn() }),
 }));
 
 vi.mock('@/lib/supabase/client', () => ({
