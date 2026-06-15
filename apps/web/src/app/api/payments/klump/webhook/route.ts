@@ -19,6 +19,10 @@ import {
   verifyKlumpWebhookSignature,
 } from '@/lib/klump-webhook';
 import { logger } from '@/lib/logger';
+import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import { calculatePlatformFee } from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { referenceSchema } from '@/schemas/payments';
@@ -83,6 +87,11 @@ export function HEAD() {
   return new Response(null, { status: 200 });
 }
 
+type KlumpUpdatedOrder = KlumpPaidOrder & {
+  cancelled_at?: string | null;
+  shipping_status?: string | null;
+};
+
 function updateKlumpOrder({
   orderId,
   supabase,
@@ -99,8 +108,10 @@ function updateKlumpOrder({
     })
     .eq('id', orderId)
     .neq('payment_status', 'paid')
-    .select('id, merchant_id, order_number, customer_name, total, currency')
-    .maybeSingle<KlumpPaidOrder>();
+    .select(
+      'id, merchant_id, order_number, customer_name, total, currency, shipping_status, cancelled_at'
+    )
+    .maybeSingle<KlumpUpdatedOrder>();
 }
 
 function getKlumpPlatformFee(
@@ -267,7 +278,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  let order: KlumpPaidOrder | null = null;
+  let order: KlumpUpdatedOrder | null = null;
   if (transaction.order_id) {
     const { data: updatedOrder, error: orderError } = await updateKlumpOrder({
       orderId: transaction.order_id,
@@ -281,6 +292,26 @@ export async function POST(request: NextRequest) {
         orderId: transaction.order_id,
       });
       return errorResponse('Failed to update order', 500);
+    }
+
+    // The prevent_cancelled_order_reopen trigger clamped this reopen: suppress
+    // settlement + merchant notification and file a reconciliation row. Ack
+    // Klump with a 200 so it does not retry into a loop.
+    if (updatedOrder && isOrderClampedAsCancelled(updatedOrder)) {
+      await handlePaymentForCancelledOrder({
+        gatewayReference: referenceResult.data,
+        order: updatedOrder,
+        reason:
+          'Klump payment captured for an order cancelled before finalization',
+        supabase,
+        transactionId: transaction.id,
+      });
+
+      return NextResponse.json({
+        message:
+          'Klump payment recorded; order was cancelled, filed for review',
+        success: true,
+      });
     }
 
     order = updatedOrder;

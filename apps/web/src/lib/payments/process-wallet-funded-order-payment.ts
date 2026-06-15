@@ -2,6 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { findActiveWalletFundingIntentForTransfer } from '@/lib/order-wallet-funding-intents';
+import {
+  type CancellableOrderRow,
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import { fileAmbiguousReview } from '@/lib/payments/order-wallet-funding-ambiguity';
 import {
   fetchOrderPaymentTransaction,
@@ -118,6 +123,27 @@ function normalizeFinalizerAmount(
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchOrderCancellationState({
+  merchantId,
+  orderId,
+  supabase,
+}: {
+  merchantId: string;
+  orderId: string;
+  supabase: SupabaseClient;
+}): Promise<CancellableOrderRow | null> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, shipping_status, cancelled_at')
+    .eq('id', orderId)
+    .eq('merchant_id', merchantId)
+    .maybeSingle<CancellableOrderRow>();
+  if (error) {
+    throw error;
+  }
+  return data;
 }
 
 function fetchFinalizedOrderPaymentTransaction({
@@ -331,6 +357,43 @@ export async function processWalletFundedOrderPayment({
     );
   }
   if (finalizer.order_paid && finalizer.order_id) {
+    // The finalize_wallet_funded_order RPC does not expose cancellation, and a
+    // cancelled order is clamped by prevent_cancelled_order_reopen (its
+    // payment_status stays unpaid, so fetchPaidOrder — which filters
+    // payment_status='paid' — would throw and 500 the webhook). Read the
+    // order's cancellation state first; if clamped, suppress all paid-order
+    // side effects and file a reconciliation row instead.
+    const orderCancellationState = await fetchOrderCancellationState({
+      merchantId: match.intent.merchantId,
+      orderId: finalizer.order_id,
+      supabase,
+    });
+    if (isOrderClampedAsCancelled(orderCancellationState)) {
+      await handlePaymentForCancelledOrder({
+        gatewayReference,
+        order: orderCancellationState ?? { id: finalizer.order_id },
+        reason:
+          'Wallet-funded order payment finalized for an order cancelled before finalization',
+        supabase,
+        transactionId: finalizer.order_payment_transaction_id ?? transaction.id,
+      });
+
+      return {
+        body: {
+          debitedAmount: normalizeFinalizerAmount(finalizer.debited_amount, 0),
+          fundedAmount: normalizeFinalizerAmount(
+            finalizer.funded_amount,
+            amount
+          ),
+          orderId: finalizer.order_id,
+          status: 'cancelled',
+        },
+        kind: 'processed',
+        orderPaid: false,
+        status: 200,
+      };
+    }
+
     const fundedAmount = normalizeFinalizerAmount(
       finalizer.funded_amount,
       amount

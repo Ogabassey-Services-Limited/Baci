@@ -6,6 +6,10 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
+import {
   type DeviceInsuranceDetails,
   purchaseOrderInsurance,
 } from '@/services/insurance';
@@ -89,7 +93,7 @@ export async function POST(
     }
 
     // 2. Update Order Status
-    const { error: updateError } = await supabase
+    const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
       .update({
         shipping_status: 'processing', // or confirmed
@@ -97,12 +101,36 @@ export async function POST(
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('merchant_id', merchantId);
+      .eq('merchant_id', merchantId)
+      .select('id, shipping_status, cancelled_at')
+      .maybeSingle();
 
     if (updateError) {
       return NextResponse.json(
         { error: 'Failed to update order status' },
         { status: 500 }
+      );
+    }
+
+    // The prevent_cancelled_order_reopen trigger clamped this confirm: the
+    // order is cancelled and cannot be advanced. File a reconciliation row so
+    // ops can reconcile, and report the no-op without confirming.
+    if (isOrderClampedAsCancelled(updatedOrder)) {
+      await handlePaymentForCancelledOrder({
+        gatewayReference: null,
+        order: updatedOrder ?? { id },
+        reason:
+          'Merchant confirm attempted on an order cancelled by the customer',
+        supabase,
+        transactionId: null,
+      });
+
+      return NextResponse.json(
+        {
+          error: 'Order was cancelled and cannot be confirmed',
+          code: 'ORDER_CANCELLED',
+        },
+        { status: 409 }
       );
     }
 

@@ -487,6 +487,106 @@ describe('POST /api/payments/juicyway/webhook', () => {
     );
   });
 
+  it('suppresses side effects + settlement and files reconciliation when the order was clamped as cancelled', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = {
+      id: 'txn-123',
+      status: 'pending',
+      gateway_reference: 'TXN-123456',
+      amount: '10000',
+      platform_fee: '150',
+      merchant_id: 'merchant-123',
+      order_id: 'order-123',
+    };
+
+    // The order UPDATE returns the CLAMPED cancelled row.
+    const cancelledOrder = {
+      id: 'order-123',
+      order_number: 'ORD-001',
+      customer_email: 'customer@example.com',
+      customer_name: 'Jane Doe',
+      total: '10000',
+      currency: 'NGN',
+      shipping_status: 'cancelled',
+      cancelled_at: '2026-06-15T00:00:00Z',
+      order_items: [],
+      ad_tracking: null,
+    };
+
+    const reconciliationInsert = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null });
+    let transactionCallCount = 0;
+
+    const fromMock = vi.fn((table) => {
+      if (table === 'transactions') {
+        transactionCallCount++;
+        if (transactionCallCount === 1) {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi
+              .fn()
+              .mockResolvedValue({ data: transaction, error: null }),
+          };
+        }
+        return {
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+
+      if (table === 'orders') {
+        return {
+          update: vi.fn(() => ({
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi
+              .fn()
+              .mockResolvedValue({ data: cancelledOrder, error: null }),
+          })),
+        };
+      }
+
+      if (table === 'reconciliation_review') {
+        return { insert: reconciliationInsert };
+      }
+
+      return {
+        select: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn(),
+      };
+    });
+
+    (mockSupabase as Record<string, unknown>).from = fromMock;
+    mockSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
+    mockAdminSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
+
+    const payload = createSuccessPayload();
+    const request = createWebhookRequest(payload);
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      success: true,
+      message: 'Payment recorded; order was cancelled, filed for review',
+    });
+    // Settlement must NOT run for a cancelled order.
+    expect(mockAdminSupabase.rpc).not.toHaveBeenCalled();
+    // Reconciliation row filed.
+    expect(reconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: 'order-123',
+      })
+    );
+  });
+
   it('processes payment without order_id', async () => {
     mockVerifyWebhookSignature.mockResolvedValue(true);
 

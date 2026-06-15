@@ -75,10 +75,19 @@ function createSelectSingleQuery<T>(data: T, error: unknown = null) {
   };
 }
 
-function createUpdateQuery(error: unknown = null) {
+function createUpdateQuery(
+  error: unknown = null,
+  updatedOrder: Record<string, unknown> | null = {
+    id: ORDER_ID,
+    shipping_status: 'processing',
+    cancelled_at: null,
+  }
+) {
   return {
     update: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: updatedOrder, error }),
     error,
   };
 }
@@ -237,6 +246,67 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
         orderId: ORDER_ID,
       })
     );
+  });
+
+  it('files reconciliation and rejects when the order was clamped as cancelled', async () => {
+    const reconciliationInsert = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return createSelectSingleQuery({
+          id: MERCHANT_ID,
+          business_name: 'Ogabassey',
+        });
+      }
+
+      if (table === 'orders') {
+        return {
+          ...createSelectSingleQuery({
+            id: ORDER_ID,
+            order_number: 'ORD-001',
+            total: '5000',
+            customer_name: 'John Doe',
+            customer_email: 'john@example.com',
+            payment_status: 'unpaid',
+            shipping_status: 'pending',
+          }),
+          // The update returns the CLAMPED cancelled row.
+          ...createUpdateQuery(null, {
+            id: ORDER_ID,
+            shipping_status: 'cancelled',
+            cancelled_at: '2026-06-15T00:00:00Z',
+          }),
+        };
+      }
+
+      if (table === 'reconciliation_review') {
+        return { insert: reconciliationInsert };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await POST(
+      createRequest({ credit_notes: 'Ship now' }),
+      createParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      error: 'Order was cancelled and cannot be shipped on credit',
+      code: 'ORDER_CANCELLED',
+    });
+    expect(reconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: ORDER_ID,
+      })
+    );
+    // No DVA was created for the cancelled order.
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
   });
 
   it('returns 500 when payment account fallback lookup fails', async () => {

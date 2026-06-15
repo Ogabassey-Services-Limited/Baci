@@ -9,6 +9,10 @@ import {
 } from '@/lib/credit-direct';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
+import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import { createServiceClient } from '@/lib/supabase/service';
 
 function readNoteString(value: unknown) {
@@ -285,7 +289,7 @@ export async function POST(request: NextRequest) {
         const merchantAmount = calculateMerchantAmount(totalAmount);
 
         // Update order to paid status
-        const { error: updateError } = await supabase
+        const { data: updatedOrder, error: updateError } = await supabase
           .from('orders')
           .update({
             payment_status: 'paid',
@@ -296,7 +300,9 @@ export async function POST(request: NextRequest) {
               merchantAmount,
             }),
           })
-          .eq('id', order.id);
+          .eq('id', order.id)
+          .select('id, shipping_status, cancelled_at')
+          .maybeSingle();
 
         if (updateError) {
           logger.error({
@@ -307,6 +313,25 @@ export async function POST(request: NextRequest) {
             { error: 'Failed to update order' },
             { status: 500 }
           );
+        }
+
+        // The prevent_cancelled_order_reopen trigger clamped this reopen:
+        // suppress the paid transaction record, push, and confirmation email,
+        // and file a reconciliation row. Ack Credit Direct with 200.
+        if (updatedOrder && isOrderClampedAsCancelled(updatedOrder)) {
+          await handlePaymentForCancelledOrder({
+            gatewayReference: payload.checkoutTransactionId,
+            order: updatedOrder,
+            reason:
+              'Credit Direct payment captured for an order cancelled before finalization',
+            supabase,
+            transactionId: null,
+          });
+
+          return NextResponse.json({
+            received: true,
+            message: 'Order was cancelled; payment filed for review',
+          });
         }
 
         // Idempotency check: Skip if transaction already exists (webhook retry)

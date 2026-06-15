@@ -34,6 +34,11 @@ export const transaction = {
 };
 
 export function createWalletFundedOrderPaymentSupabase({
+  orderCancellationState = {
+    cancelled_at: null,
+    id: 'order-1',
+    shipping_status: 'processing',
+  },
   orderTransactionData = {
     amount: 20_000,
     gateway_reference: 'WALLET-DVA-ORDER-order-1',
@@ -45,6 +50,7 @@ export function createWalletFundedOrderPaymentSupabase({
   orderTransactionError = null,
   orderTransactionResponses,
 }: {
+  orderCancellationState?: Record<string, unknown> | null;
   orderTransactionData?: Record<string, unknown> | null;
   orderTransactionError?: unknown;
   orderTransactionResponses?: Array<{
@@ -54,6 +60,11 @@ export function createWalletFundedOrderPaymentSupabase({
 } = {}) {
   const richOrderQuery = {
     eq: vi.fn(() => richOrderQuery),
+    // fetchOrderCancellationState uses maybeSingle; fetchPaidOrder uses single.
+    maybeSingle: vi.fn(async () => ({
+      data: orderCancellationState,
+      error: null,
+    })),
     single: vi.fn(async () => ({
       data: {
         customer_email: 'jane@example.com',

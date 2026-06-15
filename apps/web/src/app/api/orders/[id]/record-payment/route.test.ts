@@ -106,6 +106,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       update: vi.fn().mockReturnThis(),
       insert: vi.fn().mockReturnThis(),
     });
@@ -648,10 +649,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
         );
         return chain;
       }
-      // Fifth call: order update
+      // Fifth call: order update (returns the row read back via maybeSingle)
       const chain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
       return chain;
@@ -772,10 +777,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
         );
         return chain;
       }
-      // Fifth call: order update
+      // Fifth call: order update (returns the row read back via maybeSingle)
       const chain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
       return chain;
@@ -848,9 +857,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    const mockOrderUpdateMerchantEq = vi.fn().mockResolvedValue({
-      data: mockOrder,
-      error: null,
+    const mockOrderUpdateMerchantEq = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({ data: mockOrder, error: null }),
+      }),
     });
     const mockOrderUpdateIdEq = vi.fn().mockReturnValue({
       eq: mockOrderUpdateMerchantEq,
@@ -1034,10 +1046,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
         );
         return chain;
       }
-      // Fifth call: order update
+      // Fifth call: order update (returns the row read back via maybeSingle)
       const chain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
       return chain;
@@ -1157,10 +1173,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
         );
         return chain;
       }
-      // Fifth call: order update
+      // Fifth call: order update (returns the row read back via maybeSingle)
       const chain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
       return chain;
@@ -1255,6 +1275,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
         insert: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: null, error: null }));
       return chain;
@@ -1591,6 +1615,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
           eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
           update: vi.fn().mockReturnThis(),
+          maybeSingle: vi
+            .fn()
+            .mockResolvedValue({ data: mockOrder, error: null }),
         };
       }
       if (table === 'transactions') {
@@ -1630,6 +1657,110 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const response = await POST(request, params);
 
     expect(response.status).toBe(200);
+  });
+
+  it('suppresses confirmation emails and files reconciliation when the order was clamped as cancelled', async () => {
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      customer_name: 'Ada',
+      customer_email: 'ada@example.com',
+      customer_phone: '+234',
+      total: 10000,
+      subtotal: 9000,
+      shipping_fee: 1000,
+      currency: 'NGN',
+      payment_status: 'unpaid',
+      shipping_status: 'pending',
+      wallet_amount_used: 0,
+      order_items: [],
+      shipping_address: {},
+    };
+
+    const reconciliationInsert = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null });
+    let txnQueryCount = 0;
+    mockSupabaseClient.from = vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi
+            .fn()
+            .mockResolvedValue({ data: mockMerchant, error: null }),
+        };
+      }
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
+          update: vi.fn().mockReturnThis(),
+          // The update is CLAMPED back to cancelled by the DB trigger.
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: {
+              id: mockOrderId,
+              shipping_status: 'cancelled',
+              cancelled_at: '2026-06-15T00:00:00Z',
+            },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'reconciliation_review') {
+        return { insert: reconciliationInsert };
+      }
+      if (table === 'transactions') {
+        txnQueryCount++;
+        const chain = {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+        };
+        if (txnQueryCount === 1) {
+          Object.assign(chain, Promise.resolve({ data: [], error: null }));
+        } else {
+          Object.assign(
+            chain,
+            Promise.resolve({ data: { id: 'txn-new' }, error: null })
+          );
+        }
+        return chain;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({ order_cancelled: true, updated_status: {} });
+    // No confirmation email was sent for the cancelled order.
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    // A reconciliation row was filed for manual refund.
+    expect(reconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: mockOrderId,
+      })
+    );
   });
 
   it('returns 409 when order is already fully paid', async () => {

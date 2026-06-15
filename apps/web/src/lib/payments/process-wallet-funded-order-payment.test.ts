@@ -190,6 +190,43 @@ describe('processWalletFundedOrderPayment', () => {
     );
   });
 
+  it('suppresses paid-order side effects and files reconciliation when the order was clamped as cancelled', async () => {
+    const supabase = createSupabase({
+      orderCancellationState: {
+        cancelled_at: '2026-05-26T12:10:00.000Z',
+        id: 'order-1',
+        shipping_status: 'cancelled',
+      },
+    });
+    const reviewInsert = vi.fn(async () => ({ data: null, error: null }));
+    const baseFrom = supabase.from;
+    supabase.from = vi.fn((table: string) => {
+      if (table === 'reconciliation_review') {
+        return { insert: reviewInsert } as never;
+      }
+      return baseFrom(table);
+    }) as never;
+
+    const result = await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_1',
+      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter: vi.fn(),
+      supabase: supabase as never,
+      transaction,
+    });
+
+    expect(result).toMatchObject({ kind: 'processed', orderPaid: false });
+    // No paid-order side effects ran for the cancelled order.
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+    // A reconciliation row was filed for manual refund.
+    expect(reviewInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: 'order-1',
+      })
+    );
+  });
+
   it('retries briefly when a paid finalizer transaction is not immediately queryable', async () => {
     vi.useFakeTimers();
     const supabase = createSupabase({

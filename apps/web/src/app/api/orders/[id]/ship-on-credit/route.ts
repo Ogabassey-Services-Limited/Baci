@@ -5,6 +5,10 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
+import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import { generatePaymentAccount } from '@/lib/paystack';
 
 /**
@@ -87,7 +91,7 @@ export async function POST(
     const creditNotes = body.credit_notes || body.notes || '';
 
     // 6. Update order to mark as credit and move to processing
-    const { error: updateError } = await supabase
+    const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
       .update({
         is_credit_order: true,
@@ -96,7 +100,9 @@ export async function POST(
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId)
-      .eq('merchant_id', merchantId);
+      .eq('merchant_id', merchantId)
+      .select('id, shipping_status, cancelled_at')
+      .maybeSingle();
 
     if (updateError) {
       logger.error({
@@ -106,6 +112,28 @@ export async function POST(
       return NextResponse.json(
         { error: 'Failed to update order' },
         { status: 500 }
+      );
+    }
+
+    // The prevent_cancelled_order_reopen trigger clamped this: the order was
+    // cancelled by the customer and cannot be shipped on credit. File a
+    // reconciliation row and reject without creating a DVA.
+    if (isOrderClampedAsCancelled(updatedOrder)) {
+      await handlePaymentForCancelledOrder({
+        gatewayReference: null,
+        order: updatedOrder ?? { id: orderId },
+        reason:
+          'Ship-on-credit attempted on an order cancelled by the customer',
+        supabase,
+        transactionId: null,
+      });
+
+      return NextResponse.json(
+        {
+          error: 'Order was cancelled and cannot be shipped on credit',
+          code: 'ORDER_CANCELLED',
+        },
+        { status: 409 }
       );
     }
 

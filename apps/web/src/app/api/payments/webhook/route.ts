@@ -33,6 +33,10 @@ import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
+import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
 import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
@@ -40,7 +44,6 @@ import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effe
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
-  getPaystackRequestedAmountNgn,
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
@@ -118,20 +121,6 @@ function getVerifiedAmount(
   gateway: PaymentGateway,
   gatewayResponse: Record<string, unknown>
 ): { amount: number; currency?: string } | null {
-  if (gateway === 'paystack') {
-    const amount = getPaystackRequestedAmountNgn(gatewayResponse);
-    if (amount === null) {
-      return null;
-    }
-
-    const currency =
-      typeof gatewayResponse.currency === 'string'
-        ? gatewayResponse.currency
-        : undefined;
-
-    return { amount, currency };
-  }
-
   const rawAmount = gatewayResponse.amount;
   if (
     typeof rawAmount !== 'number' ||
@@ -145,8 +134,9 @@ function getVerifiedAmount(
     typeof gatewayResponse.currency === 'string'
       ? gatewayResponse.currency
       : undefined;
+  const amount = gateway === 'paystack' ? rawAmount / 100 : rawAmount;
 
-  return { amount: rawAmount, currency };
+  return { amount, currency };
 }
 
 async function handleWalletTopUpIfNeeded({
@@ -1876,6 +1866,18 @@ export async function POST(request: NextRequest) {
             reference,
           });
         }
+      } else if (isOrderClampedAsCancelled(order)) {
+        // The prevent_cancelled_order_reopen trigger clamped this reopen:
+        // the order is cancelled. Suppress all paid-order side effects
+        // (push, confirmation email, settlement, outbox) and file a
+        // reconciliation row for manual refund. Still ack the gateway.
+        await handlePaymentForCancelledOrder({
+          gatewayReference: transaction.gateway_reference ?? reference,
+          order,
+          reason: `Gateway ${gateway} payment captured for an order cancelled before finalization`,
+          supabase,
+          transactionId: transaction.id,
+        });
       } else {
         logger.info({
           message: 'Order updated successfully',

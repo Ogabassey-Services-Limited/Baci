@@ -20,6 +20,10 @@ import {
   type OrderConversionData,
   sendPurchaseConversion,
 } from '@/lib/offline-conversions';
+import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -197,6 +201,23 @@ export async function POST(request: NextRequest) {
           message: 'Failed to update order',
           orderId: transaction.order_id,
           error: orderError,
+        });
+      } else if (isOrderClampedAsCancelled(order)) {
+        // The prevent_cancelled_order_reopen trigger clamped this reopen:
+        // suppress all paid-order side effects (email, push, conversions,
+        // settlement) and file a reconciliation row. Ack the gateway.
+        await handlePaymentForCancelledOrder({
+          gatewayReference: reference,
+          order,
+          reason:
+            'Juicyway payment captured for an order cancelled before finalization',
+          supabase,
+          transactionId: transaction.id,
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Payment recorded; order was cancelled, filed for review',
         });
       } else {
         logger.info({

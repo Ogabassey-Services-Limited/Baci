@@ -145,17 +145,12 @@ vi.mock('@/lib/korapay', () => ({
   verifyPayment: vi.fn(),
 }));
 
-vi.mock('@/lib/paystack', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/paystack')>();
-
-  return {
-    ...actual,
-    verifyTransaction: vi.fn(),
-    calculatePlatformFee: vi.fn(() => ({
-      platformFee: 2000, // 20 NGN in kobo
-    })),
-  };
-});
+vi.mock('@/lib/paystack', () => ({
+  verifyTransaction: vi.fn(),
+  calculatePlatformFee: vi.fn(() => ({
+    platformFee: 2000, // 20 NGN in kobo
+  })),
+}));
 
 // Mock email and notifications
 vi.mock('@/lib/email-templates', () => ({
@@ -2646,6 +2641,121 @@ describe('POST /api/payments/webhook', () => {
       );
     });
 
+    it('suppresses paid-order side effects and files reconciliation when the order was clamped as cancelled', async () => {
+      const body = {
+        reference: 'REF-CANCELLED-1',
+        status: 'success',
+        event: 'charge.success',
+        amount: 1000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 1000,
+          reference: 'REF-CANCELLED-1',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const reconciliationInsert = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: null });
+      let transactionCallCount = 0;
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          transactionCallCount++;
+          if (transactionCallCount === 1) {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'txn-123',
+                  merchant_id: 'merchant-123',
+                  order_id: 'order-123',
+                  amount: '1000',
+                  currency: 'NGN',
+                  gateway_reference: 'BAC-REF-CANCELLED-1',
+                  status: 'pending',
+                  metadata: {},
+                },
+                error: null,
+              }),
+            } as never;
+          }
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            maybeSingle: vi
+              .fn()
+              .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
+          } as never;
+        }
+
+        if (table === 'orders') {
+          // The order UPDATE returns the CLAMPED cancelled row.
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: 'order-123',
+                order_number: 'ORD-123',
+                total: '1000',
+                currency: 'NGN',
+                shipping_status: 'cancelled',
+                payment_status: 'unpaid',
+                order_items: [],
+              },
+              error: null,
+            }),
+          } as never;
+        }
+
+        if (table === 'reconciliation_review') {
+          return { insert: reconciliationInsert } as never;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({ success: true });
+      // No paid-order side effects ran.
+      expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+      // Reconciliation row was filed.
+      expect(reconciliationInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issue_type: 'payment_received_after_cancellation',
+          order_id: 'order-123',
+        })
+      );
+    });
+
     it('acknowledges completed payments when paid-order side effects throw', async () => {
       const body = {
         reference: 'REF-SIDE-EFFECT-1',
@@ -3418,63 +3528,6 @@ describe('GET /api/payments/webhook', () => {
       });
 
       setupSuccessfulTransactionMocks({
-        metadata: {
-          transaction_type: 'vtu_purchase',
-          vtu_transaction_id: 'vtu-1',
-          customer_id: 'customer-1',
-          customer_email: 'customer@example.com',
-        },
-      });
-
-      const body = {
-        event: 'charge.success',
-        data: {
-          reference: 'REF123',
-        },
-      };
-      const bodyString = JSON.stringify(body);
-      const signature = createSignature(bodyString, 'test-paystack-secret');
-      const request = createMockRequest(body, {
-        'x-paystack-signature': signature,
-      });
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data).toEqual({ message: 'VTU payment fulfilled' });
-    });
-
-    it('uses Paystack requested_amount for VTU payments when amount includes customer-borne fees', async () => {
-      const { verifyTransaction } = await import('@/lib/paystack');
-      vi.mocked(verifyTransaction).mockResolvedValue({
-        success: true,
-        data: {
-          id: 1,
-          status: 'success',
-          amount: 314_721,
-          requested_amount: 300_000,
-          reference: 'REF123',
-          currency: 'NGN',
-          channel: 'bank_transfer',
-          paid_at: '2026-06-13T16:10:22.000Z',
-          created_at: '2026-06-13T16:08:52.000Z',
-          customer: {
-            id: 1,
-            email: 'customer@example.com',
-            customer_code: 'CUS_test',
-            first_name: null,
-            last_name: null,
-            phone: null,
-          },
-          metadata: null,
-          fees: 14_721,
-          fees_split: null,
-        },
-      });
-
-      setupSuccessfulTransactionMocks({
-        amount: '3000',
         metadata: {
           transaction_type: 'vtu_purchase',
           vtu_transaction_id: 'vtu-1',

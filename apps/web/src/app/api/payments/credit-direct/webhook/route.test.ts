@@ -159,6 +159,7 @@ function createMockSupabaseClient() {
     in: vi.fn().mockReturnThis(),
     ilike: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
   };
 
   return {
@@ -773,11 +774,17 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           });
           return orderLookupChain;
         } else if (fromCallCount === 2) {
-          // Second from('orders') - order update
+          // Second from('orders') - order update (returns the clamped/active row)
           const updateChain = { ...mockChain };
           updateChain.update = vi.fn().mockReturnValue(updateChain);
-          updateChain.eq = vi.fn().mockResolvedValue({
-            data: null,
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: {
+              id: 'order_abc',
+              shipping_status: 'processing',
+              cancelled_at: null,
+            },
             error: null,
           });
           return updateChain;
@@ -822,6 +829,79 @@ describe('POST /api/payments/credit-direct/webhook', () => {
         platformFee: 1000,
         merchantAmount: 49000,
       });
+    });
+
+    it('suppresses paid side effects and files reconciliation when the order was clamped as cancelled', async () => {
+      vi.mocked(parseWebhookPayload).mockReturnValue(merchantPaymentPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const reconciliationInsert = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: null });
+      const transactionInsert = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: null });
+      const mockChain = supabaseMock.from('orders');
+
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          // order lookup
+          const orderLookupChain = { ...mockChain };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [mockOrder],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+        if (fromCallCount === 2) {
+          // order update returns the CLAMPED cancelled row
+          const updateChain = { ...mockChain };
+          updateChain.update = vi.fn().mockReturnValue(updateChain);
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: {
+              id: 'order_abc',
+              shipping_status: 'cancelled',
+              cancelled_at: '2026-06-15T00:00:00Z',
+            },
+            error: null,
+          });
+          return updateChain;
+        }
+        if (table === 'reconciliation_review') {
+          return { ...mockChain, insert: reconciliationInsert };
+        }
+        if (table === 'transactions') {
+          return { ...mockChain, insert: transactionInsert };
+        }
+        return mockChain;
+      });
+
+      const request = createMockRequest(merchantPaymentPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        received: true,
+        message: 'Order was cancelled; payment filed for review',
+      });
+      // No paid transaction record was inserted
+      expect(transactionInsert).not.toHaveBeenCalled();
+      // Reconciliation row WAS filed
+      expect(reconciliationInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issue_type: 'payment_received_after_cancellation',
+          order_id: 'order_abc',
+        })
+      );
     });
 
     it('returns 400 when expected amount is invalid', async () => {
@@ -951,11 +1031,17 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           });
           return orderLookupChain;
         } else if (fromCallCount === 2) {
-          // Second from('orders') - order update
+          // Second from('orders') - order update (active row)
           const updateChain = { ...createMockSupabaseClient().from('orders') };
           updateChain.update = vi.fn().mockReturnValue(updateChain);
-          updateChain.eq = vi.fn().mockResolvedValue({
-            data: null,
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: {
+              id: 'order_abc',
+              shipping_status: 'processing',
+              cancelled_at: null,
+            },
             error: null,
           });
           return updateChain;
