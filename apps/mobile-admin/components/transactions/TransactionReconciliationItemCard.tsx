@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { RankedReconciliationCandidate } from '@/lib/transaction-reconciliation';
 
 export interface TransactionReconciliationItemCardProps {

@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
-import type { ThemeColors } from '@/constants/theme';
 import type { PurchasesPackage } from 'react-native-purchases';
+import type { ThemeColors } from '@/constants/theme';
 import { paywallStyles } from './paywall.styles';
 
 interface PaywallPackageListProps {
