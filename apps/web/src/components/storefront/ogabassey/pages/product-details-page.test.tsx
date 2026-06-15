@@ -445,6 +445,15 @@ describe('ProductDetailsPage', () => {
     expect(source).toMatch(/import\([^)]*NegotiationModal[^)]*\)/);
   });
 
+  it('forwards the product brand to the negotiation modal for brand-aware policy', () => {
+    const source = readFileSync(
+      'src/components/storefront/ogabassey/pages/product-details-page.tsx',
+      'utf8'
+    );
+
+    expect(source).toMatch(/productBrand=\{productData\.brand\}/);
+  });
+
   it('keeps post-action modal and cart animation code out of the initial client graph', () => {
     const source = readFileSync(
       'src/components/storefront/ogabassey/pages/product-details-page.tsx',
