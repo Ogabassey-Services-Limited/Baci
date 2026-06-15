@@ -2,12 +2,11 @@ import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
-const { applyAndroidSystemBarStyles } =
-  require('./androidSystemBars.js') as {
-    applyAndroidSystemBarStyles: (
-      androidStyles: ReturnType<typeof buildAndroidStyles>
-    ) => ReturnType<typeof buildAndroidStyles>;
-  };
+const { applyAndroidSystemBarStyles } = require('./androidSystemBars.js') as {
+  applyAndroidSystemBarStyles: (
+    androidStyles: ReturnType<typeof buildAndroidStyles>
+  ) => ReturnType<typeof buildAndroidStyles>;
+};
 
 function buildAndroidStyles(parent = 'Theme.ReactNative.AppCompat.Light') {
   return {

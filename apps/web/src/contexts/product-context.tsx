@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, type ReactNode, useContext, useState } from 'react';
+import { createContext, type ReactNode, use, useState } from 'react';
 import type { AIResponse, Change } from '@/app/dashboard/products/actions';
 import { useToast } from '@/hooks/use-toast';
 import { apiDelete, apiPost, apiPut } from '@/lib/api-client';
@@ -290,7 +290,7 @@ export const ProductProvider: React.FC<{
 };
 
 export const useProductContext = () => {
-  const context = useContext(ProductContext);
+  const context = use(ProductContext);
   if (!context) {
     throw new Error('useProductContext must be used within a ProductProvider');
   }

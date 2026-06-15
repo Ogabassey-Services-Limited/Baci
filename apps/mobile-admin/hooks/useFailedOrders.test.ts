@@ -109,8 +109,8 @@ vi.mock('@tanstack/react-query', () => ({
   useQuery: queryMock.useQuery,
 }));
 
-import { useFailedOrders } from './useFailedOrders';
 import { ONLINE_CHECKOUT_PAYMENT_METHODS } from './orders/order-list-visibility';
+import { useFailedOrders } from './useFailedOrders';
 
 describe('useFailedOrders', () => {
   beforeEach(() => {

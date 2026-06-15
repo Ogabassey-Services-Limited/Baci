@@ -6,8 +6,8 @@ import { normalizeProductInventory } from '@/lib/product-inventory';
 import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
-import { fetchAdminProductVariants } from './useProductPickerVariants';
 import type { Product, ProductWithVariants } from './products.types';
+import { fetchAdminProductVariants } from './useProductPickerVariants';
 
 export async function fetchProductDetail(args: {
   merchantId: string;

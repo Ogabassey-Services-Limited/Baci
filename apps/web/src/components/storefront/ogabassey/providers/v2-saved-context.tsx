@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, use, useEffect, useRef, useState } from 'react';
 import type { Product } from '../types';
 
 interface ToastState {
@@ -23,7 +23,7 @@ const SAVED_STORAGE_KEY = 'ogabassey_v2_saved';
 const STORAGE_HYDRATION_TIMEOUT_MS = 1200;
 
 export const useV2Saved = () => {
-  const context = useContext(V2SavedContext);
+  const context = use(V2SavedContext);
   if (!context) {
     throw new Error('useV2Saved must be used within a V2SavedProvider');
   }
