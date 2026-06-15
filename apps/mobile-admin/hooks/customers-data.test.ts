@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchCustomers, fetchCustomerStats } from './customers-data';
+import { fetchCustomerStats, fetchCustomers } from './customers-data';
 
 const mocks = vi.hoisted(() => ({
   calls: [] as Array<{ method: string; args: unknown[] }>,

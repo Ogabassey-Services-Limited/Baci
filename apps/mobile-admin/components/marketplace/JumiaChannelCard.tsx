@@ -8,13 +8,13 @@ import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { JUMIA_CONNECTION_STATUS } from '@/constants/marketplace';
 import { useMerchant } from '@/hooks/useMerchant';
 import { apiClient } from '@/lib/api-client';
+import { jumiaChannelCardStyles as styles } from './JumiaChannelCard.styles';
 import {
   connectJumiaFlow,
   disconnectJumiaFlow,
   type JumiaIntegration,
   reportJumiaError,
 } from './jumia-channel-flows';
-import { jumiaChannelCardStyles as styles } from './JumiaChannelCard.styles';
 
 interface JumiaChannelCardProps {
   colors: Record<string, string>;

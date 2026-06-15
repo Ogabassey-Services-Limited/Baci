@@ -64,7 +64,7 @@ vi.mock('react-native-webview', () => ({
 }));
 
 vi.mock('react-native', async () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Pressable: ({
     accessibilityLabel,
     children,
