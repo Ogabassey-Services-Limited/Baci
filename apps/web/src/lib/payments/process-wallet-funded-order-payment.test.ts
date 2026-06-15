@@ -238,6 +238,44 @@ describe('processWalletFundedOrderPayment', () => {
     );
   });
 
+  it('acks without retrying when a not-processable wallet intent points to a deleted order', async () => {
+    const supabase = createSupabase({
+      orderCancellationState: null,
+    });
+    supabase.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'P0001',
+        message:
+          'wallet_order_funding_intent_not_processable: cancelled, intent intent-1',
+      },
+    } as never);
+
+    const result = await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_1',
+      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter: vi.fn(),
+      supabase: supabase as never,
+      transaction,
+    });
+
+    expect(result).toMatchObject({
+      body: { orderId: 'order-1', status: 'unknown' },
+      kind: 'processed',
+      orderPaid: false,
+      status: 200,
+    });
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+    expect(mockReconciliationInsert).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'Wallet-funded order intent was not processable and order was not found; acking webhook to avoid retry storm',
+        orderId: 'order-1',
+      })
+    );
+  });
+
   it('acks and files reconciliation (no throw) when the finalizer RAISEs intent-not-processable for a cancelled order', async () => {
     // M1: a customer cancellation marks the funding intent 'cancelled', so a
     // late DVA transfer makes finalize_wallet_funded_order RAISE

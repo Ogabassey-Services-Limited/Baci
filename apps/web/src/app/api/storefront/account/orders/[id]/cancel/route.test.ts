@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockAuthenticateApiRequest = vi.fn();
 const mockCheckCsrfProtection = vi.fn();
 const mockSendOrderCancellationEmail = vi.fn();
+const mockCheckRateLimit = vi.fn();
 const mockRpc = vi.fn();
 
 vi.mock('@/lib/api-auth', () => ({
@@ -18,6 +19,10 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/order-cancellation-email', () => ({
   sendOrderCancellationEmail: (...args: unknown[]) =>
     mockSendOrderCancellationEmail(...args),
+}));
+
+vi.mock('@/lib/rate-limiter', () => ({
+  checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -52,6 +57,7 @@ function authOk() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
+  mockCheckRateLimit.mockResolvedValue(true);
   mockSendOrderCancellationEmail.mockResolvedValue({ success: true });
 });
 
@@ -88,6 +94,27 @@ describe('POST /api/storefront/account/orders/[id]/cancel', () => {
     const res = await POST(makeRequest({}), { params });
 
     expect(res.status).toBe(403);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 when the customer cancellation rate limit is exceeded', async () => {
+    authOk();
+    mockCheckRateLimit.mockResolvedValue(false);
+
+    const res = await POST(makeRequest({}), { params });
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get('retry-after')).toBe('60');
+    await expect(res.json()).resolves.toEqual({
+      error: 'Rate limit exceeded. Please try again later.',
+    });
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(
+      expect.anything(),
+      'user-1',
+      'storefront_account_order_cancel',
+      5,
+      1
+    );
     expect(mockRpc).not.toHaveBeenCalled();
   });
 

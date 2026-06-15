@@ -4,9 +4,12 @@ import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { sendOrderCancellationEmail } from '@/lib/order-cancellation-email';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import { storefrontOrderCancellationSchema } from '@/schemas/storefront-order-cancellation';
 
 const orderIdSchema = z.uuid();
+const RATE_LIMIT_WINDOW_MINUTES = 1;
+const RETRY_AFTER_SECONDS = String(RATE_LIMIT_WINDOW_MINUTES * 60);
 
 /**
  * POST /api/storefront/account/orders/[id]/cancel
@@ -37,6 +40,20 @@ export async function POST(
     return (
       csrfResponse ??
       NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
+  const isAllowed = await checkRateLimit(
+    auth.supabase,
+    auth.user.id,
+    'storefront_account_order_cancel',
+    5,
+    RATE_LIMIT_WINDOW_MINUTES
+  );
+  if (!isAllowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': RETRY_AFTER_SECONDS } }
     );
   }
 

@@ -350,16 +350,33 @@ export async function processWalletFundedOrderPayment({
         orderId: match.intent.orderId,
         supabase,
       });
-      if (isOrderClampedAsCancelled(cancelledState)) {
+      if (cancelledState && isOrderClampedAsCancelled(cancelledState)) {
         await handlePaymentForCancelledOrder({
           gatewayReference,
-          order: cancelledState ?? { id: match.intent.orderId },
+          order: cancelledState,
           reason:
             'Wallet-funded order payment received for an order cancelled before finalization',
           transactionId: transaction.id,
         });
         return {
           body: { orderId: match.intent.orderId, status: 'cancelled' },
+          kind: 'processed',
+          orderPaid: false,
+          status: 200,
+        };
+      }
+
+      if (!cancelledState) {
+        logger.warn({
+          gatewayReference,
+          intentId: match.intent.id,
+          merchantId: match.intent.merchantId,
+          message:
+            'Wallet-funded order intent was not processable and order was not found; acking webhook to avoid retry storm',
+          orderId: match.intent.orderId,
+        });
+        return {
+          body: { orderId: match.intent.orderId, status: 'unknown' },
           kind: 'processed',
           orderPaid: false,
           status: 200,
