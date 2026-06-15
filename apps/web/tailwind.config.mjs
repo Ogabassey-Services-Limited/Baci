@@ -1,9 +1,11 @@
+// @ts-check
+
 import typography from '@tailwindcss/typography';
-import type { Config } from 'tailwindcss';
 import plugin from 'tailwindcss/plugin';
 import tailwindcssAnimate from 'tailwindcss-animate';
 
-export default {
+/** @type {import('tailwindcss').Config} */
+const config = {
   // Dark variants fire when the element (or an ancestor) has `.dark`, unless
   // a `.light` wrapper intervenes. The `.light` wrapper is used by
   // StorefrontThemeProvider to force light mode on the storefront subtree
@@ -201,10 +203,10 @@ export default {
       },
       // Named transition durations to avoid Tailwind "ambiguous class" warnings
       transitionDuration: {
-        '3000': '3000ms',
-        '4000': '4000ms',
-        '5000': '5000ms',
-        '10000': '10000ms',
+        3000: '3000ms',
+        4000: '4000ms',
+        5000: '5000ms',
+        10000: '10000ms',
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -358,4 +360,6 @@ export default {
       });
     }),
   ],
-} satisfies Config;
+};
+
+export default config;

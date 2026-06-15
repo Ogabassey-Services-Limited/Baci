@@ -225,7 +225,7 @@ export function useMyContext() {
 - `middleware.ts` - Request middleware (auth, rate limiting, domains)
 - `src/env.ts` - Environment variable management
 - `next.config.ts` - Next.js configuration
-- `tailwind.config.ts` - Tailwind theme config
+- `tailwind.config.mjs` - Tailwind theme config
 - `biome.json` - Linter/formatter config
 
 ## API Routes Structure
