@@ -1,5 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const RECONCILIATION_ISSUE_TYPE = 'payment_received_after_cancellation';
 const POSTGRES_UNIQUE_VIOLATION = '23505';
@@ -42,9 +42,13 @@ export function isOrderClampedAsCancelled(
  * kept the order cancelled; this only stops the cosmetic/operational damage of
  * a paid-order finalizer running on a cancelled order.
  *
- * The partial unique index `(issue_type, order_id) WHERE resolved_at IS NULL`
- * makes a webhook retry a benign `23505` no-op — the operator already has the
- * first-fired review row.
+ * A sibling partial unique index on `reconciliation_review` makes a webhook
+ * retry a benign `23505` no-op — the operator already has the first-fired row.
+ *
+ * Uses a service-role client for the insert: `reconciliation_review` is
+ * RLS-locked to `service_role`, and the callers span service, authenticated, and
+ * anon webhook clients — a caller's own client would have its insert silently
+ * denied by RLS. This is a server-only ops/audit write, never user-facing.
  *
  * Never throws: the caller must still return a 2xx to the gateway so the
  * webhook is not retried into a loop. The transaction row stays recorded.
@@ -53,13 +57,11 @@ export async function handlePaymentForCancelledOrder({
   gatewayReference,
   order,
   reason,
-  supabase,
   transactionId,
 }: {
   gatewayReference: string | null;
   order: CancellableOrderRow;
   reason: string;
-  supabase: SupabaseClient;
   transactionId: string | null;
 }): Promise<void> {
   logger.warn({
@@ -80,32 +82,46 @@ export async function handlePaymentForCancelledOrder({
     txn_id: transactionId,
   };
 
-  const { error } = await supabase
-    .from('reconciliation_review')
-    .insert(reviewRow);
+  try {
+    const supabase = createAdminClient();
+    const { error } = await supabase
+      .from('reconciliation_review')
+      .insert(reviewRow);
 
-  if (!error) {
-    return;
-  }
+    if (!error) {
+      return;
+    }
 
-  const isDuplicate =
-    (error as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION;
-  if (isDuplicate) {
-    logger.info({
+    const isDuplicate =
+      (error as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION;
+    if (isDuplicate) {
+      logger.info({
+        gatewayReference,
+        message:
+          'payment_received_after_cancellation reconciliation already filed (expected retry no-op)',
+        orderId: order.id,
+      });
+      return;
+    }
+
+    logger.error({
+      error,
       gatewayReference,
       message:
-        'payment_received_after_cancellation reconciliation already filed (expected retry no-op)',
+        'Failed to file payment_received_after_cancellation reconciliation',
       orderId: order.id,
+      transactionId,
     });
-    return;
+  } catch (thrown) {
+    // Never throw: the caller must still return 2xx so the webhook is not
+    // retried into a loop. The order stays cancelled (trigger) regardless.
+    logger.error({
+      error: thrown,
+      gatewayReference,
+      message:
+        'Failed to file payment_received_after_cancellation reconciliation (threw)',
+      orderId: order.id,
+      transactionId,
+    });
   }
-
-  logger.error({
-    error,
-    gatewayReference,
-    message:
-      'Failed to file payment_received_after_cancellation reconciliation',
-    orderId: order.id,
-    transactionId,
-  });
 }

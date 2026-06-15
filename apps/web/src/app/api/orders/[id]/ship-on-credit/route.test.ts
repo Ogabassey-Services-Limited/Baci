@@ -8,6 +8,7 @@ const {
   mockFrom,
   mockLogger,
   mockSupabaseClient,
+  mockReconciliationInsert,
 } = vi.hoisted(() => {
   const mockFrom = vi.fn();
   const mockLogger = {
@@ -25,12 +26,29 @@ const {
     mockSupabaseClient: {
       from: mockFrom,
     },
+    // handlePaymentForCancelledOrder files the reconciliation row through a
+    // service-role admin client (reconciliation_review is RLS-locked to
+    // service_role), not the route's own auth client.
+    mockReconciliationInsert: vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null }),
   };
 });
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: mockAuthenticateApiRequest,
   getMerchantIdForApiUser: mockGetMerchantIdForApiUser,
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    }),
+  })),
 }));
 
 vi.mock('@/lib/paystack', () => ({
@@ -249,10 +267,6 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
   });
 
   it('files reconciliation and rejects when the order was clamped as cancelled', async () => {
-    const reconciliationInsert = vi
-      .fn()
-      .mockResolvedValue({ data: null, error: null });
-
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return createSelectSingleQuery({
@@ -281,10 +295,6 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
         };
       }
 
-      if (table === 'reconciliation_review') {
-        return { insert: reconciliationInsert };
-      }
-
       throw new Error(`Unexpected table: ${table}`);
     });
 
@@ -299,7 +309,8 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
       error: 'Order was cancelled and cannot be shipped on credit',
       code: 'ORDER_CANCELLED',
     });
-    expect(reconciliationInsert).toHaveBeenCalledWith(
+    // The reconciliation row is filed through the service-role admin client.
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         issue_type: 'payment_received_after_cancellation',
         order_id: ORDER_ID,

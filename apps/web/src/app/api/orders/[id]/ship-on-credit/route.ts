@@ -124,7 +124,6 @@ export async function POST(
         order: updatedOrder ?? { id: orderId },
         reason:
           'Ship-on-credit attempted on an order cancelled by the customer',
-        supabase,
         transactionId: null,
       });
 

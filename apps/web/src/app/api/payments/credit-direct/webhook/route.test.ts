@@ -31,6 +31,23 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: vi.fn(),
 }));
 
+// handlePaymentForCancelledOrder files the reconciliation row through a
+// service-role admin client (reconciliation_review is RLS-locked to
+// service_role), not the route's own service client.
+const mockReconciliationInsert = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ data: null, error: null })
+);
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    }),
+  })),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -837,9 +854,6 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       const supabaseMock = createMockSupabaseClient();
       vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
 
-      const reconciliationInsert = vi
-        .fn()
-        .mockResolvedValue({ data: null, error: null });
       const transactionInsert = vi
         .fn()
         .mockResolvedValue({ data: null, error: null });
@@ -875,9 +889,6 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           });
           return updateChain;
         }
-        if (table === 'reconciliation_review') {
-          return { ...mockChain, insert: reconciliationInsert };
-        }
         if (table === 'transactions') {
           return { ...mockChain, insert: transactionInsert };
         }
@@ -895,8 +906,8 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
       // No paid transaction record was inserted
       expect(transactionInsert).not.toHaveBeenCalled();
-      // Reconciliation row WAS filed
-      expect(reconciliationInsert).toHaveBeenCalledWith(
+      // Reconciliation row WAS filed through the service-role admin client.
+      expect(mockReconciliationInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           issue_type: 'payment_received_after_cancellation',
           order_id: 'order_abc',

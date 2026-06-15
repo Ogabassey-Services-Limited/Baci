@@ -401,7 +401,6 @@ export async function POST(
           order: updatedOrder ?? { id },
           reason:
             'Manual payment recorded for an order cancelled by the customer before finalization',
-          supabase,
           transactionId: null,
         });
       }

@@ -1875,7 +1875,6 @@ export async function POST(request: NextRequest) {
           gatewayReference: transaction.gateway_reference ?? reference,
           order,
           reason: `Gateway ${gateway} payment captured for an order cancelled before finalization`,
-          supabase,
           transactionId: transaction.id,
         });
       } else {

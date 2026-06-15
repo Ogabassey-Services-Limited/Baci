@@ -1,6 +1,13 @@
 import { NextRequest } from 'next/server';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// handlePaymentForCancelledOrder files the reconciliation row through a
+// service-role admin client (reconciliation_review is RLS-locked to
+// service_role), not the route's own auth client.
+const mockReconciliationInsert = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ data: null, error: null })
+);
+
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
 }));
@@ -11,6 +18,17 @@ vi.mock('@/env', () => ({
   getSupabaseAnonKey: vi.fn(() => 'test-anon-key'),
   getSupabaseServiceRoleKey: vi.fn(() => 'test-service-role-key'),
   getRootDomain: vi.fn(() => 'usebaci.com'),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    }),
+  })),
 }));
 
 // Mock next/headers
@@ -1686,9 +1704,6 @@ describe('POST /api/orders/[id]/record-payment', () => {
       shipping_address: {},
     };
 
-    const reconciliationInsert = vi
-      .fn()
-      .mockResolvedValue({ data: null, error: null });
     let txnQueryCount = 0;
     mockSupabaseClient.from = vi.fn((table: string) => {
       if (table === 'merchants') {
@@ -1716,9 +1731,6 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-      }
-      if (table === 'reconciliation_review') {
-        return { insert: reconciliationInsert };
       }
       if (table === 'transactions') {
         txnQueryCount++;
@@ -1754,8 +1766,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toMatchObject({ order_cancelled: true, updated_status: {} });
     // No confirmation email was sent for the cancelled order.
     expect(mockSendEmail).not.toHaveBeenCalled();
-    // A reconciliation row was filed for manual refund.
-    expect(reconciliationInsert).toHaveBeenCalledWith(
+    // A reconciliation row was filed for manual refund through the
+    // service-role admin client.
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         issue_type: 'payment_received_after_cancellation',
         order_id: mockOrderId,

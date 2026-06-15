@@ -9,6 +9,24 @@ const mockExtractVerifiedGatewayFeeNgn = vi.fn<(...args: unknown[]) => number>(
   () => 300
 );
 
+// handlePaymentForCancelledOrder files the reconciliation row through a
+// service-role admin client (reconciliation_review is RLS-locked to
+// service_role), not the wallet wrapper's own caller-supplied client.
+const mockReconciliationInsert = vi.fn(async () => ({
+  data: null,
+  error: null,
+}));
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    }),
+  })),
+}));
+
 vi.mock('@/lib/order-wallet-funding-intents', () => ({
   findActiveWalletFundingIntentForTransfer: (...args: unknown[]) =>
     mockFindActiveWalletFundingIntentForTransfer(...args),
@@ -198,14 +216,6 @@ describe('processWalletFundedOrderPayment', () => {
         shipping_status: 'cancelled',
       },
     });
-    const reviewInsert = vi.fn(async () => ({ data: null, error: null }));
-    const baseFrom = supabase.from;
-    supabase.from = vi.fn((table: string) => {
-      if (table === 'reconciliation_review') {
-        return { insert: reviewInsert } as never;
-      }
-      return baseFrom(table);
-    }) as never;
 
     const result = await processWalletFundedOrderPayment({
       gatewayReference: 'PSK_REF_1',
@@ -218,8 +228,57 @@ describe('processWalletFundedOrderPayment', () => {
     expect(result).toMatchObject({ kind: 'processed', orderPaid: false });
     // No paid-order side effects ran for the cancelled order.
     expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
-    // A reconciliation row was filed for manual refund.
-    expect(reviewInsert).toHaveBeenCalledWith(
+    // A reconciliation row was filed for manual refund through the
+    // service-role admin client.
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: 'order-1',
+      })
+    );
+  });
+
+  it('acks and files reconciliation (no throw) when the finalizer RAISEs intent-not-processable for a cancelled order', async () => {
+    // M1: a customer cancellation marks the funding intent 'cancelled', so a
+    // late DVA transfer makes finalize_wallet_funded_order RAISE
+    // 'wallet_order_funding_intent_not_processable' (P0001) and roll back its
+    // own reconciliation row. The wrapper must re-check the order state, and —
+    // because it is clamped as cancelled — ack 2xx + re-file the row here
+    // instead of rethrowing (which would 500 the webhook).
+    const supabase = createSupabase({
+      orderCancellationState: {
+        cancelled_at: '2026-05-26T12:10:00.000Z',
+        id: 'order-1',
+        shipping_status: 'cancelled',
+      },
+    });
+    supabase.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'P0001',
+        message:
+          'wallet_order_funding_intent_not_processable: cancelled, intent intent-1',
+      },
+    } as never);
+
+    const result = await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_1',
+      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter: vi.fn(),
+      supabase: supabase as never,
+      transaction,
+    });
+
+    expect(result).toMatchObject({
+      body: { orderId: 'order-1', status: 'cancelled' },
+      kind: 'processed',
+      orderPaid: false,
+      status: 200,
+    });
+    // The finalizer raised before any paid-order work, so none ran.
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+    // The reconciliation row is re-filed through the service-role admin client.
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         issue_type: 'payment_received_after_cancellation',
         order_id: 'order-1',

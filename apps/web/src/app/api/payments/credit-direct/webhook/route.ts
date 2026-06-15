@@ -324,7 +324,6 @@ export async function POST(request: NextRequest) {
             order: updatedOrder,
             reason:
               'Credit Direct payment captured for an order cancelled before finalization',
-            supabase,
             transactionId: null,
           });
 

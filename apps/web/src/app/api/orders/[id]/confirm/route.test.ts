@@ -8,6 +8,7 @@ const {
   mockFrom,
   mockLogger,
   mockSupabaseClient,
+  mockReconciliationInsert,
 } = vi.hoisted(() => {
   const mockFrom = vi.fn();
   return {
@@ -17,12 +18,29 @@ const {
     mockFrom,
     mockLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     mockSupabaseClient: { from: mockFrom },
+    // handlePaymentForCancelledOrder now files the reconciliation row through a
+    // service-role admin client (reconciliation_review is RLS-locked to
+    // service_role), not the route's own auth client.
+    mockReconciliationInsert: vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null }),
   };
 });
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: mockAuthenticateApiRequest,
   getMerchantIdForApiUser: mockGetMerchantIdForApiUser,
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    }),
+  })),
 }));
 
 vi.mock('@/services/insurance', () => ({
@@ -75,7 +93,6 @@ describe('POST /api/orders/[id]/confirm', () => {
   });
 
   it('confirms the order when the update advances shipping to processing', async () => {
-    const reconciliationInsert = vi.fn();
     mockFrom.mockImplementation((table: string) => {
       if (table === 'orders') {
         return createOrdersTable({
@@ -83,9 +100,6 @@ describe('POST /api/orders/[id]/confirm', () => {
           shipping_status: 'processing',
           cancelled_at: null,
         });
-      }
-      if (table === 'reconciliation_review') {
-        return { insert: reconciliationInsert };
       }
       throw new Error(`Unexpected table: ${table}`);
     });
@@ -98,13 +112,10 @@ describe('POST /api/orders/[id]/confirm', () => {
       success: true,
       message: 'Order confirmed successfully',
     });
-    expect(reconciliationInsert).not.toHaveBeenCalled();
+    expect(mockReconciliationInsert).not.toHaveBeenCalled();
   });
 
   it('files reconciliation and rejects with 409 when the order was clamped as cancelled', async () => {
-    const reconciliationInsert = vi
-      .fn()
-      .mockResolvedValue({ data: null, error: null });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'orders') {
         return createOrdersTable({
@@ -112,9 +123,6 @@ describe('POST /api/orders/[id]/confirm', () => {
           shipping_status: 'cancelled',
           cancelled_at: '2026-06-15T00:00:00Z',
         });
-      }
-      if (table === 'reconciliation_review') {
-        return { insert: reconciliationInsert };
       }
       throw new Error(`Unexpected table: ${table}`);
     });
@@ -127,7 +135,8 @@ describe('POST /api/orders/[id]/confirm', () => {
       error: 'Order was cancelled and cannot be confirmed',
       code: 'ORDER_CANCELLED',
     });
-    expect(reconciliationInsert).toHaveBeenCalledWith(
+    // The reconciliation row is filed through the service-role admin client.
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         issue_type: 'payment_received_after_cancellation',
         order_id: ORDER_ID,

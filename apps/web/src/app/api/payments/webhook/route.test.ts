@@ -140,6 +140,23 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: vi.fn(() => mockServiceClient),
 }));
 
+// handlePaymentForCancelledOrder files the reconciliation row through a
+// service-role admin client (reconciliation_review is RLS-locked to
+// service_role), not the route's own service client.
+const mockReconciliationInsert = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ data: null, error: null })
+);
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    }),
+  })),
+}));
+
 // Mock payment gateways
 vi.mock('@/lib/korapay', () => ({
   verifyPayment: vi.fn(),
@@ -2668,9 +2685,6 @@ describe('POST /api/payments/webhook', () => {
         },
       });
 
-      const reconciliationInsert = vi
-        .fn()
-        .mockResolvedValue({ data: null, error: null });
       let transactionCallCount = 0;
 
       vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
@@ -2727,10 +2741,6 @@ describe('POST /api/payments/webhook', () => {
           } as never;
         }
 
-        if (table === 'reconciliation_review') {
-          return { insert: reconciliationInsert } as never;
-        }
-
         return {
           select: vi.fn().mockReturnThis(),
           insert: vi.fn().mockReturnThis(),
@@ -2747,8 +2757,8 @@ describe('POST /api/payments/webhook', () => {
       expect(data).toMatchObject({ success: true });
       // No paid-order side effects ran.
       expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
-      // Reconciliation row was filed.
-      expect(reconciliationInsert).toHaveBeenCalledWith(
+      // Reconciliation row was filed through the service-role admin client.
+      expect(mockReconciliationInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           issue_type: 'payment_received_after_cancellation',
           order_id: 'order-123',

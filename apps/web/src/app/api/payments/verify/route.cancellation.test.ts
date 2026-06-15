@@ -60,6 +60,23 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => mockCreateServiceClient(),
 }));
 
+// handlePaymentForCancelledOrder files the reconciliation row through a
+// service-role admin client (reconciliation_review is RLS-locked to
+// service_role), not the route's own service client.
+const mockReconciliationInsert = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ data: null, error: null })
+);
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    }),
+  })),
+}));
+
 import { POST } from './route';
 
 const REFERENCE = 'BAC-VERIFY-1';
@@ -89,9 +106,6 @@ function buildSupabase({
 }: {
   orderUpdateData: Record<string, unknown>;
 }) {
-  const reconciliationInsert = vi
-    .fn()
-    .mockResolvedValue({ data: null, error: null });
   const rpc = vi.fn().mockResolvedValue({ error: null });
 
   let transactionCall = 0;
@@ -139,9 +153,6 @@ function buildSupabase({
           .mockResolvedValue({ data: orderUpdateData, error: null }),
       };
     }
-    if (table === 'reconciliation_review') {
-      return { insert: reconciliationInsert };
-    }
     if (table === 'merchants') {
       return {
         select: vi.fn().mockReturnThis(),
@@ -155,7 +166,7 @@ function buildSupabase({
     throw new Error(`Unexpected table ${table}`);
   });
 
-  return { from, rpc, reconciliationInsert };
+  return { from, rpc };
 }
 
 describe('POST /api/payments/verify — cancellation clamp', () => {
@@ -200,8 +211,8 @@ describe('POST /api/payments/verify — cancellation clamp', () => {
       'record_merchant_settlement',
       expect.anything()
     );
-    // Reconciliation row filed.
-    expect(supabase.reconciliationInsert).toHaveBeenCalledWith(
+    // Reconciliation row filed through the service-role admin client.
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         issue_type: 'payment_received_after_cancellation',
         order_id: 'order-1',
@@ -235,7 +246,7 @@ describe('POST /api/payments/verify — cancellation clamp', () => {
 
     expect(response.status).toBe(200);
     expect(data).toMatchObject({ success: true });
-    expect(supabase.reconciliationInsert).not.toHaveBeenCalled();
+    expect(mockReconciliationInsert).not.toHaveBeenCalled();
     // The new-order push notification fires for a live order.
     expect(mockNotifyNewOrder).toHaveBeenCalled();
   });

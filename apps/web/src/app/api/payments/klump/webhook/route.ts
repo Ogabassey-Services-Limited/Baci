@@ -303,7 +303,6 @@ export async function POST(request: NextRequest) {
         order: updatedOrder,
         reason:
           'Klump payment captured for an order cancelled before finalization',
-        supabase,
         transactionId: transaction.id,
       });
 

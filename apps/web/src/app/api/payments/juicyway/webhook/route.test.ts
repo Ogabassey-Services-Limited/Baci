@@ -57,7 +57,18 @@ const mockSupabase = {
 // `record_merchant_settlement` is called via the admin client (service role)
 // because Juicyway webhook callbacks have no user session and the function
 // is locked to service_role per the 20260428071421 advisor cleanup.
+// handlePaymentForCancelledOrder ALSO files its reconciliation_review row
+// through this admin client (the table is RLS-locked to service_role).
+const mockReconciliationInsert = vi
+  .fn()
+  .mockResolvedValue({ data: null, error: null });
 const mockAdminSupabase = {
+  from: vi.fn((table: string) => {
+    if (table === 'reconciliation_review') {
+      return { insert: mockReconciliationInsert };
+    }
+    throw new Error(`Unexpected admin table: ${table}`);
+  }),
   rpc: vi.fn().mockResolvedValue({ error: null }),
 };
 
@@ -514,9 +525,6 @@ describe('POST /api/payments/juicyway/webhook', () => {
       ad_tracking: null,
     };
 
-    const reconciliationInsert = vi
-      .fn()
-      .mockResolvedValue({ data: null, error: null });
     let transactionCallCount = 0;
 
     const fromMock = vi.fn((table) => {
@@ -549,10 +557,6 @@ describe('POST /api/payments/juicyway/webhook', () => {
         };
       }
 
-      if (table === 'reconciliation_review') {
-        return { insert: reconciliationInsert };
-      }
-
       return {
         select: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),
@@ -578,8 +582,8 @@ describe('POST /api/payments/juicyway/webhook', () => {
     });
     // Settlement must NOT run for a cancelled order.
     expect(mockAdminSupabase.rpc).not.toHaveBeenCalled();
-    // Reconciliation row filed.
-    expect(reconciliationInsert).toHaveBeenCalledWith(
+    // Reconciliation row filed through the service-role admin client.
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         issue_type: 'payment_received_after_cancellation',
         order_id: 'order-123',

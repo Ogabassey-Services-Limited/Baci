@@ -301,7 +301,6 @@ async function verifyPaymentReference(reference: string) {
       gatewayReference: transaction.gateway_reference ?? parsedReference.data,
       order,
       reason: `Gateway ${transaction.gateway} payment verified for an order cancelled before finalization`,
-      supabase,
       transactionId: transaction.id,
     });
 

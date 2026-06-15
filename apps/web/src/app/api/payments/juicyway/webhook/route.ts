@@ -211,7 +211,6 @@ export async function POST(request: NextRequest) {
           order,
           reason:
             'Juicyway payment captured for an order cancelled before finalization',
-          supabase,
           transactionId: transaction.id,
         });
 

@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   handlePaymentForCancelledOrder,
@@ -13,17 +12,22 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+const mockCreateAdminClient = vi.fn();
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => mockCreateAdminClient(),
+}));
+
 const { logger } = await import('@/lib/logger');
 
-function createSupabaseWithInsert(insertResult: { error: unknown }): {
+// The helper files the reconciliation row with a service-role client because the
+// table is RLS-locked to service_role; assert it uses createAdminClient, not a
+// caller-supplied client.
+function mockAdminInsert(insertResult: { error: unknown }): {
   insert: ReturnType<typeof vi.fn>;
-  supabase: SupabaseClient;
 } {
   const insert = vi.fn().mockResolvedValue(insertResult);
-  const supabase = {
-    from: vi.fn(() => ({ insert })),
-  } as unknown as SupabaseClient;
-  return { insert, supabase };
+  mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => ({ insert })) });
+  return { insert };
 }
 
 describe('isOrderClampedAsCancelled', () => {
@@ -65,16 +69,16 @@ describe('handlePaymentForCancelledOrder', () => {
   });
 
   it('inserts a payment_received_after_cancellation reconciliation row and warns', async () => {
-    const { insert, supabase } = createSupabaseWithInsert({ error: null });
+    const { insert } = mockAdminInsert({ error: null });
 
     await handlePaymentForCancelledOrder({
       gatewayReference: 'BAC-123',
       order: { id: 'order-1', shipping_status: 'cancelled' },
       reason: 'Paystack payment captured after cancellation',
-      supabase,
       transactionId: 'txn-1',
     });
 
+    expect(mockCreateAdminClient).toHaveBeenCalled();
     expect(insert).toHaveBeenCalledWith({
       candidates: null,
       issue_type: 'payment_received_after_cancellation',
@@ -93,7 +97,7 @@ describe('handlePaymentForCancelledOrder', () => {
   });
 
   it('treats a duplicate (23505) as a benign no-op and does not log an error', async () => {
-    const { supabase } = createSupabaseWithInsert({
+    mockAdminInsert({
       error: { code: '23505', message: 'duplicate key value' },
     });
 
@@ -101,7 +105,6 @@ describe('handlePaymentForCancelledOrder', () => {
       gatewayReference: 'BAC-123',
       order: { id: 'order-1', shipping_status: 'cancelled' },
       reason: 'retry',
-      supabase,
       transactionId: 'txn-1',
     });
 
@@ -112,7 +115,7 @@ describe('handlePaymentForCancelledOrder', () => {
   });
 
   it('logs an error (but does not throw) when the insert fails for a non-duplicate reason', async () => {
-    const { supabase } = createSupabaseWithInsert({
+    mockAdminInsert({
       error: { code: '500', message: 'boom' },
     });
 
@@ -121,7 +124,6 @@ describe('handlePaymentForCancelledOrder', () => {
         gatewayReference: null,
         order: { id: 'order-1', shipping_status: 'cancelled' },
         reason: 'failure path',
-        supabase,
         transactionId: null,
       })
     ).resolves.toBeUndefined();

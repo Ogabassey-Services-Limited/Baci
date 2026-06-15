@@ -19,6 +19,23 @@ import { runWalletFundedPaidOrderSideEffects } from '@/lib/payments/wallet-funde
 const WALLET_TOP_UP_TRANSACTION_TYPE = 'wallet_topup';
 const ORDER_PAYMENT_TRANSACTION_RETRY_DELAYS_MS = [500, 1000, 2000] as const;
 
+/**
+ * True when finalize_wallet_funded_order RAISEd because the intent was no longer
+ * processable (cancelled/expired/completed). For the cancellation flow the
+ * caller re-checks the order state to decide whether to ack-and-reconcile.
+ */
+function isWalletIntentNotProcessableError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const { code, message } = error as { code?: unknown; message?: unknown };
+  return (
+    code === 'P0001' &&
+    typeof message === 'string' &&
+    message.includes('wallet_order_funding_intent_not_processable')
+  );
+}
+
 interface WalletFundingTransaction {
   amount: number | string | null;
   id: string;
@@ -321,6 +338,34 @@ export async function processWalletFundedOrderPayment({
     })
   );
   if (error) {
+    // A customer cancellation marks the funding intent 'cancelled', so a late
+    // DVA transfer makes finalize_wallet_funded_order RAISE
+    // 'wallet_order_funding_intent_not_processable' (P0001) — and that RAISE
+    // rolls back the reconciliation row the RPC tried to file. If the order is
+    // cancelled, ack 2xx (no Paystack retry loop) and re-file the reconciliation
+    // row from here instead of rethrowing (which would 500 the webhook).
+    if (isWalletIntentNotProcessableError(error)) {
+      const cancelledState = await fetchOrderCancellationState({
+        merchantId: match.intent.merchantId,
+        orderId: match.intent.orderId,
+        supabase,
+      });
+      if (isOrderClampedAsCancelled(cancelledState)) {
+        await handlePaymentForCancelledOrder({
+          gatewayReference,
+          order: cancelledState ?? { id: match.intent.orderId },
+          reason:
+            'Wallet-funded order payment received for an order cancelled before finalization',
+          transactionId: transaction.id,
+        });
+        return {
+          body: { orderId: match.intent.orderId, status: 'cancelled' },
+          kind: 'processed',
+          orderPaid: false,
+          status: 200,
+        };
+      }
+    }
     logger.error({
       error,
       gatewayReference,
@@ -374,7 +419,6 @@ export async function processWalletFundedOrderPayment({
         order: orderCancellationState ?? { id: finalizer.order_id },
         reason:
           'Wallet-funded order payment finalized for an order cancelled before finalization',
-        supabase,
         transactionId: finalizer.order_payment_transaction_id ?? transaction.id,
       });
 
