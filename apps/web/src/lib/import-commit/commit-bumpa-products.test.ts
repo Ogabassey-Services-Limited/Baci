@@ -161,6 +161,9 @@ describe('commitBumpaProducts', () => {
     expect(result).toEqual({ createdProducts: 1, updatedProducts: 0 });
     expect(mockRevalidateProducts).toHaveBeenCalledWith('merchant-1');
     expect(consoleSpy).toHaveBeenCalled();
+    // Restore so the suppressed console.error doesn't leak into later tests
+    // (the suite uses clearAllMocks, which does not restore spy implementations).
+    consoleSpy.mockRestore();
   });
 
   it('throws when loading existing products fails', async () => {

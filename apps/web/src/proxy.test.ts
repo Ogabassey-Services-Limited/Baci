@@ -540,6 +540,23 @@ describe('Middleware Proxy', () => {
       );
     });
 
+    it('returns a header-only hard 404 (no body) for HEAD requests to confirmed-missing products', async () => {
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/totally-made-up',
+        { method: 'HEAD' }
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      // HEAD must not carry a body (RFC 9110); the noindex travels in the header.
+      expect(await res.text()).toBe('');
+      expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
+      expect(res.headers.get('Cache-Control')).toContain('no-store');
+    });
+
     it('falls through (rewrite, not 404) when the product slug exists', async () => {
       missingMock.mockResolvedValue(false);
       const req = new NextRequest(
