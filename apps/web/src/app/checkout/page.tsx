@@ -186,6 +186,7 @@ interface CreateCheckoutOrderInput {
   selectedGateway: 'paystack' | 'korapay' | 'pod' | 'credit_direct';
   selectedShippingQuote: ShippingQuote;
   shippingSessionId: string;
+  discountCode?: string | null;
 }
 
 interface CheckoutOrderResponse {
@@ -229,6 +230,10 @@ function createCheckoutOrder(
     shipping_session_id: input.shippingSessionId,
     shipping_carrier: input.selectedShippingQuote?.carrierName,
     shipping_service_tier: input.selectedShippingQuote?.serviceTier,
+    // Only the trusted code string is sent; the route recomputes + validates
+    // the amount server-side. No expected_total here (this legacy flow has no
+    // VAT-aware total object), so the wrapper's two-sided amount check guards.
+    ...(input.discountCode ? { discount_code: input.discountCode } : {}),
   });
 }
 
@@ -344,6 +349,7 @@ interface PrepareCheckoutInput {
   shippingSessionId: string;
   currencyCode: string;
   merchantSlug: string | null;
+  discountCode?: string | null;
 }
 
 type CheckoutCartItem = Parameters<typeof buildCheckoutOrderItems>[0][number];
@@ -368,6 +374,7 @@ async function prepareCheckout(
       selectedGateway: input.selectedGateway,
       selectedShippingQuote: input.selectedShippingQuote,
       shippingSessionId: input.shippingSessionId,
+      discountCode: input.discountCode,
     });
 
     // Store order data for success page (fallback)
@@ -1079,6 +1086,9 @@ interface DiscountResult {
   code: string;
   discount_type: 'percentage' | 'fixed';
   discount_value: number;
+  // Server-computed amount from the validate endpoint — the display source of
+  // truth so caps/rounding match the order route and the redemption RPC.
+  discount_amount?: number;
   minimum_order?: number;
   description?: string;
 }
@@ -1150,9 +1160,12 @@ function CheckoutPageContent() {
 
   // Calculate discount amount
   const discountAmount = appliedDiscount
-    ? appliedDiscount.discount_type === 'percentage'
-      ? Math.round(cartTotal * (appliedDiscount.discount_value / 100))
-      : Math.min(appliedDiscount.discount_value, cartTotal)
+    ? // Prefer the server-computed amount (caps + rounding aligned with the
+      // route/RPC); fall back to a local estimate only if it's missing.
+      (appliedDiscount.discount_amount ??
+      (appliedDiscount.discount_type === 'percentage'
+        ? Math.round(cartTotal * (appliedDiscount.discount_value / 100))
+        : Math.min(appliedDiscount.discount_value, cartTotal)))
     : 0;
 
   // Calculate loyalty points (1 point per 100 NGN spent)
@@ -1576,6 +1589,7 @@ function CheckoutPageContent() {
       shippingSessionId,
       currencyCode,
       merchantSlug,
+      discountCode: appliedDiscount?.code ?? null,
     });
 
     if (result.kind === 'error') {
@@ -1807,6 +1821,7 @@ function CheckoutPageContent() {
                   <DiscountCodeInput
                     merchantId={merchant?.id || ''}
                     cartTotal={cartTotal}
+                    productIds={cart.map((item) => item.id)}
                     onApply={(result) => setAppliedDiscount(result)}
                     onRemove={() => setAppliedDiscount(null)}
                     appliedDiscount={appliedDiscount}

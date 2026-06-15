@@ -46,6 +46,48 @@ describe('DiscountCodeInput', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('sends product_ids for targeted UX preflight and forwards the server discount_amount to onApply', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          valid: true,
+          discount_code_id: '33333333-3333-4333-8333-333333333333',
+          code: 'SAVE10',
+          discount_type: 'percentage',
+          discount_value: 10,
+          discount_amount: 500,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    const onApply = vi.fn();
+
+    render(
+      <DiscountCodeInput
+        merchantId="merchant-1"
+        cartTotal={5000}
+        productIds={['p-1', 'p-2']}
+        onApply={onApply}
+        onRemove={vi.fn()}
+      />
+    );
+
+    await userEvent.type(
+      screen.getByPlaceholderText('Enter discount code'),
+      'save10'
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => {
+      expect(onApply).toHaveBeenCalledWith(
+        expect.objectContaining({ discount_amount: 500, code: 'SAVE10' })
+      );
+    });
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
+    expect(body.product_ids).toEqual(['p-1', 'p-2']);
+  });
+
   it('fails fast when csrf refresh endpoint returns non-ok during retry', async () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
