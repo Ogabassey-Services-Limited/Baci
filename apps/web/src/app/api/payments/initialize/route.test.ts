@@ -361,6 +361,23 @@ describe('POST /api/payments/initialize', () => {
       expect(json.code).toBe('MERCHANT_MISMATCH');
     });
 
+    it('rejects starting a payment for a cancelled order', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 5000,
+            shipping_status: 'cancelled',
+          },
+        ],
+        error: null,
+      };
+      const res = await POST(makeRequest(validBody));
+      const json = await res.json();
+      expect(res.status).toBe(409);
+      expect(json.code).toBe('ORDER_NOT_PAYABLE');
+    });
+
     it('does not let a client amount above the order total change the charge', async () => {
       rpcResult = {
         data: [{ merchant_id: MERCHANT_ID, total: 1000 }],
