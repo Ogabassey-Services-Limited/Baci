@@ -25,6 +25,8 @@ describe('isAirportDeliveryEligible', () => {
     expect(isAirportDeliveryEligible('Rivers')).toBe(true);
     expect(isAirportDeliveryEligible('kano')).toBe(true);
     expect(isAirportDeliveryEligible('Abuja')).toBe(true);
+    expect(isAirportDeliveryEligible('FCT')).toBe(true);
+    expect(isAirportDeliveryEligible('Federal Capital Territory')).toBe(true);
     expect(isAirportDeliveryEligible('FCT - Abuja')).toBe(true);
   });
 
