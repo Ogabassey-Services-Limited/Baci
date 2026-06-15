@@ -9,9 +9,10 @@ vi.mock('@/hooks/cart', () => ({
   })),
 }));
 
-// Mock parseSantaAction to return null by default
+// Mock Santa action helpers to avoid coupling these hook tests to parser details.
 vi.mock('@/components/storefront/santa-chat/types', () => ({
   parseSantaAction: vi.fn(() => null),
+  stripSantaActions: vi.fn((content: string) => content),
 }));
 
 import { useOgabasseyChat } from './use-ogabassey-chat';
