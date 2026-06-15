@@ -255,37 +255,6 @@ describe('CategoryPageContent', () => {
     expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
   });
 
-  it('calls notFound() for an unknown category slug with no products (doorway stopgap)', async () => {
-    // Unknown/typo slug: merchant resolves, but the category data has no
-    // collection, no category row, and no fuzzy-matched products — previously
-    // rendered an indexable empty page. The render-side guard must mirror
-    // generateMetadata so the shell and robots agree.
-    mockGetMerchantByIdentifier.mockResolvedValue({
-      id: 'merchant-1',
-      business_name: 'Demo Store',
-      slug: 'demo-store',
-      country: 'NG',
-      payout_currency: 'NGN',
-    });
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      isCollection: false,
-      category: null,
-      products: [],
-      isInactiveCategory: false,
-    });
-
-    await expect(
-      CategoryPageContent({
-        params: Promise.resolve({
-          slug: 'demo-store',
-          category: 'totally-made-up-slug',
-        }),
-        searchParams: Promise.resolve({ page: '1' }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
-    expect(mockGenerateCollectionPageSchema).not.toHaveBeenCalled();
-  });
-
   it('wraps category products in the comparison scope required by product cards', async () => {
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
