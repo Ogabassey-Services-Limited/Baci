@@ -18,7 +18,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -30,6 +30,9 @@ import { NegotiationModal } from './negotiation-modal';
 import { useSaved } from './saved-context'; // We created a stub for this
 
 export const ProductDetails: React.FC = () => {
+  const optionGroupId = useId();
+  const colorGroupId = `${optionGroupId}-selection-color`;
+  const storageGroupId = `${optionGroupId}-selection-storage`;
   const params = useParams();
   const _router = useRouter();
   const { addToCart, cart } = useCart();
@@ -519,10 +522,17 @@ export const ProductDetails: React.FC = () => {
                 missingFields.length === 0) &&
                 productData.colors && (
                   <div>
-                    <span className="text-sm font-bold text-gray-900 block mb-3">
+                    <span
+                      id={colorGroupId}
+                      className="text-sm font-bold text-gray-900 block mb-3"
+                    >
                       Color
                     </span>
-                    <div className="flex flex-wrap gap-4">
+                    <div
+                      className="flex flex-wrap gap-4"
+                      role="group"
+                      aria-labelledby={colorGroupId}
+                    >
                       {productData.colors.map((color, idx) => {
                         const isSelected = selectedColor === idx;
                         const isLight = [
@@ -575,10 +585,17 @@ export const ProductDetails: React.FC = () => {
                 missingFields.length === 0) &&
                 productData.storage && (
                   <div>
-                    <span className="text-sm font-bold text-gray-900 block mb-3">
+                    <span
+                      id={storageGroupId}
+                      className="text-sm font-bold text-gray-900 block mb-3"
+                    >
                       Storage
                     </span>
-                    <div className="flex flex-wrap gap-3">
+                    <div
+                      className="flex flex-wrap gap-3"
+                      role="group"
+                      aria-labelledby={storageGroupId}
+                    >
                       {productData.storage.map((size, idx) => (
                         <button type="button"
                           key={size}

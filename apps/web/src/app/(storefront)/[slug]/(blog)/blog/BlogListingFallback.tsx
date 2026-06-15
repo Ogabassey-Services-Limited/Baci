@@ -2,7 +2,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function BlogListingFallback() {
   return (
-    <output
+    <div
+      role="status"
       aria-label="Loading blog posts"
       aria-live="polite"
       className="block min-h-screen bg-background pb-20 pt-4"
@@ -53,6 +54,6 @@ export function BlogListingFallback() {
           ))}
         </div>
       </div>
-    </output>
+    </div>
   );
 }
