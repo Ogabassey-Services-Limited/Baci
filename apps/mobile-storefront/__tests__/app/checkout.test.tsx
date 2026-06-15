@@ -18,7 +18,7 @@ import {
   teardownCheckoutTest,
 } from './checkout.test-utils';
 
-function fillAddressAndContinueToPayment() {
+function fillCheckoutContact() {
   fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
   fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
   fireEvent.changeText(
@@ -29,10 +29,28 @@ function fillAddressAndContinueToPayment() {
     screen.getByPlaceholderText('john@example.com'),
     'ada@example.com'
   );
+}
+
+function fillLagosDeliveryAddress() {
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Start typing your address…'),
+    'No. 5 Example Plaza'
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Mock select State' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Mock select City' }));
+}
+
+function selectPickupAndContinueToPayment() {
   fireEvent.press(
     screen.getByRole('button', { name: 'Select pickup station' })
   );
   fireEvent.press(screen.getByRole('button', { name: 'Continue to payment' }));
+}
+
+function fillAddressAndContinueToPayment() {
+  fillCheckoutContact();
+  fillLagosDeliveryAddress();
+  selectPickupAndContinueToPayment();
 }
 
 function enableAuthenticatedWalletFundedCheckout() {
@@ -108,23 +126,7 @@ describe('CheckoutScreen', () => {
   it('continues from address to payment when required fields are valid', async () => {
     renderCheckoutScreen();
 
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('e.g. 08012345678'),
-      '08031234567'
-    );
-    fireEvent.changeText(
-      screen.getByPlaceholderText('john@example.com'),
-      'ada@example.com'
-    );
-
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Select pickup station' })
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Continue to payment' })
-    );
+    fillAddressAndContinueToPayment();
 
     await waitFor(() => {
       expect(screen.getByText('Payment Method')).toBeOnTheScreen();
@@ -137,19 +139,7 @@ describe('CheckoutScreen', () => {
   it('renders the extracted review summary after progressing through checkout', async () => {
     renderCheckoutScreen();
 
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('e.g. 08012345678'),
-      '08031234567'
-    );
-    fireEvent.changeText(
-      screen.getByPlaceholderText('john@example.com'),
-      'ada@example.com'
-    );
-
-    fireEvent.press(screen.getByLabelText('Select pickup station'));
-    fireEvent.press(screen.getByLabelText('Continue to payment'));
+    fillAddressAndContinueToPayment();
 
     await waitFor(() => {
       expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
@@ -187,22 +177,7 @@ describe('CheckoutScreen', () => {
     });
     renderCheckoutScreen();
 
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('e.g. 08012345678'),
-      '08031234567'
-    );
-    fireEvent.changeText(
-      screen.getByPlaceholderText('john@example.com'),
-      'ada@example.com'
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Select pickup station' })
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Continue to payment' })
-    );
+    fillAddressAndContinueToPayment();
     await waitFor(() => {
       expect(screen.getByText('Payment Method')).toBeOnTheScreen();
     });
@@ -252,7 +227,9 @@ describe('CheckoutScreen', () => {
     'CHECKOUT_ORDER_NOT_REUSABLE',
     'CHECKOUT_IDEMPOTENCY_CONFLICT',
   ])('rotates the mobile BNPL idempotency key after %s', async (errorCode) => {
-    const { OrderError } = require('@/services/orders');
+    const { OrderError } = jest.requireMock(
+      '@/services/orders'
+    ) as typeof import('@/services/orders');
     const staleOrderError = new OrderError(
       'This checkout order can no longer be reused.',
       errorCode
@@ -277,22 +254,7 @@ describe('CheckoutScreen', () => {
     mockCreateOrder.mockRejectedValueOnce(staleOrderError);
     renderCheckoutScreen();
 
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('e.g. 08012345678'),
-      '08031234567'
-    );
-    fireEvent.changeText(
-      screen.getByPlaceholderText('john@example.com'),
-      'ada@example.com'
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Select pickup station' })
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Continue to payment' })
-    );
+    fillAddressAndContinueToPayment();
     await waitFor(() => {
       expect(screen.getByText('Payment Method')).toBeOnTheScreen();
     });
@@ -395,23 +357,7 @@ describe('CheckoutScreen', () => {
     renderCheckoutScreen();
 
     // Act
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('e.g. 08012345678'),
-      '08031234567'
-    );
-    fireEvent.changeText(
-      screen.getByPlaceholderText('john@example.com'),
-      'ada@example.com'
-    );
-
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Select pickup station' })
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Continue to payment' })
-    );
+    fillAddressAndContinueToPayment();
 
     await waitFor(() => {
       expect(screen.getByText('Payment Method')).toBeOnTheScreen();
@@ -493,22 +439,7 @@ describe('CheckoutScreen', () => {
     renderCheckoutScreen();
 
     // Act
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('e.g. 08012345678'),
-      '08031234567'
-    );
-    fireEvent.changeText(
-      screen.getByPlaceholderText('john@example.com'),
-      'ada@example.com'
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Select pickup station' })
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Continue to payment' })
-    );
+    fillAddressAndContinueToPayment();
 
     await waitFor(() => {
       expect(mockListSavingsGoals).toHaveBeenCalledTimes(1);
@@ -605,22 +536,7 @@ describe('CheckoutScreen', () => {
     renderCheckoutScreen();
 
     // Act
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('e.g. 08012345678'),
-      '08031234567'
-    );
-    fireEvent.changeText(
-      screen.getByPlaceholderText('john@example.com'),
-      'ada@example.com'
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Select pickup station' })
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Continue to payment' })
-    );
+    fillAddressAndContinueToPayment();
 
     await waitFor(() => {
       expect(screen.getByText('Payment Method')).toBeOnTheScreen();
@@ -692,22 +608,7 @@ describe('CheckoutScreen', () => {
     renderCheckoutScreen();
 
     // Act
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('e.g. 08012345678'),
-      '08031234567'
-    );
-    fireEvent.changeText(
-      screen.getByPlaceholderText('john@example.com'),
-      'ada@example.com'
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Select pickup station' })
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Continue to payment' })
-    );
+    fillAddressAndContinueToPayment();
 
     // Assert
     expect(await screen.findByText('Savings unavailable')).toBeOnTheScreen();

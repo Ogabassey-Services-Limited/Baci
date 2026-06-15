@@ -1,7 +1,48 @@
+import type { ReactNode } from 'react';
+import type { Control, FieldValues } from 'react-hook-form';
+
 jest.mock('@/components/checkout/CheckoutStepper', () => ({
   CheckoutStepper: ({ step }: { step: string }) => {
-    const { Text } = require('react-native');
+    const { Text } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     return <Text accessibilityLabel="checkout-step">step:{step}</Text>;
+  },
+}));
+
+jest.mock('@/components/checkout/CheckoutDeliveryLocationPicker', () => ({
+  CheckoutDeliveryLocationPicker: ({
+    control,
+    label,
+    valueName,
+  }: {
+    control: Control<FieldValues>;
+    label: 'City' | 'State';
+    valueName: 'city' | 'state';
+  }) => {
+    const { Pressable, Text } =
+      jest.requireActual<typeof import('react-native')>('react-native');
+    const { Controller } =
+      jest.requireActual<typeof import('react-hook-form')>('react-hook-form');
+    const selectedValue = label === 'State' ? 'Lagos' : 'Ikeja';
+    return (
+      <Controller
+        control={control}
+        name={valueName}
+        render={({
+          field: { onChange, value },
+        }: {
+          field: { onChange: (value: string) => void; value: string };
+        }) => (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Mock select ${label}`}
+            onPress={() => onChange(selectedValue)}
+          >
+            <Text>{value || `Select ${label.toLowerCase()}`}</Text>
+          </Pressable>
+        )}
+      />
+    );
   },
 }));
 
@@ -11,7 +52,8 @@ jest.mock('@/components/checkout/DeliveryMethodCard', () => ({
   }: {
     onSelectMethod: (method: 'door' | 'pickup_station' | 'airport') => void;
   }) => {
-    const { Pressable, Text, View } = require('react-native');
+    const { Pressable, Text, View } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     return (
       <View>
         <Pressable
@@ -32,14 +74,16 @@ jest.mock('@/components/checkout/PickupStationCard', () => ({
   PICKUP_STATION_CITY: 'Lagos',
   PICKUP_STATION_STATE: 'Lagos',
   PickupStationCard: () => {
-    const { Text } = require('react-native');
+    const { Text } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     return <Text>Pickup station card</Text>;
   },
 }));
 
 jest.mock('@/components/checkout/ShippingQuotesCard', () => ({
   ShippingQuotesCard: () => {
-    const { Text } = require('react-native');
+    const { Text } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     return <Text>Shipping quotes card</Text>;
   },
 }));
@@ -50,14 +94,16 @@ jest.mock('@/components/checkout/CryptoSelectionModal', () => ({
 
 jest.mock('@/components/storefront/PatternedBackground', () => ({
   PatternedBackground: ({ backgroundColor }: { backgroundColor: string }) => {
-    const { View } = require('react-native');
+    const { View } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     return <View style={{ backgroundColor }} testID="patterned-background" />;
   },
 }));
 
 jest.mock('@/components/checkout/DeliveryNotesCard', () => ({
-  DeliveryNotesCard: ({ children }: { children: unknown }) => {
-    const { View } = require('react-native');
+  DeliveryNotesCard: ({ children }: { children: ReactNode }) => {
+    const { View } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     return <View>{children}</View>;
   },
 }));
@@ -79,7 +125,8 @@ jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
     savingsGoalId?: string | null;
     walletFundedBankTransferMode?: boolean;
   }) => {
-    const { Pressable, Text, View } = require('react-native');
+    const { Pressable, Text, View } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     const bankTransferLabel =
       props.methodLabelOverrides?.bank_transfer ?? 'Bank Transfer';
     const bankTransferDescription =
@@ -162,7 +209,8 @@ jest.mock('@/components/ui/AddressAutocomplete', () => ({
     value: string;
     onChangeText: (value: string) => void;
   }) => {
-    const { TextInput } = require('react-native');
+    const { TextInput } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     return (
       <TextInput
         placeholder="Start typing your address…"
@@ -183,7 +231,8 @@ jest.mock('@/components/ui/PhoneInput', () => ({
     onBlur: () => void;
     onChangeText: (value: string) => void;
   }) => {
-    const { TextInput } = require('react-native');
+    const { TextInput } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     return (
       <TextInput
         placeholder="e.g. 08012345678"
