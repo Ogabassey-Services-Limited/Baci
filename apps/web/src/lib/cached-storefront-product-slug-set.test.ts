@@ -14,12 +14,12 @@ import { getCachedStorefrontProductSlugSet } from '@/lib/cached-storefront-produ
  * pagination can be exercised. Each entry is one `.range()` call's result.
  */
 function createQueryBuilder(
-  pages: Array<{
-    data?: Array<{ slug: string | null }> | null;
+  pages: {
+    data?: { slug: string | null }[] | null;
     error?: { message: string } | null;
-  }>
+  }[]
 ) {
-  const rangeCalls: Array<[number, number]> = [];
+  const rangeCalls: [number, number][] = [];
   let call = 0;
 
   const builder = {
@@ -40,7 +40,7 @@ function createQueryBuilder(
   return { builder, rangeCalls };
 }
 
-function rows(n: number, prefix = 'p'): Array<{ slug: string }> {
+function rows(n: number, prefix = 'p'): { slug: string }[] {
   return Array.from({ length: n }, (_, i) => ({ slug: `${prefix}-${i}` }));
 }
 
