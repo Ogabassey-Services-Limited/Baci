@@ -49,7 +49,7 @@ BEGIN
     is_active, last_used_at, updated_at
   )
   VALUES (
-    v_uid, p_merchant_id, btrim(p_token), p_platform, p_device_name,
+    v_uid, p_merchant_id, btrim(p_token), btrim(p_platform), p_device_name,
     coalesce(p_app_type, 'storefront'), true, now(), now()
   )
   ON CONFLICT (token) DO UPDATE SET

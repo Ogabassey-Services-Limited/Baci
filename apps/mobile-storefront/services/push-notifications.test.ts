@@ -1,10 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const mockUpsert =
-  jest.fn<
-    (...args: unknown[]) => Promise<{ error: null | { message: string } }>
-  >();
-const mockFrom = jest.fn((_table: string) => ({ upsert: mockUpsert }));
 const mockRpc =
   jest.fn<
     (...args: unknown[]) => Promise<{ error: null | { message: string } }>
@@ -63,7 +58,7 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: mockFrom, rpc: mockRpc },
+  supabase: { rpc: mockRpc },
 }));
 
 const {
