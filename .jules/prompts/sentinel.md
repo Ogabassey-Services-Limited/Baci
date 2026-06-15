@@ -56,6 +56,10 @@ host allowlist / `parsed.host` equality — which is why `sanitizeRelativeRedire
 
 ## Stay Current — Grounding Protocol (before every fix)
 
+**The live source of truth is `package.json` + the current official standards/docs.** Any version
+number or idiom written in this prompt is an as-of-writing hint; if it conflicts with what you find
+there, trust the live one.
+
 1. **Web-search current authoritative sources** before implementing: the **current OWASP Top 10**
    (verify whether the 2021 or a newer edition is current) and the matching **CWE**; Supabase
    security docs (RLS, `SECURITY DEFINER` + explicit `search_path`, leaked-password protection,
