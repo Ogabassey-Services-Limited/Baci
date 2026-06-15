@@ -6,7 +6,7 @@ import type {
 } from '@/lib/product-search';
 import { fetchAdminProductSearchRows } from '@/lib/product-search';
 import { supabase } from '@/lib/supabase';
-import type { Product, ProductsPage, ProductStatus } from './products.types';
+import type { Product, ProductStatus, ProductsPage } from './products.types';
 
 const PAGE_SIZE = 20;
 
