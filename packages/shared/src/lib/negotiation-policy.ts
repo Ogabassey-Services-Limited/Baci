@@ -26,9 +26,12 @@ function normalizePolicyText(value: string | null | undefined): string {
 }
 
 function hasBudgetBrandKeyword(normalizedText: string): boolean {
-  return NON_NEGOTIABLE_BRAND_KEYWORDS.some((keyword) =>
-    new RegExp(`\\b${keyword}\\b`, 'i').test(normalizedText)
-  );
+  // `normalizedText` is already lowercased with non-alphanumerics collapsed to
+  // single spaces, so whole-word matching is exact token membership. Avoid
+  // constructing a RegExp from a variable (Semgrep detect-non-literal-regexp /
+  // ReDoS) — a Set lookup is both safer and faster.
+  const tokens = new Set(normalizedText.split(' '));
+  return NON_NEGOTIABLE_BRAND_KEYWORDS.some((keyword) => tokens.has(keyword));
 }
 
 function isSamsungASeriesProduct(
