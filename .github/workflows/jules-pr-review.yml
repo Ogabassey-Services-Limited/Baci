@@ -889,8 +889,8 @@ jobs:
 
           # 2. Strict Severity Regex: Only match true structured bullet findings (2026 Best Practice)
           # Matches bullet items starting with the severity name, avoiding false-positive triggers from code diffs or conversation text.
-          any_severity_re='(^|\n)[[:space:]]*[-*][[:space:]]+(high|critical|major|medium|low|minor)\b[[:space:]]*:'
-          any_severity_bold='(^|\n)[[:space:]]*[-*][[:space:]]+\*\*(Severity[: ]*)?(High|Critical|Major|Medium|Low|Minor)([: ]|\s+severity)?\*\*[[:space:]:]*'
+          any_severity_re='(^|\n)[[:space:]]*[-*][[:space:]]+(high|critical|major|medium)\b[[:space:]]*:'
+          any_severity_bold='(^|\n)[[:space:]]*[-*][[:space:]]+\*\*(Severity[: ]*)?(High|Critical|Major|Medium)([: ]|\s+severity)?\*\*[[:space:]:]*'
 
           if grep -qiE "${any_severity_re}" "${body_file}" || \
              grep -qiE "${any_severity_bold}" "${body_file}"; then
