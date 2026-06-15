@@ -2,7 +2,7 @@
 
 import type { Route } from 'next';
 import Link from 'next/link';
-import React from 'react';
+import type React from 'react';
 import { cn } from '@/lib/utils';
 
 interface ThemedLinkProps
@@ -14,6 +14,7 @@ interface ThemedLinkProps
   prefetch?: boolean;
   replace?: boolean;
   scroll?: boolean;
+  ref?: React.Ref<HTMLAnchorElement>;
 }
 
 /**
@@ -23,33 +24,35 @@ interface ThemedLinkProps
  * <ThemedLink href="/about" colorRole="primary">Learn More</ThemedLink>
  * <ThemedLink href="/products" colorRole="accent" underline>Shop Now</ThemedLink>
  */
-export const ThemedLink = React.forwardRef<HTMLAnchorElement, ThemedLinkProps>(
-  (
-    { colorRole = 'primary', underline = true, className, children, ...props },
-    ref
-  ) => {
-    return (
-      <Link
-        {...props}
-        ref={ref}
-        className={cn(
-          'transition-colors',
-          // Color based on role
-          colorRole === 'primary' &&
-            'text-store-primary hover:text-store-primary/80',
-          colorRole === 'secondary' &&
-            'text-store-secondary hover:text-store-secondary/80',
-          colorRole === 'accent' &&
-            'text-store-accent hover:text-store-accent/80',
-          // Underline style
-          underline && 'underline underline-offset-4',
-          className
-        )}
-      >
-        {children}
-      </Link>
-    );
-  }
-);
+export const ThemedLink = ({
+  ref,
+  colorRole = 'primary',
+  underline = true,
+  className,
+  children,
+  ...props
+}: ThemedLinkProps) => {
+  return (
+    <Link
+      {...props}
+      ref={ref}
+      className={cn(
+        'transition-colors',
+        // Color based on role
+        colorRole === 'primary' &&
+          'text-store-primary hover:text-store-primary/80',
+        colorRole === 'secondary' &&
+          'text-store-secondary hover:text-store-secondary/80',
+        colorRole === 'accent' &&
+          'text-store-accent hover:text-store-accent/80',
+        // Underline style
+        underline && 'underline underline-offset-4',
+        className
+      )}
+    >
+      {children}
+    </Link>
+  );
+};
 
 ThemedLink.displayName = 'ThemedLink';
