@@ -1,5 +1,5 @@
 import { Check, ChevronsUpDown } from 'lucide-react';
-import * as React from 'react';
+import type * as React from 'react';
 import * as RPNInput from 'react-phone-number-input';
 import flags from 'react-phone-number-input/flags';
 
@@ -29,10 +29,14 @@ type PhoneInputProps = Omit<
     onChange?: (value: RPNInput.Value) => void;
   };
 
-const PhoneInput = React.forwardRef<
-  React.ElementRef<typeof RPNInput.default>,
-  PhoneInputProps
->(({ className, onChange, ...props }, ref) => {
+const PhoneInput = ({
+  ref,
+  className,
+  onChange,
+  ...props
+}: PhoneInputProps & {
+  ref?: React.Ref<React.ComponentRef<typeof RPNInput.default>>;
+}) => {
   return (
     <RPNInput.default
       ref={ref}
@@ -57,46 +61,44 @@ const PhoneInput = React.forwardRef<
       {...props}
     />
   );
-});
+};
 PhoneInput.displayName = 'PhoneInput';
 
-const InputComponent = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, onChange, ...props }, ref) => {
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      let value = e.target.value;
+const InputComponent = ({ ref, className, onChange, ...props }: InputProps) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
 
-      // 1. Sanitize: Allow only numbers, spaces, and +
-      value = value.replace(/[^0-9+\s]/g, '');
+    // 1. Sanitize: Allow only numbers, spaces, and +
+    value = value.replace(/[^0-9+\s]/g, '');
 
-      // 2. Strip leading zero after country code (except for Italy +39)
-      if (value.startsWith('+') && !value.startsWith('+39')) {
-        // Handle space case: +234 0...
-        if (value.match(/^\+\d+\s0/)) {
-          value = value.replace(/(\+\d+\s)0/, '$1');
-        }
-        // Handle no-space case: +2340...
-        else if (value.match(/^\+\d+0/)) {
-          value = value.replace(/(\+\d+)0/, '$1');
-        }
+    // 2. Strip leading zero after country code (except for Italy +39)
+    if (value.startsWith('+') && !value.startsWith('+39')) {
+      // Handle space case: +234 0...
+      if (value.match(/^\+\d+\s0/)) {
+        value = value.replace(/(\+\d+\s)0/, '$1');
       }
+      // Handle no-space case: +2340...
+      else if (value.match(/^\+\d+0/)) {
+        value = value.replace(/(\+\d+)0/, '$1');
+      }
+    }
 
-      e.target.value = value;
-      onChange?.(e);
-    };
+    e.target.value = value;
+    onChange?.(e);
+  };
 
-    return (
-      <Input
-        className={cn(
-          'rounded-none border-0 bg-transparent text-gray-900 focus-visible:ring-0 focus-visible:ring-offset-0',
-          className
-        )}
-        {...props}
-        onChange={handleChange}
-        ref={ref}
-      />
-    );
-  }
-);
+  return (
+    <Input
+      className={cn(
+        'rounded-none border-0 bg-transparent text-gray-900 focus-visible:ring-0 focus-visible:ring-offset-0',
+        className
+      )}
+      {...props}
+      onChange={handleChange}
+      ref={ref}
+    />
+  );
+};
 InputComponent.displayName = 'InputComponent';
 
 type CountrySelectOption = { label: string; value: RPNInput.Country };
