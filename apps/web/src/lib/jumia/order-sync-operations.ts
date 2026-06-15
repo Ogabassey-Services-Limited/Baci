@@ -195,14 +195,25 @@ export function buildSyncedJumiaCacheRow(
   return buildJumiaCacheRow(integration, order, items, existing, baciOrderId);
 }
 
+// Module-scope cache: locale is static; currency varies per order.
+const jumiaCurrencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getJumiaCurrencyFormatter(currency: string): Intl.NumberFormat {
+  let formatter = jumiaCurrencyFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(JUMIA_NOTIFICATION_LOCALE, {
+      currency,
+      style: 'currency',
+    });
+    jumiaCurrencyFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 export function formatJumiaOrderAmount(order: JumiaOrder) {
   const amount = getJumiaOrderAmount(order);
 
   try {
-    return new Intl.NumberFormat(JUMIA_NOTIFICATION_LOCALE, {
-      currency: amount.currency,
-      style: 'currency',
-    }).format(amount.value);
+    return getJumiaCurrencyFormatter(amount.currency).format(amount.value);
   } catch {
     return `${amount.currency} ${amount.value.toLocaleString(JUMIA_NOTIFICATION_LOCALE)}`;
   }

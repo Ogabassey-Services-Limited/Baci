@@ -31,6 +31,24 @@ import { useJumiaIntegrations } from './use-jumia-integrations';
 
 type CatalogToast = ReturnType<typeof useToast>['toast'];
 
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _currencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+    });
+    _currencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 interface RunProductSaveParams {
   dirtyProductIdsForSave: Set<string>;
   isMountedRef: RefObject<boolean>;
@@ -383,11 +401,7 @@ export function ProductCatalog({
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'USD';
 
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      currencyDisplay: 'symbol',
-    }).format(amount);
+    return getCurrencyFormatter(locale, currency).format(amount);
   };
   const country = merchant?.country
     ? getCountryByCode(merchant.country)

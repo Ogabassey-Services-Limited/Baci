@@ -17,14 +17,19 @@ interface JsPDFWithInternal {
   };
 }
 
+const USD_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
+  'en-US',
+  {
+    style: 'currency',
+    currency: 'USD',
+  }
+);
+
 /**
  * Format currency for display
  */
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(value);
+  return USD_CURRENCY_FORMATTER.format(value);
 }
 
 /**

@@ -4,6 +4,11 @@ import { Calendar, ExternalLink, History, ShoppingCart, ShieldCheck } from 'luci
 import type React from 'react';
 import { EmptyState } from '../components/empty-state';
 
+const NGN_CURRENCY: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+});
+
 // Interface matching the real order structure from the API
 export interface OrderItem {
   id: string;
@@ -35,10 +40,7 @@ export const OgabasseyV2PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
 }) => {
   // Helper to format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-    }).format(amount);
+    return NGN_CURRENCY.format(amount);
   };
 
   // Helper to format date

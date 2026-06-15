@@ -241,16 +241,27 @@ export class QuoteAggregator {
 /**
  * Format price for display
  */
+const _shippingPriceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getShippingPriceFormatter(currency: string): Intl.NumberFormat {
+  let formatter = _shippingPriceFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+    _shippingPriceFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 export function formatShippingPrice(
   price: number,
   currency: string = 'NGN'
 ): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(price);
+  return getShippingPriceFormatter(currency).format(price);
 }
 
 /**

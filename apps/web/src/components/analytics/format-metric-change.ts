@@ -5,6 +5,19 @@ function normalizeRoundedChange(value: number) {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
+const _metricChangeFormatterCache = new Map<boolean, Intl.NumberFormat>();
+function getMetricChangeFormatter(isInteger: boolean): Intl.NumberFormat {
+  let formatter = _metricChangeFormatterCache.get(isInteger);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: isInteger ? 0 : 1,
+      maximumFractionDigits: 1,
+    });
+    _metricChangeFormatterCache.set(isInteger, formatter);
+  }
+  return formatter;
+}
+
 export function formatMetricChange(value: number) {
   const normalized = normalizeRoundedChange(value);
 
@@ -12,10 +25,7 @@ export function formatMetricChange(value: number) {
     return '0%';
   }
 
-  const formatter = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: Number.isInteger(normalized) ? 0 : 1,
-    maximumFractionDigits: 1,
-  });
+  const formatter = getMetricChangeFormatter(Number.isInteger(normalized));
 
   return `${normalized > 0 ? '+' : ''}${formatter.format(normalized)}%`;
 }

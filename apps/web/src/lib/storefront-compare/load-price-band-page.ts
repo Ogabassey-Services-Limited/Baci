@@ -77,6 +77,25 @@ function getSupportedClusterCategory(
     : null;
 }
 
+const _priceBandFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getPriceBandFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _priceBandFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    });
+    _priceBandFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 export async function loadPriceBandPage(
   args: {
     merchantSlug: string;
@@ -153,13 +172,9 @@ export async function loadPriceBandPage(
   const categoryName = categoryData.fallbackName || args.categorySlug;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/best-under/${band.slug}`;
   const payoutCurrency = merchant.payout_currency || 'NGN';
-  const priceFormatter = new Intl.NumberFormat(
+  const priceFormatter = getPriceBandFormatter(
     getStorefrontLocale(merchant.country),
-    {
-      style: 'currency',
-      currency: payoutCurrency,
-      maximumFractionDigits: 0,
-    }
+    payoutCurrency
   );
   const ceilingText = priceFormatter.format(band.ceiling);
   const countryContext = getCountryShoppingContext(merchant.country);

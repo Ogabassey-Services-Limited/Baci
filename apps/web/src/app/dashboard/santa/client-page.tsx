@@ -14,6 +14,11 @@ import {
   type SantaStats,
 } from './actions';
 
+const MONEY_FORMATTER = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+});
+
 export default function SantaClientPage() {
   const { merchant, loading: merchantLoading } = useMerchant();
   const [stats, setStats] = useState<SantaStats | null>(null);
@@ -65,10 +70,7 @@ export default function SantaClientPage() {
 
   // Helper to format currency
   const formatMoney = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-    }).format(amount);
+    return MONEY_FORMATTER.format(amount);
   };
 
   return (

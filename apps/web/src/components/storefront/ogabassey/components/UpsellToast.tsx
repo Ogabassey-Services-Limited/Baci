@@ -17,6 +17,11 @@ interface UpsellToastProps {
   storeSlug?: string;
 }
 
+const PRICE_FORMATTER = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+});
+
 /**
  * Fetch a semantically relevant product from the SAME category (Koray SEO
  * aligned). Module-scope helper so the component body stays free of
@@ -63,10 +68,7 @@ async function fetchUpsellSuggestion(
       id: rawProduct.id,
       name: rawProduct.name,
       slug: rawProduct.slug,
-      price: new Intl.NumberFormat('en-NG', {
-        style: 'currency',
-        currency: 'NGN',
-      }).format(rawProduct.price),
+      price: PRICE_FORMATTER.format(rawProduct.price),
       rawPrice: rawProduct.price,
       image: rawProduct.imageLarge || rawProduct.image,
       images: [rawProduct.imageLarge || rawProduct.image],

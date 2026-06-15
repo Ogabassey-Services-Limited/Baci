@@ -27,6 +27,18 @@ function getSafeCurrencyCode(currency?: string | null) {
     return code && /^[A-Z]{3}$/.test(code) && (!SUPPORTED_CURRENCY_CODES || SUPPORTED_CURRENCY_CODES.has(code)) ? code : FALLBACK_PRICE_CURRENCY;
 }
 
+const _priceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getPriceFormatter(locale: string, currency: string): Intl.NumberFormat {
+    const key = `${locale}:${currency}`;
+    let formatter = _priceFormatterCache.get(key);
+    if (!formatter) {
+        formatter = new Intl.NumberFormat(locale, { style: 'currency', currency });
+        _priceFormatterCache.set(key, formatter);
+    }
+    return formatter;
+}
+
 export function ProductComparisonTable({
     mainProduct,
     storeSlug,
@@ -74,7 +86,7 @@ export function ProductComparisonTable({
             id: rawProduct.id,
             name: rawProduct.name,
             slug: rawProduct.slug,
-            price: new Intl.NumberFormat(priceLocale, { style: 'currency', currency: priceCurrency }).format(rawProduct.price),
+            price: getPriceFormatter(priceLocale, priceCurrency).format(rawProduct.price),
             rawPrice: rawProduct.price,
             image: heroImage,
             images: [heroImage],

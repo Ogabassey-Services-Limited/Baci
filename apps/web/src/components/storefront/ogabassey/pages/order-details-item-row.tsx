@@ -6,6 +6,11 @@ import { asRoute } from '@/lib/routes';
 import { getStorefrontOrderItemHref } from '@/lib/storefront-order-item-href';
 import type { StorefrontOrderItem } from '@/types/storefront-order';
 
+const NGN_CURRENCY: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+});
+
 interface OrderDetailsItemRowProps {
   item: StorefrontOrderItem;
   basePath: string;
@@ -47,10 +52,7 @@ export function OrderDetailsItemRow({
           <p className="text-xs text-gray-500 mb-2">Qty: {item.quantity}</p>
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold text-gray-900">
-              {new Intl.NumberFormat('en-NG', {
-                style: 'currency',
-                currency: 'NGN',
-              }).format(item.price || 0)}
+              {NGN_CURRENCY.format(item.price || 0)}
             </span>
           </div>
         </div>
@@ -70,10 +72,7 @@ export function OrderDetailsItemRow({
         <p className="text-xs text-gray-500 mb-2">Qty: {item.quantity}</p>
         <div className="flex items-center justify-between">
           <span className="text-sm font-bold text-gray-900">
-            {new Intl.NumberFormat('en-NG', {
-              style: 'currency',
-              currency: 'NGN',
-            }).format(item.price || 0)}
+            {NGN_CURRENCY.format(item.price || 0)}
           </span>
         </div>
       </div>

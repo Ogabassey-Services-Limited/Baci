@@ -36,6 +36,9 @@ interface AttributeSelection {
   [key: string]: string[];
 }
 
+// Static price formatter for variant inputs (hoisted to avoid per-render construction)
+const PRICE_INPUT_FORMATTER = new Intl.NumberFormat('en-US');
+
 // Timeout for AI variant suggestion retrieval
 const VARIANT_SUGGESTION_POLL_MS = 3000; // Increased interval to reduce API request frequency and potential server load
 const VARIANT_SUGGESTION_MAX_ATTEMPTS = 10; // Number of polling attempts for variant suggestions
@@ -597,12 +600,10 @@ export function VariantBuilder({
                       </span>
                       <Input
                         type="text"
-                        placeholder={new Intl.NumberFormat('en-US').format(
-                          basePrice
-                        )}
+                        placeholder={PRICE_INPUT_FORMATTER.format(basePrice)}
                         value={
                           variantWithSpec?.price_override != null
-                            ? new Intl.NumberFormat('en-US').format(
+                            ? PRICE_INPUT_FORMATTER.format(
                                 variantWithSpec.price_override
                               )
                             : ''

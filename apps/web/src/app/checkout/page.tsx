@@ -65,6 +65,11 @@ const DEFAULT_SHIPPING_FEE = Number.parseFloat(
 const PAYMENT_REFERENCE_UPDATE_ATTEMPTS = 3;
 const PAYMENT_REFERENCE_UPDATE_RETRY_DELAY_MS = 400;
 
+const NGN_CURRENCY_FORMATTER = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+});
+
 const shippingSchema = z.object({
   firstName: z
     .string()
@@ -1766,10 +1771,7 @@ function CheckoutPageContent() {
                               )}
                               {selectedGateway === 'pod'
                                 ? 'Place Order'
-                                : `Pay ${new Intl.NumberFormat('en-NG', {
-                                    style: 'currency',
-                                    currency: 'NGN',
-                                  }).format(
+                                : `Pay ${NGN_CURRENCY_FORMATTER.format(
                                     cartTotal +
                                       (shippingFee || 0) -
                                       discountAmount

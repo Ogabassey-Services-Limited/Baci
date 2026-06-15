@@ -20,6 +20,11 @@ import { getStorefrontOrderItemHref } from '@/lib/storefront-order-item-href';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import type { StorefrontTransformedOrder } from '@baci/shared';
 
+const NGN_CURRENCY: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+});
+
 // Mock data removed
 interface _OrderItem {
   id: string;
@@ -234,7 +239,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                   <div className="text-right">
                     <p className="text-xs text-gray-500 mb-0.5">Total Amount</p>
                     <p className="font-bold text-gray-900">
-                      {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.total || 0)}
+                      {NGN_CURRENCY.format(order.total || 0)}
                     </p>
                   </div>
                 </div>

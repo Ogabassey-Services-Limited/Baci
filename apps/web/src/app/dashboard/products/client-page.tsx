@@ -12,6 +12,24 @@ import { ProductsPageShell } from './products-page-shell';
 import { ProductsPageWorkflowContent } from './products-page-workflow-content';
 import { useProductsPageActions } from './use-products-page-actions';
 
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _currencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+    });
+    _currencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 export default function ProductsPage({
   initialData,
 }: {
@@ -118,11 +136,7 @@ function ProductsPageContent() {
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'USD';
 
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      currencyDisplay: 'symbol',
-    }).format(amount);
+    return getCurrencyFormatter(locale, currency).format(amount);
   };
 
   return (

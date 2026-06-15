@@ -17,20 +17,24 @@ interface OgabasseyPdpCriticalShellProps {
   product: OgabasseyPdpCriticalProduct;
 }
 
+const PRICE_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  maximumFractionDigits: 0,
+  style: 'currency',
+});
+
+const RATING_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
+  maximumFractionDigits: 1,
+});
+
 function formatPrice(price: number) {
-  return new Intl.NumberFormat('en-NG', {
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-    style: 'currency',
-  }).format(price);
+  return PRICE_FORMATTER.format(price);
 }
 
 function formatRating(rating: number) {
   const boundedRating = Math.min(Math.max(rating, 0), 5);
 
-  return new Intl.NumberFormat('en-NG', {
-    maximumFractionDigits: 1,
-  }).format(boundedRating);
+  return RATING_FORMATTER.format(boundedRating);
 }
 
 function buildPath(basePath: string, path: string): Route {

@@ -82,6 +82,21 @@ const CANONICAL_PRODUCT_REDIRECT_METADATA: Metadata = {
   robots: { index: false, follow: true },
 };
 
+const priceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getPriceFormatter(currency: string): Intl.NumberFormat {
+  let formatter = priceFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+    });
+    priceFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 /**
  * Converts server-side Product to Ogabassey template format
  */
@@ -90,11 +105,7 @@ function toOgabasseyProduct(
   currency = 'NGN'
 ): OgabasseyProduct {
   // Format price with currency symbol
-  const formatter = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-  });
+  const formatter = getPriceFormatter(currency);
 
   // Production data currently stores variant_attributes as either:
   // 1. a legacy object map { Storage: ['256GB'] }

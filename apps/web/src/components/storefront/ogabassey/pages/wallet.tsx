@@ -8,6 +8,14 @@ import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { StorefrontWallet } from '@baci/shared';
 
+const NGN_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
+  'en-NG',
+  {
+    style: 'currency',
+    currency: 'NGN',
+  }
+);
+
 export function OgabasseyV2Wallet() {
   const { isAuthenticated, isLoading: isAuthLoading } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
@@ -84,10 +92,7 @@ export function OgabasseyV2Wallet() {
                 </p>
                 <div className="text-4xl md:text-5xl font-bold mb-8">
                   {wallet
-                    ? new Intl.NumberFormat('en-NG', {
-                      style: 'currency',
-                      currency: 'NGN',
-                    }).format(wallet.balance)
+                    ? NGN_CURRENCY_FORMATTER.format(wallet.balance)
                     : '₦0.00'}
                 </div>
 
@@ -152,7 +157,7 @@ export function OgabasseyV2Wallet() {
                           </div>
                         </div>
                         <span className={`font-bold text-sm ${tx.type === 'credit' ? 'text-green-600' : 'text-gray-900'}`}>
-                          {tx.type === 'credit' ? '+' : '-'} {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(tx.amount)}
+                          {tx.type === 'credit' ? '+' : '-'} {NGN_CURRENCY_FORMATTER.format(tx.amount)}
                         </span>
                       </div>
                     ))}

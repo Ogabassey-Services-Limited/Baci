@@ -34,6 +34,24 @@ import { OrdersListCard } from './orders-list-card';
 import { OrdersStatsCards } from './orders-stats-cards';
 import { OrdersUrgentAlert } from './orders-urgent-alert';
 
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _currencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+    });
+    _currencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 interface OrdersClientPageProps {
   initialOrders?: Order[];
   initialOrdersError?: string | null;
@@ -279,11 +297,7 @@ export default function OrdersClientPage({
       : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'USD';
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      currencyDisplay: 'symbol',
-    }).format(amount);
+    return getCurrencyFormatter(locale, currency).format(amount);
   };
 
   const filteredOrders = orders.filter((order) => {

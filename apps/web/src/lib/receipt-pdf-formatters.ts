@@ -10,11 +10,25 @@ const CURRENCY_LOCALE_MAP: Record<string, string> = {
   XOF: 'fr-SN',
 };
 
+const _receiptCurrencyFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getReceiptCurrencyFormatter(currency: string): Intl.NumberFormat {
+  let formatter = _receiptCurrencyFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(
+      CURRENCY_LOCALE_MAP[currency] || 'en-NG',
+      {
+        style: 'currency',
+        currency,
+      }
+    );
+    _receiptCurrencyFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 export function formatReceiptCurrency(amount: number, currency: string) {
-  return new Intl.NumberFormat(CURRENCY_LOCALE_MAP[currency] || 'en-NG', {
-    style: 'currency',
-    currency,
-  }).format(amount);
+  return getReceiptCurrencyFormatter(currency).format(amount);
 }
 
 export function formatReceiptDate(value: string) {

@@ -20,6 +20,9 @@ export const ADMIN_MERCHANT_SURFACE_LABELS: Record<
   [ADMIN_MERCHANT_SURFACES.WEB]: 'Web',
 };
 
+const ADMIN_MERCHANT_DATE_FORMATTER: Intl.DateTimeFormat =
+  new Intl.DateTimeFormat(ADMIN_DATE_LOCALE, ADMIN_DATE_FORMAT_OPTIONS);
+
 export function formatAdminMerchantDate(date: string | null): string {
   if (!date) {
     return ADMIN_NO_DATE_LABEL;
@@ -30,10 +33,7 @@ export function formatAdminMerchantDate(date: string | null): string {
     return ADMIN_NO_DATE_LABEL;
   }
 
-  return new Intl.DateTimeFormat(
-    ADMIN_DATE_LOCALE,
-    ADMIN_DATE_FORMAT_OPTIONS
-  ).format(parsedDate);
+  return ADMIN_MERCHANT_DATE_FORMATTER.format(parsedDate);
 }
 
 export function getAdminMerchantSurfaceVariant(

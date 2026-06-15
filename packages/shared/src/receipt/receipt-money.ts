@@ -17,15 +17,28 @@ export const DEFAULT_NG_VAT_RATE = 7.5;
 
 export type MoneyFormatter = (amount: number) => string;
 
-export function createMoneyFormatter(currencyCode: string): MoneyFormatter {
+const moneyFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getMoneyFormatter(currencyCode: string): Intl.NumberFormat {
+  const cached = moneyFormatterCache.get(currencyCode);
+  if (cached) {
+    return cached;
+  }
+
   const locale = CURRENCY_LOCALE_MAP[currencyCode] || 'en-NG';
-  return (amount) =>
-    new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currencyCode,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+  const formatter = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  moneyFormatterCache.set(currencyCode, formatter);
+  return formatter;
+}
+
+export function createMoneyFormatter(currencyCode: string): MoneyFormatter {
+  const formatter = getMoneyFormatter(currencyCode);
+  return (amount) => formatter.format(amount);
 }
 
 export function hexToRgba(hex: string, alpha: number): string {

@@ -363,11 +363,21 @@ function normalizeDbVtuStatus(status: unknown): VtuTransactionRow['status'] {
   return 'processing';
 }
 
+const NAIRA_FORMATTER_WHOLE = new Intl.NumberFormat('en-NG', {
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 0,
+});
+
+const NAIRA_FORMATTER_FRACTION = new Intl.NumberFormat('en-NG', {
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 2,
+});
+
 function formatNaira(amount: number) {
-  return `₦${new Intl.NumberFormat('en-NG', {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
-  }).format(amount)}`;
+  const formatter = Number.isInteger(amount)
+    ? NAIRA_FORMATTER_WHOLE
+    : NAIRA_FORMATTER_FRACTION;
+  return `₦${formatter.format(amount)}`;
 }
 
 function getVtuProviderLabel(row: VtuTransactionRow) {
