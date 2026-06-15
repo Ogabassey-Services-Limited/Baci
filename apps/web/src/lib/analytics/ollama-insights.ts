@@ -153,7 +153,7 @@ function keepAllowedAggregateFields<AllowedField extends string>(
   return sanitized;
 }
 
-function sanitizeAnalyticsInsightsContext(
+export function sanitizeAnalyticsInsightsContext(
   context: AnalyticsInsightsContext
 ): AnalyticsInsightsContext {
   return {
@@ -180,6 +180,15 @@ function buildPrompt(context: AnalyticsInsightsContext): string {
     'Use concise merchant-facing language. Do not include markdown.',
     `Data Context: ${JSON.stringify(safeContext)}`,
   ].join('\n');
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'AbortError'
+  );
 }
 
 function parseOllamaInsightsPayload(payload: OllamaAnalyticsResponse): unknown {
@@ -270,12 +279,7 @@ export async function generateAnalyticsInsightsWithOllama(
     const payload = (await response.json()) as OllamaAnalyticsResponse;
     return analyticsInsightsSchema.parse(parseOllamaInsightsPayload(payload));
   } catch (error) {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'name' in error &&
-      error.name === 'AbortError'
-    ) {
+    if (isAbortError(error)) {
       throw new Error('Ollama analytics insights timed out');
     }
     throw error;

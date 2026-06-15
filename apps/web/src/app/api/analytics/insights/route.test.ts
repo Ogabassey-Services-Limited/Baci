@@ -4,6 +4,7 @@ import { checkRateLimit, withRetry } from '@/ai/provider';
 import {
   generateAnalyticsInsightsWithOllama,
   isAnalyticsInsightsOllamaConfigured,
+  sanitizeAnalyticsInsightsContext,
 } from '@/lib/analytics/ollama-insights';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
@@ -47,6 +48,7 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 vi.mock('@/lib/analytics/ollama-insights', () => ({
   generateAnalyticsInsightsWithOllama: vi.fn(),
   isAnalyticsInsightsOllamaConfigured: vi.fn(),
+  sanitizeAnalyticsInsightsContext: vi.fn((context) => context),
 }));
 
 type QueryMethod = ReturnType<typeof vi.fn>;
@@ -132,6 +134,9 @@ describe('GET /api/analytics/insights', () => {
     vi.mocked(generateCacheKey).mockReturnValue('ai-insights:merchant-1');
     vi.mocked(cache.get).mockReturnValue(undefined);
     vi.mocked(isAnalyticsInsightsOllamaConfigured).mockReturnValue(false);
+    vi.mocked(sanitizeAnalyticsInsightsContext).mockImplementation(
+      (context) => context
+    );
   });
 
   afterEach(() => {
@@ -233,6 +238,46 @@ describe('GET /api/analytics/insights', () => {
       expect.objectContaining({
         maxRetries: 0,
         timeout: 10_000,
+      })
+    );
+  });
+
+  it('sanitizes analytics context before sending the Gemini prompt', async () => {
+    vi.mocked(sanitizeAnalyticsInsightsContext).mockReturnValueOnce({
+      salesHistory: [{ total_revenue: 1000 }],
+      topProducts: [],
+      channels: [],
+    });
+    vi.mocked(generateObject).mockResolvedValue({
+      object: {
+        insights: [
+          {
+            title: 'Revenue is stable',
+            description: 'Sales have stayed consistent over the last month.',
+            type: 'positive',
+            priority: 'medium',
+          },
+        ],
+      },
+    } as unknown as Awaited<ReturnType<typeof generateObject>>);
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining('total_revenue'),
+      })
+    );
+    const [{ prompt }] = vi.mocked(generateObject).mock.calls[0] ?? [{}];
+    expect(String(prompt)).not.toContain('customer_email');
+    expect(sanitizeAnalyticsInsightsContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        salesHistory: expect.any(Array),
+        topProducts: expect.any(Array),
+        channels: expect.any(Array),
       })
     );
   });

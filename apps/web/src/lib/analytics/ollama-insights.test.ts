@@ -232,6 +232,23 @@ describe('analytics Ollama insights', () => {
     ).rejects.toThrow('Ollama analytics insights returned 502');
   });
 
+  it('maps AbortError failures to the timeout message', async () => {
+    const abortError = new Error('request aborted');
+    abortError.name = 'AbortError';
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(abortError);
+
+    await expect(
+      generateAnalyticsInsightsWithOllama(
+        {
+          salesHistory: [],
+          topProducts: [],
+          channels: [],
+        },
+        { timeoutMs: 10_000 }
+      )
+    ).rejects.toThrow('Ollama analytics insights timed out');
+  });
+
   it('rejects when the Ollama request fails at the network layer', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(
       new Error('network down')
