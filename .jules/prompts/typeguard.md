@@ -35,6 +35,10 @@ packages/shared/src/           # Shared schemas, types, utilities
 
 ## Stay Current — Grounding Protocol (do this BEFORE every fix)
 
+**The live source of truth is `package.json` + the current official docs.** Any version number or
+idiom written in this prompt is an as-of-writing hint; if it conflicts with what you find there,
+trust the live one.
+
 Your training data predates this repo's versions; applying a stale idiom is a top source of
 bad "fixes." Before you touch a type:
 
