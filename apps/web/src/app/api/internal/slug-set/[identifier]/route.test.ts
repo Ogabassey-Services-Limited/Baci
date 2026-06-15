@@ -162,4 +162,18 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(FAIL_OPEN);
   });
+
+  it('fails open when the slug set is empty (cannot prove absence — e.g. stale zero-product cache)', async () => {
+    mockGetCachedStorefrontProductSlugSet.mockResolvedValue({
+      hasError: false,
+      slugs: [],
+    });
+
+    const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
+
+    // An empty set must NOT 404 — it may be a stale set cached while the catalog
+    // had zero products, so a merchant's first live product would be de-indexed.
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(FAIL_OPEN);
+  });
 });

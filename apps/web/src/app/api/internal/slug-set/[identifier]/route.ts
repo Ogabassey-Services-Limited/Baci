@@ -70,7 +70,13 @@ export async function GET(
   }
 
   const set = await getCachedStorefrontProductSlugSet(merchant.id);
-  if (set.hasError) {
+  // Fail open on an empty set as well as an errored one: an empty set cannot
+  // PROVE a slug is absent (it may be a stale set cached while the catalog had
+  // zero products, e.g. during the first product add/revalidation window). The
+  // builder documents this — "the proxy MUST NOT 404 when the set is
+  // empty/errored." Hard-404ing here would de-index a merchant's first live
+  // product until the set refreshes.
+  if (set.hasError || set.slugs.length === 0) {
     return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
   }
 

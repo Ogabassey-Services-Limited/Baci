@@ -31,16 +31,26 @@ const MAX_PAGES = 50; // 50k slugs — a safety bound well above any real catalo
  * same cached-service-role pattern `getCachedMerchant*` use.
  *
  * Tagged with a DEDICATED `product-slug-set-${merchantId}` tag so it is
- * invalidated on every product mutation. Fail-open: on any error (including a
- * possibly-truncated page) it returns `{ hasError: true, slugs: [] }` and the
- * proxy MUST NOT 404 when the set is empty/errored — a stale or partial set must
- * never de-index a live product.
+ * invalidated on every product mutation IN A NEXT CONTEXT (merchant dashboard,
+ * API routes, the import cron route) via `revalidateProducts`. The standalone
+ * CLI import worker (`scripts/process-import-jobs.ts`) has no request/store
+ * context, so its `revalidateTag` is a no-op — for that path we rely on a TIGHT
+ * `cacheLife` self-heal instead of the named `products` profile (300s), so a
+ * freshly CLI-imported product's slug is reflected within ~1–2 min rather than
+ * being hard-404ed for up to 5 min. (A fully reliable CLI-path invalidation —
+ * an internal Bearer revalidation endpoint the worker calls — is a follow-up.)
+ *
+ * Fail-open: on any error (including a possibly-truncated page) it returns
+ * `{ hasError: true, slugs: [] }` and the proxy MUST NOT 404 when the set is
+ * empty/errored — a stale or partial set must never de-index a live product.
  */
 export async function getCachedStorefrontProductSlugSet(
   merchantId: string
 ): Promise<StorefrontProductSlugSetResult> {
   'use cache: remote';
-  cacheLife('products');
+  // Tighter than the shared `products` profile (300s) to bound the CLI-import
+  // staleness window where `revalidateTag` cannot run (see docstring).
+  cacheLife({ stale: 60, revalidate: 60, expire: 86400 });
   cacheTag('products', `product-slug-set-${merchantId}`);
 
   const supabase = createAdminClient();
