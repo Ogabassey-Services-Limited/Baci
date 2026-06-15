@@ -173,10 +173,15 @@ jobs:
             printf '\n```\n'
           } > "${prompt_file}"
 
+          # The prompt embeds attacker-controlled PR text and the diff, so use a
+          # random, unpredictable heredoc delimiter. A hardcoded marker would let
+          # a PR author terminate the value early and inject $GITHUB_OUTPUT
+          # directives (overriding head_sha / should_review, etc.).
+          prompt_eof="GEMINI_PROMPT_EOF_$(openssl rand -hex 16)"
           {
-            printf 'prompt<<GEMINI_PROMPT_EOF_4f9a2c1\n'
+            printf 'prompt<<%s\n' "${prompt_eof}"
             cat "${prompt_file}"
-            printf '\nGEMINI_PROMPT_EOF_4f9a2c1\n'
+            printf '\n%s\n' "${prompt_eof}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Run Gemini 3.5 Flash review
