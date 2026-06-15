@@ -166,16 +166,18 @@ export interface Banner {
   background_color?: string;
 }
 
+const NGN_PRICE_FORMATTER = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
 /**
  * Format price in Nigerian Naira
  */
 export function formatPrice(amount: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return NGN_PRICE_FORMATTER.format(amount);
 }
 
 /**
