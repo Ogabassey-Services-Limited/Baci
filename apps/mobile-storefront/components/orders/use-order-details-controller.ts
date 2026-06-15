@@ -4,83 +4,27 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 import type { OrderDetailsInsurancePolicy } from '@/components/orders/OrderDetailsInsuranceCard';
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
+import { useCancelOrder } from '@/hooks/use-cancel-order';
 import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
 import { createLogger } from '@/lib/logger';
-import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
+import {
+  BACI_GOOGLE_REVIEW_URL,
+  CUSTOMER_CANCELLATION_REASONS,
+} from '@/lib/post-purchase-actions';
 import { supabase } from '@/lib/supabase';
 import { isOrderRealtimePayload } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
-import type { OrderDetails, RawOrderDetails } from './OrderDetailsScreen.types';
-import { getOrderTrackingUrl, mapOrderDetails } from './order-details.helpers';
+import {
+  fetchLatestInsurancePolicy,
+  fetchOrderCanCancel,
+  fetchOrderRecord,
+} from './order-details-data';
+import type { OrderDetails } from './OrderDetailsScreen.types';
+import { presentOrderCancellationPrompt } from './order-cancellation-prompt';
+import { getOrderTrackingUrl } from './order-details.helpers';
 
 const log = createLogger('OrderDetails');
-
-async function fetchOrderRecord(
-  orderId: string,
-  customerId: string
-): Promise<OrderDetails> {
-  const { data, error: fetchError } = await supabase
-    .from('orders')
-    .select(`
-      id,
-      order_number,
-      shipping_status,
-      subtotal,
-      shipping_fee,
-      tax_amount,
-      discount_amount,
-      total,
-      payment_method,
-      payment_status,
-      created_at,
-      updated_at,
-      shipping_address,
-      tracking_number,
-      shipping_provider,
-      notes,
-      order_items (
-        id,
-        product_id,
-        name,
-        quantity,
-        price,
-        has_assurance,
-        assurance_fee,
-        products (
-          slug,
-          images
-        )
-      )
-    `)
-    .eq('id', orderId)
-    .eq('customer_id', customerId)
-    .single();
-
-  if (fetchError) throw fetchError;
-  return mapOrderDetails(data as RawOrderDetails);
-}
-
-async function fetchLatestInsurancePolicy(
-  orderId: string
-): Promise<OrderDetailsInsurancePolicy | null> {
-  const { data: policies, error: policyError } = await supabase
-    .from('order_insurance_policies')
-    .select(
-      'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date, certificate_url, provider_name, policy_type, created_at'
-    )
-    .eq('order_id', orderId)
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  if (policyError) {
-    log.warn('Error fetching order insurance policy:', policyError);
-    return null;
-  }
-  return policies && policies.length > 0
-    ? (policies[0] as OrderDetailsInsurancePolicy)
-    : null;
-}
 
 export function useOrderDetailsController() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -91,9 +35,15 @@ export function useOrderDetailsController() {
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [insurancePolicy, setInsurancePolicy] =
     useState<OrderDetailsInsurancePolicy | null>(null);
+  const [canCancel, setCanCancel] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const cancellation = useCancelOrder(id ?? '');
+  const [cancelAttempted, setCancelAttempted] = useState(false);
+  const conflictHandledRef = useRef(false);
+  const refetch = () => setRefreshToken((token) => token + 1);
   // Derived during render instead of mirrored into state via an effect.
   const requiresSignIn = Boolean(id) && (!user?.id || !customer?.id);
 
@@ -106,6 +56,7 @@ export function useOrderDetailsController() {
     setPrevResetKey(resetKey);
     setOrder(null);
     setInsurancePolicy(null);
+    setCanCancel(false);
     setError(null);
     setIsLoading(Boolean(id) && Boolean(user?.id) && Boolean(customer?.id));
   }
@@ -115,10 +66,11 @@ export function useOrderDetailsController() {
     if (!user?.id || !customer?.id) return;
 
     let ignore = false;
-    fetchOrderRecord(id, customer.id)
-      .then((orderDetails) => {
+    Promise.all([fetchOrderRecord(id, customer.id), fetchOrderCanCancel(id)])
+      .then(([orderDetails, orderCanCancel]) => {
         if (ignore) return null;
         setOrder(orderDetails);
+        setCanCancel(orderCanCancel);
         return fetchLatestInsurancePolicy(id);
       })
       .then((policy) => {
@@ -142,7 +94,7 @@ export function useOrderDetailsController() {
     return () => {
       ignore = true;
     };
-  }, [id, user?.id, customer?.id]);
+  }, [id, user?.id, customer?.id, refreshToken]);
 
   useEffect(() => {
     if (!id) return;
@@ -194,6 +146,45 @@ export function useOrderDetailsController() {
     };
   }, [id]);
 
+  // After a cancellation attempt the server can reject with a 409
+  // (`order_not_cancellable`). When that happens, tell the customer the order can
+  // no longer be cancelled and refetch so the CTA disappears.
+  useEffect(() => {
+    if (!cancelAttempted || !cancellation.notCancellable) return;
+    if (conflictHandledRef.current) return;
+    conflictHandledRef.current = true;
+    setCanCancel(false);
+    Alert.alert(
+      'This order can no longer be cancelled',
+      'It has already moved forward. We have refreshed the latest status for you.'
+    );
+    // Inlined setter (stable across renders) keeps the dependency list minimal.
+    setRefreshToken((token) => token + 1);
+  }, [cancelAttempted, cancellation.notCancellable]);
+
+  const handleCancelOrder = () => {
+    if (!canCancel || cancellation.isCancelling) return;
+
+    presentOrderCancellationPrompt({
+      onConfirm: (reason) => {
+        conflictHandledRef.current = false;
+        setCancelAttempted(true);
+        cancellation
+          .cancelOrder(reason)
+          .then((cancelled) => {
+            if (cancelled) {
+              setCanCancel(false);
+              refetch();
+            }
+          })
+          .catch((err) => {
+            log.error('Unexpected cancellation failure:', err);
+          });
+      },
+      reasons: CUSTOMER_CANCELLATION_REASONS,
+    });
+  };
+
   const handleTrackOrder = () => {
     const trackingUrl = getOrderTrackingUrl(
       order?.tracking_number,
@@ -235,6 +226,7 @@ export function useOrderDetailsController() {
   };
 
   return {
+    canCancel,
     error: requiresSignIn ? 'Please sign in to view order details' : error,
     handleCallRider: () => {
       const riderPhone = merchantInfo?.rider_phone_number?.trim();
@@ -247,6 +239,7 @@ export function useOrderDetailsController() {
       }
       Linking.openURL(`tel:${riderPhone}`);
     },
+    handleCancelOrder,
     handleContactSupport,
     handleGoBack,
     handleLeaveGoogleReview: () => Linking.openURL(BACI_GOOGLE_REVIEW_URL),
@@ -265,6 +258,7 @@ export function useOrderDetailsController() {
     },
     handleTrackOrder,
     insurancePolicy,
+    isCancelling: cancellation.isCancelling,
     isLoading: requiresSignIn ? false : isLoading,
     merchantInfo,
     order,

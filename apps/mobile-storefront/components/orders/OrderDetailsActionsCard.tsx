@@ -1,5 +1,5 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { OrderDetailsActionRow } from './OrderDetailsActionRow';
 
 interface OrderDetailsActionsCardColors {
   border: string;
@@ -8,6 +8,7 @@ interface OrderDetailsActionsCardColors {
   textSecondary: string;
 }
 interface OrderDetailsActionsCardProps {
+  canCancel: boolean;
   canLeaveReview: boolean;
   canReturnOrder: boolean;
   canShowRiderContact: boolean;
@@ -15,6 +16,7 @@ interface OrderDetailsActionsCardProps {
   isDark: boolean;
   isReceiptReady: boolean;
   onCallRider: () => void;
+  onCancelOrder: () => void;
   onLeaveGoogleReview: () => void;
   onOpenReceipt: () => void;
   onReturnOrder: () => void;
@@ -25,16 +27,14 @@ const ACTION_COLORS = {
   rider: '#2563EB',
   review: '#D97706',
   return: '#6B7280',
+  cancel: '#DC2626',
 } as const;
 const ACTION_SURFACES = {
   receipt: {
     dark: 'rgba(5, 150, 105, 0.16)',
     light: 'rgba(5, 150, 105, 0.10)',
   },
-  rider: {
-    dark: 'rgba(37, 99, 235, 0.18)',
-    light: 'rgba(37, 99, 235, 0.10)',
-  },
+  rider: { dark: 'rgba(37, 99, 235, 0.18)', light: 'rgba(37, 99, 235, 0.10)' },
   review: {
     dark: 'rgba(245, 158, 11, 0.18)',
     light: 'rgba(245, 158, 11, 0.10)',
@@ -43,9 +43,15 @@ const ACTION_SURFACES = {
     dark: 'rgba(107, 114, 128, 0.18)',
     light: 'rgba(107, 114, 128, 0.10)',
   },
+  cancel: { dark: 'rgba(220, 38, 38, 0.18)', light: 'rgba(220, 38, 38, 0.10)' },
 } as const;
 
+function getSurface(key: keyof typeof ACTION_SURFACES, isDark: boolean) {
+  return isDark ? ACTION_SURFACES[key].dark : ACTION_SURFACES[key].light;
+}
+
 export function OrderDetailsActionsCard({
+  canCancel,
   canLeaveReview,
   canReturnOrder,
   canShowRiderContact,
@@ -53,6 +59,7 @@ export function OrderDetailsActionsCard({
   isDark,
   isReceiptReady,
   onCallRider,
+  onCancelOrder,
   onLeaveGoogleReview,
   onOpenReceipt,
   onReturnOrder,
@@ -64,7 +71,8 @@ export function OrderDetailsActionsCard({
     !isReceiptReady &&
     !hasRiderContact &&
     !canLeaveReview &&
-    !canReturnOrder
+    !canReturnOrder &&
+    !canCancel
   ) {
     return null;
   }
@@ -74,217 +82,80 @@ export function OrderDetailsActionsCard({
       <Text style={[styles.sectionTitle, { color: colors.text }]}>Actions</Text>
       <View style={styles.actionStack}>
         {isReceiptReady ? (
-          <TouchableOpacity
-            style={[styles.actionButton, { borderColor: colors.border }]}
-            onPress={onOpenReceipt}
-            activeOpacity={0.9}
-            accessibilityRole="button"
+          <OrderDetailsActionRow
             accessibilityLabel="View receipt"
-          >
-            <View
-              style={[
-                styles.actionIconWrap,
-                {
-                  backgroundColor: isDark
-                    ? ACTION_SURFACES.receipt.dark
-                    : ACTION_SURFACES.receipt.light,
-                },
-              ]}
-            >
-              <Ionicons
-                name="receipt-outline"
-                size={18}
-                color={ACTION_COLORS.receipt}
-              />
-            </View>
-            <View style={styles.actionCopy}>
-              <Text style={[styles.actionTitle, { color: colors.text }]}>
-                View Receipt
-              </Text>
-              <Text
-                style={[
-                  styles.actionDescription,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Preview and share your order receipt.
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
+            accessoryIcon="chevron-forward"
+            colors={colors}
+            description="Preview and share your order receipt."
+            icon="receipt-outline"
+            iconColor={ACTION_COLORS.receipt}
+            iconSurface={getSurface('receipt', isDark)}
+            onPress={onOpenReceipt}
+            title="View Receipt"
+          />
         ) : null}
         {hasRiderContact ? (
-          <TouchableOpacity
-            style={[styles.actionButton, { borderColor: colors.border }]}
-            onPress={onCallRider}
-            activeOpacity={0.9}
-            accessibilityRole="button"
+          <OrderDetailsActionRow
             accessibilityLabel={
               riderPhoneNumber ? `Call rider ${riderPhoneNumber}` : 'Call rider'
             }
-          >
-            <View
-              style={[
-                styles.actionIconWrap,
-                {
-                  backgroundColor: isDark
-                    ? ACTION_SURFACES.rider.dark
-                    : ACTION_SURFACES.rider.light,
-                },
-              ]}
-            >
-              <Ionicons
-                name="call-outline"
-                size={18}
-                color={ACTION_COLORS.rider}
-              />
-            </View>
-            <View style={styles.actionCopy}>
-              <Text style={[styles.actionTitle, { color: colors.text }]}>
-                Rider {riderPhoneNumber}
-              </Text>
-              <Text
-                style={[
-                  styles.actionDescription,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Call the rider directly for a live delivery update.
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
+            accessoryIcon="chevron-forward"
+            colors={colors}
+            description="Call the rider directly for a live delivery update."
+            icon="call-outline"
+            iconColor={ACTION_COLORS.rider}
+            iconSurface={getSurface('rider', isDark)}
+            onPress={onCallRider}
+            title={`Rider ${riderPhoneNumber}`}
+          />
         ) : null}
         {canLeaveReview ? (
-          <TouchableOpacity
-            style={[styles.actionButton, { borderColor: colors.border }]}
-            onPress={onLeaveGoogleReview}
-            activeOpacity={0.9}
-            accessibilityRole="button"
+          <OrderDetailsActionRow
             accessibilityLabel="Leave a Google Review"
-          >
-            <View
-              style={[
-                styles.actionIconWrap,
-                {
-                  backgroundColor: isDark
-                    ? ACTION_SURFACES.review.dark
-                    : ACTION_SURFACES.review.light,
-                },
-              ]}
-            >
-              <Ionicons
-                name="star-outline"
-                size={18}
-                color={ACTION_COLORS.review}
-              />
-            </View>
-            <View style={styles.actionCopy}>
-              <Text style={[styles.actionTitle, { color: colors.text }]}>
-                Leave a Google Review
-              </Text>
-              <Text
-                style={[
-                  styles.actionDescription,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Share your delivery experience publicly.
-              </Text>
-            </View>
-            <Ionicons
-              name="open-outline"
-              size={18}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
+            accessoryIcon="open-outline"
+            colors={colors}
+            description="Share your delivery experience publicly."
+            icon="star-outline"
+            iconColor={ACTION_COLORS.review}
+            iconSurface={getSurface('review', isDark)}
+            onPress={onLeaveGoogleReview}
+            title="Leave a Google Review"
+          />
         ) : null}
         {canReturnOrder ? (
-          <TouchableOpacity
-            style={[styles.actionButton, { borderColor: colors.border }]}
-            onPress={onReturnOrder}
-            activeOpacity={0.9}
-            accessibilityRole="button"
+          <OrderDetailsActionRow
             accessibilityLabel="Return order"
-          >
-            <View
-              style={[
-                styles.actionIconWrap,
-                {
-                  backgroundColor: isDark
-                    ? ACTION_SURFACES.return.dark
-                    : ACTION_SURFACES.return.light,
-                },
-              ]}
-            >
-              <Ionicons
-                name="return-down-back-outline"
-                size={18}
-                color={ACTION_COLORS.return}
-              />
-            </View>
-            <View style={styles.actionCopy}>
-              <Text style={[styles.actionTitle, { color: colors.text }]}>
-                Return Order
-              </Text>
-              <Text
-                style={[
-                  styles.actionDescription,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Start a return with support while the in-app flow lands.
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
+            accessoryIcon="chevron-forward"
+            colors={colors}
+            description="Start a return with support while the in-app flow lands."
+            icon="return-down-back-outline"
+            iconColor={ACTION_COLORS.return}
+            iconSurface={getSurface('return', isDark)}
+            onPress={onReturnOrder}
+            title="Return Order"
+          />
+        ) : null}
+        {canCancel ? (
+          <OrderDetailsActionRow
+            accessibilityLabel="Cancel order"
+            accessoryIcon="chevron-forward"
+            colors={colors}
+            description="Cancel this order before it ships."
+            icon="close-circle-outline"
+            iconColor={ACTION_COLORS.cancel}
+            iconSurface={getSurface('cancel', isDark)}
+            onPress={onCancelOrder}
+            title="Cancel Order"
+            titleColor={ACTION_COLORS.cancel}
+          />
         ) : null}
       </View>
     </View>
   );
 }
 const styles = StyleSheet.create({
-  actionButton: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    padding: 14,
-  },
-  actionCopy: {
-    flex: 1,
-  },
-  actionDescription: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  actionIconWrap: {
-    alignItems: 'center',
-    borderRadius: 12,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
   actionStack: {
     gap: 12,
-  },
-  actionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
   },
   card: {
     borderRadius: 12,
