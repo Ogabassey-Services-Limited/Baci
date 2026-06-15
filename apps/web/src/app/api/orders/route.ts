@@ -14,15 +14,13 @@ import {
   isTaxComputeUuidError,
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
-import {
-  computeOrderNegotiationDiscount,
-  isCanonicalOrderSubtotalUuidError,
-} from '@/lib/checkout/canonical-order-subtotal';
+import { isCanonicalOrderSubtotalUuidError } from '@/lib/checkout/canonical-order-subtotal';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import {
   buildOrderIdempotencyPayload,
   hashOrderIdempotencyPayload,
 } from '@/lib/checkout/order-idempotency';
+import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiation-discount';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
