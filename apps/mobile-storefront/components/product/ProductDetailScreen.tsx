@@ -1,13 +1,15 @@
+import { isProductNegotiable } from '@baci/shared/lib';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { markReviewHelpful } from '@/hooks/use-reviews';
+import { createLogger } from '@/lib/logger';
+import { trackProductRouteWishlistAdd } from '@/services/tiktok-product-route-tracking';
 import { useSavedStore } from '@/stores/saved-store';
 import { getDiscountPercentage } from '@/types/product';
-import { ProductDetailLoadedView } from './ProductDetailLoadedView';
-import { ProductDetailRouteState } from './ProductDetailRouteState';
 import { useProductDetailAnimations } from './hooks/use-product-detail-animations';
 import { useProductDetailCartActions } from './hooks/use-product-detail-cart-actions';
 import { useProductDetailCartState } from './hooks/use-product-detail-cart-state';
@@ -15,9 +17,8 @@ import { useProductDetailPurchaseState } from './hooks/use-product-detail-purcha
 import { useProductDetailRouteData } from './hooks/use-product-detail-route-data';
 import { useProductDetailSelectionHandlers } from './hooks/use-product-detail-selection-handlers';
 import { useSavedToastAutoDismiss } from './hooks/use-saved-toast-auto-dismiss';
-import { createLogger } from '@/lib/logger';
-import { markReviewHelpful } from '@/hooks/use-reviews';
-import { trackProductRouteWishlistAdd } from '@/services/tiktok-product-route-tracking';
+import { ProductDetailLoadedView } from './ProductDetailLoadedView';
+import { ProductDetailRouteState } from './ProductDetailRouteState';
 
 const log = createLogger('ProductDetail');
 
@@ -129,7 +130,18 @@ export function ProductDetailScreen() {
             log.error('Failed to mark review helpful:', err)
           );
         },
-        onOpenNegotiation: () => setShowNegotiationModal(true),
+        onOpenNegotiation: () => {
+          const negotiableProduct = routeData.displayProduct ?? product;
+          if (
+            !isProductNegotiable({
+              brand: negotiableProduct.brand,
+              name: negotiableProduct.name,
+            })
+          ) {
+            return;
+          }
+          setShowNegotiationModal(true);
+        },
         onSelectAttribute: selectionHandlers.onSelectAttribute,
         onSelectColor: selectionHandlers.onSelectColor,
         onSelectStorage: selectionHandlers.onSelectStorage,

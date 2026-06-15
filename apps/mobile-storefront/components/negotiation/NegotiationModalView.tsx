@@ -166,6 +166,22 @@ export function NegotiationModalView({
               </Animated.View>
             )}
 
+            {status === 'final' && (
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={styles.centerContainer}
+              >
+                <View style={styles.amberCircle}>
+                  <Ionicons name="pricetag-outline" size={28} color="#F59E0B" />
+                </View>
+                <Text style={styles.successTitle}>Best Price</Text>
+                <Text style={styles.successSubtext}>{message}</Text>
+                <Pressable style={styles.doneButton} onPress={onClose}>
+                  <Text style={styles.doneButtonText}>Done</Text>
+                </Pressable>
+              </Animated.View>
+            )}
+
             {status === 'failed' && (
               <Animated.View
                 entering={FadeIn.duration(200)}

@@ -1,10 +1,11 @@
+import { isProductNegotiable } from '@baci/shared/lib';
 import type React from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { NegotiationModalView } from '@/components/negotiation/NegotiationModalView';
 import { useNegotiationModalController } from '@/components/negotiation/useNegotiationModalController';
+import { useAuthStore } from '@/stores/auth-store';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
-import { useAuthStore } from '@/stores/auth-store';
 
 export const NegotiationModal: React.FC = () => {
   const { isNegotiationModalOpen, negotiationContext, closeNegotiation } =
@@ -28,6 +29,10 @@ export const NegotiationModal: React.FC = () => {
   const itemId = negotiationContext?.itemId ?? null;
   const productName = negotiationContext?.productName ?? '';
   const currentPrice = negotiationContext?.currentPrice ?? 0;
+  const productBrand = negotiationContext?.brand;
+  const isNegotiable =
+    negotiationContext?.isNegotiable ??
+    isProductNegotiable({ brand: productBrand, name: productName });
 
   const {
     attemptCount,
@@ -48,6 +53,7 @@ export const NegotiationModal: React.FC = () => {
     uploadLink,
   } = useNegotiationModalController({
     currentPrice,
+    isNegotiable,
     itemInfo:
       type === 'single' && negotiationContext
         ? {
