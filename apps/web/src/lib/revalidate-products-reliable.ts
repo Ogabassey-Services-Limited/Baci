@@ -40,7 +40,13 @@ export async function revalidateProductsReliable(
   }
 
   const secret = options.secret ?? getInternalApiSecret();
-  const baseUrl = options.baseUrl ?? getAppUrl();
+  // The HTTP fallback only runs in the standalone import worker, whose env
+  // convention for the web origin is BACI_WEB_BASE_URL (see vps-workers/README;
+  // already required + https-validated for the cron calls) — NOT
+  // NEXT_PUBLIC_APP_URL, which is unset there (getAppUrl would return localhost).
+  // Fall back to getAppUrl() only for non-worker/dev callers.
+  const baseUrl =
+    options.baseUrl ?? process.env.BACI_WEB_BASE_URL ?? getAppUrl();
   if (!secret || !baseUrl) {
     console.error(
       'Reliable product revalidation unavailable (missing secret/baseUrl); relying on cacheLife self-heal',

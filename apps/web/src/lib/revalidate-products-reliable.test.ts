@@ -13,11 +13,37 @@ vi.mock('@/env', () => ({
 import { revalidateProductsReliable } from '@/lib/revalidate-products-reliable';
 
 describe('revalidateProductsReliable', () => {
+  const originalBaseUrl = process.env.BACI_WEB_BASE_URL;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default tests exercise the getAppUrl() fallback; the BACI_WEB_BASE_URL
+    // precedence has its own test.
+    delete process.env.BACI_WEB_BASE_URL;
   });
   afterEach(() => {
     vi.restoreAllMocks();
+    if (originalBaseUrl === undefined) {
+      delete process.env.BACI_WEB_BASE_URL;
+    } else {
+      process.env.BACI_WEB_BASE_URL = originalBaseUrl;
+    }
+  });
+
+  it('targets BACI_WEB_BASE_URL (the worker env convention) over getAppUrl when set', async () => {
+    process.env.BACI_WEB_BASE_URL = 'https://ogabassey.com';
+    mockRevalidateProducts.mockImplementation(() => {
+      throw new Error('no store');
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+
+    await revalidateProductsReliable('merchant-1', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(String(fetchImpl.mock.calls[0][0])).toBe(
+      'https://ogabassey.com/api/internal/revalidate-products'
+    );
   });
 
   it('uses in-process revalidation and does NOT call the HTTP endpoint when a store context exists', async () => {
