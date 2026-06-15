@@ -2,11 +2,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AgenticDashboardLoading() {
   return (
-    <div
+    <output
       aria-label="Loading agentic commerce centers"
       aria-live="polite"
-      className="space-y-6 p-3 pb-24 md:p-6 md:pb-8"
-      role="status"
+      className="block space-y-6 p-3 pb-24 md:p-6 md:pb-8"
     >
       <div className="space-y-2">
         <Skeleton className="h-8 w-64 max-w-full" />
@@ -29,6 +28,6 @@ export default function AgenticDashboardLoading() {
           <Skeleton className="h-20" />
         </div>
       </div>
-    </div>
+    </output>
   );
 }

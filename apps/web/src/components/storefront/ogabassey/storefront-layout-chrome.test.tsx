@@ -40,16 +40,15 @@ vi.mock('./components/deferred-shell-feature', () => ({
     deferInteractionActivationUntilNextPaint?: boolean;
     timeoutMs?: number;
   }) => (
-    <div
+    <section
       data-defer-interaction-until-next-paint={String(
         Boolean(deferInteractionActivationUntilNextPaint)
       )}
       data-timeout-ms={String(timeoutMs ?? '')}
-      role="region"
       aria-label="deferred shell"
     >
       {deferredShellActive ? children : fallback}
-    </div>
+    </section>
   ),
 }));
 

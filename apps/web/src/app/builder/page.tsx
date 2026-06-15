@@ -13,12 +13,9 @@ export const metadata: Metadata = {
 
 function BuilderPageFallback() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground"
-      role="status"
-    >
+    <output className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
       Loading builder…
-    </div>
+    </output>
   );
 }
 

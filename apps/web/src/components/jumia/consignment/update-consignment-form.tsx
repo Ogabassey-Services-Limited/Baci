@@ -218,9 +218,12 @@ export function UpdateConsignmentForm({
               name="isShipped"
               control={control}
               render={({ field }) => (
-                // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input internally
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label
+                  htmlFor="mark-as-shipped"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
                   <Checkbox
+                    id="mark-as-shipped"
                     checked={field.value}
                     onCheckedChange={(checked) =>
                       field.onChange(checked === true)
