@@ -537,7 +537,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                 priority
               />
               <div
-                className={`absolute top - 4 left - 4 text - white text - xs font - bold px - 3 py - 1 rounded - full uppercase tracking - wider ${productData.condition === 'New'
+                className={`absolute top-4 left-4 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${productData.condition === 'New'
                   ? 'bg-emerald-500'
                   : 'bg-amber-500'
                   }`}
@@ -553,7 +553,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                   onClick={() => {
                     setSelectedImage(idx);
                   }}
-                  className={`relative w - 24 h - 24 bg - gray - 50 rounded - xl border - 2 flex - shrink - 0 flex items - center justify - center p - 0 overflow - hidden transition - all active: scale - 95 ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent md:hover:border-gray-200'} `}
+                  className={`relative w-24 h-24 bg-gray-50 rounded-xl border-2 flex-shrink-0 flex items-center justify-center p-0 overflow-hidden transition-all active:scale-95 ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent md:hover:border-gray-200'} `}
                 >
                   <Image
                     src={img}
@@ -587,7 +587,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                   onClick={handleToggleSaved}
                   aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
                   title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                  className={`transition - colors active: text - red - 600 ${isLiked ? 'text-red-600' : 'text-gray-400 md:hover:text-red-600'} `}
+                  className={`transition-colors active:text-red-600 ${isLiked ? 'text-red-600' : 'text-gray-400 md:hover:text-red-600'} `}
                 >
                   <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
                 </button>
@@ -709,7 +709,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                       <button type="button"
                         key={`${color.name}-${color.value}`}
                         onClick={() => handleColorSelection(idx)}
-                        className={`group relative w - 14 h - 14 rounded - full flex items - center justify - center transition - all duration - 300 outline - none active: scale - 95 ${isPrimary
+                        className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-none active:scale-95 ${isPrimary
                           ? 'border-[3px] border-red-600 scale-110 shadow-lg'
                           : isSecondary
                             ? 'border-[3px] border-blue-500 scale-105 shadow-md'
@@ -772,7 +772,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                       <button type="button"
                         key={size}
                         onClick={() => setSelectedStorage(idx)}
-                        className={`px - 4 py - 3 rounded - xl border text - sm font - bold transition - all active: scale - 95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 text-gray-700 md:hover:border-gray-400 md:hover:bg-gray-50'} `}
+                        className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all active:scale-95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 text-gray-700 md:hover:border-gray-400 md:hover:bg-gray-50'} `}
                       >
                         {size}
                       </button>
@@ -881,25 +881,25 @@ export const OgabasseyV2ProductDetails: React.FC<
           <div className="flex border-b border-gray-200 mb-8 overflow-x-auto hide-scrollbar">
             <button type="button"
               onClick={() => setActiveTab('description')}
-              className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap ${activeTab === 'description' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
+              className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'description' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               Description
             </button>
             <button type="button"
               onClick={() => setActiveTab('specs')}
-              className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap ${activeTab === 'specs' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
+              className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'specs' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               Specifications
             </button>
             <button type="button"
               onClick={() => setActiveTab('reviews')}
-              className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap ${activeTab === 'reviews' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
+              className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'reviews' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               Reviews (124)
             </button>
             <button type="button"
               onClick={() => setActiveTab('compare')}
-              className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap flex items - center gap - 2 ${activeTab === 'compare' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
+              className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'compare' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               <ArrowRightLeft size={18} /> Compare
             </button>
@@ -1065,7 +1065,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                       ].map((field, i) => (
                         <div
                           key={field.key}
-                          className={`h - 12 flex items - center px - 4 text - sm font - bold text - gray - 500 ${i % 2 !== 0 ? 'bg-gray-50 rounded-lg' : ''} `}
+                          className={`h-12 flex items-center px-4 text-sm font-bold text-gray-500 ${i % 2 !== 0 ? 'bg-gray-50 rounded-lg' : ''} `}
                         >
                           {field.label}
                         </div>
