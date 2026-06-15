@@ -3,7 +3,7 @@
 @import "./storefront-pdp-tabs.css";
 @import "./storefront-pdp-reviews.css";
 
-@config "../../../tailwind.storefront.scoped.config.ts";
+@config "../../../tailwind.storefront.scoped.config.mjs";
 
 @source "../../components/storefront/ogabassey/pages/product-details-page.tsx";
 @source "../../components/storefront/ogabassey/pages/product-details-page/**/*.tsx";
