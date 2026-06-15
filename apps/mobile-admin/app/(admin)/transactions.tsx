@@ -1,7 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View, StatusBar } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CostPriceEditorModal } from '@/components/transactions/CostPriceEditorModal';
 import { TransactionListState } from '@/components/transactions/TransactionListState';

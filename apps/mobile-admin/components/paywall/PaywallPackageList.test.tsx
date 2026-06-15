@@ -1,13 +1,13 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
-import type { PurchasesPackage } from 'react-native-purchases';
 import PaywallPackageList from './PaywallPackageList';
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Pressable: ({
     accessibilityLabel,
     children,
