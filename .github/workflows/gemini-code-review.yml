@@ -174,7 +174,11 @@ jobs:
               printf '\n### %s\n_(omitted: full-content budget exhausted; see diff above)_\n' "${path}" >> "${full_files_file}"
               continue
             fi
-            if ! gh api "repos/${GITHUB_REPOSITORY}/contents/${path}?ref=${head_sha}" \
+            # URL-encode each path segment (preserving "/") so filenames with
+            # spaces or special characters like ? or # don't break the request
+            # path or get parsed as the query string.
+            encoded_path="$(jq -rn --arg p "${path}" '$p | split("/") | map(@uri) | join("/")')"
+            if ! gh api "repos/${GITHUB_REPOSITORY}/contents/${encoded_path}?ref=${head_sha}" \
                 -H "Accept: application/vnd.github.raw" > "${content_file}" 2>/dev/null; then
               printf '\n### %s\n_(content could not be fetched)_\n' "${path}" >> "${full_files_file}"
               continue
