@@ -4,8 +4,8 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { BRAND } from '@/constants/Colors';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import { WALLET_COLORS } from './wallet.colors';
 import { WalletQuickUtilities } from './WalletQuickUtilities';
+import { WALLET_COLORS } from './wallet.colors';
 import { styles } from './wallet.styles';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
@@ -100,8 +100,11 @@ export function WalletHeroSection({
           accessibilityRole="button"
           accessibilityLabel="Add money"
           accessibilityHint="Opens wallet funding options"
-          // Red accent border on the Add Money button.
-          style={[styles.addMoneyButton, { borderColor: 'red', borderWidth: 2 }]}
+          // Brand accent border on the Add Money button.
+          style={[
+            styles.addMoneyButton,
+            { borderColor: BRAND.primary, borderWidth: 2 },
+          ]}
           onPress={onOpenFundPanel}
         >
           <Ionicons

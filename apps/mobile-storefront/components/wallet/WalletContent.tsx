@@ -215,8 +215,8 @@ export function WalletContent({
                 styles.redeemInput,
                 {
                   backgroundColor: colors.muted,
-                  // Red accent border on the amount input (matches Add Money).
-                  borderColor: 'red',
+                  // Brand accent border on the amount input (matches Add Money).
+                  borderColor: BRAND.primary,
                   borderWidth: 2,
                   color: colors.text,
                 },
