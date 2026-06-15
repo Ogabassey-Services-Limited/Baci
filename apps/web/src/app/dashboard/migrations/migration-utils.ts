@@ -115,7 +115,7 @@ export function getMigrationProgressLabel(status: ImportJobStatus) {
   }
 }
 
-export function shouldFetchMigrationRows(status: ImportJobStatus) {
+function shouldFetchMigrationRows(status: ImportJobStatus) {
   return status !== 'uploaded' && status !== 'validating';
 }
 

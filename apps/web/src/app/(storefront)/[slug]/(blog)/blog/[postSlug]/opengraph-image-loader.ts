@@ -160,7 +160,7 @@ export async function loadRemoteImageDataUri(
   }
 }
 
-export function loadFeaturedImage(
+function loadFeaturedImage(
   url: string | null,
   storageScope: string | BlogStorageScope
 ): Promise<RemoteImageLoadResult> {

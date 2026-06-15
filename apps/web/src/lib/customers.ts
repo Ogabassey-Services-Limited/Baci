@@ -53,7 +53,3 @@ export const customers: Customer[] = [
     totalSpent: 730000,
   },
 ];
-
-export function getCustomerById(id: string): Customer | undefined {
-  return customers.find((c) => c.id === id);
-}

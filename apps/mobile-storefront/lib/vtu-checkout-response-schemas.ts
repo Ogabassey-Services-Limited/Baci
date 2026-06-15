@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-export const GatewayEnum = z.enum(['paystack', 'korapay', 'bank_transfer']);
-export const ConfirmationGatewayEnum = z.enum(['paystack', 'korapay']);
+const GatewayEnum = z.enum(['paystack', 'korapay', 'bank_transfer']);
+const ConfirmationGatewayEnum = z.enum(['paystack', 'korapay']);
 
 export const InitCheckoutResponseSchema = z.object({
   success: z.literal(true),
@@ -29,7 +29,7 @@ export const ConfirmCheckoutResponseSchema = z.object({
     .optional(),
 });
 
-export const SavedCardSchema = z.object({
+const SavedCardSchema = z.object({
   id: z.string(),
   provider: z.literal('paystack'),
   label: z.string(),
@@ -118,6 +118,7 @@ export type WalletOnlyVtuResult = z.infer<typeof WalletOnlyVtuResponseSchema>;
 export interface VTUCheckoutPayload {
   amount: number;
   billItemIdentifier?: string;
+  billerCode?: string;
   billerName?: string;
   customerIdentifier?: string;
   customerName?: string;
@@ -126,6 +127,10 @@ export interface VTUCheckoutPayload {
   gateway: VTUPaymentGateway;
   networkProvider?: string;
   phoneNumber?: string;
+  productCode?: string;
+  provider?: 'kuda' | 'monnify';
+  requireValidationRef?: boolean;
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
+  validationReference?: string;
   walletAmount?: number;
 }

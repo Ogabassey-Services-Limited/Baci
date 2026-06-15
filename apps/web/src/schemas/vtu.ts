@@ -51,14 +51,6 @@ function applyPurchaseRequirements(
   ctx: z.RefinementCtx
 ) {
   if (data.type === 'airtime' || data.type === 'data') {
-    if (data.provider === 'monnify') {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Monnify does not support airtime/data purchases',
-        path: ['provider'],
-      });
-    }
-
     if (!data.phoneNumber) {
       ctx.addIssue({
         code: 'custom',
@@ -272,11 +264,7 @@ export const historyQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).prefault(20),
 });
 
-export const vtuCheckoutGatewayEnum = z.enum([
-  'paystack',
-  'korapay',
-  'bank_transfer',
-]);
+const vtuCheckoutGatewayEnum = z.enum(['paystack', 'korapay', 'bank_transfer']);
 
 export const vtuCheckoutInitializeSchema = purchaseSchemaBase
   .extend({

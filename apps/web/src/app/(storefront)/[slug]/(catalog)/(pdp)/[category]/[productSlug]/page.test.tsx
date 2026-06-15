@@ -12,7 +12,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
-import imageLoader from '@/lib/image-loader';
 
 vi.mock('server-only', () => ({}));
 
@@ -34,6 +33,7 @@ const {
   >(() => []),
   mockOgabasseyPdpProductResourceHints: vi.fn<
     (props: {
+      imageVersion?: string | null | undefined;
       productSlug?: string | null | undefined;
       src: string | null | undefined;
     }) => null
@@ -72,6 +72,13 @@ const mockBuildProductSemanticModel = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
 const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
 const mockGenerateProductSchema = vi.fn((..._args: unknown[]) => ({}));
+const mockGetCachedStorefrontProductIndex =
+  vi.fn<
+    (...args: unknown[]) => Promise<{
+      hasError: boolean;
+      products: Array<{ slug?: string; category_slug?: string }>;
+    }>
+  >();
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
@@ -251,10 +258,12 @@ vi.mock(
   '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints',
   () => ({
     OgabasseyPdpProductResourceHints: (props: {
+      imageVersion?: string | null | undefined;
       productSlug?: string | null | undefined;
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
     preloadOgabasseyPdpProductResources: (props: {
+      imageVersion?: string | null | undefined;
       productSlug?: string | null | undefined;
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
@@ -307,6 +316,11 @@ vi.mock('@/lib/cached-data', () => ({
     String(value ?? '')
       .replace(/[\r\n\t]/g, '')
       .substring(0, 100),
+}));
+
+vi.mock('@/lib/cached-storefront-product-index', () => ({
+  getCachedStorefrontProductIndex: (...args: unknown[]) =>
+    mockGetCachedStorefrontProductIndex(...args),
 }));
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
@@ -474,7 +488,10 @@ vi.mock(
   })
 );
 
-import CategoryProductPage, { generateMetadata } from './page';
+import CategoryProductPage, {
+  generateMetadata,
+  generateStaticParams,
+} from './page';
 
 type ResolveRscOptions = {
   pruneSkippedContent?: boolean;
@@ -629,6 +646,7 @@ const categorizedDetailedProduct = {
   product_offers: [],
   condition: 'new',
   fulfillmentFields: [],
+  updated_at: '2026-06-13T10:00:00.000Z',
 };
 
 type LegacyProductFixture = Omit<
@@ -657,6 +675,7 @@ function toLegacyCachedProduct(
     manage_stock: product.manage_stock,
     price: product.price,
     schema_markup: null,
+    updated_at: product.updated_at,
     stock_quantity: product.stock_quantity ?? product.stock,
     base_price:
       typeof product.price === 'string'
@@ -1458,7 +1477,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('keeps the PDP leaf segment request-time without a page-level metadata marker', async () => {
+  it('renders the OgaBassey PDP hero into the static shell without forcing the leaf dynamic', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1478,7 +1497,7 @@ describe('[category]/[productSlug] page render', () => {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnection).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -1579,15 +1598,19 @@ describe('[category]/[productSlug] page render', () => {
     const productImageElement = screen.getByRole('img', {
       name: 'HP Laptop 14-ep0063nia',
     });
+    const productImageSrc = productImageElement.getAttribute('src');
 
-    expect(productImageElement).toHaveAttribute(
-      'src',
-      imageLoader({ quality: 35, src: productImage, width: 640 })
+    expect(productImageSrc).toContain(
+      '/api/ogabassey/pdp-lcp-image/profile/desktop/hp-laptop-14-ep0063nia?v='
     );
+    expect(productImageSrc).toContain('&w=640&q=35');
+    expect(productImageSrc).not.toContain('cdn.ogabassey.com');
     expect(productImageElement).toHaveAttribute('data-loader-prop', 'false');
     expect(productImageElement).toHaveAttribute('data-preload', 'true');
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: productImage,
+      imageVersion: expect.any(String),
+      productSlug: 'hp-laptop-14-ep0063nia',
+      src: null,
     });
   });
 
@@ -2103,14 +2126,18 @@ describe('[category]/[productSlug] page render', () => {
       'product-hints',
     ]);
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: earlyProductImage,
+      imageVersion: expect.any(String),
+      productSlug: 'hp-laptop-14-ep0063nia',
+      src: null,
     });
 
     resolveMerchant?.(ogabasseyMerchant);
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: earlyProductImage,
+      imageVersion: expect.any(String),
+      productSlug: 'hp-laptop-14-ep0063nia',
+      src: null,
     });
     expect(routeEvents).toEqual([
       `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
@@ -2184,7 +2211,9 @@ describe('[category]/[productSlug] page render', () => {
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: delayedProductImage,
+      imageVersion: expect.any(String),
+      productSlug: 'hp-laptop-14-ep0063nia',
+      src: null,
     });
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledTimes(1);
     expect(routeEvents).toEqual([
@@ -2406,8 +2435,15 @@ describe('[category]/[productSlug] page render', () => {
     });
     mockNormalizeStorefrontProductVariants.mockReturnValueOnce(variants);
 
-    await expect(
-      CategoryProductPage({
+    // The variant redirect now fires while the Suspense children render, not
+    // before the page promise resolves: the static shell streams first and the
+    // redirect is raised by getRenderableCategoryProductResult during the
+    // dynamic resume. resolveRsc descends into every resuming boundary, so the
+    // redirect can be raised by each one — it is idempotent (same canonical
+    // target) and is never dropped. Assert it is triggered toward the canonical
+    // product URL rather than the exact resume count.
+    await resolveRsc(
+      await CategoryProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           category: 'laptops',
@@ -2415,10 +2451,20 @@ describe('[category]/[productSlug] page render', () => {
         }),
         searchParams: Promise.resolve({ storage: '128GB' }),
       })
-    ).rejects.toThrow('NEXT_REDIRECT');
+    );
 
-    expect(mockPermanentRedirect).toHaveBeenCalledTimes(1);
-    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+    expect(mockPermanentRedirect).toHaveBeenCalled();
+    const redirectTargets = mockPermanentRedirect.mock.calls.map(
+      ([url]) => url
+    );
+    expect(new Set(redirectTargets).size).toBe(1);
+    expect(redirectTargets[0]).toBe(
+      '/teststore/laptops/hp-laptop-14-ep0063nia'
+    );
+    // The canonical image preload is now emitted in the static shell before the
+    // variant redirect resolves inside the Suspense child, so the previous
+    // "preload not called" ordering assertion no longer holds — the redirect
+    // assertions above remain the load-bearing guarantee.
   });
 
   it('allows valid variantId query routes to stream product hints without redirecting', async () => {
@@ -3173,5 +3219,101 @@ describe('[category]/[productSlug] page render', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/laptops/hp-laptop-14-ep0063nia'
     );
+  });
+});
+
+describe('[category]/[productSlug] generateStaticParams', () => {
+  const PRERENDER_PLACEHOLDER = {
+    slug: OGABASSEY_DOMAIN,
+    category: 'smartphones',
+    productSlug: '__prerender_placeholder__',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCachedStorefrontProductIndex.mockReset();
+  });
+
+  it('maps the newest OgaBassey products to prerender params', async () => {
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      products: [
+        { slug: 'galaxy-z-trifold', category_slug: 'smartphones' },
+        { slug: 'macbook-pro-m3-max', category_slug: 'laptops' },
+      ],
+    });
+
+    const params = await generateStaticParams();
+
+    expect(mockGetCachedStorefrontProductIndex).toHaveBeenCalledWith(
+      OGABASSEY_MERCHANT_ID,
+      { page: 1, limit: 50 }
+    );
+    expect(params).toEqual([
+      {
+        slug: OGABASSEY_DOMAIN,
+        category: 'smartphones',
+        productSlug: 'galaxy-z-trifold',
+      },
+      {
+        slug: OGABASSEY_DOMAIN,
+        category: 'laptops',
+        productSlug: 'macbook-pro-m3-max',
+      },
+    ]);
+  });
+
+  it('deduplicates repeated category/slug pairs and skips incomplete rows', async () => {
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      products: [
+        { slug: 'galaxy-z-trifold', category_slug: 'smartphones' },
+        { slug: 'galaxy-z-trifold', category_slug: 'smartphones' },
+        { slug: '  ', category_slug: 'laptops' },
+        { slug: 'orphan', category_slug: undefined },
+      ],
+    });
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual([
+      {
+        slug: OGABASSEY_DOMAIN,
+        category: 'smartphones',
+        productSlug: 'galaxy-z-trifold',
+      },
+    ]);
+  });
+
+  it('falls back to the prerender placeholder when the index reports an error', async () => {
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: true,
+      products: [],
+    });
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual([PRERENDER_PLACEHOLDER]);
+  });
+
+  it('falls back to the prerender placeholder when the index lookup is empty', async () => {
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      products: [],
+    });
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual([PRERENDER_PLACEHOLDER]);
+  });
+
+  it('falls back to the prerender placeholder when the index lookup rejects', async () => {
+    mockGetCachedStorefrontProductIndex.mockRejectedValue(
+      new Error('supabase unavailable during prerender')
+    );
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual([PRERENDER_PLACEHOLDER]);
   });
 });

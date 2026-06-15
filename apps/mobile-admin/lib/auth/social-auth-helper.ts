@@ -12,12 +12,12 @@ export interface SocialSignInResult {
   user: User | null;
 }
 
-export const socialAuthErrorMessages: Record<SocialAuthProvider, string> = {
+const socialAuthErrorMessages: Record<SocialAuthProvider, string> = {
   apple: 'Apple sign-in failed. Please try again.',
   google: 'Google sign-in failed. Please try again.',
 };
 
-export const socialAuthStoreErrorCodes: Record<SocialAuthProvider, string> = {
+const socialAuthStoreErrorCodes: Record<SocialAuthProvider, string> = {
   apple: 'apple_store_error',
   google: 'google_store_error',
 };

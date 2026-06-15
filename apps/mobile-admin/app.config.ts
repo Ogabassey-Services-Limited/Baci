@@ -221,6 +221,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         },
         ios: {
           deploymentTarget: '16.4',
+          // Force module-map generation for the Objective-C Google pods that
+          // AppCheckCore (pulled in transitively by
+          // @react-native-google-signin/google-signin) imports from Swift.
+          // Without this, `expo prebuild --clean` + `pod install --repo-update`
+          // resolves AppCheckCore 11.3.0, which refuses to integrate as a static
+          // library because GoogleUtilities/RecaptchaInterop "do not define
+          // modules", failing the iOS release build. Targeted modular_headers
+          // keeps the global use_modular_headers! side-effects out of the build.
+          extraPods: [
+            { name: 'GoogleUtilities', modular_headers: true },
+            { name: 'RecaptchaInterop', modular_headers: true },
+          ],
         },
       },
     ],

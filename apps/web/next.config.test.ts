@@ -4,6 +4,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import nextConfig from './next.config';
 import {
+  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+} from './src/components/storefront/ogabassey/config/product-media';
+import {
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
@@ -13,6 +17,10 @@ const require = createRequire(import.meta.url);
 const { pathToRegexp } = require('next/dist/compiled/path-to-regexp') as {
   pathToRegexp: (path: string) => RegExp;
 };
+const { compileNonPath } =
+  require('next/dist/shared/lib/router/utils/prepare-destination') as {
+    compileNonPath: (value: string, params: Record<string, string>) => string;
+  };
 
 function expectStructuredRewrites(
   rewrites: unknown
@@ -174,7 +182,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
   });
 
-  it('keeps route-scoped OgaBassey PDP Link headers agent-only', async () => {
+  it('emits route-scoped OgaBassey PDP LCP image preload headers', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     expect(headers).toBeDefined();
@@ -192,9 +200,46 @@ describe('next.config OgaBassey resource headers', () => {
     )?.value;
 
     expect(linkHeader).toContain(
+      `</api/ogabassey/pdp-lcp-image/profile/mobile-header/:productSlug>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`
+    );
+    expect(linkHeader).toContain(
+      `</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA}"`
+    );
+    expect(linkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
-    expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
+    expect(linkHeader).toContain('<https://cdn.ogabassey.com>; rel=preconnect');
+  });
+
+  it('keeps interpolated PDP preload URLs query-safe after Next header compilation', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
+
+    const ogabasseyPdpHeaderRule = headers.find(
+      (entry) =>
+        entry.source.includes(':productSlug') &&
+        JSON.stringify(entry.has) ===
+          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+    );
+    const linkHeader = ogabasseyPdpHeaderRule?.headers.find(
+      (header) => header.key === 'Link'
+    )?.value;
+
+    expect(typeof linkHeader).toBe('string');
+    const productSlug = 'lenovo-legion-pro-9-16irx9-rtx-4090';
+    const compiledLinkHeader = compileNonPath(linkHeader ?? '', {
+      productSlug,
+    });
+
+    expect(compiledLinkHeader).toContain(
+      `/api/ogabassey/pdp-lcp-image/profile/mobile-header/${productSlug}`
+    );
+    expect(compiledLinkHeader).toContain(
+      `/api/ogabassey/pdp-lcp-image/profile/desktop/${productSlug}`
+    );
+    expect(compiledLinkHeader).not.toContain(`${productSlug}width=`);
+    expect(compiledLinkHeader).not.toContain(':productSlug?');
   });
 
   it('keeps the generic OgaBassey Link header from overriding PDP paths', async () => {
@@ -244,8 +289,8 @@ describe('next.config OgaBassey resource headers', () => {
     expect(firstMatchingPdpLinkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
-    expect(firstMatchingPdpLinkHeader).not.toContain(
-      '/api/ogabassey/pdp-lcp-image/'
+    expect(firstMatchingPdpLinkHeader).toContain(
+      '</api/ogabassey/pdp-lcp-image/profile/mobile-header/:productSlug>'
     );
   });
 
@@ -262,7 +307,9 @@ describe('next.config OgaBassey resource headers', () => {
     );
 
     expect(ogabasseyPdpHeaderRule).toBeDefined();
-    expect(ogabasseyPdpHeaderRule?.source).toContain('[^/]+');
+    expect(ogabasseyPdpHeaderRule?.source).toContain(
+      ':productSlug([a-zA-Z0-9-]+)'
+    );
     expect(ogabasseyPdpHeaderRule?.source).not.toContain('.*');
 
     const pdpHeaderMatcher = pathToRegexp(ogabasseyPdpHeaderRule?.source ?? '');
@@ -273,6 +320,8 @@ describe('next.config OgaBassey resource headers', () => {
     ).toBe(true);
     expect(pdpHeaderMatcher.test('/about/company')).toBe(false);
     expect(pdpHeaderMatcher.test('/about/nested/route')).toBe(false);
+    expect(pdpHeaderMatcher.test('/gaming-laptops/bad;slug')).toBe(false);
+    expect(pdpHeaderMatcher.test('/gaming-laptops/bad>slug')).toBe(false);
   });
 
   it('rewrites agent-readable homepage and robots probes to machine endpoints', async () => {

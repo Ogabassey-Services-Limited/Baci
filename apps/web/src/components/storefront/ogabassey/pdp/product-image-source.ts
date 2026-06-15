@@ -6,33 +6,60 @@ import {
 import imageLoader from '@/lib/image-loader';
 
 type SameOriginImageUrlInput = {
+  imageVersion?: string | null;
   productSlug: string;
   quality: number;
   width: number;
 };
 
-export function buildOgabasseyPdpSameOriginImageUrl({
+function addImageVersionParam(
+  searchParams: URLSearchParams,
+  imageVersion: string | null | undefined
+): void {
+  const normalizedVersion = imageVersion?.trim();
+  if (normalizedVersion) {
+    searchParams.set('v', normalizedVersion);
+  }
+}
+
+function appendImageVersionQuery(
+  path: string,
+  imageVersion: string | null | undefined
+): string {
+  const searchParams = new URLSearchParams();
+  addImageVersionParam(searchParams, imageVersion);
+  const query = searchParams.toString();
+
+  return query ? `${path}?${query}` : path;
+}
+
+function buildOgabasseyPdpSameOriginImageUrl({
+  imageVersion,
   productSlug,
   quality,
   width,
 }: SameOriginImageUrlInput): string {
+  const encodedProductSlug = encodeURIComponent(productSlug);
   const searchParams = new URLSearchParams({
     width: String(width),
     quality: String(quality),
   });
+  addImageVersionParam(searchParams, imageVersion);
 
-  return `/api/ogabassey/pdp-lcp-image/${encodeURIComponent(
-    productSlug
-  )}?${searchParams.toString()}`;
+  return `/api/ogabassey/pdp-lcp-image/${encodedProductSlug}?${searchParams.toString()}`;
 }
 
 export function buildOgabasseyPdpSameOriginProfileImageUrl(
   productSlug: string,
-  profile: 'desktop' | 'mobile'
+  profile: 'desktop' | 'mobile',
+  imageVersion?: string | null
 ): string {
-  return `/api/ogabassey/pdp-lcp-image/profile/${profile}/${encodeURIComponent(
-    productSlug
-  )}`;
+  const encodedProductSlug = encodeURIComponent(productSlug);
+
+  return appendImageVersionQuery(
+    `/api/ogabassey/pdp-lcp-image/profile/${profile}/${encodedProductSlug}`,
+    imageVersion
+  );
 }
 
 export function buildOgabasseyPdpMobileImageSrcSet(src: string): string {
@@ -43,24 +70,5 @@ export function buildOgabasseyPdpMobileImageSrcSet(src: string): string {
         src,
         width,
       })} ${width}w`
-  ).join(', ');
-}
-
-export function buildOgabasseyPdpSameOriginMobileImageSrcSet(
-  productSlug: string
-): string {
-  return OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS.map(
-    (width) => {
-      const imageUrl =
-        width === OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_PRELOAD_WIDTH
-          ? buildOgabasseyPdpSameOriginProfileImageUrl(productSlug, 'mobile')
-          : buildOgabasseyPdpSameOriginImageUrl({
-              productSlug,
-              quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-              width,
-            });
-
-      return `${imageUrl} ${width}w`;
-    }
   ).join(', ');
 }

@@ -6,7 +6,7 @@ export interface ValidationResult {
   warnings: string[];
 }
 
-export function validateDNSRecord(record: DNSRecord): ValidationResult {
+function validateDNSRecord(record: DNSRecord): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 

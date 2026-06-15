@@ -1112,19 +1112,46 @@ describe('Middleware Proxy', () => {
 
   it.each([
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
-    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
-    'https://ogabassey.com/steam-deck',
     `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-z-fold-4`,
     `https://${ROOT_DOMAIN}/ogabassey/smartphones/samsung-galaxy-z-fold-4`,
-    `https://${ROOT_DOMAIN}/ogabassey/best-under/samsung-galaxy-z-fold-4`,
-  ])('does not CDN-cache streamed storefront HTML for %s', async (url) => {
+  ])('CDN-caches the canonical public PDP shell for %s', async (url) => {
     const req = new NextRequest(url);
     req.headers.set('host', new URL(url).host);
 
     const res = await proxy(req);
 
-    // PDP document caching can replay a streamed loading shell against Next's
-    // internal metadata boundary, producing production resume mismatches.
+    // The Next resume-mismatch that previously required no-store on PDP HTML is
+    // fixed via patches/next@16.2.9.patch (PR #2436), so the prerendered PDP
+    // shell is safe to cache/replay at the edge for the LCP win.
+    expect(res.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
+  });
+
+  it.each([
+    // Per-user / authenticated route groups must NEVER be edge-cached.
+    'https://ogabassey.com/account/orders',
+    'https://ogabassey.com/my-account/profile',
+    'https://ogabassey.com/receipts/abc-123',
+    'https://ogabassey.com/order-success/abc-123',
+    'https://ogabassey.com/checkout/success',
+    'https://ogabassey.com/cart/review',
+    // Reserved fallback PDP shape stays no-store (uncategorized product path).
+    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
+    // Singular legacy redirect-only route must stay no-store.
+    'https://ogabassey.com/product/samsung-galaxy-z-fold-4',
+    // Param / non-canonical PDP URLs (e.g. invalid variant streams a redirect)
+    // must not be cached as a non-canonical shell.
+    'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4?storage=128GB',
+    'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4?variantId=x',
+    // Single-segment home/catalog shells stay no-store.
+    'https://ogabassey.com/steam-deck',
+  ])('keeps non-public / non-canonical storefront documents out of the CDN cache for %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
     expect(res.headers.get('Cache-Control')).toBe(
       'no-cache, no-store, max-age=0, must-revalidate'
     );

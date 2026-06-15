@@ -45,7 +45,7 @@ export function normalizeBNPLRouteParams(params: BNPLRouteParams) {
   );
 }
 
-export function getTrustedAuthorizationUrl(
+function getTrustedAuthorizationUrl(
   authorizationUrl: string | undefined,
   baseUrl: string,
   fallbackUrl: string
@@ -167,7 +167,7 @@ export function buildKlumpAuthorizationUrl({
   return parsedUrl.toString();
 }
 
-export function normalizeBNPLMerchantDomain(domain?: string | null) {
+function normalizeBNPLMerchantDomain(domain?: string | null) {
   const candidate = domain?.trim().toLowerCase();
   if (!candidate) return undefined;
 

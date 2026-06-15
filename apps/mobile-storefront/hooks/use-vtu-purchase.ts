@@ -16,8 +16,13 @@ export interface VTUPurchaseParams {
   networkProvider?: string;
   dataPlanCode?: string;
   billItemIdentifier?: string;
+  billerCode?: string;
   customerIdentifier?: string;
   billerName?: string;
+  productCode?: string;
+  provider?: 'kuda' | 'monnify';
+  requireValidationRef?: boolean;
+  validationReference?: string;
 }
 
 /** Bug #62: Zod schema to validate API response at runtime */
@@ -85,8 +90,13 @@ export function useVTUPurchase() {
           networkProvider,
           dataPlanCode: params.dataPlanCode,
           billItemIdentifier: params.billItemIdentifier,
+          billerCode: params.billerCode,
           customerIdentifier: params.customerIdentifier,
           billerName: params.billerName,
+          productCode: params.productCode,
+          provider: params.provider,
+          requireValidationRef: params.requireValidationRef,
+          validationReference: params.validationReference,
           customerId: customer?.id,
         }),
       });

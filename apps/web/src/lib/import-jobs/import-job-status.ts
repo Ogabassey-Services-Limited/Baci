@@ -1,6 +1,6 @@
 import type { ImportJobStatus } from '@/schemas/import-jobs';
 
-export const IMPORT_JOB_ACTIVE_STATUSES = [
+const IMPORT_JOB_ACTIVE_STATUSES = [
   'uploaded',
   'validating',
   'commit_queued',
@@ -9,7 +9,7 @@ export const IMPORT_JOB_ACTIVE_STATUSES = [
   'notifying',
 ] as const satisfies readonly ImportJobStatus[];
 
-export const IMPORT_JOB_TERMINAL_STATUSES = [
+const IMPORT_JOB_TERMINAL_STATUSES = [
   'preview_ready',
   'committed',
   'completed',

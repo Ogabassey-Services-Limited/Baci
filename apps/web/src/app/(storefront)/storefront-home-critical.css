@@ -1,7 +1,7 @@
 @import "tailwindcss" source(none);
 
 /* stylelint-disable-next-line scss/at-rule-no-unknown -- Tailwind v4 config directive. */
-@config "../../../tailwind.storefront-home.config.ts";
+@config "../../../tailwind.storefront-home.config.mjs";
 
 /*
   OgaBassey homepage critical CSS.

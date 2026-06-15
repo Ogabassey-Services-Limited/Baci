@@ -23,7 +23,7 @@ export const WEEKDAYS = [
   'Fri',
   'Sat',
 ] as const;
-export const HOURS = Array.from(
+const HOURS = Array.from(
   { length: 24 },
   (_, i) => `${i.toString().padStart(2, '0')}:00`
 ) as readonly string[];

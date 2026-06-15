@@ -10,7 +10,7 @@ const LEGACY_PRICE_LIST_FILE_TYPES: Record<string, string> = {
   text: 'text/plain',
 };
 
-export const ProductImportProductSchema = z.object({
+const ProductImportProductSchema = z.object({
   id: z.string().min(1).max(128),
   name: z.string().min(1).max(500),
   price: z.number().finite().nonnegative(),
@@ -20,7 +20,7 @@ export const ProductImportProductSchema = z.object({
 
 export type ValidatedImportProduct = z.infer<typeof ProductImportProductSchema>;
 
-export const ProductImportProductsSchema = z
+const ProductImportProductsSchema = z
   .array(ProductImportProductSchema)
   .max(MAX_PRODUCTS_PER_IMPORT);
 
@@ -77,7 +77,7 @@ export const FetchGoogleSheetInputSchema = z.object({
   }),
 });
 
-export const ChangeDetailsSchema = z.object({
+const ChangeDetailsSchema = z.object({
   name: z.string(),
   price: z.number(),
   sku: z.string().optional(),
@@ -92,7 +92,7 @@ export const ChangeDetailsSchema = z.object({
     .describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
 });
 
-export const ChangeSchema = z.object({
+const ChangeSchema = z.object({
   type: z.enum(['update', 'new', 'remove']),
   productId: z
     .string()
@@ -109,14 +109,14 @@ export const ChangeSchema = z.object({
     .describe('Reasoning for the change, especially for removals'),
 });
 
-export const ClarificationRequestSchema = z
+const ClarificationRequestSchema = z
   .object({
     question: z.string(),
     options: z.array(z.string()),
   })
   .optional();
 
-export const MissingParameterRequestSchema = z
+const MissingParameterRequestSchema = z
   .object({
     productName: z.string(),
     missingFields: z.array(z.string()),

@@ -2,13 +2,9 @@ import { z } from 'zod';
 
 const nonnegativeCountSchema = z.int().nonnegative();
 
-export const agenticActionSeveritySchema = z.enum([
-  'attention',
-  'monitor',
-  'ok',
-]);
+const agenticActionSeveritySchema = z.enum(['attention', 'monitor', 'ok']);
 
-export const agenticActionIdempotencyStateSchema = z.enum([
+const agenticActionIdempotencyStateSchema = z.enum([
   'in_progress',
   'server_error',
   'client_error',
@@ -24,7 +20,7 @@ export const agenticActionSchema = z.object({
   severity: agenticActionSeveritySchema,
 });
 
-export const agenticActionCheckoutSessionRecordSchema = z.object({
+const agenticActionCheckoutSessionRecordSchema = z.object({
   payment_state: z.string().trim().min(1),
   session_id: z.string().trim().min(1),
   status: z.string().trim().min(1),
@@ -41,7 +37,7 @@ export const agenticActionCheckoutSessionsSchema = z.looseObject({
   stale_payment_pending_count: nonnegativeCountSchema.optional(),
 });
 
-export const agenticActionIdempotencyRecordSchema = z.object({
+const agenticActionIdempotencyRecordSchema = z.object({
   created_at: z.iso.datetime({ offset: true }),
   expires_at: z.iso.datetime({ offset: true }),
   route: z.string().trim().min(1),
@@ -59,7 +55,7 @@ export const agenticActionIdempotencySchema = z.looseObject({
   terminal_error_count: nonnegativeCountSchema.optional(),
 });
 
-export const agenticActionRequestControlsSchema = z.object({
+const agenticActionRequestControlsSchema = z.object({
   allowlist_count: nonnegativeCountSchema,
   denylist_count: nonnegativeCountSchema,
   fetch_error: z.boolean(),
@@ -75,7 +71,7 @@ export const agenticActionRequestRecordSchema = z.object({
   status_code: z.int().min(100).max(599).nullable().optional(),
 });
 
-export const agenticActionRequestsSchema = z.looseObject({
+const agenticActionRequestsSchema = z.looseObject({
   recent_count: nonnegativeCountSchema.optional(),
   records: z.array(agenticActionRequestRecordSchema).optional(),
 });

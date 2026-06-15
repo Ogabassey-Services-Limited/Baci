@@ -224,6 +224,26 @@ export default function BuilderClient() {
     }
   }
 
+  // Arm the page loader during render whenever the load target (user +
+  // merchant) becomes available or changes, instead of re-arming it
+  // synchronously inside the data-loading effect. The effect's deps include
+  // object identities (`router`, `toast`), so re-arming `pageLoading` inside it
+  // bails the React Compiler out of memoizing the component. The effect below
+  // still owns the fetch and turns the loader off via the module-scope loader.
+  const loadTargetKey =
+    !authLoading && !merchantLoading && userId && merchantId
+      ? `${userId}::${merchantId}`
+      : null;
+  const [prevLoadTargetKey, setPrevLoadTargetKey] = useState<string | null>(
+    null
+  );
+  if (loadTargetKey !== prevLoadTargetKey) {
+    setPrevLoadTargetKey(loadTargetKey);
+    if (loadTargetKey) {
+      setPageLoading(true);
+    }
+  }
+
   // Load initial data. The async fetch (with its try/catch/finally) lives in
   // the module-scope `loadBuilderData` helper so the React Compiler can memoize
   // this component.
@@ -232,7 +252,6 @@ export default function BuilderClient() {
     if (!userId || !merchantId) return;
 
     const controller = new AbortController();
-    setPageLoading(true);
 
     void loadBuilderData({
       router,

@@ -160,6 +160,38 @@ export default function OrdersScreen() {
     setSelectedOrder(null);
   };
 
+  const toggleTodo = (todoText: string, isCompleted: boolean) => {
+    setCompletedTodos((prev) => ({ ...prev, [todoText]: !isCompleted }));
+  };
+
+  const viewPendingOrders = () => {
+    setStatusFilter('pending');
+    setShowInsight(false);
+  };
+
+  const handleLoadMore = () => {
+    if (ordersQuery.hasNextPage && !ordersQuery.isFetchingNextPage) {
+      ordersQuery.fetchNextPage();
+    }
+  };
+
+  const handleDateFilterSelect = (
+    filter: string | { start: Date | null; end: Date | null } | null
+  ) => {
+    if (filter === null || typeof filter === 'string') {
+      setDateRange(filter);
+    } else if (filter.start && filter.end) {
+      setDateRange({ start: filter.start, end: filter.end });
+    } else {
+      setDateRange(null);
+    }
+  };
+
+  const openReportDatePicker = () => {
+    setShowReportModal(false);
+    setTimeout(() => setShowDatePicker(true), MODAL_TRANSITION_DELAY_MS);
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -233,38 +265,6 @@ export default function OrdersScreen() {
       />
     </SafeAreaView>
   );
-
-  function toggleTodo(todoText: string, isCompleted: boolean) {
-    setCompletedTodos((prev) => ({ ...prev, [todoText]: !isCompleted }));
-  }
-
-  function viewPendingOrders() {
-    setStatusFilter('pending');
-    setShowInsight(false);
-  }
-
-  function handleLoadMore() {
-    if (ordersQuery.hasNextPage && !ordersQuery.isFetchingNextPage) {
-      ordersQuery.fetchNextPage();
-    }
-  }
-
-  function handleDateFilterSelect(
-    filter: string | { start: Date | null; end: Date | null } | null
-  ) {
-    if (filter === null || typeof filter === 'string') {
-      setDateRange(filter);
-    } else if (filter.start && filter.end) {
-      setDateRange({ start: filter.start, end: filter.end });
-    } else {
-      setDateRange(null);
-    }
-  }
-
-  function openReportDatePicker() {
-    setShowReportModal(false);
-    setTimeout(() => setShowDatePicker(true), MODAL_TRANSITION_DELAY_MS);
-  }
 }
 
 const styles = StyleSheet.create({

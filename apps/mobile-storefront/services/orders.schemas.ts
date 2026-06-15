@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const MAX_SAVINGS_CREDIT_AMOUNT = 10_000_000;
 
-export const OrderItemSchema = z.object({
+const OrderItemSchema = z.object({
   id: z.string(),
   condition: z.string().optional(),
   product_id: z.string().optional(),

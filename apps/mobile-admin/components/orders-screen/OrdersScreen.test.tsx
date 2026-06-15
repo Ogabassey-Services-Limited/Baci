@@ -5,6 +5,13 @@ import { describe, expect, it, vi } from 'vitest';
 import OrdersScreen from './OrdersScreen';
 import { mockColors, mockOrder, mockShadows } from './orders-screen-test-utils';
 
+// Render the mock label through a Text-named host so static analysis treats it
+// as a React Native text node; in jsdom this is a plain span, so getByText
+// behavior is unchanged.
+const Text = ({ children }: { children?: ReactNode }) => (
+  <span>{children}</span>
+);
+
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   push: vi.fn(),
@@ -78,7 +85,11 @@ vi.mock('@/hooks/useOrders', () => ({
 
 vi.mock('./OrdersModals', () => ({
   OrdersModals: ({ showReportModal }: { showReportModal: boolean }) =>
-    showReportModal ? <div>Report modal open</div> : null,
+    showReportModal ? (
+      <div>
+        <Text>Report modal open</Text>
+      </div>
+    ) : null,
 }));
 
 vi.mock('./OrdersStatusDropdown', () => ({

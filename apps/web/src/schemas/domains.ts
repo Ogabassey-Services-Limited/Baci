@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
+const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
 
 export const createDomainSchema = z.object({
   domain: z

@@ -3,7 +3,6 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
@@ -12,7 +11,10 @@ import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabasse
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
-import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
+import {
+  buildOgabasseyPdpCriticalProduct,
+  getOgabasseyPdpImageVersion,
+} from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import {
@@ -25,8 +27,7 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
-import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
-import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
+import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
@@ -39,6 +40,7 @@ import {
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
+import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
@@ -376,32 +378,6 @@ function shouldRedirectVariantSelectionParams(
   );
 }
 
-const NON_SELECTION_TRACKING_PARAMS = new Set([
-  // Internal middleware-only cache partition key. Treat it like tracking noise
-  // so metadata cache safety cannot disable the PDP early image hint path.
-  STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
-  'dclid',
-  'fbclid',
-  'gbraid',
-  'gclid',
-  'msclkid',
-  'ttclid',
-  'wbraid',
-]);
-
-function mayContainVariantSelectionParams(
-  searchParams: Awaited<PageProps['searchParams']>
-) {
-  return Object.keys(searchParams).some((key) => {
-    const normalizedKey = key.trim().toLowerCase();
-
-    return !(
-      normalizedKey.startsWith('utm_') ||
-      NON_SELECTION_TRACKING_PARAMS.has(normalizedKey)
-    );
-  });
-}
-
 type CategoryProductResult =
   | {
       product: Product;
@@ -447,6 +423,7 @@ interface LcpRouteProduct {
   schema_markup?: unknown;
   slug?: string;
   stock_quantity?: number | null;
+  updated_at?: string | null;
 }
 
 type CategoryProductRouteControlResult =
@@ -464,7 +441,7 @@ type CategoryProductRouteControlResult =
 interface CategoryProductRouteControl {
   result: CategoryProductRouteControlResult;
   loadProductResult: () => Promise<CategoryProductResult>;
-  preloadedProductImage?: string | null;
+  preloadedProductResourceKey?: string | null;
 }
 
 function hasCategoryMismatch(
@@ -505,6 +482,17 @@ function shouldRedirectResolvedProductSlugValue(
     resolvedSlug !== productSlug &&
     resolvedSlug?.toLowerCase() === productSlug.toLowerCase()
   );
+}
+
+function getDirectProductPreloadKey(src: string): string {
+  return `direct:${src}`;
+}
+
+function getSameOriginProductPreloadKey(
+  productSlug: string,
+  imageVersion: string
+): string {
+  return `same-origin:${productSlug.trim().toLowerCase()}:${imageVersion}`;
 }
 
 function parseRouteProductNumber(value: unknown): number | null {
@@ -587,6 +575,7 @@ function mapCachedProductLcpHintToRouteProduct(
     schema_markup: cachedProduct.schema_markup,
     slug: cachedProduct.slug ?? cachedProduct.id,
     stock_quantity: stockQuantity,
+    updated_at: cachedProduct.updated_at,
   };
 }
 
@@ -749,7 +738,7 @@ async function getProductRouteControl(
   const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(storeSlug);
   const isKnownOgaBasseyCustomDomain =
     storeSlug.trim().toLowerCase() === OGABASSEY_DOMAIN.toLowerCase();
-  let preloadedProductImage: string | null = null;
+  let preloadedProductResourceKey: string | null = null;
   const knownOgaBasseyLcpHintPromise = knownOgaBasseyMerchantId
     ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug)
     : null;
@@ -769,10 +758,15 @@ async function getProductRouteControl(
     const earlyPreloadResult = await Promise.race([
       knownOgaBasseyLcpHintPromise
         .then((cachedProduct) => ({
+          cachedProduct,
           kind: 'lcp-hint' as const,
           primaryImage: getCachedProductLcpHintPrimaryImage(cachedProduct),
         }))
-        .catch(() => ({ kind: 'lcp-hint' as const, primaryImage: null })),
+        .catch(() => ({
+          cachedProduct: null,
+          kind: 'lcp-hint' as const,
+          primaryImage: null,
+        })),
       merchantPromise.then(
         () => ({ kind: 'merchant-ready' as const }),
         () => ({ kind: 'merchant-ready' as const })
@@ -781,13 +775,34 @@ async function getProductRouteControl(
 
     if (
       earlyPreloadResult.kind === 'lcp-hint' &&
-      earlyPreloadResult.primaryImage
+      earlyPreloadResult.primaryImage &&
+      earlyPreloadResult.cachedProduct
     ) {
       try {
-        preloadOgabasseyPdpProductResources({
-          src: earlyPreloadResult.primaryImage,
-        });
-        preloadedProductImage = earlyPreloadResult.primaryImage;
+        const hintProductSlug =
+          earlyPreloadResult.cachedProduct.slug || productSlug;
+        const hintImageVersion = getOgabasseyPdpImageVersion(
+          earlyPreloadResult.cachedProduct
+        );
+
+        if (hintImageVersion) {
+          preloadOgabasseyPdpProductResources({
+            imageVersion: hintImageVersion,
+            productSlug: hintProductSlug,
+            src: null,
+          });
+          preloadedProductResourceKey = getSameOriginProductPreloadKey(
+            hintProductSlug,
+            hintImageVersion
+          );
+        } else {
+          preloadOgabasseyPdpProductResources({
+            src: earlyPreloadResult.primaryImage,
+          });
+          preloadedProductResourceKey = getDirectProductPreloadKey(
+            earlyPreloadResult.primaryImage
+          );
+        }
       } catch (error) {
         console.warn(
           'Unable to preload OgaBassey PDP resources early:',
@@ -828,7 +843,7 @@ async function getProductRouteControl(
       ? {
           result,
           loadProductResult: () => Promise.resolve(result),
-          preloadedProductImage,
+          preloadedProductResourceKey,
         }
       : null;
   }
@@ -852,7 +867,7 @@ async function getProductRouteControl(
       needsValuesRedirect,
     },
     loadProductResult,
-    preloadedProductImage,
+    preloadedProductResourceKey,
   };
 }
 
@@ -943,6 +958,69 @@ function buildCategoryProductMetadata(
     },
     other: socialMetadata.other,
   };
+}
+
+// Prerender OgaBassey's most recent active PDPs at build so the above-fold
+// hero ships inside the static PPR shell (LCP). Without concrete params the
+// product slug is request-time, which keeps the hero in the dynamic resume.
+// Params not listed here keep rendering on demand (the default PPR behavior
+// under cacheComponents — `dynamicParams` cannot be set with cacheComponents).
+const OGABASSEY_PRERENDER_LIMIT = 50;
+
+export async function generateStaticParams(): Promise<
+  Array<{ slug: string; category: string; productSlug: string }>
+> {
+  // cacheComponents requires generateStaticParams to return >= 1 param; this
+  // placeholder keeps the build valid (and renders notFound) if the index is
+  // empty/unavailable. Real, non-listed products still render on demand.
+  const placeholder = [
+    {
+      slug: OGABASSEY_DOMAIN,
+      category: 'smartphones',
+      productSlug: '__prerender_placeholder__',
+    },
+  ];
+
+  let products: Awaited<
+    ReturnType<typeof getCachedStorefrontProductIndex>
+  >['products'] = [];
+  try {
+    const result = await getCachedStorefrontProductIndex(
+      OGABASSEY_MERCHANT_ID,
+      {
+        page: 1,
+        limit: OGABASSEY_PRERENDER_LIMIT,
+      }
+    );
+    if (result.hasError) {
+      return placeholder;
+    }
+    products = result.products;
+  } catch {
+    // A rejected index lookup at build/prerender time must fall back to the
+    // placeholder, not throw and fail the whole prerender step.
+    return placeholder;
+  }
+
+  const seen = new Set<string>();
+  const params: Array<{ slug: string; category: string; productSlug: string }> =
+    [];
+
+  for (const product of products) {
+    const category = product.category_slug?.trim();
+    const productSlug = product.slug?.trim();
+    if (!category || !productSlug) {
+      continue;
+    }
+    const key = `${category}/${productSlug}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    params.push({ slug: OGABASSEY_DOMAIN, category, productSlug });
+  }
+
+  return params.length > 0 ? params : placeholder;
 }
 
 export async function generateMetadata({
@@ -1232,10 +1310,6 @@ export default async function CategoryProductPage({
   params,
   searchParams,
 }: PageProps) {
-  // Keep the PDP leaf segment request-time. A cacheable PDP shell can resume
-  // with Next's metadata boundary in the first host slot on Vercel/Next 16.
-  await connection();
-
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -1254,7 +1328,7 @@ export default async function CategoryProductPage({
   const {
     result: productResult,
     loadProductResult,
-    preloadedProductImage,
+    preloadedProductResourceKey,
   } = routeControl;
 
   if (!('product' in productResult)) {
@@ -1270,46 +1344,53 @@ export default async function CategoryProductPage({
     permanentRedirect(getRedirectTargetPath(slug, product));
   }
 
-  const resolvedSearchParams = await searchParams;
-  let productResultPromise: Promise<CategoryProductResult> | null = null;
-
-  // Unknown query keys can be dynamic variant axes, while campaign-only URLs
-  // cannot affect selection and should still receive the early image hint.
-  if (mayContainVariantSelectionParams(resolvedSearchParams)) {
-    productResultPromise = loadProductResult();
-    const detailedProductResult = await productResultPromise;
-
-    if (detailedProductResult && 'product' in detailedProductResult) {
-      redirectInvalidVariantSelectionParams(
-        slug,
-        detailedProductResult.product,
-        resolvedSearchParams
-      );
-    }
-  }
-
   const primaryProductImage = product.imageLarge || product.image || null;
   const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(slug);
   const normalizedSlug = slug.trim().toLowerCase();
   const normalizedOgaBasseyDomain = OGABASSEY_DOMAIN.toLowerCase();
   const isOgaBasseyCustomDomain = normalizedSlug === normalizedOgaBasseyDomain;
-  const pageOwnsProductPreload =
-    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
-    (!knownOgaBasseyMerchantId || isOgaBasseyCustomDomain);
-  const pagePreloadProductImage = pageOwnsProductPreload
-    ? primaryProductImage
-    : null;
-  const shouldPreloadProductImage =
-    pagePreloadProductImage &&
-    pagePreloadProductImage !== preloadedProductImage;
   const criticalProduct =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
+  const canUseSameOriginProductImage = Boolean(
+    knownOgaBasseyMerchantId && criticalProduct?.imageVersion
+  );
+  const pageOwnsProductPreload =
+    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
+    (!knownOgaBasseyMerchantId ||
+      isOgaBasseyCustomDomain ||
+      canUseSameOriginProductImage);
+  const pagePreloadProductImage =
+    pageOwnsProductPreload && !canUseSameOriginProductImage
+      ? primaryProductImage
+      : null;
+  const pagePreloadResourceKey =
+    pageOwnsProductPreload &&
+    canUseSameOriginProductImage &&
+    criticalProduct?.imageVersion
+      ? getSameOriginProductPreloadKey(
+          criticalProduct.slug,
+          criticalProduct.imageVersion
+        )
+      : pagePreloadProductImage
+        ? getDirectProductPreloadKey(pagePreloadProductImage)
+        : null;
+  const shouldPreloadProductImage =
+    pagePreloadResourceKey !== null &&
+    pagePreloadResourceKey !== preloadedProductResourceKey;
 
   try {
     if (shouldPreloadProductImage) {
-      preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
+      if (canUseSameOriginProductImage && criticalProduct?.imageVersion) {
+        preloadOgabasseyPdpProductResources({
+          imageVersion: criticalProduct.imageVersion,
+          productSlug: criticalProduct.slug,
+          src: null,
+        });
+      } else if (pagePreloadProductImage) {
+        preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
+      }
     }
   } catch (error) {
     console.warn(
@@ -1323,9 +1404,7 @@ export default async function CategoryProductPage({
     ? getRequestScopedCategoryProductBasePath(slug)
     : Promise.resolve<'' | `/${string}`>('');
 
-  if (!productResultPromise) {
-    productResultPromise = loadProductResult();
-  }
+  const productResultPromise = loadProductResult();
 
   return (
     <>
@@ -1334,14 +1413,16 @@ export default async function CategoryProductPage({
           <OgabasseyPdpCriticalShell
             basePath={getCategoryProductBasePath(slug)}
             basePathPromise={criticalBasePathPromise}
-            imageDelivery="direct"
+            imageDelivery={
+              canUseSameOriginProductImage ? 'same-origin' : 'direct'
+            }
             product={criticalProduct}
           >
             <Suspense fallback={null}>
               <CategoryProductPageCriticalCommerceControls
                 basePathPromise={criticalBasePathPromise}
                 slug={slug}
-                searchParams={Promise.resolve(resolvedSearchParams)}
+                searchParams={searchParams}
                 productResultPromise={productResultPromise}
               />
             </Suspense>
@@ -1350,7 +1431,7 @@ export default async function CategoryProductPage({
             <CategoryProductPageContent
               renderMode="belowFold"
               slug={slug}
-              searchParams={Promise.resolve(resolvedSearchParams)}
+              searchParams={searchParams}
               productResultPromise={productResultPromise}
             />
           </Suspense>
@@ -1372,7 +1453,7 @@ export default async function CategoryProductPage({
           <CategoryProductPageContent
             renderMode="full"
             slug={slug}
-            searchParams={Promise.resolve(resolvedSearchParams)}
+            searchParams={searchParams}
             productResultPromise={productResultPromise}
           />
         </Suspense>

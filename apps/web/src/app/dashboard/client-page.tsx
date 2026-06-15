@@ -16,7 +16,13 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { StoreBuildStatusCard } from '@/components/dashboard/store-build-status-card';
 import { BentoCard } from '@/components/ui/bento-card';
@@ -81,6 +87,24 @@ interface DashboardClientPageProps {
   initialChartData?: MonthlyChartData[];
 }
 
+// React 19 pattern: detect client-side rendering via useSyncExternalStore
+// instead of useState + useEffect (`setMounted(true)` inside an effect is a
+// `set-state-in-effect` bailout under the React Compiler). The store snapshot
+// is `false` on the server and during hydration, then `true` on the client, so
+// the gated content still renders only after the first client pass.
+// biome-ignore lint/suspicious/noEmptyBlockStatements: intentional noop for useSyncExternalStore
+const emptySubscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    getClientSnapshot,
+    getServerSnapshot
+  );
+}
+
 interface PublishToggleContext {
   isPublished: boolean | undefined | null;
   toast: ReturnType<typeof useToast>['toast'];
@@ -141,7 +165,7 @@ export default function DashboardClientPage({
   const { toast } = useToast();
   // React hydration requires the first browser render to match the server.
   // Render the mounted-only dashboard content on the second client pass.
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsMounted();
   const [isPublishing, setIsPublishing] = useState(false);
   // TODO: These will be used for metric selector dropdown
   // const [heroMetric, setHeroMetric] = useState<'revenue' | 'orders' | 'visitors'>('revenue');
@@ -162,10 +186,6 @@ export default function DashboardClientPage({
   const [monthlyChartData, setMonthlyChartData] = useState<MonthlyChartData[]>(
     initialChartData || []
   );
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     // If we have initial data, don't fetch again on mount

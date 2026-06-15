@@ -40,6 +40,7 @@ import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effe
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
+  getPaystackRequestedAmountNgn,
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
@@ -117,6 +118,20 @@ function getVerifiedAmount(
   gateway: PaymentGateway,
   gatewayResponse: Record<string, unknown>
 ): { amount: number; currency?: string } | null {
+  if (gateway === 'paystack') {
+    const amount = getPaystackRequestedAmountNgn(gatewayResponse);
+    if (amount === null) {
+      return null;
+    }
+
+    const currency =
+      typeof gatewayResponse.currency === 'string'
+        ? gatewayResponse.currency
+        : undefined;
+
+    return { amount, currency };
+  }
+
   const rawAmount = gatewayResponse.amount;
   if (
     typeof rawAmount !== 'number' ||
@@ -130,9 +145,8 @@ function getVerifiedAmount(
     typeof gatewayResponse.currency === 'string'
       ? gatewayResponse.currency
       : undefined;
-  const amount = gateway === 'paystack' ? rawAmount / 100 : rawAmount;
 
-  return { amount, currency };
+  return { amount: rawAmount, currency };
 }
 
 async function handleWalletTopUpIfNeeded({

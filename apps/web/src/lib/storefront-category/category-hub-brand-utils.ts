@@ -7,7 +7,7 @@ export interface BrandCountEntry {
   count: number;
 }
 
-export function normalizeBrand(brand?: string | null) {
+function normalizeBrand(brand?: string | null) {
   const label = brand?.trim();
   if (!label) {
     return null;

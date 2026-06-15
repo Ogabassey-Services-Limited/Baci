@@ -87,6 +87,7 @@ function createValidHandler(overrides: PurchaseHandlerOverrides = {}) {
       categoryId: 'electricity',
       categoryName: 'Electricity',
     },
+    selectedBillItem: null,
     selectedBillItemIdentifier: 'postpaid',
     selectedBillItemPathLabel: 'Postpaid',
     setIsSubmitting: jest.fn(),
@@ -201,6 +202,48 @@ describe('createBillFormPurchaseHandler', () => {
     expect(mockInitializeVtuCheckout.mock.calls[0][0]).toMatchObject({
       customerName: 'Bassey John',
     });
+  });
+
+  it('passes Monnify provider metadata through checkout initialization', async () => {
+    mockInitializeVtuCheckout.mockResolvedValueOnce({
+      authorization_url: 'https://gateway/auth',
+      gateway: 'paystack',
+      reference: 'PAY-MONNIFY',
+    });
+    const handlePurchase = createValidHandler({
+      selectedBiller: {
+        billerId: 'MTN',
+        billerName: 'MTN',
+        billerType: 'airtime',
+        categoryId: 'AIRTIME',
+        categoryName: 'airtime',
+        provider: 'monnify',
+        billerCode: 'MTN',
+      },
+      selectedBillItem: {
+        amount: 100,
+        billerCode: 'MTN',
+        isAmountFixed: false,
+        itemCode: '13',
+        itemCurrencySymbol: 'NGN',
+        itemFee: 0,
+        itemName: 'MTN Mobile Top up',
+        productCode: '13',
+        provider: 'monnify',
+      },
+      selectedBillItemIdentifier: '13',
+      selectedBillItemPathLabel: 'MTN Mobile Top up',
+    });
+
+    await handlePurchase();
+
+    expect(mockInitializeVtuCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        billerCode: 'MTN',
+        productCode: '13',
+        provider: 'monnify',
+      })
+    );
   });
 
   describe('wallet flow', () => {
