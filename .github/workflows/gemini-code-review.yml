@@ -183,6 +183,12 @@ jobs:
               printf '\n### %s\n_(content could not be fetched)_\n' "${path}" >> "${full_files_file}"
               continue
             fi
+            # Check emptiness before the mime probe: `file --mime-encoding`
+            # reports 0-byte files as "binary", which would mislabel them.
+            if [[ ! -s "${content_file}" ]]; then
+              printf '\n### %s\n_(empty file)_\n' "${path}" >> "${full_files_file}"
+              continue
+            fi
             if [[ "$(file --mime-encoding -b "${content_file}")" == "binary" ]]; then
               printf '\n### %s\n_(binary file omitted)_\n' "${path}" >> "${full_files_file}"
               continue
