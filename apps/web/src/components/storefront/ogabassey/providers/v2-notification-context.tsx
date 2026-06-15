@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useState } from 'react';
+import { createContext, use, useState } from 'react';
 
 export interface V2Notification {
   id: number;
@@ -26,7 +26,7 @@ const V2NotificationContext = createContext<
 >(undefined);
 
 export const useV2Notification = () => {
-  const context = useContext(V2NotificationContext);
+  const context = use(V2NotificationContext);
   if (!context) {
     throw new Error(
       'useV2Notification must be used within a V2NotificationProvider'
