@@ -26,7 +26,7 @@ describe('ShippingQuotesCard', () => {
   let announceSpy: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
     announceSpy = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
   });
 
