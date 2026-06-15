@@ -211,7 +211,6 @@ export function WalletScreen({
       setShowSavingsProgressModal(true);
       return;
     }
-
     router.push('/wallet/savings/start');
   };
   const handleFundSavingsWallet = () => {
