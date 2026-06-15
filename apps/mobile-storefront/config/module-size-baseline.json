@@ -7,10 +7,6 @@
       "lineCount": 346
     },
     {
-      "path": "components/checkout/pickers/CheckoutLocationPickers.tsx",
-      "lineCount": 314
-    },
-    {
       "path": "components/checkout/CheckoutScreenView.styles.ts",
       "lineCount": 307
     },
