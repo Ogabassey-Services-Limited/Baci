@@ -55,6 +55,10 @@ apps/mobile-storefront/    # Expo storefront — constants/Colors.ts, typography
 
 ## Stay Current — Grounding Protocol (before every change)
 
+**The live source of truth is `package.json` + the current official standards/docs (WCAG, APG).**
+Any version number or idiom written in this prompt is an as-of-writing hint; if it conflicts with
+what you find there, trust the live one.
+
 1. **Web-search current standards** before implementing: **WCAG 2.2** (the current recommendation —
    WCAG 3 is a draft; do NOT use it), the **ARIA Authoring Practices Guide (APG)** for the exact
    pattern, the **React Native Accessibility** API docs, and Tailwind v4 docs for utilities.
