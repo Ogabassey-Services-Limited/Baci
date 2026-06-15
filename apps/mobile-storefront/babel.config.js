@@ -1,12 +1,14 @@
 const isNodeModule = (filename) =>
   filename.includes('/node_modules/') || filename.includes('\\node_modules\\');
 
+const isTestOrMockDirectory = (filename) =>
+  /[/\\]__(tests|mocks)__[/\\]/.test(filename);
+
 const shouldCompileSource = (filename) =>
   !isNodeModule(filename) &&
   !/\.(test|spec)\.[jt]sx?$/.test(filename) &&
   !/\.test-utils\.[jt]sx?$/.test(filename) &&
-  !filename.includes('/__tests__/') &&
-  !filename.includes('/__mocks__/');
+  !isTestOrMockDirectory(filename);
 
 module.exports = (api) => {
   const isTest = api.env('test');
