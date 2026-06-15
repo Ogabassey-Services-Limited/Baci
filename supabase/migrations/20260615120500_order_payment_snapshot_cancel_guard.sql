@@ -4,7 +4,9 @@
 -- tell that an order had been cancelled.
 --
 -- Changing a RETURNS TABLE shape requires DROP + recreate (not CREATE OR
--- REPLACE). The only caller is the payments/initialize route (admin client).
+-- REPLACE). Callers: the payments/initialize route and the
+-- payments/credit-direct/sign route (both admin client), which now reject a
+-- cancelled order using the returned shipping_status.
 
 DROP FUNCTION IF EXISTS public.get_order_payment_snapshot(uuid, text);
 
@@ -39,6 +41,9 @@ $$;
 
 ALTER FUNCTION public.get_order_payment_snapshot(uuid, text) OWNER TO postgres;
 
--- Preserve the prior grants (function was callable by anon/authenticated/service_role).
+-- Recreate drops prior ACL and re-grants EXECUTE to PUBLIC by default; lock that
+-- down and re-grant only the roles that had it before. (The function filters
+-- strictly by order_id + lower(email), but keep the least-privilege posture.)
+REVOKE ALL ON FUNCTION public.get_order_payment_snapshot(uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_order_payment_snapshot(uuid, text)
   TO anon, authenticated, service_role;

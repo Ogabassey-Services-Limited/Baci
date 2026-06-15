@@ -33,9 +33,10 @@ export interface SendOrderCancellationEmailResult {
 /**
  * Fetches the order + merchant and sends the "Order Cancelled" email.
  *
- * Shared by the merchant and customer cancellation paths. Callers treat email
- * delivery as best-effort: the cancellation itself has already been committed,
- * so a failure here is logged and surfaced via the result, not thrown.
+ * Used by the customer cancellation route (and reusable by the merchant path).
+ * The `cancelledBy` param shapes the copy. Callers treat email delivery as
+ * best-effort: the cancellation itself has already been committed, so a failure
+ * here is logged and surfaced via the result, not thrown.
  */
 export async function sendOrderCancellationEmail({
   supabase,

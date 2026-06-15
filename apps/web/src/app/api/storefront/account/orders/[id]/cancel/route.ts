@@ -68,10 +68,13 @@ export async function POST(
 
   if (error) {
     const message = error.message || '';
-    if (message.includes('order_not_found')) {
+    const code = (error as { code?: string }).code;
+    // Prefer the RPC's SQLSTATE (P0002 not found, P0001 ineligible); fall back to
+    // the message in case PostgREST wraps it.
+    if (code === 'P0002' || message.includes('order_not_found')) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
-    if (message.includes('order_not_cancellable')) {
+    if (code === 'P0001' || message.includes('order_not_cancellable')) {
       return NextResponse.json(
         {
           error: 'This order can no longer be cancelled',
