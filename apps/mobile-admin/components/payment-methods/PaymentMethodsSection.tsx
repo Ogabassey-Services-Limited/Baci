@@ -7,12 +7,12 @@ import {
   type ThemeShadows,
   TYPOGRAPHY,
 } from '@/constants/theme';
+import type { PaymentSettings } from '@/schemas/payment-settings';
 import type {
   PaymentMethod,
   PaymentMethodCategory,
   PaymentMethodField,
 } from './payment-methods';
-import type { PaymentSettings } from '@/schemas/payment-settings';
 
 interface PaymentMethodsSectionProps {
   title: string;

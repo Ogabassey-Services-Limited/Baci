@@ -148,10 +148,13 @@ export function DiscountItemSelector({
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
               <Pressable
                 onPress={onClose}
-                style={styles.closeBtn}
+                style={({ pressed }) => [
+                  styles.closeBtn,
+                  pressed && { opacity: 0.7 },
+                ]}
                 accessible={true}
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel="Close modal"
               >
                 <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>
@@ -160,7 +163,10 @@ export function DiscountItemSelector({
               </Text>
               <Pressable
                 onPress={handleSave}
-                style={styles.saveBtn}
+                style={({ pressed }) => [
+                  styles.saveBtn,
+                  pressed && { opacity: 0.7 },
+                ]}
                 accessible={true}
                 accessibilityRole="button"
                 accessibilityLabel="Done"
@@ -225,9 +231,10 @@ export function DiscountItemSelector({
                   const isSelected = selectedIds.has(item.id);
                   return (
                     <Pressable
-                      style={[
+                      style={({ pressed }) => [
                         styles.itemRow,
                         { borderBottomColor: colors.border },
+                        pressed && { opacity: 0.7 },
                       ]}
                       onPress={() => toggleSelection(item.id)}
                       accessible={true}
