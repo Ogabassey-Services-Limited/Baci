@@ -115,10 +115,14 @@ function scheduleDeferredBillerPrefetch(callback: () => void, index: number) {
 async function fetchBillers(type: BillType): Promise<Biller[]> {
   const startTime = Date.now();
   log.info('VTU', `Fetching billers for type: ${type}`);
+  const includeMonnify =
+    type === 'electricity' || type === 'cable_tv'
+      ? '&includeMonnify=true'
+      : '';
 
   try {
     const response = await fetchWithRetry(
-      `${EXPO_PUBLIC_API_URL}/api/vtu/billers?type=${type}`,
+      `${EXPO_PUBLIC_API_URL}/api/vtu/billers?type=${type}${includeMonnify}`,
       {
         cache: 'no-store',
       },

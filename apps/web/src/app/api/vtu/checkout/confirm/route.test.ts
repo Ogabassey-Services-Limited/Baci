@@ -35,10 +35,15 @@ vi.mock('@/lib/csrf', () => ({
   ),
 }));
 
-vi.mock('@/lib/paystack', () => ({
-  verifyTransaction: (...args: unknown[]) =>
-    mockVerifyPaystackTransaction(...args),
-}));
+vi.mock('@/lib/paystack', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/paystack')>();
+
+  return {
+    ...actual,
+    verifyTransaction: (...args: unknown[]) =>
+      mockVerifyPaystackTransaction(...args),
+  };
+});
 
 vi.mock('@/lib/korapay', () => ({
   verifyPayment: vi.fn(),
@@ -323,6 +328,50 @@ describe('POST /api/vtu/checkout/confirm', () => {
     );
   });
 
+  it('schedules one voucher backfill for processing fulfillment', async () => {
+    mockFrom.mockImplementation(
+      createMockFrom({
+        vtuTransactionData: {
+          ...defaultVtuTransaction,
+          status: 'processing',
+        },
+      })
+    );
+    mockFulfillPendingVtuTransaction.mockResolvedValue({
+      status: 'processing',
+      reference: 'VTU-123',
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(data).toEqual({ reference: 'VTU-123', status: 'processing' });
+    expect(mockAfterCallbacks).toHaveLength(1);
+
+    await mockAfterCallbacks[0]?.();
+
+    expect(mockScheduleVoucherPinBackfill).toHaveBeenCalledTimes(1);
+    expect(mockScheduleVoucherPinBackfill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {},
+        originalMetadata: {},
+        transaction: expect.objectContaining({
+          id: 'vtu-1',
+          status: 'processing',
+          type: 'electricity',
+        }),
+        voucherPin: null,
+      })
+    );
+  });
+
   // Phase B.7 regression-pin: when initialize records a hybrid
   // payment, `transactions.amount` holds the residual (post-wallet)
   // and the gateway returned the same residual. Confirm's
@@ -357,6 +406,64 @@ describe('POST /api/vtu/checkout/confirm', () => {
 
     expect(response.status).toBe(200);
     expect(mockFulfillPendingVtuTransaction).toHaveBeenCalled();
+  });
+
+  it('accepts Paystack bank-transfer payments when amount includes customer-borne fees', async () => {
+    mockFrom.mockImplementation(
+      createMockFrom({
+        transactionData: {
+          ...defaultPaymentTransaction,
+          amount: 3000,
+        },
+      })
+    );
+    mockVerifyPaystackTransaction.mockResolvedValue({
+      success: true,
+      data: {
+        amount: 314_721,
+        requested_amount: 300_000,
+        fees: 14_721,
+        status: 'success',
+      },
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFulfillPendingVtuTransaction).toHaveBeenCalledWith({
+      retryFailed: true,
+      supabase: expect.any(Object),
+      transactionId: 'vtu-1',
+    });
+  });
+
+  it('rejects gateway confirmations when the verified amount is malformed', async () => {
+    mockVerifyPaystackTransaction.mockResolvedValue({
+      success: true,
+      data: {
+        amount: 100_000.5,
+        status: 'success',
+      },
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Payment amount could not be verified' });
+    expect(mockFulfillPendingVtuTransaction).not.toHaveBeenCalled();
   });
 
   it('continues to VTU fulfillment when another process already claimed the payment', async () => {

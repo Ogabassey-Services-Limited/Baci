@@ -118,6 +118,7 @@ export type WalletOnlyVtuResult = z.infer<typeof WalletOnlyVtuResponseSchema>;
 export interface VTUCheckoutPayload {
   amount: number;
   billItemIdentifier?: string;
+  billerCode?: string;
   billerName?: string;
   customerIdentifier?: string;
   customerName?: string;
@@ -126,6 +127,10 @@ export interface VTUCheckoutPayload {
   gateway: VTUPaymentGateway;
   networkProvider?: string;
   phoneNumber?: string;
+  productCode?: string;
+  provider?: 'kuda' | 'monnify';
+  requireValidationRef?: boolean;
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
+  validationReference?: string;
   walletAmount?: number;
 }

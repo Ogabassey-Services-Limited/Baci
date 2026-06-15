@@ -126,6 +126,39 @@ describe('useVTUVerify', () => {
     });
   });
 
+  it('preserves Monnify validation references from verification responses', async () => {
+    mockFetchWithTimeout.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        verified: true,
+        customerName: 'Test Customer',
+        message: 'Customer verified',
+        requireValidationRef: true,
+        validationReference: 'VAL-123',
+      }),
+    });
+    const { result } = renderUseVTUVerify();
+    let verifiedResult: unknown;
+
+    await act(async () => {
+      verifiedResult = await result.current.mutateAsync({
+        billItemIdentifier: 'IKEDC_PREPAID',
+        billerCode: 'IKEDC',
+        customerIdentifier: '43901766923',
+        productCode: 'IKEDC_PREPAID',
+        provider: 'monnify',
+      });
+    });
+
+    expect(verifiedResult).toEqual({
+      verified: true,
+      customerName: 'Test Customer',
+      message: 'Customer verified',
+      requireValidationRef: true,
+      validationReference: 'VAL-123',
+    });
+  });
+
   it('verifies bill customers without a local session', async () => {
     mockGetSession.mockResolvedValue({
       data: { session: null },

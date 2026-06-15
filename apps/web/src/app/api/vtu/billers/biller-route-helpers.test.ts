@@ -212,4 +212,81 @@ describe('biller route helpers', () => {
     expect(result.billers).toHaveLength(9);
     expect(maxActiveLookups).toBeLessThanOrEqual(4);
   });
+
+  it('filters current Monnify billers and products to the requested category', async () => {
+    mockGetMonnifyBillers.mockResolvedValue([
+      {
+        billerCode: 'MTN',
+        categoryCodes: ['AIRTIME', 'DATA_BUNDLE'],
+        description: 'MTN',
+        name: 'MTN',
+        billerCategoryCode: 'AIRTIME',
+      },
+      {
+        billerCode: 'IKEDC',
+        categoryCodes: ['ELECTRICITY'],
+        description: 'Ikeja Electricity',
+        name: 'Ikeja Electricity',
+        billerCategoryCode: 'ELECTRICITY',
+      },
+    ]);
+    mockGetMonnifyBillerProducts.mockResolvedValue([
+      {
+        amount: null,
+        billerCode: 'GLO',
+        categoryCode: 'AIRTIME',
+        fee: null,
+        isAmountFixed: false,
+        maxAmount: null,
+        minAmount: 100,
+        name: 'Glo Mobile Top up',
+        productCode: '12',
+      },
+      {
+        amount: null,
+        billerCode: 'MTN',
+        categoryCode: 'AIRTIME',
+        fee: null,
+        isAmountFixed: false,
+        maxAmount: null,
+        minAmount: 100,
+        name: 'MTN Mobile Top up',
+        productCode: '13',
+      },
+      {
+        amount: 500,
+        billerCode: 'MTN',
+        categoryCode: 'DATA_BUNDLE',
+        fee: null,
+        isAmountFixed: true,
+        maxAmount: null,
+        minAmount: null,
+        name: 'MTN Data',
+        productCode: '1811',
+      },
+    ]);
+
+    const result = await loadMonnifyBillers({
+      monnifyCategory: 'AIRTIME',
+      type: 'airtime',
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.billers).toHaveLength(1);
+    expect(result.billers[0]).toEqual(
+      expect.objectContaining({
+        billerCode: 'MTN',
+        billerId: 'MTN',
+        provider: 'monnify',
+      })
+    );
+    expect(result.billers[0]?.billItems).toEqual([
+      expect.objectContaining({
+        itemCode: '13',
+        productCode: '13',
+        provider: 'monnify',
+      }),
+    ]);
+    expect(mockGetMonnifyBillerProducts).toHaveBeenCalledTimes(1);
+  });
 });
