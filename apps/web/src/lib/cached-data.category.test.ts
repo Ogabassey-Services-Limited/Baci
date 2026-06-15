@@ -88,6 +88,9 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       fallbackName: 'Inactive Slug',
       fallbackDescription: 'Browse our collection of Inactive Slug products.',
       isInactiveCategory: true,
+      // "No rows" (PGRST116) is the expected unknown-slug path, not a failure.
+      productsQueryFailed: false,
+      categoryQueryFailed: false,
     });
   });
 
@@ -148,6 +151,35 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       fallbackName: 'Active Category',
       fallbackDescription: 'Standard active category',
       isInactiveCategory: false,
+      productsQueryFailed: false,
+      categoryQueryFailed: false,
     });
+  });
+
+  it('Scenario 3: flags categoryQueryFailed (fail open) when the category .single() lookup hits a transient error, not a normal "no rows"', async () => {
+    // A non-PGRST116 error means we could not confirm the slug is unknown — the
+    // doorway-trap guard must fail open rather than noindex a possibly-live page.
+    harness.mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: '57014', message: 'canceling statement due to timeout' },
+    });
+    // No hidden state + empty legacy fallback (harness defaults) so the only
+    // failure signal under test is the category lookup itself.
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'maybe-real',
+      'test-store'
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        category: null,
+        isInactiveCategory: false,
+        categoryQueryFailed: true,
+        productsQueryFailed: false,
+      })
+    );
   });
 });
