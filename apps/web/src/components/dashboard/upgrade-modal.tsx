@@ -17,7 +17,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react';
-import { createContext, type ReactNode, useContext, useState } from 'react';
+import { createContext, type ReactNode, use, useState } from 'react';
 import {
   FEATURE_METADATA,
   type FeatureKey,
@@ -45,7 +45,7 @@ const UpgradeModalContext = createContext<UpgradeModalContextType | undefined>(
 );
 
 export const useUpgradeModal = () => {
-  const context = useContext(UpgradeModalContext);
+  const context = use(UpgradeModalContext);
   if (!context) {
     throw new Error(
       'useUpgradeModal must be used within an UpgradeModalProvider'
