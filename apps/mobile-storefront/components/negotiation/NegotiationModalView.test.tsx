@@ -282,18 +282,25 @@ describe('NegotiationModalView', () => {
     expect(onUploadSubmit).toHaveBeenCalledTimes(1);
   });
 
-  it('renders final best-price state', () => {
+  it('renders final best-price state and closes on Done', () => {
+    const onClose = jest.fn();
+
     render(
       <NegotiationModalView
         {...createBaseProps({
           status: 'final',
           message: 'This is already the best price.',
+          onClose,
         })}
       />
     );
 
     expect(screen.getByText('Best Price')).toBeTruthy();
     expect(screen.getByText('This is already the best price.')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Done'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('renders submitted state and triggers final action callback', () => {

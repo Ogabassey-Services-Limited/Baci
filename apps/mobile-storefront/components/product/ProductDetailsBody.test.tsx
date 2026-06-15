@@ -129,6 +129,8 @@ describe('ProductDetailsBody', () => {
     );
 
     expect(screen.queryByRole('button', { name: 'Make an Offer' })).toBeNull();
-    expect(screen.getByText('Best price')).toBeTruthy();
+    expect(
+      screen.getByLabelText('This product is already at the best price')
+    ).toBeTruthy();
   });
 });

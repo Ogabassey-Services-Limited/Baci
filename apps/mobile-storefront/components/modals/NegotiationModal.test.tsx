@@ -173,4 +173,20 @@ describe('Cart NegotiationModal wrapper', () => {
       expect.objectContaining({ isNegotiable: false })
     );
   });
+
+  it('computes isNegotiable via brand/name fallback when the context omits it', () => {
+    mockNegotiationContext = {
+      type: 'single',
+      itemId: 'cart-1',
+      productName: 'Tecno Spark 50',
+      currentPrice: 120000,
+      brand: 'Tecno',
+    };
+
+    render(<NegotiationModal />);
+
+    expect(mockUseNegotiationModalController).toHaveBeenCalledWith(
+      expect.objectContaining({ isNegotiable: false })
+    );
+  });
 });

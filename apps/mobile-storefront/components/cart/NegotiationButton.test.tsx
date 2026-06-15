@@ -67,8 +67,11 @@ describe('NegotiationButton', () => {
       />
     );
 
+    const badge = screen.getByLabelText('Best price for Tecno Spark 50');
+    expect(badge).toBeTruthy();
     expect(screen.getByText('Best price')).toBeTruthy();
     expect(screen.queryByText('Negotiate')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
     expect(openItemNegotiation).not.toHaveBeenCalled();
   });
 });
