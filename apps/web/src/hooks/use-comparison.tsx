@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, type ReactNode, useContext, useState } from 'react';
+import { createContext, type ReactNode, use, useState } from 'react';
 
 interface ComparisonContextType {
   comparisonIds: Set<string>;
@@ -65,7 +65,7 @@ export function ComparisonProvider({ children }: { children: ReactNode }) {
 }
 
 export function useComparison() {
-  const context = useContext(ComparisonContext);
+  const context = use(ComparisonContext);
   if (context === undefined) {
     throw new Error('useComparison must be used within a ComparisonProvider');
   }
