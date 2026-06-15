@@ -28,6 +28,28 @@ describe('parseSantaAction', () => {
     });
   });
 
+  it('parses a price with decimal places and spaced currency text', () => {
+    const result = parseSantaAction(
+      'ACTION:ADD_TO_CART|PRODUCT:AirPods Pro|PRICE:350,000.00 NGN'
+    );
+    expect(result).toEqual({
+      type: 'ADD_TO_CART',
+      productName: 'AirPods Pro',
+      price: 350000,
+    });
+  });
+
+  it('parses a price with lowercase currency text', () => {
+    const result = parseSantaAction(
+      'ACTION:ADD_TO_CART|PRODUCT:Pixel 9|PRICE:650000 ngn'
+    );
+    expect(result).toEqual({
+      type: 'ADD_TO_CART',
+      productName: 'Pixel 9',
+      price: 650000,
+    });
+  });
+
   it('trims surrounding whitespace from the product name', () => {
     const result = parseSantaAction(
       'ACTION:ADD_TO_CART|PRODUCT:  MacBook Air  |PRICE:999000'
@@ -82,6 +104,20 @@ describe('stripSantaActions', () => {
   it('removes trailing price punctuation and currency text', () => {
     const stripped = stripSantaActions(
       'Granted ACTION:ADD_TO_CART|PRODUCT:iPhone 15|PRICE:850000NGN. Enjoy it.'
+    );
+    expect(stripped).toBe('Granted  Enjoy it.');
+  });
+
+  it('removes directives with decimal prices and lowercase spaced currency text', () => {
+    const stripped = stripSantaActions(
+      'Granted ACTION:ADD_TO_CART|PRODUCT:iPhone 15|PRICE:850000.00 ngn. Enjoy it.'
+    );
+    expect(stripped).toBe('Granted  Enjoy it.');
+  });
+
+  it('removes directives with decimal prices and uppercase spaced currency text', () => {
+    const stripped = stripSantaActions(
+      'Granted ACTION:ADD_TO_CART|PRODUCT:iPhone 15|PRICE:850000.00 NGN. Enjoy it.'
     );
     expect(stripped).toBe('Granted  Enjoy it.');
   });

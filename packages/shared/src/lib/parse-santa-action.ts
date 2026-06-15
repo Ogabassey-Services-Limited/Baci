@@ -6,8 +6,9 @@
  *
  *   ACTION:ADD_TO_CART|PRODUCT:<name>|PRICE:<amount>
  *
- * PRICE may contain thousands separators (e.g. 1,200,000). Shared between the
- * web and mobile storefronts so both parse the directive identically.
+ * PRICE may contain thousands separators, optional decimals, and optional
+ * whitespace/currency suffixes (e.g. 1,200,000 NGN). Shared between the web
+ * and mobile storefronts so both parse the directive identically.
  */
 
 export interface SantaAction {
@@ -16,12 +17,26 @@ export interface SantaAction {
   price: number;
 }
 
-const SANTA_ACTION_PATTERN_SOURCE = String.raw`ACTION:ADD_TO_CART\|PRODUCT:([^|]+)\|PRICE:(\d+(?:,\d+)*)(?:[A-Z]{2,3})?[.,!?;:]*`;
+const SANTA_ACTION_CURRENCY_CODES = [
+  'NGN',
+  'GHS',
+  'KES',
+  'USD',
+  'GBP',
+  'EUR',
+  'ZAR',
+  'XAF',
+  'XOF',
+] as const;
 
-const SANTA_ACTION_PATTERN = new RegExp(SANTA_ACTION_PATTERN_SOURCE);
+const SANTA_ACTION_CURRENCY_PATTERN = SANTA_ACTION_CURRENCY_CODES.join('|');
+
+const SANTA_ACTION_PATTERN_SOURCE = String.raw`ACTION:ADD_TO_CART\|PRODUCT:([^|]+)\|PRICE:\s*(\d[\d,]*(?:\.\d+)?)\s*(?:${SANTA_ACTION_CURRENCY_PATTERN})?[.,!?;:]*`;
+
+const SANTA_ACTION_PATTERN = new RegExp(SANTA_ACTION_PATTERN_SOURCE, 'i');
 const SANTA_ACTION_GLOBAL_PATTERN = new RegExp(
   SANTA_ACTION_PATTERN_SOURCE,
-  'g'
+  'gi'
 );
 
 function toSantaAction(match: RegExpMatchArray): SantaAction | null {
