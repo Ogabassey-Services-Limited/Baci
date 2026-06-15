@@ -52,7 +52,12 @@ export function ShippingQuotesCard({
 
       <View style={styles.cardBody}>
         {isLoadingQuotes ? (
-          <View style={styles.loadingRow}>
+          <View
+            style={styles.loadingRow}
+            accessibilityLiveRegion="polite"
+            accessibilityState={{ busy: true }}
+            testID="shipping-quotes-loading-row"
+          >
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>
               Fetching delivery options…

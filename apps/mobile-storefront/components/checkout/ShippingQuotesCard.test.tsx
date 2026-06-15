@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { ShippingQuotesCard } from './ShippingQuotesCard';
 
@@ -25,10 +26,15 @@ describe('ShippingQuotesCard', () => {
     jest.clearAllMocks();
   });
 
-  it('shows loading text when isLoadingQuotes is true', () => {
+  it('shows loading text when isLoadingQuotes is true and announces it', () => {
     render(<ShippingQuotesCard {...baseProps} isLoadingQuotes />);
 
-    expect(screen.getByText(/fetching delivery options/i)).toBeTruthy();
+    const loadingText = screen.getByText(/fetching delivery options/i);
+    expect(loadingText).toBeTruthy();
+
+    const loadingContainer = screen.getByTestId('shipping-quotes-loading-row');
+    expect(loadingContainer.props.accessibilityLiveRegion).toBe('polite');
+    expect(loadingContainer.props.accessibilityState).toEqual({ busy: true });
   });
 
   it('shows retry card when no quotes are available', () => {
