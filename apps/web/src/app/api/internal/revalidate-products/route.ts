@@ -1,0 +1,63 @@
+import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { getInternalApiSecret } from '@/env';
+import { revalidateProducts } from '@/lib/cache-revalidation';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { logger } from '@/lib/logger';
+
+const bodySchema = z.object({
+  merchantId: z.string().trim().min(1).max(255),
+});
+
+/**
+ * Internal product-cache revalidation endpoint.
+ *
+ * `revalidateTag` requires a Next request/store context, which the standalone
+ * import worker (`scripts/process-import-jobs.ts`) does NOT have — so its
+ * in-process `revalidateProducts` is a no-op. That worker calls this Bearer-authed
+ * route instead, which DOES run in a route context, to reliably invalidate the
+ * product caches (incl. the proxy crawl-budget `product-slug-set-${merchantId}`)
+ * after an import — so freshly imported products are never hard-404ed waiting on
+ * the cacheLife TTL. See `revalidateProductsReliable`.
+ *
+ * Auth: `Authorization: Bearer ${INTERNAL_API_SECRET}` (timing-safe). Bearer
+ * requests are CSRF-exempt and rate-limit-exempt in the proxy.
+ */
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const expectedSecret = getInternalApiSecret();
+  if (!expectedSecret) {
+    logger.error({ message: 'INTERNAL_API_SECRET not configured' });
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    );
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  if (
+    !authHeader ||
+    !constantTimeEqual(authHeader, `Bearer ${expectedSecret}`)
+  ) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let json: unknown;
+  try {
+    json = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const parsed = bodySchema.safeParse(json);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  // Runs in a route context, so revalidateTag works here (unlike the CLI worker).
+  revalidateProducts(parsed.data.merchantId);
+
+  return NextResponse.json({ ok: true }, { status: 200 });
+}

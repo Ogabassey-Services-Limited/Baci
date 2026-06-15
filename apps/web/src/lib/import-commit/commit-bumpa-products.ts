@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { revalidateProducts } from '@/lib/cache-revalidation';
 import type { NormalizedImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
+import { revalidateProductsReliable } from '@/lib/revalidate-products-reliable';
 import { generateProductSlug } from '@/lib/seo-utils';
 
 interface CommitBumpaProductsInput {
@@ -169,11 +169,12 @@ export async function commitBumpaProducts({
     // partially-imported live product would be absent from the slug-set (which
     // the proxy hard-404 reads) and 404ed until the cacheLife TTL expires.
     if (createdProducts > 0 || updatedProducts > 0) {
-      // Best-effort: revalidateTag requires a Next request/store context, which
-      // a background import worker may lack. Never let a missing context break
-      // the import — the slug-set still self-heals on its cacheLife expiry.
+      // RELIABLE across contexts: in-process `revalidateTag` when a Next store
+      // context exists (cron route / dashboard), or an internal Bearer HTTP
+      // call from the standalone CLI worker (no store context). Never throws —
+      // a missing context must not break the import.
       try {
-        revalidateProducts(merchantId);
+        await revalidateProductsReliable(merchantId);
       } catch (error) {
         console.error(
           'Failed to revalidate product caches after import (non-fatal):',

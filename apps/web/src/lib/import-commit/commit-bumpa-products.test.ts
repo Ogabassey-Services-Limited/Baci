@@ -1,9 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockRevalidateProducts = vi.fn();
-vi.mock('@/lib/cache-revalidation', () => ({
-  revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+const mockRevalidateProductsReliable = vi.fn();
+vi.mock('@/lib/revalidate-products-reliable', () => ({
+  revalidateProductsReliable: (...args: unknown[]) =>
+    mockRevalidateProductsReliable(...args),
 }));
 
 import { commitBumpaProducts } from '@/lib/import-commit/commit-bumpa-products';
@@ -117,10 +118,10 @@ describe('commitBumpaProducts', () => {
     );
     // Imported products must invalidate product caches (incl. the proxy
     // crawl-budget slug-set) so their PDPs aren't hard-404ed until TTL expiry.
-    expect(mockRevalidateProducts).toHaveBeenCalledWith('merchant-1');
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1');
   });
 
-  it('still succeeds when cache revalidation throws (best-effort, non-fatal)', async () => {
+  it('still succeeds when reliable revalidation rejects (best-effort, non-fatal)', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -145,11 +146,11 @@ describe('commitBumpaProducts', () => {
         .mockReturnValueOnce(insertQuery),
     } as unknown as SupabaseClient;
 
-    // A background import worker can lack a Next request/store context, so
-    // revalidateTag throws synchronously there — the import must not break.
-    mockRevalidateProducts.mockImplementationOnce(() => {
-      throw new Error('static generation store missing');
-    });
+    // The reliable helper is fail-safe, but even if it rejected the import must
+    // not break (the finally swallows it).
+    mockRevalidateProductsReliable.mockRejectedValueOnce(
+      new Error('revalidation unavailable')
+    );
 
     const result = await commitBumpaProducts({
       supabase,
@@ -159,7 +160,7 @@ describe('commitBumpaProducts', () => {
     });
 
     expect(result).toEqual({ createdProducts: 1, updatedProducts: 0 });
-    expect(mockRevalidateProducts).toHaveBeenCalledWith('merchant-1');
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1');
     expect(consoleSpy).toHaveBeenCalled();
     // Restore so the suppressed console.error doesn't leak into later tests
     // (the suite uses clearAllMocks, which does not restore spy implementations).
@@ -210,7 +211,7 @@ describe('commitBumpaProducts', () => {
 
     // The committed first product MUST still trigger revalidation (finally) so
     // its live slug isn't left out of the slug-set until TTL and hard-404ed.
-    expect(mockRevalidateProducts).toHaveBeenCalledWith('merchant-1');
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1');
   });
 
   it('throws when loading existing products fails', async () => {
