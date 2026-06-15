@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreatePublicClient = vi.fn();
@@ -79,5 +83,31 @@ describe('getCachedStorefrontProductSlugSet', () => {
     const result = await getCachedStorefrontProductSlugSet('merchant-1');
 
     expect(result).toEqual({ hasError: false, slugs: [] });
+  });
+});
+
+const migrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260615170601_add_merchant_product_slug_set_rpc.sql'
+  ),
+  'utf8'
+);
+
+describe('merchant product slug-set RPC migration contract', () => {
+  it('does not expose the private schema to API roles', () => {
+    expect(migrationSql).not.toMatch(
+      /GRANT\s+USAGE\s+ON\s+SCHEMA\s+private\s+TO\s+anon/i
+    );
+    expect(migrationSql).not.toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+private\./i
+    );
+  });
+
+  it('keeps the public security-definer RPC constrained to published merchants', () => {
+    expect(migrationSql).toMatch(/SECURITY\s+DEFINER/i);
+    expect(migrationSql).toMatch(/SET\s+search_path\s*=\s*''/i);
+    expect(migrationSql).toContain('FROM public.merchants AS m');
+    expect(migrationSql).toContain('COALESCE(m.is_published, FALSE) = TRUE');
   });
 });
