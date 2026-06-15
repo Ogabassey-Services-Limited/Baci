@@ -1,6 +1,6 @@
 @import "tailwindcss" source(none);
 
-@config "../../../tailwind.storefront.scoped.config.ts";
+@config "../../../tailwind.storefront.scoped.config.mjs";
 
 @source "./[slug]/layout.tsx";
 @source "./[slug]/(catalog)/(pdp)/layout.tsx";
