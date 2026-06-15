@@ -93,3 +93,8 @@
 ## 2026-06-10 - Add `aria-label` to dynamically toggled secret input buttons
 **Learning:** Icon-only buttons used to toggle the visibility of sensitive information (e.g., "Show/Hide secret" using Eye/EyeOff icons) in settings pages often miss `aria-label` attributes, making their state and purpose opaque to screen reader users.
 **Action:** Always ensure icon-only buttons that toggle visibility state have dynamic `aria-label` attributes reflecting the current action (e.g., `aria-label={showSecret ? 'Hide secret' : 'Show secret'}`).
+
+## 2026-06-15 - Screen Reader Announcement for Mobile Loading States
+**Learning:** Conditionally rendering a `View` with `accessibilityLiveRegion="polite"` can miss transient loading announcements because screen readers need a mounted live region before content changes; `accessibilityState={{ busy: true }}` can also suppress announcements until busy flips false.
+**Action:** For transient React Native loading announcements, trigger the imperative `AccessibilityInfo.announceForAccessibility('Fetching delivery options…')` call from a `useEffect` when the loading state becomes true.
+**Source:** React Native AccessibilityInfo API / WCAG 4.1.3 Status Messages
