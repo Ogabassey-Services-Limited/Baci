@@ -12,13 +12,13 @@
 **Action:** Always ensure `<button>` tags that don't submit forms have `type="button"` explicitly defined.
 ## 2024-05-30 - Interactive Elements Pressable Feedback and A11y
 **Learning:** Custom interactive elements (like lists or buttons) built with React Native's `Pressable` often lack visual feedback when pressed and do not announce their role to screen readers by default.
-**Action:** Always provide visual feedback using the `({ pressed }) => ...` style pattern (e.g., `opacity: 0.7`) and explicitly assign an `accessibilityRole="button"` (or appropriate role) to enhance both visual UX and accessibility.
+**Action:** Always provide visual feedback using the `({ pressed }) => [...]` style pattern (e.g., `opacity: 0.7`) and explicitly assign an `accessibilityRole="button"` (or appropriate role) to enhance both visual UX and accessibility.
 ## 2026-05-18 - Enhanced Pressable Accessibility and Touch Feedback
-**Learning:** In React Native, custom interactive elements using `Pressable` must explicitly define accessibility properties (`accessibilityRole="button"`, `accessibilityLabel`, `accessibilityState`) to be compliant with screen readers. Additionally, providing visual feedback via the `({ pressed }) => ...` style pattern is crucial for a responsive user experience.
+**Learning:** In React Native, custom interactive elements using `Pressable` must explicitly define accessibility properties (`accessibilityRole="button"`, `accessibilityLabel`, `accessibilityState`) to be compliant with screen readers. Additionally, providing visual feedback via the `({ pressed }) => [...]` style pattern is crucial for a responsive user experience.
 **Action:** Always ensure that every `Pressable` functioning as a button includes appropriate `accessibilityRole`, descriptive labels, state indicators (like disabled), and visual opacity/color shifts when pressed.
 ## 2024-05-18 - Mobile Admin Pressable Accessibility & Feedback
-**Learning:** React Native `Pressable` components in the Baci monorepo often lack visual feedback and screen reader labels when initially created, particularly in dynamic mapped elements like lists and toggles. When refactoring complex `style` properties on `Pressable`, carefully wrapping existing style objects in arrays alongside the `({ pressed }) => ...` function is necessary.
-**Action:** When creating or modifying `Pressable` components, always use the `({ pressed }) => pressed && { opacity: 0.7 }, ...` pattern for visual feedback, and assign explicit `accessibilityLabel` attributes (especially mapped elements or icon buttons). Validate syntax correctness when refactoring inline styles.
+**Learning:** React Native `Pressable` components in the Baci monorepo often lack visual feedback and screen reader labels when initially created, particularly in dynamic mapped elements like lists and toggles. When refactoring complex `style` properties on `Pressable`, carefully wrapping existing style objects in arrays alongside the `({ pressed }) => [...]` function is necessary.
+**Action:** When creating or modifying `Pressable` components, always use the `({ pressed }) => [pressed && { opacity: 0.7 }, ...]` pattern for visual feedback, and assign explicit `accessibilityLabel` attributes (especially mapped elements or icon buttons). Validate syntax correctness when refactoring inline styles.
 ## 2026-05-20 - Icon-only Buttons Accessibility
 **Learning:** Icon-only buttons (like password show/hide toggles) are inaccessible to screen readers without an explicit label.
 **Action:** Always add `accessibilityLabel` (and `accessibilityRole="button"`) to `Pressable` components that only contain icons.
@@ -57,7 +57,7 @@
 
 ## 2025-05-25 - Interactive Press Feedback and Keyboard Refinements
 **Learning:** In Expo/React Native apps within the Baci monorepo, many `Pressable` components acting as buttons or interactive cards are missing visual feedback when pressed, which makes the app feel unresponsive. Additionally, form inputs like Amount and Notes may lack `returnKeyType` configurations that improve keyboard UX.
-**Action:** When creating or modifying interactive `Pressable` elements, consistently apply the `({ pressed }) => ...` function pattern to the style prop to provide dynamic visual feedback such as opacity changes. Add `returnKeyType="done"` to form `TextInput`s where appropriate.
+**Action:** When creating or modifying interactive `Pressable` elements, consistently apply the `({ pressed }) => [...]` function pattern to the style prop to provide dynamic visual feedback such as opacity changes. Add `returnKeyType="done"` to form `TextInput`s where appropriate.
 
 ## 2026-05-28 - Carousel Indicator Accessibility
 **Learning:** Carousel indicator dots represented by unlabelled elements (often generic buttons or divs) lack context for visually impaired users. Without ARIA attributes, they are either invisible or read as generic controls without meaning or state.
@@ -82,7 +82,7 @@
 
 ## 2026-06-03 - Submit button accessibilityState and Pressable feedback
 **Learning:** Actionable buttons in React Native (`Pressable`) that are bound to an `isSubmitting` or `isPending` state often disable correctly but fail to announce to screen readers that a background process is active. Additionally, many of these buttons miss visual feedback upon press.
-**Action:** Always ensure that disabled primary action buttons implement `accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}` and utilize the `({ pressed }) => ...` style array to provide visual feedback (like `opacity: 0.7`) to the user.
+**Action:** Always ensure that disabled primary action buttons implement `accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}` and utilize the `({ pressed }) => [...]` style array to provide visual feedback (like `opacity: 0.7`) to the user.
 ## 2026-06-04 - Improved Keyboard UX in Forms
 **Learning:** In React Native apps, relying on default keyboard behavior for text inputs creates friction. `returnKeyType` improves the visible keyboard label, but smooth field navigation also needs `onSubmitEditing`, `TextInput` refs, and `submitBehavior`, which controls whether Return submits or inserts a newline.
 **Action:** For sequences of `TextInput` components, combine `returnKeyType="next"` with `submitBehavior="submit"` and `onSubmitEditing={() => nextInputRef.current?.focus()}` on intermediate fields. Use `returnKeyType="done"` with `submitBehavior="blurAndSubmit"` and a dismiss handler on the final field.
@@ -95,6 +95,6 @@
 **Action:** Always ensure icon-only buttons that toggle visibility state have dynamic `aria-label` attributes reflecting the current action (e.g., `aria-label={showSecret ? 'Hide secret' : 'Show secret'}`).
 
 ## 2026-06-15 - Screen Reader Announcement for Mobile Loading States
-**Learning:** Conditionally rendering a `View` with `accessibilityLiveRegion="polite"` typically fails to trigger screen reader announcements. Live regions must be persistently mounted in the component tree *before* their content changes so the screen reader can detect the injection of new text. Also, `accessibilityState={{ busy: true }}` explicitly instructs screen readers to suppress announcements until the element is no longer busy. Because conditionally rendered loading components completely unmount when the fetch finishes, they never transition to `busy: false`, causing the text to be skipped permanently.
-**Action:** Use a reliable cross-platform approach for transient loading announcements in React Native. The most robust method is to use a `useEffect` hook that triggers `AccessibilityInfo.announceForAccessibility('Fetching delivery options…')` when the loading state evaluates to `true`.
-**Source:** React Native Accessibility API / WCAG 4.1.3 Status Messages
+**Learning:** React Native exposes `AccessibilityInfo.announceForAccessibility()` for posting transient strings to the active screen reader. This is more reliable for short loading status messages than conditionally mounting a live-region view that may unmount before assistive technology observes the update.
+**Action:** For cross-platform transient loading announcements, trigger `AccessibilityInfo.announceForAccessibility('Fetching delivery options…')` from an effect when the loading state becomes true, while still rendering visible loading text for sighted users.
+**Source:** React Native AccessibilityInfo API / WCAG 4.1.3 Status Messages
