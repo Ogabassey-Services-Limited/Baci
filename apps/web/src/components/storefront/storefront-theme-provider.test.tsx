@@ -37,7 +37,7 @@ describe('StorefrontThemeProvider', () => {
     // The outermost element must carry the `light` class so that:
     // 1. CSS variables in globals.css scope light-mode tokens to this subtree,
     //    overriding any `html.dark` class set by the root ThemeProvider.
-    // 2. The Tailwind `darkMode` selector configured in tailwind.config.ts
+    // 2. The Tailwind `darkMode` selector configured in tailwind.config.mjs
     //    (`&:where(.dark, .dark *):not(.light):not(.light *)`) excludes this
     //    wrapper and its descendants from raw `dark:*` utility variants.
     // Without both, components using utilities like `dark:bg-gray-900` would

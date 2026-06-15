@@ -366,8 +366,9 @@ jobs:
 
           You only have the repository guidance, changed-file metadata, and diff excerpts included in this prompt.
           Do not assume access to the full repository, unchanged files, dependency graph, tests, or runtime behavior.
-          Only report issues you can justify directly from the provided context.
-          If context is truncated or omitted, do not speculate.
+          Only report issues you can justify from the provided context or verify against current official documentation.
+          You may use web search to confirm framework, library, API, model, or version facts (for example default GitHub Actions token scopes, Next.js 16 / React 19 behavior, or valid model IDs) against current authoritative docs before reporting them; never report a claim you cannot verify, and reserve high/critical severities for verified issues.
+          If the provided diff context is truncated or omitted, do not speculate about the unshown code.
           Do not modify code, do not create commits, and do not open a pull request.
           Do not ask follow-up questions.
           Review contract:
@@ -512,7 +513,7 @@ jobs:
           - For Next.js 16 and React 19, prefer Server Components, avoid client-side data waterfalls, keep uncached data behind Suspense where required, use next/image and next/font, and preserve storefront Core Web Vitals.
           - For Supabase changes, check RLS, scoped queries, explicit column selection, service-role isolation, and race conditions around read-modify-write flows.
           - For public storefront changes, check semantic HTML, metadata, JSON-LD, accessible labels, keyboard behavior, focus states, and themed CSS variables instead of hardcoded storefront colors.
-          - Do not speculate beyond repository evidence or produce broad style commentary when there is no concrete risk.
+          - You may use web search to verify framework, library, API, model, or version facts against current official documentation; do not speculate beyond repository evidence and verified docs, and do not produce broad style commentary when there is no concrete risk.
           Return only concise Markdown with exactly these sections:
           ## Verdict
           ## Findings
