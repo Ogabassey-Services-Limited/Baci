@@ -52,6 +52,14 @@ describe('Newsletter', () => {
     ).toBeInTheDocument();
   });
 
+  it('exposes the email input with an accessible name (WCAG 4.1.2)', () => {
+    render(<Newsletter />);
+
+    expect(
+      screen.getByRole('textbox', { name: 'Email address' })
+    ).toBeInstanceOf(HTMLInputElement);
+  });
+
   it('shows an error when the newsletter API rejects the subscription', async () => {
     fetchWithCsrfMock.mockResolvedValue(
       new Response(JSON.stringify({ error: 'Failed' }), { status: 500 })
