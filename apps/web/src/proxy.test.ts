@@ -595,7 +595,88 @@ describe('Middleware Proxy', () => {
       expect(missingMock).not.toHaveBeenCalled();
     });
 
-    it('exempts the internal slug-set route from the public rate limiter', async () => {
+    it('does not hard-404 the /my-account/[...path] catch-all (non-PDP first segment)', async () => {
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest('https://ogabassey.com/my-account/orders');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(missingMock).not.toHaveBeenCalled();
+    });
+
+    it('decodes a percent-encoded product slug before the membership check', async () => {
+      missingMock.mockResolvedValue(false);
+      // `cafe%cc%81` is `cafe` + a combining acute accent — the DB slug stores
+      // the decoded form, so the proxy must compare decoded, not the raw bytes.
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/cafe%cc%81'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      await proxy(req);
+
+      expect(missingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          productSlug: decodeURIComponent('cafe%cc%81'),
+        })
+      );
+    });
+
+    it('returns a hard 404 for a confirmed-missing product slug on a subdomain', async () => {
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest(
+        'https://ogabassey.usebaci.com/smartphones/totally-made-up'
+      );
+      req.headers.set('host', 'ogabassey.usebaci.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      expect(missingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          productSlug: 'totally-made-up',
+        })
+      );
+    });
+
+    it('returns a hard 404 for a confirmed-missing slug on a root-domain slug path', async () => {
+      // getCustomDomainForSlug defaults to null, so the slug is served in
+      // path-mode (no 301 to a custom domain) and the platform host strips the
+      // leading slug, leaving `{category}/{product}` for the check.
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest(
+        'https://usebaci.com/ogabassey/smartphones/totally-made-up'
+      );
+      req.headers.set('host', 'usebaci.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(missingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          productSlug: 'totally-made-up',
+        })
+      );
+    });
+
+    it('exempts an AUTHENTICATED internal slug-set call from the public rate limiter', async () => {
+      const req = new NextRequest(
+        'https://ogabassey.com/api/internal/slug-set/ogabassey.com?slug=x'
+      );
+      req.headers.set('host', 'ogabassey.com');
+      req.headers.set('Authorization', 'Bearer test-internal-secret');
+
+      await proxy(req);
+
+      expect(checkRateLimit).not.toHaveBeenCalled();
+    });
+
+    it('still rate-limits an UNAUTHENTICATED request to the internal route (anti-flood)', async () => {
       const req = new NextRequest(
         'https://ogabassey.com/api/internal/slug-set/ogabassey.com'
       );
@@ -603,7 +684,21 @@ describe('Middleware Proxy', () => {
 
       await proxy(req);
 
-      expect(checkRateLimit).not.toHaveBeenCalled();
+      // No valid bearer → must NOT be exempt, or the secret could be
+      // flood-guessed without ever tripping the limiter.
+      expect(checkRateLimit).toHaveBeenCalled();
+    });
+
+    it('still rate-limits an internal request bearing the WRONG secret', async () => {
+      const req = new NextRequest(
+        'https://ogabassey.com/api/internal/slug-set/ogabassey.com'
+      );
+      req.headers.set('host', 'ogabassey.com');
+      req.headers.set('Authorization', 'Bearer wrong-secret');
+
+      await proxy(req);
+
+      expect(checkRateLimit).toHaveBeenCalled();
     });
   });
 

@@ -231,8 +231,25 @@ export type CachedCategoryPageData =
       // True when the products fallback query errored (vs a genuinely empty
       // result) — consumers must fail open instead of 404ing.
       productsQueryFailed?: boolean;
+      // True when the category `.single()` lookup hit a transient error (not a
+      // normal "no rows") — consumers must also fail open on this.
+      categoryQueryFailed?: boolean;
       seo?: null;
     };
+
+/**
+ * PostgREST returns code `PGRST116` when `.single()`/`.maybeSingle()` matches no
+ * rows. That is the EXPECTED outcome for an unknown slug, not a failure — used
+ * to keep "no rows" from being treated as a transient error in fail-open guards.
+ */
+function isPostgrestNoRowsError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'PGRST116'
+  );
+}
 
 function parsePriceValue(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -1749,7 +1766,13 @@ export async function getCachedCategoryPageData(
     data: StorefrontCategoryRow | null;
     error: unknown;
   }>;
-  const { data: categoryRow } = await categoryQuery;
+  const { data: categoryRow, error: categoryError } = await categoryQuery;
+  // `.single()` returns PGRST116 ("no rows") for a genuinely unknown slug — that
+  // is the EXPECTED path for legacy category/brand URLs with no `categories`
+  // row, so it must NOT count as a failure (else the doorway trap never fires).
+  // Any OTHER error is transient (connection/timeout) → fail open downstream.
+  const categoryQueryFailed =
+    Boolean(categoryError) && !isPostgrestNoRowsError(categoryError);
   let hiddenCategoryState: StorefrontCategorySlugState | null = null;
 
   if (!categoryRow) {
@@ -1896,6 +1919,9 @@ export async function getCachedCategoryPageData(
     // slug so the doorway-trap notFound() guard can fail open instead of
     // noindex-ing a live legacy category/brand listing on a transient error.
     productsQueryFailed: Boolean(productsError),
+    // Same fail-open contract for a transient error on the category `.single()`
+    // lookup itself (a "no rows" result is excluded above and is NOT a failure).
+    categoryQueryFailed,
   };
 }
 

@@ -28,6 +28,7 @@ import {
   extractClickIdsFromUrl,
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   getCustomDomainForSlug,
   getSlugForCustomDomain,
@@ -188,6 +189,37 @@ const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
 // the crawl-budget slug-set check (which holds slugs, not ids) must skip it.
 const UUID_SHAPED_SLUG =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Decode a raw URL path segment for slug comparison. Path segments arrive
+// percent-encoded while DB slugs are decoded; a malformed sequence (e.g. a lone
+// `%`) throws — fall back to the raw value so a bad encoding never crashes the
+// proxy (worst case: it simply won't match and falls through, never 404ing).
+function safeDecodeSegment(segment: string | undefined): string {
+  if (!segment) {
+    return '';
+  }
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+// True only for an internal request bearing the correct `INTERNAL_API_SECRET`
+// (timing-safe). Used to scope the rate-limit exemption to AUTHENTICATED
+// self-calls — an unauthenticated/forged request to `/api/internal/*` stays
+// rate-limited, so the secret cannot be flooded/guessed without a 429.
+function isAuthenticatedInternalRequest(request: NextRequest): boolean {
+  const secret = getInternalApiSecret();
+  if (!secret) {
+    return false;
+  }
+  const authHeader = request.headers.get('Authorization');
+  return (
+    Boolean(authHeader) &&
+    constantTimeEqual(authHeader ?? '', `Bearer ${secret}`)
+  );
+}
 // PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
 // the prerendered PPR shell can be served from the edge for the LCP win.
 const STOREFRONT_DOCUMENT_CACHE_CONTROL =
@@ -1167,14 +1199,20 @@ async function resolveStorefrontPdpHardNotFound(
   if (contentSegments.length !== 2) {
     return null;
   }
-  const categorySlug = contentSegments[0];
-  const productSlug = contentSegments[1];
-  // The first segment must be a real category — reserved/non-PDP first segments
-  // (blog, account, pages, cart, checkout, …) have their own App Router pages
-  // and must never be hard-404ed by the product membership check.
+  // Path segments arrive percent-encoded (e.g. `dell-%E2%80%93-xps`); the DB
+  // slug is decoded, so we MUST decode before comparing membership/reserved —
+  // otherwise an encoded-but-real slug looks absent and gets falsely 404ed.
+  const categorySlug = safeDecodeSegment(contentSegments[0]);
+  const productSlug = safeDecodeSegment(contentSegments[1]);
+  // The first segment must be a real category — non-PDP first segments (blog,
+  // account, my-account, receipts, pages, cart, checkout, …) have their own App
+  // Router pages (incl. `/my-account/[...path]` catch-alls) and must never be
+  // hard-404ed by the product membership check. Use the BROADER non-cacheable
+  // first-segment set, not just RESERVED, so authenticated route groups are
+  // excluded too.
   if (
     !categorySlug ||
-    RESERVED_STOREFRONT_SEGMENTS.has(categorySlug.toLowerCase())
+    NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(categorySlug.toLowerCase())
   ) {
     return null;
   }
@@ -1301,9 +1339,13 @@ export async function proxy(request: NextRequest) {
     // Internal, Bearer-authed self-calls (e.g. the proxy's own slug-set lookup
     // for the crawl-budget hard-404) must NOT count against the public per-IP
     // rate limiter — a crawler burst would otherwise 429 the internal fetch and
-    // silently disable hard-404s for the window. They have their own auth.
-    const isInternalApiRoute = apiSecurityPathname.startsWith('/api/internal/');
-    const rateLimitResult = isInternalApiRoute
+    // silently disable hard-404s for the window. ONLY exempt requests that carry
+    // the valid internal secret; an unauthenticated/forged `/api/internal/*` hit
+    // stays rate-limited so the secret cannot be flood-guessed without a 429.
+    const isExemptInternalCall =
+      apiSecurityPathname.startsWith('/api/internal/') &&
+      isAuthenticatedInternalRequest(request);
+    const rateLimitResult = isExemptInternalCall
       ? null
       : await checkRateLimit(request);
     if (rateLimitResult && !rateLimitResult.allowed) {
@@ -2305,6 +2347,21 @@ export async function proxy(request: NextRequest) {
       });
     }
 
+    // Crawl-budget hard-404 (PR-B §3.2) for SUBDOMAIN storefronts
+    // (`{slug}.usebaci.com/{category}/{product}`). Same fail-open guard as the
+    // custom-domain branch; identifier is the subdomain. The subdomain host is
+    // not a platform host, so content segments are not slug-sliced here.
+    const subdomainPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+      request,
+      pathname,
+      hostname,
+      userAgent,
+      subdomain as string
+    );
+    if (subdomainPdpHardNotFound) {
+      return subdomainPdpHardNotFound;
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = `/${subdomain}${pathname}`;
     const routeType = getRouteType(pathname);
@@ -2388,6 +2445,41 @@ export async function proxy(request: NextRequest) {
         routeIdentifier: pathSegments[0],
         merchantSlug: pathSegments[0],
       });
+    }
+  }
+
+  // Crawl-budget hard-404 (PR-B §3.2) for slug-prefixed root-domain / preview
+  // storefronts (`usebaci.com/{slug}/{category}/{product}`). Runs AFTER the
+  // slug→custom-domain redirect above (so a slug with a custom domain 301s
+  // instead of 404ing) and is gated to real storefront slugs — never main-app
+  // routes. Platform hosts are slug-prefixed, so the helper strips the slug and
+  // judges `{category}/{product}`. Fail-open as everywhere else.
+  if (
+    (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname)) &&
+    !isLocalhost(hostname)
+  ) {
+    const pathSegments = pathname.split('/').filter(Boolean);
+    const slug = pathSegments[0];
+    const isMainAppRoute =
+      ROOT_DOMAIN_ONLY_MAIN_APP_ROUTES.some(
+        (route) => pathname === route || pathname.startsWith(`${route}/`)
+      ) || MAIN_APP_ROUTES.some((route) => pathname.startsWith(route));
+    if (
+      slug &&
+      !isMainAppRoute &&
+      isValidSubdomain(slug) &&
+      !RESERVED_SUBDOMAINS.has(slug)
+    ) {
+      const rootPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+        request,
+        pathname,
+        hostname,
+        userAgent,
+        slug
+      );
+      if (rootPdpHardNotFound) {
+        return rootPdpHardNotFound;
+      }
     }
   }
 

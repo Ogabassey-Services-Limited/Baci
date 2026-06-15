@@ -53,6 +53,10 @@ export async function getCachedStorefrontProductSlugSet(
       .select('slug')
       .eq('merchant_id', merchantId)
       .not('slug', 'is', null)
+      // Deterministic order is REQUIRED for correct pagination — without an
+      // ORDER BY, Postgres does not guarantee row order across .range() pages,
+      // so pages could overlap/skip and a skipped live slug would be hard-404ed.
+      .order('id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) {

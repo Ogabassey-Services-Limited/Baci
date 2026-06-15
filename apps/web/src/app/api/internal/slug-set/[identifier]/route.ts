@@ -1,32 +1,36 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getInternalApiSecret } from '@/env';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
+import { getMerchantSafe } from '@/lib/cached-data';
 import { getCachedStorefrontProductSlugSet } from '@/lib/cached-storefront-product-slug-set';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
-const FAIL_OPEN = { hasError: true, slugs: [] as string[] };
+// Fail-open membership: the proxy hard-404s ONLY when `present` is false AND
+// `hasError` is false, so any uncertainty returns hasError:true.
+const FAIL_OPEN = { hasError: true, present: false };
+
+const paramsSchema = z.object({
+  identifier: z.string().trim().min(1).max(255),
+});
+const querySchema = z.object({ slug: z.string().trim().min(1).max(255) });
 
 /**
- * Internal slug-set endpoint for the proxy's crawl-budget existence check.
+ * Internal product-slug MEMBERSHIP endpoint for the proxy's crawl-budget
+ * hard-404. The proxy can't call a `'use cache'` function directly, so it
+ * fetches this route, which legally can — and returns only `{ hasError,
+ * present }` (NOT the whole slug list) so a large catalog doesn't add slug-list
+ * transfer/parse to every PDP navigation.
  *
- * The proxy cannot call a `'use cache'` function directly (its bundle never
- * initializes Next's manifests singleton, so the first cache miss throws at
- * runtime). A route handler CAN, so the proxy fetches this endpoint.
+ * `identifier` is the storefront slug or custom domain the proxy has; `?slug=`
+ * is the product slug to test. Always 200 (no-store). Fails open
+ * (`{ hasError: true, present: false }`) on an unconfigured secret, invalid
+ * input, an unresolved or UNPUBLISHED merchant, or a slug-set error — so the
+ * proxy never hard-404s a live product (and never pre-empts the coming-soon
+ * layout for an unpublished store).
  *
- * `identifier` is the storefront slug OR custom domain the proxy already has
- * (`domainMerchantSlug ?? domain`) — the proxy has no merchant UUID. This route
- * resolves it to a merchant (via the cached resolver) and returns that
- * merchant's product slug-set as JSON.
- *
- * Always 200 (no-store): on a missing secret config it is 500; on a missing
- * merchant or builder error it returns `{ hasError: true, slugs: [] }` so the
- * proxy's fetch never sees a transport error and fails open itself (a stale set
- * must never hard-404 a live product).
- *
- * Auth: `Authorization: Bearer ${INTERNAL_API_SECRET}` (timing-safe), so this is
- * not a public slug-scraping endpoint.
+ * Auth: `Authorization: Bearer ${INTERNAL_API_SECRET}` (timing-safe).
  */
 export async function GET(
   request: NextRequest,
@@ -49,15 +53,32 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { identifier } = await context.params;
-
-  const merchant = await getMerchantByIdentifier(identifier);
-  if (!merchant) {
-    // Unknown/unresolvable storefront — fail open so the proxy does not 404 a
-    // product based on a merchant-resolution miss.
+  const params = paramsSchema.safeParse(await context.params);
+  const query = querySchema.safeParse({
+    slug: request.nextUrl.searchParams.get('slug'),
+  });
+  if (!params.success || !query.success) {
+    // Invalid input — fail open rather than 400 so the proxy never hard-404s.
     return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
   }
 
-  const result = await getCachedStorefrontProductSlugSet(merchant.id);
-  return NextResponse.json(result, { status: 200, headers: NO_STORE });
+  const merchant = await getMerchantSafe(params.data.identifier);
+  if (!merchant?.is_published) {
+    // Unknown or unpublished storefront — fail open. An unpublished store still
+    // renders its coming-soon layout; the proxy must not 404 a typo before it.
+    return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+  }
+
+  const set = await getCachedStorefrontProductSlugSet(merchant.id);
+  if (set.hasError) {
+    return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+  }
+
+  const target = query.data.slug.toLowerCase();
+  const present = set.slugs.some((slug) => slug.toLowerCase() === target);
+
+  return NextResponse.json(
+    { hasError: false, present },
+    { status: 200, headers: NO_STORE }
+  );
 }

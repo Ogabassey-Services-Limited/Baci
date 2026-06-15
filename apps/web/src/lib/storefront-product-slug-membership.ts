@@ -1,5 +1,10 @@
 interface SlugMissingOptions {
-  /** Request origin, e.g. `https://ogabassey.com`. */
+  /**
+   * Public request origin, e.g. `https://ogabassey.com` — used as the fallback
+   * fetch base only. When the platform host (`VERCEL_URL`) is available the
+   * internal call routes through it instead, so a custom domain does not pay an
+   * extra DNS/TLS handshake on every PDP navigation.
+   */
   origin: string;
   /** Storefront slug or custom domain the proxy has (resolved by the route). */
   identifier: string;
@@ -14,14 +19,29 @@ interface SlugMissingOptions {
 }
 
 /**
+ * Resolve the base URL for the internal membership hop. The route resolves the
+ * merchant from the `identifier` PATH param (not the Host header), so the call
+ * is host-agnostic — we prefer the platform deployment host (`VERCEL_URL`) to
+ * avoid resolving/handshaking the merchant's custom domain on every PDP nav,
+ * and fall back to the public origin locally (where `VERCEL_URL` is unset).
+ */
+function resolveInternalBaseUrl(origin: string): string {
+  const platformHost = process.env.VERCEL_URL;
+  return platformHost ? `https://${platformHost}` : origin;
+}
+
+/**
  * Returns TRUE only when we POSITIVELY confirm the product slug exists for no
  * product of this merchant (a true typo → the proxy may hard-404 it).
  *
+ * Delegates the membership decision to the internal route (which can legally
+ * call the `'use cache'` slug-set builder the proxy cannot) and reads back only
+ * `{ hasError, present }` — never the full slug list — so a large catalog adds
+ * no slug-list transfer/parse to the navigation.
+ *
  * Fail-open by construction: a missing secret, non-2xx, transport error,
- * timeout, `hasError`, or an empty slug set all return FALSE so the proxy never
- * hard-404s a live product on a stale/unavailable set. Comparison is
- * case-insensitive so a case-mismatched slug falls through to the page's
- * existing canonical 308 rather than being 404'd here.
+ * timeout, `hasError`, or a non-`false` `present` all return FALSE so the proxy
+ * never hard-404s a live product on a stale/unavailable set.
  */
 export async function isStorefrontProductSlugMissing(
   opts: SlugMissingOptions
@@ -33,8 +53,9 @@ export async function isStorefrontProductSlugMissing(
   try {
     const url = new URL(
       `/api/internal/slug-set/${encodeURIComponent(opts.identifier)}`,
-      opts.origin
+      resolveInternalBaseUrl(opts.origin)
     );
+    url.searchParams.set('slug', opts.productSlug);
 
     const response = await (opts.fetchImpl ?? fetch)(url, {
       headers: { Authorization: `Bearer ${opts.secret}` },
@@ -47,25 +68,12 @@ export async function isStorefrontProductSlugMissing(
 
     const body = (await response.json()) as {
       hasError?: boolean;
-      slugs?: unknown;
+      present?: boolean;
     };
 
-    if (
-      !body ||
-      body.hasError ||
-      !Array.isArray(body.slugs) ||
-      body.slugs.length === 0
-    ) {
-      return false;
-    }
-
-    const slugSet = new Set(
-      body.slugs
-        .filter((slug): slug is string => typeof slug === 'string')
-        .map((slug) => slug.toLowerCase())
-    );
-
-    return !slugSet.has(opts.productSlug.toLowerCase());
+    // Hard-404 ONLY on an explicit, error-free "absent" verdict. Any other
+    // shape (hasError, present true/undefined, malformed) falls through.
+    return body?.hasError === false && body?.present === false;
   } catch {
     return false;
   }

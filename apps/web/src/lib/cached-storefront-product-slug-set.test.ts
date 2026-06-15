@@ -26,6 +26,7 @@ function createQueryBuilder(
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     not: vi.fn(() => builder),
+    order: vi.fn(() => builder),
     range: vi.fn((from: number, to: number) => {
       rangeCalls.push([from, to]);
       const page = pages[call] ?? { data: [] };
@@ -75,6 +76,8 @@ describe('getCachedStorefrontProductSlugSet', () => {
     expect(mockCreateAdminClient).toHaveBeenCalled();
     expect(builder.select).toHaveBeenCalledWith('slug');
     expect(builder.eq).toHaveBeenCalledWith('merchant_id', 'merchant-abc');
+    // Deterministic order is required for correct pagination.
+    expect(builder.order).toHaveBeenCalledWith('id', { ascending: true });
     // No `.eq('status', 'active')` — archived slugs must be included so the
     // proxy never 404s a slug the page would legacy-308.
     expect(builder.eq).not.toHaveBeenCalledWith('status', 'active');

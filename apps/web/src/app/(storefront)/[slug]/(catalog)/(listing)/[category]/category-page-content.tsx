@@ -101,7 +101,8 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     !data.isCollection &&
     !data.category?.id &&
     data.products.length === 0 &&
-    !data.productsQueryFailed
+    !data.productsQueryFailed &&
+    !data.categoryQueryFailed
   ) {
     notFound();
   }

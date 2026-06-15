@@ -79,7 +79,8 @@ export async function generateMetadata({
     !data.isCollection &&
     !data.category?.id &&
     data.products.length === 0 &&
-    !data.productsQueryFailed
+    !data.productsQueryFailed &&
+    !data.categoryQueryFailed
   ) {
     notFound();
   }

@@ -1002,6 +1002,28 @@ describe('category page route', () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
+  it('does not notFound an empty result caused by a transient category-lookup error (fail open)', async () => {
+    // The category `.single()` lookup itself failed transiently (not a normal
+    // "no rows") — we cannot prove the slug is a doorway, so fail open.
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      isCollection: false,
+      category: null,
+      products: [],
+      fallbackName: 'Maybe Real',
+      fallbackDescription: 'Maybe real',
+      isInactiveCategory: false,
+      categoryQueryFailed: true,
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'maybe-real' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(metadata.title).toBeTruthy();
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
   it('drops focused storefront filters from category canonical metadata until listing results are filtered', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
