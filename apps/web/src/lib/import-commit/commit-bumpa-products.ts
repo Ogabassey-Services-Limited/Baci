@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 import type { NormalizedImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
 import { generateProductSlug } from '@/lib/seo-utils';
 
@@ -156,6 +157,24 @@ export async function commitBumpaProducts({
     }
 
     createdProducts += 1;
+  }
+
+  // Invalidate product caches so imported products are immediately reflected —
+  // including the crawl-budget product slug-set the proxy hard-404 relies on,
+  // which would otherwise omit freshly imported live slugs until the cache
+  // expires and 404 their PDPs. (This path bypassed revalidateProducts before.)
+  if (createdProducts > 0 || updatedProducts > 0) {
+    // Best-effort: revalidateTag requires a Next request/store context, which a
+    // background import worker may lack. Never let a missing context break the
+    // import — the slug-set still self-heals on its cacheLife expiry.
+    try {
+      revalidateProducts(merchantId);
+    } catch (error) {
+      console.error(
+        'Failed to revalidate product caches after import (non-fatal):',
+        error
+      );
+    }
   }
 
   return {

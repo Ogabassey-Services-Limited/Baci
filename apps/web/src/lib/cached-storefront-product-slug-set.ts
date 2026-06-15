@@ -1,5 +1,5 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import { createPublicClient } from '@/lib/supabase/public';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export interface StorefrontProductSlugSetResult {
   hasError: boolean;
@@ -13,16 +13,28 @@ export interface StorefrontProductSlugSetResult {
   slugs: string[];
 }
 
+// PostgREST caps a single un-ranged select (default 1000 rows). The hard-404
+// decision treats the set as exhaustive, so we MUST page through every row —
+// a truncated set would 404 live products beyond the first page.
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 50; // 50k slugs — a safety bound well above any real catalog.
+
 /**
  * Cached membership set of all product slugs for a merchant, used by the proxy
  * (via an internal route handler — `'use cache'` cannot run in the proxy
  * context) to decide whether an unknown PDP slug should be a hard 404.
  *
+ * Uses the service-role client (`createAdminClient`) ON PURPOSE: anon RLS only
+ * exposes ACTIVE products, but the set must include ARCHIVED slugs so the proxy
+ * does not hard-404 a URL the page would legacy-308. This is an internal,
+ * cached membership read (Bearer-gated route, never returned to a browser) — the
+ * same cached-service-role pattern `getCachedMerchant*` use.
+ *
  * Tagged with a DEDICATED `product-slug-set-${merchantId}` tag so it is
- * invalidated on every product mutation (see `revalidateProducts`). Fail-open:
- * on any error it returns `{ hasError: true, slugs: [] }` and callers MUST NOT
- * 404 when the set is empty/errored — a stale-set miss must never de-index a
- * live product.
+ * invalidated on every product mutation. Fail-open: on any error (including a
+ * possibly-truncated page) it returns `{ hasError: true, slugs: [] }` and the
+ * proxy MUST NOT 404 when the set is empty/errored — a stale or partial set must
+ * never de-index a live product.
  */
 export async function getCachedStorefrontProductSlugSet(
   merchantId: string
@@ -31,24 +43,41 @@ export async function getCachedStorefrontProductSlugSet(
   cacheLife('products');
   cacheTag('products', `product-slug-set-${merchantId}`);
 
-  const supabase = createPublicClient({
-    clientInfo: 'baci-storefront-product-slug-set',
-  });
+  const supabase = createAdminClient();
+  const slugs: string[] = [];
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('slug')
-    .eq('merchant_id', merchantId)
-    .not('slug', 'is', null);
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const from = page * PAGE_SIZE;
+    const { data, error } = await supabase
+      .from('products')
+      .select('slug')
+      .eq('merchant_id', merchantId)
+      .not('slug', 'is', null)
+      .range(from, from + PAGE_SIZE - 1);
 
-  if (error) {
-    console.error('Error fetching storefront product slug set:', error);
-    return { hasError: true, slugs: [] };
+    if (error) {
+      console.error('Error fetching storefront product slug set:', error);
+      return { hasError: true, slugs: [] };
+    }
+
+    const batch = data ?? [];
+    for (const row of batch) {
+      const slug = row.slug?.trim();
+      if (slug) {
+        slugs.push(slug);
+      }
+    }
+
+    if (batch.length < PAGE_SIZE) {
+      return { hasError: false, slugs };
+    }
   }
 
-  const slugs = (data ?? [])
-    .map((row) => row.slug?.trim())
-    .filter((slug): slug is string => Boolean(slug));
-
-  return { hasError: false, slugs };
+  // Hit the page bound without exhausting rows — the set may be truncated, so
+  // fail open rather than risk hard-404ing live products beyond the bound.
+  console.error(
+    'Storefront product slug set exceeded the page bound; failing open',
+    { merchantId }
+  );
+  return { hasError: true, slugs: [] };
 }

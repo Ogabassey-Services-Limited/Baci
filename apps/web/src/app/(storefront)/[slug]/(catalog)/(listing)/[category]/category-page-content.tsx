@@ -97,7 +97,12 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   // Doorway-trap stopgap (crawl-budget) — keep in lockstep with generateMetadata
   // so the rendered shell and the metadata robots agree. Unknown/typo slug:
   // no collection, no category row, no fuzzy-matched products.
-  if (!data.isCollection && !data.category?.id && data.products.length === 0) {
+  if (
+    !data.isCollection &&
+    !data.category?.id &&
+    data.products.length === 0 &&
+    !data.productsQueryFailed
+  ) {
     notFound();
   }
 

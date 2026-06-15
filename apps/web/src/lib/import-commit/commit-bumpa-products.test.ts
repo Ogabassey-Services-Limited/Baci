@@ -1,5 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockRevalidateProducts = vi.fn();
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+}));
+
 import { commitBumpaProducts } from '@/lib/import-commit/commit-bumpa-products';
 import type { NormalizedImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
 
@@ -109,6 +115,9 @@ describe('commitBumpaProducts', () => {
         slug: 'fresh-phone-2',
       })
     );
+    // Imported products must invalidate product caches (incl. the proxy
+    // crawl-budget slug-set) so their PDPs aren't hard-404ed until TTL expiry.
+    expect(mockRevalidateProducts).toHaveBeenCalledWith('merchant-1');
   });
 
   it('throws when loading existing products fails', async () => {

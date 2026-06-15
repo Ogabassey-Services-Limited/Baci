@@ -183,6 +183,11 @@ const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
 const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
+
+// UUID-shaped product URL segment — resolved by the PDP route's id lookup, so
+// the crawl-budget slug-set check (which holds slugs, not ids) must skip it.
+const UUID_SHAPED_SLUG =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
 // the prerendered PPR shell can be served from the edge for the LCP win.
 const STOREFRONT_DOCUMENT_CACHE_CONTROL =
@@ -1162,11 +1167,27 @@ async function resolveStorefrontPdpHardNotFound(
   if (contentSegments.length !== 2) {
     return null;
   }
+  const categorySlug = contentSegments[0];
   const productSlug = contentSegments[1];
+  // The first segment must be a real category — reserved/non-PDP first segments
+  // (blog, account, pages, cart, checkout, …) have their own App Router pages
+  // and must never be hard-404ed by the product membership check.
+  if (
+    !categorySlug ||
+    RESERVED_STOREFRONT_SEGMENTS.has(categorySlug.toLowerCase())
+  ) {
+    return null;
+  }
   if (
     !productSlug ||
     RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
   ) {
+    return null;
+  }
+  // UUID product URLs (`/{category}/{productId}`) resolve through the page's
+  // id-based lookup + canonical 308; the slug set only holds slugs, so a
+  // UUID-shaped segment must never be hard-404ed.
+  if (UUID_SHAPED_SLUG.test(productSlug)) {
     return null;
   }
 
@@ -1277,8 +1298,15 @@ export async function proxy(request: NextRequest) {
   // ==== RATE LIMITING (API Routes) ====
   // Protect API endpoints from abuse
   if (apiSecurityPathname.startsWith('/api')) {
-    const rateLimitResult = await checkRateLimit(request);
-    if (!rateLimitResult.allowed) {
+    // Internal, Bearer-authed self-calls (e.g. the proxy's own slug-set lookup
+    // for the crawl-budget hard-404) must NOT count against the public per-IP
+    // rate limiter — a crawler burst would otherwise 429 the internal fetch and
+    // silently disable hard-404s for the window. They have their own auth.
+    const isInternalApiRoute = apiSecurityPathname.startsWith('/api/internal/');
+    const rateLimitResult = isInternalApiRoute
+      ? null
+      : await checkRateLimit(request);
+    if (rateLimitResult && !rateLimitResult.allowed) {
       return createRateLimitResponse(
         rateLimitResult.limit,
         rateLimitResult.remaining,

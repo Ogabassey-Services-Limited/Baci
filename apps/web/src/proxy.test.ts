@@ -566,6 +566,45 @@ describe('Middleware Proxy', () => {
       expect(res.status).not.toBe(404);
       expect(missingMock).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ['blog', 'https://ogabassey.com/blog/my-post'],
+      ['account', 'https://ogabassey.com/account/login'],
+      ['pages', 'https://ogabassey.com/pages/rewards'],
+    ])('does not hard-404 reserved first-segment route /%s/... (real App Router page)', async (_segment, url) => {
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest(url);
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(missingMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 a UUID product URL (resolved by the page id lookup)', async () => {
+      missingMock.mockResolvedValue(true);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/6b5cb8a4-5575-456c-b936-8cdfae30db74'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(missingMock).not.toHaveBeenCalled();
+    });
+
+    it('exempts the internal slug-set route from the public rate limiter', async () => {
+      const req = new NextRequest(
+        'https://ogabassey.com/api/internal/slug-set/ogabassey.com'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      await proxy(req);
+
+      expect(checkRateLimit).not.toHaveBeenCalled();
+    });
   });
 
   it('does not treat root checkout as a merchant slug redirect candidate', async () => {

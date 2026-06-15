@@ -228,6 +228,9 @@ export type CachedCategoryPageData =
       isInactiveCategory: boolean;
       name?: string;
       products: unknown[];
+      // True when the products fallback query errored (vs a genuinely empty
+      // result) — consumers must fail open instead of 404ing.
+      productsQueryFailed?: boolean;
       seo?: null;
     };
 
@@ -1889,6 +1892,10 @@ export async function getCachedCategoryPageData(
     fallbackName: categoryName,
     fallbackDescription: categoryDescription,
     isInactiveCategory,
+    // Distinguish a transient products-query failure from a genuinely unknown
+    // slug so the doorway-trap notFound() guard can fail open instead of
+    // noindex-ing a live legacy category/brand listing on a transient error.
+    productsQueryFailed: Boolean(productsError),
   };
 }
 

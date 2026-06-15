@@ -980,6 +980,28 @@ describe('category page route', () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
+  it('does not notFound an empty result caused by a transient products-query error (fail open)', async () => {
+    // Same empty shape as an unknown slug, but the products fallback query
+    // FAILED — must not be mistaken for a genuine doorway and noindex'd.
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      isCollection: false,
+      category: null,
+      products: [],
+      fallbackName: 'Maybe Real',
+      fallbackDescription: 'Maybe real',
+      isInactiveCategory: false,
+      productsQueryFailed: true,
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'maybe-real' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(metadata.title).toBeTruthy();
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
   it('drops focused storefront filters from category canonical metadata until listing results are filtered', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
