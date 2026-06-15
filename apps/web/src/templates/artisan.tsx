@@ -135,7 +135,7 @@ export function HandmadeHome(props: TemplatePageProps) {
             {trustBadges.map((badge, index) => {
               const Icon = badge.icon;
               return (
-                <div key={index} className="flex items-center gap-3">
+                <div key={badge.title} className="flex items-center gap-3">
                   <div className="size-12 bg-[#C4785E]/10 rounded-full flex items-center justify-center shrink-0">
                     <Icon className="size-5 text-[#C4785E]" />
                   </div>
@@ -262,7 +262,7 @@ export function HandmadeHome(props: TemplatePageProps) {
           </div>
           <div className="grid md:grid-cols-4 gap-6">
             {materials.map((material, idx) => (
-              <div key={idx} className="bg-[#FAF6F1] rounded-2xl p-6 text-center border border-[#E5DDD3] hover:shadow-md transition-shadow">
+              <div key={material.name} className="bg-[#FAF6F1] rounded-2xl p-6 text-center border border-[#E5DDD3] hover:shadow-md transition-shadow">
                 <span className="text-4xl mb-4 block">{material.emoji}</span>
                 <h3 className="font-semibold text-[#3D2F2F] mb-1">{material.name}</h3>
                 <p className="text-sm text-[#8B7B7B]">{material.description}</p>
@@ -325,7 +325,7 @@ export function HandmadeHome(props: TemplatePageProps) {
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {testimonials.map((t, idx) => (
-              <div key={idx} className="bg-white rounded-2xl p-6 shadow-sm border border-[#E5DDD3]">
+              <div key={t.name} className="bg-white rounded-2xl p-6 shadow-sm border border-[#E5DDD3]">
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className="size-4 text-[#C4785E] fill-[#C4785E]" />

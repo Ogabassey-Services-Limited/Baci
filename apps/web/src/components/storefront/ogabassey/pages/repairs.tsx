@@ -150,10 +150,9 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
           <Wrench className="text-red-600" size={20} /> Restoration Services
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
-          {services.map((service, idx) => (
+          {services.map((service) => (
             <div
-              // biome-ignore lint/suspicious/noArrayIndexKey: Static list
-              key={idx}
+              key={service.title}
               className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-red-200 hover:shadow-md transition-all group cursor-pointer relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity text-red-500">

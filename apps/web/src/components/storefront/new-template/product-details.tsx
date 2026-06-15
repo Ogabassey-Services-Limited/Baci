@@ -218,7 +218,7 @@ export const ProductDetails: React.FC = () => {
                 <div className="grid grid-cols-5 gap-3">
                   {productData.images.map((img, idx) => (
                     <button type="button"
-                      key={idx}
+                      key={img}
                       onClick={() => setSelectedImage(idx)}
                       className={`relative aspect-square rounded-xl border-2 p-2 bg-gray-50 transition-all ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent hover:border-gray-200'}`}
                       aria-label={`View image ${idx + 1}`}
@@ -315,7 +315,7 @@ export const ProductDetails: React.FC = () => {
 
                           return (
                             <button type="button"
-                              key={idx}
+                              key={color.name}
                               onClick={() => {
                                 setSelectedColor(idx);
                                 setSelectedImage(idx); // Sync image with color
@@ -369,7 +369,7 @@ export const ProductDetails: React.FC = () => {
                       <div className="flex flex-wrap gap-3">
                         {productData.storage.map((size, idx) => (
                           <button type="button"
-                            key={idx}
+                            key={size}
                             onClick={() => {
                               setSelectedStorage(idx);
                               setMissingFields((prev) =>
@@ -533,7 +533,7 @@ export const ProductDetails: React.FC = () => {
 
                         return (
                           <button type="button"
-                            key={idx}
+                            key={color.name}
                             onClick={() => {
                               setSelectedColor(idx);
                               setSelectedImage(idx);
@@ -581,7 +581,7 @@ export const ProductDetails: React.FC = () => {
                     <div className="flex flex-wrap gap-3">
                       {productData.storage.map((size, idx) => (
                         <button type="button"
-                          key={idx}
+                          key={size}
                           onClick={() => {
                             setSelectedStorage(idx);
                             setMissingFields((prev) =>

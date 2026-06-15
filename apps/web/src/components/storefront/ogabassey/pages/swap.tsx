@@ -343,8 +343,7 @@ export function OgabasseyV2Swap() {
               },
             ].map((step, idx) => (
               <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: Static list
-                key={idx}
+                key={step.title}
                 className="bg-white p-6 rounded-2xl border border-gray-100 text-center shadow-sm relative"
               >
                 <div className="size-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
