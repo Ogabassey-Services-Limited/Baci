@@ -171,7 +171,7 @@ jobs:
               continue
             fi
             if (( files_budget <= 0 )); then
-              printf '\n### %s\n_(omitted: full-content budget exhausted; see diff above)_\n' "${path}" >> "${full_files_file}"
+              printf '\n<file path="%s">(omitted: full-content budget exhausted; see diff above)</file>\n' "${path}" >> "${full_files_file}"
               continue
             fi
             # URL-encode each path segment (preserving "/") so filenames with
@@ -180,17 +180,17 @@ jobs:
             encoded_path="$(jq -rn --arg p "${path}" '$p | split("/") | map(@uri) | join("/")')"
             if ! gh api "repos/${GITHUB_REPOSITORY}/contents/${encoded_path}?ref=${head_sha}" \
                 -H "Accept: application/vnd.github.raw" > "${content_file}" 2>/dev/null; then
-              printf '\n### %s\n_(content could not be fetched)_\n' "${path}" >> "${full_files_file}"
+              printf '\n<file path="%s">(content could not be fetched)</file>\n' "${path}" >> "${full_files_file}"
               continue
             fi
             # Check emptiness before the mime probe: `file --mime-encoding`
             # reports 0-byte files as "binary", which would mislabel them.
             if [[ ! -s "${content_file}" ]]; then
-              printf '\n### %s\n_(empty file)_\n' "${path}" >> "${full_files_file}"
+              printf '\n<file path="%s">(empty file)</file>\n' "${path}" >> "${full_files_file}"
               continue
             fi
             if [[ "$(file --mime-encoding -b "${content_file}")" == "binary" ]]; then
-              printf '\n### %s\n_(binary file omitted)_\n' "${path}" >> "${full_files_file}"
+              printf '\n<file path="%s">(binary file omitted)</file>\n' "${path}" >> "${full_files_file}"
               continue
             fi
             cap=${per_file_budget}
@@ -204,11 +204,19 @@ jobs:
               file_note=" (truncated)"
             fi
             files_budget=$(( files_budget - $(wc -c < "${content_file}") ))
+            # Wrap in <file> tags (not ``` fences) so file contents that
+            # themselves contain triple backticks don't close the block early.
             {
-              printf '\n### %s%s\n' "${path}" "${file_note}"
-              printf '```\n'
-              cat "${content_file}"
-              printf '\n```\n'
+              if [[ -n "${file_note}" ]]; then
+                printf '\n<file path="%s" truncated="true">\n' "${path}"
+              else
+                printf '\n<file path="%s">\n' "${path}"
+              fi
+              # iconv -c drops invalid/partial UTF-8 (e.g. left by byte
+              # truncation) so the prompt stays valid UTF-8 for the action's
+              # JSON/API encoding.
+              iconv -c -f UTF-8 -t UTF-8 "${content_file}" 2>/dev/null || true
+              printf '\n</file>\n'
             } >> "${full_files_file}"
           done < <(jq -r '.[] | [.filename, .status] | @tsv' "${files_file}")
           if [[ ! -s "${full_files_file}" ]]; then
@@ -224,8 +232,9 @@ jobs:
 
             cat <<'CONTRACT'
           You are reviewing GitHub pull request changes. Below are the changed-file
-          list, the unified diff (what changed), and the FULL current content of each
-          changed file at the head commit. Base every finding on this material.
+          list, the unified diff (what changed) inside a <diff> tag, and the FULL
+          current content of each changed file inside a <file path="..."> tag. Base
+          every finding on this material.
 
           Accuracy rules (this is critical — prior reviews hallucinated):
           - The complete content of each changed file is provided. Do NOT claim that
@@ -260,9 +269,9 @@ jobs:
           CONTRACT
 
             printf '\n## Changed files\n%s\n' "${files_summary}"
-            printf '\n## Unified diff%s\n\n```diff\n' "${diff_note}"
-            cat "${diff_file}"
-            printf '\n```\n'
+            printf '\n## Unified diff%s\n\n<diff>\n' "${diff_note}"
+            iconv -c -f UTF-8 -t UTF-8 "${diff_file}" 2>/dev/null || true
+            printf '\n</diff>\n'
             printf '\n## Full content of changed files\n'
             cat "${full_files_file}"
           } > "${prompt_file}"
