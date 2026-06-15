@@ -1,6 +1,6 @@
-import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { useEffect } from 'react';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { parseSavedRiders } from '@/lib/validators/storage';
 
 export function useOrderDetailsStartupEffects({
