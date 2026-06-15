@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, use } from 'react';
 import type { MerchantContextType } from './types';
 
 export const MerchantContext = createContext<MerchantContextType | undefined>(
@@ -8,7 +8,7 @@ export const MerchantContext = createContext<MerchantContextType | undefined>(
 );
 
 export const useMerchant = (): MerchantContextType => {
-  const context = useContext(MerchantContext);
+  const context = use(MerchantContext);
   if (context === undefined) {
     throw new Error('useMerchant must be used within a MerchantProvider');
   }
@@ -20,5 +20,5 @@ export const useMerchant = (): MerchantContextType => {
  * Useful in components that may render outside merchant context.
  */
 export const useMerchantSafe = (): MerchantContextType | null => {
-  return useContext(MerchantContext) ?? null;
+  return use(MerchantContext) ?? null;
 };
