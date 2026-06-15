@@ -142,7 +142,7 @@ This section provides quick navigation and critical information for AI assistant
 | File | What to Change |
 |------|----------------|
 | `/src/app/globals.css` | CSS variables (colors, fonts) |
-| `/tailwind.config.ts` | Tailwind configuration |
+| `/tailwind.config.mjs` | Tailwind configuration |
 | ⚠️ **Warning** | Changing CSS variable names breaks all components |
 
 ---
