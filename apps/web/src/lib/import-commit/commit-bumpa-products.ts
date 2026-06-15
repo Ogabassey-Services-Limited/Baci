@@ -138,7 +138,11 @@ export async function commitBumpaProducts({
         const { error: updateError } = await supabase
           .from('products')
           .update(payload)
-          .eq('id', existingProduct.id);
+          .eq('id', existingProduct.id)
+          // Tenant scoping (defense-in-depth): this runs via a service-role
+          // client (RLS bypassed), so scope the mutation to the merchant even
+          // though existingProduct.id was loaded merchant-scoped.
+          .eq('merchant_id', merchantId);
 
         if (updateError) {
           throw new Error(

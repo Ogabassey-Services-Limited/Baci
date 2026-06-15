@@ -1,13 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { getInternalApiSecret } from '@/env';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
-
-const bodySchema = z.object({
-  merchantId: z.string().trim().min(1).max(255),
-});
+import { internalRevalidateProductsBodySchema } from '@/schemas/internal-revalidate-products-route';
 
 /**
  * Internal product-cache revalidation endpoint.
@@ -48,7 +44,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const parsed = bodySchema.safeParse(json);
+  const parsed = internalRevalidateProductsBodySchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid input', details: parsed.error.flatten() },

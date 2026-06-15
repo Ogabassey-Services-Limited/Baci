@@ -71,7 +71,10 @@ describe('commitBumpaProducts', () => {
       eq: vi.fn(),
     };
     updateQuery.update.mockReturnValue(updateQuery);
-    updateQuery.eq.mockResolvedValue({ error: null });
+    // Chained .eq('id', …).eq('merchant_id', …): first is chainable, last resolves.
+    updateQuery.eq
+      .mockReturnValueOnce(updateQuery)
+      .mockResolvedValueOnce({ error: null });
 
     const insertQuery = {
       insert: vi.fn(),
@@ -110,6 +113,9 @@ describe('commitBumpaProducts', () => {
         slug: 'imported-phone',
       })
     );
+    // Mutation is tenant-scoped (defense-in-depth under a service-role client).
+    expect(updateQuery.eq).toHaveBeenCalledWith('id', 'existing-product');
+    expect(updateQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(insertQuery.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         external_id: 'prod-2',
@@ -270,7 +276,8 @@ describe('commitBumpaProducts', () => {
       eq: vi.fn(),
     };
     updateQuery.update.mockReturnValue(updateQuery);
-    updateQuery.eq.mockResolvedValue({
+    // Chained .eq('id', …).eq('merchant_id', …): first is chainable, last resolves.
+    updateQuery.eq.mockReturnValueOnce(updateQuery).mockResolvedValueOnce({
       error: { message: 'update failed' },
     });
 

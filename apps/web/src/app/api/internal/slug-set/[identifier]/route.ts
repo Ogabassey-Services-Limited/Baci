@@ -1,20 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { getInternalApiSecret } from '@/env';
 import { getMerchantSafe } from '@/lib/cached-data';
 import { getCachedStorefrontProductSlugSet } from '@/lib/cached-storefront-product-slug-set';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
+import {
+  internalSlugSetParamsSchema,
+  internalSlugSetQuerySchema,
+} from '@/schemas/internal-slug-set-route';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 // Fail-open membership: the proxy hard-404s ONLY when `present` is false AND
 // `hasError` is false, so any uncertainty returns hasError:true.
 const FAIL_OPEN = { hasError: true, present: false };
-
-const paramsSchema = z.object({
-  identifier: z.string().trim().min(1).max(255),
-});
-const querySchema = z.object({ slug: z.string().trim().min(1).max(255) });
 
 /**
  * Internal product-slug MEMBERSHIP endpoint for the proxy's crawl-budget
@@ -53,8 +51,8 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const params = paramsSchema.safeParse(await context.params);
-  const query = querySchema.safeParse({
+  const params = internalSlugSetParamsSchema.safeParse(await context.params);
+  const query = internalSlugSetQuerySchema.safeParse({
     slug: request.nextUrl.searchParams.get('slug'),
   });
   if (!params.success || !query.success) {

@@ -1,175 +1,83 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCreateAdminClient = vi.fn();
+const mockCreatePublicClient = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: (...args: unknown[]) => mockCreatePublicClient(...args),
 }));
 
 import { getCachedStorefrontProductSlugSet } from '@/lib/cached-storefront-product-slug-set';
 
-/**
- * Builder whose `.range()` resolves the queued page results in order, so
- * pagination can be exercised. Each entry is one `.range()` call's result.
- */
-function createQueryBuilder(
-  pages: {
-    data?: { slug: string | null }[] | null;
-    error?: { message: string } | null;
-  }[]
-) {
-  const rangeCalls: [number, number][] = [];
-  let call = 0;
-
-  const builder = {
-    select: vi.fn(() => builder),
-    eq: vi.fn(() => builder),
-    not: vi.fn(() => builder),
-    order: vi.fn(() => builder),
-    range: vi.fn((from: number, to: number) => {
-      rangeCalls.push([from, to]);
-      const page = pages[call] ?? { data: [] };
-      call += 1;
-      return Promise.resolve({
-        data: page.data ?? null,
-        error: page.error ?? null,
-      });
-    }),
-  };
-
-  return { builder, rangeCalls };
-}
-
-function rows(n: number, prefix = 'p'): { slug: string }[] {
-  return Array.from({ length: n }, (_, i) => ({ slug: `${prefix}-${i}` }));
-}
-
 describe('getCachedStorefrontProductSlugSet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreatePublicClient.mockReturnValue({ rpc: mockRpc });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('returns every product slug for the merchant in a single page', async () => {
-    const { builder, rangeCalls } = createQueryBuilder([
-      { data: [{ slug: 'iphone-15' }, { slug: 'macbook-air-m1' }] },
-    ]);
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => builder) });
+  it('returns the merchant slug set from the RPC', async () => {
+    mockRpc.mockResolvedValue({
+      data: ['iphone-15', 'macbook-air-m1'],
+      error: null,
+    });
 
     const result = await getCachedStorefrontProductSlugSet('merchant-1');
 
-    expect(result.hasError).toBe(false);
-    expect(result.slugs).toEqual(['iphone-15', 'macbook-air-m1']);
-    expect(rangeCalls[0]).toEqual([0, 999]); // first page is rows 0..999
+    expect(result).toEqual({
+      hasError: false,
+      slugs: ['iphone-15', 'macbook-air-m1'],
+    });
   });
 
-  it('uses the service-role admin client and selects all statuses scoped to the merchant', async () => {
-    const { builder } = createQueryBuilder([{ data: [] }]);
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => builder) });
+  it('uses the anon public client + the slug-set RPC scoped to the merchant', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
 
     await getCachedStorefrontProductSlugSet('merchant-abc');
 
-    expect(mockCreateAdminClient).toHaveBeenCalled();
-    expect(builder.select).toHaveBeenCalledWith('slug');
-    expect(builder.eq).toHaveBeenCalledWith('merchant_id', 'merchant-abc');
-    // Deterministic order is required for correct pagination.
-    expect(builder.order).toHaveBeenCalledWith('id', { ascending: true });
-    // No `.eq('status', 'active')` — archived slugs must be included so the
-    // proxy never 404s a slug the page would legacy-308.
-    expect(builder.eq).not.toHaveBeenCalledWith('status', 'active');
+    expect(mockCreatePublicClient).toHaveBeenCalledWith(
+      expect.objectContaining({ clientInfo: 'storefront-product-slug-set' })
+    );
+    expect(mockRpc).toHaveBeenCalledWith('get_merchant_product_slug_set', {
+      p_merchant_id: 'merchant-abc',
+    });
   });
 
-  it('paginates through every row when a merchant exceeds the page cap', async () => {
-    const { builder, rangeCalls } = createQueryBuilder([
-      { data: rows(1000, 'a') }, // full page → keep paging
-      { data: rows(5, 'b') }, // partial page → stop
-    ]);
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => builder) });
+  it('trims and drops null/blank slugs defensively', async () => {
+    mockRpc.mockResolvedValue({
+      data: ['real', null, '  ', '  spaced  '],
+      error: null,
+    });
 
     const result = await getCachedStorefrontProductSlugSet('merchant-1');
 
-    expect(result.hasError).toBe(false);
-    expect(result.slugs).toHaveLength(1005);
-    expect(rangeCalls).toEqual([
-      [0, 999],
-      [1000, 1999],
-    ]);
+    expect(result.slugs).toEqual(['real', 'spaced']);
   });
 
-  it('drops null/blank slugs defensively', async () => {
-    const { builder } = createQueryBuilder([
-      { data: [{ slug: 'real' }, { slug: null }, { slug: '  ' }] },
-    ]);
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => builder) });
-
-    const result = await getCachedStorefrontProductSlugSet('merchant-1');
-
-    expect(result.slugs).toEqual(['real']);
-  });
-
-  it('fails open (hasError + empty) on a supabase error', async () => {
+  it('fails open (hasError + empty) on an RPC error', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    const { builder } = createQueryBuilder([
-      { error: { message: 'Connection refused' } },
-    ]);
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'Connection refused' },
+    });
 
     const result = await getCachedStorefrontProductSlugSet('merchant-1');
 
-    expect(result.hasError).toBe(true);
-    expect(result.slugs).toEqual([]);
+    expect(result).toEqual({ hasError: true, slugs: [] });
     expect(consoleSpy).toHaveBeenCalled();
   });
 
-  it('fails open if a page error occurs partway through pagination', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const { builder } = createQueryBuilder([
-      { data: rows(1000, 'a') },
-      { error: { message: 'transient' } },
-    ]);
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => builder) });
+  it('returns empty (no error) when the RPC returns null data', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
 
     const result = await getCachedStorefrontProductSlugSet('merchant-1');
 
-    expect(result.hasError).toBe(true);
-    expect(result.slugs).toEqual([]);
-  });
-
-  it('returns empty (no error) when data is null', async () => {
-    const { builder } = createQueryBuilder([{ data: null }]);
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => builder) });
-
-    const result = await getCachedStorefrontProductSlugSet('merchant-1');
-
-    expect(result.hasError).toBe(false);
-    expect(result.slugs).toEqual([]);
-  });
-
-  it('fails open (hasError) when pagination exceeds the page bound (MAX_PAGES)', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    // Every page is full, so pagination never terminates naturally — it MUST
-    // hit the page bound and fail open rather than 404 live products beyond it.
-    const fullPage = rows(1000, 'x');
-    const builder = {
-      select: vi.fn(() => builder),
-      eq: vi.fn(() => builder),
-      not: vi.fn(() => builder),
-      order: vi.fn(() => builder),
-      range: vi.fn(() => Promise.resolve({ data: fullPage, error: null })),
-    };
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => builder) });
-
-    const result = await getCachedStorefrontProductSlugSet('merchant-1');
-
-    expect(result.hasError).toBe(true);
-    expect(result.slugs).toEqual([]);
-    // Bounded: it stops at MAX_PAGES (50) instead of looping forever.
-    expect(builder.range.mock.calls.length).toBe(50);
+    expect(result).toEqual({ hasError: false, slugs: [] });
   });
 });
