@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, use, useEffect, useRef, useState } from 'react';
 import type { Product } from '../types';
 
 interface V2ComparisonContextType {
@@ -26,7 +26,7 @@ function getComparisonStorageKey(storageNamespace?: string | null) {
 }
 
 export const useV2Comparison = () => {
-  const context = useContext(V2ComparisonContext);
+  const context = use(V2ComparisonContext);
   if (!context) {
     throw new Error(
       'useV2Comparison must be used within a V2ComparisonProvider'

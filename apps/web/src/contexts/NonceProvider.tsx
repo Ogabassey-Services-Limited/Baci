@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, type ReactNode, useContext } from 'react';
+import { createContext, type ReactNode, use } from 'react';
 
 interface NonceContextValue {
   nonce?: string;
@@ -24,7 +24,7 @@ export function NonceProvider({ nonce, children }: NonceProviderProps) {
  * @throws Error if used outside NonceProvider
  */
 export function useNonce() {
-  const context = useContext(NonceContext);
+  const context = use(NonceContext);
   if (context === undefined) {
     throw new Error('useNonce must be used within a NonceProvider');
   }
