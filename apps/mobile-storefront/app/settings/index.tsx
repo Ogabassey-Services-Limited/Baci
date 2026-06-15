@@ -24,8 +24,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
-import { QUERY_CACHE_STORAGE_KEY, queryClient } from '@/lib/query-client';
-import { removeStorageItems } from '@/lib/storage';
+import { queryClient } from '@/lib/query-client';
+import { asyncStorage, removeStorageItems } from '@/lib/storage';
+import { getClearableCacheStorageKeys } from './clear-cache-keys';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
 
 export default function SettingsScreen() {
@@ -84,7 +85,10 @@ export default function SettingsScreen() {
             try {
               queryClient.clear();
 
-              await removeStorageItems([QUERY_CACHE_STORAGE_KEY]);
+              const cacheKeys = getClearableCacheStorageKeys(
+                await asyncStorage.getAllKeys()
+              );
+              await removeStorageItems(cacheKeys);
 
               toast.success('Cache cleared successfully.');
             } catch {
