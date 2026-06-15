@@ -1,18 +1,25 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const chatMocks = vi.hoisted(() => ({
+  addToCart: vi.fn(),
+  parseSantaActions: vi.fn(),
+  setIsCartOpen: vi.fn(),
+  stripSantaActions: vi.fn((content: string) => content),
+}));
+
 // Mock useCart before importing the hook
 vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
-    addToCart: vi.fn(),
-    setIsCartOpen: vi.fn(),
+    addToCart: chatMocks.addToCart,
+    setIsCartOpen: chatMocks.setIsCartOpen,
   })),
 }));
 
 // Mock Santa action helpers to avoid coupling these hook tests to parser details.
 vi.mock('@/components/storefront/santa-chat/types', () => ({
-  parseSantaAction: vi.fn(() => null),
-  stripSantaActions: vi.fn((content: string) => content),
+  parseSantaActions: chatMocks.parseSantaActions,
+  stripSantaActions: chatMocks.stripSantaActions,
 }));
 
 import { useOgabasseyChat } from './use-ogabassey-chat';
@@ -35,6 +42,8 @@ function makeStreamingResponse(text: string) {
 describe('useOgabasseyChat - initial state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    chatMocks.parseSantaActions.mockReturnValue([]);
+    chatMocks.stripSantaActions.mockImplementation((content: string) => content);
     window.localStorage.clear();
     global.fetch = vi.fn();
   });
@@ -340,6 +349,87 @@ describe('useOgabasseyChat - handleSend', () => {
     });
 
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('stores every parsed Santa action on the assistant message', async () => {
+    chatMocks.parseSantaActions.mockReturnValueOnce([
+      { type: 'ADD_TO_CART', productName: 'iPhone 15', price: 600000 },
+      { type: 'ADD_TO_CART', productName: 'Pixel 9', price: 500000 },
+    ]);
+    chatMocks.stripSantaActions.mockReturnValueOnce('Two gifts are ready.');
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeStreamingResponse('raw Santa directives')
+    );
+
+    const { result } = renderHook(() => useOgabasseyChat({ isSanta: true }));
+
+    await act(async () => {
+      await result.current.handleSend('I want two phones');
+    });
+
+    const modelMessage = result.current.messages.find(
+      (message) => message.role === 'model'
+    );
+    expect(modelMessage?.text).toBe('Two gifts are ready.');
+    expect(modelMessage?.santaActions).toEqual([
+      { productName: 'iPhone 15', price: 600000, added: false },
+      { productName: 'Pixel 9', price: 500000, added: false },
+    ]);
+  });
+
+  it('adds the selected Santa action and marks only that action as added', async () => {
+    chatMocks.parseSantaActions.mockReturnValueOnce([
+      { type: 'ADD_TO_CART', productName: 'iPhone 15', price: 600000 },
+      { type: 'ADD_TO_CART', productName: 'Pixel 9', price: 500000 },
+    ]);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeStreamingResponse('raw Santa directives')
+    );
+
+    const { result } = renderHook(() => useOgabasseyChat({ isSanta: true }));
+
+    await act(async () => {
+      await result.current.handleSend('I want two phones');
+    });
+
+    await act(async () => {
+      result.current.handleAddSantaWishToCart(1, 1);
+    });
+
+    expect(chatMocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Pixel 9',
+        price: 500000,
+      }),
+      1
+    );
+    expect(result.current.messages[1]?.santaActions).toEqual([
+      { productName: 'iPhone 15', price: 600000, added: false },
+      { productName: 'Pixel 9', price: 500000, added: true },
+    ]);
+    expect(chatMocks.setIsCartOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('safely ignores an out-of-bounds Santa action index', async () => {
+    chatMocks.parseSantaActions.mockReturnValueOnce([
+      { type: 'ADD_TO_CART', productName: 'iPhone 15', price: 600000 },
+    ]);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeStreamingResponse('raw Santa directive')
+    );
+
+    const { result } = renderHook(() => useOgabasseyChat({ isSanta: true }));
+
+    await act(async () => {
+      await result.current.handleSend('I want a phone');
+    });
+
+    act(() => {
+      result.current.handleAddSantaWishToCart(1, 99);
+    });
+
+    expect(chatMocks.addToCart).not.toHaveBeenCalled();
+    expect(result.current.messages[1]?.santaActions?.[0]?.added).toBe(false);
   });
 });
 

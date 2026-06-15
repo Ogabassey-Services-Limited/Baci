@@ -30,12 +30,12 @@ describe('parseSantaAction', () => {
 
   it('parses a price with decimal places and spaced currency text', () => {
     const result = parseSantaAction(
-      'ACTION:ADD_TO_CART|PRODUCT:AirPods Pro|PRICE:350,000.00 NGN'
+      'ACTION:ADD_TO_CART|PRODUCT:AirPods Pro|PRICE:350,000.50 NGN'
     );
     expect(result).toEqual({
       type: 'ADD_TO_CART',
       productName: 'AirPods Pro',
-      price: 350000,
+      price: 350000.5,
     });
   });
 

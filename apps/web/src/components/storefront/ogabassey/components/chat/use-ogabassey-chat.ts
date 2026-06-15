@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/cart';
 import {
-  parseSantaAction,
+  parseSantaActions,
   stripSantaActions,
 } from '@/components/storefront/santa-chat/types';
 import type { ChatMessage, SantaCartAction } from './types';
@@ -23,7 +23,7 @@ interface UseOgabasseyChat {
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   handleSend: (messageText: string) => Promise<void>;
   handleSubmit: (e: React.FormEvent) => void;
-  handleAddSantaWishToCart: (messageIndex: number) => void;
+  handleAddSantaWishToCart: (messageIndex: number, actionIndex?: number) => void;
 }
 
 function createChatSessionId(): string {
@@ -167,23 +167,23 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
     try {
       const aiResponseText = await requestChatReply(isSanta, history, messageText);
 
-      // Check if Santa granted a wish (parse the ACTION pattern)
-      let santaAction: SantaCartAction | undefined;
+      // Check if Santa granted wishes (parse every ACTION directive).
+      let santaActions: SantaCartAction[] | undefined;
       if (isSanta) {
-        const action = parseSantaAction(aiResponseText);
-        if (action) {
-          santaAction = {
+        const parsedActions = parseSantaActions(aiResponseText);
+        if (parsedActions.length > 0) {
+          santaActions = parsedActions.map((action) => ({
             productName: action.productName,
             price: action.price,
             added: false,
-          };
+          }));
         }
       }
 
       // Clean the response text by removing Santa action directives for display.
       const displayText = stripSantaActions(aiResponseText);
 
-      setMessages((prev) => [...prev, { role: 'model', text: displayText, santaAction }]);
+      setMessages((prev) => [...prev, { role: 'model', text: displayText, santaActions }]);
     } catch (error) {
       console.error('Chat error:', error);
       setMessages((prev) => [
@@ -204,17 +204,19 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
     handleSend(input);
   };
 
-  const handleAddSantaWishToCart = (messageIndex: number) => {
+  const handleAddSantaWishToCart = (messageIndex: number, actionIndex = 0) => {
     const message = messages[messageIndex];
-    if (!message?.santaAction || message.santaAction.added) return;
+    const santaAction =
+      message?.santaActions?.[actionIndex] ?? message?.santaAction;
+    if (!santaAction || santaAction.added) return;
 
     const santaProduct = {
       id: `santa-wish-${Date.now()}`,
       merchant_id: 'ogabassey',
-      name: message.santaAction.productName,
-      description: `Santa's special Christmas wish - ${message.santaAction.productName}`,
+      name: santaAction.productName,
+      description: `Santa's special Christmas wish - ${santaAction.productName}`,
       status: 'active' as const,
-      price: message.santaAction.price,
+      price: santaAction.price,
       manage_stock: false,
       stock: 999,
       image: '/african-santa-head.svg',
@@ -231,8 +233,18 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
 
     setMessages((prev) =>
       prev.map((msg, idx) =>
-        idx === messageIndex && msg.santaAction
-          ? { ...msg, santaAction: { ...msg.santaAction, added: true } }
+        idx === messageIndex
+          ? {
+              ...msg,
+              // TODO(santa-actions): remove the legacy singular update once
+              // all Ogabassey chat consumers read only `santaActions`.
+              santaAction: msg.santaAction
+                ? { ...msg.santaAction, added: true }
+                : msg.santaAction,
+              santaActions: msg.santaActions?.map((action, index) =>
+                index === actionIndex ? { ...action, added: true } : action
+              ),
+            }
           : msg
       )
     );

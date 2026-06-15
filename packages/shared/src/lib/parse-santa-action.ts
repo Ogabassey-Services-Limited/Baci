@@ -50,7 +50,7 @@ function toSantaAction(match: RegExpMatchArray): SantaAction | null {
   return {
     type: 'ADD_TO_CART',
     productName,
-    price: Number.parseInt(priceText.replace(/,/g, ''), 10),
+    price: Number.parseFloat(priceText.replace(/,/g, '')),
   };
 }
 

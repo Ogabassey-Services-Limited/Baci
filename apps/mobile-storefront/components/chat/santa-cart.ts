@@ -1,8 +1,8 @@
 import type { SantaAction } from '@baci/shared/lib';
-import { santaProductLookupResponseSchema } from '@/schemas/santa-product-lookup';
-import type { SantaProductLookupResult } from '@/schemas/santa-product-lookup';
 import { showCartToast } from '@/hooks/cart-notifications';
 import { createLogger } from '@/lib/logger';
+import type { SantaProductLookupResult } from '@/schemas/santa-product-lookup';
+import { santaProductLookupResponseSchema } from '@/schemas/santa-product-lookup';
 import { useCartStore } from '@/stores/cart-store';
 import type { CartItem } from '@/stores/cart-store.types';
 import { API_BASE_URL } from './constants';
@@ -39,6 +39,16 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
 
+function slugifySantaProductName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 function buildSantaCartItem(
   product: SantaProductLookupResult,
   grantedPrice: number
@@ -47,15 +57,17 @@ function buildSantaCartItem(
   // a negotiated price when it actually beats the catalog price (mirrors web).
   const hasDiscount = grantedPrice >= 0 && grantedPrice < product.price;
   const managesStock = product.manage_stock === true;
+  const slug =
+    product.slug?.trim() || product.id || slugifySantaProductName(product.name);
 
   return {
     product_id: product.id,
-    slug: '',
+    slug,
     name: product.name,
     price: product.price,
     quantity: 1,
     image_url: product.image || undefined,
-    max_quantity: managesStock ? product.stock : undefined,
+    max_quantity: managesStock ? (product.stock ?? undefined) : undefined,
     negotiatedPrice: hasDiscount ? grantedPrice : undefined,
     negotiationStatus: hasDiscount ? 'accepted' : undefined,
   };

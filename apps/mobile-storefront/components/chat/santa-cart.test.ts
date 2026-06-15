@@ -56,6 +56,7 @@ describe('addSantaWishToCart', () => {
       price: 950_000,
       image: 'https://img/iphone.jpg',
       manage_stock: true,
+      slug: 'iphone-15',
       stock: 5,
     });
 
@@ -65,6 +66,7 @@ describe('addSantaWishToCart', () => {
     expect(mockAddItem).toHaveBeenCalledWith(
       expect.objectContaining({
         product_id: 'prod-1',
+        slug: 'iphone-15',
         name: 'iPhone 15',
         price: 950_000,
         quantity: 1,
@@ -85,6 +87,7 @@ describe('addSantaWishToCart', () => {
       id: '',
       name: 'Limited Drop',
       price: 500_000,
+      slug: null,
       manage_stock: false,
       stock: 9999,
     });
@@ -99,10 +102,38 @@ describe('addSantaWishToCart', () => {
     expect(mockAddItem).toHaveBeenCalledWith(
       expect.objectContaining({
         product_id: '',
+        slug: 'limited-drop',
         price: 500_000,
         max_quantity: undefined,
         negotiatedPrice: undefined,
         negotiationStatus: undefined,
+      })
+    );
+  });
+
+  it('coalesces null Supabase fields before adding the cart line', async () => {
+    mockLookup({
+      id: 'prod-null',
+      name: 'Null Stock Phone',
+      price: 300_000,
+      image: null,
+      manage_stock: true,
+      slug: null,
+      stock: null,
+    });
+
+    const result = await addSantaWishToCart({
+      type: 'ADD_TO_CART',
+      productName: 'Null Stock Phone',
+      price: 250_000,
+    });
+
+    expect(result).toBe(true);
+    expect(mockAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_url: undefined,
+        max_quantity: undefined,
+        slug: 'prod-null',
       })
     );
   });
@@ -170,10 +201,10 @@ describe('addSantaWishToCart', () => {
   });
 
   it('returns false without a toast when the lookup request is aborted', async () => {
-    global.fetch = jest.fn(async () => {
+    global.fetch = jest.fn(() => {
       const error = new Error('The request was aborted');
       error.name = 'AbortError';
-      throw error;
+      return Promise.reject(error);
     }) as unknown as typeof fetch;
 
     const result = await addSantaWishToCart(action, mockAbortSignal);

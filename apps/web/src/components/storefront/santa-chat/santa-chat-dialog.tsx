@@ -15,7 +15,7 @@ import type { Product } from '@/lib/products';
 import { ChatInput } from './chat-input';
 import { ChatMessage } from './chat-message';
 import type { ChatMessage as ChatMessageType } from './types';
-import { parseSantaActions } from './types';
+import { parseSantaActions, stripSantaActions } from './types';
 import { WelcomeScreen } from './welcome-screen';
 
 interface Message {
@@ -380,12 +380,7 @@ export function SantaChatDialog({
         <div className="max-w-3xl mx-auto">
           {messages.map((msg) => {
             // Strip ACTION commands from displayed content
-            const displayContent = msg.content
-              .replace(
-                /ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:\d+(?:,\d+)?/g,
-                ''
-              )
-              .trim();
+            const displayContent = stripSantaActions(msg.content);
             return (
               <ChatMessage
                 key={msg.id}
