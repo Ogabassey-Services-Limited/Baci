@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, use } from 'react';
 import type { CartContextType } from './cart-types';
 
 export const CartContext = createContext<CartContextType | undefined>(
@@ -8,7 +8,7 @@ export const CartContext = createContext<CartContextType | undefined>(
 );
 
 export const useCart = (): CartContextType => {
-  const context = useContext(CartContext);
+  const context = use(CartContext);
   if (context === undefined) {
     throw new Error('useCart must be used within a CartProvider');
   }
@@ -16,5 +16,5 @@ export const useCart = (): CartContextType => {
 };
 
 export const useCartSafe = (): CartContextType | null => {
-  return useContext(CartContext) ?? null;
+  return use(CartContext) ?? null;
 };
