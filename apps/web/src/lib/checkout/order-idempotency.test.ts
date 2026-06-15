@@ -54,6 +54,23 @@ describe('order idempotency hashing', () => {
     );
   });
 
+  it('distinguishes two different discount codes with the same amount', () => {
+    const codeA = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      discount_amount: 0,
+      discount_code: 'SAVE10',
+    });
+    const codeB = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      discount_amount: 0,
+      discount_code: 'WELCOME',
+    });
+
+    expect(hashOrderIdempotencyPayload(codeA)).not.toBe(
+      hashOrderIdempotencyPayload(codeB)
+    );
+  });
+
   it('hashes duplicate product and variant lines identically after line reordering', () => {
     const blueLine = {
       ...baseOrder.items[0],

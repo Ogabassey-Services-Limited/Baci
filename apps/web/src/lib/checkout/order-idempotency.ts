@@ -19,6 +19,7 @@ export type OrderIdempotencyPayloadInput = {
   customer_name: string;
   customer_phone?: string | null;
   discount_amount?: number;
+  discount_code?: string | null;
   gift_wrapping_fee?: number;
   items: readonly IdempotencyItem[];
   merchant_id: string;
@@ -136,6 +137,7 @@ export function buildOrderIdempotencyPayload(
     customer_name: normalizeText(input.customer_name),
     customer_phone: normalizeText(input.customer_phone),
     discount_amount: normalizeNumber(input.discount_amount),
+    discount_code: normalizeText(input.discount_code) || null,
     gift_wrapping_fee: normalizeNumber(input.gift_wrapping_fee),
     items: normalizeItems(input.items),
     merchant_id: normalizeText(input.merchant_id),
