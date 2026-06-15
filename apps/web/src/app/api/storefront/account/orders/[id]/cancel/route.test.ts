@@ -91,6 +91,18 @@ describe('POST /api/storefront/account/orders/[id]/cancel', () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
+  it('returns 400 when the order id is not a valid UUID', async () => {
+    authOk();
+    const invalidParams = Promise.resolve({ id: 'not-a-uuid' });
+
+    const res = await POST(makeRequest({}), { params: invalidParams });
+
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe('Invalid order id');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it('returns 400 for an invalid reason', async () => {
     authOk();
 
