@@ -258,21 +258,23 @@ export default function ProductEditScreen() {
         visible={controller.isFulfillmentModalVisible}
       />
 
-      <ProductRestockSheet
-        colors={colors}
-        productId={controller.id}
-        variantId={null}
-        onClose={() => setIsRestockSheetVisible(false)}
-        visible={isRestockSheetVisible}
-      />
+      {isRestockSheetVisible ? (
+        <ProductRestockSheet
+          colors={colors}
+          productId={controller.id}
+          variantId={null}
+          onClose={() => setIsRestockSheetVisible(false)}
+        />
+      ) : null}
 
-      <VariantInventoryUnitsSheet
-        colors={colors}
-        productId={controller.id}
-        variantId={null}
-        onClose={() => setIsUnitsSheetVisible(false)}
-        visible={isUnitsSheetVisible}
-      />
+      {isUnitsSheetVisible ? (
+        <VariantInventoryUnitsSheet
+          colors={colors}
+          productId={controller.id}
+          variantId={null}
+          onClose={() => setIsUnitsSheetVisible(false)}
+        />
+      ) : null}
     </>
   );
 }

@@ -76,7 +76,7 @@ export type RestockUnitInput =
 export interface VariantInventoryFilters {
   productId: string;
   variantId?: string | null;
-  status?: string | null;
+  status?: VariantInventoryStatus | null;
   branchScope?: string;
   branchId?: string | null;
   limit?: number;

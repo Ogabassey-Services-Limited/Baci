@@ -21,6 +21,7 @@ import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 import { recordPaymentBodySchema } from '@/schemas/record-payment';
@@ -455,6 +456,8 @@ export async function POST(
       try {
         await ensurePaidOrderInventoryConfirmed(supabase, merchantId, id);
       } catch (inventoryError) {
+        let cleanupFailed = false;
+
         try {
           await rollbackOrderStatusAfterInventoryConfirmationFailure(
             supabase,
@@ -466,6 +469,7 @@ export async function POST(
             }
           );
         } catch (rollbackError) {
+          cleanupFailed = true;
           logger.error({
             message:
               'RecordPayment failed to rollback order status after inventory confirmation failure',
@@ -482,6 +486,7 @@ export async function POST(
             .eq('merchant_id', merchantId);
 
           if (deleteTransactionError) {
+            cleanupFailed = true;
             logger.error({
               message:
                 'RecordPayment failed to delete manual transaction after inventory confirmation failure',
@@ -495,15 +500,22 @@ export async function POST(
         logger.error({
           message: 'RecordPayment failed to confirm inventory',
           orderId: id,
+          cleanupFailed,
           error: inventoryError,
         });
+
+        if (cleanupFailed) {
+          return NextResponse.json(
+            {
+              code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
+              error: 'Inventory confirmation cleanup failed',
+            },
+            { status: 500 }
+          );
+        }
+
         return NextResponse.json(
-          {
-            error:
-              inventoryError instanceof Error
-                ? inventoryError.message
-                : 'Inventory confirmation failed',
-          },
+          buildInventoryConfirmationFailurePayload(inventoryError),
           { status: 409 }
         );
       }

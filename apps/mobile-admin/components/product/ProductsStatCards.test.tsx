@@ -115,6 +115,34 @@ describe('ProductsStatCards', () => {
     expect(screen.getAllByText('₦0')).toHaveLength(2);
   });
 
+  it('renders an analytics error state for website stats failures', () => {
+    vi.mocked(useWebsiteAnalytics).mockReturnValue({
+      data: null,
+      error: new Error('analytics unavailable'),
+      isLoading: false,
+    } as unknown as ReturnType<typeof useWebsiteAnalytics>);
+
+    render(<ProductsStatCards activeTab="on_website" />);
+
+    screen.getByText('Website Stats');
+    screen.getByText('Unavailable');
+    screen.getByText('Try again later');
+  });
+
+  it('renders an inventory error state for inventory stats failures', () => {
+    vi.mocked(useInventoryStats).mockReturnValue({
+      data: null,
+      error: new Error('inventory unavailable'),
+      isLoading: false,
+    } as unknown as ReturnType<typeof useInventoryStats>);
+
+    render(<ProductsStatCards activeTab="in_stock" />);
+
+    screen.getByText('Inventory Stats');
+    screen.getByText('Unavailable');
+    screen.getByText('Try again later');
+  });
+
   it('uses the merchant currency symbol for inventory amounts', () => {
     vi.mocked(useMerchant).mockReturnValue({
       merchant: { payout_currency: 'GBP' },

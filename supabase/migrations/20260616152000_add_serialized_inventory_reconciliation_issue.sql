@@ -1,7 +1,8 @@
+-- disable-transaction
 ALTER TABLE public.reconciliation_review
   ADD COLUMN IF NOT EXISTS merchant_id UUID REFERENCES public.merchants(id) ON DELETE SET NULL;
 
-CREATE INDEX IF NOT EXISTS reconciliation_review_by_merchant_idx
+CREATE INDEX CONCURRENTLY IF NOT EXISTS reconciliation_review_by_merchant_idx
   ON public.reconciliation_review (merchant_id, created_at DESC)
   WHERE merchant_id IS NOT NULL;
 

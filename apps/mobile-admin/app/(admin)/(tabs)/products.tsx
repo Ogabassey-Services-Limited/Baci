@@ -156,6 +156,7 @@ export default function ProductsScreen() {
     hasNextPage,
     fetchNextPage,
     refetch: refetchProducts,
+    error: productsError,
   } = useProducts({
     stockFilter,
     search: searchQuery.trim() || undefined,
@@ -572,19 +573,25 @@ export default function ProductsScreen() {
             !isProductsLoading ? (
               <View style={styles.emptyContainer}>
                 <Ionicons
-                  name={emptyState.icon}
+                  name={
+                    productsError ? 'alert-circle-outline' : emptyState.icon
+                  }
                   size={56}
                   color={colors.textMuted}
                 />
                 <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  {emptyState.title}
+                  {productsError ? "Couldn't load products" : emptyState.title}
                 </Text>
                 <Text
                   style={[styles.emptyText, { color: colors.textSecondary }]}
                 >
-                  {emptyState.description}
+                  {productsError
+                    ? 'Refresh the page or try again in a moment.'
+                    : emptyState.description}
                 </Text>
-                {emptyState.buttonLabel && emptyState.onPress ? (
+                {!productsError &&
+                emptyState.buttonLabel &&
+                emptyState.onPress ? (
                   <Pressable
                     style={[
                       styles.emptyButton,

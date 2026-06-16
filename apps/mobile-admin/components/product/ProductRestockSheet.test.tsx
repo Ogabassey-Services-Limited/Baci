@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
 import { ProductRestockSheet } from './ProductRestockSheet';
 
@@ -113,6 +113,13 @@ vi.mock('react-native', async () => {
 });
 
 describe('ProductRestockSheet', () => {
+  beforeEach(() => {
+    mocks.alert.mockReset();
+    mocks.mutateAsync.mockReset();
+    mocks.useBranches.mockReset();
+    mocks.useBranches.mockReturnValue({ data: [] });
+  });
+
   const colors = {
     border: '#e2e8f0',
     inputBg: '#f8fafc',
@@ -175,6 +182,28 @@ describe('ProductRestockSheet', () => {
       ],
       branchId: 'branch-2',
     });
+  });
+
+  it('treats delimiter-only input as an empty restock submission', () => {
+    render(
+      <ProductRestockSheet
+        colors={colors}
+        productId="product-1"
+        onClose={vi.fn()}
+        visible={true}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Identifiers text list'), {
+      target: { value: ',,\n  ,' },
+    });
+
+    const submitButton = screen.getByLabelText('Submit restock');
+    expect(submitButton).toBeDisabled();
+    fireEvent.click(submitButton);
+
+    expect(mocks.alert).not.toHaveBeenCalled();
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
   });
 
   it('validates invalid IMEI shapes', () => {

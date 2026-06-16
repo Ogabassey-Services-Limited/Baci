@@ -55,29 +55,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (startDate && endDate) {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    if (start > end) {
-      return NextResponse.json(
-        { code: 'INVALID_QUERY', error: 'startDate cannot be after endDate' },
-        { status: 400 }
-      );
-    }
-
-    const diffDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-    if (diffDays > 30) {
-      return NextResponse.json(
-        {
-          code: 'INVALID_DATE_RANGE',
-          error: 'Date range cannot exceed 30 days',
-        },
-        { status: 400 }
-      );
-    }
-  }
-
   const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
     requestedMerchantId:
       request.nextUrl.searchParams.get('merchantId') || undefined,
@@ -103,6 +80,27 @@ export async function GET(request: NextRequest) {
 
     if (!finalStartDate) finalStartDate = start.toISOString();
     if (!finalEndDate) finalEndDate = end.toISOString();
+  }
+
+  const start = new Date(finalStartDate);
+  const end = new Date(finalEndDate);
+
+  if (start > end) {
+    return NextResponse.json(
+      { code: 'INVALID_QUERY', error: 'startDate cannot be after endDate' },
+      { status: 400 }
+    );
+  }
+
+  const diffDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+  if (diffDays > 30) {
+    return NextResponse.json(
+      {
+        code: 'INVALID_DATE_RANGE',
+        error: 'Date range cannot exceed 30 days',
+      },
+      { status: 400 }
+    );
   }
 
   // 1. Fetch Best Seller (using existing get_top_products RPC)

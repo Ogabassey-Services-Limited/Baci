@@ -13,10 +13,16 @@ type ProductsStatCardsProps = {
 };
 
 export function ProductsStatCards({ activeTab }: ProductsStatCardsProps) {
-  const { data: analyticsData, isLoading: isAnalyticsLoading } =
-    useWebsiteAnalytics();
-  const { data: inventoryStats, isLoading: isInventoryLoading } =
-    useInventoryStats();
+  const {
+    data: analyticsData,
+    error: analyticsError,
+    isLoading: isAnalyticsLoading,
+  } = useWebsiteAnalytics();
+  const {
+    data: inventoryStats,
+    error: inventoryError,
+    isLoading: isInventoryLoading,
+  } = useInventoryStats();
   const { merchant } = useMerchant();
   const { colors } = useTheme();
 
@@ -64,6 +70,14 @@ export function ProductsStatCards({ activeTab }: ProductsStatCardsProps) {
       );
     }
 
+    if (analyticsError) {
+      return (
+        <View style={styles.container}>
+          {renderCard('Website Stats', 'Unavailable', 'Try again later')}
+        </View>
+      );
+    }
+
     const { bestSeller, mostSearched, topConverting } =
       analyticsData?.summary || {};
 
@@ -98,6 +112,14 @@ export function ProductsStatCards({ activeTab }: ProductsStatCardsProps) {
           accessibilityLabel="Loading product stats"
           color={colors.primary}
         />
+      </View>
+    );
+  }
+
+  if (inventoryError) {
+    return (
+      <View style={styles.container}>
+        {renderCard('Inventory Stats', 'Unavailable', 'Try again later')}
       </View>
     );
   }

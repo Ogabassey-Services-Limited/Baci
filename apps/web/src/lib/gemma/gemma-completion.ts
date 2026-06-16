@@ -166,8 +166,12 @@ export function requestGemmaCompletion(
     return requestOllamaCompletion(options);
   }
 
-  // Fallback to 'auto' logic: prefer LLM over Ollama
-  if (options.llmServerUrl) {
+  // Fallback to 'auto' logic: prefer LLM only when its full config is usable.
+  if (
+    options.llmServerUrl &&
+    options.llmServerBearer &&
+    buildLlmBearerAuthHeader(options.llmServerBearer)
+  ) {
     return requestOpenAiCompletion(options);
   }
 

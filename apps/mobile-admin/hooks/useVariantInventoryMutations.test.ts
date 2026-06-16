@@ -47,7 +47,7 @@ import {
   useRestockVariantInventory,
   useUpdateInventoryTrackingPolicy,
   useUpdateVariantInventoryUnit,
-} from './useVariantInventoryMutations';
+} from './useVariantInventory';
 
 describe('useVariantInventoryMutations', () => {
   beforeEach(() => {

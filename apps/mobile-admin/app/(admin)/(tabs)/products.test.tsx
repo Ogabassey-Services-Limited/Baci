@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductsScreen from './products';
 
 vi.mock('@shopify/flash-list', async () => {
@@ -42,10 +42,14 @@ vi.mock('react-native-safe-area-context', async () => {
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({ merchant: { payout_currency: 'NGN' } }),
 }));
+const productHookMocks = vi.hoisted(() => ({
+  useProducts: vi.fn(),
+}));
+
 vi.mock('@/hooks/useProducts', () => ({
-  useProducts: () => ({ products: [], isLoading: false }),
-  useCategories: () => ({ categories: [], isLoading: false }),
-  useInventoryStats: () => ({ inventoryStats: null, isLoading: false }),
+  useProducts: productHookMocks.useProducts,
+  useCategories: () => ({ data: [], isLoading: false }),
+  useInventoryStats: () => ({ data: null, isLoading: false }),
   useCreateCategory: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('@/hooks/useTopSellingProducts', () => ({
@@ -106,6 +110,18 @@ vi.mock('@/components/ui/SafeImage', async () => {
 });
 
 describe('ProductsScreen', () => {
+  beforeEach(() => {
+    productHookMocks.useProducts.mockReturnValue({
+      data: { pages: [{ products: [], totalCount: 0 }] },
+      error: null,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+  });
+
   it('renders products screen successfully', () => {
     const { getByRole, getAllByText } = render(<ProductsScreen />);
 
@@ -115,5 +131,24 @@ describe('ProductsScreen', () => {
     expect(getAllByText('Items (0)')[0]).toBeTruthy();
     expect(getAllByText('Start managing stock')[0]).toBeTruthy();
     expect(getAllByText('Add Stocked Item')[0]).toBeTruthy();
+  });
+
+  it('shows a product load error state when the product query fails', () => {
+    productHookMocks.useProducts.mockReturnValue({
+      data: { pages: [{ products: [], totalCount: 0 }] },
+      error: new Error('products unavailable'),
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    const { getByText } = render(<ProductsScreen />);
+
+    expect(getByText("Couldn't load products")).toBeTruthy();
+    expect(
+      getByText('Refresh the page or try again in a moment.')
+    ).toBeTruthy();
   });
 });

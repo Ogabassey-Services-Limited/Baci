@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ensurePaidOrderInventoryConfirmed,
+  isSerializedInventoryUnavailableError,
   rollbackOrderStatusAfterInventoryConfirmationFailure,
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 
@@ -101,9 +102,7 @@ describe('ensurePaidOrderInventoryConfirmed', () => {
         'merchant-123',
         'order-123'
       )
-    ).rejects.toThrow(
-      'confirm_order_inventory_reservations failed: Database connection failed'
-    );
+    ).rejects.toThrow('Inventory confirmation failed');
   });
 
   it('throws a custom error if exceptionCodes has elements', async () => {
@@ -130,9 +129,17 @@ describe('ensurePaidOrderInventoryConfirmed', () => {
         'merchant-123',
         'order-123'
       )
-    ).rejects.toThrow(
-      'serialized_inventory_unavailable: late payment reservation lost (late_payment_reservation_lost)'
-    );
+    ).rejects.toThrow('serialized_inventory_unavailable');
+
+    try {
+      await ensurePaidOrderInventoryConfirmed(
+        asSupabaseClient(mockSupabase),
+        'merchant-123',
+        'order-123'
+      );
+    } catch (error) {
+      expect(isSerializedInventoryUnavailableError(error)).toBe(true);
+    }
   });
 });
 

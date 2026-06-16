@@ -1,5 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+export class SerializedInventoryUnavailableError extends Error {
+  constructor() {
+    super('serialized_inventory_unavailable');
+    this.name = 'SerializedInventoryUnavailableError';
+  }
+}
+
+export function isSerializedInventoryUnavailableError(
+  error: unknown
+): error is SerializedInventoryUnavailableError {
+  return error instanceof SerializedInventoryUnavailableError;
+}
+
+function withCause(message: string, cause: unknown) {
+  const error = new Error(message) as Error & { cause?: unknown };
+  error.cause = cause;
+  return error;
+}
+
 /**
  * Ensures that inventory reservations for a paid or BNPL-approved order are confirmed.
  * Invokes the `confirm_order_inventory_reservations` database function.
@@ -20,9 +39,7 @@ export async function ensurePaidOrderInventoryConfirmed(
   );
 
   if (error) {
-    throw new Error(
-      `confirm_order_inventory_reservations failed: ${error.message}`
-    );
+    throw withCause('Inventory confirmation failed', error);
   }
 
   const result = data as {
@@ -38,10 +55,7 @@ export async function ensurePaidOrderInventoryConfirmed(
     Array.isArray(result.exceptionCodes) &&
     result.exceptionCodes.length > 0
   ) {
-    const codes = result.exceptionCodes.map((ex) => ex.code).join(', ');
-    throw new Error(
-      `serialized_inventory_unavailable: late payment reservation lost (${codes})`
-    );
+    throw new SerializedInventoryUnavailableError();
   }
 }
 

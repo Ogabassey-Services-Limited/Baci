@@ -103,4 +103,27 @@ describe('ProductRestockOptions', () => {
     expect(onBranchChange).toHaveBeenCalledWith(branches[1].id);
     expect(onSourceChange).toHaveBeenCalledWith('dropship');
   });
+
+  it('hides branch assignment options when only one branch is available', () => {
+    const onBranchChange = vi.fn();
+
+    render(
+      <ProductRestockOptions
+        branches={[branches[0]]}
+        colors={colors}
+        mode="imei"
+        onBranchChange={onBranchChange}
+        onModeChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        selectedBranchId={null}
+        source="merchant_stock"
+      />
+    );
+
+    expect(screen.queryByText('Assign to Branch')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Assign to all/no specific branch' })
+    ).not.toBeInTheDocument();
+    expect(onBranchChange).not.toHaveBeenCalled();
+  });
 });

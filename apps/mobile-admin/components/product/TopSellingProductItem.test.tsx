@@ -6,8 +6,12 @@ import type { TopSellingProduct } from '@/hooks/useTopSellingProducts';
 import { TopSellingProductItem } from './TopSellingProductItem';
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  default: () => null,
-  Ionicons: () => null,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
+  Ionicons: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
@@ -129,5 +133,20 @@ describe('TopSellingProductItem', () => {
     );
 
     expect(onPress).toHaveBeenCalledWith('product-1');
+  });
+
+  it('renders the no-image fallback when a top seller has no image', () => {
+    const { container } = render(
+      <TopSellingProductItem
+        item={{ ...product, images: [] }}
+        currencySymbol="₦"
+        onPress={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole('img', { name: 'Top selling product' })
+    ).not.toBeInTheDocument();
+    expect(container.querySelector('[data-icon="image-outline"]')).toBeTruthy();
   });
 });

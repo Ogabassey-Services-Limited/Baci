@@ -30,12 +30,10 @@ export type {
   VariantInventoryUnit,
 } from './useVariantInventory.types';
 
-export {
-  useDeleteVariantInventoryUnit,
-  useRestockVariantInventory,
-  useUpdateInventoryTrackingPolicy,
-  useUpdateVariantInventoryUnit,
-} from './useVariantInventoryMutations';
+export { useDeleteVariantInventoryUnit } from './useDeleteVariantInventoryUnit';
+export { useRestockVariantInventory } from './useRestockVariantInventory';
+export { useUpdateInventoryTrackingPolicy } from './useUpdateInventoryTrackingPolicy';
+export { useUpdateVariantInventoryUnit } from './useUpdateVariantInventoryUnit';
 
 /**
  * Hook to fetch paginated units for a variant or product.

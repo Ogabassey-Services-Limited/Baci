@@ -1,5 +1,11 @@
-import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { selectRuntimePlatform } from '@/config/runtime-platform';
 import Animated, {
   useAnimatedStyle,
@@ -28,6 +34,7 @@ export function TopTabBar({
   onWebsiteCount = 0,
 }: TopTabBarProps) {
   const { colors } = useTheme();
+  const [containerWidth, setContainerWidth] = useState(0);
 
   // 0 represents 'in_stock', 1 represents 'on_website'
   const activeIndex = useSharedValue(activeTab === 'in_stock' ? 0 : 1);
@@ -39,20 +46,27 @@ export function TopTabBar({
     });
   }, [activeTab, activeIndex]);
 
+  const tabWidth = containerWidth / 2;
+
   const indicatorStyle = useAnimatedStyle(() => {
     return {
-      transform: [
-        { translateX: `${activeIndex.value * 100}%` as unknown as number },
-      ],
+      transform: [{ translateX: activeIndex.value * tabWidth }],
     };
   });
+
+  const handleLayout = (event: LayoutChangeEvent) => {
+    setContainerWidth(event.nativeEvent.layout.width);
+  };
 
   const handlePress = (tab: 'in_stock' | 'on_website') => {
     onTabChange(tab);
   };
 
   return (
-    <View style={[styles.container, { borderBottomColor: colors.border }]}>
+    <View
+      onLayout={handleLayout}
+      style={[styles.container, { borderBottomColor: colors.border }]}
+    >
       <Animated.View
         style={[
           styles.indicator,

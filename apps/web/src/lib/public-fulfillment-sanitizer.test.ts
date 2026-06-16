@@ -138,5 +138,27 @@ describe('public-fulfillment-sanitizer', () => {
         ],
       });
     });
+
+    it('passes through non-object order inputs without throwing', () => {
+      expect(sanitizePublicOrder(null)).toBeNull();
+      expect(sanitizePublicOrder(undefined)).toBeUndefined();
+      expect(sanitizePublicOrder('order-id')).toBe('order-id');
+      expect(sanitizePublicOrder(42)).toBe(42);
+    });
+
+    it('leaves non-array order item fields intact while removing order fulfillment details', () => {
+      const order = {
+        id: 'order-3',
+        fulfillment_details: { secret: true },
+        items: { id: 'not-array' },
+        order_items: 'not-array',
+      };
+
+      expect(sanitizePublicOrder(order)).toEqual({
+        id: 'order-3',
+        items: { id: 'not-array' },
+        order_items: 'not-array',
+      });
+    });
   });
 });

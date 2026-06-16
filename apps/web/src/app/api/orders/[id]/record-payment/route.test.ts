@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ensurePaidOrderInventoryConfirmed,
   rollbackOrderStatusAfterInventoryConfirmationFailure,
+  SerializedInventoryUnavailableError,
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 
 vi.mock('server-only', () => ({}));
@@ -64,12 +65,25 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 
 // Mock inventory confirmation
-vi.mock('@/lib/payments/ensure-paid-order-inventory-confirmed', () => ({
-  ensurePaidOrderInventoryConfirmed: vi.fn().mockResolvedValue(undefined),
-  rollbackOrderStatusAfterInventoryConfirmationFailure: vi
-    .fn()
-    .mockResolvedValue(undefined),
-}));
+vi.mock('@/lib/payments/ensure-paid-order-inventory-confirmed', () => {
+  class MockSerializedInventoryUnavailableError extends Error {
+    constructor() {
+      super('serialized_inventory_unavailable');
+      this.name = 'SerializedInventoryUnavailableError';
+    }
+  }
+
+  return {
+    ensurePaidOrderInventoryConfirmed: vi.fn().mockResolvedValue(undefined),
+    isSerializedInventoryUnavailableError: (error: unknown) =>
+      error instanceof MockSerializedInventoryUnavailableError,
+    rollbackOrderStatusAfterInventoryConfirmationFailure: vi
+      .fn()
+      .mockResolvedValue(undefined),
+    SerializedInventoryUnavailableError:
+      MockSerializedInventoryUnavailableError,
+  };
+});
 
 // Mock Supabase server client
 const mockSupabaseClient = {
@@ -767,7 +781,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       .mockReturnValueOnce({ eq: vi.fn().mockResolvedValue({ error: null }) });
 
     vi.mocked(ensurePaidOrderInventoryConfirmed).mockRejectedValueOnce(
-      new Error('serialized_inventory_unavailable')
+      new SerializedInventoryUnavailableError()
     );
 
     let callCount = 0;
@@ -844,7 +858,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const data = await response.json();
 
     expect(response.status).toBe(409);
-    expect(data).toEqual({ error: 'serialized_inventory_unavailable' });
+    expect(data).toEqual({
+      code: 'serialized_inventory_unavailable',
+      error: 'serialized_inventory_unavailable',
+    });
     expect(
       rollbackOrderStatusAfterInventoryConfirmationFailure
     ).toHaveBeenCalledWith(mockSupabaseClient, mockMerchantId, mockOrderId, {
@@ -853,6 +870,126 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     expect(deleteMock).toHaveBeenCalledOnce();
     expect(deleteEqMock).toHaveBeenCalledWith('id', 'txn-123');
+  });
+
+  it('returns cleanup failure when inventory failure rollback cannot restore state', async () => {
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      customer_name: 'John Doe',
+      customer_email: 'john@example.com',
+      customer_phone: '+1234567890',
+      total: 10000,
+      subtotal: 9000,
+      shipping_fee: 1000,
+      currency: 'NGN',
+      payment_status: 'pending',
+      shipping_status: 'pending',
+      wallet_amount_used: 0,
+      order_items: [{ name: 'Product 1', quantity: 2, price: 4500 }],
+      shipping_address: {
+        address: '123 Main St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    };
+
+    vi.mocked(ensurePaidOrderInventoryConfirmed).mockRejectedValueOnce(
+      new SerializedInventoryUnavailableError()
+    );
+    vi.mocked(
+      rollbackOrderStatusAfterInventoryConfirmationFailure
+    ).mockRejectedValueOnce(new Error('rollback failed'));
+
+    let callCount = 0;
+    mockSupabaseClient.from = vi.fn((_table: string) => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockMerchant,
+            error: null,
+          }),
+        };
+      }
+      if (callCount === 2) {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
+        };
+      }
+      if (callCount === 3) {
+        const chain = {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+        };
+        Object.assign(chain, Promise.resolve({ data: [], error: null }));
+        return chain;
+      }
+      if (callCount === 4) {
+        return {
+          insert: vi.fn().mockReturnThis(),
+          select: vi.fn().mockReturnThis(),
+          single: vi
+            .fn()
+            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
+        };
+      }
+      if (callCount === 5) {
+        return {
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  maybeSingle: vi
+                    .fn()
+                    .mockResolvedValue({ data: mockOrder, error: null }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        delete: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          }),
+        }),
+      };
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-ROLLBACK-FAIL',
+      notes: 'Full payment',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
+      error: 'Inventory confirmation cleanup failed',
+    });
   });
 
   it('returns 200 and marks order as partially_paid when partial payment is made', async () => {

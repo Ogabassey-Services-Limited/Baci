@@ -6,8 +6,12 @@ import type { Product } from '@/hooks/useProducts';
 import { ProductItem } from './ProductItem';
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  default: () => null,
-  Ionicons: () => null,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
+  Ionicons: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
@@ -135,6 +139,45 @@ describe('ProductItem', () => {
     );
 
     expect(onPress).toHaveBeenCalledWith('product-1');
+  });
+
+  it('renders the image fallback when no product image is available', () => {
+    const { container } = render(
+      <ProductItem
+        item={{ ...baseProduct, images: [] }}
+        currencySymbol="₦"
+        onPress={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole('img', { name: 'Product' })
+    ).not.toBeInTheDocument();
+    expect(container.querySelector('[data-icon="image-outline"]')).toBeTruthy();
+  });
+
+  it('suppresses compare-at price when it is not greater than the sale price', () => {
+    render(
+      <ProductItem
+        item={{ ...baseProduct, compare_at_price: 50_000 }}
+        currencySymbol="₦"
+        onPress={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText('₦50,000')).toHaveLength(1);
+  });
+
+  it('renders the regular in-stock bucket for healthy managed inventory', () => {
+    render(
+      <ProductItem
+        item={{ ...baseProduct, stock: 12, stock_quantity: 12 }}
+        currencySymbol="₦"
+        onPress={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('In stock: 12')).toBeInTheDocument();
   });
 
   it('does not render raw zero when compare_at_price is zero', () => {

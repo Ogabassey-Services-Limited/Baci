@@ -112,6 +112,72 @@ describe('GET /api/analytics/website-performance', () => {
     expect(body.error).toBe('Date range cannot exceed 30 days');
   });
 
+  it('returns 400 when a single provided boundary expands beyond the 30-day range', async () => {
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-01-01T00:00:00.000Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('INVALID_DATE_RANGE');
+  });
+
+  it('returns 500 when best-seller aggregation fails', async () => {
+    mockAuthenticateApiRequest.mockResolvedValueOnce({
+      error: null,
+      supabase: {
+        from: vi.fn(),
+        rpc: vi.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'rpc failed' },
+        }),
+      },
+      user: { id: 'user-1' },
+    });
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to aggregate best seller');
+  });
+
+  it('returns 500 when analytics events aggregation fails', async () => {
+    mockAuthenticateApiRequest.mockResolvedValueOnce({
+      error: null,
+      supabase: {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          lte: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'events failed' },
+          }),
+        }),
+        rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+      },
+      user: { id: 'user-1' },
+    });
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to aggregate events');
+  });
+
   it('returns 400 when branchId is provided', async () => {
     const response = await GET(
       createRequest(

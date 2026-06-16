@@ -76,4 +76,31 @@ describe('VariantInventoryFiltersBar', () => {
     expect(onBranchFilterChange).toHaveBeenCalledWith('central');
     expect(onBranchFilterChange).toHaveBeenCalledWith('branch-1');
   });
+
+  it('resets status filters and hides branch filters when there are no branches', () => {
+    const onBranchFilterChange = vi.fn();
+    const onStatusFilterChange = vi.fn();
+
+    render(
+      <VariantInventoryFiltersBar
+        branchFilter={null}
+        branches={[]}
+        colors={colors}
+        onBranchFilterChange={onBranchFilterChange}
+        onStatusFilterChange={onStatusFilterChange}
+        statusFilter="reserved"
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Filter by all statuses' })
+    );
+
+    expect(onStatusFilterChange).toHaveBeenCalledWith(null);
+    expect(screen.queryByText('Filter By Branch')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Filter by Central Stock' })
+    ).not.toBeInTheDocument();
+    expect(onBranchFilterChange).not.toHaveBeenCalled();
+  });
 });

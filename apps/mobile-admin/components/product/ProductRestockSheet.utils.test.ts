@@ -14,6 +14,24 @@ describe('ProductRestockSheet utils', () => {
     ]);
   });
 
+  it('drops blank comma and newline segments when parsing identifiers', () => {
+    expect(parseRestockIdentifiers(' SN-1, ,\nSN-2\n  ')).toEqual([
+      'SN-1',
+      'SN-2',
+    ]);
+  });
+
+  it('builds IMEI restock payloads without empty optional notes', () => {
+    expect(
+      buildRestockUnits({
+        identifiers: ['123456789012345'],
+        mode: 'imei',
+        notes: '   ',
+        source: 'merchant_stock',
+      })
+    ).toEqual([{ imei: '123456789012345', source: 'merchant_stock' }]);
+  });
+
   it('detects malformed IMEIs', () => {
     expect(findInvalidImeis(['123456789012345', 'abc', '123'])).toEqual([
       'abc',

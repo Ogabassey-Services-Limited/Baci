@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
 import { VariantInventoryUnitsSheet } from './VariantInventoryUnitsSheet';
 
@@ -159,6 +159,14 @@ vi.mock('react-native', async () => {
 });
 
 describe('VariantInventoryUnitsSheet', () => {
+  beforeEach(() => {
+    mocks.alert.mockReset();
+    mocks.deleteMutateAsync.mockReset();
+    mocks.updateMutateAsync.mockReset();
+    mocks.useBranches.mockReset();
+    mocks.useBranches.mockReturnValue({ data: [] });
+  });
+
   const colors = {
     border: '#e2e8f0',
     inputBg: '#f8fafc',
@@ -243,6 +251,57 @@ describe('VariantInventoryUnitsSheet', () => {
       notes: 'Damaged screen',
       branchId: 'branch-2',
       setBranch: true,
+    });
+  });
+
+  it('shows an alert when updating a unit fails', async () => {
+    mocks.updateMutateAsync.mockRejectedValueOnce(new Error('update failed'));
+
+    render(
+      <VariantInventoryUnitsSheet
+        colors={colors}
+        productId="product-1"
+        onClose={vi.fn()}
+        visible={true}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('Edit unit 123456789012345'));
+    fireEvent.click(screen.getByLabelText('Save unit changes'));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Update Failed',
+        'update failed'
+      );
+    });
+  });
+
+  it('shows an alert when deleting a unit fails', async () => {
+    mocks.deleteMutateAsync.mockRejectedValueOnce(new Error('delete failed'));
+    mocks.alert.mockImplementation((_title, _msg, buttons) => {
+      const deleteAction = buttons?.find(
+        (btn: { text?: string; onPress?: () => void }) => btn.text === 'Delete'
+      );
+      deleteAction?.onPress?.();
+    });
+
+    render(
+      <VariantInventoryUnitsSheet
+        colors={colors}
+        productId="product-1"
+        onClose={vi.fn()}
+        visible={true}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('Delete unit 123456789012345'));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Delete Failed',
+        'delete failed'
+      );
     });
   });
 

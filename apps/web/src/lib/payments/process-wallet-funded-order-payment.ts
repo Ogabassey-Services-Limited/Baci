@@ -2,7 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { findActiveWalletFundingIntentForTransfer } from '@/lib/order-wallet-funding-intents';
-import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import {
+  ensurePaidOrderInventoryConfirmed,
+  isSerializedInventoryUnavailableError,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import {
   type CancellableOrderRow,
   handlePaymentForCancelledOrder,
@@ -96,7 +100,7 @@ export type ProcessWalletFundedOrderPaymentResult =
       body: Record<string, unknown>;
       kind: 'processed';
       orderPaid: boolean;
-      status: 200;
+      status: 200 | 409;
     };
 
 function getMetadataString(metadata: Record<string, unknown>, key: string) {
@@ -456,11 +460,52 @@ export async function processWalletFundedOrderPayment({
       };
     }
 
-    await ensurePaidOrderInventoryConfirmed(
-      supabase,
-      match.intent.merchantId,
-      finalizer.order_id
-    );
+    try {
+      await ensurePaidOrderInventoryConfirmed(
+        supabase,
+        match.intent.merchantId,
+        finalizer.order_id
+      );
+    } catch (inventoryError) {
+      if (isSerializedInventoryUnavailableError(inventoryError)) {
+        logger.error({
+          gatewayReference,
+          intentId: match.intent.id,
+          merchantId: match.intent.merchantId,
+          message:
+            'Wallet-funded order inventory confirmation unavailable after finalization',
+          orderId: finalizer.order_id,
+          transactionId:
+            finalizer.order_payment_transaction_id ?? transaction.id,
+        });
+        await fileInventoryConfirmationFailureReview({
+          gatewayReference,
+          merchantId: match.intent.merchantId,
+          metadata: {
+            intentId: match.intent.id,
+            source: 'wallet_funded_order_payment',
+          },
+          orderId: finalizer.order_id,
+          reason:
+            'Wallet-funded order finalized payment, but serialized inventory could not be confirmed.',
+          transactionId:
+            finalizer.order_payment_transaction_id ?? transaction.id,
+        });
+
+        return {
+          body: {
+            code: 'serialized_inventory_unavailable',
+            error: 'serialized_inventory_unavailable',
+            orderId: finalizer.order_id,
+          },
+          kind: 'processed',
+          orderPaid: false,
+          status: 409,
+        };
+      }
+
+      throw inventoryError;
+    }
 
     const fundedAmount = normalizeFinalizerAmount(
       finalizer.funded_amount,

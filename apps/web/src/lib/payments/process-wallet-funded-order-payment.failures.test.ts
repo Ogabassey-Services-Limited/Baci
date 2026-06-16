@@ -9,6 +9,21 @@ const mockExtractVerifiedGatewayFeeNgn = vi.fn<(...args: unknown[]) => number>(
   () => 300
 );
 
+const mockReconciliationInsert = vi.fn(async () => ({
+  data: null,
+  error: null,
+}));
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    }),
+  })),
+}));
+
 vi.mock('@/lib/order-wallet-funding-intents', () => ({
   findActiveWalletFundingIntentForTransfer: (...args: unknown[]) =>
     mockFindActiveWalletFundingIntentForTransfer(...args),
@@ -95,6 +110,68 @@ describe('processWalletFundedOrderPayment failure paths', () => {
       })
     ).rejects.toThrow('match failed');
     expect(mockMarkWalletFundingIntentReviewRequired).not.toHaveBeenCalled();
+  });
+
+  it('maps unavailable serialized inventory after wallet finalization to a 409 result', async () => {
+    const supabase = createSupabase();
+    supabase.rpc.mockImplementation((...args: unknown[]) => {
+      if (args[0] === 'confirm_order_inventory_reservations') {
+        return Promise.resolve({
+          data: {
+            alreadyConfirmed: 0,
+            confirmedUnitCount: 0,
+            exceptionCodes: [
+              { itemId: 'item-1', code: 'late_payment_reservation_lost' },
+            ],
+            missingUnitCount: 1,
+            reclaimedUnitCount: 0,
+          },
+          error: null,
+        }) as never;
+      }
+
+      return Promise.resolve({
+        data: {
+          debited_amount: 20_000,
+          excess_amount: 0,
+          funded_amount: 20_000,
+          order_id: 'order-1',
+          order_paid: true,
+          order_payment_transaction_id: 'txn-order-1',
+          wallet_credit_transaction_id: 'wallet-credit-1',
+          wallet_debit_transaction_id: 'wallet-debit-1',
+        },
+        error: null,
+      }) as never;
+    });
+
+    const result = await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_1',
+      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter: vi.fn(),
+      supabase: supabase as never,
+      transaction,
+    });
+
+    expect(result).toEqual({
+      body: {
+        code: 'serialized_inventory_unavailable',
+        error: 'serialized_inventory_unavailable',
+        orderId: 'order-1',
+      },
+      kind: 'processed',
+      orderPaid: false,
+      status: 409,
+    });
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'serialized_inventory_confirmation_failed',
+        merchant_id: 'merchant-1',
+        order_id: 'order-1',
+        paystack_ref: 'PSK_REF_1',
+      })
+    );
   });
 
   it('surfaces paid-order side effect failures after money movement completes', async () => {

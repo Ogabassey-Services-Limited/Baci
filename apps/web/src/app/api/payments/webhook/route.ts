@@ -37,6 +37,7 @@ import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
 import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
@@ -757,6 +758,19 @@ export async function POST(request: NextRequest) {
           order_number: string;
           already_processed: boolean;
         };
+
+        if (!result.success) {
+          logger.error({
+            message: 'Chat order conversion returned unsuccessful result',
+            reference,
+            chatOrderId: chatOrder.id,
+            result,
+          });
+          return NextResponse.json(
+            { error: 'Failed to convert chat order' },
+            { status: 500 }
+          );
+        }
 
         if (result.already_processed) {
           logger.info({
@@ -1712,11 +1726,25 @@ export async function POST(request: NextRequest) {
           transactionId: transaction.id,
         });
       } else {
-        await ensurePaidOrderInventoryConfirmed(
-          supabase,
-          transaction.merchant_id,
-          transaction.order_id
-        );
+        try {
+          await ensurePaidOrderInventoryConfirmed(
+            supabase,
+            transaction.merchant_id,
+            transaction.order_id
+          );
+        } catch (inventoryError) {
+          logger.error({
+            message: 'Webhook failed to confirm inventory for paid order',
+            orderId: transaction.order_id,
+            error: inventoryError,
+          });
+          const payload =
+            buildInventoryConfirmationFailurePayload(inventoryError);
+          return NextResponse.json(payload, {
+            status:
+              payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+          });
+        }
 
         logger.info({
           message: 'Order updated successfully',

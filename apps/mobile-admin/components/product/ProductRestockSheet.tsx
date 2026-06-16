@@ -26,7 +26,7 @@ interface ProductRestockSheetProps {
   productId: string;
   variantId?: string | null;
   onClose: () => void;
-  visible: boolean;
+  visible?: boolean;
 }
 
 export function ProductRestockSheet({
@@ -34,7 +34,7 @@ export function ProductRestockSheet({
   productId,
   variantId,
   onClose,
-  visible,
+  visible = true,
 }: ProductRestockSheetProps) {
   const [mode, setMode] = useState<RestockIdentifierMode>('imei');
   const [inputText, setInputText] = useState('');
@@ -45,8 +45,14 @@ export function ProductRestockSheet({
   const { data: branches = [] } = useBranches();
   const restockMutation = useRestockVariantInventory();
   const identifiers = parseRestockIdentifiers(inputText);
+  const isSubmitDisabled =
+    restockMutation.isPending || identifiers.length === 0;
 
   const handleRestock = async () => {
+    if (restockMutation.isPending) {
+      return;
+    }
+
     if (identifiers.length === 0) {
       Alert.alert('Validation Error', 'Please enter at least one identifier.');
       return;
@@ -97,12 +103,12 @@ export function ProductRestockSheet({
         <Pressable
           accessibilityLabel="Submit restock"
           accessibilityRole="button"
-          disabled={restockMutation.isPending || !inputText.trim()}
+          disabled={isSubmitDisabled}
           onPress={handleRestock}
           style={[
             styles.submitButton,
             { backgroundColor: colors.primary },
-            (restockMutation.isPending || !inputText.trim()) && {
+            isSubmitDisabled && {
               opacity: 0.6,
             },
           ]}

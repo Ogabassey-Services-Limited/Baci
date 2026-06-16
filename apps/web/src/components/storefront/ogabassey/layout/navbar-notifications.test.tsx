@@ -26,11 +26,19 @@ vi.mock('../components/empty-state', () => ({
 }));
 
 vi.mock('./navbar-notifications-panel', () => ({
-  NavbarNotificationsPanel: ({ basePath }: { basePath: string }) => (
+  NavbarNotificationsPanel: ({
+    basePath,
+    onClose,
+  }: {
+    basePath: string;
+    onClose: () => void;
+  }) => (
     <div>
       <h3>Notifications</h3>
       <div>No Notifications</div>
-      <a href={`${basePath}/account`}>View All</a>
+      <a href={`${basePath}/account`} onClick={onClose}>
+        View All
+      </a>
     </div>
   ),
 }));
@@ -47,10 +55,12 @@ describe('NavbarNotifications', () => {
 
     expect(await screen.findByText('Notifications')).toBeInTheDocument();
     expect(await screen.findByText('No Notifications')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'View All' })).toHaveAttribute(
-      'href',
-      '/ogabassey/account'
-    );
+    const viewAll = screen.getByRole('link', { name: 'View All' });
+    expect(viewAll).toHaveAttribute('href', '/ogabassey/account');
+
+    await user.click(viewAll);
+
+    expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
   });
 
   it('closes the notification panel when the user clicks outside', async () => {
@@ -67,5 +77,4 @@ describe('NavbarNotifications', () => {
 
     expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
   });
-
 });

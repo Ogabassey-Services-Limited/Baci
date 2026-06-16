@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { requestGemmaCompletion } from './gemma-completion';
 
 describe('requestGemmaCompletion', () => {
+  const originalFetch = global.fetch;
   let mockFetch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -10,6 +11,7 @@ describe('requestGemmaCompletion', () => {
   });
 
   afterEach(() => {
+    global.fetch = originalFetch;
     vi.restoreAllMocks();
   });
 
@@ -53,6 +55,27 @@ describe('requestGemmaCompletion', () => {
     expect(mockFetch.mock.calls[0][0]).toBe(
       'https://llm.example.com/v1/chat/completions'
     );
+  });
+
+  it('falls back to Ollama in auto mode when LLM auth config is partial', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ message: { content: '{"status":"ollama"}' } }),
+    });
+
+    const result = await requestGemmaCompletion({
+      provider: 'auto',
+      llmServerUrl: 'https://llm.example.com',
+      ollamaBaseUrl: 'http://127.0.0.1:11434',
+      model: 'gemma4:e2b',
+      messages: [{ role: 'user', content: 'hello' }],
+      maxTokens: 100,
+      temperature: 0.2,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toBe('{"status":"ollama"}');
+    expect(mockFetch.mock.calls[0][0]).toBe('http://127.0.0.1:11434/api/chat');
   });
 
   it('uses Ollama when provider is ollama even if LLM is configured', async () => {

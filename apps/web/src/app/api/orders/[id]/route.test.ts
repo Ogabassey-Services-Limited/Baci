@@ -20,10 +20,23 @@ vi.mock('@/lib/order-queries', () => ({
   ORDER_WITH_ITEMS_QUERY: 'id',
 }));
 
-vi.mock('@/lib/payments/ensure-paid-order-inventory-confirmed', () => ({
-  ensurePaidOrderInventoryConfirmed: vi.fn(),
-  rollbackOrderStatusAfterInventoryConfirmationFailure: vi.fn(),
-}));
+vi.mock('@/lib/payments/ensure-paid-order-inventory-confirmed', () => {
+  class MockSerializedInventoryUnavailableError extends Error {
+    constructor() {
+      super('serialized_inventory_unavailable');
+      this.name = 'SerializedInventoryUnavailableError';
+    }
+  }
+
+  return {
+    ensurePaidOrderInventoryConfirmed: vi.fn(),
+    isSerializedInventoryUnavailableError: (error: unknown) =>
+      error instanceof MockSerializedInventoryUnavailableError,
+    rollbackOrderStatusAfterInventoryConfirmationFailure: vi.fn(),
+    SerializedInventoryUnavailableError:
+      MockSerializedInventoryUnavailableError,
+  };
+});
 
 vi.mock('@/lib/payments/file-inventory-confirmation-review', () => ({
   fileInventoryConfirmationFailureReview: vi.fn(),
@@ -68,6 +81,7 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import {
   ensurePaidOrderInventoryConfirmed,
   rollbackOrderStatusAfterInventoryConfirmationFailure,
+  SerializedInventoryUnavailableError,
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
@@ -357,6 +371,139 @@ describe('PATCH /api/orders/[id]', () => {
     expect(payload).toEqual({ order: updatedOrder });
   });
 
+  it('persists paid provider shipment status before inventory confirmation and booking', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'pending',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const updatedOrder: UpdatedOrder = {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: 'TRACK-1',
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(
+      existingOrder,
+      updatedOrder
+    );
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(bookOrderShipment).mockResolvedValue({
+      shipmentId: 'shipment-1',
+      provider: 'TOPSHIP',
+      providerShipmentId: 'provider-shipment-1',
+      trackingNumber: 'TRACK-1',
+      carrierName: 'Topship',
+      quoteId: 'quote-2',
+      estimatedDays: 2,
+      shipmentStatus: 'booked',
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+      }),
+      {
+        params: Promise.resolve({ id: 'order-1' }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(ensurePaidOrderInventoryConfirmed).toHaveBeenCalledTimes(1);
+    expect(ensurePaidOrderInventoryConfirmed).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      'order-1'
+    );
+    expect(ordersUpdate).toHaveBeenNthCalledWith(1, {
+      payment_status: 'paid',
+    });
+    expect(
+      vi.mocked(ensurePaidOrderInventoryConfirmed).mock.invocationCallOrder[0]
+    ).toBeGreaterThan(ordersUpdate.mock.invocationCallOrder[0]);
+    expect(
+      vi.mocked(ensurePaidOrderInventoryConfirmed).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(bookOrderShipment).mock.invocationCallOrder[0]);
+    expect(ordersUpdate).toHaveBeenNthCalledWith(2, {
+      selected_quote_id: 'quote-2',
+      shipment_id: 'shipment-1',
+      shipment_booking_lock_token: null,
+      shipment_booking_started_at: null,
+      shipping_provider: 'TOPSHIP',
+      shipping_status: 'shipped',
+      tracking_number: 'TRACK-1',
+    });
+  });
+
+  it('does not book a paid provider shipment when serialized inventory is unavailable', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'pending',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(existingOrder, {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: 'TRACK-1',
+    });
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(ensurePaidOrderInventoryConfirmed).mockRejectedValue(
+      new SerializedInventoryUnavailableError()
+    );
+
+    const response = await PATCH(
+      createPatchRequest({
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+      }),
+      {
+        params: Promise.resolve({ id: 'order-1' }),
+      }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload).toEqual({
+      code: 'serialized_inventory_unavailable',
+      error: 'serialized_inventory_unavailable',
+    });
+    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(claimOrderShipmentBooking).not.toHaveBeenCalled();
+    expect(ordersUpdate).toHaveBeenCalledWith({ payment_status: 'paid' });
+    expect(
+      rollbackOrderStatusAfterInventoryConfirmationFailure
+    ).toHaveBeenCalledWith(supabase, 'merchant-1', 'order-1', {
+      payment_status: 'pending',
+      shipping_status: 'processing',
+    });
+  });
+
   it('files reconciliation review when paid-status inventory confirmation and rollback both fail', async () => {
     const inventoryError = new Error('Serialized inventory missing');
     const rollbackError = new Error('Rollback lost update');
@@ -404,7 +551,10 @@ describe('PATCH /api/orders/[id]', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(409);
-    expect(payload).toEqual({ error: 'Serialized inventory missing' });
+    expect(payload).toEqual({
+      code: 'INVENTORY_CONFIRMATION_FAILED',
+      error: 'Inventory confirmation failed',
+    });
     expect(ordersUpdate).toHaveBeenCalledWith({ payment_status: 'paid' });
     expect(ensurePaidOrderInventoryConfirmed).toHaveBeenCalledWith(
       supabase,

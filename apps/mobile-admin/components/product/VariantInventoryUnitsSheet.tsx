@@ -21,7 +21,7 @@ interface VariantInventoryUnitsSheetProps {
   productId: string;
   variantId?: string | null;
   onClose: () => void;
-  visible: boolean;
+  visible?: boolean;
 }
 
 function toBranchScope(branchFilter: string | null) {
@@ -39,7 +39,7 @@ export function VariantInventoryUnitsSheet({
   productId,
   variantId,
   onClose,
-  visible,
+  visible = true,
 }: VariantInventoryUnitsSheetProps) {
   const [statusFilter, setStatusFilter] =
     useState<VariantInventoryStatus | null>(null);

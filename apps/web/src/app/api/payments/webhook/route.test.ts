@@ -2401,6 +2401,100 @@ describe('POST /api/payments/webhook', () => {
       });
     });
 
+    it('does not run chat-order side effects when conversion reports failure', async () => {
+      const body = {
+        reference: 'CHAT-REF123',
+        status: 'success',
+        event: 'charge.success',
+        amount: 11000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { after } = await import('next/server');
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 11000,
+          reference: 'CHAT-REF123',
+          currency: 'NGN',
+          paid_at: '2026-03-23T10:00:00Z',
+          created_at: '2026-03-23T10:00:00Z',
+          customer: { name: 'Jane Doe', email: 'jane@example.com' },
+        },
+      });
+
+      const chatOrder = {
+        id: 'chat-order-123',
+        merchant_id: 'merchant-123',
+        customer_id: 'customer-123',
+        customer_name: 'Jane Doe',
+        customer_email: 'jane@example.com',
+        customer_phone: '+2348012345678',
+        shipping_address: { address: '123 Example Street' },
+        session_id: 'session-123',
+        subtotal: '10000',
+        shipping_fee: '1000',
+        items: [],
+        status: 'pending_payment',
+      };
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'chat_orders') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: chatOrder,
+              error: null,
+            }),
+          } as never;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        if (name === 'convert_chat_order_to_paid_order_with_inventory') {
+          const result = {
+            data: {
+              already_processed: false,
+              order_id: 'order-123',
+              order_number: 'ORD-260323-A7K3-2',
+              success: false,
+            },
+            error: null,
+          };
+          return Object.assign(Promise.resolve(result), {
+            single: () => Promise.resolve(result),
+          }) as never;
+        }
+        const result = { data: null, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({ error: 'Failed to convert chat order' });
+      expect(after).not.toHaveBeenCalled();
+    });
+
     it('returns 200 and processes valid webhook successfully', async () => {
       const body = {
         reference: 'REF123',
@@ -2560,6 +2654,138 @@ describe('POST /api/payments/webhook', () => {
           }),
         })
       );
+    });
+
+    it('returns 409 without paid-order side effects when standard order inventory is unavailable', async () => {
+      const body = {
+        reference: 'REF-INV-MISSING',
+        status: 'success',
+        event: 'charge.success',
+        amount: 1000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 1000,
+          reference: 'REF-INV-MISSING',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      let transactionCallCount = 0;
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          transactionCallCount++;
+          if (transactionCallCount === 1) {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'txn-123',
+                  merchant_id: 'merchant-123',
+                  order_id: 'order-123',
+                  amount: '1000',
+                  currency: 'NGN',
+                  gateway_reference: 'BAC-REF-INV-MISSING',
+                  status: 'pending',
+                  metadata: {},
+                },
+                error: null,
+              }),
+            } as never;
+          }
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            maybeSingle: vi
+              .fn()
+              .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
+          } as never;
+        }
+
+        if (table === 'orders') {
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: 'order-123',
+                order_number: 'ORD-123',
+                customer_name: 'John Doe',
+                customer_email: 'john@example.com',
+                customer_phone: '+234',
+                total: '1000',
+                subtotal: '900',
+                shipping_fee: '100',
+                currency: 'NGN',
+                shipping_address: {},
+                order_items: [],
+              },
+              error: null,
+            }),
+          } as never;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        if (name === 'confirm_order_inventory_reservations') {
+          const result = {
+            data: {
+              alreadyConfirmed: 0,
+              confirmedUnitCount: 0,
+              exceptionCodes: [
+                { itemId: 'item-1', code: 'late_payment_reservation_lost' },
+              ],
+              missingUnitCount: 1,
+              reclaimedUnitCount: 0,
+            },
+            error: null,
+          };
+          return Object.assign(Promise.resolve(result), {
+            single: () => Promise.resolve(result),
+          }) as never;
+        }
+
+        const result = { data: null, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(data).toEqual({
+        code: 'serialized_inventory_unavailable',
+        error: 'serialized_inventory_unavailable',
+      });
+      expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
     });
 
     it('suppresses paid-order side effects and files reconciliation when the order was clamped as cancelled', async () => {

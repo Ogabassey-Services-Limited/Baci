@@ -27,27 +27,18 @@ vi.mock('@/env', () => ({
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('react', () => ({ cache: vi.fn((fn) => fn) }));
-vi.mock('@/lib/public-serialized-variant-summary', () => ({
-  getPublicSerializedVariantSummariesByProductId: vi.fn(() =>
-    Promise.resolve([])
-  ),
-  getEffectiveInventoryTrackingPolicy: vi.fn((productPolicy, variantPolicy) => {
-    if (
-      variantPolicy === 'off' ||
-      variantPolicy === 'serialized_strict' ||
-      variantPolicy === 'serialized_then_unlimited'
-    ) {
-      return variantPolicy;
-    }
-    if (
-      productPolicy === 'serialized_strict' ||
-      productPolicy === 'serialized_then_unlimited'
-    ) {
-      return productPolicy;
-    }
-    return 'off';
-  }),
-}));
+vi.mock('@/lib/public-serialized-variant-summary', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/public-serialized-variant-summary')
+  >('@/lib/public-serialized-variant-summary');
+
+  return {
+    ...actual,
+    getPublicSerializedVariantSummariesByProductId: vi.fn(() =>
+      Promise.resolve([])
+    ),
+  };
+});
 vi.mock('@supabase/supabase-js', async () => {
   const { getMockCreateClient } = await import('@/lib/cached-data.test-utils');
   return {
@@ -368,6 +359,11 @@ describe('cached-data product query projections', () => {
         track_quantity: false,
       }),
     ]);
+    expect(getPublicSerializedVariantSummariesByProductId).toHaveBeenCalledWith(
+      expect.objectContaining({ from: expect.any(Function) }),
+      'merchant-123',
+      ['product-123']
+    );
   });
 
   it('getCachedProducts falls back to empty variants when the public RPC fails', async () => {
