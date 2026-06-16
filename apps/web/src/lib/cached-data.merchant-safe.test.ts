@@ -82,6 +82,9 @@ describe('cached-data merchant safety helpers', () => {
       await expect(getMerchantSafe('test-store')).resolves.toEqual(
         withDefaultFeatureSettings(merchantWithTrustFields)
       );
+      expect(harness.mockSelect).toHaveBeenCalledWith(
+        expect.stringContaining('mobile_hero_slides')
+      );
     });
 
     it('canonicalizes OgaBassey public media URLs to CDN URLs before rendering', async () => {
@@ -221,6 +224,80 @@ describe('cached-data merchant safety helpers', () => {
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         'Merchant fetch failed after retry:',
         'test-store'
+      );
+    });
+
+    it('falls back to a direct merchant lookup after remote cache handler failures', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const remoteCacheError = new Error(
+        'RemoteCacheHandler: <html><body>502 Bad Gateway</body></html>'
+      );
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(remoteCacheError)
+        .mockRejectedValueOnce(remoteCacheError)
+        .mockResolvedValueOnce({ data: mockMerchant, error: null });
+      harness.mockSingle.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+
+      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
+        ([table]) => table === 'merchants'
+      );
+      expect(merchantTableLookups).toHaveLength(3);
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Merchant fetch failed after retry:',
+        'test-store'
+      );
+      expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+        'Merchant fetch failed after retry:',
+        'test-store'
+      );
+    });
+
+    it('returns null and logs an error when cached and direct merchant lookups fail', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const remoteCacheError = new Error(
+        'RemoteCacheHandler: <html><body>502 Bad Gateway</body></html>'
+      );
+      const directLookupError = new Error('direct lookup failed');
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(remoteCacheError)
+        .mockRejectedValueOnce(remoteCacheError)
+        .mockRejectedValueOnce(directLookupError);
+      harness.mockSingle.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
+
+      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
+        ([table]) => table === 'merchants'
+      );
+      expect(merchantTableLookups).toHaveLength(3);
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Merchant fetch failed after retry:',
+        'test-store'
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Direct merchant lookup failed after retry:',
+        'test-store',
+        expect.objectContaining({ error: directLookupError })
       );
     });
 
