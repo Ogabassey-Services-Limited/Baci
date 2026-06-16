@@ -17,6 +17,36 @@ import { useCategories, useProducts } from '@/hooks';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import type { Product } from '@/types/product';
 
+const handleProductPress = (product: Product): void => {
+  router.push(`/product/${product.slug}`);
+};
+
+const getCategoryTitle = (slug: string): string => {
+  // BUG-2-005 FIX: Add basic sanitization and fallback to "Category"
+  if (!slug || typeof slug !== 'string' || slug.trim().length === 0) {
+    return 'Category';
+  }
+
+  const titles: Record<string, string> = {
+    all: 'All Products',
+    iphones: 'iPhones',
+    samsung: 'Samsung',
+    laptops: 'Laptops',
+    accessories: 'Accessories',
+    tablets: 'Tablets',
+    smartwatches: 'Smart Watches',
+  };
+
+  // Basic sanitization: remove special chars except hyphens
+  const sanitized = slug.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
+
+  return (
+    titles[sanitized] ||
+    sanitized.charAt(0).toUpperCase() + sanitized.slice(1).replace(/-/g, ' ') ||
+    'Category'
+  );
+};
+
 export default function CategoryScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const colorScheme = useColorScheme();
@@ -52,37 +82,6 @@ export default function CategoryScreen() {
     if (!isLoading && hasMore) {
       loadMore();
     }
-  };
-
-  const handleProductPress = (product: Product) => {
-    router.push(`/product/${product.slug}`);
-  };
-
-  const getCategoryTitle = (slug: string): string => {
-    // BUG-2-005 FIX: Add basic sanitization and fallback to "Category"
-    if (!slug || typeof slug !== 'string' || slug.trim().length === 0) {
-      return 'Category';
-    }
-
-    const titles: Record<string, string> = {
-      all: 'All Products',
-      iphones: 'iPhones',
-      samsung: 'Samsung',
-      laptops: 'Laptops',
-      accessories: 'Accessories',
-      tablets: 'Tablets',
-      smartwatches: 'Smart Watches',
-    };
-
-    // Basic sanitization: remove special chars except hyphens
-    const sanitized = slug.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
-
-    return (
-      titles[sanitized] ||
-      sanitized.charAt(0).toUpperCase() +
-        sanitized.slice(1).replace(/-/g, ' ') ||
-      'Category'
-    );
   };
 
   const renderProduct = ({ item, index }: { item: Product; index: number }) => (
