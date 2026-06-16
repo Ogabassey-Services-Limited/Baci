@@ -153,4 +153,28 @@ describe('Ogabassey Footer', () => {
       '/ogabassey/shipping'
     );
   });
+
+  it('shows the public support_email (not the account email) as the contact link', () => {
+    mockBuildMerchantTrustProfile.mockReturnValue({
+      socialLinks: {},
+      derivedLinks: {},
+    });
+    render(
+      <Footer
+        storeSlug="ogabassey"
+        merchant={{
+          ...merchantFixture,
+          email: 'account-private@gmail.com',
+          support_email: 'hello@ogabassey.com',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'hello@ogabassey.com' })
+    ).toHaveAttribute('href', 'mailto:hello@ogabassey.com');
+    expect(
+      screen.queryByRole('link', { name: 'account-private@gmail.com' })
+    ).toBeNull();
+  });
 });
