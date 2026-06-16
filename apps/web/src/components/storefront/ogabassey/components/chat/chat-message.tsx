@@ -20,12 +20,22 @@ interface ChatMessageBubbleProps {
   onAddToCart: (messageIndex: number, actionIndex?: number) => void;
 }
 
+const SANTA_PRICE_FORMATTER_INTEGER = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  maximumFractionDigits: 0,
+  style: 'currency',
+});
+const SANTA_PRICE_FORMATTER_DECIMAL = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  maximumFractionDigits: 2,
+  style: 'currency',
+});
+
 function formatSantaPrice(price: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    currency: 'NGN',
-    maximumFractionDigits: Number.isInteger(price) ? 0 : 2,
-    style: 'currency',
-  }).format(price);
+  const formatter = Number.isInteger(price)
+    ? SANTA_PRICE_FORMATTER_INTEGER
+    : SANTA_PRICE_FORMATTER_DECIMAL;
+  return formatter.format(price);
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
