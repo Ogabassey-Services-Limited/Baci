@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   hasAnyInstallmentOption,
+  isCreditDirectEligible,
   isKlumpEligible,
   isPaymentMethodAvailable,
 } from './payment-step-availability';
@@ -89,5 +90,83 @@ describe('payment-step availability helpers', () => {
         payableAmount: 50_000,
       }),
     ).toBe(true);
+  });
+
+  it('requires enabled Credit Direct within its amount bounds', () => {
+    expect(
+      isCreditDirectEligible({
+        featureSettings: { credit_direct_enabled: true },
+        payableAmount: 300_000,
+      }),
+    ).toBe(true);
+    expect(
+      isCreditDirectEligible({
+        featureSettings: { credit_direct_enabled: false },
+        payableAmount: 300_000,
+      }),
+    ).toBe(false);
+    // Above the default ₦5,000,000 cap.
+    expect(
+      isCreditDirectEligible({
+        featureSettings: { credit_direct_enabled: true },
+        payableAmount: 6_000_000,
+      }),
+    ).toBe(false);
+    // Below the default ₦5,000 floor.
+    expect(
+      isCreditDirectEligible({
+        featureSettings: { credit_direct_enabled: true },
+        payableAmount: 1_000,
+      }),
+    ).toBe(false);
+  });
+
+  it('honors configured Credit Direct min/max amounts as strings', () => {
+    const featureSettings = {
+      credit_direct_enabled: true,
+      credit_direct_min_amount: '5000.00',
+      credit_direct_max_amount: '5000000.00',
+    };
+    expect(
+      isCreditDirectEligible({ featureSettings, payableAmount: 5_000_000 }),
+    ).toBe(true);
+    expect(
+      isCreditDirectEligible({ featureSettings, payableAmount: 5_000_001 }),
+    ).toBe(false);
+  });
+
+  it('hides Credit Direct via isPaymentMethodAvailable when the order exceeds its max', () => {
+    const featureSettings = {
+      credit_direct_enabled: true,
+      credit_direct_max_amount: 5_000_000,
+    };
+
+    // In range -> offered.
+    expect(
+      isPaymentMethodAvailable({
+        paymentMethod: 'credit_direct',
+        paystackCheckoutAvailable: false,
+        korapayCheckoutAvailable: false,
+        bankTransferCheckoutAvailable: false,
+        featureSettings,
+        currency: 'NGN',
+        orderAmount: 300_000,
+        payableAmount: 300_000,
+      }),
+    ).toBe(true);
+
+    // Over the ₦5,000,000 cap -> hidden (regression for the over-limit offer bug).
+    expect(
+      isPaymentMethodAvailable({
+        paymentMethod: 'credit_direct',
+        paystackCheckoutAvailable: false,
+        korapayCheckoutAvailable: false,
+        bankTransferCheckoutAvailable: false,
+        featureSettings,
+        currency: 'NGN',
+        orderAmount: 6_237_523,
+        payableAmount: 6_237_523,
+      }),
+    ).toBe(false);
   });
 });
