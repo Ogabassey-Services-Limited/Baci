@@ -1,3 +1,4 @@
+import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
 import { fetchShippingQuotes } from '@/components/checkout/checkout-shipping.helpers';
@@ -57,6 +58,17 @@ export function useCheckoutShipping({
   watchedState,
 }: UseCheckoutShippingParams) {
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('door');
+  // Keep the selected method valid for the chosen address: if the state no
+  // longer supports the picked method (e.g. an airport selection for a Lagos or
+  // non-airport state), fall back to door. Adjusted during render (not in an
+  // effect) per React's guidance; 'door' is always eligible, so this can't loop.
+  if (
+    (deliveryMethod === 'airport' &&
+      !isAirportDeliveryEligible(watchedState)) ||
+    (deliveryMethod === 'pickup_station' && !isPickupEligible(watchedState))
+  ) {
+    setDeliveryMethod('door');
+  }
   const [shippingStates, setShippingStates] = useState<string[]>([]);
   const [shippingCities, setShippingCities] = useState<string[]>([]);
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
