@@ -21,6 +21,10 @@ import { getEffectiveStock } from '@/lib/product-stock';
 import type { ProductKeySpecs } from '@/lib/products';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
 import { buildFeedDescription } from './build-feed-description';
+import {
+  buildGoogleColorXml,
+  buildGoogleProductDetailXml,
+} from './build-product-detail-xml';
 
 export interface FeedProduct {
   id: string;
@@ -450,6 +454,7 @@ function buildBaseItemXml(args: {
   brandName: string;
   compareAtPrice?: number;
   condition: string;
+  colorXml?: string;
   currency: string;
   description: string;
   googleProductCategory?: string;
@@ -463,6 +468,7 @@ function buildBaseItemXml(args: {
   url: string;
   gtin?: string;
   mpn?: string;
+  productDetailsXml?: string;
 }) {
   const formattedPrice = args.price.toFixed(2);
   const priceLines =
@@ -489,6 +495,8 @@ function buildBaseItemXml(args: {
     args.gtin || (args.mpn && args.brandName)
       ? '        <g:identifier_exists>yes</g:identifier_exists>'
       : '        <g:identifier_exists>no</g:identifier_exists>',
+    args.colorXml,
+    args.productDetailsXml,
     args.googleProductCategory
       ? `        <g:google_product_category>${escapeXml(args.googleProductCategory)}</g:google_product_category>`
       : '',
@@ -553,6 +561,8 @@ export function generateGoogleMerchantFeed(
         getProductLevelManifestEntries(manifestEntries)
       );
       const description = buildFeedDescription(product);
+      const colorXml = buildGoogleColorXml(product);
+      const productDetailsXml = buildGoogleProductDetailXml(product);
       const shippingWeight =
         product.weight_value && product.weight_unit
           ? `        <g:shipping_weight>${product.weight_value} ${product.weight_unit}</g:shipping_weight>`
@@ -594,6 +604,14 @@ export function generateGoogleMerchantFeed(
                 ...product,
                 variant_attributes: variant.attributes,
               });
+              const variantColorXml = buildGoogleColorXml({
+                ...product,
+                variant_attributes: variant.attributes,
+              });
+              const variantProductDetailsXml = buildGoogleProductDetailXml({
+                ...product,
+                variant_attributes: variant.attributes,
+              });
               const lines = [
                 `        <g:id>${escapeXml(variant.id)}</g:id>`,
                 `        <g:item_group_id>${escapeXml(product.id)}</g:item_group_id>`,
@@ -621,6 +639,8 @@ export function generateGoogleMerchantFeed(
                 product.gtin || (product.mpn && effectiveBrand)
                   ? '        <g:identifier_exists>yes</g:identifier_exists>'
                   : '        <g:identifier_exists>no</g:identifier_exists>',
+                variantColorXml,
+                variantProductDetailsXml,
                 product.google_product_category
                   ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
                   : '',
@@ -651,6 +671,7 @@ export function generateGoogleMerchantFeed(
           brandName: effectiveBrand,
           compareAtPrice: product.compare_at_price,
           condition: skuMatrixFallback.condition,
+          colorXml,
           currency,
           description,
           googleProductCategory: product.google_product_category,
@@ -659,6 +680,7 @@ export function generateGoogleMerchantFeed(
           imageUrl: productLevelImages.primaryImageUrl,
           mpn: product.mpn,
           price: skuMatrixFallback.price,
+          productDetailsXml,
           productType: getProductType(product),
           shippingWeight,
           stockCount: skuMatrixFallback.stockCount,
@@ -674,6 +696,7 @@ export function generateGoogleMerchantFeed(
         brandName: effectiveBrand,
         compareAtPrice: product.compare_at_price,
         condition: toGmcCondition(product.condition),
+        colorXml,
         currency,
         description,
         googleProductCategory: product.google_product_category,
@@ -682,6 +705,7 @@ export function generateGoogleMerchantFeed(
         imageUrl: productLevelImages.primaryImageUrl,
         mpn: product.mpn,
         price: product.price,
+        productDetailsXml,
         productType: getProductType(product),
         shippingWeight,
         stockCount: getFeedStockCount(product),
@@ -727,6 +751,8 @@ export function generateGoogleMerchantFeed(
             product.gtin || (product.mpn && effectiveBrand)
               ? '        <g:identifier_exists>yes</g:identifier_exists>'
               : '        <g:identifier_exists>no</g:identifier_exists>',
+            colorXml,
+            productDetailsXml,
             product.google_product_category
               ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
               : '',
