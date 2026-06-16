@@ -1,4 +1,4 @@
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { CustomTabBarChrome } from './CustomTabBarChrome';
 

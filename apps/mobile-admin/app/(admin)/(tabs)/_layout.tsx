@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { StyleSheet, View } from 'react-native';
 import { AdminFloatingTabBar } from '@/components/navigation/AdminFloatingTabBar';
 import { useFailedOrders } from '@/hooks/useFailedOrders';

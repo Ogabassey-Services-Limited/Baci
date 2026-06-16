@@ -1,5 +1,5 @@
 import { expect } from '@jest/globals';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import React from 'react';
 
 function createTabDescriptor(

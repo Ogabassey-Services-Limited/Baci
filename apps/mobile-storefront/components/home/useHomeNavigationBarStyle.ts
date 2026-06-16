@@ -1,5 +1,5 @@
-import { NavigationContext } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
+import { NavigationContext } from 'expo-router/react-navigation';
 import { useContext, useEffect, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 import {

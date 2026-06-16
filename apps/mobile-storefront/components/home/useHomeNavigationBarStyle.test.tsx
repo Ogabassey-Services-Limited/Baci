@@ -1,6 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { NavigationContext } from '@react-navigation/native';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { act, render } from '@testing-library/react-native';
+import { NavigationContext } from 'expo-router/react-navigation';
 import type { ComponentProps } from 'react';
 import { Platform, Text } from 'react-native';
 import { useHomeNavigationBarStyle } from './useHomeNavigationBarStyle';

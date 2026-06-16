@@ -6,8 +6,8 @@ import {
   it,
   jest,
 } from '@jest/globals';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { renderHook } from '@testing-library/react-native';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useWarmTabScreens } from './useWarmTabScreens';
 
 type TabRoute = BottomTabBarProps['state']['routes'][number];

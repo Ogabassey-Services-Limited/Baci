@@ -1,5 +1,5 @@
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { render, screen } from '@testing-library/react';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
