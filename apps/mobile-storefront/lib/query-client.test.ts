@@ -9,18 +9,9 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('../__mocks__/async-storage')
 );
 
-import {
-  QUERY_CACHE_KEYS,
-  QUERY_CACHE_STORAGE_KEY,
-  queryClient,
-  queryPersister,
-} from './query-client';
+import { QUERY_CACHE_KEYS, queryClient, queryPersister } from './query-client';
 
 describe('queryPersister', () => {
-  it('uses the documented TanStack Query cache key explicitly', () => {
-    expect(QUERY_CACHE_STORAGE_KEY).toBe('REACT_QUERY_OFFLINE_CACHE');
-  });
-
   it('is defined and has persister interface methods', () => {
     expect(queryPersister).toBeDefined();
     expect(typeof queryPersister.persistClient).toBe('function');

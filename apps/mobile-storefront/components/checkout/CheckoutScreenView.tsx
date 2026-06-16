@@ -8,7 +8,7 @@ import {
 import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
 import { CheckoutCryptoPaymentModal } from '@/components/checkout/CheckoutCryptoPaymentModal';
 import { CheckoutHeader } from '@/components/checkout/CheckoutHeader';
-import { CheckoutLocationPickers } from '@/components/checkout/pickers/CheckoutLocationPickers';
+import { CheckoutLocationPickers } from '@/components/checkout/CheckoutLocationPickers';
 import { CheckoutStepContent } from '@/components/checkout/CheckoutStepContent';
 import {
   type CheckoutStep,
