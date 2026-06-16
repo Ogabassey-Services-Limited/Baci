@@ -625,13 +625,15 @@ function redactUnpublishedMerchantContactFields<
 }
 
 /**
- * Cached merchant data by slug
- * Uses 'merchant' cacheLife profile (stale 5min, revalidate 60s, expire 1hr)
+ * Cached merchant data by slug.
+ * Keep this hot storefront shell lookup in the local Cache Components cache.
+ * The official Next guidance calls out remote cache network-latency tradeoffs,
+ * and live Vercel logs showed RemoteCacheHandler 408/502 failures here.
  */
 export async function getCachedMerchant(
   slug: string
 ): Promise<CachedMerchant | null> {
-  'use cache: remote';
+  'use cache';
   cacheLife('merchant');
   cacheTag('merchants', `merchant-${slug}`);
 
@@ -713,12 +715,13 @@ export async function getCachedMerchant(
 /**
  * Cached merchant data by custom domain.
  * Normalizes the domain to lowercase before lookup.
- * Uses 'merchant' cacheLife profile (stale 5min, revalidate 60s, expire 1hr)
+ * Keep this hot storefront shell lookup in the local Cache Components cache;
+ * remote cache handler failures should not be able to break merchant routing.
  */
 export async function getCachedMerchantByDomain(
   domain: string
 ): Promise<CachedMerchant | null> {
-  'use cache: remote';
+  'use cache';
   cacheLife('merchant');
   cacheTag('merchants', 'domains', `domain-${domain.toLowerCase()}`);
 
@@ -846,13 +849,43 @@ function isTransientMerchantLookupError(error: unknown): boolean {
 
   return (
     combined.includes('remotecachehandler') ||
+    combined.includes('invalid response from cache') ||
     combined.includes('timeouterror') ||
+    combined.includes('request timeout') ||
     combined.includes('aborted due to timeout') ||
+    combined.includes('fetch failed') ||
     combined.includes('network timeout') ||
+    combined.includes('network error') ||
     combined.includes('502 bad gateway') ||
+    /\b(408 request timeout|http 408|status(?: code)? 408)\b/.test(combined) ||
     combined.includes('504 gateway timeout') ||
-    combined.includes('bad gateway')
+    combined.includes('bad gateway') ||
+    combined.includes('econnreset') ||
+    combined.includes('etimedout')
   );
+}
+
+function summarizeMerchantLookupError(error: unknown) {
+  const maybeError = error as {
+    details?: unknown;
+    message?: unknown;
+    name?: unknown;
+  };
+  return {
+    name:
+      typeof maybeError?.name === 'string'
+        ? sanitizeLookupLogValue(maybeError.name)
+        : undefined,
+    message:
+      typeof maybeError?.message === 'string'
+        ? sanitizeLookupLogValue(maybeError.message)
+        : sanitizeLookupLogValue(error),
+    details:
+      typeof maybeError?.details === 'string'
+        ? sanitizeLookupLogValue(maybeError.details)
+        : undefined,
+    transient: isTransientMerchantLookupError(error),
+  };
 }
 
 async function getDirectFeatureSettings(
@@ -1015,17 +1048,40 @@ export async function getMerchantSafe(
       const isTransient =
         isTransientMerchantLookupError(firstError) ||
         isTransientMerchantLookupError(retryError);
-      const log = isTransient ? console.warn : console.error;
-      log('Merchant fetch failed after retry:', safeId);
+      const lookupSummary = {
+        firstError: summarizeMerchantLookupError(firstError),
+        retryError: summarizeMerchantLookupError(retryError),
+      };
 
       if (isTransient) {
         try {
-          return await getMerchantByIdentifierDirect(identifier);
+          const directMerchant =
+            await getMerchantByIdentifierDirect(identifier);
+          if (directMerchant) {
+            console.warn(
+              'Merchant fetch failed after retry; direct fallback succeeded:',
+              safeId,
+              lookupSummary
+            );
+            return directMerchant;
+          }
+          console.warn(
+            'Merchant lookup direct fallback returned no merchant:',
+            safeId,
+            lookupSummary
+          );
         } catch (directError) {
           console.error('Direct merchant lookup failed after retry:', safeId, {
-            error: directError,
+            ...lookupSummary,
+            directError: summarizeMerchantLookupError(directError),
           });
         }
+      } else {
+        console.error(
+          'Non-transient merchant lookup failed after retry:',
+          safeId,
+          lookupSummary
+        );
       }
 
       return null;
@@ -1049,7 +1105,7 @@ export async function getMerchantStrict(
       return await getMerchantByIdentifier(identifier);
     } catch (retryError) {
       const safeId = sanitizeLookupLogValue(identifier);
-      console.error('Merchant fetch failed after retry (strict):', safeId);
+      console.error('Strict merchant lookup failed after retry:', safeId);
       throw retryError;
     }
   }
@@ -2213,12 +2269,13 @@ export async function getCachedPlatformAnalytics(
  * Cached merchant feature settings.
  * Uses a server-only service-role query with an explicit public-safe column allowlist because
  * this table also stores private integration credentials.
- * Uses 'products' cacheLife profile (revalidate 5min)
+ * Uses local Cache Components caching to avoid Vercel RemoteCacheHandler failures
+ * on the hot storefront merchant shell path.
  */
 export async function getCachedFeatureSettings(
   merchantId: string
 ): Promise<MerchantFeatureSettings | null> {
-  'use cache: remote';
+  'use cache';
   cacheLife('products');
   cacheTag(`features-${merchantId}`);
 
@@ -2232,7 +2289,7 @@ export async function getCachedFeatureSettings(
       .maybeSingle();
 
     if (error) {
-      // Transient DB failure — throw so remote cache doesn't persist the error state
+      // Transient DB failure — throw so the cache does not persist the error state.
       throw error;
     }
 
@@ -2245,7 +2302,7 @@ export async function getCachedFeatureSettings(
     return data as unknown as MerchantFeatureSettings;
   } catch (error) {
     console.error('Error fetching feature settings:', error);
-    // Rethrow so remote cache skips caching this failure
+    // Rethrow so Cache Components skips caching this failure.
     throw error;
   }
 }

@@ -182,8 +182,12 @@ describe('cached-data merchant safety helpers', () => {
       await getMerchantSafe('test-store');
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Merchant fetch failed after retry:',
-        'test-store'
+        'Non-transient merchant lookup failed after retry:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: false }),
+          retryError: expect.objectContaining({ transient: false }),
+        })
       );
     });
 
@@ -200,9 +204,13 @@ describe('cached-data merchant safety helpers', () => {
 
       await getMerchantSafe('test-store');
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Merchant fetch failed after retry:',
-        'test-store'
+      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
+        'Merchant lookup direct fallback returned no merchant:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: true }),
+          retryError: expect.objectContaining({ transient: true }),
+        })
       );
     });
 
@@ -210,20 +218,28 @@ describe('cached-data merchant safety helpers', () => {
       const consoleWarnSpy = vi
         .spyOn(console, 'warn')
         .mockImplementation(() => undefined);
-      harness.mockMaybeSingle.mockResolvedValue({
+      const timeoutLookupResult = {
         data: null,
         error: {
           message: 'TimeoutError: The operation was aborted due to timeout',
           details:
             'TimeoutError: The operation was aborted due to timeout at undici',
         },
-      });
+      };
+      harness.mockMaybeSingle
+        .mockResolvedValueOnce(timeoutLookupResult)
+        .mockResolvedValueOnce(timeoutLookupResult)
+        .mockResolvedValueOnce({ data: null, error: null });
 
       await getMerchantSafe('test-store');
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Merchant fetch failed after retry:',
-        'test-store'
+      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
+        'Merchant lookup direct fallback returned no merchant:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: true }),
+          retryError: expect.objectContaining({ transient: true }),
+        })
       );
     });
 
@@ -254,13 +270,116 @@ describe('cached-data merchant safety helpers', () => {
         ([table]) => table === 'merchants'
       );
       expect(merchantTableLookups).toHaveLength(3);
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Merchant fetch failed after retry:',
-        'test-store'
+      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
+        'Merchant fetch failed after retry; direct fallback succeeded:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: true }),
+          retryError: expect.objectContaining({ transient: true }),
+        })
       );
       expect(consoleErrorSpy).not.toHaveBeenCalledWith(
         'Merchant fetch failed after retry:',
         'test-store'
+      );
+    });
+
+    it('keeps transient direct fallback on the public client when RLS hides unpublished merchants', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const remoteCacheError = new Error(
+        'RemoteCacheHandler: <html><body>502 Bad Gateway</body></html>'
+      );
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(remoteCacheError)
+        .mockRejectedValueOnce(remoteCacheError)
+        .mockResolvedValueOnce({ data: null, error: null });
+
+      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
+
+      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
+        'Merchant lookup direct fallback returned no merchant:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: true }),
+          retryError: expect.objectContaining({ transient: true }),
+        })
+      );
+    });
+
+    it('treats low-level fetch failures as transient and falls back to a direct merchant lookup', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const fetchFailure = new TypeError('fetch failed');
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(fetchFailure)
+        .mockRejectedValueOnce(fetchFailure)
+        .mockResolvedValueOnce({ data: mockMerchant, error: null });
+      harness.mockSingle.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+
+      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
+        ([table]) => table === 'merchants'
+      );
+      expect(merchantTableLookups).toHaveLength(3);
+      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
+        'Merchant fetch failed after retry; direct fallback succeeded:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({
+            message: 'fetch failed',
+            transient: true,
+          }),
+          retryError: expect.objectContaining({
+            message: 'fetch failed',
+            transient: true,
+          }),
+        })
+      );
+      expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+        'Merchant fetch failed after retry:',
+        'test-store',
+        expect.any(Object)
+      );
+    });
+
+    it('does not classify unrelated messages containing 408 digits as transient', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const nonTransientError = new Error('catalog row id 4089 failed');
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(nonTransientError)
+        .mockRejectedValueOnce(nonTransientError);
+
+      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
+
+      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
+        ([table]) => table === 'merchants'
+      );
+      expect(merchantTableLookups).toHaveLength(2);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Non-transient merchant lookup failed after retry:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: false }),
+          retryError: expect.objectContaining({ transient: false }),
+        })
       );
     });
 
@@ -290,14 +409,18 @@ describe('cached-data merchant safety helpers', () => {
         ([table]) => table === 'merchants'
       );
       expect(merchantTableLookups).toHaveLength(3);
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Merchant fetch failed after retry:',
-        'test-store'
-      );
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Direct merchant lookup failed after retry:',
         'test-store',
-        expect.objectContaining({ error: directLookupError })
+        expect.objectContaining({
+          directError: expect.objectContaining({
+            message: 'direct lookup failed',
+            transient: false,
+          }),
+          firstError: expect.objectContaining({ transient: true }),
+          retryError: expect.objectContaining({ transient: true }),
+        })
       );
     });
 
@@ -366,12 +489,14 @@ describe('cached-data merchant safety helpers', () => {
       await getMerchantSafe('a'.repeat(200));
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Merchant fetch failed after retry:',
-        'test-store-123'
+        'Non-transient merchant lookup failed after retry:',
+        'test-store-123',
+        expect.any(Object)
       );
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Merchant fetch failed after retry:',
-        'a'.repeat(100)
+        'Non-transient merchant lookup failed after retry:',
+        'a'.repeat(100),
+        expect.any(Object)
       );
     });
 

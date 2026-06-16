@@ -977,6 +977,15 @@ function buildCategoryProductMetadata(
 // Params not listed here keep rendering on demand (the default PPR behavior
 // under cacheComponents — `dynamicParams` cannot be set with cacheComponents).
 const OGABASSEY_PRERENDER_LIMIT = 50;
+// Keep the actively monitored, revenue-critical PDP in the prerender set even
+// when it is older than the newest-products window. This gives the route a
+// static shell and earlier LCP image discovery without expanding build scope.
+const OGABASSEY_PRIORITY_PRERENDER_PRODUCTS = [
+  {
+    category: 'gaming-laptops',
+    productSlug: 'dell-alienware-m18-r3-rtx-5080',
+  },
+] as const;
 
 export async function generateStaticParams(): Promise<
   Array<{ slug: string; category: string; productSlug: string }>
@@ -1016,6 +1025,12 @@ export async function generateStaticParams(): Promise<
   const seen = new Set<string>();
   const params: Array<{ slug: string; category: string; productSlug: string }> =
     [];
+
+  for (const product of OGABASSEY_PRIORITY_PRERENDER_PRODUCTS) {
+    const key = `${product.category}/${product.productSlug}`;
+    seen.add(key);
+    params.push({ slug: OGABASSEY_DOMAIN, ...product });
+  }
 
   for (const product of products) {
     const category = product.category_slug?.trim();

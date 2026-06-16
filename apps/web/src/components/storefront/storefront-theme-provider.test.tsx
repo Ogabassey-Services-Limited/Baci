@@ -27,23 +27,24 @@ describe('StorefrontThemeProvider', () => {
     expect(screen.getByRole('main')).toHaveTextContent('Storefront content');
   });
 
-  it('applies the light class to the wrapper element', () => {
+  it('applies light-mode guard classes to the wrapper element', () => {
     const { container } = render(
       <StorefrontThemeProvider>
         <span>child</span>
       </StorefrontThemeProvider>
     );
 
-    // The outermost element must carry the `light` class so that:
+    // The outermost element must carry light-mode guard classes so that:
     // 1. CSS variables in globals.css scope light-mode tokens to this subtree,
     //    overriding any `html.dark` class set by the root ThemeProvider.
     // 2. The Tailwind `darkMode` selector configured in tailwind.config.mjs
-    //    (`&:where(.dark, .dark *):not(.light):not(.light *)`) excludes this
-    //    wrapper and its descendants from raw `dark:*` utility variants.
+    //    excludes this wrapper and its descendants from raw `dark:*` utility
+    //    variants via `.light` and `.storefront-light` guards.
     // Without both, components using utilities like `dark:bg-gray-900` would
     // still render dark styles inside the storefront subtree.
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper).toHaveClass('light');
+    expect(wrapper).toHaveClass('storefront-light');
   });
 
   it('forces light mode for portal surfaces while mounted', () => {

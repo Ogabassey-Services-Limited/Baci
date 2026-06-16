@@ -3252,6 +3252,11 @@ describe('[category]/[productSlug] generateStaticParams', () => {
     expect(params).toEqual([
       {
         slug: OGABASSEY_DOMAIN,
+        category: 'gaming-laptops',
+        productSlug: 'dell-alienware-m18-r3-rtx-5080',
+      },
+      {
+        slug: OGABASSEY_DOMAIN,
         category: 'smartphones',
         productSlug: 'galaxy-z-trifold',
       },
@@ -3279,10 +3284,34 @@ describe('[category]/[productSlug] generateStaticParams', () => {
     expect(params).toEqual([
       {
         slug: OGABASSEY_DOMAIN,
+        category: 'gaming-laptops',
+        productSlug: 'dell-alienware-m18-r3-rtx-5080',
+      },
+      {
+        slug: OGABASSEY_DOMAIN,
         category: 'smartphones',
         productSlug: 'galaxy-z-trifold',
       },
     ]);
+  });
+
+  it('keeps monitored high-value OgaBassey PDPs in the prerender set when they are outside the newest-products window', async () => {
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      products: [{ slug: 'galaxy-z-trifold', category_slug: 'smartphones' }],
+    });
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual(
+      expect.arrayContaining([
+        {
+          slug: OGABASSEY_DOMAIN,
+          category: 'gaming-laptops',
+          productSlug: 'dell-alienware-m18-r3-rtx-5080',
+        },
+      ])
+    );
   });
 
   it('falls back to the prerender placeholder when the index reports an error', async () => {
@@ -3296,7 +3325,7 @@ describe('[category]/[productSlug] generateStaticParams', () => {
     expect(params).toEqual([PRERENDER_PLACEHOLDER]);
   });
 
-  it('falls back to the prerender placeholder when the index lookup is empty', async () => {
+  it('keeps monitored high-value PDPs when the index lookup is empty', async () => {
     mockGetCachedStorefrontProductIndex.mockResolvedValue({
       hasError: false,
       products: [],
@@ -3304,7 +3333,13 @@ describe('[category]/[productSlug] generateStaticParams', () => {
 
     const params = await generateStaticParams();
 
-    expect(params).toEqual([PRERENDER_PLACEHOLDER]);
+    expect(params).toEqual([
+      {
+        slug: OGABASSEY_DOMAIN,
+        category: 'gaming-laptops',
+        productSlug: 'dell-alienware-m18-r3-rtx-5080',
+      },
+    ]);
   });
 
   it('falls back to the prerender placeholder when the index lookup rejects', async () => {
