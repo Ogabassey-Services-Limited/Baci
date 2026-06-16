@@ -42,6 +42,46 @@ const RELATED_BLOG_POSTS_FETCH_LIMIT = 36;
 const RELATED_BLOG_CATEGORY_FETCH_LIMIT = 24;
 const RELATED_BLOG_POST_SELECT =
   'id, title, slug, excerpt, featured_image_url, category, tags, keywords, published_at, reading_time_minutes';
+const MERCHANT_PUBLIC_SELECT = `
+        id,
+        business_name,
+        site_title,
+        site_tagline,
+        site_description,
+        business_type,
+        logo_url,
+        phone,
+        email,
+        support_email,
+        support_phone,
+        social_media,
+        brand_colors,
+        slug,
+        business_address,
+        legal_entity_name,
+        registered_address,
+        tax_identification_number,
+        trust_profile,
+        payout_currency,
+        paystack_subaccount_code,
+        is_published,
+        template_id,
+        plan_tier,
+        premium_features,
+        country,
+        hero_slides,
+        mobile_hero_slides,
+        favicon_svg_url,
+        favicon_png_32_url,
+        favicon_apple_touch_url,
+        vat_registration_status,
+        vat_rate,
+        published_config,
+        pages,
+        about_page,
+        faq_items,
+        updated_at
+      `;
 
 interface RelatedBlogPostIdentity {
   id?: string | null;
@@ -556,6 +596,34 @@ function normalizeCachedMerchantEntity<
   };
 }
 
+function redactUnpublishedMerchantContactFields<
+  T extends {
+    business_address?: unknown;
+    email?: unknown;
+    is_published?: boolean | null;
+    legal_entity_name?: unknown;
+    phone?: unknown;
+    registered_address?: unknown;
+    support_email?: unknown;
+    support_phone?: unknown;
+    tax_identification_number?: unknown;
+    trust_profile?: unknown;
+  },
+>(merchant: T): T {
+  if (merchant.is_published) return merchant;
+
+  merchant.email = '';
+  merchant.phone = '';
+  merchant.support_email = '';
+  merchant.support_phone = '';
+  merchant.business_address = '';
+  merchant.legal_entity_name = null;
+  merchant.registered_address = null;
+  merchant.tax_identification_number = null;
+  merchant.trust_profile = null;
+  return merchant;
+}
+
 /**
  * Cached merchant data by slug
  * Uses 'merchant' cacheLife profile (stale 5min, revalidate 60s, expire 1hr)
@@ -571,45 +639,7 @@ export async function getCachedMerchant(
 
   const { data, error } = await supabase
     .from('merchants')
-    .select(`
-        id,
-        business_name,
-        site_title,
-        site_tagline,
-        site_description,
-        business_type,
-        logo_url,
-        phone,
-        email,
-        support_email,
-        support_phone,
-        social_media,
-        brand_colors,
-        slug,
-        business_address,
-        legal_entity_name,
-        registered_address,
-        tax_identification_number,
-        trust_profile,
-        payout_currency,
-        paystack_subaccount_code,
-        is_published,
-        template_id,
-        plan_tier,
-        premium_features,
-        country,
-        hero_slides,
-        favicon_svg_url,
-        favicon_png_32_url,
-        favicon_apple_touch_url,
-        vat_registration_status,
-        vat_rate,
-        published_config,
-        pages,
-        about_page,
-        faq_items,
-        updated_at
-      `)
+    .select(MERCHANT_PUBLIC_SELECT)
     .eq('slug', slug)
     .maybeSingle();
 
@@ -648,17 +678,7 @@ export async function getCachedMerchant(
   // Fetch primary domain
   if (data) {
     // SECURITY: If the store is NOT published, mask sensitive contact info.
-    if (!data.is_published) {
-      data.email = ''; // Redacted
-      data.phone = ''; // Redacted
-      data.support_email = ''; // Redacted
-      data.support_phone = ''; // Redacted
-      data.business_address = ''; // Redacted
-      data.legal_entity_name = null; // Redacted
-      data.registered_address = null; // Redacted
-      data.tax_identification_number = null; // Redacted
-      data.trust_profile = null; // Redacted
-    }
+    redactUnpublishedMerchantContactFields(data);
 
     const { data: primaryDomain } = await supabase
       .from('domains')
@@ -737,45 +757,7 @@ export async function getCachedMerchantByDomain(
   // Now fetch the merchant using the merchant_id
   const { data, error } = await supabase
     .from('merchants')
-    .select(`
-        id,
-        business_name,
-        site_title,
-        site_tagline,
-        site_description,
-        business_type,
-        logo_url,
-        phone,
-        email,
-        support_email,
-        support_phone,
-        social_media,
-        brand_colors,
-        slug,
-        business_address,
-        legal_entity_name,
-        registered_address,
-        tax_identification_number,
-        trust_profile,
-        payout_currency,
-        paystack_subaccount_code,
-        is_published,
-        template_id,
-        plan_tier,
-        premium_features,
-        country,
-        hero_slides,
-        favicon_svg_url,
-        favicon_png_32_url,
-        favicon_apple_touch_url,
-        vat_registration_status,
-        vat_rate,
-        published_config,
-        pages,
-        about_page,
-        faq_items,
-        updated_at
-      `)
+    .select(MERCHANT_PUBLIC_SELECT)
     .eq('id', domainData.merchant_id)
     .single();
 
@@ -804,17 +786,7 @@ export async function getCachedMerchantByDomain(
   // SECURITY: If the store is NOT published, mask sensitive contact info.
   // This allows the "Coming Soon" page to render the business name/logo
   // without leaking the owner's private phone/email/address to the public.
-  if (!data.is_published) {
-    data.email = ''; // Redacted
-    data.phone = ''; // Redacted
-    data.support_email = ''; // Redacted
-    data.support_phone = ''; // Redacted
-    data.business_address = ''; // Redacted
-    data.legal_entity_name = null; // Redacted
-    data.registered_address = null; // Redacted
-    data.tax_identification_number = null; // Redacted
-    data.trust_profile = null; // Redacted
-  }
+  redactUnpublishedMerchantContactFields(data);
 
   // Return with the custom_domain set
   const result: CachedMerchant = {
@@ -860,18 +832,153 @@ function isTransientMerchantLookupError(error: unknown): boolean {
   const maybeError = error as {
     details?: unknown;
     message?: unknown;
+    name?: unknown;
+    stack?: unknown;
   };
   const details =
     typeof maybeError.details === 'string' ? maybeError.details : '';
   const message =
     typeof maybeError.message === 'string' ? maybeError.message : '';
-  const combined = `${message}\n${details}`.toLowerCase();
+  const name = typeof maybeError.name === 'string' ? maybeError.name : '';
+  const stack = typeof maybeError.stack === 'string' ? maybeError.stack : '';
+  const combined =
+    `${name}\n${message}\n${details}\n${stack}\n${String(error)}`.toLowerCase();
 
   return (
+    combined.includes('remotecachehandler') ||
     combined.includes('timeouterror') ||
     combined.includes('aborted due to timeout') ||
-    combined.includes('network timeout')
+    combined.includes('network timeout') ||
+    combined.includes('502 bad gateway') ||
+    combined.includes('504 gateway timeout') ||
+    combined.includes('bad gateway')
   );
+}
+
+async function getDirectFeatureSettings(
+  merchantId: string
+): Promise<MerchantFeatureSettings | null> {
+  const supabase = getPublicSupabaseClient();
+  const { data, error } = await supabase
+    .from('merchant_feature_settings')
+    .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
+    .eq('merchant_id', merchantId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return merchantFeatureSettingsDefaults.buildPublicDefault(
+      merchantId
+    ) as MerchantFeatureSettings;
+  }
+
+  return data as unknown as MerchantFeatureSettings;
+}
+
+async function attachDirectFeatureSettings<T extends { id: string }>(
+  merchant: T
+): Promise<T & { feature_settings?: MerchantFeatureSettings }> {
+  const featureSettings = await getDirectFeatureSettings(merchant.id);
+  return {
+    ...merchant,
+    feature_settings: featureSettings ?? undefined,
+  };
+}
+
+async function getDirectMerchantBySlug(
+  slug: string
+): Promise<CachedMerchant | null> {
+  const supabase = getPublicSupabaseClient();
+  const { data, error } = await supabase
+    .from('merchants')
+    .select(MERCHANT_PUBLIC_SELECT)
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (error) {
+    throw createMerchantLookupError(
+      `Failed direct merchant lookup for slug: ${sanitizeLookupLogValue(slug)}`,
+      error
+    );
+  }
+
+  if (!data) return null;
+
+  redactUnpublishedMerchantContactFields(data);
+
+  const { data: primaryDomain } = await supabase
+    .from('domains')
+    .select('domain')
+    .eq('merchant_id', data.id)
+    .eq('is_primary', true)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  const normalizedMerchant = normalizeCachedMerchantEntity({
+    ...data,
+    ...(primaryDomain ? { custom_domain: primaryDomain.domain } : {}),
+  });
+
+  return attachDirectFeatureSettings(normalizedMerchant);
+}
+
+async function getDirectMerchantByDomain(
+  domain: string
+): Promise<CachedMerchant | null> {
+  const normalizedDomain = domain.toLowerCase();
+  const supabase = getPublicSupabaseClient();
+  const { data: domainData, error: domainError } = await supabase
+    .from('domains')
+    .select('merchant_id, domain')
+    .eq('domain', normalizedDomain)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (domainError) {
+    throw createMerchantLookupError(
+      `Failed direct domain lookup: ${normalizedDomain}`,
+      domainError
+    );
+  }
+
+  if (!domainData) return null;
+
+  const { data, error } = await supabase
+    .from('merchants')
+    .select(MERCHANT_PUBLIC_SELECT)
+    .eq('id', domainData.merchant_id)
+    .single();
+
+  if (error) {
+    throw createMerchantLookupError(
+      `Failed direct merchant lookup for domain: ${normalizedDomain}`,
+      error
+    );
+  }
+
+  redactUnpublishedMerchantContactFields(data);
+
+  const normalizedMerchant = normalizeCachedMerchantEntity({
+    ...data,
+    custom_domain: domainData.domain,
+  });
+
+  return attachDirectFeatureSettings(normalizedMerchant);
+}
+
+async function getMerchantByIdentifierDirect(
+  identifier: string
+): Promise<CachedMerchant | null> {
+  if (!isValidMerchantIdentifier(identifier)) return null;
+
+  if (isDomainIdentifier(identifier)) {
+    return await getDirectMerchantByDomain(identifier.toLowerCase());
+  }
+
+  return await getDirectMerchantBySlug(identifier.toLowerCase());
 }
 
 /**
@@ -899,16 +1006,28 @@ export async function getMerchantSafe(
 ): Promise<CachedMerchant | null> {
   try {
     return await getMerchantByIdentifier(identifier);
-  } catch {
+  } catch (firstError) {
     // Retry once on transient failure (e.g., Supabase timeout during cache revalidation)
     try {
       return await getMerchantByIdentifier(identifier);
     } catch (retryError) {
       const safeId = sanitizeLookupLogValue(identifier);
-      const log = isTransientMerchantLookupError(retryError)
-        ? console.warn
-        : console.error;
+      const isTransient =
+        isTransientMerchantLookupError(firstError) ||
+        isTransientMerchantLookupError(retryError);
+      const log = isTransient ? console.warn : console.error;
       log('Merchant fetch failed after retry:', safeId);
+
+      if (isTransient) {
+        try {
+          return await getMerchantByIdentifierDirect(identifier);
+        } catch (directError) {
+          console.error('Direct merchant lookup failed after retry:', safeId, {
+            error: directError,
+          });
+        }
+      }
+
       return null;
     }
   }

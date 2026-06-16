@@ -727,36 +727,42 @@ describe('sitemap-data', () => {
     expect(context?.storeUrl).toBe('https://ogabassey.com');
   });
 
-  it('skips invalid candidates without throwing and logs error on all-miss', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+  it('skips invalid candidates without throwing and logs a warning on not-found all-miss', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
       return;
     });
-    mockGetMerchantByIdentifier.mockResolvedValue(null);
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
-    const emptyHeaders = new Headers();
-    const req = new Request('https://invalid.usebaci.com/sitemap.xml', {
-      headers: {
-        authorization: 'Bearer secret-token',
-        cookie: 'session=secret',
-        'x-custom-domain': 'invalid.example.com',
-      },
-    });
 
-    const context = await resolveStorefrontSitemapContext(
-      emptyHeaders,
-      'cart', // reserved path, invalid candidate
-      req
-    );
+    try {
+      mockGetMerchantByIdentifier.mockResolvedValue(null);
+      const { resolveStorefrontSitemapContext } = await import(
+        './sitemap-data'
+      );
+      const emptyHeaders = new Headers();
+      const req = new Request('https://invalid.usebaci.com/sitemap.xml', {
+        headers: {
+          authorization: 'Bearer secret-token',
+          cookie: 'session=secret',
+          'x-custom-domain': 'invalid.example.com',
+        },
+      });
 
-    expect(context).toBeNull();
-    expect(errorSpy).toHaveBeenCalled();
-    const [, payload] = errorSpy.mock.calls.at(-1) ?? [];
-    expect(payload).toMatchObject({
-      safeHeaders: { 'x-custom-domain': 'invalid.example.com' },
-    });
-    expect(JSON.stringify(payload)).not.toContain('secret-token');
-    expect(JSON.stringify(payload)).not.toContain('session=secret');
-    errorSpy.mockRestore();
+      const context = await resolveStorefrontSitemapContext(
+        emptyHeaders,
+        'cart', // reserved path, invalid candidate
+        req
+      );
+
+      expect(context).toBeNull();
+      expect(warnSpy).toHaveBeenCalled();
+      const [, payload] = warnSpy.mock.calls.at(-1) ?? [];
+      expect(payload).toMatchObject({
+        safeHeaders: { 'x-custom-domain': 'invalid.example.com' },
+      });
+      expect(JSON.stringify(payload)).not.toContain('secret-token');
+      expect(JSON.stringify(payload)).not.toContain('session=secret');
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('serializes a sitemap index with sitemap loc entries', async () => {
@@ -854,5 +860,45 @@ describe('sitemap-data', () => {
     expect(response.status).toBe(503);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('retry-after')).toBe('300');
+  });
+
+  it('creates sitemap not-found response with 404 and no retry header', async () => {
+    const { createSitemapNotFoundResponse } = await import('./sitemap-data');
+    const response = createSitemapNotFoundResponse();
+    expect(response.status).toBe(404);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('retry-after')).toBeNull();
+  });
+
+  it('marks transient storefront sitemap lookup failures as unavailable', async () => {
+    mockGetMerchantByIdentifier.mockRejectedValueOnce(
+      new Error('Database timeout')
+    );
+    const { resolveStorefrontSitemapContextResult } = await import(
+      './sitemap-data'
+    );
+
+    const result = await resolveStorefrontSitemapContextResult(
+      mockHeaders as unknown as Headers,
+      'test-store',
+      new Request('https://test-store.usebaci.com/sitemap/static.xml')
+    );
+
+    expect(result.status).toBe('unavailable');
+  });
+
+  it('distinguishes missing storefront sitemaps from transient lookup failures', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValueOnce(null);
+    const { resolveStorefrontSitemapContextResult } = await import(
+      './sitemap-data'
+    );
+
+    const result = await resolveStorefrontSitemapContextResult(
+      mockHeaders as unknown as Headers,
+      'test-store',
+      new Request('https://test-store.usebaci.com/sitemap/static.xml')
+    );
+
+    expect(result.status).toBe('not-found');
   });
 });
