@@ -60,15 +60,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { error: registerError } = await supabase.rpc('register_push_token', {
-      p_app_type: app_type,
-      p_device_name: device_name || null,
-      p_merchant_id: resolvedMerchantId,
-      p_platform: platform,
-      p_token: token,
-    });
+    const { data: registeredTokenId, error: registerError } =
+      await supabase.rpc('register_push_token', {
+        p_app_type: app_type,
+        p_device_name: device_name || null,
+        p_merchant_id: resolvedMerchantId,
+        p_platform: platform,
+        p_token: token,
+      });
 
-    if (registerError) {
+    if (registerError || typeof registeredTokenId !== 'string') {
       console.error('Error registering push token:', registerError);
       return NextResponse.json(
         { error: 'Failed to register push token' },
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Push token registered',
+      token_id: registeredTokenId,
     });
   } catch (error) {
     console.error('Push token registration error:', error);

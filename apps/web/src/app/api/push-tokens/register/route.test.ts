@@ -35,7 +35,7 @@ let mockUser: { id: string } | null = { id: USER_ID };
 let mockAuthError: { message: string } | null = null;
 
 let rpcResult: { data: unknown; error: unknown } = {
-  data: null,
+  data: 'token-123',
   error: null,
 };
 let updateResult: { data: unknown; error: unknown } = {
@@ -128,7 +128,7 @@ describe('POST /api/push-tokens/register', () => {
     );
     mockUser = { id: USER_ID };
     mockAuthError = null;
-    rpcResult = { data: null, error: null };
+    rpcResult = { data: 'token-123', error: null };
     updateResult = { data: null, error: null };
     rpcCalls.length = 0;
   });
@@ -196,6 +196,11 @@ describe('POST /api/push-tokens/register', () => {
     );
 
     expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      message: 'Push token registered',
+      success: true,
+      token_id: 'token-123',
+    });
     expect(mockSupabase.rpc).toHaveBeenCalledWith('register_push_token', {
       p_app_type: 'storefront',
       p_device_name: null,
