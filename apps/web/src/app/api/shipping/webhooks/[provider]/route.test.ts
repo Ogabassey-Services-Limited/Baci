@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,20 +13,23 @@ vi.mock('node:crypto', () => ({
 
 // Mock Supabase
 const mockSingle = vi.fn();
-const mockUpdate = vi.fn().mockReturnThis();
-const mockEq = vi.fn().mockReturnThis();
+
+// Create a builder object that acts as a Thenable
+// This prevents await from returning the builder itself
+const mockBuilder = {
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  single: mockSingle,
+  insert: vi.fn().mockReturnThis(),
+  update: vi.fn().mockReturnThis(),
+  // biome-ignore lint/suspicious/noThenProperty: intentionally implementing Thenable for mocked fluent interface
+  then: (resolve: (value: { data: null; error: null }) => void) =>
+    resolve({ data: null, error: null }),
+};
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
-    from: vi.fn((_table) => {
-      return {
-        select: vi.fn().mockReturnThis(),
-        eq: mockEq,
-        single: mockSingle,
-        insert: vi.fn().mockResolvedValue({ error: null }),
-        update: mockUpdate,
-      };
-    }),
+    from: vi.fn((_table) => mockBuilder),
   })),
 }));
 
@@ -33,37 +37,56 @@ vi.mock('@/lib/expo-push', () => ({
   notifyOrderStatusChange: vi.fn().mockResolvedValue(undefined),
 }));
 
-import crypto from 'node:crypto';
 // Need to import POST after the mocks are set up, but let's use standard import structure
 import { POST } from './route';
 
 describe('Shipping Webhooks API', () => {
-  const originalEnv = process.env;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env = { ...originalEnv };
-    // Set a mock secret for GIGL
-    process.env.GIGL_WEBHOOK_SECRET = 'test-secret';
+    vi.stubEnv('GIGL_WEBHOOK_SECRET', 'test-secret');
+    vi.stubEnv('TOPSHIP_WEBHOOK_SECRET', 'test-secret-topship');
+    // We need to set timingSafeEqual to true by default for tests that assume valid signatures
+    vi.mocked(crypto.timingSafeEqual).mockReturnValue(true);
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    vi.unstubAllEnvs();
   });
 
   function createMockRequest(
+    provider: string,
     body: string,
     headers: Record<string, string> = {}
   ) {
-    return new NextRequest('http://localhost/api/shipping/webhooks/gigl', {
-      method: 'POST',
-      body,
-      headers: new Headers(headers),
-    });
+    return new NextRequest(
+      `http://localhost/api/shipping/webhooks/${provider}`,
+      {
+        method: 'POST',
+        body,
+        headers: new Headers(headers),
+      }
+    );
   }
 
-  it('returns 401 when signature is invalid or missing', async () => {
-    const request = createMockRequest('{"Waybill": "123"}', {});
+  it('returns 401 when signature is missing', async () => {
+    const request = createMockRequest('gigl', '{"Waybill": "123"}', {});
+    const params = Promise.resolve({ provider: 'gigl' });
+
+    const response = await POST(request, { params });
+    const json = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(json).toEqual({ error: 'Invalid signature' });
+  });
+
+  it('returns 401 when signature is invalid', async () => {
+    // Force timingSafeEqual to return false for this specific test
+    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(false);
+
+    const request = createMockRequest('gigl', '{"Waybill": "123"}', {
+      // Must match length of "mock-signature-hash" (19 chars) so length check passes
+      'x-webhook-signature': '1234567890123456789',
+    });
     const params = Promise.resolve({ provider: 'gigl' });
 
     const response = await POST(request, { params });
@@ -74,10 +97,9 @@ describe('Shipping Webhooks API', () => {
   });
 
   it('returns 400 when JSON payload is invalid', async () => {
-    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(true);
-
-    const request = createMockRequest('invalid json', {
-      'x-webhook-signature': 'mock-signature-hash',
+    const request = createMockRequest('gigl', 'invalid json', {
+      // Must match length of "mock-signature-hash"
+      'x-webhook-signature': '1234567890123456789',
     });
     const params = Promise.resolve({ provider: 'gigl' });
 
@@ -89,10 +111,9 @@ describe('Shipping Webhooks API', () => {
   });
 
   it('returns received: true, parsed: false for unknown payloads', async () => {
-    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(true);
-
-    const request = createMockRequest('{"unknown": "field"}', {
-      'x-webhook-signature': 'mock-signature-hash',
+    const request = createMockRequest('gigl', '{"unknown": "field"}', {
+      // Must match length of "mock-signature-hash"
+      'x-webhook-signature': '1234567890123456789',
     });
     const params = Promise.resolve({ provider: 'gigl' });
 
@@ -104,7 +125,6 @@ describe('Shipping Webhooks API', () => {
   });
 
   it('processes gigl webhook properly when payload is valid and shipment is not found', async () => {
-    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(true);
     mockSingle.mockResolvedValueOnce({ data: null, error: null });
 
     const validGiglPayload = JSON.stringify({
@@ -115,8 +135,9 @@ describe('Shipping Webhooks API', () => {
       ScanDate: new Date().toISOString(),
     });
 
-    const request = createMockRequest(validGiglPayload, {
-      'x-webhook-signature': 'mock-signature-hash',
+    const request = createMockRequest('gigl', validGiglPayload, {
+      // Must match length of "mock-signature-hash"
+      'x-webhook-signature': '1234567890123456789',
     });
     const params = Promise.resolve({ provider: 'gigl' });
 
@@ -132,8 +153,6 @@ describe('Shipping Webhooks API', () => {
   });
 
   it('processes gigl webhook properly when payload is valid and shipment is found', async () => {
-    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(true);
-
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'shipment-123',
@@ -159,8 +178,9 @@ describe('Shipping Webhooks API', () => {
       DateTime: new Date().toISOString(),
     });
 
-    const request = createMockRequest(validGiglPayload, {
-      'x-webhook-signature': 'mock-signature-hash',
+    const request = createMockRequest('gigl', validGiglPayload, {
+      // Must match length of "mock-signature-hash"
+      'x-webhook-signature': '1234567890123456789',
     });
     const params = Promise.resolve({ provider: 'gigl' });
 
@@ -173,6 +193,50 @@ describe('Shipping Webhooks API', () => {
       processed: true,
       trackingNumber: 'GIGL12345',
       status: 'delivered', // mapProviderStatus normalizes 'Delivered' to 'delivered'
+    });
+  });
+
+  it('processes topship webhook properly when payload is valid and shipment is found', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'shipment-top-1',
+        order_id: 'order-top-1',
+        status: 'pending',
+        tracking_events: [],
+        orders: [
+          {
+            order_number: 'ORD-TOP-1',
+            customer_id: 'cust-top-1',
+            customers: [{ user_id: 'user-top-1' }],
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const validTopshipPayload = JSON.stringify({
+      shipmentId: 'TS123456',
+      status: 'InTransit',
+      description: 'Package has left the facility',
+      location: 'Abuja Hub',
+      timestamp: new Date().toISOString(),
+    });
+
+    const request = createMockRequest('topship', validTopshipPayload, {
+      // Must match length of "mock-signature-hash"
+      'x-webhook-signature': '1234567890123456789',
+    });
+    const params = Promise.resolve({ provider: 'topship' });
+
+    const response = await POST(request, { params });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toEqual({
+      received: true,
+      processed: true,
+      trackingNumber: '',
+      status: 'in_transit',
     });
   });
 });
