@@ -4,10 +4,6 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import nextConfig from './next.config';
 import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-} from './src/components/storefront/ogabassey/config/product-media';
-import {
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
@@ -182,7 +178,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
   });
 
-  it('emits route-scoped OgaBassey PDP LCP image preload headers', async () => {
+  it('keeps PDP image preloading out of HTTP Link headers', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     expect(headers).toBeDefined();
@@ -200,18 +196,15 @@ describe('next.config OgaBassey resource headers', () => {
     )?.value;
 
     expect(linkHeader).toContain(
-      `</api/ogabassey/pdp-lcp-image/profile/mobile-header/:productSlug>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`
-    );
-    expect(linkHeader).toContain(
-      `</api/ogabassey/pdp-lcp-image/profile/desktop/:productSlug>; rel=preload; as=image; fetchpriority=high; media="${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA}"`
-    );
-    expect(linkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
     expect(linkHeader).toContain('<https://cdn.ogabassey.com>; rel=preconnect');
+    expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
+    expect(linkHeader).not.toContain('/profile/mobile-header/');
+    expect(linkHeader).not.toContain('/profile/mobile/');
   });
 
-  it('keeps interpolated PDP preload URLs query-safe after Next header compilation', async () => {
+  it('keeps interpolated PDP Link headers free of image preload URL parameters', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     expect(headers).toBeDefined();
@@ -232,12 +225,9 @@ describe('next.config OgaBassey resource headers', () => {
       productSlug,
     });
 
-    expect(compiledLinkHeader).toContain(
-      `/api/ogabassey/pdp-lcp-image/profile/mobile-header/${productSlug}`
-    );
-    expect(compiledLinkHeader).toContain(
-      `/api/ogabassey/pdp-lcp-image/profile/desktop/${productSlug}`
-    );
+    expect(compiledLinkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
+    expect(compiledLinkHeader).not.toContain('/profile/mobile-header/');
+    expect(compiledLinkHeader).not.toContain('/profile/mobile/');
     expect(compiledLinkHeader).not.toContain(`${productSlug}width=`);
     expect(compiledLinkHeader).not.toContain(':productSlug?');
   });
@@ -289,8 +279,8 @@ describe('next.config OgaBassey resource headers', () => {
     expect(firstMatchingPdpLinkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
-    expect(firstMatchingPdpLinkHeader).toContain(
-      '</api/ogabassey/pdp-lcp-image/profile/mobile-header/:productSlug>'
+    expect(firstMatchingPdpLinkHeader).not.toContain(
+      '/api/ogabassey/pdp-lcp-image/'
     );
   });
 
