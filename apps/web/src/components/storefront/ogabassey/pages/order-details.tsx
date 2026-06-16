@@ -133,8 +133,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     // Cleanup: unsubscribe on unmount to prevent memory leaks
     return () => {
       if (channelRef.current) {
-        // Defensive check for unsubscribe existence (required for tests/mocks)
-        channelRef.current.unsubscribe?.();
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
