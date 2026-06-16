@@ -46,3 +46,6 @@
 ## 2025-06-03 - [Replace select('*') with select('id') for explicit column selection]
 **Learning:** In Supabase queries, using .select() without arguments defaults to fetching all columns, which violates explicit column selection rules and leads to overfetching.
 **Action:** Always specify exact columns like .select('id') when inserting rows or retrieving specific data to reduce query overhead.
+## 2024-06-14 - Optimize Location Picker FlatLists
+**Learning:** In the mobile-storefront app, dynamically heighted list items inside modals can cause UI thread asynchronous measurement cycles when rendered by FlatList, leading to slow rendering of pickers like City and State.
+**Action:** Always fix the height of simple picker row items (e.g., changing `minHeight` to `height` in stylesheets) and implement explicit `getItemLayout` on the corresponding `FlatList` to bypass runtime measurements and dramatically speed up rendering.
