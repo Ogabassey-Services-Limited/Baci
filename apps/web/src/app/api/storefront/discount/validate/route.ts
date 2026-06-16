@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount';
 import { logger } from '@/lib/logger';
 import { createAnonClient } from '@/lib/supabase/anon';
 import {
@@ -116,26 +117,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate discount amount (rounded to avoid floating point errors)
-    let discountAmount = 0;
-    if (discountCode.discount_type === 'percentage') {
-      discountAmount = Math.round(
-        (cart_total * Number(discountCode.discount_value)) / 100
-      );
-    } else {
-      discountAmount = Math.round(Number(discountCode.discount_value));
-    }
-
-    // Apply maximum discount amount if set (use != null to honor 0)
-    if (
-      discountCode.maximum_discount_amount != null &&
-      discountAmount > Math.round(Number(discountCode.maximum_discount_amount))
-    ) {
-      discountAmount = Math.round(Number(discountCode.maximum_discount_amount));
-    }
-
-    // Ensure discount doesn't exceed cart total
-    discountAmount = Math.min(discountAmount, cart_total);
+    // Single source of truth for the amount (mirrored by the redemption RPC),
+    // so caps and rounding stay aligned with the order route and the DB.
+    const discountAmount = computeDiscountAmountForSubtotal(
+      {
+        discount_type:
+          discountCode.discount_type === 'fixed_amount'
+            ? 'fixed'
+            : 'percentage',
+        discount_value: Number(discountCode.discount_value),
+        maximum_discount_amount:
+          discountCode.maximum_discount_amount != null
+            ? Number(discountCode.maximum_discount_amount)
+            : null,
+      },
+      cart_total
+    );
 
     return NextResponse.json({
       valid: true,

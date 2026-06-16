@@ -152,13 +152,21 @@ interface RpcOverrides {
     error: unknown;
   };
   create_storefront_order_with_savings?: { data: unknown; error: unknown };
+  create_storefront_order_with_discount_code?: {
+    data: unknown;
+    error: unknown;
+  };
+  get_storefront_discount_code?: { data: unknown; error: unknown };
   redeem_wallet_for_order?: { data: unknown; error: unknown };
   redeem_savings_for_order?: { data: unknown; error: unknown };
   finalize_wallet_order_payment?: { data: unknown; error: unknown };
   finalize_store_credit_order_payment?: { data: unknown; error: unknown };
 }
 
-function buildMockSupabase(overrides: RpcOverrides = {}) {
+function buildMockSupabase(
+  overrides: RpcOverrides = {},
+  opts: { productRows?: Array<{ id: string; price: number }> } = {}
+) {
   const sharedChainable: any = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
@@ -196,7 +204,9 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
     // chain. Default returns [] so helper iterates no items and
     // returns 0.
     in: vi.fn().mockReturnThis(),
-    returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+    returns: vi
+      .fn()
+      .mockResolvedValue({ data: opts.productRows ?? [], error: null }),
     // The per-line negotiation loader reads the products catalog via the
     // modern `.overrideTypes()` idiom (postgrest deprecated `.returns()`).
     // Mirror `returns` so every order-create test resolves the products
@@ -4281,6 +4291,211 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         balance: 700,
       }),
       expect.any(Object),
+      expect.any(Object)
+    );
+  });
+});
+
+describe('POST /api/orders — discount code', () => {
+  const DISCOUNT_CODE_ROW = {
+    id: '33333333-3333-4333-8333-333333333333',
+    code: 'SAVE10',
+    discount_type: 'percentage',
+    discount_value: 10,
+    starts_at: null,
+    expires_at: null,
+    usage_limit: null,
+    usage_count: 0,
+    minimum_purchase_amount: null,
+    maximum_discount_amount: null,
+    description: null,
+    applies_to: 'all',
+    product_ids: [],
+    category_ids: [],
+    usage_limit_per_customer: 1,
+  };
+  const orderRowWithDiscount = {
+    ...baseOrderRow,
+    total: 900,
+    subtotal: 1000,
+    discount_amount: 100,
+  };
+  const PRODUCT_ROWS = [{ id: 'p-1', price: 1000 }];
+
+  async function setupDiscount(
+    overrides: RpcOverrides,
+    opts: { productRows?: Array<{ id: string; price: number }> } = {}
+  ) {
+    vi.clearAllMocks();
+    const supabase = buildMockSupabase(overrides, opts);
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    return supabase;
+  }
+
+  function discountRequest(extra: Record<string, unknown> = {}) {
+    return new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({ ...baseOrderPayload, ...extra }),
+    });
+  }
+
+  it('dispatches create_storefront_order_with_discount_code with the canonical amount', async () => {
+    const supabase = await setupDiscount(
+      {
+        get_storefront_discount_code: {
+          data: [DISCOUNT_CODE_ROW],
+          error: null,
+        },
+        create_storefront_order_with_discount_code: {
+          data: [orderRowWithDiscount],
+          error: null,
+        },
+      },
+      { productRows: PRODUCT_ROWS }
+    );
+
+    const response = await POST(discountRequest({ discount_code: 'SAVE10' }));
+
+    expect(response.status).toBeLessThan(400);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order_with_discount_code',
+      expect.objectContaining({
+        p_discount_code_id: DISCOUNT_CODE_ROW.id,
+        p_discount_amount: 100,
+      })
+    );
+  });
+
+  it('still rejects a raw non-zero discount_amount when no code is sent', async () => {
+    const supabase = await setupDiscount({});
+    const response = await POST(discountRequest({ discount_amount: 500 }));
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe(
+      'discount_amount_not_supported'
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 discount_code_invalid for an unknown code', async () => {
+    const supabase = await setupDiscount({
+      get_storefront_discount_code: { data: [], error: null },
+    });
+    const response = await POST(discountRequest({ discount_code: 'NOPE' }));
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe('discount_code_invalid');
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order_with_discount_code',
+      expect.anything()
+    );
+  });
+
+  it('rejects a discount code combined with savings', async () => {
+    await setupDiscount(
+      {
+        get_storefront_discount_code: {
+          data: [DISCOUNT_CODE_ROW],
+          error: null,
+        },
+      },
+      { productRows: PRODUCT_ROWS }
+    );
+    const response = await POST(
+      discountRequest({
+        discount_code: 'SAVE10',
+        use_savings_credit: true,
+        savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+        savings_amount: 100,
+      })
+    );
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe(
+      'DISCOUNT_CODE_SAVINGS_COMBINATION_UNSUPPORTED'
+    );
+  });
+
+  it('maps usage_limit_reached to 409', async () => {
+    await setupDiscount(
+      {
+        get_storefront_discount_code: {
+          data: [DISCOUNT_CODE_ROW],
+          error: null,
+        },
+        create_storefront_order_with_discount_code: {
+          data: null,
+          error: { message: 'usage_limit_reached' },
+        },
+      },
+      { productRows: PRODUCT_ROWS }
+    );
+    const response = await POST(discountRequest({ discount_code: 'SAVE10' }));
+    expect(response.status).toBe(409);
+    expect((await readJson(response)).code).toBe('usage_limit_reached');
+  });
+
+  it('maps per_customer_limit_reached to 409', async () => {
+    await setupDiscount(
+      {
+        get_storefront_discount_code: {
+          data: [DISCOUNT_CODE_ROW],
+          error: null,
+        },
+        create_storefront_order_with_discount_code: {
+          data: null,
+          error: { message: 'per_customer_limit_reached' },
+        },
+      },
+      { productRows: PRODUCT_ROWS }
+    );
+    const response = await POST(discountRequest({ discount_code: 'SAVE10' }));
+    expect(response.status).toBe(409);
+    expect((await readJson(response)).code).toBe('per_customer_limit_reached');
+  });
+
+  it('maps discount_amount_mismatch to 400', async () => {
+    await setupDiscount(
+      {
+        get_storefront_discount_code: {
+          data: [DISCOUNT_CODE_ROW],
+          error: null,
+        },
+        create_storefront_order_with_discount_code: {
+          data: null,
+          error: { message: 'discount_amount_mismatch' },
+        },
+      },
+      { productRows: PRODUCT_ROWS }
+    );
+    const response = await POST(discountRequest({ discount_code: 'SAVE10' }));
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).details).toBe('discount_amount_mismatch');
+  });
+
+  it('replays (does not reject) a deactivated code via the wrapper', async () => {
+    const supabase = await setupDiscount(
+      {
+        get_storefront_discount_code: {
+          data: [{ ...DISCOUNT_CODE_ROW, is_active: false }],
+          error: null,
+        },
+        create_storefront_order_with_discount_code: {
+          data: [{ ...orderRowWithDiscount, idempotency_replayed: true }],
+          error: null,
+        },
+      },
+      { productRows: PRODUCT_ROWS }
+    );
+    const response = await POST(discountRequest({ discount_code: 'SAVE10' }));
+    expect(response.status).toBeLessThan(400);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order_with_discount_code',
       expect.any(Object)
     );
   });
