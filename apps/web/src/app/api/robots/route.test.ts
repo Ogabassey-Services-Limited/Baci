@@ -4,8 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let mockHost = 'ogabassey.com';
 let mockBlogEnabled = true;
-const CONTENT_SIGNAL_DIRECTIVE =
-  'Content-Signal: ai-train=no, search=yes, ai-input=yes';
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() =>
@@ -29,8 +27,10 @@ vi.mock('@/lib/storefront-route-identifier', () => ({
   resolveRouteIdentifier: vi.fn(() => 'ogabassey'),
 }));
 
-function expectContentSignalAfterUserAgent(body: string): void {
-  expect(body).toContain(`User-Agent: *\n${CONTENT_SIGNAL_DIRECTIVE}`);
+function expectStandardsOnlyRobots(body: string): void {
+  const nonStandardDirectivePattern = /^(content-signal|host|crawl-delay):/gim;
+
+  expect(body).not.toMatch(nonStandardDirectivePattern);
 }
 
 describe('GET /api/robots', () => {
@@ -42,7 +42,7 @@ describe('GET /api/robots', () => {
     mockBlogEnabled = true;
   });
 
-  it('serializes robots.txt with AI content usage preferences', async () => {
+  it('serializes robots.txt with Lighthouse-valid crawler directives', async () => {
     const { GET } = await import('./route');
     const response = await GET();
     const body = await response.text();
@@ -53,7 +53,7 @@ describe('GET /api/robots', () => {
       'public, max-age=300, s-maxage=300'
     );
     expect(body).toContain('User-Agent: *');
-    expectContentSignalAfterUserAgent(body);
+    expectStandardsOnlyRobots(body);
     expect(body).toContain('Disallow: /api/');
     expect(body).toContain('Sitemap: https://ogabassey.com/sitemap/static.xml');
   });
@@ -77,7 +77,7 @@ describe('GET /api/robots', () => {
         'public, max-age=300, s-maxage=300'
       );
       expect(body).toContain('User-Agent: *');
-      expectContentSignalAfterUserAgent(body);
+      expectStandardsOnlyRobots(body);
     } finally {
       consoleError.mockRestore();
     }
@@ -100,9 +100,33 @@ describe('GET /api/robots', () => {
 
     expect(response.status).toBe(200);
     expect(body).toContain('User-Agent: *');
-    expectContentSignalAfterUserAgent(body);
+    expectStandardsOnlyRobots(body);
     expect(body).toContain('Allow: /');
     expect(body).toContain('Disallow: /private/');
     expect(body).not.toContain('Sitemap:');
+  });
+
+  it('omits unsupported host and crawl-delay records from robots.txt', async () => {
+    vi.doMock('@/app/robots', () => ({
+      default: vi.fn(async () => ({
+        host: 'ogabassey.com',
+        rules: {
+          userAgent: '*',
+          allow: '/',
+          crawlDelay: 5,
+        },
+        sitemap: 'https://ogabassey.com/sitemap.xml',
+      })),
+    }));
+
+    const { GET } = await import('./route');
+    const response = await GET();
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain('User-Agent: *');
+    expect(body).toContain('Allow: /');
+    expect(body).toContain('Sitemap: https://ogabassey.com/sitemap.xml');
+    expectStandardsOnlyRobots(body);
   });
 });
