@@ -99,6 +99,10 @@ const discountResolver: Resolver<
   };
 };
 
+function formatDate(date?: Date): string {
+  return date ? date.toLocaleDateString() : 'Set Date';
+}
+
 export default function NewDiscountScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -148,10 +152,6 @@ export default function NewDiscountScreen() {
       console.error(error);
       Alert.alert('Error', 'Failed to create discount code');
     }
-  };
-
-  const formatDate = (date?: Date) => {
-    return date ? date.toLocaleDateString() : 'Set Date';
   };
 
   return (

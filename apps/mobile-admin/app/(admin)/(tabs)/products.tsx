@@ -460,6 +460,19 @@ function InventorySummaryBar({
   );
 }
 
+// Navigation callback for products
+function handleProductPress(id: string): void {
+  router.push(`/product/${id}`);
+}
+
+// Navigation callback for categories
+function handleCategoryPress(_id: string): void {
+  Alert.alert(
+    'Coming Soon',
+    'Category filtering will be available in a future update.'
+  );
+}
+
 export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant } = useMerchant();
@@ -572,19 +585,6 @@ export default function ProductsScreen() {
     if (hasNextPage && !isFetchingNextPage && activeTab !== 'top_selling') {
       fetchNextPage();
     }
-  };
-
-  // Navigation callback for products
-  const handleProductPress = (id: string) => {
-    router.push(`/product/${id}`);
-  };
-
-  // Navigation callback for categories
-  const handleCategoryPress = (_id: string) => {
-    Alert.alert(
-      'Coming Soon',
-      'Category filtering will be available in a future update.'
-    );
   };
 
   const renderProduct = ({ item }: ListRenderItemInfo<Product>) => (

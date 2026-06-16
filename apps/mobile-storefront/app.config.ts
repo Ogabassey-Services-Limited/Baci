@@ -103,6 +103,9 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
 const facebookAppId = process.env.STOREFRONT_FACEBOOK_APP_ID?.trim();
 const facebookClientToken =
   process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim();
+const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim();
+const posthogHost =
+  process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com';
 const merchantDomain =
   process.env.EXPO_PUBLIC_MERCHANT_DOMAIN?.trim() || 'ogabassey.com';
 const updateChannelCandidates = new Set([
@@ -141,6 +144,18 @@ if (!facebookAppId || !facebookClientToken) {
   } else {
     console.warn(
       '[app.config] WARNING: STOREFRONT_FACEBOOK_APP_ID or STOREFRONT_FACEBOOK_CLIENT_TOKEN is missing. Facebook SDK plugin will be disabled for local development.'
+    );
+  }
+}
+
+if (!posthogApiKey) {
+  if (isRequiredEnv) {
+    throw new Error(
+      '[app.config] Missing required PostHog key: EXPO_PUBLIC_POSTHOG_API_KEY. Set it in CI/EAS/production/test environments so mobile storefront crash logging is enabled.'
+    );
+  } else {
+    console.warn(
+      '[app.config] WARNING: EXPO_PUBLIC_POSTHOG_API_KEY is missing. PostHog crash logging will be disabled for local development.'
     );
   }
 }
@@ -323,6 +338,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    posthogApiKey,
+    posthogHost,
     tiktokBusiness: {
       iosAppStoreId: tiktokIosAppStoreId,
       iosTikTokAppId: tiktokIosAppId,

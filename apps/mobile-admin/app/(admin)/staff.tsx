@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, StatusBar } from 'react-native';
+import { Pressable, StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { InviteStaffSheet } from '@/components/staff/InviteStaffSheet';
 import { StaffListSection } from '@/components/staff/StaffListSection';
