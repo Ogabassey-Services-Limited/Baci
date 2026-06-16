@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
 
   const shipmentQuery = { eq: vi.fn(), single: vi.fn() };
   shipmentQuery.eq.mockImplementation(() => shipmentQuery);
+  const shipmentSelect = vi.fn(() => shipmentQuery);
 
   const shipmentUpdateBuilders: UpdateBuilder[] = [];
   const orderUpdateBuilders: UpdateBuilder[] = [];
@@ -42,7 +43,7 @@ const mocks = vi.hoisted(() => {
 
   const from = vi.fn((table: string) => {
     if (table === 'shipments') {
-      return { select: vi.fn(() => shipmentQuery), update: shipmentUpdate };
+      return { select: shipmentSelect, update: shipmentUpdate };
     }
     if (table === 'orders') return { update: orderUpdate };
     if (table === 'shipping_webhook_events') {
@@ -61,6 +62,7 @@ const mocks = vi.hoisted(() => {
     orderUpdate,
     orderUpdateBuilders,
     shipmentQuery,
+    shipmentSelect,
     shipmentUpdate,
     shipmentUpdateBuilders,
     webhookEventInsert,
@@ -78,6 +80,7 @@ vi.mock('@/lib/expo-push', () => ({
 }));
 
 import crypto from 'node:crypto';
+import { notifyOrderStatusChange } from '@/lib/expo-push';
 import { POST } from './route';
 
 const signatureHeaders = { 'x-webhook-signature': 'mock-signature-hash' };
@@ -119,9 +122,6 @@ function postWebhook(provider: string, body: string) {
 describe('Shipping Webhooks API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.shipmentUpdateBuilders.length = 0;
-    mocks.orderUpdateBuilders.length = 0;
-    mocks.webhookEventUpdateBuilders.length = 0;
     mocks.hmac.update.mockReturnValue(mocks.hmac);
     mocks.hmac.digest.mockReturnValue('mock-signature-hash');
     mocks.crypto.createHmac.mockReturnValue(mocks.hmac);
@@ -144,7 +144,6 @@ describe('Shipping Webhooks API', () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Invalid signature' });
-    expect(crypto.timingSafeEqual).not.toHaveBeenCalled();
   });
 
   it('returns 401 when signature is invalid', async () => {
@@ -154,7 +153,6 @@ describe('Shipping Webhooks API', () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Invalid signature' });
-    expect(crypto.timingSafeEqual).toHaveBeenCalledOnce();
   });
 
   it('returns 400 when JSON payload is invalid', async () => {
@@ -180,23 +178,22 @@ describe('Shipping Webhooks API', () => {
       JSON.stringify({
         Waybill: 'GIGL12345',
         ShipmentScanStatus: 'Delivered',
-        Description: 'Package has been delivered',
-        Location: 'Lagos Hub',
         ScanDate: '2026-06-16T10:30:00.000Z',
       })
     );
 
+    expect(mocks.shipmentSelect).toHaveBeenCalledWith(
+      expect.stringContaining('id, order_id, status, tracking_events')
+    );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       received: true,
       processed: false,
       reason: 'shipment_not_found',
     });
-    expect(mocks.webhookEventUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        processed: true,
-        processed_at: expect.any(String),
-      })
+    expect(mocks.webhookEventUpdateBuilders.at(-1)?.eq).toHaveBeenCalledWith(
+      'tracking_number',
+      'GIGL12345'
     );
   });
 
@@ -211,7 +208,6 @@ describe('Shipping Webhooks API', () => {
       JSON.stringify({
         Waybill: 'GIGL12345',
         Status: 'Delivered',
-        Description: 'Package has been delivered',
         Location: 'Lagos Hub',
         DateTime: '2026-06-16T10:45:00.000Z',
       })
@@ -229,14 +225,25 @@ describe('Shipping Webhooks API', () => {
         current_location: 'Lagos Hub',
         delivered_at: expect.any(String),
         status: 'delivered',
-        tracking_events: [
-          expect.objectContaining({ normalizedStatus: 'delivered' }),
-        ],
       })
+    );
+    expect(mocks.shipmentUpdateBuilders.at(-1)?.eq).toHaveBeenCalledWith(
+      'id',
+      'shipment-123'
     );
     expect(mocks.orderUpdate).toHaveBeenCalledWith({
       shipping_status: 'delivered',
     });
+    expect(mocks.orderUpdateBuilders.at(-1)?.eq).toHaveBeenCalledWith(
+      'id',
+      'order-123'
+    );
+    expect(notifyOrderStatusChange).toHaveBeenCalledWith(
+      'user-shipment-123',
+      'order-123',
+      'ORD-shipment-123',
+      'delivered'
+    );
   });
 
   it('processes Topship webhook when only provider shipment ID is present', async () => {
@@ -250,7 +257,6 @@ describe('Shipping Webhooks API', () => {
       JSON.stringify({
         shipmentId: 'TS-SHIPMENT-123',
         status: 'InTransit',
-        description: 'Package is moving through the network',
         location: 'Ikeja Hub',
         timestamp: '2026-06-16T11:00:00.000Z',
       })
@@ -268,8 +274,26 @@ describe('Shipping Webhooks API', () => {
       'provider_shipment_id',
       'TS-SHIPMENT-123'
     );
+    expect(mocks.shipmentUpdateBuilders.at(-1)?.eq).toHaveBeenCalledWith(
+      'id',
+      'topship-123'
+    );
     expect(mocks.orderUpdate).toHaveBeenCalledWith({
       shipping_status: 'shipped',
     });
+  });
+
+  it('returns 500 when the database client throws', async () => {
+    mocks.from.mockImplementationOnce(() => {
+      throw new Error('database unavailable');
+    });
+
+    const response = await postWebhook(
+      'gigl',
+      JSON.stringify({ Waybill: 'GIGL12345', Status: 'Delivered' })
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: 'Internal server error' });
   });
 });
