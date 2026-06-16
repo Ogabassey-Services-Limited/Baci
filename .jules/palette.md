@@ -98,3 +98,8 @@
 **Learning:** Conditionally rendering a `View` with `accessibilityLiveRegion="polite"` can miss transient loading announcements because screen readers need a mounted live region before content changes; `accessibilityState={{ busy: true }}` can also suppress announcements until busy flips false.
 **Action:** For transient React Native loading announcements, trigger the imperative `AccessibilityInfo.announceForAccessibility('Fetching delivery options…')` call from a `useEffect` when the loading state becomes true.
 **Source:** React Native AccessibilityInfo API / WCAG 4.1.3 Status Messages
+
+## 2026-06-16 - Added accessibility props to React Native view toggles
+**Learning:** Icon-only toggle buttons in React Native (such as Grid vs List view switchers using Pressable) must explicitly include `accessibilityRole="button"`, a descriptive `accessibilityLabel`, and `accessibilityState={{ selected: <boolean> }}` to be fully accessible to screen readers, as Biome's a11y linting does not catch this automatically for RN.
+**Action:** When adding or updating icon-only interactive elements in React Native, explicitly add `accessibilityRole`, `accessibilityLabel`, and relevant `accessibilityState`.
+**Source:** Memory and React Native Accessibility API docs
