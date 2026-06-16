@@ -14,8 +14,12 @@ import {
   isTaxComputeUuidError,
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
-import { isCanonicalOrderSubtotalUuidError } from '@/lib/checkout/canonical-order-subtotal';
+import {
+  computeCanonicalOrderSubtotal,
+  isCanonicalOrderSubtotalUuidError,
+} from '@/lib/checkout/canonical-order-subtotal';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
+import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount';
 import {
   buildOrderIdempotencyPayload,
   hashOrderIdempotencyPayload,
@@ -62,6 +66,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import { type OrderCreateInput, orderCreateSchema } from '@/schemas/orders';
+import { storefrontDiscountCodeRowSchema } from '@/schemas/storefront-discount';
 
 function isPayOnDelivery(paymentMethod: string): boolean {
   return paymentMethod === 'pod' || paymentMethod === 'pay_on_delivery';
@@ -1172,6 +1177,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Storefront discount code (only codes are trusted; raw discount_amount is
+    // still rejected above). Detected early so the negotiation discount can be
+    // suppressed when a code is applied (mutually exclusive — code wins).
+    const requestedDiscountCode =
+      typeof body.discount_code === 'string' &&
+      body.discount_code.trim().length > 0
+        ? body.discount_code.trim()
+        : null;
+
     // Codex P1 (PR #1622 round 6): the legacy storefront checkout
     // (`apps/web/src/app/checkout/page.tsx`) doesn't send
     // `tax_amount` — Zod defaults to 0 — and that 0 tripped the
@@ -1306,6 +1320,7 @@ export async function POST(request: NextRequest) {
     //   decides whether the validated discount should be charged.
     const shouldApplyServerDerivedDiscount =
       merchantCanAutoNegotiate &&
+      !requestedDiscountCode &&
       (typeof body.expected_total === 'number' || source === 'mobile_app');
     const serverDerivedDiscountAmount = shouldApplyServerDerivedDiscount
       ? (negotiationDiscount?.totalDiscount ?? 0)
@@ -1355,11 +1370,132 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Hoisted above the idempotency hash so both the discount-code combination
+    // guard and the hash can reference it.
+    const requestedSavingsRedemption =
+      use_savings_credit &&
+      savings_goal_id &&
+      typeof savings_amount === 'number' &&
+      savings_amount > 0;
+
+    // Resolve + validate the discount code server-side, then compute the amount
+    // from the CANONICAL subtotal (never the client cart total). Eligibility /
+    // targeting is enforced authoritatively + replay-safely in the wrapper RPC.
+    let discountCodeId: string | null = null;
+    let discountCodeAmount = 0;
+    if (requestedDiscountCode) {
+      if (hasVoucherItem) {
+        return NextResponse.json(
+          {
+            code: 'DISCOUNT_CODE_VOUCHER_COMBINATION_UNSUPPORTED',
+            error: 'Failed to create order',
+          },
+          { status: 400 }
+        );
+      }
+      if (requestedSavingsRedemption) {
+        return NextResponse.json(
+          {
+            code: 'DISCOUNT_CODE_SAVINGS_COMBINATION_UNSUPPORTED',
+            error: 'Failed to create order',
+          },
+          { status: 400 }
+        );
+      }
+
+      // include_inactive=true: resolve even a deactivated code so a retry can
+      // reach the replay-aware wrapper; the wrapper decides replay vs a fresh
+      // `code_inactive` rejection.
+      const { data: discountRows, error: discountLookupError } =
+        await supabase.rpc('get_storefront_discount_code', {
+          p_merchant_id: merchant_id,
+          p_code: requestedDiscountCode,
+          p_include_inactive: true,
+        });
+      if (discountLookupError) {
+        // Don't mask a server/DB failure as an invalid-code 400.
+        logger.error({
+          message: 'Discount code lookup failed',
+          error: discountLookupError,
+          merchantId: merchant_id,
+        });
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500 }
+        );
+      }
+      const parsedDiscountArray = storefrontDiscountCodeRowSchema
+        .array()
+        .safeParse(discountRows);
+      const parsedDiscountSingle = parsedDiscountArray.success
+        ? null
+        : storefrontDiscountCodeRowSchema.safeParse(discountRows);
+      const discountRow = parsedDiscountArray.success
+        ? (parsedDiscountArray.data[0] ?? null)
+        : parsedDiscountSingle?.success
+          ? parsedDiscountSingle.data
+          : null;
+      if (!discountRow) {
+        return NextResponse.json(
+          { code: 'discount_code_invalid', error: 'Invalid discount code' },
+          { status: 400 }
+        );
+      }
+      discountCodeId = discountRow.id;
+
+      let discountCanonicalSubtotal: number | null;
+      try {
+        discountCanonicalSubtotal = await computeCanonicalOrderSubtotal({
+          items: orderItemsPayload,
+          merchantId: merchant_id,
+          supabase,
+        });
+      } catch (subtotalError) {
+        if (isCanonicalOrderSubtotalUuidError(subtotalError)) {
+          return NextResponse.json(
+            { error: 'Failed to create order', details: 'invalid_items' },
+            { status: 400 }
+          );
+        }
+        logger.error({
+          error: subtotalError,
+          merchantId: merchant_id,
+          message: 'Discount canonical subtotal recompute failed',
+        });
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500 }
+        );
+      }
+      if (discountCanonicalSubtotal == null) {
+        return NextResponse.json(
+          { error: 'Failed to create order', details: 'invalid_items' },
+          { status: 400 }
+        );
+      }
+
+      discountCodeAmount = computeDiscountAmountForSubtotal(
+        {
+          discount_type:
+            discountRow.discount_type === 'fixed_amount'
+              ? 'fixed'
+              : 'percentage',
+          discount_value: Number(discountRow.discount_value),
+          maximum_discount_amount: discountRow.maximum_discount_amount,
+        },
+        discountCanonicalSubtotal
+      );
+    }
+
     const checkoutRequestHash = requestIdempotencyKey
       ? hashOrderIdempotencyPayload(
           buildOrderIdempotencyPayload({
             ...body,
-            discount_amount: serverDerivedDiscountAmount,
+            // STABLE code identity, NOT the recomputed amount, so a merchant
+            // editing the code between a checkout and its retry can't trip
+            // checkout_idempotency_conflict before the wrapper's replay path.
+            discount_amount: discountCodeId ? 0 : serverDerivedDiscountAmount,
+            discount_code: requestedDiscountCode,
             gift_wrapping_fee: giftWrappingFeeValue,
             items: orderItemsPayload,
             shipping_fee: shippingFeeValue,
@@ -1368,11 +1504,6 @@ export async function POST(request: NextRequest) {
         )
       : null;
 
-    const requestedSavingsRedemption =
-      use_savings_credit &&
-      savings_goal_id &&
-      typeof savings_amount === 'number' &&
-      savings_amount > 0;
     const savingsRedemptionIdempotencyKey = requestedSavingsRedemption
       ? getSavingsRedemptionIdempotencyKey({
           customerEmail: customer_email,
@@ -1405,7 +1536,9 @@ export async function POST(request: NextRequest) {
       p_customer_phone: customer_phone || null,
       p_items: orderItemsPayload,
       p_shipping_fee: shippingFeeValue,
-      p_discount_amount: serverDerivedDiscountAmount,
+      p_discount_amount: discountCodeId
+        ? discountCodeAmount
+        : serverDerivedDiscountAmount,
       p_tax_amount: serverComputedTaxAmount,
       p_payment_method: payment_method,
       p_payment_status: effectivePaymentStatus,
@@ -1457,18 +1590,24 @@ export async function POST(request: NextRequest) {
       ? 'create_storefront_order_with_savings'
       : hasVoucherItem
         ? 'create_storefront_order_with_quiz_voucher'
-        : 'create_storefront_order';
+        : discountCodeId
+          ? 'create_storefront_order_with_discount_code'
+          : 'create_storefront_order';
+
+    const orderCreateRpcArgs = requestedSavingsRedemption
+      ? {
+          ...orderRpcArgs,
+          p_savings_amount: savings_amount,
+          p_savings_goal_id: savings_goal_id,
+          p_savings_idempotency_key: savingsRedemptionIdempotencyKey,
+        }
+      : discountCodeId
+        ? { ...orderRpcArgs, p_discount_code_id: discountCodeId }
+        : orderRpcArgs;
 
     const { data: orderRows, error: orderError } = await supabase.rpc(
       orderCreateRpcName,
-      requestedSavingsRedemption
-        ? {
-            ...orderRpcArgs,
-            p_savings_amount: savings_amount,
-            p_savings_goal_id: savings_goal_id,
-            p_savings_idempotency_key: savingsRedemptionIdempotencyKey,
-          }
-        : orderRpcArgs
+      orderCreateRpcArgs
     );
 
     const order = Array.isArray(orderRows) ? orderRows[0] : orderRows;
@@ -1516,6 +1655,17 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
+      // Discount-code limit outcomes are race/state conflicts, not malformed
+      // input — surface as 409 so the client shows "no longer available".
+      if (
+        message === 'usage_limit_reached' ||
+        message === 'per_customer_limit_reached'
+      ) {
+        return NextResponse.json(
+          { code: message, error: 'Discount code is no longer available' },
+          { status: 409 }
+        );
+      }
       const clientErrorCodes = [
         'invalid_items',
         'invalid_quantity',
@@ -1529,6 +1679,17 @@ export async function POST(request: NextRequest) {
         'user_id_mismatch',
         'invalid_payment_status',
         'discount_amount_not_supported',
+        // Discount-code redemption client errors (→ 400). The wrapper RPC
+        // raises these for fresh orders; safe for the client to fix and retry.
+        'discount_code_required',
+        'discount_code_not_found',
+        'discount_code_invalid',
+        'discount_code_not_eligible',
+        'code_inactive',
+        'code_not_started',
+        'code_expired',
+        'minimum_purchase_not_met',
+        'discount_amount_mismatch',
         // B3 (plan §5 B3): RPC raises when shipping_provider is set
         // without a quote id. Map to 4xx so the client gets the right
         // re-quote signal instead of a generic 500.

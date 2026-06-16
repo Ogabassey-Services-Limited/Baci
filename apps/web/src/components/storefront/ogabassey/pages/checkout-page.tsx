@@ -23,6 +23,10 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
+import {
+  DiscountCodeInput,
+  type DiscountResult,
+} from '@/components/storefront/checkout/discount-code-input';
 import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -1217,6 +1221,8 @@ export const CheckoutPage: React.FC = () => {
   const [payWithWallet, setPayWithWallet] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderTotals, setOrderTotals] = useState<{ total: number; taxAmount: number } | null>(null);
+  const [appliedDiscount, setAppliedDiscount] =
+    useState<DiscountResult | null>(null);
 
   // Note: currentStep and completedSteps are now part of checkoutForm (persisted)
 
@@ -1300,7 +1306,26 @@ export const CheckoutPage: React.FC = () => {
           : 0 // Fallback: 0 if loading or no quote selected
         : airportType === 'delivery' ? 25000 : 20000; // Airport Delivery: ₦25,000, Airport Pickup: ₦20,000
 
-  const total = effectiveCheckoutCartTotal + deliveryCost + giftWrappingCost + (orderTotals?.taxAmount ?? 0);
+  // Server-computed discount amount (the route re-validates against the
+  // canonical subtotal); fall back to a local estimate only if it's missing.
+  const discountAmount = appliedDiscount
+    ? (appliedDiscount.discount_amount ??
+      (appliedDiscount.discount_type === 'percentage'
+        ? Math.round(
+            effectiveCheckoutCartTotal * (appliedDiscount.discount_value / 100)
+          )
+        : Math.min(appliedDiscount.discount_value, effectiveCheckoutCartTotal)))
+    : 0;
+  // `total` is NET of the discount so wallet credit, remaining-amount gating,
+  // the displayed total, and the order payload all agree.
+  const total = Math.max(
+    0,
+    effectiveCheckoutCartTotal +
+      deliveryCost +
+      giftWrappingCost +
+      (orderTotals?.taxAmount ?? 0) -
+      discountAmount
+  );
 
   // Wallet credit calculation (2025: can't redeem more than order total)
   const walletAmountUsed = payWithWallet ? Math.min(walletBalance, total) : 0;
@@ -1706,6 +1731,7 @@ export const CheckoutPage: React.FC = () => {
       })),
       useWalletCredit: payWithWallet && walletAmountUsed > 0,
       walletAmountUsed,
+      discountCode: appliedDiscount?.code ?? null,
     });
 
     try {
@@ -1785,16 +1811,28 @@ export const CheckoutPage: React.FC = () => {
             // `giftWrappingCost > 1`. Compose the snapshot from the
             // explicit components instead so it always matches the
             // server side (Codex P1 on PR #1622).
-            expected_total:
+            // Net of the applied discount so the RPC parity formula
+            // (subtotal + shipping + gift + tax - discount) matches; the route
+            // recomputes + validates the discount from the canonical subtotal.
+            expected_total: Math.max(
+              0,
               checkoutCartTotal +
-              deliveryCost +
-              giftWrappingCost +
-              (orderTotals?.taxAmount ?? 0),
-            client_total:
+                deliveryCost +
+                giftWrappingCost +
+                (orderTotals?.taxAmount ?? 0) -
+                discountAmount
+            ),
+            client_total: Math.max(
+              0,
               checkoutCartTotal +
-              deliveryCost +
-              giftWrappingCost +
-              (orderTotals?.taxAmount ?? 0),
+                deliveryCost +
+                giftWrappingCost +
+                (orderTotals?.taxAmount ?? 0) -
+                discountAmount
+            ),
+            ...(appliedDiscount?.code
+              ? { discount_code: appliedDiscount.code }
+              : {}),
             payment_method: normalizedPaymentMethod,
             payment_status: 'unpaid',
             shipping_status: 'pending',
@@ -2847,6 +2885,23 @@ export const CheckoutPage: React.FC = () => {
           walletAmountUsed={walletAmountUsed}
           remainingAmount={remainingAmount > 0 ? remainingAmount : resumedOrder?.total || remainingAmount}
         />
+
+        {/* Hidden in the resumed-order flow: that path charges the persisted
+            resumedOrder.total and skips order creation, so a discount applied
+            here would only change the displayed total/fingerprint, not the
+            amount actually charged. */}
+        {!resumedOrder && (
+          <div className="mt-4">
+            <DiscountCodeInput
+              merchantId={merchant?.id || ''}
+              cartTotal={effectiveCheckoutCartTotal}
+              productIds={checkoutCart.map((item) => item.id)}
+              appliedDiscount={appliedDiscount}
+              onApply={setAppliedDiscount}
+              onRemove={() => setAppliedDiscount(null)}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           {/* LEFT COLUMN: Accordion Steps */}

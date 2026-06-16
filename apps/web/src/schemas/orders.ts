@@ -164,6 +164,11 @@ const orderCreateSchemaBase = z
     subtotal: z.coerce.number().nonnegative(),
     shipping_fee: z.coerce.number().nonnegative().prefault(0),
     discount_amount: z.coerce.number().nonnegative().prefault(0),
+    // Storefront discount code (human code string). Resolved + validated
+    // server-side; the route routes order creation through the self-policing
+    // `create_storefront_order_with_discount_code` RPC. Raw `discount_amount`
+    // remains rejected — only codes are trusted.
+    discount_code: z.string().trim().min(1).max(50).optional(),
     tax_amount: z.coerce.number().nonnegative().prefault(0),
     // B3.5 (Δ-39): tax_basis and gift_wrapping_fee are RPC params with
     // sensible defaults (exclusive / 0). The Zod schema mirrors the

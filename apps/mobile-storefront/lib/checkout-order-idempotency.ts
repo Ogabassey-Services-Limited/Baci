@@ -26,6 +26,7 @@ interface MobileCheckoutIdempotencyInput {
   customerPhone: string;
   deliveryMethod: string;
   discountAmount?: number | null;
+  discountCode?: string | null;
   items: readonly MobileCheckoutIdempotencyItem[];
   savingsAmount?: number | null;
   savingsGoalId?: string | null;
@@ -165,6 +166,8 @@ export function buildMobileCheckoutFingerprint(
     customerPhone: normalizeString(input.customerPhone),
     deliveryMethod: normalizeString(input.deliveryMethod),
     discountAmount: normalizeNumber(input.discountAmount),
+    // Stable code identity so two equal-amount codes never collide on retry.
+    discountCode: normalizeString(input.discountCode) || null,
     items,
     savingsAmount: normalizeNumber(input.savingsAmount),
     savingsGoalId: normalizeString(input.savingsGoalId),
