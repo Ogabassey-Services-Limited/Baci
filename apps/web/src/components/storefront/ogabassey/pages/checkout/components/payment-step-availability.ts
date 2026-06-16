@@ -82,12 +82,25 @@ export function isKlumpEligible({
 
 export function isCreditDirectEligible({
   featureSettings,
+  currency,
+  orderAmount,
   payableAmount,
 }: {
   featureSettings?: FeatureSettings | null;
+  currency?: string | null;
+  orderAmount: number;
   payableAmount: number;
 }): boolean {
   if (featureSettings?.credit_direct_enabled !== true) {
+    return false;
+  }
+
+  const normalizedCurrency = typeof currency === 'string' ? currency : '';
+  if (normalizedCurrency.trim().toUpperCase() !== 'NGN') {
+    return false;
+  }
+
+  if (isGatewayAmountDifferentFromOrderTotal(payableAmount, orderAmount)) {
     return false;
   }
 
@@ -136,7 +149,12 @@ export function isPaymentMethodAvailable({
     case 'credpal':
       return featureSettings?.credpal_enabled === true;
     case 'credit_direct':
-      return isCreditDirectEligible({ featureSettings, payableAmount });
+      return isCreditDirectEligible({
+        featureSettings,
+        currency,
+        orderAmount,
+        payableAmount,
+      });
     case 'klump':
       return isKlumpEligible({
         featureSettings,
@@ -166,7 +184,12 @@ export function hasAnyInstallmentOption({
 }): boolean {
   return Boolean(
     featureSettings?.credpal_enabled ||
-      isCreditDirectEligible({ featureSettings, payableAmount }) ||
+      isCreditDirectEligible({
+        featureSettings,
+        currency,
+        orderAmount,
+        payableAmount,
+      }) ||
       isKlumpEligible({
         featureSettings,
         currency,
