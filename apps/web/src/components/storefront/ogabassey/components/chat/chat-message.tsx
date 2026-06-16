@@ -17,7 +17,15 @@ interface ChatMessageBubbleProps {
   message: ChatMessage;
   index: number;
   isSanta: boolean;
-  onAddToCart: (index: number) => void;
+  onAddToCart: (messageIndex: number, actionIndex?: number) => void;
+}
+
+function formatSantaPrice(price: number): string {
+  return new Intl.NumberFormat('en-NG', {
+    currency: 'NGN',
+    maximumFractionDigits: Number.isInteger(price) ? 0 : 2,
+    style: 'currency',
+  }).format(price);
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
@@ -26,6 +34,9 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   isSanta,
   onAddToCart,
 }) => {
+  const santaActions =
+    message.santaActions ?? (message.santaAction ? [message.santaAction] : []);
+
   return (
     <div
       className={`flex items-end gap-2 group ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
@@ -59,32 +70,44 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
           {renderMarkdown(message.text)}
 
           {/* Santa Wish Granted - Add to Cart Button */}
-          {message.santaAction && (
-            <div className="mt-3 pt-3 border-t border-green-200">
+          {santaActions.length > 0 && (
+            <div
+              aria-label="Santa wish granted actions"
+              className="mt-3 pt-3 border-t border-[color:color-mix(in_srgb,var(--store-primary)_24%,transparent)]"
+              role="region"
+            >
               <div className="flex items-center gap-2 mb-2">
-                <Gift size={16} className="text-green-600" />
-                <span className="text-xs font-semibold text-green-700">Wish Granted!</span>
-              </div>
-              <div className="text-sm text-gray-600 mb-2">
-                <span className="font-medium">{message.santaAction.productName}</span>
-                <br />
-                <span className="text-green-600 font-bold">
-                  {'\u20A6'}
-                  {message.santaAction.price.toLocaleString()}
+                <Gift size={16} className="text-[var(--store-primary)]" />
+                <span className="text-xs font-semibold text-[var(--store-primary)]">
+                  Wish Granted!
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => onAddToCart(index)}
-                disabled={message.santaAction.added}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${message.santaAction.added
-                  ? 'bg-green-100 text-green-700 cursor-default'
-                  : 'bg-green-600 text-white hover:bg-green-700 hover:scale-[1.02] active:scale-[0.98]'
-                }`}
-              >
-                <ShoppingCart size={16} />
-                {message.santaAction.added ? 'Added to Cart!' : 'Add to Cart & Checkout'}
-              </button>
+              {santaActions.map((santaAction, actionIndex) => (
+                <div
+                  key={`${santaAction.productName}-${santaAction.price}-${actionIndex}`}
+                  className="mb-3 last:mb-0"
+                >
+                  <div className="text-sm text-[var(--store-text-muted,#4b5563)] mb-2">
+                    <span className="font-medium">{santaAction.productName}</span>
+                    <br />
+                    <span className="text-[var(--store-primary)] font-bold">
+                      {formatSantaPrice(santaAction.price)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onAddToCart(index, actionIndex)}
+                    disabled={santaAction.added}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${santaAction.added
+                      ? 'bg-[color:color-mix(in_srgb,var(--store-primary)_12%,transparent)] text-[var(--store-primary)] cursor-default'
+                      : 'bg-[var(--store-primary)] text-[var(--store-primary-foreground,#fff)] hover:brightness-95 hover:scale-[1.02] active:scale-[0.98]'
+                    }`}
+                  >
+                    <ShoppingCart size={16} />
+                    {santaAction.added ? 'Added to Cart!' : 'Add to Cart & Checkout'}
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>
