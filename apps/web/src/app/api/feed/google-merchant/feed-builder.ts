@@ -20,6 +20,7 @@ import {
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { ProductKeySpecs } from '@/lib/products';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
+import { escapeXml } from '@/lib/xml-utils';
 import { buildFeedDescription } from './build-feed-description';
 import {
   buildGoogleColorXml,
@@ -270,17 +271,6 @@ function resolveVariantFeedImages(args: {
       )
     ) ?? args.productLevelImages
   );
-}
-
-function escapeXml(unsafe: string): string {
-  if (!unsafe) return '';
-  return unsafe
-    .toString()
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 }
 
 function getFeedStockCount(product: FeedProduct): number {
@@ -568,6 +558,7 @@ export function generateGoogleMerchantFeed(
           ? `        <g:shipping_weight>${product.weight_value} ${product.weight_unit}</g:shipping_weight>`
           : '';
       const effectiveBrand = product.brand || brandName;
+      const productType = getProductType(product);
       const conditionedVariants = getConditionedVariants(product);
       const shouldEmitVariantRows =
         merchant.gmc_variants_enabled !== false &&
@@ -644,8 +635,8 @@ export function generateGoogleMerchantFeed(
                 product.google_product_category
                   ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
                   : '',
-                getProductType(product)
-                  ? `        <g:product_type>${escapeXml(getProductType(product) || '')}</g:product_type>`
+                productType
+                  ? `        <g:product_type>${escapeXml(productType)}</g:product_type>`
                   : '',
                 shippingWeight,
               ].filter(Boolean);
@@ -681,7 +672,7 @@ export function generateGoogleMerchantFeed(
           mpn: product.mpn,
           price: skuMatrixFallback.price,
           productDetailsXml,
-          productType: getProductType(product),
+          productType,
           shippingWeight,
           stockCount: skuMatrixFallback.stockCount,
           title: product.name,
@@ -706,7 +697,7 @@ export function generateGoogleMerchantFeed(
         mpn: product.mpn,
         price: product.price,
         productDetailsXml,
-        productType: getProductType(product),
+        productType,
         shippingWeight,
         stockCount: getFeedStockCount(product),
         title: product.name,
@@ -756,8 +747,8 @@ export function generateGoogleMerchantFeed(
             product.google_product_category
               ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
               : '',
-            getProductType(product)
-              ? `        <g:product_type>${escapeXml(getProductType(product) || '')}</g:product_type>`
+            productType
+              ? `        <g:product_type>${escapeXml(productType)}</g:product_type>`
               : '',
             shippingWeight,
           ].filter(Boolean);

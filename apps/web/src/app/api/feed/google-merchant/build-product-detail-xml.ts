@@ -16,15 +16,25 @@ interface ProductDetail {
   sectionName: string;
 }
 
-function normalizeText(value: unknown) {
-  return stripHtmlTags(typeof value === 'string' ? value : '')
-    .replace(/\s+/g, ' ')
-    .trim();
+interface NormalizeTextOptions {
+  formatNumber?: (value: number) => string;
+}
+
+function normalizeText(value: unknown, options?: NormalizeTextOptions) {
+  const text =
+    typeof value === 'string'
+      ? value
+      : typeof value === 'number' && Number.isFinite(value)
+        ? (options?.formatNumber?.(value) ?? String(value))
+        : '';
+
+  return stripHtmlTags(text).replace(/\s+/g, ' ').trim();
 }
 
 function getVariantAttribute(
   attributes: ProductDetailInput['variant_attributes'],
-  aliases: string[]
+  aliases: string[],
+  options?: NormalizeTextOptions
 ) {
   if (!attributes) {
     return undefined;
@@ -39,7 +49,7 @@ function getVariantAttribute(
       continue;
     }
 
-    const normalizedValue = normalizeText(value);
+    const normalizedValue = normalizeText(value, options);
     if (normalizedValue) {
       return normalizedValue;
     }
@@ -54,6 +64,10 @@ function formatGb(value: number) {
   }
 
   return `${value}GB`;
+}
+
+function formatPositiveGb(value: number) {
+  return value > 0 ? formatGb(value) : '';
 }
 
 function isPositiveFiniteNumber(value: unknown): value is number {
@@ -91,14 +105,18 @@ export function buildGoogleProductDetailXml(input: ProductDetailInput) {
       ? normalizeText(specs.display_resolution)
       : undefined;
   const ram =
-    getVariantAttribute(input.variant_attributes, ['ram', 'memory']) ||
+    getVariantAttribute(input.variant_attributes, ['ram', 'memory'], {
+      formatNumber: formatPositiveGb,
+    }) ||
     (isPositiveFiniteNumber(specs.ram_gb) ? formatGb(specs.ram_gb) : undefined);
   const storage =
-    getVariantAttribute(input.variant_attributes, [
-      'storage',
-      'storage_capacity',
-      'rom',
-    ]) ||
+    getVariantAttribute(
+      input.variant_attributes,
+      ['storage', 'storage_capacity', 'rom'],
+      {
+        formatNumber: formatPositiveGb,
+      }
+    ) ||
     (isPositiveFiniteNumber(specs.storage_gb)
       ? formatGb(specs.storage_gb)
       : undefined);

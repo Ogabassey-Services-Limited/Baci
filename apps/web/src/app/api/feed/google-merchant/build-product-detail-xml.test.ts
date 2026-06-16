@@ -62,6 +62,48 @@ describe('buildGoogleProductDetailXml', () => {
     expect(xml).not.toContain('<g:attribute_value>256GB</g:attribute_value>');
   });
 
+  it('formats numeric variant RAM and storage attributes before scalar specs', () => {
+    const xml = buildGoogleProductDetailXml({
+      product_key_specs: {
+        ram_gb: 8,
+        storage_gb: 256,
+      },
+      variant_attributes: {
+        ram: 16,
+        storage: 1024,
+      },
+    });
+
+    expect(xml).toContain('<g:attribute_value>16GB</g:attribute_value>');
+    expect(xml).toContain('<g:attribute_value>1TB</g:attribute_value>');
+    expect(xml).not.toContain('<g:attribute_value>8GB</g:attribute_value>');
+    expect(xml).not.toContain('<g:attribute_value>256GB</g:attribute_value>');
+  });
+
+  it('formats exact storage multiples of 1024GB as TB', () => {
+    const oneTbXml = buildGoogleProductDetailXml({
+      product_key_specs: {
+        storage_gb: 1024,
+      },
+    });
+    const twoTbXml = buildGoogleProductDetailXml({
+      product_key_specs: {
+        storage_gb: 2048,
+      },
+    });
+    const nonExactXml = buildGoogleProductDetailXml({
+      product_key_specs: {
+        storage_gb: 1536,
+      },
+    });
+
+    expect(oneTbXml).toContain('<g:attribute_value>1TB</g:attribute_value>');
+    expect(twoTbXml).toContain('<g:attribute_value>2TB</g:attribute_value>');
+    expect(nonExactXml).toContain(
+      '<g:attribute_value>1536GB</g:attribute_value>'
+    );
+  });
+
   it('combines partial variant attributes with confirmed scalar specs', () => {
     const xml = buildGoogleProductDetailXml({
       product_key_specs: {
@@ -135,6 +177,16 @@ describe('buildGoogleProductDetailXml', () => {
       },
       weight_unit: 'g',
       weight_value: 0,
+    });
+
+    expect(xml).toBe('');
+  });
+
+  it('excludes whitespace-only display resolution values', () => {
+    const xml = buildGoogleProductDetailXml({
+      product_key_specs: {
+        display_resolution: '   ',
+      },
     });
 
     expect(xml).toBe('');
