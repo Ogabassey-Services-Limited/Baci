@@ -122,6 +122,12 @@ export interface StorefrontOrder {
   balance?: number;
   current_document_kind?: StorefrontDocumentKind;
   receipt_eligible?: boolean;
+  /**
+   * Server-derived gate for the customer "Cancel Order" CTA. Authoritative
+   * because it is computed by the `customer_order_can_cancel` RPC (the
+   * customer-scoped client cannot read the merchant-only transactions table).
+   */
+  can_cancel?: boolean;
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string | null;

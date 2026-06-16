@@ -2,6 +2,8 @@ import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 import React from 'react';
 
+vi.mock('server-only', () => ({}));
+
 type MockImageSrc = string | { src: string } | { default: { src: string } };
 
 type MockNextImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {

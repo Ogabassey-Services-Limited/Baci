@@ -1,6 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockFetchWithCsrf = vi.fn();
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
+}));
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
@@ -201,6 +207,57 @@ describe('CustomerOrderDetailsPage', () => {
       expect(
         screen.getByRole('link', { name: /download invoice/i })
       ).toBeInTheDocument();
+    });
+  });
+
+  it('re-fetches the order after a successful cancellation', async () => {
+    const cancellableOrder = {
+      id: 'order-1',
+      order_number: 'ORD-1001',
+      created_at: '2026-03-22T10:00:00.000Z',
+      shipping_status: 'processing',
+      payment_status: 'unpaid',
+      payment_method: 'bank_transfer',
+      subtotal: 100000,
+      total: 100000,
+      shipping_fee: 0,
+      currency: 'NGN',
+      current_document_kind: 'invoice',
+      can_cancel: true,
+      items: [],
+      transactions: [],
+    };
+    vi.mocked(fetch).mockResolvedValue(
+      createJsonResponse({ order: cancellableOrder })
+    );
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, cancelled: true }),
+    } as Response);
+
+    render(<CustomerOrderDetailsPage />);
+
+    const cancelButton = await screen.findByRole('button', {
+      name: /cancel order/i,
+    });
+    const fetchCallsBeforeCancel = vi.mocked(fetch).mock.calls.length;
+
+    fireEvent.click(cancelButton);
+    fireEvent.click(
+      screen.getByRole('button', { name: /^confirm cancellation$/i })
+    );
+
+    await waitFor(() => {
+      expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+        '/api/storefront/account/orders/order-1/cancel',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+    await waitFor(() => {
+      expect(vi.mocked(fetch).mock.calls.length).toBeGreaterThan(
+        fetchCallsBeforeCancel
+      );
     });
   });
 
