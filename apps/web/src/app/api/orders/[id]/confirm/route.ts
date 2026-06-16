@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -6,9 +7,28 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
+import {
   type DeviceInsuranceDetails,
   purchaseOrderInsurance,
 } from '@/services/insurance';
+
+const deviceInsuranceDetailsSchema = z.object({
+  imei: z.string().trim().min(1).max(64),
+  serialNumber: z.string().trim().min(1).max(128),
+  deviceColor: z.string().trim().min(1).max(64),
+  deviceModel: z.string().trim().min(1).max(128),
+  deviceMake: z.string().trim().min(1).max(128),
+  deviceType: z.enum(['Phone', 'Laptop', 'Others']),
+  deviceValue: z.coerce.number().positive().finite(),
+  purchaseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  devicePhotos: z.object({
+    about: z.url(),
+  }),
+  customerPhoto: z.url().optional(),
+});
 
 export async function POST(
   request: NextRequest,
@@ -39,42 +59,70 @@ export async function POST(
 
     // Parse body for device details
     const body = await request.json();
-    const {
-      imei,
-      serialNumber,
-      deviceColor,
-      deviceModel,
-      deviceMake,
-      deviceType,
-      deviceValue,
-      purchaseDate,
-      devicePhotos,
-      customerPhoto, // Optional
-    } = body;
+    const shouldPurchaseInsurance =
+      body.imei !== undefined || body.devicePhotos !== undefined;
+    const deviceDetailsResult = shouldPurchaseInsurance
+      ? deviceInsuranceDetailsSchema.safeParse(body)
+      : null;
+    if (deviceDetailsResult && !deviceDetailsResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid insurance details' },
+        { status: 400 }
+      );
+    }
 
-    // TODO: Verify order ownership
+    // 1. Update Order Status
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from('orders')
+      .update({
+        shipping_status: 'processing', // or confirmed
+        // Add any other confirmation fields
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('merchant_id', merchantId)
+      .select('id, shipping_status, cancelled_at')
+      .maybeSingle();
 
-    // 1. Trigger Insurance Purchase (if strictly required)
-    // We do this BEFORE confirming to ensure we don't confirm if purchase fails?
-    // OR we do it loosely and log failures.
-    // Decision: Do it and return success/partial success.
+    if (updateError) {
+      return NextResponse.json(
+        { error: 'Failed to update order status' },
+        { status: 500 }
+      );
+    }
 
+    if (!updatedOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // The prevent_cancelled_order_reopen trigger clamped this confirm: the
+    // order is cancelled and cannot be advanced. File a reconciliation row so
+    // ops can reconcile, and report the no-op without confirming.
+    if (isOrderClampedAsCancelled(updatedOrder)) {
+      await handlePaymentForCancelledOrder({
+        gatewayReference: null,
+        order: updatedOrder ?? { id },
+        reason:
+          'Merchant confirm attempted on an order cancelled by the customer',
+        transactionId: null,
+      });
+
+      return NextResponse.json(
+        {
+          error: 'Order was cancelled and cannot be confirmed',
+          code: 'ORDER_CANCELLED',
+        },
+        { status: 409 }
+      );
+    }
+
+    // 2. Trigger Insurance Purchase after the order status transition succeeds.
+    // External side effects must not run until cancellation clamps/null updates
+    // have been excluded.
     let insuranceResult = null;
 
-    // Check if we have insurance inputs (only if assurance is expected)
-    if (imei && devicePhotos) {
-      const deviceDetails: DeviceInsuranceDetails = {
-        imei,
-        serialNumber,
-        deviceColor,
-        deviceModel,
-        deviceMake,
-        deviceType,
-        deviceValue,
-        purchaseDate,
-        devicePhotos,
-        customerPhoto,
-      };
+    if (deviceDetailsResult?.success) {
+      const deviceDetails: DeviceInsuranceDetails = deviceDetailsResult.data;
 
       try {
         insuranceResult = await purchaseOrderInsurance(id, deviceDetails);
@@ -83,27 +131,7 @@ export async function POST(
           message: 'Insurance purchase error during confirm',
           error: err,
         });
-        // We might return 400 here if insurance is mandatory for this confirmation
-        // For now, let's allow it to proceed but return warning
       }
-    }
-
-    // 2. Update Order Status
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        shipping_status: 'processing', // or confirmed
-        // Add any other confirmation fields
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('merchant_id', merchantId);
-
-    if (updateError) {
-      return NextResponse.json(
-        { error: 'Failed to update order status' },
-        { status: 500 }
-      );
     }
 
     return NextResponse.json({
