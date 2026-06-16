@@ -222,7 +222,7 @@ describe('payment-step availability helpers', () => {
   it('hides Credit Direct via isPaymentMethodAvailable when the order exceeds its max', () => {
     const featureSettings = {
       credit_direct_enabled: true,
-      credit_direct_max_amount: 5_000_000,
+      credit_direct_max_amount: '5000000',
     };
 
     // In range -> offered.
