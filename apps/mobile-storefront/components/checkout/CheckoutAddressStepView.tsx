@@ -12,12 +12,12 @@ import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
 import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
 import { PickupStationCard } from '@/components/checkout/PickupStationCard';
 import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
+import type Colors from '@/constants/Colors';
 import type { SavedAddress } from '@/lib/checkout-saved-address';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { formatPrice } from '@/stores/cart-store';
-import type Colors from '@/constants/Colors';
-import type { DeliveryMethod, ShippingQuote } from './types';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
+import type { DeliveryMethod, ShippingQuote } from './types';
 
 type ColorsScheme = (typeof Colors)['light'];
 
@@ -167,22 +167,6 @@ export function CheckoutAddressStepView({
         saveDetails={saveDetails}
       />
 
-      <DeliveryMethodCard
-        colors={colors}
-        isDark={isDark}
-        selectedMethod={deliveryMethod}
-        onSelectMethod={onSelectDeliveryMethod}
-        doorSubtitle={
-          selectedQuote != null
-            ? getDeliveryMethodSummary('door', selectedQuote)
-            : 'Rates loaded after you enter your address'
-        }
-        doorPrice={
-          selectedQuote != null ? formatPrice(selectedQuote.price) : '—'
-        }
-        airportFee={AIRPORT_DELIVERY_FEE}
-      />
-
       {deliveryMethod !== 'pickup_station' && (
         <CheckoutDeliveryCard
           colors={colors}
@@ -214,6 +198,23 @@ export function CheckoutAddressStepView({
           selectedSavedAddressId={selectedSavedAddressId}
         />
       )}
+
+      <DeliveryMethodCard
+        colors={colors}
+        isDark={isDark}
+        selectedMethod={deliveryMethod}
+        onSelectMethod={onSelectDeliveryMethod}
+        deliveryState={watchedState}
+        doorSubtitle={
+          selectedQuote != null
+            ? getDeliveryMethodSummary('door', selectedQuote)
+            : 'Rates loaded after you enter your address'
+        }
+        doorPrice={
+          selectedQuote != null ? formatPrice(selectedQuote.price) : '—'
+        }
+        airportFee={AIRPORT_DELIVERY_FEE}
+      />
 
       {deliveryMethod === 'pickup_station' && (
         <PickupStationCard colors={colors} isDark={isDark} />
