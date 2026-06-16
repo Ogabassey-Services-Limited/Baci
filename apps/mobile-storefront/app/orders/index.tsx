@@ -21,6 +21,24 @@ import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useAuthStore } from '@/stores/auth-store';
 
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-NG', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const handleGoBack = (): void => {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+
+  router.replace('/account');
+};
+
 export default function OrdersScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -51,28 +69,10 @@ export default function OrdersScreen() {
     onReconnect,
   });
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-NG', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
   // Declarative auth-gate: redirect to login if not authenticated
   if (redirectTo) {
     return <Redirect href={redirectTo} />;
   }
-
-  const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    router.replace('/account');
-  };
 
   if (!user) {
     return (

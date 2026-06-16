@@ -14,6 +14,11 @@ import Colors from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 import { type SavedItem, useSavedStore } from '@/stores/saved-store';
 
+const handleProductPress = (item: SavedItem): void => {
+  if (!item.slug) return;
+  router.push(`/product/${item.slug}`);
+};
+
 export default function SavedItemsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -85,11 +90,6 @@ export default function SavedItemsScreen() {
       condition: item.condition,
     });
     Alert.alert('Added to Cart', `${item.name} has been added to your cart`);
-  };
-
-  const handleProductPress = (item: SavedItem) => {
-    if (!item.slug) return;
-    router.push(`/product/${item.slug}`);
   };
 
   return (

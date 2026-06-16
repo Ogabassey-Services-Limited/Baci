@@ -25,6 +25,17 @@ import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
 
+const handleMenuPress = (item: MenuItem): void => {
+  if (item.action) {
+    item.action();
+    return;
+  }
+
+  if (item.route) {
+    router.push(item.route as Href);
+  }
+};
+
 export default function AccountScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -113,17 +124,6 @@ export default function AccountScreen() {
         onPress: confirmSignOut,
       },
     ]);
-  };
-
-  const handleMenuPress = (item: MenuItem) => {
-    if (item.action) {
-      item.action();
-      return;
-    }
-
-    if (item.route) {
-      router.push(item.route as Href);
-    }
   };
 
   return (

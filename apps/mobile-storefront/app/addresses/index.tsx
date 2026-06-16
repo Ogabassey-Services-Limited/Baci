@@ -31,6 +31,10 @@ import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useAuthStore } from '@/stores/auth-store';
 
+const handleAddAddress = (): void => {
+  router.push('/addresses/new');
+};
+
 export default function AddressesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -99,7 +103,6 @@ export default function AddressesScreen() {
       settleLoading: true,
       settleRefreshing: true,
     });
-  const handleAddAddress = () => router.push('/addresses/new');
 
   const handleSetDefault = async (addressId: string) => {
     if (settingDefaultRef.current || !customer?.id || !merchantId) return;
