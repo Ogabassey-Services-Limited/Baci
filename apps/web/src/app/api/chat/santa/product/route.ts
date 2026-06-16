@@ -54,7 +54,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     const { data: fullProduct, error } = await supabase
       .from('products')
       .select(
-        'id, name, description, price, images, status, merchant_id, stock, stock_quantity, manage_stock, brand, sku'
+        'id, name, slug, description, price, images, status, merchant_id, stock, stock_quantity, manage_stock, brand, sku'
       )
       .eq('merchant_id', OGABASSEY_MERCHANT_ID)
       .eq('name', matchingProduct.name)
@@ -71,6 +71,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
         product: {
           id: '', // No ID available
           name: matchingProduct.name,
+          slug: '',
           description: '',
           price: matchingProduct.price,
           image: '',
@@ -108,6 +109,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
       product: {
         id: fullProduct.id,
         name: fullProduct.name,
+        slug: fullProduct.slug || '',
         description: fullProduct.description || '',
         price: fullProduct.price,
         image: imageUrl,

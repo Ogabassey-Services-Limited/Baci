@@ -1,4 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+
+const mockAddSantaWishToCart = jest.fn();
+
+jest.mock('./santa-cart', () => ({
+  addSantaWishToCart: (action: unknown, signal?: AbortSignal) =>
+    mockAddSantaWishToCart(action, signal),
+}));
+
 import { useChat } from './use-chat';
 
 // Mock the UI store
@@ -71,6 +79,7 @@ function makeMockResponse(text: string, ok = true) {
   return {
     ok,
     body: stream,
+    text: async () => text,
   };
 }
 
@@ -83,6 +92,7 @@ describe('useChat', () => {
     mockChatInitialMessage = null;
     mockClearChatInitialMessage.mockClear();
     mockGetState.mockClear();
+    mockAddSantaWishToCart.mockClear();
   });
 
   afterEach(() => {
@@ -331,6 +341,48 @@ describe('useChat', () => {
 
     // Assert: fetch was not called
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('adds every Santa directive to the cart and strips them from the chat text', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        makeMockResponse(
+          'Granted ACTION:ADD_TO_CART|PRODUCT:Phone|PRICE:450000 and ACTION:ADD_TO_CART|PRODUCT:Case|PRICE:12,000NGN.'
+        )
+      );
+    mockIsChatOpen = true;
+    const { result } = renderHook(() => useChat(true));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    await act(async () => {
+      result.current.handleSend('Grant two wishes');
+    });
+
+    await waitFor(() => {
+      expect(mockAddSantaWishToCart).toHaveBeenCalledTimes(2);
+    });
+
+    expect(mockAddSantaWishToCart).toHaveBeenNthCalledWith(
+      1,
+      { type: 'ADD_TO_CART', productName: 'Phone', price: 450000 },
+      expect.any(AbortSignal)
+    );
+    expect(mockAddSantaWishToCart).toHaveBeenNthCalledWith(
+      2,
+      { type: 'ADD_TO_CART', productName: 'Case', price: 12000 },
+      expect.any(AbortSignal)
+    );
+
+    await waitFor(() => {
+      const aiMsg = result.current.messages.find(
+        (m) => m.role === 'model' && m.id.startsWith('ai-')
+      );
+      expect(aiMsg?.text).toBe('Granted and');
+    });
   });
 
   it('sets isLoading to false after successful response', async () => {

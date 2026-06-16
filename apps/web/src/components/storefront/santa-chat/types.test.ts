@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSantaAction } from './types';
+import { parseSantaAction, parseSantaActions } from './types';
 
 describe('parseSantaAction', () => {
   it('extracts product name and numeric price from valid action string', () => {
@@ -59,5 +59,23 @@ describe('parseSantaAction', () => {
       productName: 'iPhone 16 Pro',
       price: 899000,
     });
+  });
+});
+
+describe('parseSantaActions', () => {
+  it('extracts multiple actions from one assistant response', () => {
+    expect(
+      parseSantaActions(
+        'ACTION:ADD_TO_CART|PRODUCT:Phone|PRICE:450000 ACTION:ADD_TO_CART|PRODUCT:Case|PRICE:12,000'
+      )
+    ).toEqual([
+      { type: 'ADD_TO_CART', productName: 'Phone', price: 450000 },
+      { type: 'ADD_TO_CART', productName: 'Case', price: 12000 },
+    ]);
+  });
+
+  it('returns an empty array when directives are missing or malformed', () => {
+    expect(parseSantaActions('Hello Santa!')).toEqual([]);
+    expect(parseSantaActions('ACTION:ADD_TO_CART|PRODUCT:Phone')).toEqual([]);
   });
 });
