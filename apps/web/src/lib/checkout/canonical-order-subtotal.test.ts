@@ -25,6 +25,9 @@ function buildSupabaseMock({
     returns: vi.fn(() =>
       Promise.resolve({ data: products, error: productsError })
     ),
+    overrideTypes: vi.fn(() =>
+      Promise.resolve({ data: products, error: productsError })
+    ),
   };
   const supabase = {
     from: vi.fn(() => productsQuery),

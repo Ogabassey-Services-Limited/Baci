@@ -44,6 +44,7 @@ import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { CheckoutIdentityModal } from '../components/CheckoutIdentityModal';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { isProductNegotiable } from '@baci/shared/lib';
 import {
   calculateCartTotal,
   getCartItemCheckoutUnitPrice,
@@ -95,6 +96,12 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
 
   const displayCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
 
+  const hasNonNegotiableCartItem = displayCart.some(
+    (item) =>
+      !isQuizVoucherCartItem(item) &&
+      !isProductNegotiable({ brand: item.brand, name: item.name })
+  );
+
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
   const [isIdentityModalOpen, setIsIdentityModalOpen] = useState(false);
@@ -140,6 +147,10 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
   const [pendingNegotiateItem, setPendingNegotiateItem] = useState<CartItem | null>(null);
 
   const openItemNegotiation = (item: CartItem) => {
+    if (!isProductNegotiable({ brand: item.brand, name: item.name })) {
+      return;
+    }
+
     // Check if any item already has individual negotiation
     const hasAnyIndividualNegotiation = displayCart.some(i => i.negotiatedPrice != null);
 
@@ -163,6 +174,10 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
   };
 
   const openTotalNegotiation = () => {
+    if (hasNonNegotiableCartItem) {
+      return;
+    }
+
     setNegotiationState({
       isOpen: true,
       type: 'total',
@@ -423,7 +438,10 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                                 {(item.negotiatedPrice || 0).toLocaleString()}
                               </span>
                             </div>
-                          ) : (
+                          ) : isProductNegotiable({
+                              brand: item.brand,
+                              name: item.name,
+                            }) ? (
                             <button type="button"
                               onClick={() => openItemNegotiation(item)}
                               className="flex items-center gap-1.5 text-xs font-bold text-store-primary md:hover:bg-store-primary/5 px-2 py-1.5 rounded-lg transition-colors border border-store-primary/15 md:hover:border-store-primary/40 active:bg-store-primary/5 active:scale-95"
@@ -431,6 +449,11 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                               <AppNegotiateIcon size={14} />
                               <span>Negotiate</span>
                             </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+                              <Check size={12} strokeWidth={3} />
+                              <span>Best price</span>
+                            </div>
                           )}
                         </div>
                       )}
@@ -448,7 +471,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
 
                 <div className="space-y-3">
-                  {hasPriceNegotiation && (
+                  {hasPriceNegotiation && !hasNonNegotiableCartItem && (
                     <button type="button"
                       onClick={openTotalNegotiation}
                       className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
@@ -509,7 +532,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
       {displayCart.length > 0 && (
         <div className="fixed bottom-24 left-0 right-0 bg-white border-t border-gray-200 p-3 flex items-center gap-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden z-40">
           {/* Negotiate Icon Button */}
-          {hasPriceNegotiation && (
+          {hasPriceNegotiation && !hasNonNegotiableCartItem && (
             <button type="button"
               onClick={openTotalNegotiation}
               className="h-14 px-3 flex flex-col items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-200 rounded-xl border border-gray-200 transition-colors shrink-0"
@@ -560,11 +583,13 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
               </button>
               <button type="button"
                 onClick={() => {
+                  if (hasNonNegotiableCartItem) return;
                   setShowNegotiateWarning(false);
                   setPendingNegotiateItem(null);
                   openTotalNegotiation();
                 }}
-                className="w-full bg-gray-100 text-gray-800 font-bold py-3 px-4 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                disabled={hasNonNegotiableCartItem}
+                className="w-full bg-gray-100 text-gray-800 font-bold py-3 px-4 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <AppNegotiateIcon size={18} />
                 Bulk Negotiate Entire Cart

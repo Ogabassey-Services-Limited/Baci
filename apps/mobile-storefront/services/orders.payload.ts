@@ -36,6 +36,8 @@ export function buildOrderPayload({
     subtotal: request.subtotal,
     shipping_fee: request.shipping_fee,
     tax_amount: request.tax_amount ?? 0,
+    expected_total: request.expected_total,
+    client_total: request.client_total,
     discount_amount: request.discount_amount ?? 0,
     payment_method: request.payment_method,
     selected_quote_id: request.selected_quote_id ?? null,

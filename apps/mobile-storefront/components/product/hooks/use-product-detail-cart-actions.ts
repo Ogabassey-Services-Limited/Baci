@@ -130,6 +130,7 @@ export function useProductDetailCartActions(
       variant_attributes:
         Object.keys(variantAttrs).length > 0 ? variantAttrs : undefined,
       name: product.name,
+      brand: product.brand,
       price: purchaseState.effectivePrice,
       compare_at_price: purchaseState.effectiveComparePrice,
       quantity: 1,

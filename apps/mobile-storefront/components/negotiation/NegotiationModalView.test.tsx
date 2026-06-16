@@ -1,7 +1,7 @@
-import { Alert } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type React from 'react';
+import { Alert } from 'react-native';
 import {
   NegotiationModalView,
   type NegotiationModalViewProps,
@@ -280,6 +280,27 @@ describe('NegotiationModalView', () => {
     );
     expect(onBackFromUpload).toHaveBeenCalledTimes(1);
     expect(onUploadSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders final best-price state and closes on Done', () => {
+    const onClose = jest.fn();
+
+    render(
+      <NegotiationModalView
+        {...createBaseProps({
+          status: 'final',
+          message: 'This is already the best price.',
+          onClose,
+        })}
+      />
+    );
+
+    expect(screen.getByText('Best Price')).toBeTruthy();
+    expect(screen.getByText('This is already the best price.')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Done'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('renders submitted state and triggers final action callback', () => {

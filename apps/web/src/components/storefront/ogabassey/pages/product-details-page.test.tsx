@@ -4,6 +4,15 @@ import { useState, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let shouldRenderDeferredShellChildren = true;
+let mockProductDetailsStateOverrides: Record<string, unknown> = {};
+const mockNegotiationModal = vi.fn(
+  (props: Record<string, unknown>) => (
+    <div
+      data-testid="negotiation-modal"
+      data-product-brand={String(props.productBrand ?? '')}
+    />
+  )
+);
 
 function mockMatchMedia(matches: boolean) {
   Object.defineProperty(window, 'matchMedia', {
@@ -93,6 +102,10 @@ vi.mock('next/dynamic', () => {
 
         if (source.includes('BannerCarousel')) {
           return <div data-testid="banner-carousel" />;
+        }
+
+        if (source.includes('NegotiationModal')) {
+          return mockNegotiationModal(props);
         }
 
         if (source.includes('deferred-product-details-sections-loader')) {
@@ -265,12 +278,13 @@ vi.mock('./product-details-page/use-product-details-state', () => ({
     images?: string[];
     reviews?: number;
     rating?: number;
+    brand?: string;
   }) => ({
     activeTab: 'description',
     animatingParticles: [],
     basePath: '',
     cartHref: '/cart',
-    currentOffer: { price: product.price ?? '₦0' },
+    currentOffer: { price: product.price ?? '₦0', rawPrice: 15000 },
     deliveryEstimate: 'Tomorrow',
     deliveryLocation: 'Lagos',
     effectiveAxes: [],
@@ -324,6 +338,7 @@ vi.mock('./product-details-page/use-product-details-state', () => ({
     setSelectedImage: vi.fn(),
     showColorToast: false,
     validateAndAddToCart: vi.fn(),
+    ...mockProductDetailsStateOverrides,
   }),
 }));
 
@@ -334,6 +349,8 @@ describe('ProductDetailsPage', () => {
     mockMatchMedia(true);
     window.scrollTo = vi.fn();
     shouldRenderDeferredShellChildren = true;
+    mockProductDetailsStateOverrides = {};
+    mockNegotiationModal.mockClear();
   });
 
   it('renders the product page shell', async () => {
@@ -443,6 +460,37 @@ describe('ProductDetailsPage', () => {
 
     expect(source).not.toMatch(/import\s*{\s*NegotiationModal\s*}\s*from/);
     expect(source).toMatch(/import\([^)]*NegotiationModal[^)]*\)/);
+  });
+
+  it('forwards the product brand to the negotiation modal for brand-aware policy', () => {
+    mockProductDetailsStateOverrides = { isNegotiationOpen: true };
+
+    render(
+      <ProductDetailsPage
+        product={{
+          id: 'p-brand-policy',
+          name: 'Samsung Galaxy S25',
+          brand: 'Samsung',
+          price: '₦900,000',
+          image: 'https://example.com/samsung.jpg',
+          description: 'Brand-aware policy product',
+          condition: 'new' as const,
+          colors: [],
+          storage: [],
+          images: ['https://example.com/samsung.jpg'],
+        }}
+      />
+    );
+
+    expect(mockNegotiationModal).toHaveBeenCalled();
+    expect(mockNegotiationModal.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        currentPrice: 15000,
+        isOpen: true,
+        productBrand: 'Samsung',
+        productName: 'Samsung Galaxy S25',
+      })
+    );
   });
 
   it('keeps post-action modal and cart animation code out of the initial client graph', () => {

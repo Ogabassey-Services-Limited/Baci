@@ -94,7 +94,10 @@ describe('CartItemCard', () => {
   });
 
   it('shows negotiated totals when negotiated price is present', () => {
-    const item = createItem({ negotiatedPrice: 800 });
+    const item = createItem({
+      negotiatedPrice: 800,
+      negotiationStatus: 'accepted',
+    });
 
     renderCard(item);
 
@@ -102,6 +105,22 @@ describe('CartItemCard', () => {
       screen.getByText(formatPrice(item.price * item.quantity))
     ).toBeTruthy();
     expect(screen.getByText(formatPrice(800 * item.quantity))).toBeTruthy();
+  });
+
+  it('ignores stale negotiated prices on best-price items', () => {
+    const item = createItem({
+      brand: 'Tecno',
+      name: 'Tecno Spark 50',
+      negotiatedPrice: 800,
+      negotiationStatus: 'accepted',
+    });
+
+    renderCard(item);
+
+    expect(
+      screen.getByText(formatPrice(item.price * item.quantity))
+    ).toBeTruthy();
+    expect(screen.queryByText(formatPrice(800 * item.quantity))).toBeNull();
   });
 
   it('renders the selected color label for named merchant colors', () => {
