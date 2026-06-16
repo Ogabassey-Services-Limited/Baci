@@ -6,11 +6,11 @@ const log = createLogger('Analytics');
 
 const POSTHOG_API_KEY = Constants.expoConfig?.extra?.posthogApiKey || '';
 const POSTHOG_HOST =
-  Constants.expoConfig?.extra?.posthogHost || 'https://us.i.posthog.com';
+  Constants.expoConfig?.extra?.posthogHost || 'https://eu.i.posthog.com';
 
 let posthogClient: PostHog | null = null;
 
-export async function initAnalytics(): Promise<void> {
+export function initAnalytics(): void {
   if (!POSTHOG_API_KEY) {
     log.warn('PostHog API key not configured');
     return;

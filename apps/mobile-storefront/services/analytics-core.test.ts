@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+
 const mockWarn = jest.fn();
 const mockInfo = jest.fn();
 const mockError = jest.fn();
@@ -8,9 +10,17 @@ const mockIdentify = jest.fn();
 const mockReset = jest.fn();
 const mockFlush = jest.fn();
 const mockShutdown = jest.fn();
-const mockIsFeatureEnabled = jest.fn();
-const mockGetFeatureFlag = jest.fn();
+const mockIsFeatureEnabled = jest.fn<() => Promise<boolean>>();
+const mockGetFeatureFlag =
+  jest.fn<() => Promise<string | boolean | undefined>>();
 const mockReloadFeatureFlags = jest.fn();
+let mockExpoConfigExtra: {
+  posthogApiKey: string;
+  posthogHost?: string;
+} = {
+  posthogApiKey: 'ph_test',
+  posthogHost: 'https://posthog.example.com',
+};
 
 jest.mock('@/lib/logger', () => ({
   createLogger: () => ({
@@ -22,9 +32,8 @@ jest.mock('@/lib/logger', () => ({
 
 jest.mock('expo-constants', () => ({
   expoConfig: {
-    extra: {
-      posthogApiKey: 'ph_test',
-      posthogHost: 'https://posthog.example.com',
+    get extra() {
+      return mockExpoConfigExtra;
     },
   },
 }));
@@ -46,7 +55,12 @@ jest.mock('posthog-react-native', () =>
 
 describe('analytics core', () => {
   beforeEach(() => {
+    jest.resetModules();
     jest.clearAllMocks();
+    mockExpoConfigExtra = {
+      posthogApiKey: 'ph_test',
+      posthogHost: 'https://posthog.example.com',
+    };
     jest.useFakeTimers().setSystemTime(new Date('2026-05-29T12:00:00.000Z'));
   });
 
@@ -77,8 +91,26 @@ describe('analytics core', () => {
     });
   });
 
+  it('uses the EU PostHog host when app config omits a host override', async () => {
+    mockExpoConfigExtra = {
+      posthogApiKey: 'ph_test',
+      posthogHost: undefined,
+    };
+
+    const { initAnalytics } = await import('./analytics-core');
+    const PostHog = (await import('posthog-react-native')).default;
+
+    await initAnalytics();
+
+    expect(PostHog).toHaveBeenCalledWith(
+      'ph_test',
+      expect.objectContaining({ host: 'https://eu.i.posthog.com' })
+    );
+  });
+
   it('supports identity, feature flags, and shutdown', async () => {
     const {
+      initAnalytics,
       getFeatureFlagValue,
       identifyUser,
       isFeatureEnabled,
@@ -89,6 +121,7 @@ describe('analytics core', () => {
     mockIsFeatureEnabled.mockResolvedValue(true);
     mockGetFeatureFlag.mockResolvedValue('variant-a');
 
+    await initAnalytics();
     identifyUser('user-1', { email: 'buyer@example.com' });
     resetUser();
 

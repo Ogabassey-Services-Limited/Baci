@@ -8,6 +8,8 @@ const originalEnv = process.env;
 
 function loadAppConfigWithEnv(env: {
   EXPO_PUBLIC_MERCHANT_DOMAIN?: string;
+  EXPO_PUBLIC_POSTHOG_API_KEY?: string;
+  EXPO_PUBLIC_POSTHOG_HOST?: string;
   EXPO_UPDATE_CHANNEL?: string;
   STOREFRONT_FACEBOOK_APP_ID?: string;
   STOREFRONT_FACEBOOK_CLIENT_TOKEN?: string;
@@ -15,6 +17,8 @@ function loadAppConfigWithEnv(env: {
   jest.resetModules();
   process.env = { ...originalEnv };
   delete process.env.EXPO_PUBLIC_MERCHANT_DOMAIN;
+  delete process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
+  delete process.env.EXPO_PUBLIC_POSTHOG_HOST;
   delete process.env.EXPO_UPDATE_CHANNEL;
   delete process.env.STOREFRONT_FACEBOOK_APP_ID;
   delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
@@ -62,6 +66,7 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
 
   it('injects the Facebook SDK plugin when both credentials are configured', () => {
     const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
       STOREFRONT_FACEBOOK_APP_ID: '123456789',
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
@@ -84,6 +89,7 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
 
   it('embeds the EAS update channel request header from EXPO_UPDATE_CHANNEL', () => {
     const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
       EXPO_UPDATE_CHANNEL: 'preview',
       STOREFRONT_FACEBOOK_APP_ID: '123456789',
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
@@ -101,6 +107,7 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
 
   it('defaults the storefront merchant domain for production BNPL returns', () => {
     const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
       STOREFRONT_FACEBOOK_APP_ID: '123456789',
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
@@ -111,6 +118,7 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
 
   it('trims the configured storefront merchant domain', () => {
     const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
       EXPO_PUBLIC_MERCHANT_DOMAIN: '  shop.example.com  ',
       STOREFRONT_FACEBOOK_APP_ID: '123456789',
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
@@ -120,23 +128,25 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
     expect(config.extra?.merchantDomain).toBe('shop.example.com');
   });
 
-  it.each(['', '   '])(
-    'falls back to the default merchant domain when the configured value is %p',
-    (merchantDomain) => {
-      const appConfig = loadAppConfigWithEnv({
-        EXPO_PUBLIC_MERCHANT_DOMAIN: merchantDomain,
-        STOREFRONT_FACEBOOK_APP_ID: '123456789',
-        STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
-      });
-      const config = renderConfig(appConfig);
+  it.each([
+    '',
+    '   ',
+  ])('falls back to the default merchant domain when the configured value is %p', (merchantDomain) => {
+    const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
+      EXPO_PUBLIC_MERCHANT_DOMAIN: merchantDomain,
+      STOREFRONT_FACEBOOK_APP_ID: '123456789',
+      STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+    });
+    const config = renderConfig(appConfig);
 
-      expect(config.extra?.merchantDomain).toBe('ogabassey.com');
-    }
-  );
+    expect(config.extra?.merchantDomain).toBe('ogabassey.com');
+  });
 
   it('fails fast when Facebook SDK credentials are only partially configured', () => {
     expect(() =>
       loadAppConfigWithEnv({
+        EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
         STOREFRONT_FACEBOOK_APP_ID: '123456789',
       })
     ).toThrow(
@@ -145,6 +155,7 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
 
     expect(() =>
       loadAppConfigWithEnv({
+        EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
         STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
       })
     ).toThrow(
@@ -152,8 +163,46 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
     );
   });
 
+  it('fails fast when the PostHog API key is absent from release-like environments', () => {
+    expect(() =>
+      loadAppConfigWithEnv({
+        STOREFRONT_FACEBOOK_APP_ID: '123456789',
+        STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+      })
+    ).toThrow(/Missing required PostHog key: EXPO_PUBLIC_POSTHOG_API_KEY\./);
+  });
+
+  it('defaults PostHog to the EU ingest host and trims configured values', () => {
+    const defaultHostConfig = renderConfig(
+      loadAppConfigWithEnv({
+        EXPO_PUBLIC_POSTHOG_API_KEY: ' ph_test ',
+        STOREFRONT_FACEBOOK_APP_ID: '123456789',
+        STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+      })
+    );
+
+    expect(defaultHostConfig.extra?.posthogApiKey).toBe('ph_test');
+    expect(defaultHostConfig.extra?.posthogHost).toBe(
+      'https://eu.i.posthog.com'
+    );
+
+    const customHostConfig = renderConfig(
+      loadAppConfigWithEnv({
+        EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
+        EXPO_PUBLIC_POSTHOG_HOST: ' https://posthog.example.com ',
+        STOREFRONT_FACEBOOK_APP_ID: '123456789',
+        STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+      })
+    );
+
+    expect(customHostConfig.extra?.posthogHost).toBe(
+      'https://posthog.example.com'
+    );
+  });
+
   it('declares SKAdNetwork identifiers for TikTok and Facebook campaign attribution', () => {
     const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
       STOREFRONT_FACEBOOK_APP_ID: '123456789',
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
@@ -177,6 +226,7 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
 
   it('allows Android to adapt orientation and resizability on large screens', () => {
     const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
       STOREFRONT_FACEBOOK_APP_ID: '123456789',
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
