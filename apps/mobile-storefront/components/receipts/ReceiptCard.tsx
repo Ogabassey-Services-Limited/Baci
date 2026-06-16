@@ -30,12 +30,23 @@ export function formatDate(dateString: string) {
   });
 }
 
+const PRICE_FORMATTER_CACHE = new Map<string, Intl.NumberFormat>();
+
+function getPriceFormatter(currency: string): Intl.NumberFormat {
+  let formatter = PRICE_FORMATTER_CACHE.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+    });
+    PRICE_FORMATTER_CACHE.set(currency, formatter);
+  }
+  return formatter;
+}
+
 export function formatPrice(price: number, currency: string = 'NGN') {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-  }).format(price);
+  return getPriceFormatter(currency).format(price);
 }
 
 interface ReceiptCardProps {
