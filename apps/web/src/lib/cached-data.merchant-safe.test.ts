@@ -284,56 +284,22 @@ describe('cached-data merchant safety helpers', () => {
       );
     });
 
-    it('falls back to an unpublished direct merchant lookup with sensitive fields redacted', async () => {
+    it('keeps transient direct fallback on the public client when RLS hides unpublished merchants', async () => {
       const consoleWarnSpy = vi
         .spyOn(console, 'warn')
         .mockImplementation(() => undefined);
       const remoteCacheError = new Error(
         'RemoteCacheHandler: <html><body>502 Bad Gateway</body></html>'
       );
-      const unpublishedMerchant = {
-        ...mockMerchant,
-        is_published: false,
-        email: 'owner-private@example.com',
-        phone: '+2348000000000',
-        support_email: 'support-private@example.com',
-        support_phone: '+2348111111111',
-        business_address: 'Private Warehouse, Lagos',
-        legal_entity_name: 'Private Merchant Ltd',
-        registered_address: {
-          street: 'Private Street',
-          city: 'Ikeja',
-          state: 'Lagos',
-          country: 'Nigeria',
-        },
-        tax_identification_number: 'TIN-PRIVATE',
-        trust_profile: {
-          founded_year: 2020,
-        },
-      };
-      const redactedMerchant = {
-        ...unpublishedMerchant,
-        email: '',
-        phone: '',
-        support_email: '',
-        support_phone: '',
-        business_address: '',
-        legal_entity_name: null,
-        registered_address: null,
-        tax_identification_number: null,
-        trust_profile: null,
-      };
       harness.mockMaybeSingle
         .mockRejectedValueOnce(remoteCacheError)
         .mockRejectedValueOnce(remoteCacheError)
-        .mockResolvedValueOnce({ data: unpublishedMerchant, error: null });
+        .mockResolvedValueOnce({ data: null, error: null });
 
-      await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        withDefaultFeatureSettings(redactedMerchant)
-      );
+      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
 
       expect(consoleWarnSpy).toHaveBeenLastCalledWith(
-        'Merchant fetch failed after retry; direct fallback succeeded:',
+        'Merchant lookup direct fallback returned no merchant:',
         'test-store',
         expect.objectContaining({
           firstError: expect.objectContaining({ transient: true }),

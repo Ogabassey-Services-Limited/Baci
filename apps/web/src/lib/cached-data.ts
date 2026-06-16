@@ -891,7 +891,7 @@ function summarizeMerchantLookupError(error: unknown) {
 async function getDirectFeatureSettings(
   merchantId: string
 ): Promise<MerchantFeatureSettings | null> {
-  const supabase = getServiceRoleSupabaseClient();
+  const supabase = getPublicSupabaseClient();
   const { data, error } = await supabase
     .from('merchant_feature_settings')
     .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
@@ -924,7 +924,7 @@ async function attachDirectFeatureSettings<T extends { id: string }>(
 async function getDirectMerchantBySlug(
   slug: string
 ): Promise<CachedMerchant | null> {
-  const supabase = getServiceRoleSupabaseClient();
+  const supabase = getPublicSupabaseClient();
   const { data, error } = await supabase
     .from('merchants')
     .select(MERCHANT_PUBLIC_SELECT)
@@ -962,7 +962,7 @@ async function getDirectMerchantByDomain(
   domain: string
 ): Promise<CachedMerchant | null> {
   const normalizedDomain = domain.toLowerCase();
-  const supabase = getServiceRoleSupabaseClient();
+  const supabase = getPublicSupabaseClient();
   const { data: domainData, error: domainError } = await supabase
     .from('domains')
     .select('merchant_id, domain')
