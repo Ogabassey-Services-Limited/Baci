@@ -15,7 +15,7 @@ import type { Product } from '@/lib/products';
 import { ChatInput } from './chat-input';
 import { ChatMessage } from './chat-message';
 import type { ChatMessage as ChatMessageType } from './types';
-import { parseSantaAction } from './types';
+import { parseSantaActions, stripSantaActions } from './types';
 import { WelcomeScreen } from './welcome-screen';
 
 interface Message {
@@ -97,11 +97,25 @@ async function streamSantaReply({
       );
     }
 
-    // After streaming completes, check for cart action
-    const action = parseSantaAction(assistantContent);
-    if (action && !processedActionsRef.current.has(assistantId)) {
+    // After streaming completes, check for cart actions. Process every
+    // directive once so display stripping cannot hide unfulfilled wishes.
+    const actions = parseSantaActions(assistantContent);
+    if (actions.length > 0 && !processedActionsRef.current.has(assistantId)) {
       processedActionsRef.current.add(assistantId);
-      await onCartAction(action.productName, action.price);
+      const actionResults = await Promise.allSettled(
+        actions.map((action) => onCartAction(action.productName, action.price))
+      );
+
+      actionResults.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const action = actions[index];
+          console.error('[Santa Cart] Action failed:', {
+            productName: action?.productName,
+            price: action?.price,
+            reason: result.reason,
+          });
+        }
+      });
     }
   }
 }
@@ -377,12 +391,7 @@ export function SantaChatDialog({
         <div className="max-w-3xl mx-auto">
           {messages.map((msg) => {
             // Strip ACTION commands from displayed content
-            const displayContent = msg.content
-              .replace(
-                /ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:\d+(?:,\d+)?/g,
-                ''
-              )
-              .trim();
+            const displayContent = stripSantaActions(msg.content);
             return (
               <ChatMessage
                 key={msg.id}
