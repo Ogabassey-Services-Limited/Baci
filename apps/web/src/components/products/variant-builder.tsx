@@ -173,8 +173,10 @@ function areObjectsEqual(a: unknown, b: unknown): boolean {
 
   if (keysA.length !== keysB.length) return false;
 
+  // O(1) membership instead of O(n) Array.includes() per key in this nested loop.
+  const keysBSet = new Set(keysB);
   for (const key of keysA) {
-    if (!keysB.includes(key)) return false;
+    if (!keysBSet.has(key)) return false;
 
     const valA = (a as Record<string, unknown>)[key];
     const valB = (b as Record<string, unknown>)[key];

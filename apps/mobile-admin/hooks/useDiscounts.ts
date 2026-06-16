@@ -67,7 +67,15 @@ export function useDiscounts() {
         .select(DISCOUNT_COLUMNS)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // A used code's identity is immutable (enforced by a DB trigger).
+        if (error.message?.includes('discount_code_rename_not_allowed')) {
+          throw new Error(
+            'This code has already been used and cannot be renamed. Deactivate it and create a new code instead.'
+          );
+        }
+        throw error;
+      }
       return data as DiscountCode;
     },
     onSuccess: () => {
@@ -85,7 +93,27 @@ export function useDiscounts() {
         .eq('id', id)
         .eq('merchant_id', merchant.id);
 
-      if (error) throw error;
+      if (error) {
+        // A USED code cannot be hard-deleted (DB trigger / usage FK RESTRICT).
+        // Deactivate it instead so usage history + audit links survive.
+        if (
+          error.code === '23503' ||
+          error.message?.includes('discount_code_delete_not_allowed')
+        ) {
+          const { error: deactivateError } = await supabase
+            .from('discount_codes')
+            .update({ is_active: false })
+            .eq('id', id)
+            .eq('merchant_id', merchant.id)
+            .select('id')
+            .single();
+
+          if (deactivateError) throw deactivateError;
+          return { deactivated: true };
+        }
+        throw error;
+      }
+      return { deactivated: false };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discounts', merchant?.id] });

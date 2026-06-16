@@ -208,6 +208,13 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
       if (error.code === '23505') {
         throw new Error('Discount code already exists');
       }
+      // A used code's identity is immutable (enforced by a DB trigger) so an
+      // in-flight checkout retry can still resolve the original code string.
+      if (error.message?.includes('discount_code_rename_not_allowed')) {
+        throw new Error(
+          'This code has already been used and cannot be renamed. Deactivate it and create a new code instead.'
+        );
+      }
       throw new Error(error.message);
     }
   } else {
@@ -256,6 +263,29 @@ export async function deleteDiscountCode(id: string) {
   if (error) {
     if (error.code === 'PGRST116') {
       throw new Error('Discount code not found');
+    }
+    // A USED code cannot be hard-deleted (DB trigger raises
+    // `discount_code_delete_not_allowed`; the usage FK is also ON DELETE
+    // RESTRICT → 23503). Deactivate it instead so usage history + the
+    // orders.discount_code_id audit link survive and retries can still replay.
+    if (
+      error.code === '23503' ||
+      error.message?.includes('discount_code_delete_not_allowed')
+    ) {
+      const { error: deactivateError } = await supabase
+        .from('discount_codes')
+        .update({ is_active: false })
+        .eq('id', id)
+        .eq('merchant_id', merchant.id)
+        .select('id')
+        .single();
+
+      if (deactivateError) {
+        throw new Error(deactivateError.message);
+      }
+
+      revalidatePath('/dashboard/marketing/discount-codes');
+      return { success: true, deactivated: true };
     }
     throw new Error(error.message);
   }
