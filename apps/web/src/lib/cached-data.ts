@@ -2289,7 +2289,7 @@ export async function getCachedFeatureSettings(
       .maybeSingle();
 
     if (error) {
-      // Transient DB failure — throw so remote cache doesn't persist the error state
+      // Transient DB failure — throw so the cache does not persist the error state.
       throw error;
     }
 
@@ -2302,7 +2302,7 @@ export async function getCachedFeatureSettings(
     return data as unknown as MerchantFeatureSettings;
   } catch (error) {
     console.error('Error fetching feature settings:', error);
-    // Rethrow so remote cache skips caching this failure
+    // Rethrow so Cache Components skips caching this failure.
     throw error;
   }
 }
