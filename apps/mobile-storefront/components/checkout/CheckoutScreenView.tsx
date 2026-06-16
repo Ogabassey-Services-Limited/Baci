@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import React, { useRef } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -9,7 +9,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
 import { CheckoutCryptoPaymentModal } from '@/components/checkout/CheckoutCryptoPaymentModal';
 import { CheckoutHeader } from '@/components/checkout/CheckoutHeader';
-import { CheckoutLocationPickers } from '@/components/checkout/pickers/CheckoutLocationPickers';
 import { CheckoutStepContent } from '@/components/checkout/CheckoutStepContent';
 import {
   type CheckoutStep,
@@ -23,6 +22,7 @@ import Colors from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useCartStore } from '@/stores/cart-store';
+import { CheckoutLocationPickerOverlays } from './CheckoutLocationPickerOverlays';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
 import { calculateCheckoutAssuranceFee } from './checkout-order-builders';
 import {
@@ -79,24 +79,12 @@ export function CheckoutScreenView() {
   } = addressState;
   const { handleSubmit, setValue } = form;
   const {
-    citySearch,
-    citySearchFocused,
     currentShippingQuoteContextKey,
     deliveryFee,
     deliveryMethod,
-    handleSelectCity,
-    handleSelectState,
     isLoadingQuotes,
     resolvedShippingQuoteContextKey,
     selectedQuote,
-    setCitySearch,
-    setCitySearchFocused,
-    setShowCityPicker,
-    setShowStatePicker,
-    shippingCities,
-    shippingStates,
-    showCityPicker,
-    showStatePicker,
   } = shipping;
   const formContentPaddingBottom = 116 + insets.bottom;
   const {
@@ -235,16 +223,14 @@ export function CheckoutScreenView() {
           />
 
           {step === 'payment' ? (
-            <View style={styles.discountSection}>
-              <DiscountCodeInput
-                merchantId={CHECKOUT_MERCHANT_ID}
-                cartTotal={subtotal}
-                productIds={items.map((item) => item.product_id)}
-                appliedDiscount={appliedDiscount}
-                onApply={setAppliedDiscount}
-                onRemove={() => setAppliedDiscount(null)}
-              />
-            </View>
+            <DiscountCodeInput
+              merchantId={CHECKOUT_MERCHANT_ID}
+              cartTotal={subtotal}
+              productIds={items.map((item) => item.product_id)}
+              appliedDiscount={appliedDiscount}
+              onApply={setAppliedDiscount}
+              onRemove={() => setAppliedDiscount(null)}
+            />
           ) : null}
 
           <CheckoutBottomAction
@@ -266,25 +252,11 @@ export function CheckoutScreenView() {
         </AppKeyboardContainer>
       </SafeAreaView>
 
-      <CheckoutLocationPickers
-        citySearch={citySearch}
-        citySearchFocused={citySearchFocused}
+      <CheckoutLocationPickerOverlays
         colors={colors}
         isDark={isDark}
-        onChangeCitySearch={setCitySearch}
-        onCloseCityPicker={() => {
-          setShowCityPicker(false);
-          setCitySearch('');
-        }}
-        onCloseStatePicker={() => setShowStatePicker(false)}
-        onSelectCity={handleSelectCity}
-        onSelectState={handleSelectState}
-        onSetCitySearchFocused={setCitySearchFocused}
         removeClippedSubviews={Platform.OS === 'android'}
-        shippingCities={shippingCities}
-        shippingStates={shippingStates}
-        showCityPicker={showCityPicker}
-        showStatePicker={showStatePicker}
+        shipping={shipping}
         watchedCity={watchedCity}
         watchedState={watchedState}
       />

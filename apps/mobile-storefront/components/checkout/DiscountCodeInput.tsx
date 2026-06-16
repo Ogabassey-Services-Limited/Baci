@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BRAND, palette } from '@/constants/Colors';
+import { BRAND, palette, SPACING } from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
 import { validateDiscountCode } from '@/services/discount';
 
@@ -73,25 +73,27 @@ export function DiscountCodeInput({
 
   if (appliedDiscount) {
     return (
-      <View style={styles.appliedRow}>
-        <Text style={styles.appliedText}>
-          {appliedDiscount.code} applied (−₦
-          {appliedDiscount.discountAmount.toLocaleString()})
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Remove discount code"
-          onPress={onRemove}
-          hitSlop={8}
-        >
-          <Text style={styles.removeText}>Remove</Text>
-        </Pressable>
+      <View style={styles.container}>
+        <View style={styles.appliedRow}>
+          <Text style={styles.appliedText}>
+            {appliedDiscount.code} applied (−₦
+            {appliedDiscount.discountAmount.toLocaleString()})
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Remove discount code"
+            onPress={onRemove}
+            hitSlop={8}
+          >
+            <Text style={styles.removeText}>Remove</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
   return (
-    <View>
+    <View style={styles.container}>
       <View style={styles.inputRow}>
         <TextInput
           accessibilityLabel="Discount code"
@@ -127,6 +129,7 @@ export function DiscountCodeInput({
 }
 
 const styles = StyleSheet.create({
+  container: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
   inputRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   input: {
     flex: 1,

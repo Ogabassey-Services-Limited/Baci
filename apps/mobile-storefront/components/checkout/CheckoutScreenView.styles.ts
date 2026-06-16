@@ -4,10 +4,6 @@ import { palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 export const checkoutScreenViewStyles = StyleSheet.create({
   container: { flex: 1 },
   contentShell: { flex: 1 },
-  discountSection: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
   screenHeader: {
     flexDirection: 'row',
     alignItems: 'center',
