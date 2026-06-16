@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       .eq('token', token)
       .maybeSingle();
 
-    if (selectError && selectError.code !== 'PGRST116') {
+    if (selectError) {
       console.error('Error fetching push token:', selectError);
       return NextResponse.json(
         { error: 'Failed to verify token status' },

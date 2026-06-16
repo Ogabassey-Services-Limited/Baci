@@ -55,7 +55,7 @@ function createMockSupabase() {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn(() => Promise.resolve(selectResult)),
-      maybeSingle: vi.fn(() => Promise.resolve(selectResult)),
+    maybeSingle: vi.fn(() => Promise.resolve(selectResult)),
     insert: vi.fn((payload: unknown) => {
       insertCalls.push(payload);
       insertResult.data = { id: 'token-id-new' };
