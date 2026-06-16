@@ -71,8 +71,6 @@ export async function POST(
       );
     }
 
-    // TODO: Verify order ownership
-
     // 1. Update Order Status
     const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
