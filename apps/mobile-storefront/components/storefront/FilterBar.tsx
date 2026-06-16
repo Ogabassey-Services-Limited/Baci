@@ -230,6 +230,9 @@ export function FilterBar({
                 viewMode === 'grid' && styles.viewBtnActive,
               ]}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Grid view"
+              accessibilityState={{ selected: viewMode === 'grid' }}
             >
               <Feather
                 name="grid"
@@ -244,6 +247,9 @@ export function FilterBar({
                 viewMode === 'list' && styles.viewBtnActive,
               ]}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="List view"
+              accessibilityState={{ selected: viewMode === 'list' }}
             >
               <Feather
                 name="list"
