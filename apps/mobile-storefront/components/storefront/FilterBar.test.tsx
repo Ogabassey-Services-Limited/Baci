@@ -2,11 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { FilterBar } from './FilterBar';
 
 jest.mock('@react-native-vector-icons/feather', () => {
-  function MockFeather() {
+  return function MockFeather() {
     return null;
-  }
-
-  return MockFeather;
+  };
 });
 
 describe('FilterBar', () => {
@@ -51,12 +49,10 @@ describe('FilterBar', () => {
     rerender(<FilterBar {...defaultProps} viewMode="list" />);
 
     expect(
-      screen.getByRole('button', { name: 'Grid view' }).props
-        .accessibilityState
+      screen.getByRole('button', { name: 'Grid view' }).props.accessibilityState
     ).toEqual({ selected: false });
     expect(
-      screen.getByRole('button', { name: 'List view' }).props
-        .accessibilityState
+      screen.getByRole('button', { name: 'List view' }).props.accessibilityState
     ).toEqual({ selected: true });
 
     fireEvent.press(screen.getByRole('button', { name: 'Grid view' }));
