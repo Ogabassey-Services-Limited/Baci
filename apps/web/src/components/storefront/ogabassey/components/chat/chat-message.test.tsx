@@ -192,7 +192,39 @@ describe('ChatMessageBubble', () => {
     const button = screen.getByRole('button', { name: /add to cart & checkout/i });
     await user.click(button);
     expect(onAddToCart).toHaveBeenCalledTimes(1);
-    expect(onAddToCart).toHaveBeenCalledWith(3);
+    expect(onAddToCart).toHaveBeenCalledWith(3, 0);
+  });
+
+  it('renders one add-to-cart button per Santa action', async () => {
+    const user = userEvent.setup();
+    const messageWithSantaActions: ChatMessage = {
+      role: 'model',
+      text: 'Santa found two gifts',
+      santaActions: [
+        { productName: 'iPhone 15', price: 600000, added: false },
+        { productName: 'Pixel 9', price: 500000, added: false },
+      ],
+    };
+
+    render(
+      <ChatMessageBubble
+        message={messageWithSantaActions}
+        index={4}
+        isSanta={true}
+        onAddToCart={onAddToCart}
+      />
+    );
+
+    expect(screen.getByText('iPhone 15')).toBeDefined();
+    expect(screen.getByText('Pixel 9')).toBeDefined();
+
+    const buttons = screen.getAllByRole('button', {
+      name: /add to cart & checkout/i,
+    });
+    expect(buttons).toHaveLength(2);
+
+    await user.click(buttons[1]);
+    expect(onAddToCart).toHaveBeenCalledWith(4, 1);
   });
 
   it('displays the price in the santa action area', () => {

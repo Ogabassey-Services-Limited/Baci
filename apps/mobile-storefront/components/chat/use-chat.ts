@@ -1,3 +1,4 @@
+import { parseSantaActions, stripSantaActions } from '@baci/shared/lib';
 import type { FlashListRef } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import {
@@ -13,6 +14,7 @@ import { createLogger } from '@/lib/logger';
 import { useUIStore } from '@/stores/ui-store';
 import { API_BASE_URL, CHAT_REQUEST_TIMEOUT_MS } from './constants';
 import { readChatResponseText } from './read-chat-response';
+import { addSantaWishToCart } from './santa-cart';
 import type { ChatMessage } from './types';
 
 const log = createLogger('ChatWidget');
@@ -108,10 +110,17 @@ async function requestChatReply({
         throw new Error('Empty chat response');
       }
 
+      // In Santa mode, fulfil any ADD_TO_CART wish before the directive is
+      // stripped from the displayed text. Fire-and-forget so the reply renders
+      // immediately; addSantaWishToCart surfaces its own success/error toast.
+      if (santaMode) {
+        for (const action of parseSantaActions(aiResponseText)) {
+          void addSantaWishToCart(action, controller.signal);
+        }
+      }
+
       // Clean response text (sanitizeHtml not needed — RN <Text> doesn't execute HTML)
-      const displayText = aiResponseText
-        .replace(/ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:[^\s]+/g, '')
-        .trim();
+      const displayText = stripSantaActions(aiResponseText);
 
       const aiMessage: ChatMessage = {
         id: createMessageId('ai'),
