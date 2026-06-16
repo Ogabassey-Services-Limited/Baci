@@ -38,7 +38,10 @@ export function buildOrderPayload({
     tax_amount: request.tax_amount ?? 0,
     expected_total: request.expected_total,
     client_total: request.client_total,
-    discount_amount: request.discount_amount ?? 0,
+    // Raw client discount_amount is never trusted by /api/orders (rejected if
+    // non-zero). Only the code is sent; the route recomputes the amount.
+    discount_amount: 0,
+    ...(request.discount_code ? { discount_code: request.discount_code } : {}),
     payment_method: request.payment_method,
     selected_quote_id: request.selected_quote_id ?? null,
     shipping_provider: request.shipping_provider ?? null,

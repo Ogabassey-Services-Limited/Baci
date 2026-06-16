@@ -126,6 +126,18 @@ export async function PATCH(
           { status: 404 }
         );
       }
+      // A used code's identity is immutable (DB trigger) so retries can still
+      // resolve the original code string.
+      if (error.message?.includes('discount_code_rename_not_allowed')) {
+        return NextResponse.json(
+          {
+            code: 'discount_code_rename_not_allowed',
+            error:
+              'This code has already been used and cannot be renamed. Deactivate it and create a new code instead.',
+          },
+          { status: 409 }
+        );
+      }
       throw error;
     }
 
@@ -199,6 +211,26 @@ export async function DELETE(
       .eq('merchant_id', merchantId);
 
     if (error) {
+      // A USED code cannot be hard-deleted (DB trigger / usage FK RESTRICT).
+      // Deactivate it instead so usage history + audit links survive.
+      if (
+        error.code === '23503' ||
+        error.message?.includes('discount_code_delete_not_allowed')
+      ) {
+        const { error: deactivateError } = await supabase
+          .from('discount_codes')
+          .update({ is_active: false })
+          .eq('id', id)
+          .eq('merchant_id', merchantId)
+          .select('id')
+          .single();
+
+        if (deactivateError) {
+          throw deactivateError;
+        }
+
+        return NextResponse.json({ success: true, deactivated: true });
+      }
       throw error;
     }
 
