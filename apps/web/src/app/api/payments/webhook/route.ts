@@ -27,16 +27,21 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
-import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
 import {
+  ensurePaidOrderInventoryConfirmed,
+  rollbackOrderStatusAfterInventoryConfirmationFailure,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
+import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
 import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
@@ -46,7 +51,7 @@ import {
   calculatePlatformFee,
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
-import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
+import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
@@ -653,14 +658,13 @@ export async function POST(request: NextRequest) {
         gateway,
       });
 
-      // Find the pending chat order
+      // Find the chat order
       const { data: chatOrder, error: chatOrderError } = await supabase
         .from('chat_orders')
         .select(
-          'id, merchant_id, customer_id, customer_name, customer_email, customer_phone, shipping_address, session_id, subtotal, shipping_fee, items'
+          'id, merchant_id, customer_id, customer_name, customer_email, customer_phone, shipping_address, session_id, subtotal, shipping_fee, items, status'
         )
         .eq('payment_reference', reference)
-        .eq('status', 'pending_payment')
         .single();
 
       if (chatOrderError || !chatOrder) {
@@ -672,285 +676,123 @@ export async function POST(request: NextRequest) {
         // Don't fail - might be a regular order with CHAT prefix by coincidence
         // Fall through to standard order handling
       } else {
-        if (verifiedAmount) {
-          const chatTotal =
-            (Number(chatOrder.subtotal) || 0) +
-            (Number(chatOrder.shipping_fee) || 0);
-          if (Math.abs(verifiedAmount.amount - chatTotal) > 0.01) {
-            logger.error({
-              message: 'Payment amount mismatch for chat order',
-              reference,
-              gateway,
-              expected: chatTotal,
-              received: verifiedAmount.amount,
-              currency: verifiedAmount.currency,
-            });
-            return NextResponse.json(
-              { error: 'Payment amount mismatch' },
-              { status: 400 }
-            );
-          }
+        if (chatOrder.status === 'completed' || chatOrder.status === 'paid') {
+          // Find the order number for response
+          const { data: existingOrder } = await supabase
+            .from('orders')
+            .select('id, order_number')
+            .eq(
+              'notes',
+              `Converted from chat order. Session: ${chatOrder.session_id}`
+            )
+            .maybeSingle();
 
-          if (
-            verifiedAmount.currency &&
-            verifiedAmount.currency.toUpperCase() !== 'NGN'
-          ) {
-            logger.error({
-              message: 'Payment currency mismatch for chat order',
-              reference,
-              gateway,
-              expected: 'NGN',
-              received: verifiedAmount.currency,
-            });
-            return NextResponse.json(
-              { error: 'Payment currency mismatch' },
-              { status: 400 }
-            );
-          }
-        } else {
-          logger.warn({
-            message: 'Could not verify payment amount for chat order',
-            reference,
-            gateway,
-          });
-        }
-
-        const claimTimestamp = new Date().toISOString();
-        const { data: claimedChatOrder, error: claimError } = await supabase
-          .from('chat_orders')
-          .update({
-            status: 'processing',
-            updated_at: claimTimestamp,
-          })
-          .eq('id', chatOrder.id)
-          .eq('status', 'pending_payment')
-          .select('id')
-          .maybeSingle();
-
-        if (claimError) {
-          logger.error({
-            message: 'Failed to claim chat order for conversion',
-            reference,
-            chatOrderId: chatOrder.id,
-            error: claimError,
-          });
-          return NextResponse.json(
-            { error: 'Failed to claim chat order' },
-            { status: 500 }
-          );
-        }
-
-        if (!claimedChatOrder) {
           logger.info({
-            message: 'Chat order already claimed or processed',
+            message:
+              'Chat order already converted and processed (idempotent check)',
             reference,
             chatOrderId: chatOrder.id,
+            orderId: existingOrder?.id,
           });
-          return NextResponse.json({ message: 'Already processed' });
-        }
 
-        // Parse items from JSONB
-        const chatItems = (chatOrder.items || []) as Array<{
-          product_id: string;
-          variant_id?: string;
-          name: string;
-          quantity: number;
-          price: number;
-          image_url?: string;
-        }>;
-
-        const variantIds = [
-          ...new Set(
-            chatItems
-              .map((item) => item.variant_id)
-              .filter(
-                (variantId): variantId is string =>
-                  !!variantId && isValidUuid(variantId)
-              )
-          ),
-        ];
-        const variantNameMap = new Map<string, string>();
-
-        if (variantIds.length > 0) {
-          const { data: variants, error: variantsError } = await supabase
-            .from('product_variants')
-            .select('id, attributes')
-            .in('id', variantIds);
-
-          if (variantsError) {
-            logger.error({
-              message: 'Failed to load variant labels for chat order items',
-              reference,
-              error: variantsError,
-            });
-          } else {
-            for (const variant of variants || []) {
-              const variantLabel = formatVariantAttributesLabel(
-                variant.attributes
-              );
-
-              if (variantLabel) {
-                variantNameMap.set(variant.id, variantLabel);
-              }
-            }
-          }
-        }
-
-        // Create standard order from chat order.
-        // Let the database generate the canonical order number and tracking token.
-        const { data: newOrder, error: orderCreateError } = await supabase
-          .from('orders')
-          .insert({
-            merchant_id: chatOrder.merchant_id,
-            customer_id: chatOrder.customer_id || null,
-            customer_name: chatOrder.customer_name,
-            customer_email: chatOrder.customer_email,
-            customer_phone: chatOrder.customer_phone,
-            shipping_address: chatOrder.shipping_address,
-            subtotal: chatOrder.subtotal,
-            shipping_fee: chatOrder.shipping_fee || 0,
-            total: (
-              Number(chatOrder.subtotal) + Number(chatOrder.shipping_fee || 0)
-            ).toString(),
-            payment_status: 'paid',
-            shipping_status: 'processing',
-            payment_method: 'bank_transfer',
-            currency: 'NGN',
-            notes: `Converted from chat order. Session: ${chatOrder.session_id}`,
-            source: 'chat',
-          })
-          .select('id, order_number')
-          .single();
-
-        if (orderCreateError || !newOrder) {
-          logger.error({
-            message: 'Failed to create order from chat order',
-            reference,
-            chatOrderId: chatOrder.id,
-            error: orderCreateError,
+          return NextResponse.json({
+            success: true,
+            message: 'Already processed',
+            orderId: existingOrder?.id || null,
+            orderNumber: existingOrder?.order_number || null,
           });
-          return NextResponse.json(
-            { error: 'Failed to create order' },
-            { status: 500 }
-          );
         }
 
-        const orderNumber = newOrder.order_number;
+        const amountValue = verifiedAmount?.amount ?? 0;
+        const currencyValue = verifiedAmount?.currency ?? 'NGN';
 
-        if (!orderNumber) {
-          logger.error({
-            message: 'Canonical order number missing for chat order conversion',
-            reference,
-            chatOrderId: chatOrder.id,
-            orderId: newOrder.id,
-          });
-          return NextResponse.json(
-            { error: 'Failed to create canonical order number' },
-            { status: 500 }
-          );
-        }
-
-        // Create order items
-        const orderItems = chatItems.map((item) => ({
-          order_id: newOrder.id,
-          product_id: item.product_id,
-          variant_id: item.variant_id || null,
-          variant_name: item.variant_id
-            ? (variantNameMap.get(item.variant_id) ?? null)
-            : null,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          line_extension_amount: item.quantity * item.price,
-          item_description: item.name,
-        }));
-
-        if (orderItems.length > 0) {
-          const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItems);
-
-          if (itemsError) {
-            logger.error({
-              message: 'Failed to create order items from chat order',
-              orderId: newOrder.id,
-              error: itemsError,
-            });
-          }
-        }
-
-        // Decrement stock for each item
-        for (const item of chatItems) {
-          try {
-            const { error: stockError } = await supabase.rpc(
-              'decrement_stock_on_order',
-              {
-                p_product_id: item.product_id,
-                p_variant_id: item.variant_id || null,
-                p_quantity: item.quantity,
-              }
-            );
-
-            if (stockError) {
-              logger.warn({
-                message: 'Stock decrement failed for chat order item',
-                productId: item.product_id,
-                error: stockError,
-              });
-            }
-          } catch (stockErr) {
-            logger.warn({
-              message: 'Stock decrement error',
-              productId: item.product_id,
-              error: stockErr,
-            });
-          }
-        }
-
-        // Create transaction record
-        const { error: txnError } = await supabase.from('transactions').insert({
-          merchant_id: chatOrder.merchant_id,
-          order_id: newOrder.id,
-          amount: (
-            Number(chatOrder.subtotal) + Number(chatOrder.shipping_fee || 0)
-          ).toString(),
-          currency: 'NGN',
-          status: 'completed',
-          gateway: gateway,
-          gateway_reference: reference,
-          type: 'payment',
-          description: `Payment for order ${orderNumber} (via chat)`,
+        logger.info({
+          message:
+            'Executing convert_chat_order_to_paid_order_with_inventory RPC',
+          chatOrderId: chatOrder.id,
+          reference,
+          amount: amountValue,
+          currency: currencyValue,
         });
 
-        if (txnError) {
-          logger.warn({
-            message: 'Failed to create transaction for chat order',
-            orderId: newOrder.id,
-            error: txnError,
-          });
-        }
+        const { data: convertRes, error: convertError } = await supabase.rpc(
+          'convert_chat_order_to_paid_order_with_inventory',
+          {
+            p_chat_order_id: chatOrder.id,
+            p_gateway: gateway,
+            p_reference: reference,
+            p_amount: amountValue,
+            p_currency: currencyValue,
+          }
+        );
 
-        // Update chat order with order link and status
-        const { error: chatOrderUpdateError } = await supabase
-          .from('chat_orders')
-          .update({
-            status: 'paid',
-            order_id: newOrder.id,
-            paid_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', chatOrder.id)
-          .eq('status', 'processing');
-
-        if (chatOrderUpdateError) {
-          logger.warn({
-            message: 'Failed to finalize chat order status after conversion',
+        if (convertError) {
+          logger.error({
+            message:
+              'Failed to convert chat order to paid order with inventory',
             reference,
             chatOrderId: chatOrder.id,
-            orderId: newOrder.id,
-            error: chatOrderUpdateError,
+            error: convertError,
+          });
+
+          if (
+            convertError.message?.includes(
+              'serialized_inventory_unavailable'
+            ) ||
+            convertError.code === '55000'
+          ) {
+            return NextResponse.json(
+              {
+                error: 'serialized_inventory_unavailable',
+                code: 'serialized_inventory_unavailable',
+              },
+              { status: 409 }
+            );
+          }
+
+          return NextResponse.json(
+            { error: convertError.message || 'Failed to convert chat order' },
+            { status: 500 }
+          );
+        }
+
+        const result = convertRes as {
+          success: boolean;
+          order_id: string;
+          order_number: string;
+          already_processed: boolean;
+        };
+
+        if (!result.success) {
+          logger.error({
+            message: 'Chat order conversion returned unsuccessful result',
+            reference,
+            chatOrderId: chatOrder.id,
+            result,
+          });
+          return NextResponse.json(
+            { error: 'Failed to convert chat order' },
+            { status: 500 }
+          );
+        }
+
+        if (result.already_processed) {
+          logger.info({
+            message: 'Chat order already converted and processed',
+            reference,
+            chatOrderId: chatOrder.id,
+            orderId: result.order_id,
+          });
+          return NextResponse.json({
+            success: true,
+            message: 'Already processed',
+            orderId: result.order_id,
+            orderNumber: result.order_number,
           });
         }
+
+        const newOrderId = result.order_id;
+        const orderNumber = result.order_number;
 
         // Send push notification to merchant (non-blocking)
         after(async () => {
@@ -961,7 +803,7 @@ export async function POST(request: NextRequest) {
           try {
             await notifyNewOrder(
               chatOrder.merchant_id,
-              newOrder.id,
+              newOrderId,
               orderNumber,
               chatOrder.customer_name || 'Customer',
               orderAmount,
@@ -980,7 +822,7 @@ export async function POST(request: NextRequest) {
               orderAmount,
               'NGN',
               orderNumber,
-              newOrder.id
+              newOrderId
             );
           } catch (pushErr) {
             logger.warn({
@@ -990,6 +832,16 @@ export async function POST(request: NextRequest) {
             });
           }
         });
+
+        // Parse items from JSONB
+        const chatItems = (chatOrder.items || []) as Array<{
+          product_id: string;
+          variant_id?: string;
+          name: string;
+          quantity: number;
+          price: number;
+          image_url?: string;
+        }>;
 
         // Send order confirmation email
         try {
@@ -1064,7 +916,7 @@ export async function POST(request: NextRequest) {
               fromName: senderName,
               auditContext: {
                 merchantId: chatOrder.merchant_id,
-                orderId: newOrder.id,
+                orderId: newOrderId,
                 customerId: chatOrder.customer_id || null,
                 metadata: {
                   trigger: 'paystack_chat_order_confirmation',
@@ -1075,7 +927,7 @@ export async function POST(request: NextRequest) {
 
             logger.info({
               message: 'Chat order confirmation email sent',
-              orderId: newOrder.id,
+              orderId: newOrderId,
             });
           }
         } catch (emailErr) {
@@ -1094,7 +946,7 @@ export async function POST(request: NextRequest) {
           await supabase.rpc('record_merchant_settlement', {
             p_merchant_id: chatOrder.merchant_id,
             p_source_type: 'order',
-            p_source_id: newOrder.id,
+            p_source_id: newOrderId,
             p_gateway: gateway,
             p_gateway_reference: reference,
             p_gross_amount: grossAmount,
@@ -1116,7 +968,7 @@ export async function POST(request: NextRequest) {
         logger.info({
           message: 'Chat order converted to standard order successfully',
           chatOrderId: chatOrder.id,
-          newOrderId: newOrder.id,
+          newOrderId,
           orderNumber,
           reference,
         });
@@ -1125,7 +977,7 @@ export async function POST(request: NextRequest) {
           success: true,
           message:
             'Chat order payment processed and converted to standard order',
-          orderId: newOrder.id,
+          orderId: newOrderId,
           orderNumber,
         });
       }
@@ -1300,6 +1152,22 @@ export async function POST(request: NextRequest) {
       }
 
       logger.info({ message: 'Transaction already processed', reference });
+      if (transaction.order_id) {
+        try {
+          await ensurePaidOrderInventoryConfirmed(
+            supabase,
+            transaction.merchant_id,
+            transaction.order_id
+          );
+        } catch (inventoryError) {
+          const payload =
+            buildInventoryConfirmationFailurePayload(inventoryError);
+          return NextResponse.json(payload, {
+            status:
+              payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+          });
+        }
+      }
       if (gateway === 'paystack') {
         const reconciliationFailure = await reconcileAgenticPaystackDvaSession({
           metadata,
@@ -1878,6 +1746,67 @@ export async function POST(request: NextRequest) {
           transactionId: transaction.id,
         });
       } else {
+        try {
+          await ensurePaidOrderInventoryConfirmed(
+            supabase,
+            transaction.merchant_id,
+            transaction.order_id
+          );
+        } catch (inventoryError) {
+          logger.error({
+            message: 'Webhook failed to confirm inventory for paid order',
+            orderId: transaction.order_id,
+            error: inventoryError,
+          });
+
+          try {
+            await rollbackOrderStatusAfterInventoryConfirmationFailure(
+              supabase,
+              transaction.merchant_id,
+              transaction.order_id,
+              {
+                payment_status: 'pending',
+                shipping_status: 'pending',
+              }
+            );
+          } catch (rollbackError) {
+            await fileInventoryConfirmationFailureReview({
+              gatewayReference: transaction.gateway_reference ?? reference,
+              merchantId: transaction.merchant_id,
+              metadata: {
+                gateway,
+                inventoryError:
+                  inventoryError instanceof Error
+                    ? inventoryError.message
+                    : inventoryError,
+                rollbackError:
+                  rollbackError instanceof Error
+                    ? rollbackError.message
+                    : rollbackError,
+                source: 'gateway_webhook_inventory_confirmation_rollback',
+              },
+              orderId: transaction.order_id,
+              reason:
+                'Gateway webhook reached paid state, but serialized inventory confirmation and status rollback both failed.',
+              transactionId: transaction.id,
+            });
+            return NextResponse.json(
+              {
+                code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
+                error: 'Inventory confirmation cleanup failed',
+              },
+              { status: 500 }
+            );
+          }
+
+          const payload =
+            buildInventoryConfirmationFailurePayload(inventoryError);
+          return NextResponse.json(payload, {
+            status:
+              payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+          });
+        }
+
         logger.info({
           message: 'Order updated successfully',
           orderId: transaction.order_id,

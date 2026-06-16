@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { sanitizePublicOrder } from '@/lib/public-fulfillment-sanitizer';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
@@ -326,13 +327,15 @@ export async function GET(
           );
         }
 
-        return NextResponse.json({
-          ...order,
-          shipping_cost: order.shipping_fee,
-          short_id: order.order_number,
-          items: mapOrderItemsWithRoutes(items || []),
-          virtual_account: order.order_payment_accounts?.[0] || null,
-        });
+        return NextResponse.json(
+          sanitizePublicOrder({
+            ...order,
+            shipping_cost: order.shipping_fee,
+            short_id: order.order_number,
+            items: mapOrderItemsWithRoutes(items || []),
+            virtual_account: order.order_payment_accounts?.[0] || null,
+          })
+        );
       }
     }
 
@@ -391,24 +394,26 @@ export async function GET(
     );
     const items = mapOrderItemsWithRoutes(rawItems, productRouteDetails);
 
-    return NextResponse.json({
-      id: order.id,
-      order_number: order.order_number,
-      short_id: order.order_number,
-      subtotal: order.subtotal,
-      shipping_cost: order.shipping_cost ?? order.shipping_fee ?? 0,
-      total: order.total,
-      customer_name: order.customer_name,
-      customer_email: order.customer_email,
-      customer_phone: order.customer_phone,
-      shipping_address: order.shipping_address,
-      payment_status: order.payment_status,
-      shipping_status: order.shipping_status,
-      payment_method: order.payment_method,
-      merchant_id: order.merchant_id,
-      tracking_token: token || null,
-      items,
-    });
+    return NextResponse.json(
+      sanitizePublicOrder({
+        id: order.id,
+        order_number: order.order_number,
+        short_id: order.order_number,
+        subtotal: order.subtotal,
+        shipping_cost: order.shipping_cost ?? order.shipping_fee ?? 0,
+        total: order.total,
+        customer_name: order.customer_name,
+        customer_email: order.customer_email,
+        customer_phone: order.customer_phone,
+        shipping_address: order.shipping_address,
+        payment_status: order.payment_status,
+        shipping_status: order.shipping_status,
+        payment_method: order.payment_method,
+        merchant_id: order.merchant_id,
+        tracking_token: token || null,
+        items,
+      })
+    );
   } catch (error) {
     console.error(
       'Unexpected error in GET /api/storefront/orders/[id]:',

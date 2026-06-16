@@ -19,12 +19,16 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CategoryItem } from '@/components/product/CategoryItem';
+import { ProductItem } from '@/components/product/ProductItem';
+import { ProductsStatCards } from '@/components/product/ProductsStatCards';
+import type { Category } from '@/components/product/product.shared';
+import { TopSellingProductItem } from '@/components/product/TopSellingProductItem';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
-import SafeImage from '@/components/ui/SafeImage';
+import { TopTabBar } from '@/components/ui/TopTabBar';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
-  type InventoryStats,
   type Product,
   type StockFilter,
   useCategories,
@@ -37,10 +41,6 @@ import {
   type TopSellingProduct,
   useTopSellingProducts,
 } from '@/hooks/useTopSellingProducts';
-import {
-  getEffectiveProductStock,
-  getProductStockBucket,
-} from '@/lib/product-inventory';
 
 // Key extractors at module scope — stable references, no recreation on render
 const productKeyExtractor = (item: { id: string }) => item.id;
@@ -58,19 +58,7 @@ const getCurrencySymbol = (currencyCode: string | null | undefined) => {
   return symbols[currencyCode || 'NGN'] || '\u20A6';
 };
 
-// Helper functions moved outside component to prevent recreation
-const formatPrice = (amount: number, currencySymbol: string) =>
-  `${currencySymbol}${amount.toLocaleString()}`;
-
-const formatMetric = (value: number) => {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-  return value.toString();
-};
-
-// Category type
-type Category = { id: string; name: string; slug: string };
-
+// Helper functions moved to product.shared.ts
 // Tabs available on the products screen
 type ProductsTab =
   | 'all'
@@ -79,259 +67,6 @@ type ProductsTab =
   | 'out_of_stock'
   | 'categories'
   | 'top_selling';
-
-// Product catalogue and inventory totals are always cross-branch; label is unconditional.
-const INVENTORY_SCOPE_LABEL = ' (all stores)';
-
-interface ProductItemProps {
-  item: Product;
-  currencySymbol: string;
-  onPress: (id: string) => void;
-}
-
-function ProductItem({ item, currencySymbol, onPress }: ProductItemProps) {
-  const { colors, shadows } = useTheme();
-  const getStockStatus = () => {
-    const stockBucket = getProductStockBucket(item);
-    const stock = getEffectiveProductStock(item);
-
-    if (stockBucket === 'unmanaged') {
-      return { label: 'Unlimited stock', color: colors.success };
-    }
-
-    if (stockBucket === 'out_of_stock') {
-      return { label: 'Out of stock', color: colors.error };
-    }
-
-    if (stockBucket === 'low_stock') {
-      return { label: `${stock} left`, color: colors.warning };
-    }
-
-    return { label: `${stock} in stock`, color: colors.success };
-  };
-
-  const stockStatus = getStockStatus();
-  const imageUrl = item.images?.[0];
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.productCard,
-        { backgroundColor: colors.card, minHeight: 56 },
-        shadows.sm,
-        pressed && { backgroundColor: colors.cardHover },
-      ]}
-      onPress={() => onPress(item.id)}
-      accessibilityLabel={`${item.name}, ${formatPrice(item.price, currencySymbol)}, ${stockStatus.label}`}
-      accessibilityRole="button"
-      accessibilityHint="View product details"
-    >
-      <View
-        style={[
-          styles.productImage,
-          { backgroundColor: colors.backgroundLight },
-        ]}
-      >
-        {imageUrl ? (
-          <SafeImage source={{ uri: imageUrl }} style={styles.image} />
-        ) : (
-          <Ionicons name="image-outline" size={24} color={colors.textMuted} />
-        )}
-      </View>
-
-      <View style={styles.productInfo}>
-        <Text
-          style={[styles.productName, { color: colors.text }]}
-          numberOfLines={2}
-        >
-          {item.name}
-        </Text>
-
-        <View style={styles.priceRow}>
-          <Text style={[styles.price, { color: colors.text }]}>
-            {formatPrice(item.price, currencySymbol)}
-          </Text>
-          {item.compare_at_price != null &&
-          item.compare_at_price > item.price ? (
-            <Text style={[styles.comparePrice, { color: colors.textMuted }]}>
-              {formatPrice(item.compare_at_price, currencySymbol)}
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={styles.stockRow}>
-          <View
-            style={[styles.stockDot, { backgroundColor: stockStatus.color }]}
-          />
-          <Text style={[styles.stockText, { color: stockStatus.color }]}>
-            {stockStatus.label}
-          </Text>
-        </View>
-      </View>
-
-      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-    </Pressable>
-  );
-}
-
-// Top Selling Product Item component
-interface TopSellingProductItemProps {
-  item: TopSellingProduct;
-  currencySymbol: string;
-  onPress: (id: string) => void;
-}
-
-function TopSellingProductItem({
-  item,
-  currencySymbol,
-  onPress,
-}: TopSellingProductItemProps) {
-  const { colors, shadows } = useTheme();
-  const imageUrl = item.images?.[0];
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.productCard,
-        { backgroundColor: colors.card, minHeight: 56 },
-        shadows.sm,
-        pressed && { backgroundColor: colors.cardHover },
-      ]}
-      onPress={() => onPress(item.id)}
-      accessibilityLabel={`Top seller: ${item.name}, ${formatPrice(item.price, currencySymbol)}, ${formatMetric(item.totalSold)} sold`}
-      accessibilityRole="button"
-      accessibilityHint="View product details"
-    >
-      <View style={[styles.productRank, { backgroundColor: colors.gold }]}>
-        <Ionicons name="trophy" size={12} color="#FFF" />
-      </View>
-
-      <View
-        style={[
-          styles.productImage,
-          { backgroundColor: colors.backgroundLight },
-        ]}
-      >
-        {imageUrl ? (
-          <SafeImage source={{ uri: imageUrl }} style={styles.image} />
-        ) : (
-          <Ionicons name="image-outline" size={24} color={colors.textMuted} />
-        )}
-      </View>
-
-      <View style={styles.productInfo}>
-        <Text
-          style={[styles.productName, { color: colors.text }]}
-          numberOfLines={2}
-        >
-          {item.name}
-        </Text>
-
-        <View style={styles.priceRow}>
-          <Text style={[styles.price, { color: colors.text }]}>
-            {formatPrice(item.price, currencySymbol)}
-          </Text>
-        </View>
-
-        <View style={styles.stockRow}>
-          <Ionicons
-            name="analytics"
-            size={14}
-            color={colors.primary}
-            style={{ marginRight: 4 }}
-          />
-          <Text style={[styles.stockText, { color: colors.primary }]}>
-            {formatMetric(item.totalSold)} sold •{' '}
-            {formatMetric(item.totalRevenue)} rev
-          </Text>
-        </View>
-      </View>
-
-      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-    </Pressable>
-  );
-}
-
-// Category Item component
-interface CategoryItemProps {
-  item: Category;
-  onPress: (id: string) => void;
-}
-
-function CategoryItem({ item, onPress }: CategoryItemProps) {
-  const { colors, shadows } = useTheme();
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.categoryCard,
-        { backgroundColor: colors.card, minHeight: 56 },
-        shadows.sm,
-        pressed && { backgroundColor: colors.cardHover },
-      ]}
-      onPress={() => onPress(item.id)}
-      accessibilityLabel={`Category: ${item.name}`}
-      accessibilityRole="button"
-      accessibilityHint="View products in this category"
-    >
-      <View
-        style={[styles.categoryIcon, { backgroundColor: colors.goldLight }]}
-      >
-        <Ionicons name="folder-open" size={20} color={colors.gold} />
-      </View>
-      <Text style={[styles.categoryName, { color: colors.text }]}>
-        {item.name}
-      </Text>
-      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-    </Pressable>
-  );
-}
-
-// Interactive Stat Card Component
-interface StatCardProps {
-  label: string;
-  value: number;
-  color: string;
-  isActive: boolean;
-  onPress: () => void;
-}
-
-function StatCard({ label, value, color, isActive, onPress }: StatCardProps) {
-  const { colors, shadows } = useTheme();
-  return (
-    <Pressable
-      style={[
-        styles.statCard,
-        {
-          backgroundColor: isActive ? color : colors.card,
-          borderColor: isActive ? color : colors.border,
-        },
-        shadows.sm,
-      ]}
-      onPress={onPress}
-      accessibilityLabel={`${label}: ${value} products${isActive ? ', currently selected' : ''}`}
-      accessibilityRole="button"
-      accessibilityState={{ selected: isActive }}
-      accessibilityHint={`Filter products by ${label.toLowerCase()}`}
-    >
-      <Text
-        style={[
-          styles.statValue,
-          { color: isActive ? colors.textOnPrimary : color },
-        ]}
-      >
-        {value}
-      </Text>
-      <Text
-        style={[
-          styles.statLabel,
-          { color: isActive ? colors.textOnPrimary : colors.textSecondary },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
 
 interface TabButtonProps {
   id: ProductsTab;
@@ -343,7 +78,7 @@ interface TabButtonProps {
 function TabButton({ id, label, activeTab, onSelect }: TabButtonProps) {
   const { colors } = useTheme();
   const isActive = activeTab === id;
-  if (id === 'low_stock' || id === 'out_of_stock') return null;
+  if (id === 'out_of_stock') return null;
 
   return (
     <Pressable
@@ -375,91 +110,6 @@ function TabButton({ id, label, activeTab, onSelect }: TabButtonProps) {
   );
 }
 
-interface InventorySummaryBarProps {
-  isLoading: boolean;
-  inventoryStats: InventoryStats | undefined;
-  currencySymbol: string;
-}
-
-function InventorySummaryBar({
-  isLoading,
-  inventoryStats,
-  currencySymbol,
-}: InventorySummaryBarProps) {
-  const { colors } = useTheme();
-
-  if (isLoading) {
-    return (
-      <View style={styles.summaryWrapper}>
-        <View style={[styles.summaryBar, { backgroundColor: colors.card }]}>
-          <Text style={{ color: colors.text }}>Loading stats…</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (!inventoryStats) {
-    return (
-      <View style={styles.summaryWrapper}>
-        <View
-          style={[styles.summaryBar, { backgroundColor: colors.errorLight }]}
-        >
-          <Text style={{ color: colors.error }}>No stats data</Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.summaryWrapper}>
-      <View
-        style={[
-          styles.summaryBar,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            {`Total Value${INVENTORY_SCOPE_LABEL}`}
-          </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            {formatPrice(inventoryStats.inventoryValue, currencySymbol)}
-          </Text>
-        </View>
-
-        <View
-          style={[styles.summaryDivider, { backgroundColor: colors.border }]}
-        />
-
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            {`Stock Cost${INVENTORY_SCOPE_LABEL}`}
-          </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            {formatPrice(inventoryStats.inventoryCost, currencySymbol)}
-          </Text>
-        </View>
-
-        <View
-          style={[styles.summaryDivider, { backgroundColor: colors.border }]}
-        />
-
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            {`Total Units${INVENTORY_SCOPE_LABEL}`}
-          </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            {inventoryStats.totalStock.toLocaleString()}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 // Navigation callback for products
 function handleProductPress(id: string): void {
   router.push(`/product/${id}`);
@@ -477,6 +127,16 @@ export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
+  const [topTab, setTopTab] = useState<'in_stock' | 'on_website'>('in_stock');
+
+  const handleTopTabChange = (tab: 'in_stock' | 'on_website') => {
+    setTopTab(tab);
+    if (tab === 'in_stock') {
+      setActiveTab('in_stock');
+    } else {
+      setActiveTab('all');
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<ProductsTab>('in_stock');
   const [searchQuery, setSearchQuery] = useState('');
@@ -496,6 +156,7 @@ export default function ProductsScreen() {
     hasNextPage,
     fetchNextPage,
     refetch: refetchProducts,
+    error: productsError,
   } = useProducts({
     stockFilter,
     search: searchQuery.trim() || undefined,
@@ -512,8 +173,7 @@ export default function ProductsScreen() {
     isLoading: isTopSellingLoading,
     refetch: refetchTopSelling,
   } = useTopSellingProducts(20);
-  const { data: inventoryStats, isLoading: isStatsLoading } =
-    useInventoryStats();
+  const { data: inventoryStats } = useInventoryStats();
 
   // Category Creation State
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
@@ -577,8 +237,6 @@ export default function ProductsScreen() {
       data?.pages[0]?.totalCount ??
       displayData.length,
     active: inventoryStats?.activeCount ?? 0,
-    lowStock: inventoryStats?.lowStockCount ?? 0,
-    outOfStock: inventoryStats?.outOfStockCount ?? 0,
   };
 
   const handleLoadMore = () => {
@@ -609,6 +267,50 @@ export default function ProductsScreen() {
     <CategoryItem item={item} onPress={handleCategoryPress} />
   );
 
+  const getEmptyStateDetails = () => {
+    if (searchQuery.trim().length > 0) {
+      return {
+        icon: 'search-outline' as const,
+        title: 'No search results',
+        description: `We couldn't find any products matching "${searchQuery}". Check the spelling or try a different term.`,
+        buttonLabel: 'Clear Search',
+        onPress: () => setSearchQuery(''),
+      };
+    }
+
+    if (topTab === 'in_stock') {
+      if (activeTab === 'low_stock') {
+        return {
+          icon: 'shield-checkmark-outline' as const,
+          title: 'Stock levels healthy',
+          description:
+            'Great job! None of your tracked items are running low on stock right now.',
+          buttonLabel: null,
+          onPress: null,
+        };
+      }
+      return {
+        icon: 'calculator-outline' as const,
+        title: 'Start managing stock',
+        description:
+          'Track inventory quantities, monitor low stock items, and watch your total stock value grow in real-time.',
+        buttonLabel: 'Add Stocked Item',
+        onPress: () => router.push('/product/new'),
+      };
+    }
+
+    return {
+      icon: 'globe-outline' as const,
+      title: 'No items on website',
+      description:
+        'Create and list products in your online catalog so customers can view and purchase them.',
+      buttonLabel: 'Add Product',
+      onPress: () => router.push('/product/new'),
+    };
+  };
+
+  const emptyState = getEmptyStateDetails();
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -619,6 +321,13 @@ export default function ProductsScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Products</Text>
       </View>
+
+      <TopTabBar
+        activeTab={topTab}
+        inStockCount={stats.active}
+        onWebsiteCount={stats.total}
+        onTabChange={handleTopTabChange}
+      />
 
       {/* Collapsible Search Bar */}
       <Animated.View
@@ -677,30 +386,7 @@ export default function ProductsScreen() {
         </View>
       </Animated.View>
 
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <StatCard
-          label="In Stock"
-          value={stats.active}
-          color={colors.primary}
-          isActive={activeTab === 'in_stock' || activeTab === 'all'}
-          onPress={() => setActiveTab('in_stock')}
-        />
-        <StatCard
-          label="Low Stock"
-          value={stats.lowStock}
-          color={colors.warning}
-          isActive={activeTab === 'low_stock'}
-          onPress={() => setActiveTab('low_stock')}
-        />
-        <StatCard
-          label="Out of Stock"
-          value={stats.outOfStock}
-          color={colors.error}
-          isActive={activeTab === 'out_of_stock'}
-          onPress={() => setActiveTab('out_of_stock')}
-        />
-      </View>
+      <ProductsStatCards activeTab={topTab} />
 
       {/* Products List tabs */}
       <View style={styles.tabsContainer}>
@@ -709,30 +395,55 @@ export default function ProductsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabsContent}
         >
-          <TabButton
-            id="in_stock"
-            label={`In Stock (${stats.active})`}
-            activeTab={activeTab}
-            onSelect={setActiveTab}
-          />
-          <TabButton
-            id="top_selling"
-            label="Top Selling"
-            activeTab={activeTab}
-            onSelect={setActiveTab}
-          />
-          <TabButton
-            id="all"
-            label={`All (${stats.total})`}
-            activeTab={activeTab}
-            onSelect={setActiveTab}
-          />
-          <TabButton
-            id="categories"
-            label={`Categories (${categories?.length ?? 0})`}
-            activeTab={activeTab}
-            onSelect={setActiveTab}
-          />
+          {topTab === 'in_stock' ? (
+            <>
+              <TabButton
+                id="in_stock"
+                label={`Items (${stats.active})`}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+              <TabButton
+                id="categories"
+                label={`Categories (${categories?.length ?? 0})`}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+              <TabButton
+                id="low_stock"
+                label={`Low Stock (${inventoryStats?.lowStockCount ?? 0})`}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+              <TabButton
+                id="top_selling"
+                label="Top Selling"
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+            </>
+          ) : (
+            <>
+              <TabButton
+                id="all"
+                label={`Items (${stats.total})`}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+              <TabButton
+                id="categories"
+                label={`Categories (${categories?.length ?? 0})`}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+              <TabButton
+                id="top_selling"
+                label="Top Selling"
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+            </>
+          )}
         </ScrollView>
       </View>
 
@@ -862,38 +573,56 @@ export default function ProductsScreen() {
             !isProductsLoading ? (
               <View style={styles.emptyContainer}>
                 <Ionicons
-                  name="cube-outline"
+                  name={
+                    productsError ? 'alert-circle-outline' : emptyState.icon
+                  }
                   size={56}
                   color={colors.textMuted}
                 />
                 <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  No products yet
+                  {productsError ? "Couldn't load products" : emptyState.title}
                 </Text>
                 <Text
                   style={[styles.emptyText, { color: colors.textSecondary }]}
                 >
-                  Add your first product to get started
+                  {productsError
+                    ? 'Refresh the page or try again in a moment.'
+                    : emptyState.description}
                 </Text>
-                <Pressable
-                  style={[
-                    styles.emptyButton,
-                    { backgroundColor: colors.gold, minHeight: 44 },
-                  ]}
-                  onPress={() => router.push('/product/new')}
-                  accessibilityLabel="Add Product"
-                  accessibilityRole="button"
-                  accessibilityHint="Opens form to create a new product"
-                >
-                  <Ionicons name="add" size={20} color={colors.textOnPrimary} />
-                  <Text
+                {!productsError &&
+                emptyState.buttonLabel &&
+                emptyState.onPress ? (
+                  <Pressable
                     style={[
-                      styles.emptyButtonText,
-                      { color: colors.textOnPrimary },
+                      styles.emptyButton,
+                      { backgroundColor: colors.gold, minHeight: 44 },
                     ]}
+                    onPress={emptyState.onPress}
+                    accessibilityLabel={emptyState.buttonLabel}
+                    accessibilityRole="button"
+                    accessibilityHint={
+                      emptyState.icon === 'search-outline'
+                        ? 'Resets search query'
+                        : 'Opens form to create a new product'
+                    }
                   >
-                    Add Product
-                  </Text>
-                </Pressable>
+                    {emptyState.icon !== 'search-outline' && (
+                      <Ionicons
+                        name="add"
+                        size={20}
+                        color={colors.textOnPrimary}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.emptyButtonText,
+                        { color: colors.textOnPrimary },
+                      ]}
+                    >
+                      {emptyState.buttonLabel}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : null
           }
@@ -926,12 +655,6 @@ export default function ProductsScreen() {
       >
         <Ionicons name="add" size={28} color={colors.textOnPrimary} />
       </Pressable>
-
-      <InventorySummaryBar
-        isLoading={isStatsLoading}
-        inventoryStats={inventoryStats}
-        currencySymbol={currencySymbol}
-      />
 
       {/* Create Category Modal */}
       <Modal
@@ -1086,6 +809,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
     marginBottom: SPACING.md,
   },
   searchBar: {
@@ -1245,6 +969,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 24,
     gap: SPACING.sm,
   },
   emptyTitle: {
@@ -1276,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 125,
     right: SPACING.lg,
     width: 56,
     height: 56,

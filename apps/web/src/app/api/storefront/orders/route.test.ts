@@ -314,10 +314,6 @@ describe('GET /api/storefront/orders', () => {
           shipping_provider: 'GIGL',
           payment_method: 'card',
           virtual_account: null,
-          fulfillment_details: {
-            imei: '353456789012345',
-            serialNumber: 'SN-123',
-          },
           balance: 0,
           current_document_kind: 'receipt',
           receipt_eligible: true,

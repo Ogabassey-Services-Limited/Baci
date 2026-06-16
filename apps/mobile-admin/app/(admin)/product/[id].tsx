@@ -1,4 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ProductAttributesCard } from '@/components/product/ProductAttributesCard';
 import { ProductBasicInformationCard } from '@/components/product/ProductBasicInformationCard';
@@ -8,9 +9,11 @@ import { ProductHasVariantsToggleCard } from '@/components/product/ProductHasVar
 import { ProductImageCard } from '@/components/product/ProductImageCard';
 import { ProductInventoryCard } from '@/components/product/ProductInventoryCard';
 import { ProductPricingCard } from '@/components/product/ProductPricingCard';
+import { ProductRestockSheet } from '@/components/product/ProductRestockSheet';
 import { ProductStatusCard } from '@/components/product/ProductStatusCard';
 import { ProductVariantsCard } from '@/components/product/ProductVariantsCard';
 import { getCurrencySymbol } from '@/components/product/product-edit.helpers';
+import { VariantInventoryUnitsSheet } from '@/components/product/VariantInventoryUnitsSheet';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { useProductEditController } from '@/hooks/useProductEditController';
@@ -20,6 +23,8 @@ export default function ProductEditScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const controller = useProductEditController();
+  const [isRestockSheetVisible, setIsRestockSheetVisible] = useState(false);
+  const [isUnitsSheetVisible, setIsUnitsSheetVisible] = useState(false);
 
   if (!controller.id) {
     return (
@@ -213,6 +218,11 @@ export default function ProductEditScreen() {
                 controller.updateInventory({ manage_stock })
               }
               stockQuantity={controller.formData.stock_quantity}
+              inventoryTrackingPolicy={
+                controller.product?.inventory_tracking_policy
+              }
+              onOpenRestockModal={() => setIsRestockSheetVisible(true)}
+              onOpenUnitsModal={() => setIsUnitsSheetVisible(true)}
             />
           </>
         )}
@@ -247,6 +257,24 @@ export default function ProductEditScreen() {
         stockQuantity={controller.formData.stock_quantity}
         visible={controller.isFulfillmentModalVisible}
       />
+
+      {isRestockSheetVisible ? (
+        <ProductRestockSheet
+          colors={colors}
+          productId={controller.id}
+          variantId={null}
+          onClose={() => setIsRestockSheetVisible(false)}
+        />
+      ) : null}
+
+      {isUnitsSheetVisible ? (
+        <VariantInventoryUnitsSheet
+          colors={colors}
+          productId={controller.id}
+          variantId={null}
+          onClose={() => setIsUnitsSheetVisible(false)}
+        />
+      ) : null}
     </>
   );
 }

@@ -13,6 +13,13 @@ interface ProductInventoryCardProps {
   onStockAdjust: (nextQuantity: number) => void;
   onToggleManageStock: (value: boolean) => void;
   stockQuantity: number;
+  inventoryTrackingPolicy?:
+    | 'off'
+    | 'serialized_strict'
+    | 'serialized_then_unlimited'
+    | null;
+  onOpenRestockModal?: () => void;
+  onOpenUnitsModal?: () => void;
 }
 
 export function ProductInventoryCard({
@@ -25,8 +32,14 @@ export function ProductInventoryCard({
   onStockAdjust,
   onToggleManageStock,
   stockQuantity,
+  inventoryTrackingPolicy,
+  onOpenRestockModal,
+  onOpenUnitsModal,
 }: ProductInventoryCardProps) {
   const unlimitedStockEnabled = !manageStock;
+  const isSerialized =
+    inventoryTrackingPolicy === 'serialized_strict' ||
+    inventoryTrackingPolicy === 'serialized_then_unlimited';
 
   return (
     <>
@@ -66,48 +79,129 @@ export function ProductInventoryCard({
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <View style={styles.fulfillmentHeader}>
-            <View>
-              <Text style={[styles.title, { color: colors.text }]}>
-                Fulfillment Details
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Manage unique identifiers (IMEI, S/N).
-              </Text>
-            </View>
-            <Ionicons name="barcode-outline" size={24} color={colors.primary} />
-          </View>
+          {isSerialized ? (
+            <>
+              <View style={styles.fulfillmentHeader}>
+                <View>
+                  <Text style={[styles.title, { color: colors.text }]}>
+                    Serialized Inventory
+                  </Text>
+                  <Text
+                    style={[styles.subtitle, { color: colors.textSecondary }]}
+                  >
+                    Track stock via individual IMEI or Serial Number units.
+                  </Text>
+                </View>
+                <Ionicons
+                  name="barcode-outline"
+                  size={24}
+                  color={colors.primary}
+                />
+              </View>
 
-          <View style={styles.stockSummaryRow}>
-            <View>
-              <Text style={[styles.unitCount, { color: colors.text }]}>
-                {fulfillmentCount} Units
-              </Text>
-              <Text
-                style={[styles.helperText, { color: colors.textSecondary }]}
-              >
-                Needs {stockQuantity} identifiers
-              </Text>
-            </View>
-            <Pressable
-              accessibilityLabel="Open fulfillment details"
-              accessibilityRole="button"
-              style={[
-                styles.fulfillmentButton,
-                { backgroundColor: colors.primary },
-              ]}
-              onPress={onOpenFulfillmentModal}
-            >
-              <Text
-                style={[
-                  styles.fulfillmentButtonText,
-                  { color: colors.textOnPrimary },
-                ]}
-              >
-                {fulfillmentCount > 0 ? 'View/Edit Items' : 'Add Details'}
-              </Text>
-            </Pressable>
-          </View>
+              <View style={styles.stockSummaryRow}>
+                <View>
+                  <Text style={[styles.unitCount, { color: colors.text }]}>
+                    {stockQuantity} Available
+                  </Text>
+                  <Text
+                    style={[styles.helperText, { color: colors.textSecondary }]}
+                  >
+                    Tracked units in stock
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable
+                    accessibilityLabel="Open restock sheet"
+                    accessibilityRole="button"
+                    style={[
+                      styles.fulfillmentButton,
+                      { backgroundColor: colors.success },
+                    ]}
+                    onPress={onOpenRestockModal}
+                  >
+                    <Text
+                      style={[
+                        styles.fulfillmentButtonText,
+                        { color: colors.textOnPrimary },
+                      ]}
+                    >
+                      Restock
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Open view edit units sheet"
+                    accessibilityRole="button"
+                    style={[
+                      styles.fulfillmentButton,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    onPress={onOpenUnitsModal}
+                  >
+                    <Text
+                      style={[
+                        styles.fulfillmentButtonText,
+                        { color: colors.textOnPrimary },
+                      ]}
+                    >
+                      View Units
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.fulfillmentHeader}>
+                <View>
+                  <Text style={[styles.title, { color: colors.text }]}>
+                    Fulfillment Details
+                  </Text>
+                  <Text
+                    style={[styles.subtitle, { color: colors.textSecondary }]}
+                  >
+                    Manage unique identifiers (IMEI, S/N).
+                  </Text>
+                </View>
+                <Ionicons
+                  name="barcode-outline"
+                  size={24}
+                  color={colors.primary}
+                />
+              </View>
+
+              <View style={styles.stockSummaryRow}>
+                <View>
+                  <Text style={[styles.unitCount, { color: colors.text }]}>
+                    {fulfillmentCount} Units
+                  </Text>
+                  <Text
+                    style={[styles.helperText, { color: colors.textSecondary }]}
+                  >
+                    Needs {stockQuantity} identifiers
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityLabel="Open fulfillment details"
+                  accessibilityRole="button"
+                  style={[
+                    styles.fulfillmentButton,
+                    { backgroundColor: colors.primary },
+                  ]}
+                  onPress={onOpenFulfillmentModal}
+                >
+                  <Text
+                    style={[
+                      styles.fulfillmentButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    {fulfillmentCount > 0 ? 'View/Edit Items' : 'Add Details'}
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -117,6 +211,7 @@ export function ProductInventoryCard({
             onLowStockThresholdChange={onLowStockThresholdChange}
             onStockAdjust={onStockAdjust}
             stockQuantity={stockQuantity}
+            inventoryTrackingPolicy={inventoryTrackingPolicy}
           />
         </View>
       ) : null}

@@ -143,3 +143,29 @@ export interface MerchantAnalyticsResponse {
   topPaymentMethod: MerchantAnalyticsNamedValue | null;
   topProducts: MerchantAnalyticsTopProduct[];
 }
+
+export interface WebsiteAnalyticsSummary {
+  bestSeller: {
+    id: string;
+    name: string;
+    units_sold: number;
+    revenue: number;
+  } | null;
+  mostSearched: {
+    query: string;
+    count: number;
+  } | null;
+  topConverting: {
+    id: string;
+    name: string;
+    conversionRate: number;
+  } | null;
+}
+
+export interface WebsiteAnalyticsResponse {
+  scope: { type: 'all' | 'branch' };
+  summary: WebsiteAnalyticsSummary;
+  aiInsights: {
+    insights: string[];
+  };
+}
