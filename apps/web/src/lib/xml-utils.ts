@@ -3,8 +3,14 @@ export function escapeXml(value: unknown): string {
     return '';
   }
 
-  return value
-    .toString()
+  let stringValue: string;
+  try {
+    stringValue = String(value);
+  } catch {
+    stringValue = Object.prototype.toString.call(value);
+  }
+
+  return stringValue
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

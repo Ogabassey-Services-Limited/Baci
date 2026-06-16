@@ -18,6 +18,10 @@ describe('escapeXml', () => {
     expect(escapeXml({ toString: () => 'A&B' })).toBe('A&amp;B');
   });
 
+  it('does not throw for null-prototype objects', () => {
+    expect(escapeXml(Object.create(null))).toBe('[object Object]');
+  });
+
   it('escapes XML-reserved characters', () => {
     expect(escapeXml(`A&B <tag attr="value">'text'</tag>`)).toBe(
       'A&amp;B &lt;tag attr=&quot;value&quot;&gt;&apos;text&apos;&lt;/tag&gt;'
