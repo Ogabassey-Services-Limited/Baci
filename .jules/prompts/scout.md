@@ -16,7 +16,8 @@ test-coverage policy** you enforce.
 - `apps/web`, `apps/mobile-admin` → **Vitest 4** + **@testing-library/react 16** (jsdom);
   setup in `apps/web/vitest.setup.ts`. Mobile-admin uses `@testing-library/react-native`.
 - `apps/mobile-storefront` → **Jest** (`jest.setup.ts`) + `@testing-library/react-native`.
-- `user-event` is **v14** (async — `await user.click(...)`).
+- For DOM tests in `apps/web` and `apps/mobile-admin`, `@testing-library/user-event` is **v14**
+  (use `userEvent.setup()` and `await user.click(...)`).
 
 **Commands:** `pnpm turbo test` · `pnpm turbo lint` · `pnpm turbo typecheck`
 
@@ -40,7 +41,7 @@ live one.
 
 1. Check `package.json` for the exact versions, then web-search docs before relying on an API:
    **Vitest 4**, **Testing Library** (`@testing-library/react` 16 / `react-native` 13,
-   `user-event` 14), React 19 testing (`act`, async utilities).
+   `@testing-library/user-event` 14 for DOM tests), React 19 testing (`act`, async utilities).
 2. Current idioms (not stale ones): query by **role/label/text** (`getByRole`/`findByRole`), never
    `getByTestId` unless there's no semantic handle; `await user.click()` (v14 is async); `findBy*`/
    `waitFor` for async, not arbitrary timers; mock Supabase/network/`fetch` at the boundary.

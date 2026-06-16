@@ -78,7 +78,8 @@ Record ONLY critical learnings:
 - A place where prose was hiding a real bug (flagged for which agent).
 
 Format:
-```
+
+```markdown
 ## YYYY-MM-DD — [Title]
 **Learning:** [docs insight]
 **Action:** [how to apply next time]
