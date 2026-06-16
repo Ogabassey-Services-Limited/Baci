@@ -1,3 +1,4 @@
+import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
@@ -18,6 +19,7 @@ interface DeliveryMethodCardProps {
   doorSubtitle: string;
   doorPrice: string;
   airportFee: number;
+  deliveryState?: string | null;
 }
 
 export function DeliveryMethodCard({
@@ -28,27 +30,41 @@ export function DeliveryMethodCard({
   doorSubtitle,
   doorPrice,
   airportFee,
+  deliveryState,
 }: DeliveryMethodCardProps) {
-  const options = [
+  // Door is always available. The store ships from Lagos, so pickup is offered
+  // only for Lagos, and airport (air-cargo) delivery only for non-Lagos states
+  // that have an airport. The delivery address (state) is captured before this
+  // card, so the options reflect the selected state.
+  const options: {
+    id: DeliveryMethod;
+    title: string;
+    subtitle: string;
+    price: string;
+  }[] = [
     {
       id: 'door',
       title: 'Door delivery',
       subtitle: doorSubtitle,
       price: doorPrice,
     },
-    {
+  ];
+  if (isAirportDeliveryEligible(deliveryState)) {
+    options.push({
       id: 'airport',
       title: 'Airport Delivery (Outside Lagos)',
       subtitle: DELIVERY_ESTIMATE,
       price: formatPrice(airportFee),
-    },
-    {
+    });
+  }
+  if (isPickupEligible(deliveryState)) {
+    options.push({
       id: 'pickup_station',
       title: 'Pick Up Station',
       subtitle: PICKUP_STATION_ADDRESS_LINES.join(', '),
       price: 'Free',
-    },
-  ] as const;
+    });
+  }
 
   return (
     <View

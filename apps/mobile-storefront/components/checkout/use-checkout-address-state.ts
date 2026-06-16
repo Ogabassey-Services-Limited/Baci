@@ -54,6 +54,7 @@ export function useCheckoutAddressState({
       notes: '',
     },
     mode: 'onBlur',
+    shouldUnregister: false,
   });
   const { control, getValues, reset, setValue } = form;
   // useWatch instead of watch(): watch() returns interior-mutable values that
