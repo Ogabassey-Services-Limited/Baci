@@ -1,21 +1,23 @@
+import {
+  COUNTER_NEGOTIATION_DISCOUNT_STEPS,
+  MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
+} from '@baci/shared/lib';
+import type { ImpactFeedbackStyle } from 'expo-haptics';
 import { useState } from 'react';
 import { Alert, Platform } from 'react-native';
-import type { ImpactFeedbackStyle } from 'expo-haptics';
+import { createLogger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
 import type { NegotiationStatus } from './NegotiationModalView';
 import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
 import {
   createNegotiationSessionId,
-  extractNegotiationFileExtension,
-  isRemoteEvidenceUrl,
-  NEGOTIATION_EVIDENCE_BUCKET,
+  uploadNegotiationEvidence,
 } from './negotiation-evidence';
 import {
   ensureNegotiationNativeModules,
   getNegotiationHapticsModule,
   getNegotiationImagePickerModule,
 } from './negotiation-native-modules';
-import { createLogger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
 
 const log = createLogger('NegotiationModal');
 void ensureNegotiationNativeModules();
@@ -28,6 +30,7 @@ interface NegotiationItemInfo {
 
 interface UseNegotiationModalControllerParams {
   currentPrice: number;
+  isNegotiable?: boolean;
   itemInfo: NegotiationItemInfo | null;
   merchantId: string | null;
   onAcceptedPrice?: (price: number) => void;
@@ -38,6 +41,7 @@ interface UseNegotiationModalControllerParams {
 
 export function useNegotiationModalController({
   currentPrice,
+  isNegotiable = true,
   itemInfo,
   merchantId,
   onAcceptedPrice,
@@ -58,12 +62,17 @@ export function useNegotiationModalController({
     setPrevVisible(visible);
     if (visible) {
       setOffer('');
-      setStatus('input');
       setMessage('');
       setAttemptCount(0);
       setCounterOffer(null);
       setUploadFile(null);
       setUploadLink('');
+      if (isNegotiable === false) {
+        setStatus('final');
+        setMessage('This is already the best price.');
+      } else {
+        setStatus('input');
+      }
     }
   }
 
@@ -85,7 +94,13 @@ export function useNegotiationModalController({
     setTimeout(() => {
       const discountPercentage = 1 - offerAmount / currentPrice;
 
-      if (discountPercentage <= 0.05) {
+      if (isNegotiable === false) {
+        setStatus('final');
+        setMessage('This is already the best price.');
+        return;
+      }
+
+      if (discountPercentage <= MAX_AUTO_NEGOTIATION_DISCOUNT_RATE) {
         setStatus('success');
         setOffer(offerAmount.toString());
         setMessage(successMessageFormatter(offerAmount));
@@ -96,20 +111,18 @@ export function useNegotiationModalController({
         return;
       }
 
-      let counterDiscount: number;
-      let replyMessage: string;
-
-      if (attemptCount === 0) {
-        counterDiscount = 0.02;
-        replyMessage = "That's a bit low. But I can do:";
-      } else if (attemptCount === 1) {
-        counterDiscount = 0.04;
-        replyMessage = "We're getting closer. The best I can do is:";
-      } else {
-        counterDiscount = 0.05;
-        replyMessage = 'This is my absolute final offer:';
-      }
-
+      const counterStepIndex = Math.min(
+        attemptCount,
+        COUNTER_NEGOTIATION_DISCOUNT_STEPS.length - 1
+      );
+      const counterDiscount =
+        COUNTER_NEGOTIATION_DISCOUNT_STEPS[counterStepIndex];
+      const replyMessage =
+        counterStepIndex === 0
+          ? "That's a bit low. But I can do:"
+          : counterStepIndex === 1
+            ? "We're getting closer. The best I can do is:"
+            : 'This is my absolute final offer:';
       const proposedCounter = Math.floor(currentPrice * (1 - counterDiscount));
 
       if (attemptCount >= NEGOTIATION_CHEAPER_BUTTON_THRESHOLD) {
@@ -117,15 +130,14 @@ export function useNegotiationModalController({
         setMessage(
           "You're looking for a serious discount! Upload evidence of a lower price elsewhere and a merchant will review your request."
         );
-      } else {
-        setStatus('failed');
-        setCounterOffer(proposedCounter);
-        setMessage(replyMessage);
-        setAttemptCount((previous) => previous + 1);
-        triggerHaptic(
-          getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Medium
-        );
+        return;
       }
+
+      setStatus('failed');
+      setCounterOffer(proposedCounter);
+      setMessage(replyMessage);
+      setAttemptCount((previous) => previous + 1);
+      triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Medium);
     }, 1500);
   };
 
@@ -139,43 +151,6 @@ export function useNegotiationModalController({
     setMessage(successMessageFormatter(counterOffer));
     triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Heavy);
     onAcceptedPrice?.(counterOffer);
-  };
-
-  const uploadEvidenceImage = async (fileUri: string) => {
-    if (isRemoteEvidenceUrl(fileUri)) {
-      return fileUri;
-    }
-
-    if (!merchantId) {
-      throw new Error('Missing merchant id');
-    }
-
-    const response = await fetch(fileUri);
-    if (!response.ok) {
-      throw new Error(`Failed to read evidence file: ${response.status}`);
-    }
-
-    const blob = await response.blob();
-    const extension = extractNegotiationFileExtension(fileUri, blob.type);
-    const filePath = `${merchantId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
-    const body = await blob.arrayBuffer();
-
-    const { error: uploadError } = await supabase.storage
-      .from(NEGOTIATION_EVIDENCE_BUCKET)
-      .upload(filePath, body, {
-        contentType: blob.type || 'image/jpeg',
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    const { data } = supabase.storage
-      .from(NEGOTIATION_EVIDENCE_BUCKET)
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
   };
 
   const submitMerchantRequest = async (evidenceUrl?: string) => {
@@ -242,7 +217,7 @@ export function useNegotiationModalController({
     try {
       let evidenceUrl = normalizedLink;
       if (!evidenceUrl && uploadFile) {
-        evidenceUrl = await uploadEvidenceImage(uploadFile);
+        evidenceUrl = await uploadNegotiationEvidence(uploadFile, merchantId);
       }
       await submitMerchantRequest(evidenceUrl || undefined);
     } catch (error) {

@@ -19,6 +19,7 @@ interface CartCheckoutFooterProps {
   formatPrice: (amount: number) => string;
   grandTotal: number;
   hasAcceptedNegotiation: boolean;
+  hasNonNegotiableItem?: boolean;
   onCheckout: () => void;
   onCheckoutPressIn: () => void;
   onNegotiateTotal: () => void;
@@ -32,6 +33,7 @@ export default function CartCheckoutFooter({
   formatPrice,
   grandTotal,
   hasAcceptedNegotiation,
+  hasNonNegotiableItem = false,
   onCheckout,
   onCheckoutPressIn,
   onNegotiateTotal,
@@ -75,7 +77,7 @@ export default function CartCheckoutFooter({
         </Text>
       </View>
       <View style={styles.footerActions}>
-        {enableNegotiationModal && (
+        {enableNegotiationModal && !hasNonNegotiableItem && (
           <Pressable
             style={({ pressed }) => [
               styles.bulkButton,

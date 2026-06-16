@@ -1,5 +1,5 @@
-import { render } from '@testing-library/react-native';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { render } from '@testing-library/react-native';
 import { NegotiationModal } from './NegotiationModal';
 
 const mockRenderView = jest.fn();
@@ -8,15 +8,27 @@ const mockApplyNegotiatedPrice = jest.fn();
 const mockApplyCartWideNegotiation = jest.fn();
 const mockCloseNegotiation = jest.fn();
 
+interface MockNegotiationContext {
+  type: 'single' | 'total';
+  itemId?: string;
+  productName: string;
+  currentPrice: number;
+  brand?: string;
+  isNegotiable?: boolean;
+}
+
+const negotiableContext: MockNegotiationContext = {
+  currentPrice: 500000,
+  itemId: 'line-item-1',
+  productName: 'iPhone 13',
+  type: 'single',
+};
+
+let mockNegotiationContext: MockNegotiationContext | null = negotiableContext;
+
 const uiState = {
   closeNegotiation: mockCloseNegotiation,
   isNegotiationModalOpen: true,
-  negotiationContext: {
-    currentPrice: 500000,
-    itemId: 'line-item-1',
-    productName: 'iPhone 13',
-    type: 'single' as const,
-  },
 };
 
 jest.mock('zustand/react/shallow', () => ({
@@ -39,7 +51,7 @@ jest.mock('@/stores/ui-store', () => ({
   useUIStore: () => ({
     closeNegotiation: uiState.closeNegotiation,
     isNegotiationModalOpen: uiState.isNegotiationModalOpen,
-    negotiationContext: uiState.negotiationContext,
+    negotiationContext: mockNegotiationContext,
   }),
 }));
 
@@ -90,7 +102,7 @@ describe('Cart NegotiationModal wrapper', () => {
     mockApplyCartWideNegotiation.mockReset();
     mockCloseNegotiation.mockReset();
     uiState.isNegotiationModalOpen = true;
-    uiState.negotiationContext = {
+    mockNegotiationContext = {
       currentPrice: 500000,
       itemId: 'line-item-1',
       productName: 'iPhone 13',
@@ -143,5 +155,38 @@ describe('Cart NegotiationModal wrapper', () => {
     expect(mockCloseNegotiation).not.toHaveBeenCalled();
     expect(renderedProps.successActionLabel).toBe('Apply to Cart');
     expect(renderedProps.successActionStyle).toBe('primary');
+  });
+
+  it('forwards isNegotiable from a non-negotiable cart negotiation context', () => {
+    mockNegotiationContext = {
+      type: 'single',
+      itemId: 'cart-1',
+      productName: 'Tecno Spark 50',
+      currentPrice: 120000,
+      brand: 'Tecno',
+      isNegotiable: false,
+    };
+
+    render(<NegotiationModal />);
+
+    expect(mockUseNegotiationModalController).toHaveBeenCalledWith(
+      expect.objectContaining({ isNegotiable: false })
+    );
+  });
+
+  it('computes isNegotiable via brand/name fallback when the context omits it', () => {
+    mockNegotiationContext = {
+      type: 'single',
+      itemId: 'cart-1',
+      productName: 'Tecno Spark 50',
+      currentPrice: 120000,
+      brand: 'Tecno',
+    };
+
+    render(<NegotiationModal />);
+
+    expect(mockUseNegotiationModalController).toHaveBeenCalledWith(
+      expect.objectContaining({ isNegotiable: false })
+    );
   });
 });

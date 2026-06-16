@@ -1,3 +1,4 @@
+import { isProductNegotiable } from '@baci/shared/lib';
 import { NegotiationModalView } from '@/components/negotiation/NegotiationModalView';
 import { useNegotiationModalController } from '@/components/negotiation/useNegotiationModalController';
 import { formatPrice } from '@/stores/cart-store';
@@ -8,7 +9,9 @@ interface NegotiationModalProps {
   productId: string;
   merchantId: string;
   productName: string;
+  productBrand?: string;
   currentPrice: number;
+  isNegotiable?: boolean;
   onSuccess: (negotiatedPrice: number) => void;
   type?: 'single' | 'total';
   itemId?: string;
@@ -20,7 +23,9 @@ export function NegotiationModal({
   productId,
   merchantId,
   productName,
+  productBrand,
   currentPrice,
+  isNegotiable,
   onSuccess,
   type = 'single',
   itemId,
@@ -44,6 +49,9 @@ export function NegotiationModal({
     uploadLink,
   } = useNegotiationModalController({
     currentPrice,
+    isNegotiable:
+      isNegotiable ??
+      isProductNegotiable({ brand: productBrand, name: productName }),
     itemInfo:
       type === 'single'
         ? {

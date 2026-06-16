@@ -367,6 +367,7 @@ export function ProductDetailsPage({
           isOpen
           onClose={() => setIsNegotiationOpen(false)}
           productName={productData.name}
+          productBrand={productData.brand}
           currentPrice={currentOffer.rawPrice}
           vatRate={merchantVatRate}
           onSuccess={handleNegotiationSuccess}
