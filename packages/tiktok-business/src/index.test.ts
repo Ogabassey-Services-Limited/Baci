@@ -17,7 +17,7 @@ vi.mock('react-native', () => ({
   Platform: mockPlatform,
 }));
 
-vi.mock('expo-modules-core', () => ({
+vi.mock('expo', () => ({
   requireNativeModule: mockRequireNativeModule,
 }));
 
@@ -26,7 +26,9 @@ describe('@baci/tiktok-business', () => {
     vi.resetModules();
     mockPlatform.OS = 'ios';
     mockRequireNativeModule.mockClear();
-    Object.values(mockNativeModule).forEach((mock) => mock.mockClear());
+    Object.values(mockNativeModule).forEach((mock) => {
+      mock.mockClear();
+    });
   });
 
   it('initializes the native iOS module lazily', async () => {
@@ -63,6 +65,12 @@ describe('@baci/tiktok-business', () => {
 
     expect(TikTokBusiness.initialize()).toBe(false);
     expect(TikTokBusiness.trackEvent('LaunchApp')).toBe(false);
+    await expect(
+      TikTokBusiness.requestTrackingAuthorization()
+    ).resolves.toBeNull();
+    expect(
+      mockNativeModule.requestTrackingAuthorization
+    ).not.toHaveBeenCalled();
     expect(mockRequireNativeModule).not.toHaveBeenCalled();
   });
 });

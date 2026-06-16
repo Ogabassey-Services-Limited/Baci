@@ -1,4 +1,3 @@
-import type { EventSubscription } from 'expo-modules-core';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
@@ -26,6 +25,10 @@ import { navigateFromPushScreen } from './navigate-from-push-screen';
 const log = createLogger('PushNotifications');
 
 const STOREFRONT_MERCHANT_ID = pickMerchantId(CONFIG.MERCHANT_ID);
+
+type EventSubscription = {
+  remove: () => void;
+};
 
 let Notifications: typeof import('expo-notifications') | null = null;
 let _notificationsReady: Promise<void>;

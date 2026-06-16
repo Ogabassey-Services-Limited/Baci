@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Platform } from 'react-native';
 import { CustomTabBar } from './CustomTabBar';
 import { customTabBarTestUtils } from './CustomTabBar.test-utils';

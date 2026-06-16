@@ -1,7 +1,7 @@
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { TabActions } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
+import { TabActions } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
   Platform,

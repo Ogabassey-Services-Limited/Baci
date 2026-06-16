@@ -1,7 +1,10 @@
 import path from 'node:path';
 
 if (process.env.NODE_ENV !== 'test') {
-  require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+  require('dotenv').config({
+    path: path.resolve(__dirname, '.env'),
+    quiet: true,
+  });
 }
 
 import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
