@@ -737,6 +737,9 @@ importers:
       babel-plugin-module-resolver:
         specifier: ^5.0.3
         version: 5.0.3
+      babel-plugin-react-compiler:
+        specifier: ^1.0.0
+        version: 1.0.0
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@24.12.4)

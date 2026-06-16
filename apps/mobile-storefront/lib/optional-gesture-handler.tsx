@@ -20,12 +20,18 @@ export type GestureHandlerRuntime = {
   useTapGesture: typeof import('react-native-gesture-handler').useTapGesture;
 };
 
-const FallbackGestureHandlerRootView = ({
+// These fallbacks are plain element factories rather than PascalCase component
+// declarations on purpose. React Compiler instruments component-shaped functions
+// by injecting a `useMemoCache` hook call, which throws when a function is invoked
+// outside React's render cycle (e.g. called directly as a function). Keeping them
+// as lowercase factories means the compiler treats them as ordinary functions, so
+// they remain safe to call directly while still working as JSX components.
+const fallbackGestureHandlerRootView = ({
   children,
   style,
 }: GestureHandlerRootViewProps) => <View style={style}>{children}</View>;
 
-const FallbackGestureDetector = ({ children }: GestureDetectorProps) => (
+const fallbackGestureDetector = ({ children }: GestureDetectorProps) => (
   <>{children}</>
 );
 
@@ -52,9 +58,9 @@ export function getOptionalGestureHandlerRuntime(): GestureHandlerRuntime {
       Gesture: gestureHandler.Gesture,
       GestureDetector:
         (gestureHandler.GestureDetector as unknown as React.ComponentType<GestureDetectorProps>) ??
-        FallbackGestureDetector,
+        fallbackGestureDetector,
       GestureHandlerRootView:
-        gestureHandler.GestureHandlerRootView ?? FallbackGestureHandlerRootView,
+        gestureHandler.GestureHandlerRootView ?? fallbackGestureHandlerRootView,
       usePanGesture: gestureHandler.usePanGesture ?? fallbackPanGesture,
       useSimultaneousGestures:
         gestureHandler.useSimultaneousGestures ?? fallbackSimultaneousGestures,
@@ -63,8 +69,8 @@ export function getOptionalGestureHandlerRuntime(): GestureHandlerRuntime {
   } catch {
     runtime = {
       Gesture: null,
-      GestureDetector: FallbackGestureDetector,
-      GestureHandlerRootView: FallbackGestureHandlerRootView,
+      GestureDetector: fallbackGestureDetector,
+      GestureHandlerRootView: fallbackGestureHandlerRootView,
       usePanGesture: fallbackPanGesture,
       useSimultaneousGestures: fallbackSimultaneousGestures,
       useTapGesture: fallbackTapGesture,

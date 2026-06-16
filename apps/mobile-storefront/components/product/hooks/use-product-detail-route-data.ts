@@ -1,19 +1,33 @@
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { useProduct } from '@/hooks';
+import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
+import type { useProduct } from '@/hooks';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useReviews } from '@/hooks/use-reviews';
-import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
+import { getFirstRouteParamValue } from '../product-detail-route-params';
 import { getFallbackVariantSelections } from './get-fallback-variant-selections';
 import { getFirstImageIndexForColor } from './get-first-image-index-for-color';
 import { getSelectionSyncSignature } from './get-selection-sync-signature';
 import { useProductDetailSelection } from './use-product-detail-selection';
-import { getFirstRouteParamValue } from '../product-detail-route-params';
 
-export function useProductDetailRouteData() {
+/**
+ * The route product is fetched in the route component (`app/product/[slug].tsx`)
+ * and forwarded here, rather than fetched inside this hook. That keeps the
+ * fetched product flowing through props so the rendered screen re-renders when
+ * the product changes, instead of relying on a frozen, zero-dependency element
+ * that React Compiler would otherwise memoize for the whole session.
+ */
+type UseProductDetailRouteDataArgs = ReturnType<typeof useProduct>;
+
+export function useProductDetailRouteData({
+  product,
+  isLoading,
+  error,
+  refetch,
+}: UseProductDetailRouteDataArgs) {
   const routeParams = useLocalSearchParams();
   const slug = getFirstRouteParamValue(routeParams.slug);
   const routeConditionParam = getFirstRouteParamValue(routeParams.condition);
@@ -21,9 +35,6 @@ export function useProductDetailRouteData() {
     slug && typeof slug === 'string' && slug.length > 0
   );
   const { isOnline } = useNetworkState();
-  const { product, isLoading, error, refetch } = useProduct(
-    isValidSlug ? (slug ?? '') : ''
-  );
   const reviewsState = useReviews({ productId: product?.id || '' });
   const usesVariantRouteSelection = Boolean(
     product?.has_variants && product.variants && product.variants.length > 0
