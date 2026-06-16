@@ -68,7 +68,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
     restoreFetch = () => undefined;
   });
 
-  it('streams the mobile preload profile from the transformed primary product image', async () => {
+  it('redirects the mobile preload profile to the transformed primary product image', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -79,17 +79,12 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
 
     const response = await GET(createRequest(), createContext('mobile'));
 
-    expect(response.status).toBe(200);
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif',
-      expect.any(Object)
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
-    const [, fetchInit] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(new Headers(fetchInit.headers).get('accept')).toBe('image/avif');
-    expect(response.headers.get('content-type')).toBe('image/avif');
+    expect(mockFetch).not.toHaveBeenCalled();
     expect(response.headers.get('cache-control')).toContain('s-maxage=86400');
-    expect(response.headers.get('vary')).toBe('Accept');
-    await expect(response.text()).resolves.toBe('image-bytes');
     expect(mockImageLoader).toHaveBeenCalledWith({
       quality: 30,
       src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
@@ -97,7 +92,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
     });
   });
 
-  it('streams the desktop preload profile with desktop dimensions', async () => {
+  it('redirects the desktop preload profile with desktop dimensions', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -108,7 +103,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
 
     const response = await GET(createRequest(), createContext('desktop'));
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(307);
     expect(mockImageLoader).toHaveBeenCalledWith({
       quality: 35,
       src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
@@ -116,7 +111,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
     });
   });
 
-  it('streams the mobile header profile with the actual mobile LCP candidate dimensions', async () => {
+  it('redirects the mobile header profile with the actual mobile LCP candidate dimensions', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -127,7 +122,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
 
     const response = await GET(createRequest(), createContext('mobile-header'));
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(307);
     expect(mockImageLoader).toHaveBeenCalledWith({
       quality: 35,
       src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
