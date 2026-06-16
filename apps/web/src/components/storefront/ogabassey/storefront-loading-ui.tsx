@@ -17,6 +17,7 @@ interface ShellChromeLoadingMobileHeroImage {
 
 interface ShellChromeLoadingProps {
   mobileHeroImage?: ShellChromeLoadingMobileHeroImage;
+  showChromeFrame?: boolean;
 }
 
 const transparentPixelSrc =
@@ -58,6 +59,65 @@ const shellChromeLoadingBarStyle = {
   width: '100%',
 } satisfies CSSProperties;
 
+const shellChromeFrameStyle = {
+  background: 'var(--storefront-shell-background, #0f0f0f)',
+  borderBottom:
+    '1px solid color-mix(in srgb, var(--store-background, #ffffff) 14%, transparent)',
+  boxSizing: 'border-box',
+  color: 'var(--store-primary-text, #ffffff)',
+  margin: '-0.75rem -1rem 0.75rem',
+  padding: '0.75rem 1rem',
+} satisfies CSSProperties;
+
+const shellChromeFrameTopStyle = {
+  alignItems: 'center',
+  display: 'flex',
+  gap: '0.75rem',
+  minHeight: '3rem',
+} satisfies CSSProperties;
+
+const shellChromeFrameLogoStyle = {
+  background:
+    'linear-gradient(90deg, var(--store-primary, #d62027) 0 28%, var(--store-primary-text, #ffffff) 28% 100%)',
+  borderRadius: '9999px',
+  height: '1.25rem',
+  width: '8rem',
+} satisfies CSSProperties;
+
+const shellChromeFrameSearchStyle = {
+  background: 'var(--store-background, #ffffff)',
+  borderRadius: '9999px',
+  flex: '1 1 auto',
+  height: '2.25rem',
+  maxWidth: '48rem',
+  opacity: 0.96,
+} satisfies CSSProperties;
+
+const shellChromeFrameActionStyle = {
+  background:
+    'color-mix(in srgb, var(--store-primary-text, #ffffff) 24%, transparent)',
+  borderRadius: '9999px',
+  flex: '0 0 auto',
+  height: '1.75rem',
+  width: '1.75rem',
+} satisfies CSSProperties;
+
+const shellChromeFrameNavStyle = {
+  display: 'flex',
+  gap: '0.75rem',
+  marginTop: '0.75rem',
+  overflow: 'hidden',
+} satisfies CSSProperties;
+
+const shellChromeFrameNavItemStyle = {
+  background:
+    'color-mix(in srgb, var(--store-primary-text, #ffffff) 18%, transparent)',
+  borderRadius: '9999px',
+  flex: '0 0 auto',
+  height: '1.5rem',
+  width: '7rem',
+} satisfies CSSProperties;
+
 function LoadingStatus({
   label,
   children,
@@ -74,6 +134,7 @@ function LoadingStatus({
 
 export function ShellChromeLoading({
   mobileHeroImage,
+  showChromeFrame = false,
 }: ShellChromeLoadingProps = {}) {
   if (mobileHeroImage && !mobileHeroImage.inlineAvifSrc) {
     // ReactDOM.preload forwards `media`; keep this viewport-scoped so the
@@ -92,6 +153,25 @@ export function ShellChromeLoading({
         className="storefront-shell-loading"
         style={shellChromeLoadingStyle}
       >
+        {showChromeFrame ? (
+          <div
+            aria-hidden="true"
+            className="storefront-shell-loading__chrome"
+            style={shellChromeFrameStyle}
+          >
+            <div style={shellChromeFrameTopStyle}>
+              <div style={shellChromeFrameLogoStyle} />
+              <div style={shellChromeFrameSearchStyle} />
+              <div style={shellChromeFrameActionStyle} />
+              <div style={shellChromeFrameActionStyle} />
+            </div>
+            <div style={shellChromeFrameNavStyle}>
+              <div style={shellChromeFrameNavItemStyle} />
+              <div style={shellChromeFrameNavItemStyle} />
+              <div style={shellChromeFrameNavItemStyle} />
+            </div>
+          </div>
+        ) : null}
         {mobileHeroImage ? (
           <picture
             className="storefront-shell-loading__mobile-hero md:hidden"

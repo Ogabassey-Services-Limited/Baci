@@ -162,6 +162,11 @@ describe('OgabasseyLayout', () => {
         name: /loading storefront chrome/i,
       })
     ).toBeInTheDocument();
+    expect(
+      fallbackRender.container.querySelector(
+        '.storefront-shell-loading__chrome'
+      )
+    ).toBeInTheDocument();
     expect(fallbackRender.container.querySelector('picture')).toBeTruthy();
     fallbackRender.unmount();
     await expect(props?.params).resolves.toEqual({

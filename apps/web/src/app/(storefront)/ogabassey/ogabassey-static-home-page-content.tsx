@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { JsonLd } from '@/components/seo/json-ld';
 import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import {
   OGABASSEY_DESCRIPTION,
@@ -6,7 +7,6 @@ import {
   OGABASSEY_TITLE,
   OGABASSEY_URL,
 } from '@/config/ogabassey';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
 import { OgabasseyHomeStyleLoader } from './ogabassey-home-style-loader';
 
@@ -34,9 +34,7 @@ export function OgabasseyStaticHomePageContent({
 }) {
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(ogabasseyStaticHomepageSchema)}
-      </script>
+      <JsonLd data={ogabasseyStaticHomepageSchema} />
       {/* The storefront layout blocks unpublished merchants before rendering children; keep Hero in this page shell so mobile LCP is not delayed by dynamic home data. */}
       <Hero basePath={heroBasePath} />
       <OgabasseyHomeStyleLoader />

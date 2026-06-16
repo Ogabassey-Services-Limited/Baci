@@ -66,5 +66,7 @@ export function StorefrontThemeProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return <div className="light contents">{children}</div>;
+  return (
+    <div className={`light ${STOREFRONT_LIGHT_CLASS} contents`}>{children}</div>
+  );
 }
