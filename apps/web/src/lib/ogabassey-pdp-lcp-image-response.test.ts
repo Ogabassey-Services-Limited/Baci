@@ -51,8 +51,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     restoreFetch = () => undefined;
   });
 
-  it('streams valid preload inputs from the transformed primary image', async () => {
-    mockGetBaciCdnOriginFetchSecret.mockReturnValue('origin-fetch-secret');
+  it('redirects valid preload inputs to the transformed primary image without proxy-fetching bytes', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -67,24 +66,14 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
       width: 750,
     });
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif',
-      expect.any(Object)
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
-    const [, fetchInit] = mockFetch.mock.calls[0] as [string, RequestInit];
-    const fetchHeaders = new Headers(fetchInit.headers);
-
-    expect(fetchHeaders.get('accept')).toBe(
-      'image/avif,image/webp,image/*,*/*;q=0.8'
-    );
-    expect(fetchHeaders.get('x-baci-origin-fetch')).toBe('origin-fetch-secret');
-    expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toBe('image/avif');
     expect(response.headers.get('cache-control')).toBe(
       'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
     );
-    expect(response.headers.get('vary')).toBe('Accept');
-    await expect(response.text()).resolves.toBe('image-bytes');
   });
 
   it('returns 404 with a short cache when no primary image exists', async () => {
@@ -130,7 +119,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     expect(mockImageLoader).not.toHaveBeenCalled();
   });
 
-  it('redirects to the transformed CDN image when the server-side image fetch fails', async () => {
+  it('redirects to the transformed CDN image without depending on upstream server-side fetches', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -148,14 +137,15 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('cache-control')).toBe(
-      'public, max-age=60, s-maxage=60'
+      'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
     );
     expect(response.headers.get('location')).toBe(
       'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('redirects to the transformed CDN image when the upstream response is unusable', async () => {
+  it('does not fetch the transformed CDN image before redirecting', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -175,10 +165,9 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     expect(response.headers.get('location')).toBe(
       'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
-    expect(mockWarn).toHaveBeenCalledWith(
-      'Transformed OgaBassey PDP LCP preload image returned unusable response:',
-      'dell-alienware-m18-r3-rtx-5080',
-      403
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockWarn).not.toHaveBeenCalledWith(
+      expect.stringContaining('Transformed OgaBassey PDP LCP preload image')
     );
   });
 

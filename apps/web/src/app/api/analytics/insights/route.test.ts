@@ -1,6 +1,11 @@
 import { generateObject } from 'ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkRateLimit, withRetry } from '@/ai/provider';
+import {
+  generateAnalyticsInsightsWithOllama,
+  isAnalyticsInsightsOllamaConfigured,
+  sanitizeAnalyticsInsightsContext,
+} from '@/lib/analytics/ollama-insights';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
 import {
@@ -38,6 +43,12 @@ vi.mock('@/lib/cache', () => ({
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: vi.fn(),
   toUserAccess: vi.fn(),
+}));
+
+vi.mock('@/lib/analytics/ollama-insights', () => ({
+  generateAnalyticsInsightsWithOllama: vi.fn(),
+  isAnalyticsInsightsOllamaConfigured: vi.fn(),
+  sanitizeAnalyticsInsightsContext: vi.fn((context) => context),
 }));
 
 type QueryMethod = ReturnType<typeof vi.fn>;
@@ -122,6 +133,10 @@ describe('GET /api/analytics/insights', () => {
     });
     vi.mocked(generateCacheKey).mockReturnValue('ai-insights:merchant-1');
     vi.mocked(cache.get).mockReturnValue(undefined);
+    vi.mocked(isAnalyticsInsightsOllamaConfigured).mockReturnValue(false);
+    vi.mocked(sanitizeAnalyticsInsightsContext).mockImplementation(
+      (context) => context
+    );
   });
 
   afterEach(() => {
@@ -225,6 +240,117 @@ describe('GET /api/analytics/insights', () => {
         timeout: 10_000,
       })
     );
+  });
+
+  it('sanitizes analytics context before sending the Gemini prompt', async () => {
+    vi.mocked(sanitizeAnalyticsInsightsContext).mockReturnValueOnce({
+      salesHistory: [{ total_revenue: 1000 }],
+      topProducts: [],
+      channels: [],
+    });
+    vi.mocked(generateObject).mockResolvedValue({
+      object: {
+        insights: [
+          {
+            title: 'Revenue is stable',
+            description: 'Sales have stayed consistent over the last month.',
+            type: 'positive',
+            priority: 'medium',
+          },
+        ],
+      },
+    } as unknown as Awaited<ReturnType<typeof generateObject>>);
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining('total_revenue'),
+      })
+    );
+    const [{ prompt }] = vi.mocked(generateObject).mock.calls[0] ?? [{}];
+    expect(String(prompt)).not.toContain('customer_email');
+    expect(sanitizeAnalyticsInsightsContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        salesHistory: expect.any(Array),
+        topProducts: expect.any(Array),
+        channels: expect.any(Array),
+      })
+    );
+  });
+
+  it('uses the VPS Gemma/Ollama structured-output path when configured', async () => {
+    vi.mocked(isAnalyticsInsightsOllamaConfigured).mockReturnValueOnce(true);
+    vi.mocked(generateAnalyticsInsightsWithOllama).mockResolvedValueOnce({
+      insights: [
+        {
+          title: 'Products need attention',
+          description: 'Two products drive most revenue this month.',
+          type: 'opportunity',
+          priority: 'medium',
+          action: 'Review inventory for top sellers.',
+        },
+      ],
+    });
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      insights: [{ title: 'Products need attention' }],
+    });
+    expect(generateAnalyticsInsightsWithOllama).toHaveBeenCalledWith(
+      expect.objectContaining({
+        salesHistory: expect.any(Array),
+        topProducts: expect.any(Array),
+        channels: expect.any(Array),
+      }),
+      expect.objectContaining({ timeoutMs: 10_000 })
+    );
+    expect(cache.set).toHaveBeenCalledWith(
+      'ai-insights:merchant-1',
+      expect.objectContaining({
+        insights: [
+          expect.objectContaining({ title: 'Products need attention' }),
+        ],
+      }),
+      86400
+    );
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it('returns fallback insights when the VPS Gemma/Ollama call fails', async () => {
+    vi.mocked(isAnalyticsInsightsOllamaConfigured).mockReturnValueOnce(true);
+    vi.mocked(generateAnalyticsInsightsWithOllama).mockRejectedValueOnce(
+      new Error('Ollama timeout')
+    );
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/analytics/insights')
+    );
+
+    expect(generateAnalyticsInsightsWithOllama).toHaveBeenCalledWith(
+      expect.objectContaining({
+        salesHistory: expect.any(Array),
+        topProducts: expect.any(Array),
+        channels: expect.any(Array),
+      }),
+      expect.objectContaining({ timeoutMs: 10_000 })
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      insights: [
+        {
+          title: 'AI Insights Temporarily Unavailable',
+          type: 'neutral',
+        },
+      ],
+    });
   });
 
   it('returns fallback insights when the AI call times out or fails', async () => {

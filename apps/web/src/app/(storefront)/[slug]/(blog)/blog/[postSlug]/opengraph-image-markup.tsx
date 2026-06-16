@@ -69,7 +69,6 @@ export function renderMerchantFallback(
           alignItems: 'center',
           gap: 16,
           position: 'relative',
-          zIndex: 1,
         }}
       >
         {data.logoDataUri ? (
@@ -93,7 +92,6 @@ export function renderMerchantFallback(
           gap: 18,
           maxWidth: 880,
           position: 'relative',
-          zIndex: 1,
         }}
       >
         <div
