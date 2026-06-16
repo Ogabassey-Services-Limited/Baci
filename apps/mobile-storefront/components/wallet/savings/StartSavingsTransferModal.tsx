@@ -6,8 +6,8 @@ import { BRAND, palette } from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { startSavingsStyles as styles } from './start-savings.styles';
 import type { StartSavingsColors } from './start-savings.types';
-import { SummaryRow } from './start-savings-modal-parts';
 import type { StartSavingsController } from './start-savings-controller.types';
+import { SummaryRow } from './start-savings-modal-parts';
 
 type TransferModalProps = {
   colors: StartSavingsColors;

@@ -116,9 +116,7 @@ async function fetchBillers(type: BillType): Promise<Biller[]> {
   const startTime = Date.now();
   log.info('VTU', `Fetching billers for type: ${type}`);
   const includeMonnify =
-    type === 'electricity' || type === 'cable_tv'
-      ? '&includeMonnify=true'
-      : '';
+    type === 'electricity' || type === 'cable_tv' ? '&includeMonnify=true' : '';
 
   try {
     const response = await fetchWithRetry(

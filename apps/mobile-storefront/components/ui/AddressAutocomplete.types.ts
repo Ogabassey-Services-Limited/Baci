@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import type { TextInputProps, ScrollView, ViewStyle } from 'react-native';
+import type { ScrollView, TextInputProps, ViewStyle } from 'react-native';
 
 export interface PlacePrediction {
   placeId: string;

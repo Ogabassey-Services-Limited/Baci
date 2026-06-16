@@ -34,6 +34,21 @@ const CHAIN_LABELS: Record<string, string> = {
 
 const HEADER_CLOSE_STYLE = { padding: 8 } as const;
 
+const handleClose = (): void => {
+  Alert.alert(
+    'Leave Payment?',
+    'Your order has been created. You can complete the crypto payment using the wallet address shown. Make sure to copy it before leaving.',
+    [
+      { text: 'Stay', style: 'cancel' },
+      {
+        text: 'Leave',
+        style: 'destructive',
+        onPress: () => router.back(),
+      },
+    ]
+  );
+};
+
 export default function CryptoPaymentScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -98,21 +113,6 @@ export default function CryptoPaymentScreen() {
         paymentMethod: 'juicyway',
       },
     });
-  };
-
-  const handleClose = () => {
-    Alert.alert(
-      'Leave Payment?',
-      'Your order has been created. You can complete the crypto payment using the wallet address shown. Make sure to copy it before leaving.',
-      [
-        { text: 'Stay', style: 'cancel' },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: () => router.back(),
-        },
-      ]
-    );
   };
 
   const chainLabel = CHAIN_LABELS[chain || ''] || chain || 'Unknown';

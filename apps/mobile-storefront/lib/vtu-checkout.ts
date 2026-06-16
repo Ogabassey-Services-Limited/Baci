@@ -16,13 +16,13 @@ import {
   ConfirmCheckoutResponseSchema,
   InitCheckoutResponseSchema,
   SavedCardsResponseSchema,
-  WalletOnlyVtuResponseSchema,
   type SavedVtuCardChargeAuthorizationRequired,
   type SavedVtuCardChargeProcessing,
   type SavedVtuCardChargeResult,
   type VTUCheckoutPayload,
   type VtuCheckoutConfirmation,
   type VtuConfirmationGateway,
+  WalletOnlyVtuResponseSchema,
 } from './vtu-checkout-response-schemas';
 
 export {

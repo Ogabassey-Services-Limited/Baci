@@ -5,7 +5,7 @@ import { SPACING } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
-import { type VerifyResult, useVTUVerify } from '@/hooks/use-vtu-verify';
+import { useVTUVerify, type VerifyResult } from '@/hooks/use-vtu-verify';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import { useAuthStore } from '@/stores/auth-store';
 import {
@@ -14,10 +14,10 @@ import {
   BILL_TYPE_MAP,
   IDENTIFIER_LABELS,
 } from './bill-form.constants';
-import { createBillFormVerifyPayload } from './bill-form-verify-payload';
 import { parseUtilityAmount } from './bill-form.helpers';
 import type { BillFormProps } from './bill-form.types';
 import type { BillFormController } from './bill-form-controller.types';
+import { createBillFormVerifyPayload } from './bill-form-verify-payload';
 import { createBillFormPurchaseHandler } from './create-bill-form-purchase-handler';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import {

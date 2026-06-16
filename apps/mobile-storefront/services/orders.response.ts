@@ -1,7 +1,7 @@
 import type { createLogger } from '@/lib/logger';
 import { trackError } from '@/services/analytics';
 import { OrderError } from './orders.errors';
-import { OrderResponseSchema, type OrderResponse } from './orders.schemas';
+import { type OrderResponse, OrderResponseSchema } from './orders.schemas';
 
 type Logger = ReturnType<typeof createLogger>;
 

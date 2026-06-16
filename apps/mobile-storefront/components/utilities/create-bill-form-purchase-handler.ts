@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import { HttpError } from '@/lib/fetch-with-timeout';
-import { type CreateBillFormPurchaseHandlerInput } from './bill-form-purchase.types';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
@@ -15,6 +14,7 @@ import {
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { IDENTIFIER_LABELS } from './bill-form.constants';
+import type { CreateBillFormPurchaseHandlerInput } from './bill-form-purchase.types';
 import { getBillPaymentAmountError } from './bill-payment-amount-validation';
 
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
@@ -124,7 +124,7 @@ export function createBillFormPurchaseHandler({
       const selectedProductCode =
         selectedBillItem?.productCode ??
         (selectedProvider === 'monnify'
-          ? selectedBillItemIdentifier ?? undefined
+          ? (selectedBillItemIdentifier ?? undefined)
           : undefined);
       const payload = {
         amount: numericAmount,

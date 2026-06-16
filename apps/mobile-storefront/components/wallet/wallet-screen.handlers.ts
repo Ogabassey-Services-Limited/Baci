@@ -1,10 +1,11 @@
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
-import { initializeWalletTopUp } from '@/lib/wallet-top-up';
 import { createLogger } from '@/lib/logger';
+import { initializeWalletTopUp } from '@/lib/wallet-top-up';
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
+import { WALLET_FUNDING_ACCOUNT_MESSAGES } from './wallet-funding-account.constants';
 import {
   buildWalletTopUpGatewayParams,
   getWalletCustomerName,
@@ -12,7 +13,6 @@ import {
   resolveWalletRedeemPointsOutcome,
   validateWalletTopUpAmount,
 } from './wallet-screen.helpers';
-import { WALLET_FUNDING_ACCOUNT_MESSAGES } from './wallet-funding-account.constants';
 
 const log = createLogger('Wallet');
 

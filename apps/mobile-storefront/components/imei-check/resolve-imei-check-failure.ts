@@ -1,7 +1,7 @@
 import {
-  PRIMARY_IMEI_SERVICE_TIERS,
   type ImeiBrandFilter,
   type ImeiServiceTierKey,
+  PRIMARY_IMEI_SERVICE_TIERS,
 } from '@baci/shared/imei';
 
 const UNRESOLVED_IMEI_RESPONSE_CODES = new Set([

@@ -1,4 +1,4 @@
-import { calculateCommerce, CommerceError } from './commerce-brain';
+import { CommerceError, calculateCommerce } from './commerce-brain';
 
 const mockState = {
   invoke: jest.fn(),

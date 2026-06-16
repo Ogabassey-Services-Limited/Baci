@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import Colors from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
 import { styles } from './wallet.styles';
 
 type WalletActionColors = Pick<

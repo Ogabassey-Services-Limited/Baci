@@ -44,9 +44,9 @@ function createTestQueryClient() {
     defaultOptions: {
       queries: {
         retry: false,
-        gcTime: Infinity,
+        gcTime: Number.POSITIVE_INFINITY,
         refetchOnMount: false,
-        staleTime: Infinity,
+        staleTime: Number.POSITIVE_INFINITY,
       },
     },
   });

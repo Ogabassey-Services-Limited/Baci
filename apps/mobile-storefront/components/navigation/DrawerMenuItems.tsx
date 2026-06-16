@@ -2,8 +2,8 @@ import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { BRAND } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { BRAND } from '@/constants/Colors';
 import styles from './DrawerMenu.styles';
 
 type DrawerMenuItemColors = {

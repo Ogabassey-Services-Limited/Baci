@@ -5,8 +5,8 @@ import { Pressable, Text, View } from 'react-native';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { BRAND } from '@/constants/Colors';
 import type { ShippingAddressInput } from '@/lib/validation';
-import { CheckoutFormField } from './CheckoutFormField';
 import { checkoutContactCardStyles as styles } from './CheckoutContactCard.styles';
+import { CheckoutFormField } from './CheckoutFormField';
 import { CheckoutGuestSaveDetails } from './CheckoutGuestSaveDetails';
 
 type CheckoutContactCardColors = {

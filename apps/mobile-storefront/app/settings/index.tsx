@@ -1,5 +1,5 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { Stack } from 'expo-router';
@@ -29,6 +29,12 @@ import { queryClient } from '@/lib/query-client';
 import { removeStorageItems } from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
 
+const haptic = (): void => {
+  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+    // Ignore unsupported haptics environments.
+  });
+};
+
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
@@ -44,12 +50,6 @@ export default function SettingsScreen() {
     register: registerPush,
     unregister: unregisterPush,
   } = usePushNotifications();
-
-  const haptic = () => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
-      // Ignore unsupported haptics environments.
-    });
-  };
 
   const handleAppearanceChange = (mode: AppearanceMode) => {
     haptic();

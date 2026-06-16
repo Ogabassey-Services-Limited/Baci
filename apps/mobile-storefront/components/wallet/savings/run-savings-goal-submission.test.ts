@@ -155,7 +155,9 @@ describe('runSavingsGoalSubmission', () => {
     await runSavingsGoalSubmission(input, validation);
 
     expect(input.setShowTransferModal).not.toHaveBeenCalledWith(true);
-    expect(input.setFormError).toHaveBeenCalledWith('Insufficient wallet balance');
+    expect(input.setFormError).toHaveBeenCalledWith(
+      'Insufficient wallet balance'
+    );
     expect(Alert.alert).toHaveBeenCalledWith(
       'Unable to create plan',
       'Insufficient wallet balance'

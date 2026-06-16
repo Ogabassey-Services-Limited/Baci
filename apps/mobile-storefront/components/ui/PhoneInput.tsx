@@ -12,8 +12,8 @@ import {
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { COUNTRIES, type Country } from './PhoneInput.countries';
-import { PhoneInputCountryPicker } from './PhoneInputCountryPicker';
 import { phoneInputStyles as styles } from './PhoneInput.styles';
+import { PhoneInputCountryPicker } from './PhoneInputCountryPicker';
 
 interface PhoneInputProps
   extends Omit<TextInputProps, 'value' | 'onChangeText'> {

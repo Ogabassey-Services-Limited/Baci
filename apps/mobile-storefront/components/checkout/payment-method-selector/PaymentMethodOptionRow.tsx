@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
-import Colors from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { paymentMethodSelectorStyles as styles } from './styles';
 import type { PaymentMethod } from './types';

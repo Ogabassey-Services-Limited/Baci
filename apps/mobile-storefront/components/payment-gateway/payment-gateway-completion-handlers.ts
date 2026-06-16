@@ -1,11 +1,11 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import type { PaymentGatewayParams } from '@/schemas/payment-gateway';
+import { PAYMENT_KINDS } from './payment-gateway.helpers';
 import {
   beginSavingsAuthorizationCompletion,
   beginWalletTopUpCompletion,
 } from './payment-gateway-completions';
-import { PAYMENT_KINDS } from './payment-gateway.helpers';
 import type {
   PaymentGatewayRefs,
   PaymentStatusSetter,

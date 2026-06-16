@@ -2,9 +2,9 @@ import {
   buildSavedAddressFromCheckout,
   findMatchingSavedAddress,
   getDefaultSavedAddress,
+  type SavedAddress,
   toCheckoutAddressValues,
   upsertSavedAddress,
-  type SavedAddress,
 } from './checkout-saved-address';
 
 const checkoutAddress = {

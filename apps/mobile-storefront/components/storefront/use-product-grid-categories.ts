@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { getProductGridCategories } from '@/lib/category-utils';
 import type { Category } from '@/hooks';
+import { getProductGridCategories } from '@/lib/category-utils';
 
 interface UseProductGridCategoriesArgs {
   normalizedCategories: Category[];

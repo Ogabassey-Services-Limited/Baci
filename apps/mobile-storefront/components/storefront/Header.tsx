@@ -102,11 +102,7 @@ export function Header({
                 accessibilityLabel="Open navigation menu"
                 accessibilityRole="button"
               >
-                <Ionicons
-                  name="menu-outline"
-                  size={28}
-                  color={colors.white}
-                />
+                <Ionicons name="menu-outline" size={28} color={colors.white} />
               </Pressable>
 
               <Pressable
@@ -115,11 +111,7 @@ export function Header({
                 accessibilityLabel={`${storeName}, go to home`}
                 accessibilityRole="button"
               >
-                <Logo
-                  width={140}
-                  height={25}
-                  color={colors.white}
-                />
+                <Logo width={140} height={25} color={colors.white} />
               </Pressable>
             </View>
 
@@ -135,11 +127,7 @@ export function Header({
                 }
                 accessibilityRole="button"
               >
-                <Ionicons
-                  name="cart-outline"
-                  size={26}
-                  color={colors.white}
-                />
+                <Ionicons name="cart-outline" size={26} color={colors.white} />
                 {itemCount > 0 && (
                   <View style={styles.badge} accessibilityElementsHidden={true}>
                     <Text style={styles.badgeText}>{itemCount}</Text>

@@ -1,10 +1,10 @@
-import { fetchWithTimeout } from './fetch-with-timeout';
 import {
   ApiError,
-  RetryExhaustedError,
   fetchJsonWithRetry,
   fetchWithRetry,
+  RetryExhaustedError,
 } from './api-core';
+import { fetchWithTimeout } from './fetch-with-timeout';
 
 jest.mock('./fetch-with-timeout', () => {
   class TimeoutError extends Error {}

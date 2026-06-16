@@ -4,10 +4,9 @@ import {
   getTrackingPermissionStatus,
   requestTrackingPermissionStatus,
 } from '@/lib/tracking-transparency';
-import { toTikTokEventData } from './tiktok-event-data';
+import type { ConversionData } from './ad-tracking.types';
 import {
   AD_API_URL,
-  adTrackingLog as log,
   FB_APP_ID,
   FB_CLIENT_TOKEN,
   getAdTrackingModules,
@@ -18,11 +17,12 @@ import {
   getIsTrackingAllowed,
   IS_TIKTOK_BUSINESS_CONFIGURED,
   loadNativeModules,
+  adTrackingLog as log,
   setIsInitialized,
   setIsTikTokInitialized,
   setIsTrackingAllowed,
 } from './ad-tracking-state';
-import type { ConversionData } from './ad-tracking.types';
+import { toTikTokEventData } from './tiktok-event-data';
 
 const SERVER_CONVERSION_TIMEOUT_MS = 5000;
 

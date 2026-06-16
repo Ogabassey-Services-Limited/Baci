@@ -2,8 +2,8 @@ import { jest } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { createElement, type ReactNode } from 'react';
-import { fetchWithRetry } from '@/lib/api';
 import { useVTUBillers, vtuBillerKeys } from '@/hooks/use-vtu-billers';
+import { fetchWithRetry } from '@/lib/api';
 
 jest.mock('@/lib/api', () => ({
   fetchWithRetry: jest.fn(),

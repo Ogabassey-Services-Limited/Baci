@@ -1,8 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';
-import { SUGGESTIONS } from './types';
 import { styles } from './styles';
+import { SUGGESTIONS } from './types';
 
 type ThemeColors = {
   border: string;

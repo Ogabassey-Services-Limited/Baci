@@ -40,7 +40,10 @@ interface NormalizedVariantCandidate {
 }
 
 function canonicalizeVariantAxis(axis: string) {
-  return axis.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return axis
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
 }
 
 function normalizeSelectionValue(value: string | null | undefined) {
@@ -95,7 +98,10 @@ function normalizeVariantCandidate(
   };
 }
 
-function matchesCondition(input: NormalizedSelectionInput, variant: NormalizedVariantCandidate) {
+function matchesCondition(
+  input: NormalizedSelectionInput,
+  variant: NormalizedVariantCandidate
+) {
   if (!input.usesVariantConditions || !input.condition) {
     return true;
   }
@@ -103,7 +109,10 @@ function matchesCondition(input: NormalizedSelectionInput, variant: NormalizedVa
   return variant.condition === input.condition;
 }
 
-function matchesColor(input: NormalizedSelectionInput, variant: NormalizedVariantCandidate) {
+function matchesColor(
+  input: NormalizedSelectionInput,
+  variant: NormalizedVariantCandidate
+) {
   if (!input.color) {
     return true;
   }
@@ -111,7 +120,10 @@ function matchesColor(input: NormalizedSelectionInput, variant: NormalizedVarian
   return variant.color === input.color;
 }
 
-function matchesStorage(variant: NormalizedVariantCandidate, storage: string | null) {
+function matchesStorage(
+  variant: NormalizedVariantCandidate,
+  storage: string | null
+) {
   return !storage || variant.storage === storage;
 }
 
@@ -124,7 +136,10 @@ function matchesAttributes(
   );
 }
 
-function matchesChangedAxis(variant: NormalizedVariantCandidate, input: NormalizedSelectionInput) {
+function matchesChangedAxis(
+  variant: NormalizedVariantCandidate,
+  input: NormalizedSelectionInput
+) {
   if (input.axis === 'storage') {
     return variant.storage === input.value;
   }
@@ -169,8 +184,7 @@ function findLinkedVariant(input: NormalizedSelectionInput) {
   return (
     variants.find(
       (variant) =>
-        matchesCondition(input, variant) &&
-        matchesChangedAxis(variant, input)
+        matchesCondition(input, variant) && matchesChangedAxis(variant, input)
     ) ??
     variants.find((variant) => matchesChangedAxis(variant, input)) ??
     null

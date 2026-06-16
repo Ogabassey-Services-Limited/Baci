@@ -169,7 +169,5 @@ describe('uploadNegotiationEvidence', () => {
     await expect(
       uploadNegotiationEvidence('file:///tmp/proof.png', 'merchant-1')
     ).rejects.toThrow('upload failed');
-
   });
-
 });

@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { beforeAll } from '@jest/globals';
 import {
   act,
@@ -7,6 +6,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { Alert, BackHandler } from 'react-native';
 
 const mockAlert = jest.fn();

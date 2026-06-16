@@ -8,9 +8,9 @@ const mockResolveAction =
       | { targetUrl: string; type: 'untrusted' }
       | { targetUrl: string; type: 'load' }
   >();
-const mockGetDebugUrlDetails = jest.fn<(targetUrl?: string) => unknown>(
-  () => ({ host: 'example.com' })
-);
+const mockGetDebugUrlDetails = jest.fn<(targetUrl?: string) => unknown>(() => ({
+  host: 'example.com',
+}));
 
 jest.mock('./bnpl-checkout.helpers', () => ({
   BNPL_UNTRUSTED_POPUP_MESSAGE: 'Untrusted popup blocked',
@@ -85,7 +85,9 @@ describe('createBNPLOpenWindowHandler', () => {
     // Assert
     expect(deps.clearPendingLoadTimeout).toHaveBeenCalledTimes(1);
     expect(deps.setCheckoutStatus).toHaveBeenCalledWith('error');
-    expect(deps.setErrorMessage).toHaveBeenCalledWith('Untrusted popup blocked');
+    expect(deps.setErrorMessage).toHaveBeenCalledWith(
+      'Untrusted popup blocked'
+    );
     expect(deps.setCurrentUrl).not.toHaveBeenCalled();
     expect(deps.scheduleLoadTimeout).not.toHaveBeenCalled();
   });

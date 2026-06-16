@@ -293,9 +293,7 @@ describe('BNPLCheckoutScreen', () => {
       'camera-permission',
       'webview',
     ]);
-    expect(
-      screen.getByText('media-capture:grant')
-    ).toBeTruthy();
+    expect(screen.getByText('media-capture:grant')).toBeTruthy();
   });
 
   it('skips camera permission checks for non-Credit Direct gateways', async () => {

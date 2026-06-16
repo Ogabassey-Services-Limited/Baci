@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
 import { RADIUS, withAlpha } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 
 interface VerificationCardProps {
   verified: boolean;

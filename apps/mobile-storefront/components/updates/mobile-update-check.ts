@@ -70,10 +70,7 @@ export async function resolveMobileUpdatePrompt(
     return { kind: 'deferred' };
   }
 
-  if (
-    input.platform !== 'android' &&
-    input.platform !== 'ios'
-  ) {
+  if (input.platform !== 'android' && input.platform !== 'ios') {
     return { kind: 'none' };
   }
 

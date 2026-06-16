@@ -5,7 +5,10 @@ import { setClipboardString } from '@/lib/clipboard';
 import { initializeSavingsAuthorization } from '@/lib/customer-savings';
 import { WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
 import { runSavingsGoalSubmission } from './run-savings-goal-submission';
-import { formatDateInput, type SavingsFrequency } from './start-savings.helpers';
+import {
+  formatDateInput,
+  type SavingsFrequency,
+} from './start-savings.helpers';
 import type {
   SavingsProductChoice,
   SavingsSourceMode,

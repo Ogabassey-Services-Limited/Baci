@@ -1,4 +1,4 @@
-import { Alert, Platform, type AlertButton } from 'react-native';
+import { Alert, type AlertButton, Platform } from 'react-native';
 
 interface OrderCancellationPromptInput {
   onConfirm: (reason?: string) => void;

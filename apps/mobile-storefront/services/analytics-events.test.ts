@@ -1,3 +1,4 @@
+import { trackEvent } from './analytics-core';
 import {
   trackAddToCart,
   trackError,
@@ -5,7 +6,6 @@ import {
   trackProductViewed,
   trackSearch,
 } from './analytics-events';
-import { trackEvent } from './analytics-core';
 
 jest.mock('./analytics-core', () => ({
   trackEvent: jest.fn(),

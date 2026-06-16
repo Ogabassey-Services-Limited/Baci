@@ -1,8 +1,8 @@
-import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
 import type {
   PaymentMethodType,
   PaymentTab,
 } from '@/components/checkout/PaymentMethodSelector';
+import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
 import type {
   DeliveryMethod,
   ShippingQuote,

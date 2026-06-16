@@ -4,12 +4,12 @@ import { Alert } from 'react-native';
 import { initializeWalletTopUp } from '@/lib/wallet-top-up';
 import { trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
+import { WALLET_FUNDING_ACCOUNT_MESSAGES } from './wallet-funding-account.constants';
 import {
   createWalletFundingAccount,
   fundWallet,
   redeemWalletPoints,
 } from './wallet-screen.handlers';
-import { WALLET_FUNDING_ACCOUNT_MESSAGES } from './wallet-funding-account.constants';
 
 jest.mock('expo-router', () => ({
   router: {

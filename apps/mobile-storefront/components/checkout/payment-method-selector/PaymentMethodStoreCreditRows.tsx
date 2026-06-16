@@ -1,8 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
-import Colors from '@/constants/Colors';
-import { BRAND } from '@/constants/Colors';
 import { WalletStatusRow } from '@/components/checkout/WalletStatusRow';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 import { paymentMethodSelectorStyles as styles } from './styles';
 

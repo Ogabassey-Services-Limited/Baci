@@ -1,14 +1,14 @@
 import {
-  getDeleteAccountErrorMessage,
   type DeleteAccountResult,
+  getDeleteAccountErrorMessage,
 } from '../lib/account-deletion';
 import { createLogger } from '../lib/logger';
-import { queryClient } from '../lib/query-client';
 import { getStoredPushToken } from '../lib/push-token-storage';
+import { queryClient } from '../lib/query-client';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
-import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import type { AuthStoreGet, AuthStoreSet, Customer } from './auth-store.types';
+import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
 import { useSavedStore } from './saved-store';

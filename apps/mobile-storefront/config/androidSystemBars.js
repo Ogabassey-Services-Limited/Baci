@@ -65,7 +65,9 @@ function applyAndroidSystemBarStyles(androidStyles) {
   }
 
   ensureResourcesToolsNamespace(resources);
-  const appTheme = resources.style.find((style) => style.$?.name === 'AppTheme');
+  const appTheme = resources.style.find(
+    (style) => style.$?.name === 'AppTheme'
+  );
   if (!appTheme) {
     return androidStyles;
   }

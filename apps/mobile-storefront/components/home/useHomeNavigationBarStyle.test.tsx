@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { NavigationContext } from '@react-navigation/native';
 import { act, render } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';

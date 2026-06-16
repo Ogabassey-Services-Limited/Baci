@@ -5,9 +5,9 @@ import Animated from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
+import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
 import type { CheckoutStep } from './CheckoutStepper';
 import type { PaymentMethodType } from './PaymentMethodSelector';
-import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
 
 type ColorsScheme = (typeof Colors)['light'];
 

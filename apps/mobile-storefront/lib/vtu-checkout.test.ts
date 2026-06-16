@@ -6,12 +6,12 @@ import {
   it,
   jest,
 } from '@jest/globals';
-import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import {
   HttpError,
   NetworkError,
   TimeoutError,
 } from '@/lib/fetch-with-timeout';
+import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
