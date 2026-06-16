@@ -1,3 +1,4 @@
+import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { ResolvedProductVariantSelection } from '@baci/shared/lib';
 import type { ConditionType } from './product-condition';
@@ -10,14 +11,8 @@ export interface ProductDetailsCurrentOffer {
   stock: number;
 }
 
-const NGN_FORMATTER = new Intl.NumberFormat('en-NG', {
-  style: 'currency',
-  currency: 'NGN',
-  maximumFractionDigits: 0,
-});
-
-function formatNgnCurrency(value: number): string {
-  return NGN_FORMATTER.format(value);
+function formatCurrentOfferCurrency(value: number): string {
+  return formatDisplayCurrency(value, undefined, { maximumFractionDigits: 0 });
 }
 
 export function resolveCurrentOffer(
@@ -57,7 +52,7 @@ export function resolveCurrentOffer(
     price = variantSelection.price;
     stock = getEffectiveStock(variantSelection.variant);
     return {
-      price: formatNgnCurrency(price),
+      price: formatCurrentOfferCurrency(price),
       rawPrice: price,
       stock,
       id: productData.id,
@@ -90,7 +85,7 @@ export function resolveCurrentOffer(
   }
 
   return {
-    price: formatNgnCurrency(price),
+    price: formatCurrentOfferCurrency(price),
     rawPrice: price,
     stock,
     id: productData.id,
