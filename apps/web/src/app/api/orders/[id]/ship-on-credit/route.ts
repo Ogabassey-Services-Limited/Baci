@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -11,6 +12,11 @@ import {
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { generatePaymentAccount } from '@/lib/paystack';
 
+const shipOnCreditBodySchema = z.object({
+  credit_notes: z.string().trim().max(2000).optional(),
+  notes: z.string().trim().max(2000).optional(),
+});
+
 /**
  * POST /api/orders/[id]/ship-on-credit
  * Allows merchants to ship orders on credit (unpaid) with notes.
@@ -21,6 +27,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 1. Auth check (supports mobile Bearer token + web cookies)
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // CSRF protection
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
@@ -32,13 +44,24 @@ export async function POST(
     }
 
     const { id: orderId } = await params;
-    const body = await request.json();
-
-    // 1. Auth check (supports mobile Bearer token + web cookies)
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
     }
+
+    const bodyResult = shipOnCreditBodySchema.safeParse(rawBody);
+    if (!bodyResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    const body = bodyResult.data;
 
     // 2. Get merchant ID (supports both owners and staff members)
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
@@ -87,7 +110,7 @@ export async function POST(
       );
     }
 
-    // 5. Extract credit notes from body
+    // 5. Extract credit notes from the validated body.
     const creditNotes = body.credit_notes || body.notes || '';
 
     // 6. Update order to mark as credit and move to processing
@@ -125,7 +148,20 @@ export async function POST(
         .eq('merchant_id', merchantId)
         .maybeSingle();
 
-      if (!currentOrderError && isOrderClampedAsCancelled(currentOrder)) {
+      if (currentOrderError) {
+        logger.error({
+          message:
+            'Database error checking order after credit shipping update matched no rows',
+          error: currentOrderError,
+          orderId,
+        });
+        return NextResponse.json(
+          { error: 'Failed to verify order status' },
+          { status: 500 }
+        );
+      }
+
+      if (isOrderClampedAsCancelled(currentOrder)) {
         await handlePaymentForCancelledOrder({
           gatewayReference: null,
           order: currentOrder ?? { id: orderId },

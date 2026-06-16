@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -13,6 +14,21 @@ import {
   type DeviceInsuranceDetails,
   purchaseOrderInsurance,
 } from '@/services/insurance';
+
+const deviceInsuranceDetailsSchema = z.object({
+  imei: z.string().trim().min(1).max(64),
+  serialNumber: z.string().trim().min(1).max(128),
+  deviceColor: z.string().trim().min(1).max(64),
+  deviceModel: z.string().trim().min(1).max(128),
+  deviceMake: z.string().trim().min(1).max(128),
+  deviceType: z.enum(['Phone', 'Laptop', 'Others']),
+  deviceValue: z.coerce.number().positive().finite(),
+  purchaseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  devicePhotos: z.object({
+    about: z.url(),
+  }),
+  customerPhoto: z.url().optional(),
+});
 
 export async function POST(
   request: NextRequest,
@@ -43,18 +59,17 @@ export async function POST(
 
     // Parse body for device details
     const body = await request.json();
-    const {
-      imei,
-      serialNumber,
-      deviceColor,
-      deviceModel,
-      deviceMake,
-      deviceType,
-      deviceValue,
-      purchaseDate,
-      devicePhotos,
-      customerPhoto, // Optional
-    } = body;
+    const shouldPurchaseInsurance =
+      body.imei !== undefined || body.devicePhotos !== undefined;
+    const deviceDetailsResult = shouldPurchaseInsurance
+      ? deviceInsuranceDetailsSchema.safeParse(body)
+      : null;
+    if (deviceDetailsResult && !deviceDetailsResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid insurance details' },
+        { status: 400 }
+      );
+    }
 
     // TODO: Verify order ownership
 
@@ -108,19 +123,8 @@ export async function POST(
     // have been excluded.
     let insuranceResult = null;
 
-    if (imei && devicePhotos) {
-      const deviceDetails: DeviceInsuranceDetails = {
-        imei,
-        serialNumber,
-        deviceColor,
-        deviceModel,
-        deviceMake,
-        deviceType,
-        deviceValue,
-        purchaseDate,
-        devicePhotos,
-        customerPhoto,
-      };
+    if (deviceDetailsResult?.success) {
+      const deviceDetails: DeviceInsuranceDetails = deviceDetailsResult.data;
 
       try {
         insuranceResult = await purchaseOrderInsurance(id, deviceDetails);

@@ -74,6 +74,21 @@ function createParams() {
   return { params: Promise.resolve({ id: ORDER_ID }) };
 }
 
+function createInsuranceDetails(overrides: Record<string, unknown> = {}) {
+  return {
+    imei: '123456789012345',
+    serialNumber: 'SN-123',
+    deviceColor: 'Black',
+    deviceModel: 'iPhone 16 Pro',
+    deviceMake: 'Apple',
+    deviceType: 'Phone',
+    deviceValue: 1_200_000,
+    purchaseDate: '2026-06-15',
+    devicePhotos: { about: 'https://cdn.usebaci.com/orders/device.jpg' },
+    ...overrides,
+  };
+}
+
 function createOrdersTable(updatedOrder: Record<string, unknown> | null) {
   return {
     update: vi.fn().mockReturnThis(),
@@ -108,7 +123,7 @@ describe('POST /api/orders/[id]/confirm', () => {
     });
 
     const response = await POST(
-      createRequest({ imei: '123456789012345', devicePhotos: ['photo'] }),
+      createRequest(createInsuranceDetails()),
       createParams()
     );
     const body = await response.json();
@@ -125,6 +140,23 @@ describe('POST /api/orders/[id]/confirm', () => {
     );
   });
 
+  it('rejects invalid insurance details before updating the order', async () => {
+    const response = await POST(
+      createRequest(
+        createInsuranceDetails({
+          devicePhotos: { about: 'not-a-url' },
+        })
+      ),
+      createParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid insurance details' });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
   it('files reconciliation and rejects with 409 when the order was clamped as cancelled', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'orders') {
@@ -138,7 +170,7 @@ describe('POST /api/orders/[id]/confirm', () => {
     });
 
     const response = await POST(
-      createRequest({ imei: '123456789012345', devicePhotos: ['photo'] }),
+      createRequest(createInsuranceDetails()),
       createParams()
     );
     const body = await response.json();

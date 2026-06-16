@@ -83,6 +83,17 @@ function createRequest(body: Record<string, unknown> = {}) {
   );
 }
 
+function createMalformedJsonRequest() {
+  return new NextRequest(
+    `https://usebaci.com/api/orders/${ORDER_ID}/ship-on-credit`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{',
+    }
+  );
+}
+
 function createParams() {
   return { params: Promise.resolve({ id: ORDER_ID }) };
 }
@@ -155,6 +166,91 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
         account_name: 'Ogabassey / John Doe',
       },
     });
+  });
+
+  it('authenticates before reading a malformed request body', async () => {
+    mockAuthenticateApiRequest.mockResolvedValueOnce({
+      error: 'Unauthorized',
+      user: null,
+      supabase: null,
+    });
+
+    const response = await POST(createMalformedJsonRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: 'Unauthorized' });
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid credit notes before updating the order', async () => {
+    const response = await POST(
+      createRequest({ credit_notes: { nested: true } }),
+      createParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid request body' });
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when checking the current order fails after a no-row update', async () => {
+    let orderQueryCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return createSelectSingleQuery({
+          id: MERCHANT_ID,
+          business_name: 'Ogabassey',
+        });
+      }
+
+      if (table === 'orders') {
+        orderQueryCount += 1;
+        if (orderQueryCount === 1) {
+          return createSelectSingleQuery({
+            id: ORDER_ID,
+            order_number: 'ORD-001',
+            total: '5000',
+            customer_name: 'John Doe',
+            customer_email: 'john@example.com',
+            payment_status: 'unpaid',
+            shipping_status: 'pending',
+          });
+        }
+
+        if (orderQueryCount === 2) {
+          return createUpdateQuery(null, null);
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'rls failed' },
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await POST(
+      createRequest({ credit_notes: 'Ship now' }),
+      createParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to verify order status' });
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'Database error checking order after credit shipping update matched no rows',
+        orderId: ORDER_ID,
+      })
+    );
   });
 
   it('returns 500 when inserting the payment account fails and no existing account is found', async () => {

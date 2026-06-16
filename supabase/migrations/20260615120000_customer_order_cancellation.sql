@@ -154,7 +154,13 @@ SET search_path = ''
 AS $$
 DECLARE
   v_order public.orders%ROWTYPE;
+  v_reason text;
 BEGIN
+  v_reason := NULLIF(btrim(p_reason), '');
+  IF v_reason IS NOT NULL AND char_length(v_reason) > 500 THEN
+    RAISE EXCEPTION 'reason_too_long' USING ERRCODE = '22001';
+  END IF;
+
   SELECT o.* INTO v_order
   FROM public.orders o
   WHERE o.id = p_order_id
@@ -180,7 +186,7 @@ BEGIN
   UPDATE public.orders o
   SET shipping_status = 'cancelled',
       cancelled_at = now(),
-      cancellation_reason = p_reason,
+      cancellation_reason = v_reason,
       cancelled_by = 'customer',
       updated_at = now()
   WHERE o.id = p_order_id;
