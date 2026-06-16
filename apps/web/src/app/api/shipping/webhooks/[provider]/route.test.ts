@@ -1,178 +1,275 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('node:crypto', () => ({
-  default: {
-    createHmac: vi.fn().mockReturnThis(),
-    update: vi.fn().mockReturnThis(),
-    digest: vi.fn().mockReturnValue('mock-signature-hash'),
-    timingSafeEqual: vi.fn().mockReturnValue(true),
-  },
-}));
+const mocks = vi.hoisted(() => {
+  type SupabaseResponse = { data: unknown; error: { message: string } | null };
+  type UpdateBuilder = Promise<SupabaseResponse> & {
+    eq: ReturnType<typeof vi.fn>;
+  };
 
-// Mock Supabase
-const mockSingle = vi.fn();
-const mockUpdate = vi.fn().mockReturnThis();
-const mockEq = vi.fn().mockReturnThis();
+  const createUpdateBuilder = (): UpdateBuilder => {
+    const builder = Promise.resolve({
+      data: null,
+      error: null,
+    }) as UpdateBuilder;
+    builder.eq = vi.fn(() => builder);
+    return builder;
+  };
 
+  const shipmentQuery = { eq: vi.fn(), single: vi.fn() };
+  shipmentQuery.eq.mockImplementation(() => shipmentQuery);
+
+  const shipmentUpdateBuilders: UpdateBuilder[] = [];
+  const orderUpdateBuilders: UpdateBuilder[] = [];
+  const webhookEventUpdateBuilders: UpdateBuilder[] = [];
+
+  const shipmentUpdate = vi.fn(() => {
+    const builder = createUpdateBuilder();
+    shipmentUpdateBuilders.push(builder);
+    return builder;
+  });
+  const orderUpdate = vi.fn(() => {
+    const builder = createUpdateBuilder();
+    orderUpdateBuilders.push(builder);
+    return builder;
+  });
+  const webhookEventInsert = vi.fn();
+  const webhookEventUpdate = vi.fn(() => {
+    const builder = createUpdateBuilder();
+    webhookEventUpdateBuilders.push(builder);
+    return builder;
+  });
+
+  const from = vi.fn((table: string) => {
+    if (table === 'shipments') {
+      return { select: vi.fn(() => shipmentQuery), update: shipmentUpdate };
+    }
+    if (table === 'orders') return { update: orderUpdate };
+    if (table === 'shipping_webhook_events') {
+      return { insert: webhookEventInsert, update: webhookEventUpdate };
+    }
+    return { insert: vi.fn(async () => ({ error: null })) };
+  });
+
+  const hmac = { update: vi.fn(), digest: vi.fn() };
+  const crypto = { createHmac: vi.fn(), timingSafeEqual: vi.fn() };
+
+  return {
+    crypto,
+    from,
+    hmac,
+    orderUpdate,
+    orderUpdateBuilders,
+    shipmentQuery,
+    shipmentUpdate,
+    shipmentUpdateBuilders,
+    webhookEventInsert,
+    webhookEventUpdate,
+    webhookEventUpdateBuilders,
+  };
+});
+
+vi.mock('node:crypto', () => ({ default: mocks.crypto }));
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => ({
-    from: vi.fn((_table) => {
-      return {
-        select: vi.fn().mockReturnThis(),
-        eq: mockEq,
-        single: mockSingle,
-        insert: vi.fn().mockResolvedValue({ error: null }),
-        update: mockUpdate,
-      };
-    }),
-  })),
+  createClient: vi.fn(() => ({ from: mocks.from })),
 }));
-
 vi.mock('@/lib/expo-push', () => ({
   notifyOrderStatusChange: vi.fn().mockResolvedValue(undefined),
 }));
 
 import crypto from 'node:crypto';
-// Need to import POST after the mocks are set up, but let's use standard import structure
 import { POST } from './route';
 
-describe('Shipping Webhooks API', () => {
-  const originalEnv = process.env;
+const signatureHeaders = { 'x-webhook-signature': 'mock-signature-hash' };
 
+function createMockRequest(
+  provider: string,
+  body: string,
+  headers: Record<string, string> = {}
+) {
+  return new NextRequest(`http://localhost/api/shipping/webhooks/${provider}`, {
+    method: 'POST',
+    body,
+    headers: new Headers(headers),
+  });
+}
+
+function createShipment(id: string, orderId: string) {
+  return {
+    id,
+    order_id: orderId,
+    status: 'pending',
+    tracking_events: [],
+    orders: [
+      {
+        order_number: `ORD-${id}`,
+        customer_id: `cust-${id}`,
+        customers: [{ user_id: `user-${id}` }],
+      },
+    ],
+  };
+}
+
+function postWebhook(provider: string, body: string) {
+  return POST(createMockRequest(provider, body, signatureHeaders), {
+    params: Promise.resolve({ provider }),
+  });
+}
+
+describe('Shipping Webhooks API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env = { ...originalEnv };
-    // Set a mock secret for GIGL
-    process.env.GIGL_WEBHOOK_SECRET = 'test-secret';
+    mocks.shipmentUpdateBuilders.length = 0;
+    mocks.orderUpdateBuilders.length = 0;
+    mocks.webhookEventUpdateBuilders.length = 0;
+    mocks.hmac.update.mockReturnValue(mocks.hmac);
+    mocks.hmac.digest.mockReturnValue('mock-signature-hash');
+    mocks.crypto.createHmac.mockReturnValue(mocks.hmac);
+    mocks.crypto.timingSafeEqual.mockReturnValue(true);
+    mocks.shipmentQuery.single.mockResolvedValue({ data: null, error: null });
+    mocks.webhookEventInsert.mockResolvedValue({ error: null });
+    vi.stubEnv('GIGL_WEBHOOK_SECRET', 'test-secret');
+    vi.stubEnv('TOPSHIP_WEBHOOK_SECRET', 'topship-secret');
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    vi.unstubAllEnvs();
   });
 
-  function createMockRequest(
-    body: string,
-    headers: Record<string, string> = {}
-  ) {
-    return new NextRequest('http://localhost/api/shipping/webhooks/gigl', {
-      method: 'POST',
-      body,
-      headers: new Headers(headers),
+  it('returns 401 when signature is missing', async () => {
+    const request = createMockRequest('gigl', '{"Waybill":"123"}');
+    const response = await POST(request, {
+      params: Promise.resolve({ provider: 'gigl' }),
     });
-  }
-
-  it('returns 401 when signature is invalid or missing', async () => {
-    const request = createMockRequest('{"Waybill": "123"}', {});
-    const params = Promise.resolve({ provider: 'gigl' });
-
-    const response = await POST(request, { params });
-    const json = await response.json();
 
     expect(response.status).toBe(401);
-    expect(json).toEqual({ error: 'Invalid signature' });
+    expect(await response.json()).toEqual({ error: 'Invalid signature' });
+    expect(crypto.timingSafeEqual).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when signature is invalid', async () => {
+    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(false);
+
+    const response = await postWebhook('gigl', '{"Waybill":"123"}');
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Invalid signature' });
+    expect(crypto.timingSafeEqual).toHaveBeenCalledOnce();
   });
 
   it('returns 400 when JSON payload is invalid', async () => {
-    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(true);
-
-    const request = createMockRequest('invalid json', {
-      'x-webhook-signature': 'mock-signature-hash',
-    });
-    const params = Promise.resolve({ provider: 'gigl' });
-
-    const response = await POST(request, { params });
-    const json = await response.json();
+    const response = await postWebhook('gigl', 'invalid json');
 
     expect(response.status).toBe(400);
-    expect(json).toEqual({ error: 'Invalid JSON' });
+    expect(await response.json()).toEqual({ error: 'Invalid JSON' });
   });
 
-  it('returns received: true, parsed: false for unknown payloads', async () => {
-    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(true);
-
-    const request = createMockRequest('{"unknown": "field"}', {
-      'x-webhook-signature': 'mock-signature-hash',
-    });
-    const params = Promise.resolve({ provider: 'gigl' });
-
-    const response = await POST(request, { params });
-    const json = await response.json();
+  it.each([
+    'gigl',
+    'topship',
+  ])('returns parsed false for unknown %s payloads', async (provider) => {
+    const response = await postWebhook(provider, '{"unknown":"field"}');
 
     expect(response.status).toBe(200);
-    expect(json).toEqual({ received: true, parsed: false });
+    expect(await response.json()).toEqual({ received: true, parsed: false });
   });
 
-  it('processes gigl webhook properly when payload is valid and shipment is not found', async () => {
-    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(true);
-    mockSingle.mockResolvedValueOnce({ data: null, error: null });
-
-    const validGiglPayload = JSON.stringify({
-      Waybill: 'GIGL12345',
-      ShipmentScanStatus: 'Delivered',
-      Description: 'Package has been delivered',
-      Location: 'Lagos Hub',
-      ScanDate: new Date().toISOString(),
-    });
-
-    const request = createMockRequest(validGiglPayload, {
-      'x-webhook-signature': 'mock-signature-hash',
-    });
-    const params = Promise.resolve({ provider: 'gigl' });
-
-    const response = await POST(request, { params });
-    const json = await response.json();
+  it('processes GIGL webhook when shipment is not found', async () => {
+    const response = await postWebhook(
+      'gigl',
+      JSON.stringify({
+        Waybill: 'GIGL12345',
+        ShipmentScanStatus: 'Delivered',
+        Description: 'Package has been delivered',
+        Location: 'Lagos Hub',
+        ScanDate: '2026-06-16T10:30:00.000Z',
+      })
+    );
 
     expect(response.status).toBe(200);
-    expect(json).toEqual({
+    expect(await response.json()).toEqual({
       received: true,
       processed: false,
       reason: 'shipment_not_found',
     });
+    expect(mocks.webhookEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        processed: true,
+        processed_at: expect.any(String),
+      })
+    );
   });
 
-  it('processes gigl webhook properly when payload is valid and shipment is found', async () => {
-    vi.mocked(crypto.timingSafeEqual).mockReturnValueOnce(true);
-
-    mockSingle.mockResolvedValueOnce({
-      data: {
-        id: 'shipment-123',
-        order_id: 'order-123',
-        status: 'pending',
-        tracking_events: [],
-        orders: [
-          {
-            order_number: 'ORD-123',
-            customer_id: 'cust-123',
-            customers: [{ user_id: 'user-123' }],
-          },
-        ],
-      },
+  it('processes GIGL webhook when shipment is found', async () => {
+    mocks.shipmentQuery.single.mockResolvedValueOnce({
+      data: createShipment('shipment-123', 'order-123'),
       error: null,
     });
 
-    const validGiglPayload = JSON.stringify({
-      Waybill: 'GIGL12345',
-      Status: 'Delivered',
-      Description: 'Package has been delivered',
-      Location: 'Lagos Hub',
-      DateTime: new Date().toISOString(),
-    });
-
-    const request = createMockRequest(validGiglPayload, {
-      'x-webhook-signature': 'mock-signature-hash',
-    });
-    const params = Promise.resolve({ provider: 'gigl' });
-
-    const response = await POST(request, { params });
-    const json = await response.json();
+    const response = await postWebhook(
+      'gigl',
+      JSON.stringify({
+        Waybill: 'GIGL12345',
+        Status: 'Delivered',
+        Description: 'Package has been delivered',
+        Location: 'Lagos Hub',
+        DateTime: '2026-06-16T10:45:00.000Z',
+      })
+    );
 
     expect(response.status).toBe(200);
-    expect(json).toEqual({
+    expect(await response.json()).toEqual({
       received: true,
       processed: true,
       trackingNumber: 'GIGL12345',
-      status: 'delivered', // mapProviderStatus normalizes 'Delivered' to 'delivered'
+      status: 'delivered',
+    });
+    expect(mocks.shipmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        current_location: 'Lagos Hub',
+        delivered_at: expect.any(String),
+        status: 'delivered',
+        tracking_events: [
+          expect.objectContaining({ normalizedStatus: 'delivered' }),
+        ],
+      })
+    );
+    expect(mocks.orderUpdate).toHaveBeenCalledWith({
+      shipping_status: 'delivered',
+    });
+  });
+
+  it('processes Topship webhook when only provider shipment ID is present', async () => {
+    mocks.shipmentQuery.single.mockResolvedValueOnce({
+      data: createShipment('topship-123', 'order-topship-123'),
+      error: null,
+    });
+
+    const response = await postWebhook(
+      'topship',
+      JSON.stringify({
+        shipmentId: 'TS-SHIPMENT-123',
+        status: 'InTransit',
+        description: 'Package is moving through the network',
+        location: 'Ikeja Hub',
+        timestamp: '2026-06-16T11:00:00.000Z',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      received: true,
+      processed: true,
+      trackingNumber: '',
+      status: 'in_transit',
+    });
+    expect(mocks.shipmentQuery.eq).toHaveBeenCalledWith('provider', 'TOPSHIP');
+    expect(mocks.shipmentQuery.eq).toHaveBeenCalledWith(
+      'provider_shipment_id',
+      'TS-SHIPMENT-123'
+    );
+    expect(mocks.orderUpdate).toHaveBeenCalledWith({
+      shipping_status: 'shipped',
     });
   });
 });
