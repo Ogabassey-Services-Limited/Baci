@@ -5,6 +5,7 @@ import { Alert, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import type { useProduct } from '@/hooks';
 import { markReviewHelpful } from '@/hooks/use-reviews';
 import { createLogger } from '@/lib/logger';
 import { trackProductRouteWishlistAdd } from '@/services/tiktok-product-route-tracking';
@@ -22,11 +23,23 @@ import { ProductDetailRouteState } from './ProductDetailRouteState';
 
 const log = createLogger('ProductDetail');
 
-export function ProductDetailScreen() {
+type ProductDetailScreenProps = ReturnType<typeof useProduct>;
+
+export function ProductDetailScreen({
+  product: routeProduct,
+  isLoading: routeIsLoading,
+  error: routeError,
+  refetch: routeRefetch,
+}: ProductDetailScreenProps) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const routeData = useProductDetailRouteData();
+  const routeData = useProductDetailRouteData({
+    product: routeProduct,
+    isLoading: routeIsLoading,
+    error: routeError,
+    refetch: routeRefetch,
+  });
   const animations = useProductDetailAnimations(colors);
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
   const isSaved = useSavedStore((state) => state.isSaved);
