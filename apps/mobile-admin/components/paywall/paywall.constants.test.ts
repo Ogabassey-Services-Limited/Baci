@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import type { PurchasesPackage } from 'react-native-purchases';
-import { PRO_FEATURES, getDefaultPackage } from './paywall.constants';
+import { describe, expect, it } from 'vitest';
+import { getDefaultPackage, PRO_FEATURES } from './paywall.constants';
 
 const MONTHLY_PACKAGE_TYPE = 'MONTHLY' as PurchasesPackage['packageType'];
 const ANNUAL_PACKAGE_TYPE = 'ANNUAL' as PurchasesPackage['packageType'];

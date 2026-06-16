@@ -34,10 +34,7 @@ const DEVICE_KEYWORDS = [
   'wearable',
   'xbox',
 ];
-const IDENTIFIER_TRACKED_BUSINESS_TYPE_KEYWORDS = [
-  'electronics',
-  'gadget',
-];
+const IDENTIFIER_TRACKED_BUSINESS_TYPE_KEYWORDS = ['electronics', 'gadget'];
 const IDENTIFIER_TRACKED_CATEGORY_KEYWORDS = [
   'accessor',
   'audio',

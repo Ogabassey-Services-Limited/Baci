@@ -11,20 +11,20 @@ interface InvalidRouteScreenProps {
   showBackButton?: boolean;
 }
 
+function handleGoBack(): void {
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.replace('/');
+  }
+}
+
 export function InvalidRouteScreen({
   title = 'Page Not Found',
   message = 'The page you are looking for does not exist or the link is invalid.',
   showBackButton = true,
 }: InvalidRouteScreenProps) {
   const { colors } = useTheme();
-
-  const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
-  };
 
   return (
     <SafeAreaView
