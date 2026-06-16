@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View, StatusBar } from 'react-native';
+import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BranchesTabContent } from '@/components/staff/BranchesTabContent';
 import { BranchModal } from '@/components/staff/BranchModal';

@@ -6,11 +6,11 @@ const log = createLogger('Analytics');
 
 const POSTHOG_API_KEY = Constants.expoConfig?.extra?.posthogApiKey || '';
 const POSTHOG_HOST =
-  Constants.expoConfig?.extra?.posthogHost || 'https://us.i.posthog.com';
+  Constants.expoConfig?.extra?.posthogHost || 'https://eu.i.posthog.com';
 
 let posthogClient: PostHog | null = null;
 
-export async function initAnalytics(): Promise<void> {
+export function initAnalytics(): void {
   if (!POSTHOG_API_KEY) {
     log.warn('PostHog API key not configured');
     return;
@@ -28,6 +28,24 @@ export async function initAnalytics(): Promise<void> {
       },
       flushAt: 20,
       flushInterval: 30000,
+      // Crash/error tracking. Unhandled JS errors and promise rejections are
+      // attributed automatically to the user set via identifyUser(), so each
+      // crash is tied to the merchant who hit it. Capture also requires the
+      // "Enable exception autocapture" toggle in the PostHog project settings.
+      // Native iOS/Android crash capture (nativeCrashes) needs
+      // posthog-react-native >= 4.47.0 + @posthog/react-native-plugin and is
+      // intentionally not enabled here.
+      errorTracking: {
+        autocapture: {
+          uncaughtExceptions: true,
+          unhandledRejections: true,
+          // Console capture stays off: it would turn third-party/React
+          // console.error output into noise (this app's logger is dev-only,
+          // so handled errors are not logged in production). To also capture
+          // logged errors as exceptions, set `console: ['error']`.
+          console: false,
+        },
+      },
     });
 
     log.info('PostHog initialized');
@@ -84,6 +102,21 @@ export function trackEvent(
     ...properties,
     timestamp: new Date().toISOString(),
   });
+}
+
+/**
+ * Manually report a handled error to PostHog error tracking. Unhandled errors
+ * are captured automatically; use this in catch blocks for errors you recover
+ * from but still want visibility into. Attributed to the user set via
+ * {@link identifyUser}; pass `properties` to stamp per-event context.
+ */
+export function captureException(
+  error: unknown,
+  properties?: Record<string, string | number | boolean | null>
+): void {
+  if (!posthogClient) return;
+
+  posthogClient.captureException(error, properties);
 }
 
 export function trackScreen(

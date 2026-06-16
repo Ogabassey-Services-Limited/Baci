@@ -186,6 +186,14 @@ function TopItemRow({
   );
 }
 
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export default function AnalyticsScreen() {
   const { colors, isDark } = useTheme();
   const { merchant } = useMerchant();
@@ -207,13 +215,6 @@ export default function AnalyticsScreen() {
   // Use brand primary color instead of hardcoded teal
   const ACCENT_COLOR = colors.primary;
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
   const range = resolveAnalyticsDateRange(
     dateFilter,
     selectedYear,

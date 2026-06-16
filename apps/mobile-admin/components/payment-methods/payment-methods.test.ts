@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPaymentMethods,
   getPaymentMethodDefinitionsForColumns,
-  getRenderablePaymentMethods,
   getPaymentSettingsSelectColumns,
+  getRenderablePaymentMethods,
 } from './payment-methods';
 
 describe('mobile admin payment method definitions', () => {

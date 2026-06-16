@@ -2,12 +2,15 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert,
+import {
+  Alert,
   Linking,
   Pressable,
   ScrollView,
+  StatusBar,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProvidersList } from '@/components/shipping/ProvidersList';
 import { ShippingForm } from '@/components/shipping/ShippingForm';
@@ -25,6 +28,10 @@ import { supabase } from '@/lib/supabase';
 interface ShippingSettingsQueryData {
   currency: string | null;
   settings: ShippingSettings;
+}
+
+function handleManageShipping(): void {
+  Linking.openURL('https://usebaci.com/dashboard/settings/shipping');
 }
 
 export default function ShippingScreen() {
@@ -142,10 +149,6 @@ export default function ShippingScreen() {
       Alert.alert('Error', 'Failed to update free shipping threshold');
     },
   });
-
-  const handleManageShipping = () => {
-    Linking.openURL('https://usebaci.com/dashboard/settings/shipping');
-  };
 
   const isProviderEnabled = (providerId: ProviderId) => {
     return settings?.shipping_providers?.includes(providerId) ?? false;
