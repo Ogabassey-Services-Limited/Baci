@@ -15,7 +15,14 @@ export interface SantaCartAction {
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
+  /**
+   * @deprecated Use `santaActions` for new code. Kept only so older
+   * Ogabassey chat message render paths can read previously shaped messages
+   * during the multi-action migration.
+   */
   santaAction?: SantaCartAction;
+  /** All Santa cart actions parsed from one assistant response. */
+  santaActions?: SantaCartAction[];
 }
 
 export const SUGGESTIONS = [
