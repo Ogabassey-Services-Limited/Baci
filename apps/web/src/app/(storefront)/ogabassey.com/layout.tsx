@@ -42,6 +42,7 @@ export default function OgabasseyDomainLayout({
         loadingFallback={
           <ShellChromeLoading
             mobileHeroImage={OGABASSEY_SHELL_MOBILE_HERO_IMAGE}
+            showChromeFrame
           />
         }
         params={OGABASSEY_DOMAIN_PARAMS}

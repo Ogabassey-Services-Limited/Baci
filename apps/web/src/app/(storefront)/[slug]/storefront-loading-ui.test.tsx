@@ -59,6 +59,47 @@ describe('storefront-loading-ui', () => {
     expect(sources[1]).toHaveAttribute('type', 'image/jpeg');
   });
 
+  it('can render a lightweight storefront chrome frame before the mobile hero', () => {
+    const { container } = render(
+      <ShellChromeLoading
+        showChromeFrame
+        mobileHeroImage={{
+          alt: 'OgaBassey storefront hero',
+          avifSrc: '/hero-mobile.avif',
+          fallbackSrc: '/hero-mobile.jpg',
+        }}
+      />
+    );
+
+    const chromeFrame = container.querySelector(
+      '.storefront-shell-loading__chrome'
+    );
+    const hero = container.querySelector(
+      '.storefront-shell-loading__mobile-hero'
+    );
+
+    expect(chromeFrame).toBeInTheDocument();
+    expect(chromeFrame).toHaveAttribute('aria-hidden', 'true');
+    expect(hero).toBeInTheDocument();
+    expect(hero?.previousElementSibling).toBe(chromeFrame);
+  });
+
+  it('does not render the storefront chrome frame by default', () => {
+    const { container } = render(
+      <ShellChromeLoading
+        mobileHeroImage={{
+          alt: 'OgaBassey storefront hero',
+          avifSrc: '/hero-mobile.avif',
+          fallbackSrc: '/hero-mobile.jpg',
+        }}
+      />
+    );
+
+    expect(
+      container.querySelector('.storefront-shell-loading__chrome')
+    ).not.toBeInTheDocument();
+  });
+
   it('emits a viewport-scoped preload link for the mobile shell hero', () => {
     const html = renderToString(
       <ShellChromeLoading
