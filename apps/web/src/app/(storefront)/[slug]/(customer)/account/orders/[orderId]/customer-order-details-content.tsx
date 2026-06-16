@@ -1,25 +1,10 @@
-import {
-  ArrowLeft,
-  CreditCard,
-  Download,
-  Package,
-  Phone,
-  RotateCcw,
-  ShieldCheck,
-  Star,
-  Truck,
-} from 'lucide-react';
+import { ArrowLeft, CreditCard, ShieldCheck, Truck } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
+import { CustomerOrderActions } from '@/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/customer-order-actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
-import {
-  BACI_GOOGLE_REVIEW_URL,
-  canLeaveStorefrontGoogleReview,
-  canRequestStorefrontOrderReturn,
-  canShowStorefrontRiderContact,
-} from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
 import type { StorefrontOrder } from '@/types/storefront-order';
 
@@ -27,6 +12,12 @@ interface CustomerOrderDetailsContentProps {
   order: StorefrontOrder;
   basePath: string;
   merchantSlug: string;
+  /**
+   * Re-fetch the order view after a state change (e.g. a cancellation). The
+   * page passes a refetch trigger so the server-derived `can_cancel` flag and
+   * status badges stay in sync.
+   */
+  onOrderChanged?: () => void;
 }
 
 function formatAccountDate(value: string) {
@@ -49,6 +40,7 @@ export function CustomerOrderDetailsContent({
   order,
   basePath,
   merchantSlug,
+  onOrderChanged,
 }: CustomerOrderDetailsContentProps) {
   const getHref = (path: string): string => `${basePath}${path}`;
   const currency = order.currency || 'NGN';
@@ -63,22 +55,6 @@ export function CustomerOrderDetailsContent({
     const productPath: string = `/products/${firstItem.product_id}`;
     buyAgainHref = asRoute(getHref(productPath));
   }
-  const shouldShowRiderContact =
-    canShowStorefrontRiderContact(order.shipping_status) &&
-    Boolean(order.rider_phone_number);
-  const shouldShowReview = canLeaveStorefrontGoogleReview(
-    order.shipping_status
-  );
-  const shouldShowReturn = canRequestStorefrontOrderReturn(
-    order.shipping_status
-  );
-  const returnHref = order.merchant_support_email
-    ? `mailto:${order.merchant_support_email}?subject=${encodeURIComponent(
-        `Return request for order ${order.order_number}`
-      )}`
-    : order.merchant_support_phone
-      ? `tel:${order.merchant_support_phone}`
-      : null;
 
   return (
     <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
@@ -229,56 +205,13 @@ export function CustomerOrderDetailsContent({
               </CardContent>
             </Card>
 
-            <div className="space-y-3">
-              <Button asChild className="w-full">
-                <a href={documentHref}>
-                  <Download className="mr-2 size-4" />
-                  {documentLabel}
-                </a>
-              </Button>
-              {shouldShowRiderContact ? (
-                <Button asChild variant="outline" className="w-full">
-                  <a href={`tel:${order.rider_phone_number}`}>
-                    <Phone className="mr-2 size-4" />
-                    Call Rider {order.rider_phone_number}
-                  </a>
-                </Button>
-              ) : null}
-              {shouldShowReview ? (
-                <Button asChild variant="outline" className="w-full">
-                  <a
-                    href={BACI_GOOGLE_REVIEW_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Star className="mr-2 size-4" />
-                    Leave a Google Review
-                  </a>
-                </Button>
-              ) : null}
-              {shouldShowReturn && returnHref ? (
-                <Button asChild variant="outline" className="w-full">
-                  <a href={returnHref}>
-                    <RotateCcw className="mr-2 size-4" />
-                    Return Order
-                  </a>
-                </Button>
-              ) : null}
-              {buyAgainHref ? (
-                <Button asChild variant="outline" className="w-full">
-                  <Link href={buyAgainHref}>
-                    <Package className="mr-2 size-4" />
-                    Buy Again
-                  </Link>
-                </Button>
-              ) : null}
-              {order.current_document_kind === 'invoice' ? (
-                <p className="text-xs text-muted-foreground">
-                  Receipts become available after the order has been shipped and
-                  the payment is fully settled.
-                </p>
-              ) : null}
-            </div>
+            <CustomerOrderActions
+              order={order}
+              documentLabel={documentLabel}
+              documentHref={documentHref}
+              buyAgainHref={buyAgainHref}
+              onOrderChanged={onOrderChanged}
+            />
 
             {order.transactions && order.transactions.length > 0 ? (
               <Card>

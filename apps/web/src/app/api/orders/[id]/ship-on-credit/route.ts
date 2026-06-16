@@ -1,11 +1,21 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
+import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import { generatePaymentAccount } from '@/lib/paystack';
+
+const shipOnCreditBodySchema = z.object({
+  credit_notes: z.string().trim().max(2000).optional(),
+  notes: z.string().trim().max(2000).optional(),
+});
 
 /**
  * POST /api/orders/[id]/ship-on-credit
@@ -17,6 +27,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 1. Auth check (supports mobile Bearer token + web cookies)
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // CSRF protection
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
@@ -28,13 +44,24 @@ export async function POST(
     }
 
     const { id: orderId } = await params;
-    const body = await request.json();
-
-    // 1. Auth check (supports mobile Bearer token + web cookies)
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
     }
+
+    const bodyResult = shipOnCreditBodySchema.safeParse(rawBody);
+    if (!bodyResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    const body = bodyResult.data;
 
     // 2. Get merchant ID (supports both owners and staff members)
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
@@ -65,7 +92,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, total, customer_name, customer_email, payment_status, shipping_status'
+        'id, order_number, total, customer_name, customer_email, payment_status, shipping_status, cancelled_at'
       )
       .eq('id', orderId)
       .eq('merchant_id', merchantId)
@@ -83,11 +110,11 @@ export async function POST(
       );
     }
 
-    // 5. Extract credit notes from body
+    // 5. Extract credit notes from the validated body.
     const creditNotes = body.credit_notes || body.notes || '';
 
     // 6. Update order to mark as credit and move to processing
-    const { error: updateError } = await supabase
+    const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
       .update({
         is_credit_order: true,
@@ -96,7 +123,11 @@ export async function POST(
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId)
-      .eq('merchant_id', merchantId);
+      .eq('merchant_id', merchantId)
+      .is('cancelled_at', null)
+      .neq('shipping_status', 'cancelled')
+      .select('id, shipping_status, cancelled_at')
+      .maybeSingle();
 
     if (updateError) {
       logger.error({
@@ -106,6 +137,69 @@ export async function POST(
       return NextResponse.json(
         { error: 'Failed to update order' },
         { status: 500 }
+      );
+    }
+
+    if (!updatedOrder) {
+      const { data: currentOrder, error: currentOrderError } = await supabase
+        .from('orders')
+        .select('id, shipping_status, cancelled_at')
+        .eq('id', orderId)
+        .eq('merchant_id', merchantId)
+        .maybeSingle();
+
+      if (currentOrderError) {
+        logger.error({
+          message:
+            'Database error checking order after credit shipping update matched no rows',
+          error: currentOrderError,
+          orderId,
+        });
+        return NextResponse.json(
+          { error: 'Failed to verify order status' },
+          { status: 500 }
+        );
+      }
+
+      if (isOrderClampedAsCancelled(currentOrder)) {
+        await handlePaymentForCancelledOrder({
+          gatewayReference: null,
+          order: currentOrder ?? { id: orderId },
+          reason:
+            'Ship-on-credit attempted on an order cancelled by the customer',
+          transactionId: null,
+        });
+
+        return NextResponse.json(
+          {
+            error: 'Order was cancelled and cannot be shipped on credit',
+            code: 'ORDER_CANCELLED',
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // The prevent_cancelled_order_reopen trigger clamped this: the order was
+    // cancelled by the customer and cannot be shipped on credit. File a
+    // reconciliation row and reject without creating a DVA.
+    if (isOrderClampedAsCancelled(updatedOrder)) {
+      await handlePaymentForCancelledOrder({
+        gatewayReference: null,
+        order: updatedOrder ?? { id: orderId },
+        reason:
+          'Ship-on-credit attempted on an order cancelled by the customer',
+        transactionId: null,
+      });
+
+      return NextResponse.json(
+        {
+          error: 'Order was cancelled and cannot be shipped on credit',
+          code: 'ORDER_CANCELLED',
+        },
+        { status: 409 }
       );
     }
 

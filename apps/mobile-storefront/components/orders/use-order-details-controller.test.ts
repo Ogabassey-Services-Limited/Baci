@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { useOrderDetailsController } from './use-order-details-controller';
 
 type OrderSingleResult = { data: unknown; error: Error | null };
 type PolicyListResult = { data: unknown[]; error: Error | null };
+type CanCancelRpcResult = { data: boolean | null; error: Error | null };
 
 const mockOrderSingle = jest.fn<() => Promise<OrderSingleResult>>();
 const mockPolicyLimit = jest.fn<() => Promise<PolicyListResult>>();
+const mockCanCancelRpc = jest.fn<() => Promise<CanCancelRpcResult>>();
+const mockRpc = jest.fn((..._args: unknown[]) => mockCanCancelRpc());
+const mockCancelOrder = jest.fn<(reason?: string) => Promise<boolean>>();
+const mockNotCancellableRef = { current: false };
 const mockRemoveChannel = jest.fn();
 const mockUseLocalSearchParams = jest.fn<() => { id?: string }>();
 const mockAuthState: {
@@ -51,6 +57,21 @@ jest.mock('@/lib/validation', () => ({
 
 jest.mock('@/lib/post-purchase-actions', () => ({
   BACI_GOOGLE_REVIEW_URL: 'https://example.com/review',
+  CUSTOMER_CANCELLATION_REASONS: [
+    'Changed my mind',
+    'Ordered by mistake',
+    'Other',
+  ],
+  canCancelStorefrontOrder: () => true,
+}));
+
+jest.mock('@/hooks/use-cancel-order', () => ({
+  useCancelOrder: () => ({
+    cancelOrder: (reason?: string) => mockCancelOrder(reason),
+    error: null,
+    isCancelling: false,
+    notCancellable: mockNotCancellableRef.current,
+  }),
 }));
 
 jest.mock('./order-details.helpers', () => ({
@@ -67,6 +88,7 @@ jest.mock('@/lib/supabase', () => {
     supabase: {
       channel: () => channel,
       removeChannel: (...args: unknown[]) => mockRemoveChannel(...args),
+      rpc: (...args: unknown[]) => mockRpc(...args),
       from: (table: string) =>
         table === 'orders'
           ? {
@@ -90,6 +112,7 @@ jest.mock('@/lib/supabase', () => {
 describe('useOrderDetailsController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNotCancellableRef.current = false;
     mockUseLocalSearchParams.mockReturnValue({ id: 'order-1' });
     mockAuthState.user = { id: 'user-1' };
     mockAuthState.customer = { id: 'cust-1' };
@@ -98,6 +121,8 @@ describe('useOrderDetailsController', () => {
       error: null,
     });
     mockPolicyLimit.mockResolvedValue({ data: [], error: null });
+    mockCanCancelRpc.mockResolvedValue({ data: true, error: null });
+    mockCancelOrder.mockResolvedValue(true);
   });
 
   it('loads the order for the signed-in customer', async () => {
@@ -152,5 +177,145 @@ describe('useOrderDetailsController', () => {
     );
     expect(result.current.order).toBeNull();
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it('derives canCancel from the customer_order_can_cancel RPC', async () => {
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    await waitFor(() => expect(result.current.canCancel).toBe(true));
+    expect(mockRpc).toHaveBeenCalledWith('customer_order_can_cancel', {
+      p_order_id: 'order-1',
+    });
+  });
+
+  it('treats the order as not cancellable when the RPC returns false', async () => {
+    mockCanCancelRpc.mockResolvedValue({ data: false, error: null });
+
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    await waitFor(() => expect(result.current.order).not.toBeNull());
+    expect(result.current.canCancel).toBe(false);
+  });
+
+  it('treats the order as not cancellable when the RPC errors', async () => {
+    mockCanCancelRpc.mockResolvedValue({
+      data: null,
+      error: new Error('rpc failed'),
+    });
+
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    await waitFor(() => expect(result.current.order).not.toBeNull());
+    expect(result.current.canCancel).toBe(false);
+  });
+
+  it('prompts for a reason and cancels the order on confirmation', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((_title, _message, buttons) => {
+        const confirmButton = buttons?.find(
+          (button) => button.style === 'destructive'
+        );
+        confirmButton?.onPress?.();
+      });
+
+    const { result } = renderHook(() => useOrderDetailsController());
+    await waitFor(() => expect(result.current.canCancel).toBe(true));
+
+    await act(async () => {
+      result.current.handleCancelOrder();
+    });
+
+    await waitFor(() => expect(mockCancelOrder).toHaveBeenCalledTimes(1));
+    // Refetches after a successful cancellation.
+    await waitFor(() =>
+      expect(mockOrderSingle.mock.calls.length).toBeGreaterThan(1)
+    );
+
+    alertSpy.mockRestore();
+  });
+
+  it('does not cancel when the confirmation is dismissed', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {
+      // Simulate the customer dismissing the confirmation without choosing.
+    });
+
+    const { result } = renderHook(() => useOrderDetailsController());
+    await waitFor(() => expect(result.current.canCancel).toBe(true));
+
+    await act(async () => {
+      result.current.handleCancelOrder();
+    });
+
+    expect(mockCancelOrder).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
+
+  it('alerts when cancellation fails for a non-conflict reason', async () => {
+    mockCancelOrder.mockRejectedValue(new Error('network down'));
+    const alertMessages: string[] = [];
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((title, _message, buttons) => {
+        alertMessages.push(String(title));
+        const confirmButton = buttons?.find(
+          (button) => button.style === 'destructive'
+        );
+        confirmButton?.onPress?.();
+      });
+
+    const { result } = renderHook(() => useOrderDetailsController());
+    await waitFor(() => expect(result.current.canCancel).toBe(true));
+
+    await act(async () => {
+      result.current.handleCancelOrder();
+    });
+
+    await waitFor(() => expect(mockCancelOrder).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        alertMessages.some((title) => /could not cancel order/i.test(title))
+      ).toBe(true)
+    );
+
+    alertSpy.mockRestore();
+  });
+
+  it('alerts and refetches when the order can no longer be cancelled', async () => {
+    mockNotCancellableRef.current = true;
+    mockCancelOrder.mockResolvedValue(false);
+    const alertMessages: string[] = [];
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((title, _message, buttons) => {
+        alertMessages.push(String(title));
+        const confirmButton = buttons?.find(
+          (button) => button.style === 'destructive'
+        );
+        confirmButton?.onPress?.();
+      });
+
+    const { result } = renderHook(() => useOrderDetailsController());
+    await waitFor(() => expect(result.current.canCancel).toBe(true));
+    const fetchCallsBefore = mockOrderSingle.mock.calls.length;
+
+    await act(async () => {
+      result.current.handleCancelOrder();
+    });
+
+    await waitFor(() => expect(mockCancelOrder).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        alertMessages.some((title) => /can no longer be cancelled/i.test(title))
+      ).toBe(true)
+    );
+    await waitFor(() =>
+      expect(mockOrderSingle.mock.calls.length).toBeGreaterThan(
+        fetchCallsBefore
+      )
+    );
+
+    alertSpy.mockRestore();
   });
 });

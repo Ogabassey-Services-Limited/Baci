@@ -133,6 +133,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A cancelled order must never be payable — including via a Credit Direct
+    // BNPL loan origination (mirrors the guard in payments/initialize).
+    if (orderSnapshot.shipping_status === 'cancelled') {
+      return NextResponse.json(
+        {
+          error: 'This order has been cancelled and can no longer be paid',
+          code: 'ORDER_NOT_PAYABLE',
+        },
+        { status: 409 }
+      );
+    }
+
     const snapshotTotal = Number(orderSnapshot.total);
     if (Number.isNaN(snapshotTotal)) {
       return NextResponse.json(

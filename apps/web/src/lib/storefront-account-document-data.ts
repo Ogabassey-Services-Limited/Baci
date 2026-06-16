@@ -130,31 +130,40 @@ export async function getStorefrontAccountDocumentData({
     );
   }
 
-  const [itemsResult, transactionsResult, paymentAccountsResult, taxResult] =
-    await Promise.all([
-      supabase
-        .from('order_items')
-        .select(
-          'id, product_id, variant_id, variant_name, name, quantity, price, line_extension_amount, unit_code, vat_category_code, vat_rate, vat_amount, sellers_item_id, fulfillment_data'
-        )
-        .eq('order_id', orderId),
-      supabase
-        .from('transactions')
-        .select('id, amount, created_at, description, metadata')
-        .eq('order_id', orderId)
-        .order('created_at', { ascending: true }),
-      supabase
-        .from('order_payment_accounts')
-        .select('account_number, bank_name, account_name')
-        .eq('order_id', orderId)
-        .limit(1),
-      supabase
-        .from('order_tax_subtotals')
-        .select(
-          'vat_category_code, vat_rate, taxable_amount, tax_amount, exemption_reason'
-        )
-        .eq('order_id', orderId),
-    ]);
+  const [
+    itemsResult,
+    transactionsResult,
+    paymentAccountsResult,
+    taxResult,
+    canCancelResult,
+  ] = await Promise.all([
+    supabase
+      .from('order_items')
+      .select(
+        'id, product_id, variant_id, variant_name, name, quantity, price, line_extension_amount, unit_code, vat_category_code, vat_rate, vat_amount, sellers_item_id, fulfillment_data'
+      )
+      .eq('order_id', orderId),
+    supabase
+      .from('transactions')
+      .select('id, amount, created_at, description, metadata')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('order_payment_accounts')
+      .select('account_number, bank_name, account_name')
+      .eq('order_id', orderId)
+      .limit(1),
+    supabase
+      .from('order_tax_subtotals')
+      .select(
+        'vat_category_code, vat_rate, taxable_amount, tax_amount, exemption_reason'
+      )
+      .eq('order_id', orderId),
+    // Authoritative gate for the customer "Cancel Order" CTA. The customer-scoped
+    // client cannot read the merchant-only transactions table, so this server RPC
+    // is the source of truth. Fail-closed: any error means "not cancellable".
+    supabase.rpc('customer_order_can_cancel', { p_order_id: orderId }),
+  ]);
 
   if (
     itemsResult.error ||
@@ -176,6 +185,10 @@ export async function getStorefrontAccountDocumentData({
       'DOCUMENT_DATA_ERROR'
     );
   }
+
+  const canCancel = canCancelResult.error
+    ? false
+    : canCancelResult.data === true;
 
   const paymentStatus = normalizePaymentStatus(order.payment_status);
   const shippingStatus = normalizeShippingStatus(order.shipping_status);
@@ -200,5 +213,6 @@ export async function getStorefrontAccountDocumentData({
     paymentStatus,
     shippingStatus,
     currentDocumentKind,
+    canCancel,
   });
 }
