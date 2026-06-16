@@ -62,11 +62,19 @@ export async function POST(request: NextRequest) {
 
     // Upsert the push token (update if exists, insert if new)
     // Using ON CONFLICT on token since a device token should be unique
-    const { data: existingToken } = await supabase
+    const { data: existingToken, error: selectError } = await supabase
       .from('push_tokens')
       .select('id, user_id')
       .eq('token', token)
-      .single();
+      .maybeSingle();
+
+    if (selectError && selectError.code !== 'PGRST116') {
+      console.error('Error fetching push token:', selectError);
+      return NextResponse.json(
+        { error: 'Failed to verify token status' },
+        { status: 500 }
+      );
+    }
 
     if (existingToken) {
       // Token exists - update it

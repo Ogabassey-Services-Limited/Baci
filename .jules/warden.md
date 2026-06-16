@@ -24,3 +24,7 @@
 ## 2026-06-11 - Silent Failure on Supabase Mutations
 **Learning:** Performing a Supabase mutation (like `.delete()`) and logging the error without returning a failure response can lead to inconsistent state and silent failures, where the application incorrectly assumes success and proceeds with dependent operations.
 **Action:** Always check the `error` object returned from Supabase mutations and explicitly return an error response (e.g., `500`) to halt execution and signal the failure to the client.
+2025-06-16 — Supabase .single() Silent Failure
+Learning: When using `.single()` in Supabase on a query that might return 0 rows (like looking up an existing push token for a new device), Supabase returns `{ data: null, error: { code: 'PGRST116' } }`. If the code ignores the `error` object and only checks `if (data)`, it proceeds correctly for 0 rows, BUT it also silently proceeds if there's a genuine database failure (like a connection timeout), hiding the real error.
+Action: Use `.maybeSingle()` when 0 or 1 rows are expected, and explicitly check `if (error)` to catch genuine database failures.
+Source: Supabase v2 Docs - Select Data
