@@ -1,11 +1,12 @@
 import { headers } from 'next/headers';
 import {
   createSitemapIndexResponse,
+  createSitemapNotFoundResponse,
   createSitemapResponse,
   createSitemapUnavailableResponse,
   getNamedSitemapEntries,
   getSitemapIndexLinks,
-  resolveStorefrontSitemapContext,
+  resolveStorefrontSitemapContextResult,
 } from '../../sitemap-data';
 
 export async function GET(
@@ -14,15 +15,19 @@ export async function GET(
 ): Promise<Response> {
   const { id: rawId, slug } = await context.params;
   const id = rawId.replace(/\.xml$/i, '');
-  const sitemapContext = await resolveStorefrontSitemapContext(
+  const sitemapContextResult = await resolveStorefrontSitemapContextResult(
     await headers(),
     slug,
     request
   );
 
-  if (!sitemapContext) {
-    return createSitemapUnavailableResponse();
+  if (sitemapContextResult.status !== 'found') {
+    return sitemapContextResult.status === 'not-found'
+      ? createSitemapNotFoundResponse()
+      : createSitemapUnavailableResponse();
   }
+
+  const { context: sitemapContext } = sitemapContextResult;
 
   if (id === 'root') {
     // Public /sitemap.xml rewrites here. Serve a sitemap index so each child

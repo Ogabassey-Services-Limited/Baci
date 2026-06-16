@@ -7,6 +7,11 @@ import {
   geminiFlash,
   withRetry,
 } from '@/ai/provider';
+import {
+  generateAnalyticsInsightsWithOllama,
+  isAnalyticsInsightsOllamaConfigured,
+  sanitizeAnalyticsInsightsContext,
+} from '@/lib/analytics/ollama-insights';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
 import {
@@ -105,21 +110,28 @@ async function generateInsights(
     channels: channelPerformance || [],
   };
 
+  const safeContext = sanitizeAnalyticsInsightsContext(context);
+
   // Generate insights with retry logic
   // Wrap in try-catch to prevent server freezing if AI API is unavailable
   try {
-    const { object } = await withRetry(async () => {
-      return await generateObject({
-        model: geminiFlash,
-        schema: analyticsInsightsSchema,
-        maxRetries: 0,
-        timeout: AI_INSIGHTS_TIMEOUT_MS,
-        prompt: `
+    const object = isAnalyticsInsightsOllamaConfigured()
+      ? await generateAnalyticsInsightsWithOllama(safeContext, {
+          timeoutMs: AI_INSIGHTS_TIMEOUT_MS,
+        })
+      : (
+          await withRetry(async () => {
+            return await generateObject({
+              model: geminiFlash,
+              schema: analyticsInsightsSchema,
+              maxRetries: 0,
+              timeout: AI_INSIGHTS_TIMEOUT_MS,
+              prompt: `
 Analyze the following e-commerce data for a merchant and provide 3-5 actionable insights.
 Focus on trends, opportunities for growth, and potential issues.
 
 Data Context:
-${JSON.stringify(context, null, 2)}
+${JSON.stringify(safeContext, null, 2)}
 
 Provide insights in the following categories:
 - Revenue trends (growth, decline, stability)
@@ -128,8 +140,9 @@ Provide insights in the following categories:
 
 Be specific and constructive.
       `,
-      });
-    }, AI_INSIGHTS_RETRY_CONFIG);
+            });
+          }, AI_INSIGHTS_RETRY_CONFIG)
+        ).object;
 
     // Cache the insights for 24 hours (86400 seconds)
     cache.set(cacheKey, object, 86400);

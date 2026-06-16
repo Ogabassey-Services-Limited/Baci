@@ -66,6 +66,22 @@ function collectImageSources(node: unknown): string[] {
   return [...ownSource, ...collectImageSources(element.props.children)];
 }
 
+function collectStyleKeys(node: unknown): string[] {
+  if (node === null || node === undefined || typeof node !== 'object') {
+    return [];
+  }
+  if (Array.isArray(node)) return node.flatMap(collectStyleKeys);
+  if (!('props' in node)) return [];
+
+  const element = node as {
+    props: { children?: unknown; style?: Record<string, unknown> };
+  };
+  return [
+    ...Object.keys(element.props.style ?? {}),
+    ...collectStyleKeys(element.props.children),
+  ];
+}
+
 function hasExactChildren(node: unknown, children: string): boolean {
   if (node === null || node === undefined || typeof node !== 'object') {
     return false;
@@ -99,6 +115,12 @@ describe('merchant blog OG image markup', () => {
     const element = renderMerchantFallback(createData(), 'Missing post');
 
     expect(collectText(element)).toContain('Missing post');
+  });
+
+  it('keeps branded fallback art free of unsupported Satori zIndex styles', () => {
+    const element = renderMerchantFallback(createData(), 'Missing post');
+
+    expect(collectStyleKeys(element)).not.toContain('zIndex');
   });
 
   it('renders a generic fallback without merchant data', () => {

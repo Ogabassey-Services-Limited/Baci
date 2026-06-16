@@ -113,7 +113,6 @@ export default async function Image({ params }: ImageProps) {
           height: '100%',
           padding: '60px',
           position: 'relative',
-          zIndex: 1,
         }}
       >
         {/* Logo */}

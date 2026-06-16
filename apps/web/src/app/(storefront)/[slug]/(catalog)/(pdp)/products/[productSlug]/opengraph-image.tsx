@@ -167,7 +167,6 @@ export default async function Image({ params }: ImageProps) {
           height: '100%',
           padding: '50px',
           position: 'relative',
-          zIndex: 1,
         }}
       >
         {/* Left: Product Image */}
