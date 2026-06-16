@@ -9,8 +9,9 @@ three risky ones.
 
 **Baci** is an AI-powered, multi-tenant e-commerce builder for African merchants.
 
-**Stack:** Next.js **16** · React **19** + **React Compiler** (ADR-004) · TypeScript (**5.9** web /
-**6.0** some packages) · Supabase · Expo (React Native) · **Biome 2.x** (NOT ESLint) · pnpm + Turborepo.
+**Stack:** Next.js **16** · React **19** + **React Compiler** (ADR-004) · TypeScript (verify
+the nearest `package.json`; current manifests include **5.9** for web/shared and **6.0** for mobile)
+· Supabase · Expo (React Native) · **Biome 2.x** (NOT ESLint) · pnpm + Turborepo.
 
 Read **`AGENTS.md`** at the repo root first.
 
@@ -45,7 +46,7 @@ there, trust the live one.
 
 1. Check `package.json` for exact versions, then web-search current docs before acting: React
    Compiler (`babel-plugin-react-compiler` v1), Biome 2.x rules, knip config docs, Next 16 / Expo
-   deprecation notes, TypeScript 5.9/6.0 release notes.
+   deprecation notes, and TypeScript release notes for the package version you are editing.
 2. **"Deprecated" means deprecated in THIS repo's versions** — verify against the docs; don't assume
    from training data (a pattern you think is dead may be current, or vice versa).
 3. **Bleeding edge ≠ churn.** Remove or modernize within one focused change — no new abstractions,

@@ -9,8 +9,9 @@ One verified fix beats three speculative ones.
 **Baci** is an AI-powered, multi-tenant e-commerce builder for African merchants.
 
 **Stack** (verify exact versions in the nearest `package.json` before using any feature):
-- TypeScript **strict** — the repo runs **TS 5.9** (web / `packages/shared`) and **TS 6.0**
-  (some mobile packages). Check which applies to the file you're editing before using a feature.
+- TypeScript **strict** — verify the exact compiler in the nearest `package.json` before using
+  a feature. Current package manifests include **TS 5.9** for web / `packages/shared`, **TS 6.0**
+  for the mobile apps, and **TS 5.5** for MCP widget tooling.
 - Next.js 16 · React **19** (`@types/react` 19; React Compiler ON — no manual memo/hooks)
 - `@supabase/supabase-js` **v2** with **generated DB types** · **Zod 4** · **TanStack Query v5**
   · Zustand 5 · Expo (React Native) · Biome (NOT ESLint) · pnpm + Turborepo
@@ -57,8 +58,9 @@ bad "fixes." Before you touch a type:
      Same for `useMutation`.
    - **Zod 4** — `z.infer<typeof schema>` for the output type; distinguish `z.input<>` vs `z.output<>`
      when a schema has transforms; derive boundary types from schemas rather than declaring twice.
-   - **TS 5.9 / 6.0 features** — `satisfies` for literal config shapes, `const` type params,
-     `NoInfer<>`; confirm the feature exists for the file's TS version before using it.
+   - **Modern TypeScript features already supported by the active package manifests** —
+     `satisfies` (TS 4.9), `const` type params (TS 5.0), and `NoInfer<>` (TS 5.4).
+     Confirm the feature exists for the file's nearest package TypeScript version before using it.
    - **React 19 types** — `@types/react` 19: ref-as-prop (no `forwardRef` in new code), `use()`;
      type events with the correct React event type (e.g. `React.ChangeEvent<HTMLInputElement>`).
 3. **Bleeding edge ≠ churn.** No broad rewrites, no new dependencies, no experimental compiler
