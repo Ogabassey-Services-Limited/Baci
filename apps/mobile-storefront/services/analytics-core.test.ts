@@ -2,6 +2,7 @@ const mockWarn = jest.fn();
 const mockInfo = jest.fn();
 const mockError = jest.fn();
 const mockCapture = jest.fn();
+const mockCaptureException = jest.fn();
 const mockScreen = jest.fn();
 const mockIdentify = jest.fn();
 const mockReset = jest.fn();
@@ -31,6 +32,7 @@ jest.mock('expo-constants', () => ({
 jest.mock('posthog-react-native', () =>
   jest.fn().mockImplementation(() => ({
     capture: mockCapture,
+    captureException: mockCaptureException,
     screen: mockScreen,
     identify: mockIdentify,
     reset: mockReset,
@@ -101,5 +103,39 @@ describe('analytics core', () => {
     expect(mockReset).toHaveBeenCalled();
     expect(mockFlush).toHaveBeenCalled();
     expect(mockShutdown).toHaveBeenCalled();
+  });
+
+  it('enables exception autocapture and forwards manual exceptions', async () => {
+    const { initAnalytics, captureException } = await import(
+      './analytics-core'
+    );
+    const PostHog = (await import('posthog-react-native')).default;
+
+    await initAnalytics();
+    const error = new Error('checkout failed');
+    captureException(error, { merchantId: 'merchant-1' });
+
+    expect(PostHog).toHaveBeenCalledWith(
+      'ph_test',
+      expect.objectContaining({
+        errorTracking: {
+          autocapture: expect.objectContaining({
+            uncaughtExceptions: true,
+            unhandledRejections: true,
+          }),
+        },
+      })
+    );
+    expect(mockCaptureException).toHaveBeenCalledWith(error, {
+      merchantId: 'merchant-1',
+    });
+  });
+
+  it('captureException is a no-op before initialization', async () => {
+    jest.resetModules();
+    const { captureException } = await import('./analytics-core');
+
+    expect(() => captureException(new Error('too early'))).not.toThrow();
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 });

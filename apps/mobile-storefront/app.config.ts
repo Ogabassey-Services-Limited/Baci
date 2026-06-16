@@ -323,6 +323,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    posthogApiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
+    posthogHost:
+      process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
     tiktokBusiness: {
       iosAppStoreId: tiktokIosAppStoreId,
       iosTikTokAppId: tiktokIosAppId,
