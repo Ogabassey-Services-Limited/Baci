@@ -19,14 +19,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { QueryClient } from '@tanstack/react-query';
 
-export const QUERY_CACHE_STORAGE_KEY = 'REACT_QUERY_OFFLINE_CACHE';
-
 /**
  * AsyncStorage-based Persister (startup-safe)
  * Uses async storage to avoid synchronous JS-thread stalls during startup.
  */
 export const queryPersister = createAsyncStoragePersister({
-  key: QUERY_CACHE_STORAGE_KEY,
   storage: AsyncStorage,
 });
 
