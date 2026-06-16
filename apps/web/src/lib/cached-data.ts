@@ -891,7 +891,7 @@ function summarizeMerchantLookupError(error: unknown) {
 async function getDirectFeatureSettings(
   merchantId: string
 ): Promise<MerchantFeatureSettings | null> {
-  const supabase = getServiceSupabaseClient();
+  const supabase = getServiceRoleSupabaseClient();
   const { data, error } = await supabase
     .from('merchant_feature_settings')
     .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
