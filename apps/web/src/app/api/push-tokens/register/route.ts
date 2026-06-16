@@ -60,94 +60,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upsert the push token (update if exists, insert if new)
-    // Using ON CONFLICT on token since a device token should be unique
-    const { data: existingToken, error: selectError } = await supabase
-      .from('push_tokens')
-      .select('id, user_id')
-      .eq('token', token)
-      .maybeSingle();
+    const { error: registerError } = await supabase.rpc('register_push_token', {
+      p_app_type: app_type,
+      p_device_name: device_name || null,
+      p_merchant_id: resolvedMerchantId,
+      p_platform: platform,
+      p_token: token,
+    });
 
-    if (selectError) {
-      console.error('Error fetching push token:', selectError);
-      return NextResponse.json(
-        { error: 'Failed to verify token status' },
-        { status: 500 }
-      );
-    }
-
-    if (existingToken) {
-      // Token exists - update it
-      if (existingToken.user_id !== user.id) {
-        // Token was registered by a different user (device changed hands)
-        // Update ownership to current user
-        const { error: updateError } = await supabase
-          .from('push_tokens')
-          .update({
-            user_id: user.id,
-            merchant_id: resolvedMerchantId,
-            platform,
-            device_name: device_name || null,
-            app_type,
-            is_active: true,
-            last_used_at: new Date().toISOString(),
-          })
-          .eq('id', existingToken.id);
-
-        if (updateError) {
-          console.error('Error updating push token:', updateError);
-          return NextResponse.json(
-            { error: 'Failed to update push token' },
-            { status: 500 }
-          );
-        }
-      } else {
-        // Same user, just update last_used_at and ensure active
-        const { error: updateError } = await supabase
-          .from('push_tokens')
-          .update({
-            merchant_id: resolvedMerchantId,
-            platform,
-            device_name: device_name || null,
-            app_type,
-            is_active: true,
-            last_used_at: new Date().toISOString(),
-          })
-          .eq('id', existingToken.id);
-
-        if (updateError) {
-          console.error('Error updating push token:', updateError);
-          return NextResponse.json(
-            { error: 'Failed to update push token' },
-            { status: 500 }
-          );
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Push token updated',
-        token_id: existingToken.id,
-      });
-    }
-
-    // Insert new token
-    const { data: newToken, error: insertError } = await supabase
-      .from('push_tokens')
-      .insert({
-        user_id: user.id,
-        merchant_id: resolvedMerchantId,
-        token,
-        platform,
-        device_name: device_name || null,
-        app_type,
-        is_active: true,
-      })
-      .select('id')
-      .single();
-
-    if (insertError) {
-      console.error('Error inserting push token:', insertError);
+    if (registerError) {
+      console.error('Error registering push token:', registerError);
       return NextResponse.json(
         { error: 'Failed to register push token' },
         { status: 500 }
@@ -157,7 +79,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Push token registered',
-      token_id: newToken.id,
     });
   } catch (error) {
     console.error('Push token registration error:', error);
