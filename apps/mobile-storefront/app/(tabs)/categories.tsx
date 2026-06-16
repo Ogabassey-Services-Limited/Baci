@@ -15,8 +15,12 @@ import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
-import { useNetworkState } from '@/hooks/use-network-state';
 import { useCategories } from '@/hooks';
+import { useNetworkState } from '@/hooks/use-network-state';
+
+const handleCategoryPress = (slug: string): void => {
+  router.push(`/category/${slug}` as Href);
+};
 
 export default function CategoriesScreen() {
   const colorScheme = useColorScheme();
@@ -31,10 +35,6 @@ export default function CategoriesScreen() {
   // Note: Manual onReconnect refetch removed — onlineManager.setOnline(true)
   // combined with refetchOnReconnect: true handles automatic refetching.
   const { isOnline } = useNetworkState();
-
-  const handleCategoryPress = (slug: string) => {
-    router.push(`/category/${slug}` as Href);
-  };
 
   if (isLoading) {
     return (

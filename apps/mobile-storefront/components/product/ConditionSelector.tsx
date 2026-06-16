@@ -20,6 +20,13 @@ import {
   type ProductConditionOffer,
 } from '@/types/product';
 
+const normalize = (
+  value: string | undefined | null
+): CanonicalProductCondition | null => {
+  const normalized = normalizeCanonicalProductCondition(value);
+  return normalized || null;
+};
+
 interface ConditionSelectorProps {
   availableConditions?: ProductCondition[];
   currentCondition: string | undefined;
@@ -41,13 +48,6 @@ export function ConditionSelector({
 }: ConditionSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-
-  const normalize = (
-    value: string | undefined | null
-  ): CanonicalProductCondition | null => {
-    const normalized = normalizeCanonicalProductCondition(value);
-    return normalized || null;
-  };
 
   const baseCondition = normalize(currentCondition);
 

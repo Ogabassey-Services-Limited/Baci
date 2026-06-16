@@ -62,16 +62,16 @@ const faqItems: FAQItem[] = [
   },
 ];
 
+const openSupportLink = (url: string): void => {
+  void Linking.openURL(url).catch(() =>
+    Alert.alert('Unable to Open', 'Please try again later')
+  );
+};
+
 export default function FAQScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  const openSupportLink = (url: string) => {
-    void Linking.openURL(url).catch(() =>
-      Alert.alert('Unable to Open', 'Please try again later')
-    );
-  };
 
   const supportOptions: SupportOption[] = [
     {
