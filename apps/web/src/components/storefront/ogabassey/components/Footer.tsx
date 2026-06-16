@@ -41,9 +41,14 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const basePath = normalizeStoreSlug(storeSlug);
   const businessName = merchant?.business_name || 'Ogabassey';
   const socialLinks = merchant?.social_media || {};
-  const contactEmail = merchant?.email || 'support@ogabassey.com';
+  // Prefer the public support email (what merchants edit in store settings) over the
+  // private account email, so admin edits surface and the account email isn't exposed.
+  const contactEmail =
+    merchant?.support_email || merchant?.email || 'support@ogabassey.com';
   const contactPhone = merchant?.phone || '+234 814 697 8921';
-  const contactAddress = merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos';
+  const contactAddress = (
+    merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos'
+  ).trim();
   const trustProfile = merchant
     ? buildMerchantTrustProfile(merchant, basePath || undefined)
     : null;
