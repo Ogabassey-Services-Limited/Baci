@@ -1,20 +1,27 @@
+const orderDetailsPriceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getOrderDetailsPriceFormatter(currency: string): Intl.NumberFormat {
+  let formatter = orderDetailsPriceFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+    });
+    orderDetailsPriceFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 export function formatOrderDetailsPrice(
   amount: number,
   merchantCurrency: string
 ) {
   try {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: merchantCurrency,
-      minimumFractionDigits: 0,
-    }).format(amount);
+    return getOrderDetailsPriceFormatter(merchantCurrency).format(amount);
   } catch (error) {
     console.warn('[OrderDetails] Invalid currency for price format', error);
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(amount);
+    return getOrderDetailsPriceFormatter('NGN').format(amount);
   }
 }
 
