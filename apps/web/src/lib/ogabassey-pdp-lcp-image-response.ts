@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
-import { getBaciCdnOriginFetchSecret } from '@/env';
 import {
   getCachedProductLcpHint,
   sanitizeLookupLogValue,
@@ -12,8 +11,6 @@ import { ogabasseyPdpLcpImageRequestSchema } from '@/schemas/ogabassey-pdp-lcp-i
 const PRELOAD_IMAGE_CACHE_CONTROL =
   'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400';
 const PRELOAD_MISS_CACHE_CONTROL = 'public, max-age=60, s-maxage=60';
-const DEFAULT_IMAGE_ACCEPT_HEADER = 'image/avif,image/webp,image/*,*/*;q=0.8';
-const ORIGIN_FETCH_SECRET_HEADER = 'x-baci-origin-fetch';
 
 type OgabasseyPdpLcpImageResponseInput = {
   accept?: string | null;
@@ -23,7 +20,6 @@ type OgabasseyPdpLcpImageResponseInput = {
 };
 
 export async function buildOgabasseyPdpLcpImageResponse({
-  accept,
   productSlug,
   quality,
   width,
@@ -87,60 +83,16 @@ export async function buildOgabasseyPdpLcpImageResponse({
     width: parsed.data.width,
   });
 
-  let imageResponse: Response;
-  try {
-    const fetchHeaders = new Headers({
-      Accept: accept || DEFAULT_IMAGE_ACCEPT_HEADER,
-    });
-    const originFetchSecret = getBaciCdnOriginFetchSecret();
-
-    if (originFetchSecret) {
-      fetchHeaders.set(ORIGIN_FETCH_SECRET_HEADER, originFetchSecret);
-    }
-
-    imageResponse = await fetch(preloadUrl, {
-      headers: fetchHeaders,
-    });
-  } catch (error) {
-    console.warn(
-      'Unable to fetch transformed OgaBassey PDP LCP preload image:',
-      sanitizeLookupLogValue(parsed.data.productSlug),
-      error
-    );
-    return createFallbackRedirectResponse(preloadUrl);
-  }
-
-  if (!imageResponse.ok || !imageResponse.body) {
-    console.warn(
-      'Transformed OgaBassey PDP LCP preload image returned unusable response:',
-      sanitizeLookupLogValue(parsed.data.productSlug),
-      imageResponse.status
-    );
-    return createFallbackRedirectResponse(preloadUrl);
-  }
-
-  const headers = new Headers({
-    'Cache-Control': PRELOAD_IMAGE_CACHE_CONTROL,
-    'Content-Type':
-      imageResponse.headers.get('content-type') ?? 'application/octet-stream',
-    Vary: 'Accept',
-  });
-  const contentLength = imageResponse.headers.get('content-length');
-
-  if (contentLength) {
-    headers.set('Content-Length', contentLength);
-  }
-
-  return new Response(imageResponse.body, {
-    headers,
-    status: 200,
-  });
+  return createRedirectResponse(preloadUrl, PRELOAD_IMAGE_CACHE_CONTROL);
 }
 
-function createFallbackRedirectResponse(preloadUrl: string): Response {
+function createRedirectResponse(
+  preloadUrl: string,
+  cacheControl: string
+): Response {
   return new Response(null, {
     headers: {
-      'Cache-Control': PRELOAD_MISS_CACHE_CONTROL,
+      'Cache-Control': cacheControl,
       Location: preloadUrl,
     },
     status: 307,

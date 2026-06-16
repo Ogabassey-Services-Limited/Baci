@@ -68,7 +68,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
     restoreFetch = () => undefined;
   });
 
-  it('streams the transformed primary product image', async () => {
+  it('redirects to the transformed primary product image without proxy-fetching bytes', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -82,17 +82,12 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
       createContext()
     );
 
-    expect(response.status).toBe(200);
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif',
-      expect.any(Object)
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
-    const [, fetchInit] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(new Headers(fetchInit.headers).get('accept')).toBe('image/avif');
-    expect(response.headers.get('content-type')).toBe('image/avif');
+    expect(mockFetch).not.toHaveBeenCalled();
     expect(response.headers.get('cache-control')).toContain('s-maxage=86400');
-    expect(response.headers.get('vary')).toBe('Accept');
-    await expect(response.text()).resolves.toBe('image-bytes');
     expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
       OGABASSEY_MERCHANT_ID,
       'dell-alienware-m18-r3-rtx-5080'
