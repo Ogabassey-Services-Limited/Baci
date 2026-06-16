@@ -1,4 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { Stack } from 'expo-router';
@@ -25,8 +26,7 @@ import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { queryClient } from '@/lib/query-client';
-import { asyncStorage, removeStorageItems } from '@/lib/storage';
-import { getClearableCacheStorageKeys } from '@/components/settings/clear-cache-keys';
+import { removeStorageItems } from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
 
 export default function SettingsScreen() {
@@ -85,10 +85,18 @@ export default function SettingsScreen() {
             try {
               queryClient.clear();
 
-              const cacheKeys = getClearableCacheStorageKeys(
-                await asyncStorage.getAllKeys()
+              const allKeys = await AsyncStorage.getAllKeys();
+              const cacheKeys = allKeys.filter(
+                (key) =>
+                  !key.startsWith('supabase') &&
+                  key !== 'app-settings-storage' &&
+                  key !== 'app-theme-storage' &&
+                  key !== 'auth-storage'
               );
-              await removeStorageItems(cacheKeys);
+
+              if (cacheKeys.length > 0) {
+                await removeStorageItems(cacheKeys);
+              }
 
               toast.success('Cache cleared successfully.');
             } catch {

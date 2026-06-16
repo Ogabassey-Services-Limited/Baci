@@ -112,7 +112,7 @@ export const checkoutScreenViewStyles = StyleSheet.create({
     fontWeight: '700',
   },
   pickerItem: {
-    height: 48,
+    minHeight: 48,
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,

@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Alert, Text, View } from 'react-native';
+import WalletScreen from '@/app/wallet';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
 import { SPACING } from '@/constants/Colors';
 
@@ -280,9 +281,6 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/components/wallet/WalletContent', () => ({
   WalletContent: (props: MockWalletContentProps) => mockWalletContent(props),
 }));
-
-const WalletScreen = require('@/app/wallet')
-  .default as typeof import('@/app/wallet').default;
 
 describe('WalletScreen', () => {
   beforeEach(() => {
