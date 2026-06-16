@@ -65,6 +65,7 @@ const shellChromeFrameStyle = {
     '1px solid color-mix(in srgb, var(--store-background, #ffffff) 14%, transparent)',
   boxSizing: 'border-box',
   color: 'var(--store-primary-text, #ffffff)',
+  // Offsets shellChromeLoadingStyle.padding so the chrome frame reaches the shell edges.
   margin: '-0.75rem -1rem 0.75rem',
   padding: '0.75rem 1rem',
 } satisfies CSSProperties;
