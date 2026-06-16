@@ -10,6 +10,11 @@ interface ProductStockControlsProps {
   onLowStockThresholdChange: (value: number) => void;
   onStockAdjust: (nextQuantity: number) => void;
   stockQuantity: number;
+  inventoryTrackingPolicy?:
+    | 'off'
+    | 'serialized_strict'
+    | 'serialized_then_unlimited'
+    | null;
 }
 
 export function ProductStockControls({
@@ -18,7 +23,12 @@ export function ProductStockControls({
   onLowStockThresholdChange,
   onStockAdjust,
   stockQuantity,
+  inventoryTrackingPolicy,
 }: ProductStockControlsProps) {
+  const isSerialized =
+    inventoryTrackingPolicy === 'serialized_strict' ||
+    inventoryTrackingPolicy === 'serialized_then_unlimited';
+
   return (
     <>
       <Text style={[styles.title, { color: colors.text }]}>
@@ -27,49 +37,74 @@ export function ProductStockControls({
       <View style={styles.quantityRow}>
         <View>
           <Text style={[styles.quantityLabel, { color: colors.textSecondary }]}>
-            Quantity <Text style={{ color: colors.error }}>*</Text>
+            {isSerialized ? 'Quantity (Read-only)' : 'Quantity'}{' '}
+            <Text style={{ color: colors.error }}>*</Text>
           </Text>
-          <TextInput
-            accessibilityLabel="Stock quantity"
-            style={[
-              styles.quantityInput,
-              {
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-                color: colors.text,
-              },
-            ]}
-            value={
-              stockQuantity === 0 ? '' : quantityFormatter.format(stockQuantity)
-            }
-            onChangeText={(text) => {
-              const nextValue = Number.parseInt(text.replace(/,/g, ''), 10);
-              onStockAdjust(
-                Math.max(0, Number.isNaN(nextValue) ? 0 : nextValue)
-              );
-            }}
-            keyboardType="numeric"
-          />
+          {isSerialized ? (
+            <View
+              style={[
+                styles.quantityInput,
+                {
+                  alignItems: 'center',
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.border,
+                  justifyContent: 'center',
+                },
+              ]}
+            >
+              <Text
+                style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}
+              >
+                {quantityFormatter.format(stockQuantity)}
+              </Text>
+            </View>
+          ) : (
+            <TextInput
+              accessibilityLabel="Stock quantity"
+              style={[
+                styles.quantityInput,
+                {
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              value={
+                stockQuantity === 0
+                  ? ''
+                  : quantityFormatter.format(stockQuantity)
+              }
+              onChangeText={(text) => {
+                const nextValue = Number.parseInt(text.replace(/,/g, ''), 10);
+                onStockAdjust(
+                  Math.max(0, Number.isNaN(nextValue) ? 0 : nextValue)
+                );
+              }}
+              keyboardType="numeric"
+            />
+          )}
         </View>
 
-        <View style={styles.stockActions}>
-          <Pressable
-            accessibilityLabel="Decrease stock"
-            accessibilityRole="button"
-            style={[styles.stockButton, { backgroundColor: colors.error }]}
-            onPress={() => onStockAdjust(Math.max(0, stockQuantity - 1))}
-          >
-            <Ionicons name="remove" size={20} color={colors.textOnPrimary} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Increase stock"
-            accessibilityRole="button"
-            style={[styles.stockButton, { backgroundColor: colors.success }]}
-            onPress={() => onStockAdjust(stockQuantity + 1)}
-          >
-            <Ionicons name="add" size={20} color={colors.textOnPrimary} />
-          </Pressable>
-        </View>
+        {!isSerialized && (
+          <View style={styles.stockActions}>
+            <Pressable
+              accessibilityLabel="Decrease stock"
+              accessibilityRole="button"
+              style={[styles.stockButton, { backgroundColor: colors.error }]}
+              onPress={() => onStockAdjust(Math.max(0, stockQuantity - 1))}
+            >
+              <Ionicons name="remove" size={20} color={colors.textOnPrimary} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Increase stock"
+              accessibilityRole="button"
+              style={[styles.stockButton, { backgroundColor: colors.success }]}
+              onPress={() => onStockAdjust(stockQuantity + 1)}
+            >
+              <Ionicons name="add" size={20} color={colors.textOnPrimary} />
+            </Pressable>
+          </View>
+        )}
       </View>
       <View style={styles.lowStockRow}>
         <Text style={[styles.lowStockLabel, { color: colors.textSecondary }]}>

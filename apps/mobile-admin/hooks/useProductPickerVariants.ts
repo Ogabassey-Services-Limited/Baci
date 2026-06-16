@@ -20,7 +20,8 @@ async function fetchAdminProductVariants(args: {
         'id, attributes, condition, cost_price, images, price_override, primary_image, sku, stock_quantity'
       )
       .eq('merchant_id', args.merchantId)
-      .eq('product_id', args.parentProduct.id);
+      .eq('product_id', args.parentProduct.id)
+      .eq('is_inventory_anchor', false);
 
   if (structuredVariantsError) {
     throw new Error(structuredVariantsError.message);

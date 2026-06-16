@@ -27,7 +27,9 @@ const ambiguousCustomerConflictTargetPattern =
 // the 21-arg initial B3.5 overload, and the 22-arg parity-check overload.
 const EXPECTED_CREATE_STOREFRONT_ORDER_DROP_COUNT = 3;
 
-function readLatestStorefrontOrderRpcMigrationSql() {
+function readLatestStorefrontOrderRpcMigrationSql(options?: {
+  unsliced?: boolean;
+}) {
   for (const fileName of readdirSync(migrationsDirectory)
     .filter(
       (file) =>
@@ -43,7 +45,13 @@ function readLatestStorefrontOrderRpcMigrationSql() {
         pattern.test(sql)
       )
     ) {
-      return sql;
+      if (options?.unsliced) {
+        return sql;
+      }
+      const rpcIndex = sql.search(
+        /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:private|public)\.create_storefront_order\s*\(/i
+      );
+      return rpcIndex > -1 ? sql.slice(rpcIndex) : sql;
     }
   }
 
@@ -63,6 +71,21 @@ function readLatestPaymentReferenceHotfixSql() {
   }
 
   throw new Error('No payment_reference reuse hotfix migration found');
+}
+
+function readLatestCreditDirectSessionMigrationSql() {
+  const pattern =
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:"public"\.|public\.)?(?:"set_credit_direct_session"|set_credit_direct_session)\s*\(/i;
+  for (const fileName of readdirSync(migrationsDirectory)
+    .filter((file) => migrationFilePattern.test(file))
+    .sort()
+    .reverse()) {
+    const sql = readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
+    if (pattern.test(sql)) {
+      return sql;
+    }
+  }
+  throw new Error('No set_credit_direct_session migration found');
 }
 
 describe('agentic storefront order RPC contract', () => {
@@ -107,7 +130,7 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).toContain("RAISE EXCEPTION 'user_id_mismatch';");
     expect(sql).toContain("RAISE EXCEPTION 'cannot_set_user_id_anonymously';");
     expect(sql).toMatch(
-      /INSERT INTO customers \([\s\S]*user_id[\s\S]*p_user_id/
+      /INSERT INTO (?:public\.)?customers \([\s\S]*user_id[\s\S]*p_user_id/
     );
   });
 
@@ -140,7 +163,9 @@ describe('agentic storefront order RPC contract', () => {
     // B2 wraps the INSERT in a retry loop, so the literal "INSERT
     // INTO customers" first appears inside that loop. Still must
     // come after the user_id + phone SELECTs.
-    const customerInsertIndex = sql.indexOf('INSERT INTO customers');
+    const customerInsertIndex = sql.search(
+      /INSERT\s+INTO\s+(?:public\.)?customers/i
+    );
 
     expect(userLookupIndex).toBeGreaterThan(-1);
     expect(phoneLookupIndex).toBeGreaterThan(-1);
@@ -152,8 +177,8 @@ describe('agentic storefront order RPC contract', () => {
     // telcos (NIST SP 800-63B AAL1); auto-claiming an existing
     // customer row from an authed checkout based on phone alone
     // would let one auth user inherit a stranger's order history.
-    expect(sql).toContain(
-      'IF v_customer_id IS NULL\n    AND v_normalized_customer_phone IS NOT NULL\n    AND p_user_id IS NULL'
+    expect(sql).toMatch(
+      /IF\s+v_customer_id\s+IS\s+NULL\s+AND\s+v_normalized_customer_phone\s+IS\s+NOT\s+NULL\s+AND\s+p_user_id\s+IS\s+NULL/i
     );
     expect(sql).toContain('AND c.user_id IS NULL');
     expect(sql).toContain(
@@ -176,8 +201,8 @@ describe('agentic storefront order RPC contract', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
     // Phone fallback IF must include `AND p_user_id IS NULL`.
-    expect(sql).toContain(
-      'AND v_normalized_customer_phone IS NOT NULL\n    AND p_user_id IS NULL'
+    expect(sql).toMatch(
+      /AND\s+v_normalized_customer_phone\s+IS\s+NOT\s+NULL\s+AND\s+p_user_id\s+IS\s+NULL/i
     );
 
     // Pin the comment so a future cleanup doesn't quietly strip the
@@ -229,7 +254,7 @@ describe('agentic storefront order RPC contract', () => {
   });
 
   it('covers storefront checkout idempotency SQL contract', () => {
-    const sql = readLatestStorefrontOrderRpcMigrationSql();
+    const sql = readLatestStorefrontOrderRpcMigrationSql({ unsliced: true });
 
     expect(sql).toMatch(/checkout_idempotency_key\s+text/i);
     expect(sql).toMatch(/checkout_request_hash\s+text/i);
@@ -248,7 +273,7 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).toMatch(/order_not_reusable/i);
     expect(sql).toMatch(/IF\s+FOUND\s+THEN/i);
     expect(sql).toMatch(/payment_method\s*=\s*trim\(p_payment_method\)/i);
-    expect(sql).toMatch(/payment_reference\s*=\s*NULL/i);
+    expect(sql).not.toMatch(/payment_reference\s*=\s*NULL/i);
     expect(sql).toMatch(/pg_advisory_xact_lock/i);
     expect(sql).toMatch(
       /create_storefront_order_with_savings[\s\S]*p_checkout_idempotency_key\s+text/i
@@ -265,7 +290,7 @@ describe('agentic storefront order RPC contract', () => {
   });
 
   it('clears stale Credit Direct transaction references when a new session starts', () => {
-    const sql = readLatestStorefrontOrderRpcMigrationSql();
+    const sql = readLatestCreditDirectSessionMigrationSql();
 
     expect(sql).toMatch(
       /CREATE OR REPLACE FUNCTION public\.set_credit_direct_session/i
@@ -325,11 +350,11 @@ describe('agentic storefront order RPC contract — B2 customer upsert hardening
     // identity fields (phone, user_id, first/last name, email) so a
     // peer's partial row gets backfilled by our request's data.
     expect(sql).toMatch(
-      /UPDATE customers c\s+SET\s+phone = COALESCE\(c\.phone, v_customer_record_phone\),\s+user_id = COALESCE\(c\.user_id, p_user_id\)/
+      /UPDATE (?:public\.)?customers c\s+SET\s+phone = COALESCE\(c\.phone, v_customer_record_phone\),\s+user_id = COALESCE\(c\.user_id, p_user_id\)/
     );
     // EXIT after a successful winner-row UPDATE so we don't spin.
     expect(sql).toMatch(
-      /UPDATE customers c[\s\S]*?WHERE c\.id = v_customer_id;\s+EXIT;\s+END IF;/
+      /UPDATE (?:public\.)?customers c[\s\S]*?WHERE c\.id = v_customer_id;\s+EXIT;\s+END IF;/
     );
   });
 
@@ -373,8 +398,8 @@ describe('agentic storefront order RPC contract — B3 shipping_quote_required',
     const shippingGuardIndex = sql.indexOf(
       "RAISE EXCEPTION 'shipping_quote_required';"
     );
-    const merchantLookupIndex = sql.indexOf(
-      'PERFORM 1 FROM merchants m WHERE m.id = p_merchant_id'
+    const merchantLookupIndex = sql.search(
+      /PERFORM\s+1\s+FROM\s+(?:public\.)?merchants\s+m\s+WHERE\s+m\.id\s*=\s*p_merchant_id/i
     );
 
     expect(paymentStatusIndex).toBeGreaterThan(-1);
@@ -474,7 +499,7 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     //     columns when the product fields are NOT NULL; otherwise
     //     the order_items COLUMN DEFAULTS take over).
     expect(sql).toMatch(
-      /SELECT\s+COALESCE\(\s*SUM\([\s\S]*?CASE[\s\S]*?WHEN\s+COALESCE\(\s*p\.vat_category_code\s*,\s*'S'\s*\)\s*=\s*'S'[\s\S]*?ROUND\([\s\S]*?COALESCE\(\s*p\.vat_rate\s*,\s*7\.5\s*\)[\s\S]*?ELSE\s+0[\s\S]*?\)\s*,\s*0\s*\)[\s\S]*?INTO\s+v_expected_tax[\s\S]*?FROM\s+tmp_storefront_order_items\s+t\s+JOIN\s+products\s+p/i
+      /SELECT\s+COALESCE\(\s*SUM\([\s\S]*?CASE[\s\S]*?WHEN\s+COALESCE\(\s*p\.vat_category_code\s*,\s*'S'\s*\)\s*=\s*'S'[\s\S]*?ROUND\([\s\S]*?COALESCE\(\s*p\.vat_rate\s*,\s*7\.5\s*\)[\s\S]*?ELSE\s+0[\s\S]*?\)\s*,\s*0\s*\)[\s\S]*?INTO\s+v_expected_tax[\s\S]*?FROM\s+tmp_storefront_order_items\s+t\s+JOIN\s+(?:public\.)?products\s+p/i
     );
     expect(sql).toMatch(
       /ABS\(\s*v_tax_amount\s*-\s*v_expected_tax\s*\)\s*>\s*1/i
@@ -556,7 +581,7 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     // tax_basis is populated → trigger reads NULL → falls back to
     // pre-B3.5 behavior → total stays stale.
     const insertBlockMatch = sql.match(
-      /INSERT\s+INTO\s+orders\s*\(([\s\S]*?)\)\s*VALUES\s*\(([\s\S]*?)\)/i
+      /INSERT\s+INTO\s+(?:public\.)?orders\s*\(([\s\S]*?)\)\s*VALUES\s*\(([\s\S]*?)\)/i
     );
     expect(insertBlockMatch).not.toBeNull();
     if (insertBlockMatch) {
@@ -590,8 +615,10 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     const customerLockIndex = sql.indexOf(
       'hashtext(v_normalized_customer_phone)'
     );
-    const orderInsertIndex = sql.indexOf('INSERT INTO orders');
-    const stockUpdateIndex = sql.indexOf('UPDATE product_variants');
+    const orderInsertIndex = sql.search(/INSERT\s+INTO\s+(?:public\.)?orders/i);
+    const stockUpdateIndex = sql.search(
+      /UPDATE\s+(?:public\.)?product_variants/i
+    );
 
     expect(parityIndex).toBeGreaterThan(-1);
     expect(parityIndex).toBeLessThan(customerLockIndex);
@@ -610,9 +637,11 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
 
     // The re-SELECT must land AFTER the order_items INSERT (which
     // fires `update_order_tax_totals`) and BEFORE the RETURN QUERY.
-    const itemsInsertIndex = sql.search(/INSERT\s+INTO\s+order_items/i);
+    const itemsInsertIndex = sql.search(
+      /INSERT\s+INTO\s+(?:public\.)?order_items/i
+    );
     const reSelectMatch = sql.match(
-      /SELECT\s+total,\s*tax_amount[\s\S]*?INTO\s+v_total,\s*v_tax_amount[\s\S]*?FROM\s+orders[\s\S]*?WHERE\s+id\s*=\s*v_order_id/i
+      /SELECT\s+(?:[a-z]\.)?total,\s*(?:[a-z]\.)?tax_amount[\s\S]*?INTO\s+v_total,\s*v_tax_amount[\s\S]*?FROM\s+(?:public\.)?orders[\s\S]*?WHERE\s+(?:[a-z]\.)?id\s*=\s*v_order_id/i
     );
     const returnQueryIndex =
       reSelectMatch?.index === undefined
@@ -630,7 +659,7 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
   });
 
   it('drops the historical create_storefront_order signatures', () => {
-    const sql = readLatestStorefrontOrderRpcMigrationSql();
+    const sql = readLatestStorefrontOrderRpcMigrationSql({ unsliced: true });
 
     // Adding params changes the function identity in PostgreSQL —
     // `CREATE OR REPLACE` would leave the stale overloads alive,
@@ -654,13 +683,13 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     // PostgREST with the authenticated role; missing this grant
     // would 403 their checkout.
     expect(sql).toMatch(
-      /GRANT\s+ALL\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+anon/i
+      /GRANT\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+[^;]*?\banon\b/i
     );
     expect(sql).toMatch(
-      /GRANT\s+ALL\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+authenticated/i
+      /GRANT\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+[^;]*?\bauthenticated\b/i
     );
     expect(sql).toMatch(
-      /GRANT\s+ALL\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+service_role/i
+      /GRANT\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+[^;]*?\bservice_role\b/i
     );
   });
 });

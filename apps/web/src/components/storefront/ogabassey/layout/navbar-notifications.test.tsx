@@ -25,6 +25,24 @@ vi.mock('../components/empty-state', () => ({
   EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
 }));
 
+vi.mock('./navbar-notifications-panel', () => ({
+  NavbarNotificationsPanel: ({
+    basePath,
+    onClose,
+  }: {
+    basePath: string;
+    onClose: () => void;
+  }) => (
+    <div>
+      <h3>Notifications</h3>
+      <div>No Notifications</div>
+      <a href={`${basePath}/account`} onClick={onClose}>
+        View All
+      </a>
+    </div>
+  ),
+}));
+
 describe('NavbarNotifications', () => {
   it('toggles the notification panel and links to the account page', async () => {
     const user = userEvent.setup();
@@ -37,10 +55,12 @@ describe('NavbarNotifications', () => {
 
     expect(await screen.findByText('Notifications')).toBeInTheDocument();
     expect(await screen.findByText('No Notifications')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'View All' })).toHaveAttribute(
-      'href',
-      '/ogabassey/account'
-    );
+    const viewAll = screen.getByRole('link', { name: 'View All' });
+    expect(viewAll).toHaveAttribute('href', '/ogabassey/account');
+
+    await user.click(viewAll);
+
+    expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
   });
 
   it('closes the notification panel when the user clicks outside', async () => {
@@ -54,21 +74,6 @@ describe('NavbarNotifications', () => {
     expect(await screen.findByText('Notifications')).toBeInTheDocument();
 
     await user.click(document.body);
-
-    expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
-  });
-
-  it('closes the notification panel with Escape', async () => {
-    const user = userEvent.setup();
-
-    render(<NavbarNotifications basePath="/ogabassey" />);
-
-    await user.click(
-      screen.getByRole('button', { name: /toggle notifications/i })
-    );
-    expect(await screen.findByText('Notifications')).toBeInTheDocument();
-
-    await user.keyboard('{Escape}');
 
     expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
   });

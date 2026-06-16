@@ -20,9 +20,15 @@ import {
 } from '@/lib/klump-webhook';
 import { logger } from '@/lib/logger';
 import {
+  ensurePaidOrderInventoryConfirmed,
+  rollbackOrderStatusAfterInventoryConfirmationFailure,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
+import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { calculatePlatformFee } from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { referenceSchema } from '@/schemas/payments';
@@ -89,6 +95,7 @@ export function HEAD() {
 
 type KlumpUpdatedOrder = KlumpPaidOrder & {
   cancelled_at?: string | null;
+  payment_status?: string | null;
   shipping_status?: string | null;
 };
 
@@ -109,7 +116,7 @@ function updateKlumpOrder({
     .eq('id', orderId)
     .neq('payment_status', 'paid')
     .select(
-      'id, merchant_id, order_number, customer_name, total, currency, shipping_status, cancelled_at'
+      'id, merchant_id, order_number, customer_name, total, currency, payment_status, shipping_status, cancelled_at'
     )
     .maybeSingle<KlumpUpdatedOrder>();
 }
@@ -314,6 +321,89 @@ export async function POST(request: NextRequest) {
     }
 
     order = updatedOrder;
+
+    if (!order) {
+      const { data: existingOrder, error: existingOrderError } = await supabase
+        .from('orders')
+        .select(
+          'id, merchant_id, order_number, customer_name, total, currency, payment_status, shipping_status, cancelled_at'
+        )
+        .eq('id', transaction.order_id)
+        .maybeSingle<KlumpUpdatedOrder>();
+
+      if (existingOrderError) {
+        logger.error({
+          message:
+            'Failed to load existing Klump order for inventory confirmation',
+          error: existingOrderError,
+          orderId: transaction.order_id,
+        });
+        return errorResponse('Failed to load order', 500);
+      }
+
+      order = existingOrder;
+    }
+
+    if (order) {
+      try {
+        await ensurePaidOrderInventoryConfirmed(
+          supabase,
+          transaction.merchant_id,
+          order.id
+        );
+      } catch (inventoryError) {
+        logger.error({
+          message: 'Klump webhook failed to confirm inventory',
+          orderId: order.id,
+          error: inventoryError,
+        });
+
+        if (updatedOrder) {
+          try {
+            await rollbackOrderStatusAfterInventoryConfirmationFailure(
+              supabase,
+              transaction.merchant_id,
+              order.id,
+              {
+                payment_status: 'pending',
+                shipping_status: 'pending',
+              }
+            );
+          } catch (rollbackError) {
+            await fileInventoryConfirmationFailureReview({
+              gatewayReference: referenceResult.data,
+              merchantId: transaction.merchant_id,
+              metadata: {
+                inventoryError:
+                  inventoryError instanceof Error
+                    ? inventoryError.message
+                    : inventoryError,
+                klumpTransactionId: details.transactionId,
+                rollbackError:
+                  rollbackError instanceof Error
+                    ? rollbackError.message
+                    : rollbackError,
+                source: 'klump_inventory_confirmation_rollback',
+              },
+              orderId: order.id,
+              reason:
+                'Klump webhook reached paid state, but serialized inventory confirmation and status rollback both failed.',
+              transactionId: transaction.id,
+            });
+            return errorResponse('Inventory confirmation cleanup failed', 500);
+          }
+        }
+
+        const responsePayload =
+          buildInventoryConfirmationFailurePayload(inventoryError);
+        return NextResponse.json(responsePayload, {
+          status:
+            responsePayload.code === 'serialized_inventory_unavailable'
+              ? 409
+              : 500,
+        });
+      }
+    }
   }
 
   const expectedPaymentAmountNumber = Number(expectedPaymentAmount);
