@@ -104,7 +104,7 @@ describe('ProductRestockOptions', () => {
     expect(onSourceChange).toHaveBeenCalledWith('dropship');
   });
 
-  it('hides branch assignment options when only one branch is available', () => {
+  it('allows merchants to assign restocked units to their only branch', () => {
     const onBranchChange = vi.fn();
 
     render(
@@ -120,10 +120,26 @@ describe('ProductRestockOptions', () => {
       />
     );
 
+    screen.getByText('Assign to Branch');
+    fireEvent.click(screen.getByRole('button', { name: 'Assign to Branch A' }));
+
+    expect(onBranchChange).toHaveBeenCalledWith(branches[0].id);
+  });
+
+  it('hides branch assignment options when no branches are available', () => {
+    render(
+      <ProductRestockOptions
+        branches={[]}
+        colors={colors}
+        mode="imei"
+        onBranchChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        selectedBranchId={null}
+        source="merchant_stock"
+      />
+    );
+
     expect(screen.queryByText('Assign to Branch')).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Assign to all/no specific branch' })
-    ).not.toBeInTheDocument();
-    expect(onBranchChange).not.toHaveBeenCalled();
   });
 });

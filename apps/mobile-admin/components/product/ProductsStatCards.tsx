@@ -3,6 +3,7 @@ import {
   formatLargePrice,
   getCurrencySymbol,
 } from '@/components/product/product.shared';
+import type { ThemeColors } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useInventoryStats } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
@@ -13,22 +14,25 @@ type ProductsStatCardsProps = {
 };
 
 export function ProductsStatCards({ activeTab }: ProductsStatCardsProps) {
-  const {
-    data: analyticsData,
-    error: analyticsError,
-    isLoading: isAnalyticsLoading,
-  } = useWebsiteAnalytics();
-  const {
-    data: inventoryStats,
-    error: inventoryError,
-    isLoading: isInventoryLoading,
-  } = useInventoryStats();
-  const { merchant } = useMerchant();
-  const { colors } = useTheme();
+  return activeTab === 'on_website' ? (
+    <WebsiteStatCards />
+  ) : (
+    <InventoryStatCards />
+  );
+}
 
-  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
-
-  const renderCard = (title: string, value: string, subtitle?: string) => (
+function ProductStatCard({
+  colors,
+  subtitle,
+  title,
+  value,
+}: {
+  colors: ThemeColors;
+  subtitle?: string;
+  title: string;
+  value: string;
+}) {
+  return (
     <View
       style={[
         styles.card,
@@ -57,54 +61,80 @@ export function ProductsStatCards({ activeTab }: ProductsStatCardsProps) {
       ) : null}
     </View>
   );
+}
 
-  if (activeTab === 'on_website') {
-    if (isAnalyticsLoading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator
-            accessibilityLabel="Loading product stats"
-            color={colors.primary}
-          />
-        </View>
-      );
-    }
+function WebsiteStatCards() {
+  const {
+    data: analyticsData,
+    error: analyticsError,
+    isLoading: isAnalyticsLoading,
+  } = useWebsiteAnalytics();
+  const { colors } = useTheme();
 
-    if (analyticsError) {
-      return (
-        <View style={styles.container}>
-          {renderCard('Website Stats', 'Unavailable', 'Try again later')}
-        </View>
-      );
-    }
-
-    const { bestSeller, mostSearched, topConverting } =
-      analyticsData?.summary || {};
-
+  if (isAnalyticsLoading) {
     return (
-      <View style={styles.container}>
-        {renderCard(
-          'Best Seller',
-          bestSeller ? bestSeller.name : '-',
-          bestSeller ? `${bestSeller.units_sold} sold` : ''
-        )}
-        {renderCard(
-          'Most Searched',
-          mostSearched ? mostSearched.query : '-',
-          mostSearched ? `${mostSearched.count} searches` : ''
-        )}
-        {renderCard(
-          'Top Converting',
-          topConverting ? topConverting.name : '-',
-          topConverting
-            ? `${topConverting.conversionRate.toFixed(1)}% rate`
-            : ''
-        )}
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator
+          accessibilityLabel="Loading product stats"
+          color={colors.primary}
+        />
       </View>
     );
   }
 
-  // In Stock tab
+  if (analyticsError) {
+    return (
+      <View style={styles.container}>
+        <ProductStatCard
+          colors={colors}
+          title="Website Stats"
+          value="Unavailable"
+          subtitle="Try again later"
+        />
+      </View>
+    );
+  }
+
+  const { bestSeller, mostSearched, topConverting } =
+    analyticsData?.summary || {};
+
+  return (
+    <View style={styles.container}>
+      <ProductStatCard
+        colors={colors}
+        title="Best Seller"
+        value={bestSeller ? bestSeller.name : '-'}
+        subtitle={bestSeller ? `${bestSeller.units_sold} sold` : ''}
+      />
+      <ProductStatCard
+        colors={colors}
+        title="Most Searched"
+        value={mostSearched ? mostSearched.query : '-'}
+        subtitle={mostSearched ? `${mostSearched.count} searches` : ''}
+      />
+      <ProductStatCard
+        colors={colors}
+        title="Top Converting"
+        value={topConverting ? topConverting.name : '-'}
+        subtitle={
+          topConverting ? `${topConverting.conversionRate.toFixed(1)}% rate` : ''
+        }
+      />
+    </View>
+  );
+}
+
+function InventoryStatCards() {
+  const {
+    data: inventoryStats,
+    error: inventoryError,
+    isLoading: isInventoryLoading,
+  } = useInventoryStats();
+  const { merchant } = useMerchant();
+  const { colors } = useTheme();
+
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
+
   if (isInventoryLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -119,21 +149,34 @@ export function ProductsStatCards({ activeTab }: ProductsStatCardsProps) {
   if (inventoryError) {
     return (
       <View style={styles.container}>
-        {renderCard('Inventory Stats', 'Unavailable', 'Try again later')}
+        <ProductStatCard
+          colors={colors}
+          title="Inventory Stats"
+          value="Unavailable"
+          subtitle="Try again later"
+        />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {renderCard(
-        'Total Value',
-        formatLargePrice(inventoryStats?.inventoryValue || 0, currencySymbol)
-      )}
-      {renderCard(
-        'Stock Cost',
-        formatLargePrice(inventoryStats?.inventoryCost || 0, currencySymbol)
-      )}
+      <ProductStatCard
+        colors={colors}
+        title="Total Value"
+        value={formatLargePrice(
+          inventoryStats?.inventoryValue || 0,
+          currencySymbol
+        )}
+      />
+      <ProductStatCard
+        colors={colors}
+        title="Stock Cost"
+        value={formatLargePrice(
+          inventoryStats?.inventoryCost || 0,
+          currencySymbol
+        )}
+      />
     </View>
   );
 }

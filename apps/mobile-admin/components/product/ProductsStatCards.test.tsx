@@ -17,6 +17,7 @@ vi.mock('@/hooks/useMerchant', () => ({
 
 describe('ProductsStatCards', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(useMerchant).mockReturnValue({
       merchant: { payout_currency: 'NGN' },
     } as unknown as ReturnType<typeof useMerchant>);
@@ -161,5 +162,19 @@ describe('ProductsStatCards', () => {
 
     screen.getByText('£50k');
     screen.getByText('£30k');
+  });
+
+  it('does not fetch inventory stats while the website stats tab is active', () => {
+    render(<ProductsStatCards activeTab="on_website" />);
+
+    expect(useWebsiteAnalytics).toHaveBeenCalledTimes(1);
+    expect(useInventoryStats).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch website analytics while the inventory tab is active', () => {
+    render(<ProductsStatCards activeTab="in_stock" />);
+
+    expect(useInventoryStats).toHaveBeenCalledTimes(1);
+    expect(useWebsiteAnalytics).not.toHaveBeenCalled();
   });
 });

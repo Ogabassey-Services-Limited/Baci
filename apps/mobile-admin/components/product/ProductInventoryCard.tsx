@@ -17,7 +17,6 @@ interface ProductInventoryCardProps {
     | 'off'
     | 'serialized_strict'
     | 'serialized_then_unlimited'
-    | 'inherit'
     | null;
   onOpenRestockModal?: () => void;
   onOpenUnitsModal?: () => void;

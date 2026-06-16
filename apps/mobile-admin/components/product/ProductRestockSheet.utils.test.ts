@@ -32,11 +32,10 @@ describe('ProductRestockSheet utils', () => {
     ).toEqual([{ imei: '123456789012345', source: 'merchant_stock' }]);
   });
 
-  it('detects malformed IMEIs', () => {
-    expect(findInvalidImeis(['123456789012345', 'abc', '123'])).toEqual([
-      'abc',
-      '123',
-    ]);
+  it('detects malformed IMEIs by format and Luhn check digit', () => {
+    expect(
+      findInvalidImeis(['490154203237518', '123456789012345', 'abc', '123'])
+    ).toEqual(['123456789012345', 'abc', '123']);
   });
 
   it('builds typed restock payloads with trimmed optional notes', () => {

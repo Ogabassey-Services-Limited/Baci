@@ -93,7 +93,7 @@ export function ProductRestockOptions({
         </View>
       </View>
 
-      {branches.length > 1 ? (
+      {branches.length > 0 ? (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Assign to Branch

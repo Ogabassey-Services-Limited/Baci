@@ -168,7 +168,7 @@ describe('ProductRestockSheet', () => {
     // Type 2 valid IMEIs
     const textInput = screen.getByLabelText('Identifiers text list');
     fireEvent.change(textInput, {
-      target: { value: '123456789012345\n987654321098765' },
+      target: { value: '490154203237518\n356938035643809' },
     });
 
     // Select branch B
@@ -187,8 +187,8 @@ describe('ProductRestockSheet', () => {
       productId: 'product-1',
       variantId: 'variant-1',
       units: [
-        { imei: '123456789012345', source: 'dropship', notes: undefined },
-        { imei: '987654321098765', source: 'dropship', notes: undefined },
+        { imei: '490154203237518', source: 'dropship', notes: undefined },
+        { imei: '356938035643809', source: 'dropship', notes: undefined },
       ],
       branchId: 'branch-2',
     });
@@ -272,7 +272,7 @@ describe('ProductRestockSheet', () => {
     );
 
     fireEvent.change(screen.getByLabelText('Identifiers text list'), {
-      target: { value: '123456789012345' },
+      target: { value: '490154203237518' },
     });
     fireEvent.click(screen.getByLabelText('Submit restock'));
 

@@ -14,7 +14,6 @@ interface ProductStockControlsProps {
     | 'off'
     | 'serialized_strict'
     | 'serialized_then_unlimited'
-    | 'inherit'
     | null;
 }
 
