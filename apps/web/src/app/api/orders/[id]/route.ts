@@ -5,7 +5,14 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
+import { logger } from '@/lib/logger';
 import { ORDER_COLUMNS, ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import {
+  ensurePaidOrderInventoryConfirmed,
+  rollbackOrderStatusAfterInventoryConfirmationFailure,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
+import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
 import {
   claimOrderShipmentBooking,
@@ -37,6 +44,10 @@ function shouldReleaseBookingLock(
     error instanceof OrderShipmentBookingError &&
     RELEASEABLE_BOOKING_ERROR_CODES.has(error.code)
   );
+}
+
+function isPaidStatusUpdate(value: unknown): value is 'paid' | 'bnpl_approved' {
+  return value === 'paid' || value === 'bnpl_approved';
 }
 
 // GET /api/orders/[id] - Get a single order
@@ -122,6 +133,7 @@ export async function PATCH(
 
     const supabase = auth.supabase;
     let shipmentBookingLockToken: string | null = null;
+    let inventoryConfirmedBeforeOrderUpdate = false;
 
     // Verify order belongs to this merchant and get current status
     const { data: existingOrder, error: checkError } = await supabase
@@ -203,13 +215,98 @@ export async function PATCH(
       updates.shipping_address = shipping_address;
     }
 
-    if (
+    const needsProviderShipmentBooking =
       shipping_status === 'shipped' &&
       !existingOrder.tracking_number &&
       !existingOrder.shipment_id &&
       isShippingProviderCode(existingOrder.shipping_provider) &&
-      existingOrder.selected_quote_id
+      Boolean(existingOrder.selected_quote_id);
+
+    if (
+      isPaidStatusUpdate(updates.payment_status) &&
+      needsProviderShipmentBooking
     ) {
+      const paidStatus = updates.payment_status;
+      const { error: paidUpdateError } = await supabase
+        .from('orders')
+        .update({ payment_status: paidStatus })
+        .eq('id', id)
+        .eq('merchant_id', merchantId)
+        .select('id')
+        .single();
+
+      if (paidUpdateError) {
+        logger.error({
+          message:
+            'PATCH orders/[id] failed to persist paid status before inventory confirmation',
+          orderId: id,
+          error: paidUpdateError,
+        });
+        return NextResponse.json(
+          { error: 'Failed to update order' },
+          { status: 500 }
+        );
+      }
+
+      try {
+        await ensurePaidOrderInventoryConfirmed(supabase, merchantId, id);
+        inventoryConfirmedBeforeOrderUpdate = true;
+        delete updates.payment_status;
+      } catch (inventoryError) {
+        try {
+          await rollbackOrderStatusAfterInventoryConfirmationFailure(
+            supabase,
+            merchantId,
+            id,
+            {
+              payment_status: existingOrder.payment_status,
+              shipping_status: existingOrder.shipping_status,
+            }
+          );
+        } catch (rollbackError) {
+          logger.error({
+            message:
+              'PATCH orders/[id] failed to rollback paid status after pre-shipment inventory confirmation failure',
+            orderId: id,
+            error: rollbackError,
+          });
+          await fileInventoryConfirmationFailureReview({
+            gatewayReference: null,
+            merchantId,
+            metadata: {
+              inventoryError:
+                inventoryError instanceof Error
+                  ? inventoryError.message
+                  : inventoryError,
+              rollbackError:
+                rollbackError instanceof Error
+                  ? rollbackError.message
+                  : rollbackError,
+              source: 'merchant_paid_shipment_status_update',
+            },
+            orderId: id,
+            reason:
+              'Order status update reached paid before shipment booking, but serialized inventory confirmation and status rollback both failed.',
+            transactionId: null,
+          });
+        }
+
+        logger.error({
+          message:
+            'PATCH orders/[id] failed to confirm inventory before shipment booking',
+          orderId: id,
+          error: inventoryError,
+        });
+        const payload =
+          buildInventoryConfirmationFailurePayload(inventoryError);
+        return NextResponse.json(payload, {
+          status:
+            payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+        });
+      }
+    }
+
+    if (needsProviderShipmentBooking) {
       const bookingClaim = await claimOrderShipmentBooking(
         supabase,
         merchantId,
@@ -292,6 +389,65 @@ export async function PATCH(
         { error: 'Failed to update order' },
         { status: 500 }
       );
+    }
+
+    if (
+      isPaidStatusUpdate(updates.payment_status) &&
+      !inventoryConfirmedBeforeOrderUpdate
+    ) {
+      try {
+        await ensurePaidOrderInventoryConfirmed(supabase, merchantId, id);
+      } catch (inventoryError) {
+        try {
+          await rollbackOrderStatusAfterInventoryConfirmationFailure(
+            supabase,
+            merchantId,
+            id,
+            {
+              payment_status: existingOrder.payment_status,
+              shipping_status: existingOrder.shipping_status,
+            }
+          );
+        } catch (rollbackError) {
+          logger.error({
+            message:
+              'PATCH orders/[id] failed to rollback order status after inventory confirmation failure',
+            orderId: id,
+            error: rollbackError,
+          });
+          await fileInventoryConfirmationFailureReview({
+            gatewayReference: null,
+            merchantId,
+            metadata: {
+              inventoryError:
+                inventoryError instanceof Error
+                  ? inventoryError.message
+                  : inventoryError,
+              rollbackError:
+                rollbackError instanceof Error
+                  ? rollbackError.message
+                  : rollbackError,
+              source: 'merchant_order_status_update',
+            },
+            orderId: id,
+            reason:
+              'Order status update reached paid state, but serialized inventory confirmation and status rollback both failed.',
+            transactionId: null,
+          });
+        }
+
+        logger.error({
+          message: 'PATCH orders/[id] failed to confirm inventory',
+          orderId: id,
+          error: inventoryError,
+        });
+        const payload =
+          buildInventoryConfirmationFailurePayload(inventoryError);
+        return NextResponse.json(payload, {
+          status:
+            payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+        });
+      }
     }
 
     // Send push notification if shipping status changed

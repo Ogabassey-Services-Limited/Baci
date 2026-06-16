@@ -21,6 +21,14 @@ function mapReuseOrderError(
     return { status: 403, error: 'Unauthorized' };
   }
 
+  if (message === 'serialized_inventory_unavailable') {
+    return {
+      status: 409,
+      error: 'Some items in your order are out of stock',
+      code: 'serialized_inventory_unavailable',
+    };
+  }
+
   if (message === 'order_already_paid' || message === 'order_not_reusable') {
     return { status: 409, error: 'Order is no longer reusable' };
   }
@@ -40,6 +48,7 @@ function isExpectedReuseOrderError(
       'merchant_mismatch',
       'order_already_paid',
       'order_not_reusable',
+      'serialized_inventory_unavailable',
     ].includes(error.message || '')
   );
 }
@@ -109,7 +118,10 @@ export async function POST(request: NextRequest) {
       });
     }
     return NextResponse.json(
-      { error: mappedError.error },
+      {
+        error: mappedError.error,
+        ...(mappedError.code ? { code: mappedError.code } : {}),
+      },
       { status: mappedError.status }
     );
   }

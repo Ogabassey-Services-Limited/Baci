@@ -20,6 +20,8 @@ import {
   type OrderConversionData,
   sendPurchaseConversion,
 } from '@/lib/offline-conversions';
+import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
@@ -203,7 +205,7 @@ export async function POST(request: NextRequest) {
 
     // Update order status if order_id exists
     if (transaction.order_id) {
-      const { data: order, error: orderError } = await supabase
+      const response = await supabase
         .from('orders')
         .update({
           payment_status: 'paid',
@@ -212,11 +214,45 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', transaction.order_id)
         .select(
-          'id, merchant_id, order_number, customer_name, customer_email, customer_phone, customer_id, subtotal, shipping_fee, total, shipping_address, currency, shipping_status, cancelled_at, ad_tracking, order_items(id, product_id, name, quantity, price)'
+          'id, order_number, merchant_id, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal, variant_name)'
         )
         .single();
 
-      if (orderError) {
+      const orderError = response.error;
+      const order = response.data as {
+        id: string;
+        order_number: string;
+        merchant_id: string;
+        customer_id: string | null;
+        total: string;
+        subtotal: string;
+        shipping_fee: string;
+        customer_name: string;
+        customer_email: string;
+        customer_phone: string | null;
+        shipping_address: {
+          address?: string;
+          city?: string;
+          state?: string;
+        } | null;
+        currency: string;
+        payment_status: string;
+        shipping_status: string;
+        cancelled_at: string | null;
+        updated_at: string;
+        ad_tracking: Record<string, unknown> | null;
+        order_items: Array<{
+          id: string;
+          product_id: string;
+          name: string;
+          price: number;
+          quantity: number;
+          subtotal: number;
+          variant_name: string | null;
+        }>;
+      } | null;
+
+      if (orderError || !order) {
         logger.error({
           message: 'Failed to update order',
           orderId: transaction.order_id,
@@ -239,6 +275,52 @@ export async function POST(request: NextRequest) {
           message: 'Payment recorded; order was cancelled, filed for review',
         });
       } else {
+        try {
+          await ensurePaidOrderInventoryConfirmed(
+            supabase,
+            transaction.merchant_id,
+            transaction.order_id
+          );
+        } catch (inventoryError) {
+          const inventoryErrorMessage =
+            inventoryError instanceof Error
+              ? inventoryError.message
+              : 'Inventory confirmation failed';
+
+          logger.error({
+            message: 'Juicyway webhook failed to confirm inventory',
+            orderId: transaction.order_id,
+            error: inventoryError,
+          });
+          try {
+            await fileInventoryConfirmationFailureReview({
+              gatewayReference: reference,
+              merchantId: transaction.merchant_id,
+              metadata: {
+                gateway: 'juicyway',
+                inventoryError: inventoryErrorMessage,
+              },
+              orderId: transaction.order_id,
+              reason:
+                'Juicyway payment was captured but serialized inventory confirmation failed',
+              transactionId: transaction.id,
+            });
+          } catch (reviewError) {
+            logger.error({
+              message:
+                'Juicyway webhook failed to file inventory confirmation review',
+              orderId: transaction.order_id,
+              error: reviewError,
+            });
+          }
+
+          return NextResponse.json({
+            success: true,
+            message:
+              'Payment recorded; inventory confirmation failed and was filed for review',
+          });
+        }
+
         logger.info({
           message: 'Order updated successfully via Juicyway',
           orderId: transaction.order_id,

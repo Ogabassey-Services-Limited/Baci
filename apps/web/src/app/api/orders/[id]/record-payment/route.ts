@@ -14,9 +14,15 @@ import {
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import {
+  ensurePaidOrderInventoryConfirmed,
+  rollbackOrderStatusAfterInventoryConfirmationFailure,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
+import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 import { recordPaymentBodySchema } from '@/schemas/record-payment';
@@ -448,6 +454,113 @@ export async function POST(
 
     // Paid-order side effects (only when NOT cancelled).
     if (isFullyPaid) {
+      try {
+        await ensurePaidOrderInventoryConfirmed(supabase, merchantId, id);
+      } catch (inventoryError) {
+        let cleanupFailed = false;
+        let rollbackFailed = false;
+
+        try {
+          await rollbackOrderStatusAfterInventoryConfirmationFailure(
+            supabase,
+            merchantId,
+            id,
+            {
+              payment_status: order.payment_status ?? null,
+              shipping_status: order.shipping_status ?? null,
+            }
+          );
+        } catch (rollbackError) {
+          cleanupFailed = true;
+          rollbackFailed = true;
+          logger.error({
+            message:
+              'RecordPayment failed to rollback order status after inventory confirmation failure',
+            orderId: id,
+            error: rollbackError,
+          });
+          await fileInventoryConfirmationFailureReview({
+            gatewayReference: null,
+            merchantId,
+            metadata: {
+              inventoryError:
+                inventoryError instanceof Error
+                  ? inventoryError.message
+                  : inventoryError,
+              rollbackError:
+                rollbackError instanceof Error
+                  ? rollbackError.message
+                  : rollbackError,
+              source: 'record_payment_inventory_confirmation_rollback',
+            },
+            orderId: id,
+            reason:
+              'Manual payment reached paid state, but serialized inventory confirmation and status rollback both failed.',
+            transactionId: createdTransaction?.id ?? null,
+          });
+        }
+
+        if (createdTransaction?.id && !rollbackFailed) {
+          const { error: deleteTransactionError } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('id', createdTransaction.id)
+            .eq('merchant_id', merchantId);
+
+          if (deleteTransactionError) {
+            cleanupFailed = true;
+            logger.error({
+              message:
+                'RecordPayment failed to delete manual transaction after inventory confirmation failure',
+              orderId: id,
+              transactionId: createdTransaction.id,
+              error: deleteTransactionError,
+            });
+            await fileInventoryConfirmationFailureReview({
+              gatewayReference: null,
+              merchantId,
+              metadata: {
+                deleteTransactionError,
+                inventoryError:
+                  inventoryError instanceof Error
+                    ? inventoryError.message
+                    : inventoryError,
+                source:
+                  'record_payment_inventory_confirmation_transaction_delete',
+              },
+              orderId: id,
+              reason:
+                'Manual payment inventory confirmation failed, but deleting the completed manual transaction also failed.',
+              transactionId: createdTransaction.id,
+            });
+          }
+        }
+
+        logger.error({
+          message: 'RecordPayment failed to confirm inventory',
+          orderId: id,
+          cleanupFailed,
+          error: inventoryError,
+        });
+
+        if (cleanupFailed) {
+          return NextResponse.json(
+            {
+              code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
+              error: 'Inventory confirmation cleanup failed',
+            },
+            { status: 500 }
+          );
+        }
+
+        const payload =
+          buildInventoryConfirmationFailurePayload(inventoryError);
+        return NextResponse.json(payload, {
+          status:
+            payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+        });
+      }
+
       logger.info({ message: 'RecordPayment order fully paid', orderId: id });
 
       // SEND CONFIRMATION EMAIL (If fully paid)

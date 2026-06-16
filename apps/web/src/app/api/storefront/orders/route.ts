@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { sanitizePublicOrder } from '@/lib/public-fulfillment-sanitizer';
 import {
   getCurrentDocumentKind,
   isReceiptEligible,
@@ -217,7 +218,9 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ orders: transformedOrders });
+    return NextResponse.json({
+      orders: sanitizePublicOrder(transformedOrders),
+    });
   } catch (error) {
     console.error('Orders API error:', error);
     return NextResponse.json(

@@ -174,4 +174,61 @@ describe('ProductInventoryCard', () => {
     expect(screen.queryByText('Stock Management')).not.toBeInTheDocument();
     expect(screen.queryByText('Low Stock Threshold')).not.toBeInTheDocument();
   });
+
+  it('renders serialized layout when tracking policy is serialized_strict', () => {
+    const onOpenRestockModal = vi.fn();
+    const onOpenUnitsModal = vi.fn();
+
+    render(
+      <ProductInventoryCard
+        colors={colors}
+        fulfillmentCount={0}
+        lowStockThreshold={3}
+        manageStock={true}
+        onLowStockThresholdChange={vi.fn()}
+        onOpenFulfillmentModal={vi.fn()}
+        onStockAdjust={vi.fn()}
+        onToggleManageStock={vi.fn()}
+        stockQuantity={15}
+        inventoryTrackingPolicy="serialized_strict"
+        onOpenRestockModal={onOpenRestockModal}
+        onOpenUnitsModal={onOpenUnitsModal}
+      />
+    );
+
+    // Title should be Serialized Inventory
+    expect(screen.getByText('Serialized Inventory')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Track stock via individual IMEI or Serial Number units.'
+      )
+    ).toBeInTheDocument();
+
+    // Stock count should be displayed as read-only available
+    expect(screen.getByText('15 Available')).toBeInTheDocument();
+    expect(screen.getByText('Tracked units in stock')).toBeInTheDocument();
+
+    // Restock and View Units buttons should be shown and trigger actions
+    const restockButton = screen.getByRole('button', {
+      name: 'Open restock sheet',
+    });
+    const unitsButton = screen.getByRole('button', {
+      name: 'Open view edit units sheet',
+    });
+
+    expect(restockButton).toBeInTheDocument();
+    expect(unitsButton).toBeInTheDocument();
+
+    fireEvent.click(restockButton);
+    expect(onOpenRestockModal).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(unitsButton);
+    expect(onOpenUnitsModal).toHaveBeenCalledTimes(1);
+
+    // Quantity should be read-only in ProductStockControls (Quantity label change + textbox hidden)
+    expect(screen.getByText('Quantity (Read-only)')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('textbox', { name: 'Stock quantity' })
+    ).not.toBeInTheDocument();
+  });
 });

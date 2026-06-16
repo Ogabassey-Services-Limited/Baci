@@ -2,17 +2,7 @@ import type { ThemeColors } from '@/constants/theme';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
 import { formatProductCondition } from '@/lib/product-condition';
 import type { EditableProductVariant } from '@/lib/product-variant-form';
-
-export function getCurrencySymbol(currencyCode: string | null | undefined) {
-  const symbols: Record<string, string> = {
-    EUR: '€',
-    GBP: '£',
-    NGN: '₦',
-    USD: '$',
-  };
-
-  return symbols[currencyCode || 'NGN'] || '₦';
-}
+export { getCurrencySymbol } from './product.shared';
 
 export function getVariantSummaryLabel(
   variant: EditableProductVariant,
