@@ -14,17 +14,25 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { buildCsrfHeaders } from '@/lib/csrf';
 
-interface DiscountResult {
+export interface DiscountResult {
   valid: boolean;
   code: string;
   discount_type: 'percentage' | 'fixed';
   discount_value: number;
+  // Server-computed amount — the UI source of truth so caps + rounding stay
+  // aligned with the order route and the redemption RPC.
+  discount_amount?: number;
   minimum_order?: number;
   description?: string;
   error?: string;
 }
 
-interface DiscountCodeInputProps {
+interface DiscountTargeting {
+  productIds?: string[];
+  categoryIds?: string[];
+}
+
+interface DiscountCodeInputProps extends DiscountTargeting {
   merchantId: string;
   cartTotal: number;
   onApply: (discount: DiscountResult) => void;
@@ -36,6 +44,7 @@ async function validateDiscountCode(
   merchantId: string,
   code: string,
   cartTotal: number,
+  targeting: DiscountTargeting,
   retry = false
 ): Promise<DiscountResult> {
   // If retry, refresh CSRF token first
@@ -59,6 +68,12 @@ async function validateDiscountCode(
       merchant_id: merchantId,
       code: code.trim().toUpperCase(),
       cart_total: cartTotal,
+      ...(targeting.productIds?.length
+        ? { product_ids: targeting.productIds }
+        : {}),
+      ...(targeting.categoryIds?.length
+        ? { category_ids: targeting.categoryIds }
+        : {}),
     }),
   });
 
@@ -66,7 +81,7 @@ async function validateDiscountCode(
   if (response.status === 403 && !retry) {
     const errorData = await response.json();
     if (errorData.error === 'Invalid CSRF token') {
-      return validateDiscountCode(merchantId, code, cartTotal, true);
+      return validateDiscountCode(merchantId, code, cartTotal, targeting, true);
     }
 
     return errorData;
@@ -78,10 +93,11 @@ async function validateDiscountCode(
 async function requestDiscountValidation(
   merchantId: string,
   code: string,
-  cartTotal: number
+  cartTotal: number,
+  targeting: DiscountTargeting
 ): Promise<DiscountResult | null> {
   try {
-    return await validateDiscountCode(merchantId, code, cartTotal);
+    return await validateDiscountCode(merchantId, code, cartTotal, targeting);
   } catch (err) {
     console.error('Error validating discount code:', err);
     return null;
@@ -94,6 +110,8 @@ export function DiscountCodeInput({
   onApply,
   onRemove,
   appliedDiscount,
+  productIds,
+  categoryIds,
 }: DiscountCodeInputProps) {
   const { toast } = useToast();
   const [code, setCode] = useState('');
@@ -109,7 +127,15 @@ export function DiscountCodeInput({
     setLoading(true);
     setError(null);
 
-    const result = await requestDiscountValidation(merchantId, code, cartTotal);
+    const result = await requestDiscountValidation(
+      merchantId,
+      code,
+      cartTotal,
+      {
+        productIds,
+        categoryIds,
+      }
+    );
     setLoading(false);
 
     if (!result) {

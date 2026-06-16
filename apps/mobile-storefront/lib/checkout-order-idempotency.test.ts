@@ -78,6 +78,21 @@ describe('checkout-order-idempotency', () => {
     expect(second).toBe(first);
   });
 
+  it('distinguishes two different discount codes with the same amount', () => {
+    const codeA = buildMobileCheckoutFingerprint({
+      ...baseInput,
+      discountAmount: 0,
+      discountCode: 'SAVE10',
+    });
+    const codeB = buildMobileCheckoutFingerprint({
+      ...baseInput,
+      discountAmount: 0,
+      discountCode: 'WELCOME',
+    });
+
+    expect(codeA).not.toBe(codeB);
+  });
+
   it('builds the same fingerprint for reordered duplicate product and variant lines', () => {
     const blueLine = {
       assuranceFee: 100,

@@ -41,6 +41,9 @@ export const CreateOrderRequestSchema = z.object({
   expected_total: z.number().min(0).optional(),
   client_total: z.number().min(0).optional(),
   discount_amount: z.number().min(0).optional(),
+  // Storefront discount code (human code string). Only the code is sent; the
+  // server recomputes + validates the amount. Raw discount_amount stays 0.
+  discount_code: z.string().trim().min(1).max(50).optional(),
   payment_method: z.string().min(1),
   shipping_address: z.object({
     firstName: z.string(),

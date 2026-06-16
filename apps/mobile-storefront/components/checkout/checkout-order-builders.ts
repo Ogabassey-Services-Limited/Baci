@@ -27,6 +27,7 @@ interface BuildOrderRequestParams {
   customerName: string;
   customerPhone: string;
   deliveryMethod: DeliveryMethod;
+  discountCode?: string | null;
   itemsSnapshot: CartItem[];
   paymentMethodForOrder: string;
   selectedQuote: ShippingQuote | undefined;
@@ -121,6 +122,7 @@ export function buildCheckoutOrderRequest({
   customerName,
   customerPhone,
   deliveryMethod,
+  discountCode,
   itemsSnapshot,
   paymentMethodForOrder,
   selectedQuote,
@@ -145,5 +147,7 @@ export function buildCheckoutOrderRequest({
     // Intentionally omit expected_total/client_total here: the web order API
     // derives and validates the final payable total at the tax boundary.
     source: 'mobile_app',
+    // Only the trusted code string; the route recomputes + validates the amount.
+    ...(discountCode ? { discount_code: discountCode } : {}),
   };
 }

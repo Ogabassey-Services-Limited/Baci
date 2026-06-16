@@ -5,10 +5,10 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
 import { CheckoutCryptoPaymentModal } from '@/components/checkout/CheckoutCryptoPaymentModal';
 import { CheckoutHeader } from '@/components/checkout/CheckoutHeader';
-import { CheckoutLocationPickers } from '@/components/checkout/pickers/CheckoutLocationPickers';
 import { CheckoutStepContent } from '@/components/checkout/CheckoutStepContent';
 import {
   type CheckoutStep,
@@ -19,16 +19,17 @@ import { PatternedBackground } from '@/components/storefront/PatternedBackground
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { useShallow } from 'zustand/react/shallow';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useCartStore } from '@/stores/cart-store';
+import { CheckoutLocationPickerOverlays } from './CheckoutLocationPickerOverlays';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
 import { calculateCheckoutAssuranceFee } from './checkout-order-builders';
 import {
   CHECKOUT_MERCHANT_ID,
   CHECKOUT_MERCHANT_SLUG,
 } from './checkout-screen.constants';
+import { type AppliedDiscount, DiscountCodeInput } from './DiscountCodeInput';
 import { useCheckoutAddressState } from './use-checkout-address-state';
 import { useCheckoutCryptoPayment } from './use-checkout-crypto-payment';
 import { useCheckoutCtaAnimation } from './use-checkout-cta-animation';
@@ -53,6 +54,8 @@ export function CheckoutScreenView() {
 
   const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [appliedDiscount, setAppliedDiscount] =
+    React.useState<AppliedDiscount | null>(null);
   const isOrderInFlight = useRef(false);
   const mobileCheckoutIdempotencyRef =
     useRef<MobileCheckoutIdempotencyState | null>(null);
@@ -76,24 +79,12 @@ export function CheckoutScreenView() {
   } = addressState;
   const { handleSubmit, setValue } = form;
   const {
-    citySearch,
-    citySearchFocused,
     currentShippingQuoteContextKey,
     deliveryFee,
     deliveryMethod,
-    handleSelectCity,
-    handleSelectState,
     isLoadingQuotes,
     resolvedShippingQuoteContextKey,
     selectedQuote,
-    setCitySearch,
-    setCitySearchFocused,
-    setShowCityPicker,
-    setShowStatePicker,
-    shippingCities,
-    shippingStates,
-    showCityPicker,
-    showStatePicker,
   } = shipping;
   const formContentPaddingBottom = 116 + insets.bottom;
   const {
@@ -151,6 +142,7 @@ export function CheckoutScreenView() {
 
   const { handleContinue, handlePlaceOrder } = useCheckoutStepActions({
     accountPassword,
+    appliedDiscountCode: appliedDiscount?.code ?? null,
     availablePaymentMethods,
     clearCart,
     currentShippingQuoteContextKey,
@@ -230,10 +222,24 @@ export function CheckoutScreenView() {
             subtotal={subtotal}
           />
 
+          {step === 'payment' ? (
+            <DiscountCodeInput
+              merchantId={CHECKOUT_MERCHANT_ID}
+              cartTotal={subtotal}
+              productIds={items.map((item) => item.product_id)}
+              appliedDiscount={appliedDiscount}
+              onApply={setAppliedDiscount}
+              onRemove={() => setAppliedDiscount(null)}
+            />
+          ) : null}
+
           <CheckoutBottomAction
             animatedCtaArrowStyle={animatedCtaArrowStyle}
             colors={colors}
-            displayTotal={displayTotal}
+            displayTotal={Math.max(
+              0,
+              displayTotal - (appliedDiscount?.discountAmount ?? 0)
+            )}
             insetsBottom={insets.bottom}
             isProcessing={isProcessing}
             itemCount={items.length}
@@ -241,30 +247,16 @@ export function CheckoutScreenView() {
             onPlaceOrder={handlePlaceOrder}
             selectedPayment={selectedPayment}
             step={step}
-            total={total}
+            total={Math.max(0, total - (appliedDiscount?.discountAmount ?? 0))}
           />
         </AppKeyboardContainer>
       </SafeAreaView>
 
-      <CheckoutLocationPickers
-        citySearch={citySearch}
-        citySearchFocused={citySearchFocused}
+      <CheckoutLocationPickerOverlays
         colors={colors}
         isDark={isDark}
-        onChangeCitySearch={setCitySearch}
-        onCloseCityPicker={() => {
-          setShowCityPicker(false);
-          setCitySearch('');
-        }}
-        onCloseStatePicker={() => setShowStatePicker(false)}
-        onSelectCity={handleSelectCity}
-        onSelectState={handleSelectState}
-        onSetCitySearchFocused={setCitySearchFocused}
         removeClippedSubviews={Platform.OS === 'android'}
-        shippingCities={shippingCities}
-        shippingStates={shippingStates}
-        showCityPicker={showCityPicker}
-        showStatePicker={showStatePicker}
+        shipping={shipping}
         watchedCity={watchedCity}
         watchedState={watchedState}
       />

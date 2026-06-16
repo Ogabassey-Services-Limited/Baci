@@ -24,6 +24,30 @@ describe('orderCreateSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts an optional discount_code', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      discount_code: 'SAVE10',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an over-long discount_code', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      discount_code: 'X'.repeat(51),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a whitespace-only discount_code', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      discount_code: '   ',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('accepts a complete savings credit payload', () => {
     const result = orderCreateSchema.safeParse({
       ...validOrder,
