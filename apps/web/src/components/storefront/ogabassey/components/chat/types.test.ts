@@ -83,6 +83,20 @@ describe('types - ChatMessage type structure', () => {
     expect(messageWithAction.santaAction?.added).toBe(false);
   });
 
+  it('accepts a model message with multiple Santa actions', () => {
+    const santaActions: SantaCartAction[] = [
+      { productName: 'Samsung Galaxy S24', price: 450000, added: false },
+      { productName: 'iPhone 15', price: 600000, added: false },
+    ];
+    const messageWithActions: ChatMessage = {
+      role: 'model',
+      text: 'I found these products for you!',
+      santaActions,
+    };
+    expect(messageWithActions.santaActions).toHaveLength(2);
+    expect(messageWithActions.santaActions?.[1]?.productName).toBe('iPhone 15');
+  });
+
   it('santaAction can reflect added state', () => {
     const addedAction: SantaCartAction = {
       productName: 'iPhone 15',
