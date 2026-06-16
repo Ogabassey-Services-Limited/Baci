@@ -46,6 +46,8 @@ jobs:
               - 'tsconfig*.json'
               - 'biome.json'
               - '.github/workflows/deploy.yml'
+              - '.github/scripts/blog-smoke-check.mjs'
+              - '.github/scripts/cloudflare-purge-cache.mjs'
               - '.github/scripts/deploy-with-retry.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
               - '.npmrc'
@@ -109,7 +111,17 @@ jobs:
     timeout-minutes: 150
     env:
       BLOG_SMOKE_BASE_URL: ${{ vars.BLOG_SMOKE_BASE_URL || 'https://ogabassey.com' }}
+      BLOG_SMOKE_LISTING_ATTEMPTS: "6"
+      BLOG_SMOKE_LISTING_RETRY_DELAY_MS: "10000"
       BLOG_SMOKE_TAG: blog-posts
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+      CLOUDFLARE_ZONE_NAME: ${{ vars.CLOUDFLARE_ZONE_NAME || 'ogabassey.com' }}
+      CLOUDFLARE_PURGE_URLS: |
+        https://ogabassey.com/blog
+        https://ogabassey.com/blog/sitemap.xml
+        https://ogabassey.com/blog/news-sitemap.xml
+        https://ogabassey.com/api/blog/feed/ogabassey
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -136,111 +148,17 @@ jobs:
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
         run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --archive=tgz
-      - name: Prepare storefront blog smoke checker
-        run: |
-          cat > "${RUNNER_TEMP}/blog-smoke-check.mjs" <<'NODE'
-          const baseUrl = process.env.BLOG_SMOKE_BASE_URL;
-          const listUrl = new URL('/blog', baseUrl).toString();
-          const failureMarkers = [
-            'NEXT_HTTP_ERROR_FALLBACK;404',
-            '<title>Post Not Found</title>',
-          ];
-          const sampleSize = 2;
-          const timeoutMs = 30000;
-
-          async function fetchText(url) {
-            const response = await fetch(url, {
-              headers: {
-                accept: 'text/html,application/xhtml+xml',
-                // Verify crawler-visible HTML. Generic fetch clients can receive
-                // Next's pre-render transport, which intentionally has no anchors.
-                'user-agent': 'Googlebot/2.1 (+http://www.google.com/bot.html; baci-deploy-blog-smoke-check)',
-              },
-              signal: AbortSignal.timeout(timeoutMs),
-            });
-
-            if (!response.ok) {
-              throw new Error(`Smoke check request failed for ${url}: HTTP ${response.status}`);
-            }
-
-            return response.text();
-          }
-
-          function assertHealthy(url, html) {
-            const marker = failureMarkers.find((candidate) => html.includes(candidate));
-
-            if (marker) {
-              throw new Error(`Smoke check found stale 404 marker for ${url}: ${marker}`);
-            }
-          }
-
-          function getDetailUrls(listingHtml) {
-            const detailUrls = new Set();
-            const escapedBaseUrl = baseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const absoluteUrlPattern = new RegExp(
-              `${escapedBaseUrl}/blog/([a-z0-9][a-z0-9-]*)`,
-              'gi'
-            );
-            const relativeHrefPattern = /href="\/blog\/([a-z0-9][a-z0-9-]*)/gi;
-
-            for (const pattern of [absoluteUrlPattern, relativeHrefPattern]) {
-              for (const match of listingHtml.matchAll(pattern)) {
-                const slug = match[1]?.toLowerCase();
-
-                if (!slug || slug === 'feed' || slug === 'sitemap' || slug.endsWith('.xml')) {
-                  continue;
-                }
-
-                detailUrls.add(new URL(`/blog/${slug}`, baseUrl).toString());
-
-                if (detailUrls.size >= sampleSize) {
-                  return [...detailUrls];
-                }
-              }
-            }
-
-            return [...detailUrls];
-          }
-
-          async function main() {
-            // Warm-up: absorb cold-start cost before asserting (best-effort)
-            console.log('Warming up blog listing...');
-            try { await fetchText(listUrl); } catch {}
-
-            const listingHtml = await fetchText(listUrl);
-            assertHealthy(listUrl, listingHtml);
-
-            const detailUrls = getDetailUrls(listingHtml);
-
-            if (detailUrls.length === 0) {
-              throw new Error(`Smoke check could not find any blog detail URLs on ${listUrl}`);
-            }
-
-            // Warm up detail URLs in parallel (best-effort)
-            console.log(`Warming up ${detailUrls.length} blog detail URLs...`);
-            await Promise.allSettled(detailUrls.map((u) => fetchText(u)));
-
-            console.log(`Smoke checking ${detailUrls.length} blog detail URLs from ${listUrl}`);
-
-            for (const detailUrl of detailUrls) {
-              const detailHtml = await fetchText(detailUrl);
-              assertHealthy(detailUrl, detailHtml);
-              console.log(`Verified ${detailUrl}`);
-            }
-          }
-
-          main().catch((error) => {
-            console.error(error instanceof Error ? error.message : error);
-            process.exit(1);
-          });
-          NODE
       - name: Smoke test storefront blog
         id: storefront-blog-smoke
         continue-on-error: true
-        run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
+        run: node .github/scripts/blog-smoke-check.mjs
       - name: Invalidate storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
         run: .github/scripts/run-pinned-vercel.sh cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --yes
+      - name: Purge Cloudflare storefront blog URLs
+        if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
+        continue-on-error: true
+        run: node .github/scripts/cloudflare-purge-cache.mjs
       - name: Wait for cache invalidation to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
         run: sleep 10
@@ -248,10 +166,14 @@ jobs:
         id: storefront-blog-smoke-after-invalidate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
         continue-on-error: true
-        run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
+        run: node .github/scripts/blog-smoke-check.mjs
       - name: Hard purge storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
         run: .github/scripts/run-pinned-vercel.sh cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --yes
+      - name: Purge Cloudflare storefront blog URLs after hard purge
+        if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
+        continue-on-error: true
+        run: node .github/scripts/cloudflare-purge-cache.mjs
       - name: Wait for cache purge to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
         run: sleep 10
@@ -259,7 +181,7 @@ jobs:
         id: storefront-blog-smoke-after-delete
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
         continue-on-error: true
-        run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
+        run: node .github/scripts/blog-smoke-check.mjs
       - name: Fail production deploy when storefront blog is still unhealthy
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' && steps.storefront-blog-smoke-after-delete.outcome == 'failure' }}
         run: |
