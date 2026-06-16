@@ -22,12 +22,16 @@ interface UIState {
     itemId?: string;
     productName: string;
     currentPrice: number;
+    brand?: string;
+    isNegotiable?: boolean;
   } | null;
   openNegotiation: (context: {
     type: 'single' | 'total';
     itemId?: string;
     productName: string;
     currentPrice: number;
+    brand?: string;
+    isNegotiable?: boolean;
   }) => void;
   closeNegotiation: () => void;
 }

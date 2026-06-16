@@ -1,11 +1,12 @@
 import type { ComponentProps } from 'react';
-import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
+import type AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 
 export type NegotiationStatus =
   | 'input'
   | 'processing'
   | 'success'
   | 'failed'
+  | 'final'
   | 'upload'
   | 'submitted';
 

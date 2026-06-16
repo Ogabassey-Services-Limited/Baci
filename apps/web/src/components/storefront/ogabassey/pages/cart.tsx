@@ -16,7 +16,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { isProductNegotiable } from '@baci/shared/lib';
 import { type CartItem, useCart } from '@/hooks/cart';
+import { isQuizVoucherCartItem } from '@/lib/checkout/cart-entitlement-sanitizer';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { asRoute } from '@/lib/routes';
@@ -58,6 +60,12 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
     useState<NegotiationState | null>(null);
   const _router = useRouter();
 
+  const hasNonNegotiableCartItem = cart.some(
+    (item) =>
+      !isQuizVoucherCartItem(item) &&
+      !isProductNegotiable({ brand: item.brand, name: item.name })
+  );
+
   // Calculate subtotal
 
   // Scroll to top on mount
@@ -81,6 +89,10 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
   };
 
   const openItemNegotiation = (item: CartItem) => {
+    if (!isProductNegotiable({ brand: item.brand, name: item.name })) {
+      return;
+    }
+
     const currentUnitPrice = item.negotiatedPrice || item.price;
     const currentTotal = currentUnitPrice * item.quantity;
 
@@ -94,6 +106,10 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
   };
 
   const openTotalNegotiation = () => {
+    if (hasNonNegotiableCartItem) {
+      return;
+    }
+
     setNegotiationState({
       isOpen: true,
       type: 'total',
@@ -326,7 +342,10 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                               {item.negotiatedPrice?.toLocaleString()}
                             </span>
                           </div>
-                        ) : (
+                        ) : isProductNegotiable({
+                            brand: item.brand,
+                            name: item.name,
+                          }) ? (
                           <button type="button"
                             onClick={() => openItemNegotiation(item)}
                             className="flex items-center gap-1.5 text-xs font-bold text-red-600 md:hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-red-200 active:bg-red-50 active:scale-95"
@@ -334,6 +353,11 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                             <HandCoins size={14} />
                             <span>Negotiate</span>
                           </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+                            <Check size={12} strokeWidth={3} />
+                            <span>Best price</span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -369,13 +393,15 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  <button type="button"
-                    onClick={openTotalNegotiation}
-                    className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
-                  >
-                    <Calculator size={18} className="text-red-600" />
-                    Negotiate Total
-                  </button>
+                  {!hasNonNegotiableCartItem && (
+                    <button type="button"
+                      onClick={openTotalNegotiation}
+                      className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
+                    >
+                      <Calculator size={18} className="text-red-600" />
+                      Negotiate Total
+                    </button>
+                  )}
 
                   <button type="button" className="w-full bg-red-600 md:hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-red-200 group active:scale-[0.98] active:shadow-none">
                     Proceed to Checkout

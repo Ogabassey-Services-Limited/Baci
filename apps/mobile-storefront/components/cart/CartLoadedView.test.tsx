@@ -82,6 +82,7 @@ function renderView(
     handleReturnHome: jest.fn(),
     handleQuantityChange: jest.fn(),
     handleRemoveItem: jest.fn(),
+    hasNonNegotiableCartItem: false,
     insetsTop: 16,
     isIdentityModalOpen: false,
     itemCount: 1,
@@ -143,6 +144,14 @@ describe('CartLoadedView', () => {
     );
 
     expect(onNegotiateTotal).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the cart-wide negotiate control when a non-negotiable item is present', () => {
+    renderView({ hasNonNegotiableCartItem: true });
+
+    expect(
+      screen.queryByRole('button', { name: 'Negotiate cart total' })
+    ).toBeNull();
   });
 
   it('delegates modal bulk negotiation separately from the footer action', () => {

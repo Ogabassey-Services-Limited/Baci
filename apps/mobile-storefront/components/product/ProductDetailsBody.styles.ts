@@ -96,6 +96,20 @@ export const productDetailsBodyStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  bestPriceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderRadius: RADIUS.lg,
+    marginBottom: 16,
+  },
+  bestPriceText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   divider: {
     height: 1,
     width: '100%',
