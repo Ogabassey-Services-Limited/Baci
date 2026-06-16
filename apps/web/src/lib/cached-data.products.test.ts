@@ -14,6 +14,10 @@ import {
   resetMockCreateClient,
 } from '@/lib/cached-data.test-utils';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
+import {
+  getPublicSerializedVariantSummariesByProductId,
+  type PublicSerializedVariantSummary,
+} from '@/lib/public-serialized-variant-summary';
 
 vi.mock('@/env', () => ({
   getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),
@@ -23,6 +27,27 @@ vi.mock('@/env', () => ({
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('react', () => ({ cache: vi.fn((fn) => fn) }));
+vi.mock('@/lib/public-serialized-variant-summary', () => ({
+  getPublicSerializedVariantSummariesByProductId: vi.fn(() =>
+    Promise.resolve([])
+  ),
+  getEffectiveInventoryTrackingPolicy: vi.fn((productPolicy, variantPolicy) => {
+    if (
+      variantPolicy === 'off' ||
+      variantPolicy === 'serialized_strict' ||
+      variantPolicy === 'serialized_then_unlimited'
+    ) {
+      return variantPolicy;
+    }
+    if (
+      productPolicy === 'serialized_strict' ||
+      productPolicy === 'serialized_then_unlimited'
+    ) {
+      return productPolicy;
+    }
+    return 'off';
+  }),
+}));
 vi.mock('@supabase/supabase-js', async () => {
   const { getMockCreateClient } = await import('@/lib/cached-data.test-utils');
   return {
@@ -302,6 +327,45 @@ describe('cached-data product query projections', () => {
         id: 'product-456',
         base_price: 500000,
         sale_price: null,
+      }),
+    ]);
+  });
+
+  it('getCachedProducts applies serialized-then-unlimited fallback to simple products', async () => {
+    harness.mockListResult.data = [
+      {
+        id: 'product-123',
+        manage_stock: true,
+        quantity: 0,
+        slug: 'iphone-16',
+        stock_quantity: 0,
+      },
+    ];
+    harness.mockListResult.error = null;
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+    vi.mocked(
+      getPublicSerializedVariantSummariesByProductId
+    ).mockResolvedValueOnce([
+      {
+        inventoryTrackingPolicy: 'serialized_then_unlimited',
+        productId: 'product-123',
+        publicAvailableUnits: 0,
+        variantId: null,
+      },
+    ] satisfies PublicSerializedVariantSummary[]);
+
+    await expect(getCachedProducts('merchant-123')).resolves.toEqual([
+      expect.objectContaining({
+        id: 'product-123',
+        inventory_tracking_policy: 'serialized_then_unlimited',
+        manage_stock: false,
+        quantity: 9999,
+        stock: 9999,
+        stock_quantity: 9999,
+        track_quantity: false,
       }),
     ]);
   });

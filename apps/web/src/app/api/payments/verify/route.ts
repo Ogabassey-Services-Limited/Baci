@@ -7,6 +7,7 @@ import {
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
@@ -311,6 +312,32 @@ async function verifyPaymentReference(reference: string) {
         order.order_number ||
         transaction.gateway_reference.slice(0, 8).toUpperCase(),
     });
+  }
+
+  if (transaction.order_id) {
+    try {
+      await ensurePaidOrderInventoryConfirmed(
+        supabase,
+        transaction.merchant_id,
+        transaction.order_id
+      );
+    } catch (inventoryError) {
+      logger.error({
+        message: 'Payment verify route failed to confirm inventory',
+        reference: parsedReference.data,
+        orderId: transaction.order_id,
+        error: inventoryError,
+      });
+      return NextResponse.json(
+        {
+          error:
+            inventoryError instanceof Error
+              ? inventoryError.message
+              : 'Inventory confirmation failed',
+        },
+        { status: 409 }
+      );
+    }
   }
 
   if (updatedTxn) {

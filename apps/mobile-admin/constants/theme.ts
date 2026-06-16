@@ -123,6 +123,7 @@ export const COLORS = { ...DARK_COLORS };
 // Keep text white on the accent to maintain readable contrast on the purple fill.
 export const AI_ACCENT_COLOR = '#8B5CF6';
 export const AI_TEXT_COLOR = '#FFFFFF';
+export const DEFAULT_TRANSLUCENT_PRIMARY = 'rgba(59,130,246,0.08)';
 
 export const SPACING = {
   xs: 4,

@@ -50,7 +50,7 @@ export async function fetchProducts(
       .gt('stock_quantity', 0)
       .lte('stock_quantity', 5);
   } else if (filters?.stockFilter === 'in_stock') {
-    query = query.or('manage_stock.eq.false,stock_quantity.gt.5');
+    query = query.eq('manage_stock', true).gt('stock_quantity', 0);
   }
 
   const { data, error, count } = await query;

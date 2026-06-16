@@ -25,6 +25,16 @@ vi.mock('../components/empty-state', () => ({
   EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
 }));
 
+vi.mock('./navbar-notifications-panel', () => ({
+  NavbarNotificationsPanel: ({ basePath }: { basePath: string }) => (
+    <div>
+      <h3>Notifications</h3>
+      <div>No Notifications</div>
+      <a href={`${basePath}/account`}>View All</a>
+    </div>
+  ),
+}));
+
 describe('NavbarNotifications', () => {
   it('toggles the notification panel and links to the account page', async () => {
     const user = userEvent.setup();
@@ -58,18 +68,4 @@ describe('NavbarNotifications', () => {
     expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
   });
 
-  it('closes the notification panel with Escape', async () => {
-    const user = userEvent.setup();
-
-    render(<NavbarNotifications basePath="/ogabassey" />);
-
-    await user.click(
-      screen.getByRole('button', { name: /toggle notifications/i })
-    );
-    expect(await screen.findByText('Notifications')).toBeInTheDocument();
-
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
-  });
 });

@@ -5,7 +5,13 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
+import { logger } from '@/lib/logger';
 import { ORDER_COLUMNS, ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import {
+  ensurePaidOrderInventoryConfirmed,
+  rollbackOrderStatusAfterInventoryConfirmationFailure,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
 import {
   claimOrderShipmentBooking,
@@ -292,6 +298,68 @@ export async function PATCH(
         { error: 'Failed to update order' },
         { status: 500 }
       );
+    }
+
+    if (
+      updates.payment_status === 'paid' ||
+      updates.payment_status === 'bnpl_approved'
+    ) {
+      try {
+        await ensurePaidOrderInventoryConfirmed(supabase, merchantId, id);
+      } catch (inventoryError) {
+        try {
+          await rollbackOrderStatusAfterInventoryConfirmationFailure(
+            supabase,
+            merchantId,
+            id,
+            {
+              payment_status: existingOrder.payment_status,
+              shipping_status: existingOrder.shipping_status,
+            }
+          );
+        } catch (rollbackError) {
+          logger.error({
+            message:
+              'PATCH orders/[id] failed to rollback order status after inventory confirmation failure',
+            orderId: id,
+            error: rollbackError,
+          });
+          await fileInventoryConfirmationFailureReview({
+            gatewayReference: null,
+            merchantId,
+            metadata: {
+              inventoryError:
+                inventoryError instanceof Error
+                  ? inventoryError.message
+                  : inventoryError,
+              rollbackError:
+                rollbackError instanceof Error
+                  ? rollbackError.message
+                  : rollbackError,
+              source: 'merchant_order_status_update',
+            },
+            orderId: id,
+            reason:
+              'Order status update reached paid state, but serialized inventory confirmation and status rollback both failed.',
+            transactionId: null,
+          });
+        }
+
+        logger.error({
+          message: 'PATCH orders/[id] failed to confirm inventory',
+          orderId: id,
+          error: inventoryError,
+        });
+        return NextResponse.json(
+          {
+            error:
+              inventoryError instanceof Error
+                ? inventoryError.message
+                : 'Inventory confirmation failed',
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Send push notification if shipping status changed

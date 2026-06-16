@@ -14,6 +14,10 @@ import {
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import {
+  ensurePaidOrderInventoryConfirmed,
+  rollbackOrderStatusAfterInventoryConfirmationFailure,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
@@ -448,6 +452,62 @@ export async function POST(
 
     // Paid-order side effects (only when NOT cancelled).
     if (isFullyPaid) {
+      try {
+        await ensurePaidOrderInventoryConfirmed(supabase, merchantId, id);
+      } catch (inventoryError) {
+        try {
+          await rollbackOrderStatusAfterInventoryConfirmationFailure(
+            supabase,
+            merchantId,
+            id,
+            {
+              payment_status: order.payment_status ?? null,
+              shipping_status: order.shipping_status ?? null,
+            }
+          );
+        } catch (rollbackError) {
+          logger.error({
+            message:
+              'RecordPayment failed to rollback order status after inventory confirmation failure',
+            orderId: id,
+            error: rollbackError,
+          });
+        }
+
+        if (createdTransaction?.id) {
+          const { error: deleteTransactionError } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('id', createdTransaction.id)
+            .eq('merchant_id', merchantId);
+
+          if (deleteTransactionError) {
+            logger.error({
+              message:
+                'RecordPayment failed to delete manual transaction after inventory confirmation failure',
+              orderId: id,
+              transactionId: createdTransaction.id,
+              error: deleteTransactionError,
+            });
+          }
+        }
+
+        logger.error({
+          message: 'RecordPayment failed to confirm inventory',
+          orderId: id,
+          error: inventoryError,
+        });
+        return NextResponse.json(
+          {
+            error:
+              inventoryError instanceof Error
+                ? inventoryError.message
+                : 'Inventory confirmation failed',
+          },
+          { status: 409 }
+        );
+      }
+
       logger.info({ message: 'RecordPayment order fully paid', orderId: id });
 
       // SEND CONFIRMATION EMAIL (If fully paid)

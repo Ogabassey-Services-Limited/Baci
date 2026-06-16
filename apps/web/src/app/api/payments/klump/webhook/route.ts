@@ -19,6 +19,7 @@ import {
   verifyKlumpWebhookSignature,
 } from '@/lib/klump-webhook';
 import { logger } from '@/lib/logger';
+import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
@@ -314,6 +315,28 @@ export async function POST(request: NextRequest) {
     }
 
     order = updatedOrder;
+
+    if (order) {
+      try {
+        await ensurePaidOrderInventoryConfirmed(
+          supabase,
+          transaction.merchant_id,
+          order.id
+        );
+      } catch (inventoryError) {
+        logger.error({
+          message: 'Klump webhook failed to confirm inventory',
+          orderId: order.id,
+          error: inventoryError,
+        });
+        return errorResponse(
+          inventoryError instanceof Error
+            ? inventoryError.message
+            : 'Inventory confirmation failed',
+          409
+        );
+      }
+    }
   }
 
   const expectedPaymentAmountNumber = Number(expectedPaymentAmount);

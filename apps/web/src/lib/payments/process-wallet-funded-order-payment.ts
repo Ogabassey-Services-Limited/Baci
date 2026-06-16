@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { findActiveWalletFundingIntentForTransfer } from '@/lib/order-wallet-funding-intents';
+import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import {
   type CancellableOrderRow,
   handlePaymentForCancelledOrder,
@@ -454,6 +455,12 @@ export async function processWalletFundedOrderPayment({
         status: 200,
       };
     }
+
+    await ensurePaidOrderInventoryConfirmed(
+      supabase,
+      match.intent.merchantId,
+      finalizer.order_id
+    );
 
     const fundedAmount = normalizeFinalizerAmount(
       finalizer.funded_amount,

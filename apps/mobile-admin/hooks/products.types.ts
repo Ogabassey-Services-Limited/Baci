@@ -36,6 +36,11 @@ export interface Product {
   available_conditions: string[] | null;
   min_variant_price: number | null;
   max_variant_price: number | null;
+  inventory_tracking_policy:
+    | 'off'
+    | 'serialized_strict'
+    | 'serialized_then_unlimited'
+    | null;
   created_at: string;
   updated_at: string;
 }

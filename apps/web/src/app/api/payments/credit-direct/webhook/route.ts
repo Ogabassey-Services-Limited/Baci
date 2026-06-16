@@ -9,6 +9,7 @@ import {
 } from '@/lib/credit-direct';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
+import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
@@ -240,6 +241,30 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        try {
+          await ensurePaidOrderInventoryConfirmed(
+            supabase,
+            order.merchant_id,
+            order.id
+          );
+        } catch (inventoryError) {
+          logger.error({
+            message:
+              'Credit-direct webhook customer branch failed to confirm inventory',
+            orderId: order.id,
+            error: inventoryError,
+          });
+          return NextResponse.json(
+            {
+              error:
+                inventoryError instanceof Error
+                  ? inventoryError.message
+                  : 'Inventory confirmation failed',
+            },
+            { status: 409 }
+          );
+        }
+
         logger.info({
           message: 'Credit Direct BNPL approved for customer',
           orderId: order.id,
@@ -380,6 +405,30 @@ export async function POST(request: NextRequest) {
             received: true,
             message: 'Order was cancelled; payment filed for review',
           });
+        }
+
+        try {
+          await ensurePaidOrderInventoryConfirmed(
+            supabase,
+            order.merchant_id,
+            order.id
+          );
+        } catch (inventoryError) {
+          logger.error({
+            message:
+              'Credit-direct webhook merchant branch failed to confirm inventory',
+            orderId: order.id,
+            error: inventoryError,
+          });
+          return NextResponse.json(
+            {
+              error:
+                inventoryError instanceof Error
+                  ? inventoryError.message
+                  : 'Inventory confirmation failed',
+            },
+            { status: 409 }
+          );
         }
 
         // Notify merchant of new order and payment (non-blocking)

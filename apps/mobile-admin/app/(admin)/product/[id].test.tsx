@@ -195,6 +195,22 @@ vi.mock('@/components/product/VariantConditionEditor', () => ({
   ),
 }));
 
+vi.mock('@/components/product/ProductRestockSheet', () => ({
+  ProductRestockSheet: () => (
+    <div>
+      <Text>product-restock-sheet</Text>
+    </div>
+  ),
+}));
+
+vi.mock('@/components/product/VariantInventoryUnitsSheet', () => ({
+  VariantInventoryUnitsSheet: () => (
+    <div>
+      <Text>variant-inventory-units-sheet</Text>
+    </div>
+  ),
+}));
+
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
     isLoading: false,

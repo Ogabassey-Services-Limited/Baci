@@ -1,5 +1,8 @@
 import type { RegisteredAddress } from '@baci/shared';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import {
+  createClient as createSupabaseClient,
+  type SupabaseClient,
+} from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import { cache } from 'react';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
@@ -36,10 +39,56 @@ import {
 } from '@/lib/validation';
 import type { MerchantAboutPage } from '@/types/about-page';
 import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
+import { sanitizePublicProduct } from './public-fulfillment-sanitizer';
+import {
+  getPublicSerializedVariantSummariesByProductId,
+  type PublicSerializedVariantSummary,
+} from './public-serialized-variant-summary';
 
 const RELATED_BLOG_POSTS_LIMIT = 3;
 const RELATED_BLOG_POSTS_FETCH_LIMIT = 36;
 const RELATED_BLOG_CATEGORY_FETCH_LIMIT = 24;
+
+/**
+ * Stock quantity shown to storefront when a variant using
+ * `serialized_then_unlimited` has depleted serialized units but remains
+ * purchasable as unlimited stock.
+ */
+const SERIALIZED_THEN_UNLIMITED_STOCK_QUANTITY = 9999;
+
+type PublicVariantRecord = { id: string; [key: string]: unknown };
+
+function hydratePublicSerializedVariants(
+  variants: PublicVariantRecord[],
+  productSummaries: PublicSerializedVariantSummary[]
+): PublicVariantRecord[] {
+  const summariesByVariantId = new Map(
+    productSummaries
+      .filter((summary) => summary.variantId !== null)
+      .map((summary) => [summary.variantId, summary])
+  );
+
+  return variants.map((variant) => {
+    const variantSummary = summariesByVariantId.get(variant.id);
+    if (!variantSummary) {
+      return variant;
+    }
+
+    const updatedVariant = { ...variant };
+    updatedVariant.inventory_tracking_policy =
+      variantSummary.inventoryTrackingPolicy;
+    updatedVariant.stock_quantity = variantSummary.publicAvailableUnits;
+
+    if (
+      variantSummary.inventoryTrackingPolicy === 'serialized_then_unlimited' &&
+      variantSummary.publicAvailableUnits === 0
+    ) {
+      updatedVariant.stock_quantity = SERIALIZED_THEN_UNLIMITED_STOCK_QUANTITY;
+    }
+
+    return updatedVariant;
+  });
+}
 const RELATED_BLOG_POST_SELECT =
   'id, title, slug, excerpt, featured_image_url, category, tags, keywords, published_at, reading_time_minutes';
 const MERCHANT_PUBLIC_SELECT = `
@@ -172,6 +221,96 @@ function getServiceRoleSupabaseClient() {
       },
     },
   });
+}
+
+/**
+ * Hydrates product list with public serialized variant summaries and sanitizes them.
+ */
+export async function hydrateAndSanitizeProducts<T extends { id: string }>(
+  supabase: SupabaseClient,
+  merchantId: string,
+  products: T[]
+): Promise<T[]> {
+  if (!products || products.length === 0) return [];
+
+  const productIds = products.map((p) => p.id);
+  let summaries: PublicSerializedVariantSummary[] = [];
+  try {
+    summaries = await getPublicSerializedVariantSummariesByProductId(
+      supabase,
+      merchantId,
+      productIds
+    );
+  } catch (err) {
+    console.error('Error fetching serialized variant summaries:', err);
+    return products.map(sanitizePublicProduct);
+  }
+
+  const summariesByProduct = new Map<
+    string,
+    PublicSerializedVariantSummary[]
+  >();
+  for (const s of summaries) {
+    const list = summariesByProduct.get(s.productId) || [];
+    list.push(s);
+    summariesByProduct.set(s.productId, list);
+  }
+
+  const hydrated = products.map((product) => {
+    const productSummaries = summariesByProduct.get(product.id) || [];
+    if (productSummaries.length === 0) {
+      return product;
+    }
+
+    const updatedProduct = { ...product } as Record<string, unknown>;
+    const productSummary = productSummaries.find((s) => s.variantId === null);
+
+    if (productSummary) {
+      const resolvedUnits =
+        productSummary.inventoryTrackingPolicy ===
+          'serialized_then_unlimited' &&
+        productSummary.publicAvailableUnits === 0
+          ? SERIALIZED_THEN_UNLIMITED_STOCK_QUANTITY
+          : productSummary.publicAvailableUnits;
+
+      updatedProduct.inventory_tracking_policy =
+        productSummary.inventoryTrackingPolicy;
+      updatedProduct.quantity = resolvedUnits;
+      updatedProduct.stock_quantity = resolvedUnits;
+      updatedProduct.stock = resolvedUnits;
+
+      if (productSummary.inventoryTrackingPolicy === 'serialized_strict') {
+        updatedProduct.track_quantity = true;
+        updatedProduct.manage_stock = true;
+      } else if (
+        productSummary.inventoryTrackingPolicy === 'serialized_then_unlimited'
+      ) {
+        updatedProduct.track_quantity = false;
+        updatedProduct.manage_stock = false;
+      }
+    }
+
+    if (
+      updatedProduct.product_variants &&
+      Array.isArray(updatedProduct.product_variants)
+    ) {
+      updatedProduct.product_variants = hydratePublicSerializedVariants(
+        updatedProduct.product_variants as PublicVariantRecord[],
+        productSummaries
+      );
+    }
+
+    if (updatedProduct.variants && Array.isArray(updatedProduct.variants)) {
+      updatedProduct.variants = hydratePublicSerializedVariants(
+        updatedProduct.variants as PublicVariantRecord[],
+        productSummaries
+      );
+    }
+
+    return updatedProduct as unknown as T;
+  });
+
+  return hydrated.map(sanitizePublicProduct);
 }
 
 interface PublicStorefrontProductVariant {
@@ -1263,10 +1402,12 @@ export async function getCachedProducts(
           products.map((product) => product.id)
         );
 
-  return products.map((product) => ({
+  const rawProducts = products.map((product) => ({
     ...product,
     product_variants: variantsByProductId[product.id] || [],
   }));
+
+  return hydrateAndSanitizeProducts(supabase, merchantId, rawProducts);
 }
 
 /**
@@ -1505,10 +1646,15 @@ export async function getCachedProduct(
     product.id,
   ]);
 
-  return {
+  const rawProduct = {
     ...product,
     product_variants: variantsByProductId[product.id] || [],
   };
+
+  const hydrated = await hydrateAndSanitizeProducts(supabase, merchantId, [
+    rawProduct,
+  ]);
+  return hydrated[0] || null;
 }
 
 const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
@@ -1557,7 +1703,6 @@ const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
   gtin,
   mpn,
   google_product_category,
-  fulfillment_details,
   fulfillmentFields:fulfillment_fields
 `;
 
@@ -1630,10 +1775,15 @@ export async function getCachedProductWithDetails(
     data.id,
   ]);
 
-  return {
+  const rawProduct = {
     ...data,
     product_variants: variantsByProductId[data.id] || [],
   };
+
+  const hydrated = await hydrateAndSanitizeProducts(supabase, merchantId, [
+    rawProduct,
+  ]);
+  return hydrated[0] || null;
 }
 
 export interface CachedLegacyProductRedirectTarget {
@@ -2634,5 +2784,5 @@ export async function getCachedStorefrontHomeProducts(merchantId: string) {
     throw error;
   }
 
-  return data ?? [];
+  return hydrateAndSanitizeProducts(supabase, merchantId, data ?? []);
 }

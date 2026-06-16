@@ -48,6 +48,10 @@ vi.mock('@/lib/supabase/admin', () => ({
   })),
 }));
 
+vi.mock('@/lib/payments/ensure-paid-order-inventory-confirmed', () => ({
+  ensurePaidOrderInventoryConfirmed: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
