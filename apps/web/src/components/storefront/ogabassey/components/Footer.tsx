@@ -37,6 +37,14 @@ function normalizeStoreSlug(storeSlug?: string): string {
   return normalized ? `/${normalized}` : '';
 }
 
+function firstNonEmptyTrimmed(
+  ...values: Array<string | null | undefined>
+): string | undefined {
+  return values
+    .map((value) => value?.trim())
+    .find((value): value is string => Boolean(value));
+}
+
 export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const basePath = normalizeStoreSlug(storeSlug);
   const businessName = merchant?.business_name || 'Ogabassey';
@@ -44,11 +52,12 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   // Prefer the public support email (what merchants edit in store settings) over the
   // private account email, so admin edits surface and the account email isn't exposed.
   const contactEmail =
-    merchant?.support_email || merchant?.email || 'support@ogabassey.com';
+    firstNonEmptyTrimmed(merchant?.support_email, merchant?.email) ??
+    'support@ogabassey.com';
   const contactPhone = merchant?.phone || '+234 814 697 8921';
-  const contactAddress = (
-    merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos'
-  ).trim();
+  const contactAddress =
+    firstNonEmptyTrimmed(merchant?.business_address) ??
+    '2 Olaide Tomori St, Ikeja, Lagos';
   const trustProfile = merchant
     ? buildMerchantTrustProfile(merchant, basePath || undefined)
     : null;

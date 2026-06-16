@@ -857,7 +857,7 @@ function isTransientMerchantLookupError(error: unknown): boolean {
     combined.includes('network timeout') ||
     combined.includes('network error') ||
     combined.includes('502 bad gateway') ||
-    combined.includes('408') ||
+    /\b(408 request timeout|http 408|status(?: code)? 408)\b/.test(combined) ||
     combined.includes('504 gateway timeout') ||
     combined.includes('bad gateway') ||
     combined.includes('econnreset') ||
@@ -891,7 +891,7 @@ function summarizeMerchantLookupError(error: unknown) {
 async function getDirectFeatureSettings(
   merchantId: string
 ): Promise<MerchantFeatureSettings | null> {
-  const supabase = getPublicSupabaseClient();
+  const supabase = getServiceSupabaseClient();
   const { data, error } = await supabase
     .from('merchant_feature_settings')
     .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
@@ -924,7 +924,7 @@ async function attachDirectFeatureSettings<T extends { id: string }>(
 async function getDirectMerchantBySlug(
   slug: string
 ): Promise<CachedMerchant | null> {
-  const supabase = getPublicSupabaseClient();
+  const supabase = getServiceRoleSupabaseClient();
   const { data, error } = await supabase
     .from('merchants')
     .select(MERCHANT_PUBLIC_SELECT)
@@ -962,7 +962,7 @@ async function getDirectMerchantByDomain(
   domain: string
 ): Promise<CachedMerchant | null> {
   const normalizedDomain = domain.toLowerCase();
-  const supabase = getPublicSupabaseClient();
+  const supabase = getServiceRoleSupabaseClient();
   const { data: domainData, error: domainError } = await supabase
     .from('domains')
     .select('merchant_id, domain')

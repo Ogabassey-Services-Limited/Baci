@@ -284,6 +284,64 @@ describe('cached-data merchant safety helpers', () => {
       );
     });
 
+    it('falls back to an unpublished direct merchant lookup with sensitive fields redacted', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const remoteCacheError = new Error(
+        'RemoteCacheHandler: <html><body>502 Bad Gateway</body></html>'
+      );
+      const unpublishedMerchant = {
+        ...mockMerchant,
+        is_published: false,
+        email: 'owner-private@example.com',
+        phone: '+2348000000000',
+        support_email: 'support-private@example.com',
+        support_phone: '+2348111111111',
+        business_address: 'Private Warehouse, Lagos',
+        legal_entity_name: 'Private Merchant Ltd',
+        registered_address: {
+          street: 'Private Street',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country: 'Nigeria',
+        },
+        tax_identification_number: 'TIN-PRIVATE',
+        trust_profile: {
+          founded_year: 2020,
+        },
+      };
+      const redactedMerchant = {
+        ...unpublishedMerchant,
+        email: '',
+        phone: '',
+        support_email: '',
+        support_phone: '',
+        business_address: '',
+        legal_entity_name: null,
+        registered_address: null,
+        tax_identification_number: null,
+        trust_profile: null,
+      };
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(remoteCacheError)
+        .mockRejectedValueOnce(remoteCacheError)
+        .mockResolvedValueOnce({ data: unpublishedMerchant, error: null });
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(redactedMerchant)
+      );
+
+      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
+        'Merchant fetch failed after retry; direct fallback succeeded:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: true }),
+          retryError: expect.objectContaining({ transient: true }),
+        })
+      );
+    });
+
     it('treats low-level fetch failures as transient and falls back to a direct merchant lookup', async () => {
       const consoleWarnSpy = vi
         .spyOn(console, 'warn')
@@ -327,6 +385,35 @@ describe('cached-data merchant safety helpers', () => {
         'Merchant fetch failed after retry:',
         'test-store',
         expect.any(Object)
+      );
+    });
+
+    it('does not classify unrelated messages containing 408 digits as transient', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const nonTransientError = new Error('catalog row id 4089 failed');
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(nonTransientError)
+        .mockRejectedValueOnce(nonTransientError);
+
+      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
+
+      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
+        ([table]) => table === 'merchants'
+      );
+      expect(merchantTableLookups).toHaveLength(2);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Non-transient merchant lookup failed after retry:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: false }),
+          retryError: expect.objectContaining({ transient: false }),
+        })
       );
     });
 

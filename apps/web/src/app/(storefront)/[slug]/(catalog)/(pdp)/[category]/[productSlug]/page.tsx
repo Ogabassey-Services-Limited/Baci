@@ -1022,10 +1022,6 @@ export async function generateStaticParams(): Promise<
     return placeholder;
   }
 
-  if (products.length === 0) {
-    return placeholder;
-  }
-
   const seen = new Set<string>();
   const params: Array<{ slug: string; category: string; productSlug: string }> =
     [];

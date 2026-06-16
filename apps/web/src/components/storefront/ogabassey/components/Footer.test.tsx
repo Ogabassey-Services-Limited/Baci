@@ -177,4 +177,27 @@ describe('Ogabassey Footer', () => {
       screen.queryByRole('link', { name: 'account-private@gmail.com' })
     ).toBeNull();
   });
+
+  it('falls back when support contact fields are whitespace-only', () => {
+    mockBuildMerchantTrustProfile.mockReturnValue({
+      socialLinks: {},
+      derivedLinks: {},
+    });
+    render(
+      <Footer
+        storeSlug="ogabassey"
+        merchant={{
+          ...merchantFixture,
+          email: ' account-private@gmail.com ',
+          support_email: '   ',
+          business_address: '   ',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'account-private@gmail.com' })
+    ).toHaveAttribute('href', 'mailto:account-private@gmail.com');
+    expect(screen.getByText('2 Olaide Tomori St, Ikeja, Lagos')).toBeVisible();
+  });
 });
