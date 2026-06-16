@@ -37,7 +37,7 @@ let mockAuthError: { message: string } | null = null;
 // Track calls for assertion
 let selectResult: { data: unknown; error: unknown } = {
   data: null,
-  error: { code: 'PGRST116', message: 'not found' },
+  error: null,
 };
 let insertResult: { data: unknown; error: unknown } = {
   data: { id: 'token-id-1' },
@@ -141,7 +141,7 @@ describe('POST /api/push-tokens/register', () => {
     mockAuthError = null;
     selectResult = {
       data: null,
-      error: { code: 'PGRST116', message: 'not found' },
+      error: null,
     };
     insertResult = { data: { id: 'token-id-new' }, error: null };
     updateResult = { data: null, error: null };
@@ -283,6 +283,22 @@ describe('POST /api/push-tokens/register', () => {
     expect(insertCalls[0]).toEqual(
       expect.objectContaining({ app_type: 'admin' })
     );
+  });
+
+  it('returns 500 when token lookup returns an error', async () => {
+    selectResult = {
+      data: null,
+      error: { code: 'PGRST116', message: 'Multiple rows returned' },
+    };
+
+    const res = await POST(
+      makeRequest({ token: 'ExponentPushToken[xxx]', platform: 'ios' })
+    );
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Failed to verify token status');
+    expect(insertCalls).toHaveLength(0);
   });
 
   it('passes app_type=storefront through to insert', async () => {
