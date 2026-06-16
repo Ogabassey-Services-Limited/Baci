@@ -42,6 +42,33 @@ import { cn } from '@/lib/utils';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(
+  locale: string,
+  currency: string,
+  useCompact: boolean
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}:${useCompact}`;
+  let formatter = _currencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+      notation: useCompact ? 'compact' : 'standard',
+      maximumFractionDigits: useCompact ? 1 : 2,
+    });
+    _currencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
+const PERCENT_FORMATTER = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
 // Dynamically load grid layout CSS to avoid render-blocking. Hoisted to
 // module scope so the dynamic `import()` expressions don't bail out the
 // React Compiler on the grid component.
@@ -632,21 +659,11 @@ export function DraggableAnalyticsGrid({
 
     // Use compact notation for large numbers to prevent overflow
     const useCompact = value >= 100000;
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currency,
-      currencyDisplay: 'symbol',
-      notation: useCompact ? 'compact' : 'standard',
-      maximumFractionDigits: useCompact ? 1 : 2,
-    }).format(value);
+    return getCurrencyFormatter(locale, currency, useCompact).format(value);
   };
 
   const formatPercent = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'percent',
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    }).format(value / 100);
+    return PERCENT_FORMATTER.format(value / 100);
   };
 
   // Helper to render metric cards using BentoCard

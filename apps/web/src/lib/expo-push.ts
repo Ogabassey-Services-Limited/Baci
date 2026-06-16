@@ -12,15 +12,26 @@ import Expo, {
 import { getExpoAccessToken } from '@/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// Module-scope cache: locale + minimumFractionDigits are static; currency varies.
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function _getCurrencyFormatter(currency: string): Intl.NumberFormat {
+  let formatter = _currencyFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+    });
+    _currencyFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 /**
  * Format amount as currency (e.g. ₦5,000)
  */
 export function formatCurrency(amount: number, currency = 'NGN'): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-  }).format(amount);
+  return _getCurrencyFormatter(currency).format(amount);
 }
 
 // ── Lazy-initialized Expo client (avoids module-level constructor for testability) ──

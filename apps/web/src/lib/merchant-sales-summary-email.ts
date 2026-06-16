@@ -28,12 +28,23 @@ function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getCurrencyFormatter(currency: string): Intl.NumberFormat {
+  let formatter = _currencyFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      currency,
+      maximumFractionDigits: 0,
+      style: 'currency',
+    });
+    _currencyFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 function formatCurrency(value: number, currency: string): string {
-  return new Intl.NumberFormat('en-NG', {
-    currency,
-    maximumFractionDigits: 0,
-    style: 'currency',
-  }).format(value);
+  return getCurrencyFormatter(currency).format(value);
 }
 
 export function summarizeMerchantSalesRows(

@@ -1,11 +1,11 @@
 import type { QuizEventResponse } from '@/schemas/quiz';
 
-export function formatQuizDateRange(event: QuizEventResponse): string {
-  const formatter = new Intl.DateTimeFormat('en-NG', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+const formatter = new Intl.DateTimeFormat('en-NG', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
+export function formatQuizDateRange(event: QuizEventResponse): string {
   if (event.endsAt && !event.startsAt) {
     return `Ends ${formatter.format(new Date(event.endsAt))}`;
   }

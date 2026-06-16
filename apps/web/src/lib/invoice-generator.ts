@@ -175,16 +175,27 @@ export interface InvoiceData {
   firs_qr_code?: string;
 }
 
+// Module-scope cache: locale + fraction digits are static; currency varies.
+const invoiceCurrencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getInvoiceCurrencyFormatter(currency: string): Intl.NumberFormat {
+  let formatter = invoiceCurrencyFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    invoiceCurrencyFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 /**
  * Format currency with proper Nigerian Naira formatting
  */
 function formatCurrency(amount: number, currency = 'NGN'): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+  return getInvoiceCurrencyFormatter(currency).format(amount);
 }
 
 /**

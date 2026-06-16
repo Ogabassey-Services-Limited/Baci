@@ -1,5 +1,19 @@
 import type { DueSavingsGoalRow } from '@/lib/customer-savings-auto-debit-types';
 
+const LAGOS_DATE_TIME_FORMAT: Intl.DateTimeFormat = new Intl.DateTimeFormat(
+  'en-GB',
+  {
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false,
+    minute: '2-digit',
+    month: '2-digit',
+    second: '2-digit',
+    timeZone: 'Africa/Lagos',
+    year: 'numeric',
+  }
+);
+
 export function asSavingsNumber(value: number | string) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
@@ -9,16 +23,7 @@ export function asSavingsNumber(value: number | string) {
 }
 
 export function getLagosParts(now: Date) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    hour: '2-digit',
-    hour12: false,
-    minute: '2-digit',
-    month: '2-digit',
-    second: '2-digit',
-    timeZone: 'Africa/Lagos',
-    year: 'numeric',
-  }).formatToParts(now);
+  const parts = LAGOS_DATE_TIME_FORMAT.formatToParts(now);
   const values = Object.fromEntries(
     parts.map((part) => [part.type, part.value])
   );

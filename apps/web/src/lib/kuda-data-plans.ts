@@ -45,14 +45,25 @@ function amountMatches(a: number, b: number) {
   return Math.round(a * 100) === Math.round(b * 100);
 }
 
+// Module-scope cache: only minimumFractionDigits varies (0 for integers, 2 otherwise).
+const nairaFormatterCache = new Map<number, Intl.NumberFormat>();
+function getNairaFormatter(minimumFractionDigits: number): Intl.NumberFormat {
+  let formatter = nairaFormatterCache.get(minimumFractionDigits);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      currency: 'NGN',
+      currencyDisplay: 'narrowSymbol',
+      maximumFractionDigits: 2,
+      minimumFractionDigits,
+      style: 'currency',
+    });
+    nairaFormatterCache.set(minimumFractionDigits, formatter);
+  }
+  return formatter;
+}
+
 function formatNaira(amount: number) {
-  return new Intl.NumberFormat('en-NG', {
-    currency: 'NGN',
-    currencyDisplay: 'narrowSymbol',
-    maximumFractionDigits: 2,
-    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
-    style: 'currency',
-  }).format(amount);
+  return getNairaFormatter(Number.isInteger(amount) ? 0 : 2).format(amount);
 }
 
 function collectDataPlanCandidates(providers: Biller[]): DataPlanCandidate[] {

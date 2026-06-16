@@ -41,14 +41,16 @@ const DeferredFloatingParticles = dynamic(
   { loading: () => null }
 );
 
+const PRICE_FORMATTER = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
 function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] {
   return storefrontProducts.map((product) => {
-    const formattedPrice = new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(product.price);
+    const formattedPrice = PRICE_FORMATTER.format(product.price);
 
     const {
       image,

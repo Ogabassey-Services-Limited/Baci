@@ -68,12 +68,14 @@ function readJoinedRecord<T>(value: T | T[] | null): T | null {
   return value;
 }
 
+const PERIOD_LABEL_FORMATTER = new Intl.DateTimeFormat('en-NG', {
+  month: 'long',
+  timeZone: 'UTC',
+  year: 'numeric',
+});
+
 function formatPeriodLabel(date: Date) {
-  return new Intl.DateTimeFormat('en-NG', {
-    month: 'long',
-    timeZone: 'UTC',
-    year: 'numeric',
-  }).format(date);
+  return PERIOD_LABEL_FORMATTER.format(date);
 }
 
 function toKobo(value: number | string) {
@@ -177,6 +179,20 @@ export function groupVtuCashbackSummaryRows(
   return Array.from(groups.values());
 }
 
+const CASHBACK_AMOUNT_FORMATTER_WHOLE = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 0,
+  style: 'currency',
+});
+
+const CASHBACK_AMOUNT_FORMATTER_FRACTION = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 2,
+  style: 'currency',
+});
+
 export function buildVtuCashbackSummaryBody({
   amount,
   customerFirstName,
@@ -191,12 +207,11 @@ export function buildVtuCashbackSummaryBody({
   transactionCount: number;
 }) {
   const hasFraction = !Number.isInteger(amount);
-  const formattedAmount = new Intl.NumberFormat('en-NG', {
-    currency: 'NGN',
-    maximumFractionDigits: 2,
-    minimumFractionDigits: hasFraction ? 2 : 0,
-    style: 'currency',
-  }).format(amount);
+  const formattedAmount = (
+    hasFraction
+      ? CASHBACK_AMOUNT_FORMATTER_FRACTION
+      : CASHBACK_AMOUNT_FORMATTER_WHOLE
+  ).format(amount);
   const purchaseLabel =
     transactionCount === 1
       ? '1 bill purchase'

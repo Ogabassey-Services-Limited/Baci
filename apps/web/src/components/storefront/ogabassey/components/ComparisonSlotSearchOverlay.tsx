@@ -5,6 +5,24 @@ import type { RefObject } from 'react';
 import { Loader2, Search, X } from 'lucide-react';
 import type { SearchResultProduct } from './comparison-search-types';
 
+const _priceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getPriceFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _priceFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+    });
+    _priceFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 interface ComparisonSlotSearchOverlayProps {
   slotIdx: number;
   isSearching: boolean;
@@ -38,10 +56,7 @@ export function ComparisonSlotSearchOverlay({
     return null;
   }
 
-  const priceFormatter = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: currencyCode,
-  });
+  const priceFormatter = getPriceFormatter(locale, currencyCode);
 
   return (
     <div className="absolute inset-0 z-10 flex h-full w-full flex-col bg-store-background p-4">

@@ -21,6 +21,11 @@ import { OrderDetailsItemRow } from './order-details-item-row';
 import { getOrderStatusColor, getOrderStatusIcon } from './order-status';
 import { PaymentDisplay } from './payment-display';
 
+const NGN_CURRENCY: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+});
+
 // Hook to extract store slug from pathname
 function useStoreSlug() {
   const pathname = usePathname();
@@ -245,15 +250,15 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between text-gray-500">
                   <span>Subtotal</span>
-                  <span>{new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.subtotal || order.total || 0)}</span>
+                  <span>{NGN_CURRENCY.format(order.subtotal || order.total || 0)}</span>
                 </div>
                 <div className="flex justify-between text-gray-500">
                   <span>Delivery</span>
-                  <span>{(order.shipping_cost ?? order.shipping_fee) ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.shipping_cost ?? order.shipping_fee ?? 0) : <span className="text-green-600">Free</span>}</span>
+                  <span>{(order.shipping_cost ?? order.shipping_fee) ? NGN_CURRENCY.format(order.shipping_cost ?? order.shipping_fee ?? 0) : <span className="text-green-600">Free</span>}</span>
                 </div>
                 <div className="border-t border-dashed border-gray-200 pt-3 flex justify-between font-bold text-lg text-gray-900">
                   <span>Total</span>
-                  <span>{new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.total || 0)}</span>
+                  <span>{NGN_CURRENCY.format(order.total || 0)}</span>
                 </div>
               </div>
             </div>

@@ -105,6 +105,25 @@ interface BrandComparePageModel {
 const CURATED_COMPARE_POLICY_DOC =
   'docs/superpowers/plans/2026-06-07-ogabassey-shared-comparison-spec-matrix.md';
 
+const _comparePriceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getComparePriceFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _comparePriceFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    });
+    _comparePriceFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 function isRawDbProduct(value: unknown): value is RawDbProduct {
   return Boolean(
     value &&
@@ -311,13 +330,9 @@ export async function loadComparePage(args: {
     args.categorySlug
   );
   const payoutCurrency = merchant.payout_currency || 'NGN';
-  const priceFormatter = new Intl.NumberFormat(
+  const priceFormatter = getComparePriceFormatter(
     getStorefrontLocale(merchant.country),
-    {
-      style: 'currency',
-      currency: payoutCurrency,
-      maximumFractionDigits: 0,
-    }
+    payoutCurrency
   );
   const countryContext = getCountryShoppingContext(merchant.country);
   const countrySuffix = countryContext ? ` ${countryContext}` : '';

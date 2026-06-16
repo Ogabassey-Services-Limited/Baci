@@ -19,6 +19,21 @@ import { ReceiptModal } from '../components/ReceiptModal';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 
+const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getCurrencyFormatter(currency: string): Intl.NumberFormat {
+  let formatter = currencyFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+    });
+    currencyFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 /** List item for display in the receipts grid */
 interface ReceiptListItem {
   id: string;
@@ -69,11 +84,7 @@ async function fetchReceiptListItems(
     const paymentStatus = (order.payment_status as string) || 'unpaid';
 
     const formatCurrency = (val: number) =>
-      new Intl.NumberFormat('en-NG', {
-        style: 'currency',
-        currency,
-        minimumFractionDigits: 0,
-      }).format(val);
+      getCurrencyFormatter(currency).format(val);
 
     const rawOrder: ReceiptOrder = {
       order_number:

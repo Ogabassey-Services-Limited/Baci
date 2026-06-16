@@ -127,22 +127,42 @@ export function getProductPriceRange(
   };
 }
 
+const _productPriceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getProductPriceFormatter(
+  locale: string,
+  currency: string,
+  isInteger: boolean
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}:${isInteger ? 'int' : 'frac'}`;
+  let formatter = _productPriceFormatterCache.get(key);
+  if (!formatter) {
+    const options: Intl.NumberFormatOptions = {
+      style: 'currency',
+      currency,
+    };
+
+    if (isInteger) {
+      options.maximumFractionDigits = 0;
+      options.minimumFractionDigits = 0;
+    }
+
+    formatter = new Intl.NumberFormat(locale, options);
+    _productPriceFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 function formatProductPrice(
   price: number,
   currency: string,
   locale = getStorefrontLocale()
 ): string {
-  const options: Intl.NumberFormatOptions = {
-    style: 'currency',
+  return getProductPriceFormatter(
+    locale,
     currency,
-  };
-
-  if (Number.isInteger(price)) {
-    options.maximumFractionDigits = 0;
-    options.minimumFractionDigits = 0;
-  }
-
-  return new Intl.NumberFormat(locale, options).format(price);
+    Number.isInteger(price)
+  ).format(price);
 }
 
 export function formatProductPriceRange(

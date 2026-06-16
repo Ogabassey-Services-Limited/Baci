@@ -391,12 +391,14 @@ async function getMerchantId(): Promise<string | null> {
   }
 }
 
+const NGN_PRICE_FORMATTER = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+  minimumFractionDigits: 0,
+});
+
 function formatPrice(price: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(price);
+  return NGN_PRICE_FORMATTER.format(price);
 }
 
 /**
@@ -1445,11 +1447,7 @@ function createOgabasseyServer() {
 
         const productName = product?.name || 'Product';
         const price = product?.price
-          ? new Intl.NumberFormat('en-NG', {
-            style: 'currency',
-            currency: 'NGN',
-            minimumFractionDigits: 0,
-          }).format(product.price)
+          ? NGN_PRICE_FORMATTER.format(product.price)
           : '';
 
         return {

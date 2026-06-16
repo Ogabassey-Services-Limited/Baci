@@ -56,6 +56,23 @@ import {
   getCustomers,
 } from './actions';
 
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _currencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+    });
+    _currencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 interface CustomersClientPageProps {
   initialCustomers?: Customer[];
 }
@@ -171,10 +188,7 @@ export default function CustomersClientPage({
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'NGN';
 
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currency,
-    }).format(amount);
+    return getCurrencyFormatter(locale, currency).format(amount);
   };
 
   if (authLoading) {

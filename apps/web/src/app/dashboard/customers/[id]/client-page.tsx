@@ -36,6 +36,23 @@ import { useToast } from '@/hooks/use-toast';
 import { apiDelete, apiPatch } from '@/lib/api-client';
 import type { Customer, CustomerOrder } from '../actions';
 
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _currencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+    });
+    _currencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 interface CustomerDetailClientPageProps {
   initialCustomer: Customer;
   initialOrders: CustomerOrder[];
@@ -166,10 +183,7 @@ export default function CustomerDetailClientPage({
       locale ||
       (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
     const userCurrency = currency || 'NGN';
-    return new Intl.NumberFormat(userLocale, {
-      style: 'currency',
-      currency: userCurrency,
-    }).format(amount);
+    return getCurrencyFormatter(userLocale, userCurrency).format(amount);
   };
 
   if (!customer) {

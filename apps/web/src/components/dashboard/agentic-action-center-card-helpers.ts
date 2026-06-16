@@ -28,6 +28,11 @@ const BRIEFING_MESSAGES = {
     } active.`,
 };
 
+const GENERATED_AT_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
 function toRoute(value: string | undefined): Route | null {
   const trimmed = value?.trim();
   if (!trimmed?.startsWith('/') || trimmed.startsWith('//')) return null;
@@ -46,10 +51,7 @@ function formatGeneratedAt(value?: string): string | null {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
 
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date);
+  return GENERATED_AT_TIME_FORMATTER.format(date);
 }
 
 function formatPatternCount(count: number, singular: string): string {

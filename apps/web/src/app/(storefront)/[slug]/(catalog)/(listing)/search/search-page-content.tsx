@@ -16,6 +16,23 @@ export interface SearchPageProps {
   searchParams: Promise<{ q?: string; page?: string }>;
 }
 
+const RESULT_COUNT_FORMATTER = new Intl.NumberFormat('en-NG');
+
+const priceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getPriceFormatter(currency: string): Intl.NumberFormat {
+  let formatter = priceFormatterCache.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    });
+    priceFormatterCache.set(currency, formatter);
+  }
+  return formatter;
+}
+
 function getStorefrontPathPrefix(
   headersList: Awaited<ReturnType<typeof headers>>,
   merchantSlug: string
@@ -27,7 +44,7 @@ function getStorefrontPathPrefix(
 }
 
 function formatResultCount(count: number) {
-  return new Intl.NumberFormat('en-NG').format(count);
+  return RESULT_COUNT_FORMATTER.format(count);
 }
 
 function formatSearchSummary({
@@ -92,11 +109,7 @@ export async function SearchPageContent({
   const pageUrl = searchQuery
     ? `${storeUrl}/search?q=${encodeURIComponent(searchQuery)}`
     : `${storeUrl}/search`;
-  const priceFormatter = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: merchant.payout_currency || 'NGN',
-    maximumFractionDigits: 0,
-  });
+  const priceFormatter = getPriceFormatter(merchant.payout_currency || 'NGN');
   const visibleCount = searchResult.products.length;
   const breadcrumbSchema = generateBreadcrumbSchema([
     { name: merchant.business_name, url: storeUrl },

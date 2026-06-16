@@ -62,6 +62,24 @@ import { type Customer, customers } from '@/lib/customers';
 import type { Product } from '@/lib/products';
 import { cn } from '@/lib/utils';
 
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _currencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+    });
+    _currencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 const orderItemSchema = z.object({
   productId: z.string(),
   name: z.string(),
@@ -124,11 +142,7 @@ export function CreateOrderForm() {
       : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'USD';
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      currencyDisplay: 'symbol',
-    }).format(amount);
+    return getCurrencyFormatter(locale, currency).format(amount);
   };
 
   const filteredProducts = products.filter(
