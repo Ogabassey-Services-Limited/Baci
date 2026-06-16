@@ -91,7 +91,7 @@ export async function confirmPaystackDvaByOrderAccount({
   const { data: rows, error: lookupError } = await supabase
     .from('order_payment_accounts')
     .select(
-      'order_id, created_at, expires_at, orders!inner(id, merchant_id, customer_email, total, currency)'
+      'order_id, created_at, expires_at, orders!inner(id, merchant_id, customer_email, total, currency, shipping_status)'
     )
     .eq('provider', 'paystack')
     .eq('account_number', accountNumber);
@@ -268,6 +268,10 @@ function normalizeCandidate(
   const orderField = row.orders;
   if (!orderField || typeof orderField !== 'object') return null;
   const order = orderField as Record<string, unknown>;
+  // A cancelled order must never be matched to an inbound payment, even if a
+  // DVA alias row lingers. The cancel RPC also expires the alias; this is
+  // defense-in-depth at the matcher.
+  if (order.shipping_status === 'cancelled') return null;
   const total = Number(order.total);
   if (!Number.isFinite(total)) return null;
   const createdAt =
