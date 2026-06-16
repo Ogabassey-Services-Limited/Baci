@@ -27,6 +27,10 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import type { PaymentSettings } from '@/schemas/payment-settings';
 
+function handleManagePayments(): void {
+  Linking.openURL('https://usebaci.com/dashboard/settings/payments');
+}
+
 export default function PaymentMethodsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const {
@@ -127,10 +131,6 @@ export default function PaymentMethodsScreen() {
       });
     },
   });
-
-  const handleManagePayments = () => {
-    Linking.openURL('https://usebaci.com/dashboard/settings/payments');
-  };
 
   const handleTogglePaymentMethod = (
     field: PaymentMethodField,

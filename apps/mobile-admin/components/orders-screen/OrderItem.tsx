@@ -30,6 +30,16 @@ interface OrderItemProps {
   getSourceConfig: SourceConfigGetter;
 }
 
+function getFallbackStatusLayout(
+  event: GestureResponderEvent
+): StatusPressLayout {
+  return {
+    height: 32,
+    pageX: event.nativeEvent.pageX,
+    pageY: event.nativeEvent.pageY,
+  };
+}
+
 export function OrderItem({
   item,
   currency,
@@ -49,14 +59,6 @@ export function OrderItem({
   const sourceConfig = getSourceConfig(item.source);
   const itemCount = item.item_count ?? 0;
   const statusBadgeRef = useRef<View>(null);
-
-  const getFallbackStatusLayout = (
-    event: GestureResponderEvent
-  ): StatusPressLayout => ({
-    height: 32,
-    pageX: event.nativeEvent.pageX,
-    pageY: event.nativeEvent.pageY,
-  });
 
   const handleStatusPress = (event: GestureResponderEvent) => {
     event.stopPropagation();

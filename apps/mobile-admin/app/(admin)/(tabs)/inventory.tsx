@@ -151,6 +151,15 @@ function InventoryProductItem({
   );
 }
 
+// Navigation callback
+function handleProductPress(id: string): void {
+  router.push(`/product/${id}`);
+}
+
+function productKeyExtractor(item: Product): string {
+  return item.id;
+}
+
 export default function InventoryScreen() {
   const { colors } = useTheme();
   const { merchant } = useMerchant();
@@ -186,11 +195,6 @@ export default function InventoryScreen() {
   // Product catalogue and inventory totals are always cross-branch; label is unconditional.
   const inventoryScopeLabel = ' (all stores)';
 
-  // Navigation callback
-  const handleProductPress = (id: string) => {
-    router.push(`/product/${id}`);
-  };
-
   const renderProduct = ({ item }: { item: Product }) => (
     <InventoryProductItem
       item={item}
@@ -199,8 +203,6 @@ export default function InventoryScreen() {
       onPress={handleProductPress}
     />
   );
-
-  const productKeyExtractor = (item: Product) => item.id;
 
   const renderFooter = () => {
     if (!isFetchingNextPage) return null;

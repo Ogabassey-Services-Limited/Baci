@@ -133,6 +133,19 @@ async function pickAndUploadFavicon(
   }
 }
 
+function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'afternoon';
+  return 'evening';
+}
+
+function formatMetric(value: number): string {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return value.toString();
+}
+
 export default function HomeScreen() {
   if (__DEV__) {
     console.log('[HomeScreen] Rendering');
@@ -164,13 +177,6 @@ export default function HomeScreen() {
   // Get the first name for greeting
   const firstName = merchant?.business_name?.split(' ')[0] ?? 'there';
 
-  const getTimeOfDay = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'morning';
-    if (hour < 17) return 'afternoon';
-    return 'evening';
-  };
-
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
 
   const formatCurrency = (amount: number) => {
@@ -178,12 +184,6 @@ export default function HomeScreen() {
       return `${currencySymbol}${(amount / 1000000).toFixed(1)}M`;
     }
     return `${currencySymbol}${amount.toLocaleString()}`;
-  };
-
-  const formatMetric = (value: number) => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-    return value.toString();
   };
 
   const getPeriodLabel = () => {

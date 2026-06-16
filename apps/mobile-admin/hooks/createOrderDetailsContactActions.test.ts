@@ -1,7 +1,7 @@
-import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { Alert, Linking } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { createOrderDetailsContactActions } from './createOrderDetailsContactActions';
 
 vi.mock('@/lib/storage', () => ({
@@ -13,7 +13,7 @@ vi.mock('@/lib/storage', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,
+  StatusBar: () => null,
   Alert: { alert: vi.fn() },
   Linking: { openURL: vi.fn().mockResolvedValue(undefined) },
   Share: { share: vi.fn() },
