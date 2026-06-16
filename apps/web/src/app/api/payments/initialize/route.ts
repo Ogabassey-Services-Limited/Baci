@@ -950,6 +950,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A cancelled order must never be payable. The reopen-backstop trigger keeps
+    // the order cancelled even if a payment later lands, but reject here so a
+    // customer cannot start a new payment for an order they cancelled.
+    if (orderSnapshot.shipping_status === 'cancelled') {
+      return createErrorResponse(
+        'This order has been cancelled and can no longer be paid',
+        'ORDER_NOT_PAYABLE',
+        409
+      );
+    }
+
     // Validate order total: Number(null) => 0, Number(undefined) => NaN
     const snapshotTotal = Number(orderSnapshot.total);
     if (

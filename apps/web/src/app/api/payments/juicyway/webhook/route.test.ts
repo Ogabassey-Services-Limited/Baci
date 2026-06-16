@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+
 import type { JuicywayWebhookPayload } from '@/lib/juicyway';
 import { POST } from './route';
 
@@ -50,6 +53,7 @@ const mockSupabase = {
     delete: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn(),
+    maybeSingle: vi.fn(),
   })),
   rpc: vi.fn(),
 };
@@ -57,7 +61,18 @@ const mockSupabase = {
 // `record_merchant_settlement` is called via the admin client (service role)
 // because Juicyway webhook callbacks have no user session and the function
 // is locked to service_role per the 20260428071421 advisor cleanup.
+// handlePaymentForCancelledOrder ALSO files its reconciliation_review row
+// through this admin client (the table is RLS-locked to service_role).
+const mockReconciliationInsert = vi
+  .fn()
+  .mockResolvedValue({ data: null, error: null });
 const mockAdminSupabase = {
+  from: vi.fn((table: string) => {
+    if (table === 'reconciliation_review') {
+      return { insert: mockReconciliationInsert };
+    }
+    throw new Error(`Unexpected admin table: ${table}`);
+  }),
   rpc: vi.fn().mockResolvedValue({ error: null }),
 };
 
@@ -327,6 +342,7 @@ describe('POST /api/payments/juicyway/webhook', () => {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       };
     });
 
@@ -340,6 +356,63 @@ describe('POST /api/payments/juicyway/webhook', () => {
 
     expect(response.status).toBe(200);
     expect(data).toEqual({ message: 'Already processed' });
+  });
+
+  it('files reconciliation before acknowledging an already-completed transaction for a cancelled order', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const fromMock = vi.fn((table) => {
+      if (table === 'transactions') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              id: 'txn-123',
+              status: 'completed',
+              gateway_reference: 'TXN-123456',
+              amount: '10000',
+              merchant_id: 'merchant-123',
+              order_id: 'order-123',
+            },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: {
+              id: 'order-123',
+              shipping_status: 'cancelled',
+              cancelled_at: '2026-06-15T00:00:00Z',
+            },
+            error: null,
+          }),
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    (mockSupabase as Record<string, unknown>).from = fromMock;
+
+    const payload = createSuccessPayload();
+    const request = createWebhookRequest(payload);
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({ message: 'Already processed' });
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: 'order-123',
+        txn_id: 'txn-123',
+      })
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -483,6 +556,99 @@ describe('POST /api/payments/juicyway/webhook', () => {
         p_platform_fee: 150,
         p_description: 'Order payment via Juicyway',
         p_metadata: { juicyway_reference: 'TXN-123456' },
+      })
+    );
+  });
+
+  it('suppresses side effects + settlement and files reconciliation when the order was clamped as cancelled', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = {
+      id: 'txn-123',
+      status: 'pending',
+      gateway_reference: 'TXN-123456',
+      amount: '10000',
+      platform_fee: '150',
+      merchant_id: 'merchant-123',
+      order_id: 'order-123',
+    };
+
+    // The order UPDATE returns the CLAMPED cancelled row.
+    const cancelledOrder = {
+      id: 'order-123',
+      order_number: 'ORD-001',
+      customer_email: 'customer@example.com',
+      customer_name: 'Jane Doe',
+      total: '10000',
+      currency: 'NGN',
+      shipping_status: 'cancelled',
+      cancelled_at: '2026-06-15T00:00:00Z',
+      order_items: [],
+      ad_tracking: null,
+    };
+
+    let transactionCallCount = 0;
+
+    const fromMock = vi.fn((table) => {
+      if (table === 'transactions') {
+        transactionCallCount++;
+        if (transactionCallCount === 1) {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi
+              .fn()
+              .mockResolvedValue({ data: transaction, error: null }),
+          };
+        }
+        return {
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+
+      if (table === 'orders') {
+        return {
+          update: vi.fn(() => ({
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi
+              .fn()
+              .mockResolvedValue({ data: cancelledOrder, error: null }),
+          })),
+        };
+      }
+
+      return {
+        select: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn(),
+      };
+    });
+
+    (mockSupabase as Record<string, unknown>).from = fromMock;
+    mockSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
+    mockAdminSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
+
+    const payload = createSuccessPayload();
+    const request = createWebhookRequest(payload);
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      success: true,
+      message: 'Payment recorded; order was cancelled, filed for review',
+    });
+    // Settlement must NOT run for a cancelled order.
+    expect(mockAdminSupabase.rpc).not.toHaveBeenCalled();
+    // Reconciliation row filed through the service-role admin client.
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: 'order-123',
       })
     );
   });

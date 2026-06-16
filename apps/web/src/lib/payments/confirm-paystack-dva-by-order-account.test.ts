@@ -200,6 +200,28 @@ describe('confirmPaystackDvaByOrderAccount — no candidates / no DVA persisted'
     expect(state.reviewUpserts).toHaveLength(0);
   });
 
+  it('skips a candidate whose order has been cancelled', async () => {
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [
+        {
+          ...baseAccountRow,
+          orders: {
+            ...baseAccountRow.orders,
+            shipping_status: 'cancelled',
+          },
+        },
+      ],
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+    });
+
+    expect(result).toEqual({ kind: 'none' });
+    expect(state.insertCalls).toHaveLength(0);
+  });
+
   it('returns handled:false when account row exists but the 6-key match fails (e.g., wrong customer)', async () => {
     const { supabase, state } = createSupabaseMock({
       accountRows: [

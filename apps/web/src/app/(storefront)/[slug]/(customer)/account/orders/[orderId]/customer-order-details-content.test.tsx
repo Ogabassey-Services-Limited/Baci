@@ -104,6 +104,44 @@ describe('CustomerOrderDetailsContent', () => {
     expect(screen.getByText('Blue / 128GB')).toBeInTheDocument();
   });
 
+  it('shows the cancel order CTA when the order is server-cancellable', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          shipping_status: 'processing',
+          payment_status: 'unpaid',
+          can_cancel: true,
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: /cancel order/i })
+    ).toBeInTheDocument();
+  });
+
+  it('hides the cancel order CTA when the order is not cancellable', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          shipping_status: 'processing',
+          payment_status: 'unpaid',
+          can_cancel: false,
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /cancel order/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('shows review and return actions once the order is delivered', () => {
     render(
       <CustomerOrderDetailsContent

@@ -47,6 +47,7 @@ type SettingsRow = {
 type OrderSnapshotRow = {
   merchant_id: string;
   total: number;
+  shipping_status?: string;
 };
 
 function buildSettingsRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
@@ -241,6 +242,24 @@ describe('POST /api/payments/credit-direct/sign', () => {
 
     expect(response.status).toBe(403);
     expect(body).toEqual({ error: 'Merchant mismatch for this order' });
+    expect(signTransaction).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 before signing when the order has been cancelled', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      buildSupabaseMock({
+        get_order_payment_snapshot: {
+          data: [buildOrderSnapshotRow({ shipping_status: 'cancelled' })],
+          error: null,
+        },
+      }) as never
+    );
+
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('ORDER_NOT_PAYABLE');
     expect(signTransaction).not.toHaveBeenCalled();
   });
 

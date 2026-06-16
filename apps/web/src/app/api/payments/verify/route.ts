@@ -7,6 +7,10 @@ import {
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
@@ -270,7 +274,7 @@ async function verifyPaymentReference(reference: string) {
         })
         .eq('id', transaction.order_id)
         .select(
-          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, order_items(name, quantity, price, variant_name)'
+          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, shipping_status, cancelled_at, order_items(name, quantity, price, variant_name)'
         )
         .single()
     : { data: null, error: null };
@@ -286,6 +290,27 @@ async function verifyPaymentReference(reference: string) {
       { error: 'Failed to finalize order' },
       { status: 500 }
     );
+  }
+
+  // The prevent_cancelled_order_reopen trigger clamps a reopen of a cancelled
+  // order: the returned row still reads shipping_status 'cancelled'. Suppress
+  // all paid-order side effects (push, confirmation email, settlement) and file
+  // a reconciliation row for manual refund. Still return success to the caller.
+  if (isOrderClampedAsCancelled(order)) {
+    await handlePaymentForCancelledOrder({
+      gatewayReference: transaction.gateway_reference ?? parsedReference.data,
+      order,
+      reason: `Gateway ${transaction.gateway} payment verified for an order cancelled before finalization`,
+      transactionId: transaction.id,
+    });
+
+    return NextResponse.json({
+      success: true,
+      status: 'success',
+      orderNumber:
+        order.order_number ||
+        transaction.gateway_reference.slice(0, 8).toUpperCase(),
+    });
   }
 
   if (updatedTxn) {
