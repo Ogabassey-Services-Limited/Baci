@@ -18,6 +18,19 @@ interface Notification {
   createdAt: Date;
 }
 
+const getIcon = (
+  type: Notification['type']
+): 'cube-outline' | 'pricetag-outline' | 'notifications-outline' => {
+  switch (type) {
+    case 'order':
+      return 'cube-outline';
+    case 'promo':
+      return 'pricetag-outline';
+    default:
+      return 'notifications-outline';
+  }
+};
+
 export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -29,17 +42,6 @@ export default function NotificationsScreen() {
 
   // Placeholder notifications - in production, fetch from API
   const notifications: Notification[] = [];
-
-  const getIcon = (type: Notification['type']) => {
-    switch (type) {
-      case 'order':
-        return 'cube-outline';
-      case 'promo':
-        return 'pricetag-outline';
-      default:
-        return 'notifications-outline';
-    }
-  };
 
   const renderNotification = ({ item }: { item: Notification }) => (
     <Pressable

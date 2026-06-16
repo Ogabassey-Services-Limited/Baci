@@ -23,6 +23,21 @@ const copyToClipboard = async (text: string) => {
 
 const HEADER_CLOSE_STYLE = { padding: 8 } as const;
 
+const handleClose = (): void => {
+  Alert.alert(
+    'Leave Payment?',
+    'Your order has been created. You can complete payment later using the account details sent to your email.',
+    [
+      { text: 'Stay', style: 'cancel' },
+      {
+        text: 'Leave',
+        style: 'destructive',
+        onPress: () => router.back(),
+      },
+    ]
+  );
+};
+
 function getWalletFundedRemainingAmount(
   intent: WalletOrderFundingIntent | null
 ) {
@@ -206,21 +221,6 @@ export default function BankTransferScreen() {
     }
     setIsLegacySubmitting(true);
     void routeToOrderSuccess({});
-  };
-
-  const handleClose = () => {
-    Alert.alert(
-      'Leave Payment?',
-      'Your order has been created. You can complete payment later using the account details sent to your email.',
-      [
-        { text: 'Stay', style: 'cancel' },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: () => router.back(),
-        },
-      ]
-    );
   };
 
   return (

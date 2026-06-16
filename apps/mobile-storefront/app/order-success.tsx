@@ -17,6 +17,21 @@ import { SERVER_CONFIRMED_ORDER_NOTIFICATION_METHODS } from '@/services/payment-
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 
+const handleContinueShopping = (): void => {
+  router.replace('/');
+};
+
+const handleLeaveGoogleReview = async (): Promise<void> => {
+  try {
+    await Linking.openURL(BACI_GOOGLE_REVIEW_URL);
+  } catch {
+    Alert.alert(
+      'Unable to open review link',
+      'Please try again in a browser later.'
+    );
+  }
+};
+
 export default function OrderSuccessScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -89,10 +104,6 @@ export default function OrderSuccessScreen() {
     markDenied('notifications');
   };
 
-  const handleContinueShopping = () => {
-    router.replace('/');
-  };
-
   const handleViewOrders = () => {
     if (!customer && trackingToken) {
       router.replace({
@@ -101,17 +112,6 @@ export default function OrderSuccessScreen() {
       });
     } else {
       router.replace('/orders');
-    }
-  };
-
-  const handleLeaveGoogleReview = async () => {
-    try {
-      await Linking.openURL(BACI_GOOGLE_REVIEW_URL);
-    } catch {
-      Alert.alert(
-        'Unable to open review link',
-        'Please try again in a browser later.'
-      );
     }
   };
 

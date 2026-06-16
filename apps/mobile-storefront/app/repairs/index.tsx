@@ -13,20 +13,20 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 
+const handleBookRepair = (service?: string): void => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  Linking.openURL(buildRepairWhatsappUrl(SUPPORT_WHATSAPP_PHONE, service));
+};
+
+const handleSwap = (): void => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  router.push('/swap');
+};
+
 export default function RepairsScreen() {
   const colorScheme = useColorScheme();
   const _isDark = colorScheme === 'dark';
   const colors = Colors[colorScheme ?? 'light'];
-
-  const handleBookRepair = (service?: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL(buildRepairWhatsappUrl(SUPPORT_WHATSAPP_PHONE, service));
-  };
-
-  const handleSwap = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/swap');
-  };
 
   return (
     <StorefrontScreenShell
