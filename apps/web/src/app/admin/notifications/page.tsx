@@ -153,6 +153,37 @@ async function fetchAdminNotifications(
   };
 }
 
+function getStatusBadge(notification: NotificationWithStats) {
+  if (notification.sent_at) {
+    return (
+      <Badge variant="default" className="bg-green-600">
+        Sent
+      </Badge>
+    );
+  }
+  if (notification.scheduled_for) {
+    return (
+      <Badge variant="outline" className="border-orange-500 text-orange-600">
+        Scheduled
+      </Badge>
+    );
+  }
+  return <Badge variant="secondary">Draft</Badge>;
+}
+
+function getTargetLabel(notification: NotificationWithStats): string {
+  switch (notification.target_type) {
+    case 'all':
+      return 'All Merchants';
+    case 'specific':
+      return `${notification.target_merchant_ids?.length || 0} Merchants`;
+    case 'segment':
+      return `Segment: ${notification.target_segment}`;
+    default:
+      return 'Unknown';
+  }
+}
+
 export default function AdminNotificationsPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -245,37 +276,6 @@ export default function AdminNotificationsPage() {
       .finally(() => {
         setDeleteId(null);
       });
-  };
-
-  const getStatusBadge = (notification: NotificationWithStats) => {
-    if (notification.sent_at) {
-      return (
-        <Badge variant="default" className="bg-green-600">
-          Sent
-        </Badge>
-      );
-    }
-    if (notification.scheduled_for) {
-      return (
-        <Badge variant="outline" className="border-orange-500 text-orange-600">
-          Scheduled
-        </Badge>
-      );
-    }
-    return <Badge variant="secondary">Draft</Badge>;
-  };
-
-  const getTargetLabel = (notification: NotificationWithStats) => {
-    switch (notification.target_type) {
-      case 'all':
-        return 'All Merchants';
-      case 'specific':
-        return `${notification.target_merchant_ids?.length || 0} Merchants`;
-      case 'segment':
-        return `Segment: ${notification.target_segment}`;
-      default:
-        return 'Unknown';
-    }
   };
 
   return (

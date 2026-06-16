@@ -109,6 +109,45 @@ const getSuggestionRank = (id: string, seed: string): number => {
   return hash;
 };
 
+const getColorHex = (name: string): string => {
+  const lower = name.toLowerCase();
+  if (
+    lower.includes('black') ||
+    lower.includes('obsidian') ||
+    lower.includes('midnight') ||
+    lower.includes('graphite') ||
+    lower.includes('space grey')
+  )
+    return '#1a1a1a';
+  if (
+    lower.includes('white') ||
+    lower.includes('starlight') ||
+    lower.includes('porcelain')
+  )
+    return '#f2f2f2';
+  if (
+    lower.includes('blue') ||
+    lower.includes('bay') ||
+    lower.includes('pacific')
+  )
+    return '#2f3d4d';
+  if (
+    lower.includes('natural') ||
+    lower.includes('grey') ||
+    lower.includes('gray')
+  )
+    return '#808080';
+  if (lower.includes('silver')) return '#e0e0e0';
+  if (lower.includes('gold')) return '#F5E0C3';
+  return '#cccccc';
+};
+
+const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+  if (e.key === 'Enter') {
+    (e.target as HTMLInputElement).blur();
+  }
+};
+
 export const OgabasseyV2ProductDetails: React.FC<
   OgabasseyV2ProductDetailsProps
 > = ({ storeSlug, productId }) => {
@@ -120,39 +159,6 @@ export const OgabasseyV2ProductDetails: React.FC<
 
   // Find product from data
   const productFound = products.find((p) => String(p.id) === productId);
-
-  const getColorHex = (name: string) => {
-    const lower = name.toLowerCase();
-    if (
-      lower.includes('black') ||
-      lower.includes('obsidian') ||
-      lower.includes('midnight') ||
-      lower.includes('graphite') ||
-      lower.includes('space grey')
-    )
-      return '#1a1a1a';
-    if (
-      lower.includes('white') ||
-      lower.includes('starlight') ||
-      lower.includes('porcelain')
-    )
-      return '#f2f2f2';
-    if (
-      lower.includes('blue') ||
-      lower.includes('bay') ||
-      lower.includes('pacific')
-    )
-      return '#2f3d4d';
-    if (
-      lower.includes('natural') ||
-      lower.includes('grey') ||
-      lower.includes('gray')
-    )
-      return '#808080';
-    if (lower.includes('silver')) return '#e0e0e0';
-    if (lower.includes('gold')) return '#F5E0C3';
-    return '#cccccc';
-  };
 
   const productData = (() => {
     const base = productFound
@@ -335,12 +341,6 @@ export const OgabasseyV2ProductDetails: React.FC<
     // Only call update if value actually changed
     if (newQuantity !== quantityInCart) {
       updateQuantity(String(productData.id), newQuantity, currentCartItem.variantId);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      (e.target as HTMLInputElement).blur();
     }
   };
 

@@ -1,10 +1,10 @@
-import type { ReactNode } from 'react';
 import {
   fireEvent,
   render,
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import ProfileEditScreen from '@/app/profile/edit';
 
 const mockBack = jest.fn();

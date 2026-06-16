@@ -49,6 +49,11 @@ interface EditorToolbarProps {
 
 type ImagePopoverMode = 'insert' | 'edit-caption';
 
+function normalizeImageCaption(value: string): string | null {
+  const caption = value.trim();
+  return caption ? caption : null;
+}
+
 export const EditorToolbar = ({
   onOpenLink,
   onOpenProducts,
@@ -65,11 +70,6 @@ export const EditorToolbar = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!editor) return null;
-
-  const normalizeImageCaption = (value: string): string | null => {
-    const caption = value.trim();
-    return caption ? caption : null;
-  };
 
   const openImageInsertPopover = () => {
     setImagePopoverMode('insert');

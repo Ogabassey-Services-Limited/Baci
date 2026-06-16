@@ -70,15 +70,17 @@ export async function fetchCheckoutShippingStates(
     return pending.then((payload) => payload.states);
   }
 
-  const promise = requestCheckoutShippingLocations(apiBaseUrl).then((result) => {
-    if (result.cacheable) {
-      warmedShippingLocations.set(cacheKey, {
-        expiresAt: Date.now() + CHECKOUT_SHIPPING_STATES_CACHE_MS,
-        payload: result.payload,
-      });
+  const promise = requestCheckoutShippingLocations(apiBaseUrl).then(
+    (result) => {
+      if (result.cacheable) {
+        warmedShippingLocations.set(cacheKey, {
+          expiresAt: Date.now() + CHECKOUT_SHIPPING_STATES_CACHE_MS,
+          payload: result.payload,
+        });
+      }
+      return result.payload;
     }
-    return result.payload;
-  });
+  );
 
   pendingShippingLocations.set(cacheKey, promise);
   try {

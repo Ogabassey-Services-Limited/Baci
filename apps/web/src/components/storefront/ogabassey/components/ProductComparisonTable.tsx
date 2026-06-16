@@ -27,6 +27,18 @@ function getSafeCurrencyCode(currency?: string | null) {
     return code && /^[A-Z]{3}$/.test(code) && (!SUPPORTED_CURRENCY_CODES || SUPPORTED_CURRENCY_CODES.has(code)) ? code : FALLBACK_PRICE_CURRENCY;
 }
 
+function getMatrixCellValue(
+    row: ProductComparisonMatrixRow,
+    columnIndex: number,
+    hasProduct: boolean
+): string {
+    if (!hasProduct) {
+        return '';
+    }
+
+    return row.values[columnIndex] || '—';
+}
+
 const _priceFormatterCache = new Map<string, Intl.NumberFormat>();
 
 function getPriceFormatter(locale: string, currency: string): Intl.NumberFormat {
@@ -117,18 +129,6 @@ export function ProductComparisonTable({
     const summarySpecsByColumn = comparisonColumns.map(
         (product) => buildProductSpecData(product).specs
     );
-
-    const getMatrixCellValue = (
-        row: ProductComparisonMatrixRow,
-        columnIndex: number,
-        hasProduct: boolean
-    ) => {
-        if (!hasProduct) {
-            return '';
-        }
-
-        return row.values[columnIndex] || '—';
-    };
 
     const renderSummaryColumn = (columnIndex: number, hasProduct: boolean) => {
         const items = hasProduct ? summarySpecsByColumn[columnIndex] || [] : [];

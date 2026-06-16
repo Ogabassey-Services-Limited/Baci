@@ -1,8 +1,8 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
-import type { AddressFormData } from './types';
 import { AddressFormFields } from './AddressFormFields';
+import type { AddressFormData } from './types';
 
 describe('AddressFormFields', () => {
   const form: AddressFormData = {

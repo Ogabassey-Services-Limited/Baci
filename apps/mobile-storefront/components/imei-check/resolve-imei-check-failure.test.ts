@@ -1,5 +1,5 @@
-import { describe, expect, it } from '@jest/globals';
 import type { ImeiBrandFilter, ImeiServiceTierKey } from '@baci/shared/imei';
+import { describe, expect, it } from '@jest/globals';
 import {
   DEFAULT_IMEI_CHECK_ERROR_MESSAGE,
   getPublicVisibleImeiServiceTierKeys,

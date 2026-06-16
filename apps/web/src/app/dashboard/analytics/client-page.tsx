@@ -74,6 +74,23 @@ function loadAnalyticsExport() {
   return import('@/lib/analytics-export');
 }
 
+// Placeholder fetch functions for specialized categories - implementation
+// pending. Closure-free, so they live at module scope (defined once).
+function fetchInventoryData(): Partial<AnalyticsData> {
+  // TODO: Implement actual data fetching
+  return {};
+}
+
+function fetchSegmentData(): Partial<AnalyticsData> {
+  // TODO: Implement actual data fetching
+  return {};
+}
+
+function fetchAdAnalyticsData(): Partial<AnalyticsData> {
+  // TODO: Implement actual data fetching
+  return {};
+}
+
 export default function AnalyticsClientPage() {
   const { toast } = useToast();
   const { merchant, loading: merchantLoading } = useMerchant();
@@ -105,22 +122,6 @@ export default function AnalyticsClientPage() {
   const analyticsData: AnalyticsData | null = baseAnalytics
     ? { ...baseAnalytics, ...categoryAnalytics }
     : null;
-
-  // Placeholder fetch functions for specialized categories - implementation pending
-  const fetchInventoryData = () => {
-    // TODO: Implement actual data fetching
-    return {};
-  };
-
-  const fetchSegmentData = () => {
-    // TODO: Implement actual data fetching
-    return {};
-  };
-
-  const fetchAdAnalyticsData = () => {
-    // TODO: Implement actual data fetching
-    return {};
-  };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: using merchant?.id instead of merchant object avoids infinite loop without React Compiler
   useEffect(() => {

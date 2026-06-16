@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { BRAND, SHADOWS, palette } from '@/constants/Colors';
+import { BRAND, palette, SHADOWS } from '@/constants/Colors';
 
 const warningStyles = {
   warningOverlay: {

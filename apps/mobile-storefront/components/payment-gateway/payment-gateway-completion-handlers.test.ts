@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { router } from 'expo-router';
 import type { QueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { createPaymentGatewayCompletionHandlers } from './payment-gateway-completion-handlers';
 import type {
   PaymentGatewayRefs,

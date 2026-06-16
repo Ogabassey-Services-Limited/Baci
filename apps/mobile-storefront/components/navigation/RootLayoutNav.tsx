@@ -1,9 +1,9 @@
+import { Stack } from 'expo-router';
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from 'expo-router/react-navigation';
-import { Stack } from 'expo-router';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
@@ -12,11 +12,11 @@ import { GlobalErrorBoundary } from '@/components/ErrorBoundary';
 import { NegotiationModal } from '@/components/modals/NegotiationModal';
 import { DrawerMenu } from '@/components/navigation/DrawerMenu';
 import { NavigationBarStyleProvider } from '@/components/navigation/NavigationBarStyleProvider';
-import { RouteResumeController } from '@/components/navigation/RouteResumeController';
 import { renderRootStackScreens } from '@/components/navigation/RootStackScreens';
+import { RouteResumeController } from '@/components/navigation/RouteResumeController';
 import AppKeyboardProvider from '@/components/ui/AppKeyboardProvider';
-import { useColorScheme } from '@/components/useColorScheme';
 import { MobileUpdateController } from '@/components/updates/MobileUpdateController';
+import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET } from '@/constants/layout';
 import { useAuthGuard } from '@/hooks/use-auth-guard';

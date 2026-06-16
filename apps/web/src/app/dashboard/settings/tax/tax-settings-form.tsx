@@ -41,6 +41,10 @@ interface VerifyTaxIdResponse {
   taxIdentificationNumber?: string;
 }
 
+async function saveSettings(payload: Record<string, unknown>): Promise<void> {
+  await apiPatch('/api/merchant/settings', payload);
+}
+
 export function TaxSettingsForm({
   initialVatEnabled,
   initialVatRate,
@@ -65,10 +69,6 @@ export function TaxSettingsForm({
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingEntity, setIsSavingEntity] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
-
-  const saveSettings = async (payload: Record<string, unknown>) => {
-    await apiPatch('/api/merchant/settings', payload);
-  };
 
   const handleVatToggle = async (enabled: boolean) => {
     setIsLoading(true);

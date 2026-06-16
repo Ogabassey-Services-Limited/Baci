@@ -17,6 +17,10 @@ import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 import { useViewportActivation } from './use-viewport-activation';
 
+function isOutOfStock(p: Product): boolean {
+  return p.manage_stock !== false && getEffectiveStock(p) <= 0;
+}
+
 interface BrandProductsProps {
   /** Current product to find same-brand products for */
   product: Product;
@@ -175,9 +179,6 @@ export function BrandProducts({
   if (isActive && !isLoading && brandProducts.length === 0) {
     return null;
   }
-
-  const isOutOfStock = (p: Product) =>
-    p.manage_stock !== false && getEffectiveStock(p) <= 0;
 
   const title = `More ${productBrand} ${productCategory}`;
 

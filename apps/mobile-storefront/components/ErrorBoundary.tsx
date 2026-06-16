@@ -4,9 +4,9 @@ import Colors from '@/constants/Colors';
 import { ErrorFallbackView } from './ErrorFallbackView';
 import {
   classifyError,
+  type ErrorType,
   getErrorContent,
   logError,
-  type ErrorType,
 } from './error-boundary-content';
 
 interface Props {

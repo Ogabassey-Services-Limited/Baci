@@ -41,6 +41,25 @@ interface ShippingOptionsProps {
   className?: string;
 }
 
+function formatDeliveryTime(quote: ShippingQuote): string {
+  if (quote.minDays && quote.maxDays && quote.minDays !== quote.maxDays) {
+    return `${quote.minDays}-${quote.maxDays} days`;
+  }
+  return `${quote.estimatedDays} day${quote.estimatedDays !== 1 ? 's' : ''}`;
+}
+
+function getProviderLogo(provider: string): string {
+  switch (provider) {
+    case 'GIGL':
+      return 'GIG';
+    case 'TOPSHIP':
+      return 'TS';
+
+    default:
+      return provider.slice(0, 2);
+  }
+}
+
 export function ShippingOptions({
   receiverCity,
   receiverState,
@@ -157,25 +176,6 @@ export function ShippingOptions({
     serializedCartItems,
     quotes.length,
   ]);
-
-  const formatDeliveryTime = (quote: ShippingQuote) => {
-    if (quote.minDays && quote.maxDays && quote.minDays !== quote.maxDays) {
-      return `${quote.minDays}-${quote.maxDays} days`;
-    }
-    return `${quote.estimatedDays} day${quote.estimatedDays !== 1 ? 's' : ''}`;
-  };
-
-  const getProviderLogo = (provider: string) => {
-    switch (provider) {
-      case 'GIGL':
-        return 'GIG';
-      case 'TOPSHIP':
-        return 'TS';
-
-      default:
-        return provider.slice(0, 2);
-    }
-  };
 
   if (isLoading) {
     return (

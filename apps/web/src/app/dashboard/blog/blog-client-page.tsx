@@ -190,6 +190,29 @@ function getDiscoverReadinessLabel(state: BlogDiscoverImageReadinessState) {
   }
 }
 
+function getStatusBadge(status: string) {
+  switch (status) {
+    case 'published':
+      return (
+        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+          <CheckCircle className="size-3 mr-1" /> Published
+        </Badge>
+      );
+    case 'archived':
+      return (
+        <Badge variant="secondary">
+          <Archive className="size-3 mr-1" /> Archived
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="outline">
+          <Clock className="size-3 mr-1" /> Draft
+        </Badge>
+      );
+  }
+}
+
 export function BlogClientPage({
   merchant,
   initialPosts = [],
@@ -343,29 +366,6 @@ export function BlogClientPage({
         description: 'Failed to update blog post.',
         variant: 'destructive',
       });
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'published':
-        return (
-          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-            <CheckCircle className="size-3 mr-1" /> Published
-          </Badge>
-        );
-      case 'archived':
-        return (
-          <Badge variant="secondary">
-            <Archive className="size-3 mr-1" /> Archived
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="outline">
-            <Clock className="size-3 mr-1" /> Draft
-          </Badge>
-        );
     }
   };
 

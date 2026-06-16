@@ -1,5 +1,5 @@
-import { palette, withAlpha } from '@/constants/Colors';
 import { Platform } from 'react-native';
+import { palette, withAlpha } from '@/constants/Colors';
 
 export const IMEI_MONOSPACE_FONT =
   Platform.OS === 'ios' ? 'Menlo' : 'monospace';

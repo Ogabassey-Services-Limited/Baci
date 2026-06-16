@@ -125,6 +125,40 @@ const getCountryCodeForCurrency = (currency?: string | null) =>
 
 const TERMINAL_STATUSES = new Set(['cancelled', 'failed']);
 
+function formatDate(dateString: string): string {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('en-NG', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatCurrency(amount: number, currency: string = 'NGN'): string {
+  return formatCurrencyByCountry(amount, getCountryCodeForCurrency(currency));
+}
+
+function getStatusColor(status: string): string {
+  switch (status.toLowerCase()) {
+    case 'completed':
+    case 'delivered':
+      return 'var(--store-primary)';
+    case 'current':
+    case 'processing':
+    case 'shipped':
+      return 'var(--store-accent)';
+    case 'pending':
+      return 'var(--muted)';
+    case 'failed':
+    case 'cancelled':
+      return 'var(--destructive)';
+    default:
+      return 'var(--muted)';
+  }
+}
+
 interface TrackingLookupParams {
   order_id?: string | null;
   order_number?: string | null;
@@ -425,39 +459,6 @@ function OrderTrackContent() {
       order_id: trimmedOrderNumber ? null : orderId,
       email: trimmedEmail,
     });
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-NG', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const formatCurrency = (amount: number, currency: string = 'NGN') =>
-    formatCurrencyByCountry(amount, getCountryCodeForCurrency(currency));
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'completed':
-      case 'delivered':
-        return 'var(--store-primary)';
-      case 'current':
-      case 'processing':
-      case 'shipped':
-        return 'var(--store-accent)';
-      case 'pending':
-        return 'var(--muted)';
-      case 'failed':
-      case 'cancelled':
-        return 'var(--destructive)';
-      default:
-        return 'var(--muted)';
-    }
   };
 
   return (

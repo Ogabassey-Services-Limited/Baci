@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { CheckoutStep } from '@/components/checkout/CheckoutStepper';
 import { getPaymentTabForMethod } from '@/components/checkout/checkout-step-helpers';
-import {
-  type PaymentMethodType,
-  type PaymentTab,
+import type {
+  PaymentMethodType,
+  PaymentTab,
 } from '@/components/checkout/PaymentMethodSelector';
 import { useCheckoutSavings } from '@/hooks/use-checkout-savings';
 import { useWallet } from '@/hooks/use-wallet';

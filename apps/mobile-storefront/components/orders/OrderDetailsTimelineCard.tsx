@@ -1,11 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BRAND } from '@/constants/Colors';
 import {
   CUSTOMER_ORDER_PROGRESS_STEPS,
-  getCustomerOrderProgressState,
   type CustomerOrderStatusMeta,
+  getCustomerOrderProgressState,
 } from '@/lib/customer-order-status';
-import { BRAND } from '@/constants/Colors';
 
 interface OrderDetailsTimelineCardColors {
   border: string;

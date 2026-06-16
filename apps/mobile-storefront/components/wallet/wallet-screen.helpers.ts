@@ -1,9 +1,9 @@
+import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import {
   WALLET_TOP_UP_MAX_AMOUNT,
   WALLET_TOP_UP_MIN_AMOUNT,
 } from '@/lib/wallet-top-up-constants';
-import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
 interface CustomerLike {

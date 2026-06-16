@@ -33,7 +33,6 @@ describe('presentOrderCancellationPrompt', () => {
     expect(buttons?.some((button) => button.style === 'cancel')).toBe(true);
   });
 
-
   it('keeps Android prompts within the native three-button Alert limit', () => {
     Platform.OS = 'android';
     const onConfirm = jest.fn();

@@ -1,11 +1,11 @@
 import {
   CustomerRowSchema,
-  OrderRowSchema,
-  WalletRowSchema,
   isCustomerRealtimePayload,
   isOrderRealtimePayload,
   isWalletRealtimePayload,
+  OrderRowSchema,
   parseApiResponse,
+  WalletRowSchema,
 } from './product-schemas';
 
 const validOrder = {

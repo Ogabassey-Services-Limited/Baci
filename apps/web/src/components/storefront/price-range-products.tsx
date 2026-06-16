@@ -24,6 +24,9 @@ interface PriceRangeProductsProps {
   className?: string;
 }
 
+const isOutOfStock = (p: Product): boolean =>
+  p.manage_stock !== false && getEffectiveStock(p) <= 0;
+
 export function PriceRangeProducts({
   product,
   maxProducts = 4,
@@ -179,9 +182,6 @@ export function PriceRangeProducts({
   if (isActive && !isLoading && priceRangeProducts.length === 0) {
     return null;
   }
-
-  const isOutOfStock = (p: Product) =>
-    p.manage_stock !== false && getEffectiveStock(p) <= 0;
 
   const formatPriceRange = () => {
     const formattedMax = formatCurrency(maxPrice);

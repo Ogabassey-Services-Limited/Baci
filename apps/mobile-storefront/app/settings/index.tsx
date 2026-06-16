@@ -1,5 +1,5 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { Stack } from 'expo-router';

@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import { useEffect, useState } from 'react';
-import { Dimensions, Keyboard, type ScrollView, View } from 'react-native';
+import { Dimensions, Keyboard, type ScrollView, type View } from 'react-native';
 
 interface UseAddressAutocompleteKeyboardParams {
   isOpen: boolean;

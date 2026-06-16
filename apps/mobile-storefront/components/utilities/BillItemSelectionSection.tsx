@@ -11,11 +11,6 @@ import type { BillItem } from '@/hooks/use-vtu-billers';
 import type { useVTUVerify } from '@/hooks/use-vtu-verify';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
-import {
-  BILL_ITEM_AMOUNT_FORMATTER,
-  getVerifyErrorMessage,
-  getVisibleBillBeneficiaries,
-} from './bill-item-selection.helpers';
 import { BeneficiaryList } from './BeneficiaryList';
 import {
   IDENTIFIER_LABELS,
@@ -25,6 +20,11 @@ import { getBillItemLevelLabel } from './bill-form.helpers';
 import type { BillFormProps } from './bill-form.types';
 import { billFormStyles as styles } from './bill-form-styles';
 import type { BillItemSelectionState } from './bill-item-selection';
+import {
+  BILL_ITEM_AMOUNT_FORMATTER,
+  getVerifyErrorMessage,
+  getVisibleBillBeneficiaries,
+} from './bill-item-selection.helpers';
 import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { VerificationCard } from './VerificationCard';
 

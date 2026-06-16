@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react-native';
 import {
-  PickupStationCard,
   PICKUP_STATION_ADDRESS_LINES,
+  PickupStationCard,
 } from './PickupStationCard';
 
 const mockColors = {

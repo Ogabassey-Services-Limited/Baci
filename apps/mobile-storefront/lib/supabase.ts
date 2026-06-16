@@ -181,4 +181,4 @@ export async function signOut() {
   }
 }
 
-export { calculateCommerce, CommerceError } from './commerce-brain';
+export { CommerceError, calculateCommerce } from './commerce-brain';

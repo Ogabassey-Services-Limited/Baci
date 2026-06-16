@@ -58,6 +58,22 @@ const rewardIcons = {
   exclusive_access: Sparkles,
 };
 
+function getRewardLabel(reward: Reward): string {
+  if (reward.reward_type === 'discount') {
+    if (reward.discount_type === 'percentage') {
+      return `${reward.discount_value}% Off`;
+    }
+    return `₦${reward.discount_value?.toLocaleString()} Off`;
+  }
+  if (reward.reward_type === 'free_shipping') {
+    return 'Free Shipping';
+  }
+  if (reward.reward_type === 'free_product') {
+    return 'Free Product';
+  }
+  return 'Exclusive Access';
+}
+
 export function RewardsCatalog({
   merchantId,
   customerId,
@@ -128,22 +144,6 @@ export function RewardsCatalog({
     }
 
     return true;
-  };
-
-  const getRewardLabel = (reward: Reward): string => {
-    if (reward.reward_type === 'discount') {
-      if (reward.discount_type === 'percentage') {
-        return `${reward.discount_value}% Off`;
-      }
-      return `₦${reward.discount_value?.toLocaleString()} Off`;
-    }
-    if (reward.reward_type === 'free_shipping') {
-      return 'Free Shipping';
-    }
-    if (reward.reward_type === 'free_product') {
-      return 'Free Product';
-    }
-    return 'Exclusive Access';
   };
 
   if (loading) {

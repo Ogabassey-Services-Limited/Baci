@@ -47,6 +47,9 @@ interface RelatedProductsProps {
   className?: string;
 }
 
+const isOutOfStock = (p: Product): boolean =>
+  p.manage_stock !== false && getEffectiveStock(p) <= 0;
+
 /**
  * Related Products Component
  *
@@ -152,9 +155,6 @@ export function RelatedProducts({
   if (!isLoading && relatedProducts.length === 0) {
     return null;
   }
-
-  const isOutOfStock = (p: Product) =>
-    p.manage_stock !== false && getEffectiveStock(p) <= 0;
 
   return (
     <section className={cn('w-full py-8 md:py-12', className)}>

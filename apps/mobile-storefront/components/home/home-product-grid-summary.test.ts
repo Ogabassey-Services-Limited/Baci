@@ -1,5 +1,5 @@
-import { getHomeProductGridSummary } from './home-product-grid-summary';
 import type { Block } from '@/types/blocks';
+import { getHomeProductGridSummary } from './home-product-grid-summary';
 
 function productGrid(id: string): Block {
   return {
@@ -42,7 +42,10 @@ describe('getHomeProductGridSummary', () => {
   });
 
   it('returns an empty-grid summary when no product grid exists', () => {
-    const summary = getHomeProductGridSummary([categoryRail('categories')], null);
+    const summary = getHomeProductGridSummary(
+      [categoryRail('categories')],
+      null
+    );
 
     expect(summary).toEqual({
       primaryProductGridIndex: -1,

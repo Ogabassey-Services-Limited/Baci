@@ -21,6 +21,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Hoisted out of the component so React Compiler can lower the effect body
 // (try/finally statements are not yet supported inside component/hook bodies).
+async function signOut(): Promise<void> {
+  const supabase = createClient();
+  await supabase.auth.signOut();
+}
+
 async function initializeAuthState(
   supabase: SupabaseClient,
   hadInitialUser: boolean,
@@ -88,11 +93,6 @@ export function AuthProvider({
       subscription.unsubscribe();
     };
   }, []);
-
-  const signOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-  };
 
   const value = { user, loading, signOut };
 

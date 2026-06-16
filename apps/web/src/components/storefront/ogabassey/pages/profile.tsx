@@ -84,23 +84,23 @@ const getMenuItems = (storeSlug: string) => {
   ];
 };
 
+// Helper for initials
+const getInitials = (name?: string): string => {
+  return name
+    ? name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+    : '??';
+};
+
 export const OgabasseyV2Profile: React.FC = () => {
   const storeSlug = useStoreSlug();
   const menuItems = getMenuItems(storeSlug);
   const { customer, logout, isAuthenticated } = useCustomerAuth();
   const { savedItems } = useV2Saved();
-
-  // Helper for initials
-  const getInitials = (name?: string) => {
-    return name
-      ? name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
-      : '??';
-  };
 
   if (!isAuthenticated && typeof window !== 'undefined') {
     // Ideally redirect, but for this component just show minimal or empty

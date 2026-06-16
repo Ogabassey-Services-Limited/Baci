@@ -19,6 +19,11 @@ const MONEY_FORMATTER = new Intl.NumberFormat('en-NG', {
   currency: 'NGN',
 });
 
+// Helper to format currency
+function formatMoney(amount: number): string {
+  return MONEY_FORMATTER.format(amount);
+}
+
 export default function SantaClientPage() {
   const { merchant, loading: merchantLoading } = useMerchant();
   const [stats, setStats] = useState<SantaStats | null>(null);
@@ -67,11 +72,6 @@ export default function SantaClientPage() {
       </div>
     );
   }
-
-  // Helper to format currency
-  const formatMoney = (amount: number) => {
-    return MONEY_FORMATTER.format(amount);
-  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

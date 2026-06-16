@@ -494,6 +494,21 @@ async function requestDvaInitialization({
   throw new Error('DVA not returned by the gateway');
 }
 
+// Date Calculation for Door Delivery
+function getDeliveryDateRange(): string {
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(today.getDate() + 1);
+  const end = new Date(today);
+  end.setDate(today.getDate() + 3);
+
+  const options: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+  };
+  return `${start.toLocaleDateString('en-GB', options)} to ${end.toLocaleDateString('en-GB', options)}`;
+}
+
 export const CheckoutPage: React.FC = () => {
   const { cart, clearCart, isHydrated } = useCart();
   const merchantContext = useMerchantSafe();
@@ -1275,21 +1290,6 @@ export const CheckoutPage: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-
-  // Date Calculation for Door Delivery
-  const getDeliveryDateRange = () => {
-    const today = new Date();
-    const start = new Date(today);
-    start.setDate(today.getDate() + 1);
-    const end = new Date(today);
-    end.setDate(today.getDate() + 3);
-
-    const options: Intl.DateTimeFormatOptions = {
-      day: 'numeric',
-      month: 'short',
-    };
-    return `${start.toLocaleDateString('en-GB', options)} to ${end.toLocaleDateString('en-GB', options)}`;
-  };
 
   const deliveryCost =
     deliveryMethod === 'pickup'

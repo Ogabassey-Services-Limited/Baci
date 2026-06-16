@@ -104,7 +104,10 @@ export function useBillFormSelection({
       initialMatch.biller.billItems,
       initialMatch.codes
     );
-    if (!initialMatch.resolvedToSpecificBillItem || !matchedSelection.isComplete) {
+    if (
+      !initialMatch.resolvedToSpecificBillItem ||
+      !matchedSelection.isComplete
+    ) {
       return;
     }
 

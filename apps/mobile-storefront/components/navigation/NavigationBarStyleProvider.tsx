@@ -1,22 +1,21 @@
 import * as NavigationBar from 'expo-navigation-bar';
 import {
   createContext,
+  type Dispatch,
+  type PropsWithChildren,
+  type SetStateAction,
   useContext,
   useEffect,
   useLayoutEffect,
   useState,
-  type Dispatch,
-  type PropsWithChildren,
-  type SetStateAction,
 } from 'react';
 import { Platform } from 'react-native';
 
 export type NavigationBarButtonStyle = 'dark' | 'light';
 
-const NavigationBarStyleOverrideContext =
-  createContext<
-    Dispatch<SetStateAction<NavigationBarButtonStyle | null>> | null
-  >(null);
+const NavigationBarStyleOverrideContext = createContext<Dispatch<
+  SetStateAction<NavigationBarButtonStyle | null>
+> | null>(null);
 
 export function NavigationBarStyleProvider({
   children,

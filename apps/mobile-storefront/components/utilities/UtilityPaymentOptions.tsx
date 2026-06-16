@@ -8,9 +8,9 @@ import {
 import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
 import type { SavedVtuCard } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
-import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
 import { UtilityPaystackTrustBadge } from './UtilityPaystackTrustBadge';
 
 const CARD_CASHBACK_BADGE = '2x cashback';

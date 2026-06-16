@@ -1,8 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
-import type { Domain, DomainAction } from './domain-types';
 import { domainOptionsSheetStyles } from './domain-options-sheet.styles';
+import type { Domain, DomainAction } from './domain-types';
 
 interface ActionButtonProps {
   action: DomainAction;

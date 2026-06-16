@@ -1,16 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { act, renderHook } from '@testing-library/react-native';
 import {
-  Dimensions,
-  Keyboard,
-  type ScrollView,
-  type View,
-} from 'react-native';
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
+import { act, renderHook } from '@testing-library/react-native';
+import { Dimensions, Keyboard, type ScrollView, type View } from 'react-native';
 import { useAddressAutocompleteKeyboard } from './use-address-autocomplete-keyboard';
 
-type KeyboardShowCb = (event: {
-  endCoordinates: { height: number };
-}) => void;
+type KeyboardShowCb = (event: { endCoordinates: { height: number } }) => void;
 
 function setupKeyboardListeners() {
   const callbacks: { show?: KeyboardShowCb; hide?: () => void } = {};

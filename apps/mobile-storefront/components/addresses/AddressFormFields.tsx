@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Colors from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { addressFormStyles as styles } from './address-form.styles';
 import { ADDRESS_FORM_LABELS, NIGERIA_STATES } from './constants';

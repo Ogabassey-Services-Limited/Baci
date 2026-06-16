@@ -222,6 +222,51 @@ async function runSetPrimaryDomain({
   }
 }
 
+function getStatusBadge(status: Domain['status']): React.ReactElement {
+  const variants: Record<
+    Domain['status'],
+    {
+      variant: 'default' | 'secondary' | 'destructive' | 'outline';
+      label: string;
+      icon: React.ComponentType<{ className?: string }>;
+      className?: string;
+    }
+  > = {
+    active: {
+      variant: 'default',
+      label: 'Active',
+      icon: Check,
+      className: 'bg-green-500 hover:bg-green-600',
+    },
+    pending: { variant: 'secondary', label: 'Pending', icon: Clock },
+    verifying: { variant: 'secondary', label: 'Verifying', icon: Clock },
+    failed: { variant: 'destructive', label: 'Failed', icon: AlertCircle },
+    expired: { variant: 'destructive', label: 'Expired', icon: AlertCircle },
+  };
+
+  const config = variants[status];
+  const Icon = config.icon;
+
+  return (
+    <Badge
+      variant={config.variant}
+      className={`flex items-center gap-1 ${config.className || ''}`}
+    >
+      <Icon className="size-3" />
+      {config.label}
+    </Badge>
+  );
+}
+
+function getTypeBadge(type: Domain['domain_type']): React.ReactElement {
+  const labels = {
+    subdomain: 'Free Subdomain',
+    custom: 'Custom Domain',
+    purchased: 'Purchased',
+  };
+  return <Badge variant="outline">{labels[type]}</Badge>;
+}
+
 export function DomainCard({ domain }: DomainCardProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -229,51 +274,6 @@ export function DomainCard({ domain }: DomainCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSettingPrimary, setIsSettingPrimary] = useState(false);
-
-  const getStatusBadge = (status: Domain['status']) => {
-    const variants: Record<
-      Domain['status'],
-      {
-        variant: 'default' | 'secondary' | 'destructive' | 'outline';
-        label: string;
-        icon: React.ComponentType<{ className?: string }>;
-        className?: string;
-      }
-    > = {
-      active: {
-        variant: 'default',
-        label: 'Active',
-        icon: Check,
-        className: 'bg-green-500 hover:bg-green-600',
-      },
-      pending: { variant: 'secondary', label: 'Pending', icon: Clock },
-      verifying: { variant: 'secondary', label: 'Verifying', icon: Clock },
-      failed: { variant: 'destructive', label: 'Failed', icon: AlertCircle },
-      expired: { variant: 'destructive', label: 'Expired', icon: AlertCircle },
-    };
-
-    const config = variants[status];
-    const Icon = config.icon;
-
-    return (
-      <Badge
-        variant={config.variant}
-        className={`flex items-center gap-1 ${config.className || ''}`}
-      >
-        <Icon className="size-3" />
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const getTypeBadge = (type: Domain['domain_type']) => {
-    const labels = {
-      subdomain: 'Free Subdomain',
-      custom: 'Custom Domain',
-      purchased: 'Purchased',
-    };
-    return <Badge variant="outline">{labels[type]}</Badge>;
-  };
 
   const handleVerify = () => {
     setIsVerifying(true);

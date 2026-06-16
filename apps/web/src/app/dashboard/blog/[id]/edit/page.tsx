@@ -466,6 +466,70 @@ async function submitBlogPostUpdate({
   return (await response.json()) as BlogPost;
 }
 
+// Image upload handler for the editor. Closure-free, so it lives at module
+// scope (defined once, not per render).
+async function handleImageUpload(file: File): Promise<string> {
+  const formDataUpload = new FormData();
+  formDataUpload.append('file', file);
+  formDataUpload.append('purpose', 'inline');
+
+  const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+    method: 'POST',
+    body: formDataUpload,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to upload image');
+  }
+
+  const data = await response.json();
+  return data.url;
+}
+
+function normalizePublishedAt(
+  publishedAt?: string | null
+): string | null | undefined {
+  if (!publishedAt) {
+    return publishedAt;
+  }
+
+  const parsedPublishedAt = new Date(publishedAt);
+
+  if (Number.isNaN(parsedPublishedAt.getTime())) {
+    return publishedAt;
+  }
+
+  return parsedPublishedAt.toISOString();
+}
+
+// Calculate plain text from Tiptap JSON (or HTML) content. Closure-free.
+function getTextContent(jsonString: string): string {
+  try {
+    if (!jsonString) return '';
+    // If it looks like HTML (starts with <), use DOMParser
+    if (jsonString.trim().startsWith('<') && typeof window !== 'undefined') {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(jsonString, 'text/html');
+      return doc.body.textContent || '';
+    }
+
+    const json = JSON.parse(jsonString);
+    let text = '';
+    // biome-ignore lint/suspicious/noExplicitAny: Tiptap JSON content
+    const traverse = (node: any) => {
+      if (node.text) text += `${node.text} `;
+      if (node.content && Array.isArray(node.content)) {
+        node.content.forEach(traverse);
+      }
+    };
+    traverse(json);
+    return text.trim();
+  } catch {
+    return '';
+  }
+}
+
 export default function EditBlogPostPage() {
   const router = useRouter();
   const params = useParams();
@@ -673,26 +737,6 @@ export default function EditBlogPostPage() {
       });
   };
 
-  // Image upload handler for the editor
-  const handleImageUpload = async (file: File): Promise<string> => {
-    const formDataUpload = new FormData();
-    formDataUpload.append('file', file);
-    formDataUpload.append('purpose', 'inline');
-
-    const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-      method: 'POST',
-      body: formDataUpload,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to upload image');
-    }
-
-    const data = await response.json();
-    return data.url;
-  };
-
   const clearFeaturedImageFields = () => {
     setFormData((prev) => ({
       ...prev,
@@ -762,22 +806,6 @@ export default function EditBlogPostPage() {
         variant: 'destructive',
       });
     }
-  };
-
-  const normalizePublishedAt = (
-    publishedAt?: string | null
-  ): string | null | undefined => {
-    if (!publishedAt) {
-      return publishedAt;
-    }
-
-    const parsedPublishedAt = new Date(publishedAt);
-
-    if (Number.isNaN(parsedPublishedAt.getTime())) {
-      return publishedAt;
-    }
-
-    return parsedPublishedAt.toISOString();
   };
 
   const normalizeFormData = (data: PostFormData): PostFormData =>
@@ -916,31 +944,6 @@ export default function EditBlogPostPage() {
     formData.seo_description?.length || formData.excerpt.length;
 
   // Calculate word count from JSON content
-  const getTextContent = (jsonString: string) => {
-    try {
-      if (!jsonString) return '';
-      // If it looks like HTML (starts with <), use DOMParser
-      if (jsonString.trim().startsWith('<') && typeof window !== 'undefined') {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(jsonString, 'text/html');
-        return doc.body.textContent || '';
-      }
-
-      const json = JSON.parse(jsonString);
-      let text = '';
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap JSON content
-      const traverse = (node: any) => {
-        if (node.text) text += `${node.text} `;
-        if (node.content && Array.isArray(node.content)) {
-          node.content.forEach(traverse);
-        }
-      };
-      traverse(json);
-      return text.trim();
-    } catch {
-      return '';
-    }
-  };
   const wordCount = getTextContent(formData.content)
     .split(/\s+/)
     .filter(Boolean).length;

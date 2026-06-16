@@ -33,6 +33,33 @@ interface StorefrontFormProps {
   merchantId: string;
 }
 
+const validateField = (field: FormField, value: unknown): string | null => {
+  if (field.required && !value) {
+    return `${field.label} is required`;
+  }
+
+  if (value) {
+    switch (field.type) {
+      case 'email': {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (typeof value === 'string' && !emailRegex.test(value)) {
+          return 'Please enter a valid email address';
+        }
+        break;
+      }
+      case 'phone': {
+        const phoneRegex = /^[\d\s\-+()]+$/;
+        if (typeof value === 'string' && !phoneRegex.test(value)) {
+          return 'Please enter a valid phone number';
+        }
+        break;
+      }
+    }
+  }
+
+  return null;
+};
+
 export function StorefrontForm({
   formName,
   fields,
@@ -46,33 +73,6 @@ export function StorefrontForm({
   const [submitStatus, setSubmitStatus] = useState<
     'idle' | 'success' | 'error'
   >('idle');
-
-  const validateField = (field: FormField, value: unknown): string | null => {
-    if (field.required && !value) {
-      return `${field.label} is required`;
-    }
-
-    if (value) {
-      switch (field.type) {
-        case 'email': {
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (typeof value === 'string' && !emailRegex.test(value)) {
-            return 'Please enter a valid email address';
-          }
-          break;
-        }
-        case 'phone': {
-          const phoneRegex = /^[\d\s\-+()]+$/;
-          if (typeof value === 'string' && !phoneRegex.test(value)) {
-            return 'Please enter a valid phone number';
-          }
-          break;
-        }
-      }
-    }
-
-    return null;
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

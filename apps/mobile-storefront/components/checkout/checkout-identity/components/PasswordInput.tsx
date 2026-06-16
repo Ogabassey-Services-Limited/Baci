@@ -9,11 +9,11 @@
  */
 
 import React, { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
 import { Controller } from 'react-hook-form';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import type { CheckoutIdentityTheme } from '../colors';
-import type { PasswordInputProps, SignInFormData } from '../types';
 import { styles } from '../styles';
+import type { PasswordInputProps, SignInFormData } from '../types';
 
 interface ThemedPasswordInputProps extends PasswordInputProps {
   theme: CheckoutIdentityTheme;

@@ -128,6 +128,29 @@ async function deleteReviewRequest(reviewId: string): Promise<void> {
   }
 }
 
+function getStatusBadge(status: string): React.ReactElement {
+  switch (status) {
+    case 'approved':
+      return (
+        <Badge className="bg-green-100 text-green-800">
+          <CheckCircle className="size-3 mr-1" /> Approved
+        </Badge>
+      );
+    case 'rejected':
+      return (
+        <Badge variant="destructive">
+          <XCircle className="size-3 mr-1" /> Rejected
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="secondary">
+          <Clock className="size-3 mr-1" /> Pending
+        </Badge>
+      );
+  }
+}
+
 export default function ReviewsPage() {
   const { toast } = useToast();
   const { merchant } = useMerchant();
@@ -275,29 +298,6 @@ export default function ReviewsPage() {
           variant: 'destructive',
         });
       });
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return (
-          <Badge className="bg-green-100 text-green-800">
-            <CheckCircle className="size-3 mr-1" /> Approved
-          </Badge>
-        );
-      case 'rejected':
-        return (
-          <Badge variant="destructive">
-            <XCircle className="size-3 mr-1" /> Rejected
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="secondary">
-            <Clock className="size-3 mr-1" /> Pending
-          </Badge>
-        );
-    }
   };
 
   const stats = {

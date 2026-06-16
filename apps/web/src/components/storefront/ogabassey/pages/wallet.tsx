@@ -16,6 +16,15 @@ const NGN_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
   }
 );
 
+const handleFundWallet = (): void => {
+  // Placeholder for now as per instructions/limitations
+  alert('Wallet funding is currently being updated. Please try again later.');
+};
+
+const handleAddCard = (): void => {
+  alert('Card management is coming soon.');
+};
+
 export function OgabasseyV2Wallet() {
   const { isAuthenticated, isLoading: isAuthLoading } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
@@ -46,15 +55,6 @@ export function OgabasseyV2Wallet() {
   // resolving or while the first wallet fetch is in flight.
   const canFetch = isAuthenticated && Boolean(merchant?.slug);
   const loading = isAuthLoading || (canFetch && !hasFetchSettled);
-
-  const handleFundWallet = () => {
-    // Placeholder for now as per instructions/limitations
-    alert('Wallet funding is currently being updated. Please try again later.');
-  };
-
-  const handleAddCard = () => {
-    alert('Card management is coming soon.');
-  };
 
   if (loading) {
     return (

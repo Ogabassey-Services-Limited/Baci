@@ -27,6 +27,12 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
+function handleAction(action?: () => void): void {
+  if (action) {
+    action();
+  }
+}
+
 interface InlineContextMenuProps {
   componentId: string;
   componentType: string;
@@ -53,12 +59,6 @@ export function InlineContextMenu({
   position = 'top',
 }: InlineContextMenuProps) {
   // const [isVisible, setIsVisible] = useState(true);
-
-  const handleAction = (action?: () => void) => {
-    if (action) {
-      action();
-    }
-  };
 
   return (
     <div

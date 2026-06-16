@@ -454,6 +454,33 @@ async function performSavePost(
   }
 }
 
+// Calculate text content from JSON (or HTML) editor content for word counting
+function getTextContent(jsonString: string): string {
+  try {
+    if (!jsonString) return '';
+    // If it looks like HTML (starts with <), use DOMParser
+    if (jsonString.trim().startsWith('<') && typeof window !== 'undefined') {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(jsonString, 'text/html');
+      return doc.body.textContent || '';
+    }
+
+    const json = JSON.parse(jsonString);
+    let text = '';
+    // biome-ignore lint/suspicious/noExplicitAny: Tiptap JSON content
+    const traverse = (node: any) => {
+      if (node.text) text += `${node.text} `;
+      if (node.content && Array.isArray(node.content)) {
+        node.content.forEach(traverse);
+      }
+    };
+    traverse(json);
+    return text.trim();
+  } catch {
+    return '';
+  }
+}
+
 export default function NewBlogPostPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -712,31 +739,6 @@ export default function NewBlogPostPage() {
   };
 
   // Calculate word count from JSON content
-  const getTextContent = (jsonString: string) => {
-    try {
-      if (!jsonString) return '';
-      // If it looks like HTML (starts with <), use DOMParser
-      if (jsonString.trim().startsWith('<') && typeof window !== 'undefined') {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(jsonString, 'text/html');
-        return doc.body.textContent || '';
-      }
-
-      const json = JSON.parse(jsonString);
-      let text = '';
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap JSON content
-      const traverse = (node: any) => {
-        if (node.text) text += `${node.text} `;
-        if (node.content && Array.isArray(node.content)) {
-          node.content.forEach(traverse);
-        }
-      };
-      traverse(json);
-      return text.trim();
-    } catch {
-      return '';
-    }
-  };
   const wordCount = getTextContent(formData.content)
     .split(/\s+/)
     .filter(Boolean).length;

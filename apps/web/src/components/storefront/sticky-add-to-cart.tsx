@@ -23,6 +23,10 @@ function subscribeToWindowScroll(callback: () => void) {
   return () => window.removeEventListener('scroll', callback);
 }
 
+function scrollToTop(): void {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 export interface StickyAddToCartProps {
   /** Product to add to cart */
   product: Product;
@@ -150,10 +154,6 @@ export function StickyAddToCart({
       title: 'Added to cart',
       description: `${quantity} x ${product.name}${variantInfo} has been added to your cart.`,
     });
-  };
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (

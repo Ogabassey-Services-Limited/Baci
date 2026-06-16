@@ -1,8 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import {
   getCrashBreadcrumbsForTest,
-  MAX_BREADCRUMBS,
   installCrashDiagnostics,
+  MAX_BREADCRUMBS,
   recordCrashBreadcrumb,
   resetCrashDiagnosticsForTest,
 } from './crash-diagnostics';

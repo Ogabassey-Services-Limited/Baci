@@ -36,6 +36,17 @@ async function fetchTrackingResult(
   return data;
 }
 
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString('en-NG', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default function TrackingPage(props: TrackingPageProps) {
   return (
     <Suspense fallback={<TrackingPageFallback />}>
@@ -91,17 +102,6 @@ function TrackingPageContent({ params }: TrackingPageProps) {
       cancelled = true;
     };
   }, [trackingNumber]);
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-NG', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   if (loading) {
     return (

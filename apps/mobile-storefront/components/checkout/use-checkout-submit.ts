@@ -19,7 +19,7 @@ import {
 import { trackCheckoutStep } from '@/services/analytics';
 import { createOrder } from '@/services/orders';
 import { trackCheckoutRoutePurchaseCompleted } from '@/services/tiktok-checkout-route-tracking';
-import { useCartStore, type CartItem } from '@/stores/cart-store';
+import { type CartItem, useCartStore } from '@/stores/cart-store';
 import { submitBnplCheckout } from './checkout-bnpl-submit';
 import {
   buildCheckoutOrderRequest,
@@ -27,8 +27,8 @@ import {
 } from './checkout-order-builders';
 import { finalizeCheckoutPayment } from './checkout-payment-finalization';
 import { runCheckoutPostOrderSideEffects } from './checkout-post-order-side-effects';
-import { resolveCheckoutStoreCreditSelections } from './checkout-store-credit';
 import type { PendingCryptoOrder } from './checkout-screen.constants';
+import { resolveCheckoutStoreCreditSelections } from './checkout-store-credit';
 import { handleCheckoutSubmitError } from './checkout-submit-error';
 import { validateCheckoutSubmission } from './checkout-submit-validation';
 

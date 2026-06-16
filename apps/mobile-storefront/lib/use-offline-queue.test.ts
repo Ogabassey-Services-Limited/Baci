@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react-native';
-import { useOfflineQueue } from './use-offline-queue';
 import type { OfflineQueueState } from './offline-queue.types';
+import { useOfflineQueue } from './use-offline-queue';
 
 const mockEnqueue = jest.fn();
 const mockGetPendingCount = jest.fn();

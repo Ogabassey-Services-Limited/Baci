@@ -55,7 +55,9 @@ export async function runSavingsGoalSubmission(
       nonWithdrawableAccepted: true,
       productId: validation.selectedProduct.id,
       savedPaymentMethodId:
-        input.sourceMode === 'auto_debit' ? input.selectedPaymentMethodId : null,
+        input.sourceMode === 'auto_debit'
+          ? input.selectedPaymentMethodId
+          : null,
       sourceMode: input.sourceMode,
       startDate: validation.formattedStartDate,
       targetAmount: input.targetValue,

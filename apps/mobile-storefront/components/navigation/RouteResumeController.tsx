@@ -1,4 +1,9 @@
-import { router, useGlobalSearchParams, usePathname, useRootNavigationState } from 'expo-router';
+import {
+  router,
+  useGlobalSearchParams,
+  usePathname,
+  useRootNavigationState,
+} from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   buildPersistableResumeHref,
@@ -11,8 +16,8 @@ import {
   isAuthPath,
   isHomePath,
   markControllerUnmountedSinceCapture,
-  setLastResumableHref,
   type RouteSearchParams,
+  setLastResumableHref,
 } from './route-resume-state';
 
 export {

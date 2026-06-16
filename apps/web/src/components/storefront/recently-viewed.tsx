@@ -40,6 +40,9 @@ function subscribeToNothing(): () => void {
   };
 }
 
+const isOutOfStock = (product: Product): boolean =>
+  product.manage_stock !== false && getEffectiveStock(product) <= 0;
+
 export function RecentlyViewedProducts({
   excludeProductId,
   maxProducts = 6,
@@ -150,9 +153,6 @@ export function RecentlyViewedProducts({
   if (!showLoading && products.length === 0) {
     return null;
   }
-
-  const isOutOfStock = (product: Product) =>
-    product.manage_stock !== false && getEffectiveStock(product) <= 0;
 
   return (
     <section className={cn('w-full py-8 md:py-12', className)}>

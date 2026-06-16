@@ -1,8 +1,8 @@
 import { isProductNegotiable } from '@baci/shared/lib';
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { getCartItemEffectivePrice } from '@/lib/cart-pricing';
 import { useShallow } from 'zustand/react/shallow';
+import { getCartItemEffectivePrice } from '@/lib/cart-pricing';
 import type { CartItem } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
 

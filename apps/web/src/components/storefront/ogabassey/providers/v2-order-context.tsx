@@ -61,6 +61,10 @@ function persistOrders(nextOrders: Order[]): void {
   }
 }
 
+function addOrder(order: Order): void {
+  persistOrders([order, ...getOrdersSnapshot()]);
+}
+
 export const V2OrderProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -69,10 +73,6 @@ export const V2OrderProvider: React.FC<{ children: React.ReactNode }> = ({
     getOrdersSnapshot,
     getServerOrdersSnapshot
   );
-
-  const addOrder = (order: Order) => {
-    persistOrders([order, ...getOrdersSnapshot()]);
-  };
 
   const getOrder = (id: string) => {
     return orders.find((o) => o.id === id);

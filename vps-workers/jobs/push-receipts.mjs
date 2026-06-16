@@ -11,9 +11,9 @@
  * Crontab: installed by vps-workers/deploy.sh (node path resolved at deploy time)
  */
 
-import { Expo } from 'expo-server-sdk';
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
+import { Expo } from 'expo-server-sdk';
 
 config({ path: new URL('../.env', import.meta.url).pathname });
 

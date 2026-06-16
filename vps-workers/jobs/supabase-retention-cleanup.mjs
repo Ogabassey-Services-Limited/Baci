@@ -3,9 +3,9 @@
  * Bounds low-value analytics rows plus pg_cron and pg_net response history.
  */
 
+import { pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
-import { pathToFileURL } from 'node:url';
 
 config({ path: new URL('../.env', import.meta.url).pathname });
 

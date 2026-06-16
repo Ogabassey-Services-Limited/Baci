@@ -81,6 +81,51 @@ function resolveCategoryLayouts(activeCategory: string): Layouts {
   return CATEGORY_LAYOUTS[activeCategory] ?? DEFAULT_LAYOUTS;
 }
 
+function formatPercent(value: number): string {
+  return PERCENT_FORMATTER.format(value / 100);
+}
+
+// Helper to render metric cards using BentoCard
+function renderMetricCard(
+  key: string,
+  title: string,
+  value: string,
+  change: number,
+  icon: React.ElementType,
+  trend: 'up' | 'down'
+): React.ReactElement {
+  return (
+    <div key={key} className="min-w-0">
+      <BentoCard
+        title={title}
+        icon={icon}
+        className="h-full"
+        action={
+          <div
+            className={cn(
+              'flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full w-fit shrink-0',
+              trend === 'up'
+                ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                : 'bg-red-500/10 text-red-600 dark:text-red-400'
+            )}
+          >
+            <span>{formatMetricChange(change)}</span>
+          </div>
+        }
+      >
+        <div className="space-y-1 min-w-0">
+          <div
+            className="text-xl sm:text-2xl font-bold tracking-tight truncate"
+            title={value}
+          >
+            {value}
+          </div>
+        </div>
+      </BentoCard>
+    </div>
+  );
+}
+
 interface MetricData {
   value: number;
   change: number;
@@ -661,49 +706,6 @@ export function DraggableAnalyticsGrid({
     const useCompact = value >= 100000;
     return getCurrencyFormatter(locale, currency, useCompact).format(value);
   };
-
-  const formatPercent = (value: number) => {
-    return PERCENT_FORMATTER.format(value / 100);
-  };
-
-  // Helper to render metric cards using BentoCard
-  const renderMetricCard = (
-    key: string,
-    title: string,
-    value: string,
-    change: number,
-    icon: React.ElementType,
-    trend: 'up' | 'down'
-  ) => (
-    <div key={key} className="min-w-0">
-      <BentoCard
-        title={title}
-        icon={icon}
-        className="h-full"
-        action={
-          <div
-            className={cn(
-              'flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full w-fit shrink-0',
-              trend === 'up'
-                ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                : 'bg-red-500/10 text-red-600 dark:text-red-400'
-            )}
-          >
-            <span>{formatMetricChange(change)}</span>
-          </div>
-        }
-      >
-        <div className="space-y-1 min-w-0">
-          <div
-            className="text-xl sm:text-2xl font-bold tracking-tight truncate"
-            title={value}
-          >
-            {value}
-          </div>
-        </div>
-      </BentoCard>
-    </div>
-  );
 
   const { chartData, recentSales, topProducts, salesByChannel } = data || {};
 

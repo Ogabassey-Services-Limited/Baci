@@ -3,12 +3,12 @@ import * as Crypto from 'expo-crypto';
 import { useRef, useState } from 'react';
 import { listSavedVtuCards, type VTUPaymentGateway } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
+import { useAuthStore } from '@/stores/auth-store';
+import { useWallet } from './use-wallet';
 import {
   getEnabledPaymentMethods,
   useMerchantPaymentSettings,
 } from './useMerchantPaymentSettings';
-import { useWallet } from './use-wallet';
-import { useAuthStore } from '@/stores/auth-store';
 
 export type UtilityPaymentGateway = VTUPaymentGateway;
 

@@ -53,6 +53,18 @@ function getCurrencyFormatter(
   return formatter;
 }
 
+function formatCurrency(
+  amount: number,
+  locale?: string,
+  currency?: string
+): string {
+  // Fallback to browser locale and NGN if not specified
+  const userLocale =
+    locale || (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
+  const userCurrency = currency || 'NGN';
+  return getCurrencyFormatter(userLocale, userCurrency).format(amount);
+}
+
 interface CustomerDetailClientPageProps {
   initialCustomer: Customer;
   initialOrders: CustomerOrder[];
@@ -171,19 +183,6 @@ export default function CustomerDetailClientPage({
         variant: 'destructive',
       });
     }
-  };
-
-  const formatCurrency = (
-    amount: number,
-    locale?: string,
-    currency?: string
-  ) => {
-    // Fallback to browser locale and NGN if not specified
-    const userLocale =
-      locale ||
-      (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
-    const userCurrency = currency || 'NGN';
-    return getCurrencyFormatter(userLocale, userCurrency).format(amount);
   };
 
   if (!customer) {

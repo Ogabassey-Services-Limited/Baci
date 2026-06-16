@@ -37,6 +37,35 @@ function normalizeStoreSlug(storeSlug?: string): string {
   return normalized ? `/${normalized}` : '';
 }
 
+// Helper to render social link if it exists
+function renderSocialLink(
+  input: string | undefined,
+  label: string,
+  platform:
+    | 'instagram'
+    | 'facebook'
+    | 'tiktok'
+    | 'twitter'
+    | 'youtube'
+    | 'linkedin'
+    | 'snapchat',
+  Icon: React.ElementType
+): React.ReactElement | null {
+  const url = normalizeSocialUrl(input, platform);
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-gray-400 hover:text-white transition-colors"
+      aria-label={label}
+    >
+      <Icon size={20} />
+    </a>
+  );
+}
+
 export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const basePath = normalizeStoreSlug(storeSlug);
   const businessName = merchant?.business_name || 'Ogabassey';
@@ -58,28 +87,6 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
       ? { label: 'Warranty', href: asRoute(`${basePath}/warranty`) }
       : null,
   ].filter((link): link is FooterLink => link !== null);
-
-  // Helper to render social link if it exists
-  const renderSocialLink = (
-    input: string | undefined,
-    label: string,
-    platform: 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'linkedin' | 'snapchat',
-    Icon: React.ElementType
-  ) => {
-    const url = normalizeSocialUrl(input, platform);
-    if (!url) return null;
-    return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-gray-400 hover:text-white transition-colors"
-        aria-label={label}
-      >
-        <Icon size={20} />
-      </a>
-    );
-  };
 
   return (
     <footer className="bg-[#1a1a1a] text-white pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-gray-800">

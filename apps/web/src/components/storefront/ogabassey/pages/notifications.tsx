@@ -64,6 +64,32 @@ const initialNotifications: Notification[] = [
   },
 ];
 
+function getIcon(type: NotificationType): React.ReactElement {
+  switch (type) {
+    case 'order':
+      return <Package size={18} />;
+    case 'promo':
+      return <Gift size={18} />;
+    case 'system':
+      return <Shield size={18} />;
+    default:
+      return <Bell size={18} />;
+  }
+}
+
+function getColorClass(type: NotificationType): string {
+  switch (type) {
+    case 'order':
+      return 'bg-blue-50 text-blue-600';
+    case 'promo':
+      return 'bg-red-50 text-red-600';
+    case 'system':
+      return 'bg-amber-50 text-amber-600';
+    default:
+      return 'bg-gray-50 text-gray-600';
+  }
+}
+
 export const OgabasseyV2Notifications: React.FC = () => {
   const [notifications, setNotifications] =
     useState<Notification[]>(initialNotifications);
@@ -86,32 +112,6 @@ export const OgabasseyV2Notifications: React.FC = () => {
   const filteredNotifications = notifications.filter((n) =>
     filter === 'all' ? true : !n.read
   );
-
-  const getIcon = (type: NotificationType) => {
-    switch (type) {
-      case 'order':
-        return <Package size={18} />;
-      case 'promo':
-        return <Gift size={18} />;
-      case 'system':
-        return <Shield size={18} />;
-      default:
-        return <Bell size={18} />;
-    }
-  };
-
-  const getColorClass = (type: NotificationType) => {
-    switch (type) {
-      case 'order':
-        return 'bg-blue-50 text-blue-600';
-      case 'promo':
-        return 'bg-red-50 text-red-600';
-      case 'system':
-        return 'bg-amber-50 text-amber-600';
-      default:
-        return 'bg-gray-50 text-gray-600';
-    }
-  };
 
   // Group by date for visual separation
   const groupedNotifications = filteredNotifications.reduce(

@@ -5,6 +5,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
 import { CheckoutCryptoPaymentModal } from '@/components/checkout/CheckoutCryptoPaymentModal';
 import { CheckoutHeader } from '@/components/checkout/CheckoutHeader';
@@ -19,7 +20,6 @@ import { PatternedBackground } from '@/components/storefront/PatternedBackground
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { useShallow } from 'zustand/react/shallow';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useCartStore } from '@/stores/cart-store';

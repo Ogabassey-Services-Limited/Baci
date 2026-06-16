@@ -10,7 +10,9 @@ export function getHomeProductGridSummary(
   blocks: Block[],
   selectedCategoryId: string | null
 ): HomeProductGridSummary {
-  const productGridBlocks = blocks.filter((block) => block.type === 'ProductGrid');
+  const productGridBlocks = blocks.filter(
+    (block) => block.type === 'ProductGrid'
+  );
   const productGridBlockIds = productGridBlocks.map(
     (block) => block.props.id ?? block.type
   );
@@ -18,7 +20,8 @@ export function getHomeProductGridSummary(
   const primaryProductGridIndex = primaryProductGridId
     ? blocks.findIndex(
         (block) =>
-          block.type === 'ProductGrid' && block.props.id === primaryProductGridId
+          block.type === 'ProductGrid' &&
+          block.props.id === primaryProductGridId
       )
     : blocks.findIndex((block) => block.type === 'ProductGrid');
 

@@ -1,6 +1,6 @@
-import { Pressable, Modal, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING, palette } from '@/constants/Colors';
+import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
 import type { MobileUpdatePrompt } from './mobile-update-check';
 
 interface MobileUpdateModalProps {
@@ -82,7 +82,12 @@ export function MobileUpdateModal({
               onPress={onDismiss}
               style={styles.secondaryButton}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.secondaryButtonText,
+                  { color: colors.textSecondary },
+                ]}
+              >
                 Later
               </Text>
             </Pressable>

@@ -56,6 +56,68 @@ interface WalletClientProps {
   payoutCurrency?: string | null;
 }
 
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Invalid date';
+  return date.toLocaleDateString('en-NG', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatShortDate(dateString: string): string {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Invalid date';
+  return date.toLocaleDateString('en-NG', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+function getTypeIcon(type: string): React.ReactElement {
+  switch (type) {
+    case 'credit':
+      return <ArrowDownToLine className="size-4 text-green-500" />;
+    case 'withdrawal':
+    case 'payout':
+      return <ArrowUpFromLine className="size-4 text-blue-500" />;
+    default:
+      return <Wallet className="size-4 text-gray-500" />;
+  }
+}
+
+function getStatusBadge(status: string): React.ReactElement {
+  switch (status) {
+    case 'completed':
+      return <Badge variant="default">Completed</Badge>;
+    case 'pending':
+      return <Badge variant="secondary">Pending</Badge>;
+    case 'failed':
+      return <Badge variant="destructive">Failed</Badge>;
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+}
+
+function getGatewayBadge(gateway: string): React.ReactElement {
+  const colors: Record<string, string> = {
+    paystack: 'bg-blue-100 text-blue-800',
+    korapay: 'bg-purple-100 text-purple-800',
+    credit_direct: 'bg-orange-100 text-orange-800',
+    kuda: 'bg-green-100 text-green-800',
+  };
+  return (
+    <span
+      className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${colors[gateway] || 'bg-gray-100 text-gray-800'}`}
+    >
+      {gateway.replace('_', ' ')}
+    </span>
+  );
+}
+
 export default function WalletClient({
   wallet,
   pendingSettlements,
@@ -105,27 +167,6 @@ export default function WalletClient({
       });
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleDateString('en-NG', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const formatShortDate = (dateString: string) => {
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleDateString('en-NG', {
-      day: 'numeric',
-      month: 'short',
-    });
-  };
-
   const formatMoney = (amount: number) =>
     formatDisplayCurrency(amount, payoutCurrency || 'NGN', {
       minimumFractionDigits: 0,
@@ -135,47 +176,6 @@ export default function WalletClient({
     payoutCurrency,
     wallet?.minPayoutAmount
   );
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'credit':
-        return <ArrowDownToLine className="size-4 text-green-500" />;
-      case 'withdrawal':
-      case 'payout':
-        return <ArrowUpFromLine className="size-4 text-blue-500" />;
-      default:
-        return <Wallet className="size-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge variant="default">Completed</Badge>;
-      case 'pending':
-        return <Badge variant="secondary">Pending</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">Failed</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
-  const getGatewayBadge = (gateway: string) => {
-    const colors: Record<string, string> = {
-      paystack: 'bg-blue-100 text-blue-800',
-      korapay: 'bg-purple-100 text-purple-800',
-      credit_direct: 'bg-orange-100 text-orange-800',
-      kuda: 'bg-green-100 text-green-800',
-    };
-    return (
-      <span
-        className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${colors[gateway] || 'bg-gray-100 text-gray-800'}`}
-      >
-        {gateway.replace('_', ' ')}
-      </span>
-    );
-  };
 
   return (
     <div className="space-y-6">

@@ -255,7 +255,9 @@ describe('useBNPLCheckoutController', () => {
   });
 
   it('routes manual close confirmation through the guarded provider exit handler', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
     const { result } = renderControllerHook('ogabassey.com');
 
     act(() => {

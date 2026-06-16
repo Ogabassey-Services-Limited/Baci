@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { Category, CONSTANT_MERCHANT_ID, log } from '@/hooks/product-utils';
+import {
+  type Category,
+  CONSTANT_MERCHANT_ID,
+  log,
+} from '@/hooks/product-utils';
 import { useMerchant } from '@/hooks/use-merchant';
 import { withSupabaseRetry } from '@/lib/api';
 import { supabase } from '@/lib/supabase';

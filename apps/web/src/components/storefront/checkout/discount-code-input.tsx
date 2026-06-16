@@ -88,6 +88,13 @@ async function requestDiscountValidation(
   }
 }
 
+function formatDiscount(discount: DiscountResult): string {
+  if (discount.discount_type === 'percentage') {
+    return `${discount.discount_value}% off`;
+  }
+  return `₦${discount.discount_value.toLocaleString()} off`;
+}
+
 export function DiscountCodeInput({
   merchantId,
   cartTotal,
@@ -143,13 +150,6 @@ export function DiscountCodeInput({
       title: 'Discount Removed',
       description: 'The discount has been removed from your order',
     });
-  };
-
-  const formatDiscount = (discount: DiscountResult) => {
-    if (discount.discount_type === 'percentage') {
-      return `${discount.discount_value}% off`;
-    }
-    return `₦${discount.discount_value.toLocaleString()} off`;
   };
 
   // Show applied discount

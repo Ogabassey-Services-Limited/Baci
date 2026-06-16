@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import coinsImage from '@/assets/quiz/png/Coins.png';
 import { useTheme } from '@/hooks/useTheme';
 import { createLogger } from '@/lib/logger';
@@ -18,7 +19,6 @@ import {
   submitQuizAnswer,
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
-import { useShallow } from 'zustand/react/shallow';
 import { QuizEventsList } from './QuizEventsList';
 import { createQuizStyles } from './QuizScreen.styles';
 import {

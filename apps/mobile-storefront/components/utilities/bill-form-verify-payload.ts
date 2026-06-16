@@ -13,7 +13,8 @@ export function createBillFormVerifyPayload({
   selectedBillItem,
   selectedBillItemIdentifier,
 }: CreateBillFormVerifyPayloadInput) {
-  const provider = selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
+  const provider =
+    selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
   return {
     billItemIdentifier: selectedBillItemIdentifier,
     billerCode: selectedBillItem?.billerCode ?? selectedBiller.billerCode,

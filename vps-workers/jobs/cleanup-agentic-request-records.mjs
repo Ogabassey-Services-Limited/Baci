@@ -9,9 +9,9 @@
  * Crontab: 10 * * * * flock -n /home/bassey/baci-workers/locks/cleanup-agentic-request-records.lock bash -lc 'cd /home/bassey/baci-workers && /usr/bin/node /home/bassey/baci-workers/jobs/cleanup-agentic-request-records.mjs' >> /home/bassey/baci-workers/logs/cleanup-agentic-request-records.log 2>&1
  */
 
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
-import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const RETENTION_GRACE_MS = 60 * 60 * 1000;
 

@@ -153,6 +153,37 @@ async function enhanceVariantImage(sourceImage: string): Promise<string> {
   return canvas.toDataURL('image/png');
 }
 
+// Helper to sort values numerically (for RAM, storage, etc.)
+function sortAttributeValues(values: string[], attributeKey: string): string[] {
+  // Sort numerically for RAM, storage, and similar attributes
+  if (NUMERIC_SORT_ATTRIBUTE_KEYS.includes(attributeKey.toLowerCase())) {
+    return [...values].sort((a, b) => {
+      const numA = Number.parseFloat(a);
+      const numB = Number.parseFloat(b);
+      return numA - numB;
+    });
+  }
+  return values;
+}
+
+function getPlaceholderForAttribute(attr: CategoryVariantAttribute): string {
+  if (attr.options && attr.options.length > 0) {
+    return `e.g., ${attr.options[0]}`;
+  }
+  switch (attr.type) {
+    case 'color':
+      return 'e.g., Black';
+    case 'number':
+      return `e.g., 42`;
+    case 'text':
+      if (attr.key === 'storage') return 'e.g., 256GB';
+      if (attr.key === 'ram') return 'e.g., 8GB';
+      return `Enter a value for ${attr.label}`;
+    default:
+      return 'Enter a value';
+  }
+}
+
 // Helper to format text to Title Case
 function toTitleCase(text: string) {
   if (!text) return '';
@@ -306,22 +337,6 @@ export function VariantBuilder({
     categoryConfig.variantAttributes,
   ]);
 
-  // Helper to sort values numerically (for RAM, storage, etc.)
-  const sortAttributeValues = (
-    values: string[],
-    attributeKey: string
-  ): string[] => {
-    // Sort numerically for RAM, storage, and similar attributes
-    if (NUMERIC_SORT_ATTRIBUTE_KEYS.includes(attributeKey.toLowerCase())) {
-      return [...values].sort((a, b) => {
-        const numA = Number.parseFloat(a);
-        const numB = Number.parseFloat(b);
-        return numA - numB;
-      });
-    }
-    return values;
-  };
-
   const handleAttributeAdd = (attributeKey: string, value: string) => {
     if (!value) return;
 
@@ -429,26 +444,6 @@ export function VariantBuilder({
     );
     setVariants(updated);
     onVariantsChange(updated);
-  };
-
-  const getPlaceholderForAttribute = (
-    attr: CategoryVariantAttribute
-  ): string => {
-    if (attr.options && attr.options.length > 0) {
-      return `e.g., ${attr.options[0]}`;
-    }
-    switch (attr.type) {
-      case 'color':
-        return 'e.g., Black';
-      case 'number':
-        return `e.g., 42`;
-      case 'text':
-        if (attr.key === 'storage') return 'e.g., 256GB';
-        if (attr.key === 'ram') return 'e.g., 8GB';
-        return `Enter a value for ${attr.label}`;
-      default:
-        return 'Enter a value';
-    }
   };
 
   // Calculate specCombos for performance

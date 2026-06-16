@@ -57,6 +57,24 @@ async function fetchStorefrontOrders(
   return data.orders;
 }
 
+const getStatusColor = (status: string): string => {
+  const s = status?.toLowerCase();
+  if (s === 'processing' || s === 'pending') return 'bg-blue-50 text-blue-600 border-blue-100';
+  if (s === 'delivered') return 'bg-green-50 text-green-600 border-green-100';
+  if (s === 'cancelled') return 'bg-red-50 text-red-600 border-red-100';
+  if (s === 'shipped') return 'bg-amber-50 text-amber-600 border-amber-100';
+  return 'bg-gray-50 text-gray-600 border-gray-100';
+};
+
+const getStatusIcon = (status: string): React.ReactElement => {
+  const s = status?.toLowerCase();
+  if (s === 'processing' || s === 'pending') return <Clock size={14} />;
+  if (s === 'delivered') return <CheckCircle2 size={14} />;
+  if (s === 'cancelled') return <XCircle size={14} />;
+  if (s === 'shipped') return <Truck size={14} />;
+  return <Package size={14} />;
+};
+
 export const OgabasseyV2Orders: React.FC = () => {
   const merchantContext = useMerchantSafe();
   const { customer: _customer, isAuthenticated } = useCustomerAuth(); // Hook into auth
@@ -108,24 +126,6 @@ export const OgabasseyV2Orders: React.FC = () => {
 
     return orderIdMatch || statusMatch || itemMatch;
   });
-
-  const getStatusColor = (status: string) => {
-    const s = status?.toLowerCase();
-    if (s === 'processing' || s === 'pending') return 'bg-blue-50 text-blue-600 border-blue-100';
-    if (s === 'delivered') return 'bg-green-50 text-green-600 border-green-100';
-    if (s === 'cancelled') return 'bg-red-50 text-red-600 border-red-100';
-    if (s === 'shipped') return 'bg-amber-50 text-amber-600 border-amber-100';
-    return 'bg-gray-50 text-gray-600 border-gray-100';
-  };
-
-  const getStatusIcon = (status: string) => {
-    const s = status?.toLowerCase();
-    if (s === 'processing' || s === 'pending') return <Clock size={14} />;
-    if (s === 'delivered') return <CheckCircle2 size={14} />;
-    if (s === 'cancelled') return <XCircle size={14} />;
-    if (s === 'shipped') return <Truck size={14} />;
-    return <Package size={14} />;
-  };
 
   if (isLoading) {
     return (

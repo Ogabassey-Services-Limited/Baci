@@ -8,12 +8,12 @@ import { createLogger } from '@/lib/logger';
 import { StartSavingsTransferModal } from './StartSavingsTransferModal';
 import { startSavingsStyles as styles } from './start-savings.styles';
 import type { StartSavingsColors } from './start-savings.types';
+import type { StartSavingsController } from './start-savings-controller.types';
 import {
   FundingOptionCard,
   SavedPaymentMethodCard,
   SummaryRow,
 } from './start-savings-modal-parts';
-import type { StartSavingsController } from './start-savings-controller.types';
 
 const log = createLogger('StartSavingsModals');
 

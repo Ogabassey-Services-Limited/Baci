@@ -111,6 +111,11 @@ async function performDeleteDiscountCode({
   }
 }
 
+function isExpired(code: DiscountCode): boolean {
+  if (!code.expires_at) return false;
+  return new Date(code.expires_at) < new Date();
+}
+
 export function DiscountClient({
   initialDiscountCodes,
   currencySymbol,
@@ -282,11 +287,6 @@ export function DiscountClient({
       return `${code.discount_value}% off`;
     }
     return `${currencySymbol}${code.discount_value} off`;
-  };
-
-  const isExpired = (code: DiscountCode) => {
-    if (!code.expires_at) return false;
-    return new Date(code.expires_at) < new Date();
   };
 
   return (

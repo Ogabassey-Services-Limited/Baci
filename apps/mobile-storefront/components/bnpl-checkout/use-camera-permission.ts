@@ -71,7 +71,8 @@ export function useCameraPermission(enabled: boolean) {
           setStatus(resolveCameraPermissionStatus(permission));
         })
         .catch((error: unknown) => {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           console.warn('[BNPLCheckout] Camera permission refresh failed', {
             message,
           });

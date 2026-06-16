@@ -1,8 +1,3 @@
-import type {
-  TransactionReviewItem,
-  TransactionReviewOrder,
-  TransactionReviewOrderRow,
-} from './transaction-review-types';
 import {
   buildSearchText,
   collectDetailValues,
@@ -15,6 +10,11 @@ import {
   SERIAL_KEYS,
   toFiniteNumberOrNull,
 } from './transaction-review-row-helpers';
+import type {
+  TransactionReviewItem,
+  TransactionReviewOrder,
+  TransactionReviewOrderRow,
+} from './transaction-review-types';
 
 const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -28,6 +28,7 @@ export {
   parseDateInputForPicker,
   toSentenceCaseSupplierName,
 } from './transaction-review-inputs';
+export { getSupplierNameFromMetadata } from './transaction-review-row-helpers';
 export type {
   TransactionReviewItem,
   TransactionReviewOrder,
@@ -35,7 +36,6 @@ export type {
   TransactionReviewProductRow,
   TransactionReviewVariantRow,
 } from './transaction-review-types';
-export { getSupplierNameFromMetadata } from './transaction-review-row-helpers';
 
 export function formatTransactionDateInput(createdAt: string) {
   const date = new Date(createdAt);

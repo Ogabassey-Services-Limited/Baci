@@ -17,6 +17,28 @@ interface AnalyticsCardProps {
   description?: string;
 }
 
+function getTrendColor(t?: 'up' | 'down' | 'neutral'): string {
+  switch (t) {
+    case 'up':
+      return 'text-emerald-500 bg-emerald-500/10';
+    case 'down':
+      return 'text-rose-500 bg-rose-500/10';
+    default:
+      return 'text-muted-foreground bg-muted';
+  }
+}
+
+function getTrendIcon(t?: 'up' | 'down' | 'neutral'): React.ReactElement {
+  switch (t) {
+    case 'up':
+      return <ArrowUp className="size-3" />;
+    case 'down':
+      return <ArrowDown className="size-3" />;
+    default:
+      return <Minus className="size-3" />;
+  }
+}
+
 export function AnalyticsCard({
   title,
   value,
@@ -27,28 +49,6 @@ export function AnalyticsCard({
   trend,
   description,
 }: AnalyticsCardProps) {
-  const getTrendColor = (t?: 'up' | 'down' | 'neutral') => {
-    switch (t) {
-      case 'up':
-        return 'text-emerald-500 bg-emerald-500/10';
-      case 'down':
-        return 'text-rose-500 bg-rose-500/10';
-      default:
-        return 'text-muted-foreground bg-muted';
-    }
-  };
-
-  const getTrendIcon = (t?: 'up' | 'down' | 'neutral') => {
-    switch (t) {
-      case 'up':
-        return <ArrowUp className="size-3" />;
-      case 'down':
-        return <ArrowDown className="size-3" />;
-      default:
-        return <Minus className="size-3" />;
-    }
-  };
-
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}

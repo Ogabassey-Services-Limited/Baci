@@ -15,14 +15,14 @@ import {
 import { supabase } from '@/lib/supabase';
 import { isOrderRealtimePayload } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
+import type { OrderDetails } from './OrderDetailsScreen.types';
+import { presentOrderCancellationPrompt } from './order-cancellation-prompt';
+import { getOrderTrackingUrl } from './order-details.helpers';
 import {
   fetchLatestInsurancePolicy,
   fetchOrderCanCancel,
   fetchOrderRecord,
 } from './order-details-data';
-import type { OrderDetails } from './OrderDetailsScreen.types';
-import { presentOrderCancellationPrompt } from './order-cancellation-prompt';
-import { getOrderTrackingUrl } from './order-details.helpers';
 
 const log = createLogger('OrderDetails');
 

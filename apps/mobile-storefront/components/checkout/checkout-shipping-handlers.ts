@@ -1,8 +1,8 @@
 import type { RefObject } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
-import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import { normalizeStateName } from '@/components/checkout/checkout-shipping.helpers';
 import type { DeliveryMethod } from '@/components/checkout/types';
+import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import type { ShippingAddressInput } from '@/lib/validation';
 
 interface CreateCheckoutShippingHandlersParams {
