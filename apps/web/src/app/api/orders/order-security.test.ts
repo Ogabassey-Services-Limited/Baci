@@ -73,6 +73,10 @@ const sharedChainableMock: any = {
   maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
   in: vi.fn().mockReturnThis(),
   returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+  // computeOrderNegotiationDiscount loads `products` via `.overrideTypes()`
+  // (the modern postgrest idiom). Default to no-data so the loader finds no
+  // catalog rows → returns null → no discount/rejection, route proceeds.
+  overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
   insert: vi.fn().mockResolvedValue({ error: null }),
   update: vi.fn().mockReturnThis(),
   // biome-ignore lint/suspicious/noThenProperty: needed for thenable mock

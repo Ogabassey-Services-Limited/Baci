@@ -38,6 +38,8 @@ export const CreateOrderRequestSchema = z.object({
   subtotal: z.number().min(0),
   shipping_fee: z.number().min(0),
   tax_amount: z.number().min(0).optional(),
+  expected_total: z.number().min(0).optional(),
+  client_total: z.number().min(0).optional(),
   discount_amount: z.number().min(0).optional(),
   payment_method: z.string().min(1),
   shipping_address: z.object({

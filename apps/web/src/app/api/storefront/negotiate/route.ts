@@ -3,28 +3,22 @@
  * Allows customers to submit price offers and receive counter-offers
  */
 
+import {
+  COUNTER_NEGOTIATION_DISCOUNT_STEPS,
+  isProductNegotiable,
+  MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
+} from '@baci/shared/lib';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { ZodError } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { storefrontNegotiationSchema } from '@/schemas/storefront-negotiation';
 
-// Validation schema
-const NegotiationSchema = z.object({
-  productId: z.uuid(),
-  merchantId: z.uuid(),
-  offeredPrice: z.number().positive(),
-  customerEmail: z.email().optional(),
-  customerPhone: z.string().optional(),
-  attemptNumber: z.number().min(1).max(3).default(1),
-  evidenceUrl: z.url().optional(),
-  evidenceNote: z.string().max(500).optional(),
-});
-
-// Counter-offer discount tiers
+// Counter-offer discount tiers — capped by the shared 2% auto-negotiation policy
 const DISCOUNT_TIERS = {
-  1: 0.02, // 2% discount on first attempt
-  2: 0.04, // 4% discount on second attempt
-  3: 0.05, // 5% hard floor on third attempt (final offer)
+  1: COUNTER_NEGOTIATION_DISCOUNT_STEPS[0], // 1% discount on first attempt
+  2: COUNTER_NEGOTIATION_DISCOUNT_STEPS[1], // 1.5% discount on second attempt
+  3: COUNTER_NEGOTIATION_DISCOUNT_STEPS[2], // 2% hard floor on third attempt (final offer)
 };
 
 // Minimum profit margin (don't go below this)
@@ -43,7 +37,7 @@ interface NegotiationResult {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const validatedData = NegotiationSchema.parse(body);
+    const validatedData = storefrontNegotiationSchema.parse(body);
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -51,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Fetch product details
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, name, price, cost_price, merchant_id')
+      .select('id, name, brand, price, cost_price, merchant_id')
       .eq('id', validatedData.productId)
       .eq('merchant_id', validatedData.merchantId)
       .eq('status', 'active')
@@ -63,15 +57,35 @@ export async function POST(request: NextRequest) {
 
     const originalPrice = product.price;
     const costPrice = product.cost_price || originalPrice * 0.6; // Estimate 40% margin if no cost
-    const minAcceptablePrice = costPrice * (1 + MIN_PROFIT_MARGIN);
+    // Auto-accept floor: never below cost margin, and never deeper than the
+    // shared 2% auto-negotiation cap.
+    const minAcceptablePrice = Math.max(
+      costPrice * (1 + MIN_PROFIT_MARGIN),
+      originalPrice * (1 - MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
+    );
 
     const attemptNumber = validatedData.attemptNumber;
     const offeredPrice = validatedData.offeredPrice;
 
+    const isNegotiable = isProductNegotiable({
+      brand: product.brand,
+      name: product.name,
+    });
+
     let result: NegotiationResult;
 
-    // Check if offered price is acceptable
-    if (offeredPrice >= originalPrice) {
+    if (!isNegotiable) {
+      // Non-negotiable products (budget brands, Samsung A-series) are already
+      // priced at their best — no auto-accept, counter, or margin branches.
+      result = {
+        status: 'final',
+        originalPrice,
+        offeredPrice,
+        message: 'This is already the best price.',
+        attemptNumber,
+        canContinue: false,
+      };
+    } else if (offeredPrice >= originalPrice) {
       // Customer offered full price or more
       result = {
         status: 'accepted',
@@ -82,7 +96,7 @@ export async function POST(request: NextRequest) {
         canContinue: false,
       };
     } else if (offeredPrice >= minAcceptablePrice) {
-      // Offer is within acceptable range
+      // Offer is within acceptable range (cost margin + 2% cap)
       result = {
         status: 'accepted',
         originalPrice,
@@ -164,7 +178,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Negotiation API error:', error);
 
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       return NextResponse.json(
         { error: 'Invalid request', details: error.issues },
         { status: 400 }

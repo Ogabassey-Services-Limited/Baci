@@ -1,5 +1,5 @@
-import { render } from '@testing-library/react-native';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { render } from '@testing-library/react-native';
 import { NegotiationModal } from './NegotiationModal';
 
 const mockRenderView = jest.fn();
@@ -88,6 +88,25 @@ describe('Product NegotiationModal wrapper', () => {
         successActionLabel: 'Done',
         successActionStyle: 'neutral',
       })
+    );
+  });
+
+  it('forwards isNegotiable=false for budget-brand products', () => {
+    render(
+      <NegotiationModal
+        visible
+        onClose={jest.fn()}
+        productId="product-1"
+        merchantId="merchant-1"
+        productName="Tecno Spark 50"
+        productBrand="Tecno"
+        currentPrice={120000}
+        onSuccess={jest.fn()}
+      />
+    );
+
+    expect(mockUseNegotiationModalController).toHaveBeenCalledWith(
+      expect.objectContaining({ isNegotiable: false })
     );
   });
 });

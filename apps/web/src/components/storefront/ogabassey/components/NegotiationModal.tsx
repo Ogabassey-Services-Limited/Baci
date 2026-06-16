@@ -1,6 +1,11 @@
 'use client';
 
 // Migrated from temp-source/components/NegotiationModal.tsx
+import {
+  COUNTER_NEGOTIATION_DISCOUNT_STEPS,
+  isProductNegotiable,
+  MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
+} from '@baci/shared/lib';
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -10,6 +15,7 @@ interface NegotiationModalProps {
   isOpen: boolean;
   onClose: () => void;
   productName: string;
+  productBrand?: string;
   currentPrice: number;
   vatRate?: number;
   onSuccess: (finalPrice: number) => void;
@@ -28,13 +34,10 @@ type NegotiationStatus =
   | 'submitted';
 
 const SESSION_KEY = 'ogabassey_guest_session';
-const AUTO_ACCEPT_DISCOUNT_THRESHOLD = 0.03;
-const COUNTER_DISCOUNT_STEPS = [0.01, 0.02, 0.03] as const;
 const AI_REVIEW_MESSAGE =
   'Your offer was accepted by our AI and is subject to human review.';
 const FINAL_PRICE_MESSAGE =
   "That's the final price for this product. We can't discount it further.";
-const FINAL_PRICE_BRAND_TOKENS = ['tecno', 'infinix', 'redmi', 'vivo', 'itel'];
 const MIN_SUBTOTAL_FOR_ROUNDED_COUNTER = 1000;
 
 function getOrCreateSessionId(): string {
@@ -53,8 +56,8 @@ function computeCounterOffer(
 ): number {
   const rawCounterOffer = Math.floor(currentPrice * (1 - counterDiscount));
 
-  // Keep the final 3% counter-offer within the API's allowed discount cap.
-  if (counterDiscount < AUTO_ACCEPT_DISCOUNT_THRESHOLD) {
+  // Keep the final (max-rate) counter-offer within the API's allowed cap.
+  if (counterDiscount < MAX_AUTO_NEGOTIATION_DISCOUNT_RATE) {
     return rawCounterOffer;
   }
 
@@ -63,37 +66,14 @@ function computeCounterOffer(
   const hasFractionalPrice = !Number.isInteger(currentPrice);
   const maxServerAcceptedDiscountAmount =
     vatAwareCart
-      ? Math.floor(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD)
+      ? Math.floor(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
       : hasFractionalPrice
-      ? Math.floor(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD)
+      ? Math.floor(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
       : currentPrice >= MIN_SUBTOTAL_FOR_ROUNDED_COUNTER
-      ? Math.ceil(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD)
-      : Math.floor(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD);
+      ? Math.ceil(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
+      : Math.floor(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE);
 
   return currentPrice - Math.min(rawDiscountAmount, maxServerAcceptedDiscountAmount);
-}
-
-function normalizeProductName(productName: string): string {
-  return productName
-    .toLocaleLowerCase('en-US')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-function isSamsungASeriesProduct(normalizedProductName: string): boolean {
-  return /\b(?:samsung(?: galaxy)?|galaxy)\s+a ?(?:series|\d{1,3}[a-z]*)\b/.test(
-    normalizedProductName
-  );
-}
-
-function isFinalPriceProduct(productName: string): boolean {
-  const normalizedProductName = normalizeProductName(productName);
-
-  return (
-    FINAL_PRICE_BRAND_TOKENS.some((brand) =>
-      normalizedProductName.includes(brand)
-    ) || isSamsungASeriesProduct(normalizedProductName)
-  );
 }
 
 interface NegotiationRequestInput {
@@ -144,6 +124,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   isOpen,
   onClose,
   productName,
+  productBrand,
   currentPrice,
   vatRate = 0,
   onSuccess,
@@ -154,6 +135,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   const offerInputId = useId();
   const uploadFileInputId = useId();
   const uploadLinkInputId = useId();
+  const isNegotiableProduct = isProductNegotiable({
+    brand: productBrand,
+    name: productName,
+  });
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
   const [message, setMessage] = useState('');
@@ -362,12 +347,9 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
       const discountAmount = currentPrice - offerAmount;
       const maxAutoAcceptedDiscountAmount =
-        currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD;
+        currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE;
 
-      if (
-        discountAmount > Number.EPSILON &&
-        isFinalPriceProduct(productName)
-      ) {
+      if (discountAmount > Number.EPSILON && !isNegotiableProduct) {
         setCounterOffer(null);
         setMessage(FINAL_PRICE_MESSAGE);
         setStatus('final');
@@ -385,9 +367,9 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       // Rejection Logic - Determine Counter Offer
       const counterStepIndex = Math.min(
         attemptCount,
-        COUNTER_DISCOUNT_STEPS.length - 1
+        COUNTER_NEGOTIATION_DISCOUNT_STEPS.length - 1
       );
-      const counterDiscount = COUNTER_DISCOUNT_STEPS[counterStepIndex];
+      const counterDiscount = COUNTER_NEGOTIATION_DISCOUNT_STEPS[counterStepIndex];
 
       let replyMessage = "That's a bit low. But I can do:";
       if (counterStepIndex === 1) {
@@ -620,8 +602,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   Negotiate Again
                 </button>
 
-                {/* I Saw It Cheaper - only after the final (3%) counter offer. */}
-                {attemptCount >= COUNTER_DISCOUNT_STEPS.length && (
+                {/* I Saw It Cheaper - only after the final counter offer. */}
+                {attemptCount >= COUNTER_NEGOTIATION_DISCOUNT_STEPS.length && (
                   <button type="button"
                     onClick={() => setStatus('upload')}
                     className="w-full bg-[var(--store-primary)]/5 text-[var(--store-primary)] font-bold py-3 rounded-xl hover:bg-[var(--store-primary)]/10 transition-colors border border-[var(--store-primary)]/20 flex items-center justify-center gap-2"
