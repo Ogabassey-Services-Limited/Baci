@@ -3,14 +3,13 @@ const questionAdFallback =
 
 export function QuizQuestionAdFallback() {
   return (
-    <div
+    <section
       aria-label="Reserved sponsored quiz placement"
       className={questionAdFallback}
-      role="region"
     >
       <span className="text-[9px] font-semibold uppercase tracking-widest text-store-background-text/40">
         Sponsored
       </span>
-    </div>
+    </section>
   );
 }

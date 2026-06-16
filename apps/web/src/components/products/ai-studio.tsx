@@ -226,6 +226,7 @@ export function AIStudio({
                   accept="image/*"
                   capture="environment"
                   className="hidden"
+                  aria-label="Take a photo of your product"
                   onChange={handleFileSelect}
                 />
                 <input
@@ -233,6 +234,7 @@ export function AIStudio({
                   type="file"
                   accept="image/*"
                   className="hidden"
+                  aria-label="Upload a product image"
                   onChange={handleFileSelect}
                 />
               </div>

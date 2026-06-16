@@ -102,6 +102,7 @@ export function Newsletter({
         >
           <input
             type="email"
+            aria-label="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder={placeholder}

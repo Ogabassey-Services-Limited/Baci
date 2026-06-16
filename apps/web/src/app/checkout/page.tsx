@@ -624,6 +624,7 @@ function Step0_Auth({
                   onChange={(e) => handleOtpChange(index, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(index, e)}
                   className="w-12 h-14 text-center text-2xl font-mono border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-background"
+                  aria-label={`Verification code digit ${index + 1}`}
                   disabled={isLoading}
                 />
               ))}

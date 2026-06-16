@@ -1,6 +1,6 @@
 import { AlertCircle, CheckCircle2, HandCoins, Loader2, X } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 interface NegotiationModalProps {
   isOpen: boolean;
@@ -19,6 +19,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   currentPrice,
   onSuccess,
 }) => {
+  const offerInputId = useId();
+
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationState>('input');
   const [message, setMessage] = useState('');
@@ -109,11 +111,15 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'input' && (
             <form onSubmit={handleSubmit}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor={offerInputId}
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Your Offer (₦)
               </label>
               <div className="relative mb-6">
                 <input
+                  id={offerInputId}
                   type="number"
                   value={offer}
                   onChange={(e) => setOffer(e.target.value)}

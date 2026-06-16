@@ -3,7 +3,7 @@
 import { Check, Gift, Info, MapPin, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
@@ -31,6 +31,13 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
   const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
+  const formId = useId();
+  const addressId = `${formId}-address`;
+  const senderNameId = `${formId}-sender-name`;
+  const recipientNameId = `${formId}-recipient-name`;
+  const recipientEmailId = `${formId}-recipient-email`;
+  const recipientPhoneId = `${formId}-recipient-phone`;
+  const messageId = `${formId}-message`;
 
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [address, setAddress] = useState('');
@@ -195,11 +202,15 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
 
             {/* Address */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+              <label
+                htmlFor={addressId}
+                className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2 flex items-center gap-1"
+              >
                 <MapPin size={14} /> Enter Beneficiary's Address{' '}
                 <span className="text-red-600 text-lg leading-none">*</span>
               </label>
               <textarea
+                id={addressId}
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm resize-none h-20"
@@ -239,11 +250,15 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
               </div>
               {senderType === 'named' && (
                 <div className="mt-3 animate-in fade-in slide-in-from-top-1">
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                  <label
+                    htmlFor={senderNameId}
+                    className="block text-xs font-bold text-gray-700 mb-1"
+                  >
                     From{' '}
                     <span className="text-red-600 text-lg leading-none">*</span>
                   </label>
                   <input
+                    id={senderNameId}
                     type="text"
                     value={senderName}
                     onChange={(e) => setSenderName(e.target.value)}
@@ -258,11 +273,15 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
             {senderType && (
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                  <label
+                    htmlFor={recipientNameId}
+                    className="block text-xs font-bold text-gray-700 mb-1"
+                  >
                     Recipient's Name{' '}
                     <span className="text-red-600 text-lg leading-none">*</span>
                   </label>
                   <input
+                    id={recipientNameId}
                     type="text"
                     value={recipientName}
                     onChange={(e) => setRecipientName(e.target.value)}
@@ -272,13 +291,17 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                    <label
+                      htmlFor={recipientEmailId}
+                      className="block text-xs font-bold text-gray-700 mb-1"
+                    >
                       Recipient's Email{' '}
                       <span className="text-red-600 text-lg leading-none">
                         *
                       </span>
                     </label>
                     <input
+                      id={recipientEmailId}
                       type="email"
                       value={recipientEmail}
                       onChange={(e) => setRecipientEmail(e.target.value)}
@@ -287,13 +310,17 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                    <label
+                      htmlFor={recipientPhoneId}
+                      className="block text-xs font-bold text-gray-700 mb-1"
+                    >
                       Recipient's Number{' '}
                       <span className="text-red-600 text-lg leading-none">
                         *
                       </span>
                     </label>
                     <input
+                      id={recipientPhoneId}
                       type="tel"
                       value={recipientPhone}
                       onChange={(e) => setRecipientPhone(e.target.value)}
@@ -303,13 +330,17 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                  <label
+                    htmlFor={messageId}
+                    className="block text-xs font-bold text-gray-700 mb-1"
+                  >
                     Special Message{' '}
                     <span className="text-gray-400 font-normal">
                       (Optional)
                     </span>
                   </label>
                   <textarea
+                    id={messageId}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-red-500 text-sm resize-none h-24"

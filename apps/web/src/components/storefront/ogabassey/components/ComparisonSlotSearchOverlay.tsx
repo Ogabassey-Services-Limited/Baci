@@ -76,13 +76,12 @@ export function ComparisonSlotSearchOverlay({
 
       <div className="-mx-2 mt-2 flex-1 overflow-y-auto">
         {loading && (
-          <div
+          <output
             className="flex justify-center p-4 text-store-background-text/45"
-            role="status"
             aria-label="Loading products"
           >
             <Loader2 className="animate-spin" size={20} />
-          </div>
+          </output>
         )}
 
         {!loading && searchError && (

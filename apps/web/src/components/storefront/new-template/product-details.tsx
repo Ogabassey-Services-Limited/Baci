@@ -18,7 +18,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -30,6 +30,11 @@ import { NegotiationModal } from './negotiation-modal';
 import { useSaved } from './saved-context'; // We created a stub for this
 
 export const ProductDetails: React.FC = () => {
+  const optionGroupId = useId();
+  const colorSelectionLabelId = `${optionGroupId}-selection-color`;
+  const storageSelectionLabelId = `${optionGroupId}-selection-storage`;
+  const colorRequirementLabelId = `${optionGroupId}-required-color`;
+  const storageRequirementLabelId = `${optionGroupId}-required-storage`;
   const params = useParams();
   const _router = useRouter();
   const { addToCart, cart } = useCart();
@@ -218,7 +223,7 @@ export const ProductDetails: React.FC = () => {
                 <div className="grid grid-cols-5 gap-3">
                   {productData.images.map((img, idx) => (
                     <button type="button"
-                      key={idx}
+                      key={`${img}-${idx}`}
                       onClick={() => setSelectedImage(idx)}
                       className={`relative aspect-square rounded-xl border-2 p-2 bg-gray-50 transition-all ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent hover:border-gray-200'}`}
                       aria-label={`View image ${idx + 1}`}
@@ -295,7 +300,10 @@ export const ProductDetails: React.FC = () => {
                   {productData.colors && productData.colors.length > 0 && (
                     <div>
                       <div className="flex justify-between mb-3">
-                        <span className="text-sm font-bold text-gray-900">
+                        <span
+                          id={colorSelectionLabelId}
+                          className="text-sm font-bold text-gray-900"
+                        >
                           Select Color
                         </span>
                         <span className="text-sm text-gray-500 font-medium">
@@ -304,7 +312,11 @@ export const ProductDetails: React.FC = () => {
                             : 'Required'}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-3">
+                      <div
+                        className="flex flex-wrap gap-3"
+                        role="group"
+                        aria-labelledby={colorSelectionLabelId}
+                      >
                         {productData.colors.map((color, idx) => {
                           const isSelected = selectedColor === idx;
                           const isLight = [
@@ -315,7 +327,7 @@ export const ProductDetails: React.FC = () => {
 
                           return (
                             <button type="button"
-                              key={idx}
+                              key={`${color.name}-${color.value}-${idx}`}
                               onClick={() => {
                                 setSelectedColor(idx);
                                 setSelectedImage(idx); // Sync image with color
@@ -357,7 +369,10 @@ export const ProductDetails: React.FC = () => {
                   {productData.storage && productData.storage.length > 0 && (
                     <div>
                       <div className="flex justify-between mb-3">
-                        <span className="text-sm font-bold text-gray-900">
+                        <span
+                          id={storageSelectionLabelId}
+                          className="text-sm font-bold text-gray-900"
+                        >
                           Storage
                         </span>
                         <span className="text-sm text-gray-500 font-medium">
@@ -366,10 +381,14 @@ export const ProductDetails: React.FC = () => {
                             : 'Required'}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-3">
+                      <div
+                        className="flex flex-wrap gap-3"
+                        role="group"
+                        aria-labelledby={storageSelectionLabelId}
+                      >
                         {productData.storage.map((size, idx) => (
                           <button type="button"
-                            key={idx}
+                            key={`${size}-${idx}`}
                             onClick={() => {
                               setSelectedStorage(idx);
                               setMissingFields((prev) =>
@@ -519,10 +538,17 @@ export const ProductDetails: React.FC = () => {
                 missingFields.length === 0) &&
                 productData.colors && (
                   <div>
-                    <label className="text-sm font-bold text-gray-900 block mb-3">
+                    <span
+                      id={colorRequirementLabelId}
+                      className="text-sm font-bold text-gray-900 block mb-3"
+                    >
                       Color
-                    </label>
-                    <div className="flex flex-wrap gap-4">
+                    </span>
+                    <div
+                      className="flex flex-wrap gap-4"
+                      role="group"
+                      aria-labelledby={colorRequirementLabelId}
+                    >
                       {productData.colors.map((color, idx) => {
                         const isSelected = selectedColor === idx;
                         const isLight = [
@@ -533,7 +559,7 @@ export const ProductDetails: React.FC = () => {
 
                         return (
                           <button type="button"
-                            key={idx}
+                            key={`${color.name}-${color.value}-${idx}`}
                             onClick={() => {
                               setSelectedColor(idx);
                               setSelectedImage(idx);
@@ -575,13 +601,20 @@ export const ProductDetails: React.FC = () => {
                 missingFields.length === 0) &&
                 productData.storage && (
                   <div>
-                    <label className="text-sm font-bold text-gray-900 block mb-3">
+                    <span
+                      id={storageRequirementLabelId}
+                      className="text-sm font-bold text-gray-900 block mb-3"
+                    >
                       Storage
-                    </label>
-                    <div className="flex flex-wrap gap-3">
+                    </span>
+                    <div
+                      className="flex flex-wrap gap-3"
+                      role="group"
+                      aria-labelledby={storageRequirementLabelId}
+                    >
                       {productData.storage.map((size, idx) => (
                         <button type="button"
-                          key={idx}
+                          key={`${size}-${idx}`}
                           onClick={() => {
                             setSelectedStorage(idx);
                             setMissingFields((prev) =>

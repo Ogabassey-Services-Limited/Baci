@@ -6,7 +6,7 @@ vi.mock('./components/PopupSystem', () => ({
 }));
 
 vi.mock('./components/OfflineNotice', () => ({
-  OfflineNotice: () => <div aria-label="Offline notice" role="status" />,
+  OfflineNotice: () => <output aria-label="Offline notice" />,
 }));
 
 import { StorefrontDeferredOverlayChrome } from './storefront-deferred-overlay-chrome';

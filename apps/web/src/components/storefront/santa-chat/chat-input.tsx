@@ -107,6 +107,7 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
           ref={imageInputRef}
           onChange={handleImageUpload}
           accept="image/*"
+          aria-label="Upload an image"
           className="hidden"
         />
         <button
