@@ -34,38 +34,24 @@ function createMerchantContext(merchantId: string) {
 let mockUser: { id: string } | null = { id: USER_ID };
 let mockAuthError: { message: string } | null = null;
 
-// Track calls for assertion
-let selectResult: { data: unknown; error: unknown } = {
-  data: null,
-  error: { code: 'PGRST116', message: 'not found' },
-};
-let insertResult: { data: unknown; error: unknown } = {
-  data: { id: 'token-id-1' },
+let rpcResult: { data: unknown; error: unknown } = {
+  data: 'token-123',
   error: null,
 };
 let updateResult: { data: unknown; error: unknown } = {
   data: null,
   error: null,
 };
-let updateCalls: Array<{ payload: unknown; filter: string }> = [];
-const insertCalls: unknown[] = [];
+const rpcCalls: Array<{ fn: string; args: unknown }> = [];
 
 function createMockSupabase() {
   const chain = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
-    single: vi.fn(() => Promise.resolve(selectResult)),
-    insert: vi.fn((payload: unknown) => {
-      insertCalls.push(payload);
-      insertResult.data = { id: 'token-id-new' };
-      return {
-        select: vi.fn().mockReturnValue({
-          single: vi.fn(() => Promise.resolve(insertResult)),
-        }),
-      };
-    }),
-    update: vi.fn((payload: unknown) => {
-      updateCalls.push({ payload, filter: '' });
+    single: vi.fn(),
+    maybeSingle: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(() => {
       const eqChain: Record<string, unknown> = {
         eq: vi.fn(() => eqChain),
       };
@@ -91,6 +77,10 @@ function createMockSupabase() {
       ),
     },
     from: vi.fn(() => chain),
+    rpc: vi.fn((fn: string, args: unknown) => {
+      rpcCalls.push({ args, fn });
+      return Promise.resolve(rpcResult);
+    }),
     _chain: chain,
   };
 }
@@ -138,14 +128,9 @@ describe('POST /api/push-tokens/register', () => {
     );
     mockUser = { id: USER_ID };
     mockAuthError = null;
-    selectResult = {
-      data: null,
-      error: { code: 'PGRST116', message: 'not found' },
-    };
-    insertResult = { data: { id: 'token-id-new' }, error: null };
+    rpcResult = { data: 'token-123', error: null };
     updateResult = { data: null, error: null };
-    updateCalls = [];
-    insertCalls.length = 0;
+    rpcCalls.length = 0;
   });
 
   it('returns 401 when user is not authenticated', async () => {
@@ -172,30 +157,6 @@ describe('POST /api/push-tokens/register', () => {
     expect(res.status).toBe(400);
   });
 
-  it('accepts app_type=admin (default)', async () => {
-    const res = await POST(
-      makeRequest({ token: 'ExponentPushToken[xxx]', platform: 'ios' })
-    );
-
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.success).toBe(true);
-  });
-
-  it('accepts app_type=storefront', async () => {
-    const res = await POST(
-      makeRequest({
-        token: 'ExponentPushToken[xxx]',
-        platform: 'android',
-        app_type: 'storefront',
-      })
-    );
-
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.success).toBe(true);
-  });
-
   it('rejects invalid app_type', async () => {
     const res = await POST(
       makeRequest({
@@ -217,19 +178,15 @@ describe('POST /api/push-tokens/register', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
 
-    // Verify the Zod default actually persisted app_type='admin' in the insert
-    expect(insertCalls.length).toBe(1);
-    expect(insertCalls[0]).toEqual(
-      expect.objectContaining({ app_type: 'admin' })
-    );
+    expect(rpcCalls).toEqual([
+      {
+        fn: 'register_push_token',
+        args: expect.objectContaining({ p_app_type: 'admin' }),
+      },
+    ]);
   });
 
-  it('updates existing token when user_id matches', async () => {
-    selectResult = {
-      data: { id: 'existing-token-id', user_id: USER_ID },
-      error: null,
-    };
-
+  it('registers tokens through the atomic RPC without a read-before-write lookup', async () => {
     const res = await POST(
       makeRequest({
         token: 'ExponentPushToken[xxx]',
@@ -239,120 +196,41 @@ describe('POST /api/push-tokens/register', () => {
     );
 
     expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.message).toBe('Push token updated');
+    await expect(res.json()).resolves.toEqual({
+      message: 'Push token registered',
+      success: true,
+      token_id: 'token-123',
+    });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('register_push_token', {
+      p_app_type: 'storefront',
+      p_device_name: null,
+      p_merchant_id: MERCHANT_ID,
+      p_platform: 'ios',
+      p_token: 'ExponentPushToken[xxx]',
+    });
+    expect(mockSupabase._chain.select).not.toHaveBeenCalled();
+    expect(mockSupabase._chain.maybeSingle).not.toHaveBeenCalled();
   });
 
-  it('transfers token ownership when user_id differs', async () => {
-    selectResult = {
-      data: { id: 'existing-token-id', user_id: 'other-user' },
-      error: null,
+  it('returns 500 when the push token registration RPC fails', async () => {
+    rpcResult = {
+      data: null,
+      error: { code: '57014', message: 'query_canceled' },
     };
 
     const res = await POST(
-      makeRequest({
-        token: 'ExponentPushToken[xxx]',
-        platform: 'android',
-        app_type: 'admin',
-      })
+      makeRequest({ token: 'ExponentPushToken[xxx]', platform: 'ios' })
     );
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.message).toBe('Push token updated');
+    expect(json.error).toBe('Failed to register push token');
   });
 
-  it('inserts new token when no existing token found', async () => {
-    const res = await POST(
-      makeRequest({
-        token: 'ExponentPushToken[new-device]',
-        platform: 'ios',
-        device_name: 'iPhone 15',
-        app_type: 'admin',
-      })
-    );
-
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.success).toBe(true);
-    expect(json.message).toBe('Push token registered');
-
-    // Verify app_type is passed through to insert
-    expect(insertCalls.length).toBe(1);
-    expect(insertCalls[0]).toEqual(
-      expect.objectContaining({ app_type: 'admin' })
-    );
-  });
-
-  it('passes app_type=storefront through to insert', async () => {
-    const res = await POST(
-      makeRequest({
-        token: 'ExponentPushToken[sf-device]',
-        platform: 'android',
-        app_type: 'storefront',
-      })
-    );
-
-    expect(res.status).toBe(200);
-    expect(insertCalls.length).toBe(1);
-    expect(insertCalls[0]).toEqual(
-      expect.objectContaining({ app_type: 'storefront' })
-    );
-  });
-
-  it('uses the requested merchant id when inserting a storefront push token', async () => {
+  it('uses the requested merchant id when reclaiming an existing storefront token', async () => {
     vi.mocked(getMerchantForApiRequest).mockResolvedValueOnce(
       createMerchantContext(REQUESTED_MERCHANT_ID)
     );
-
-    const res = await POST(
-      makeRequest({
-        token: 'ExponentPushToken[requested-merchant-device]',
-        platform: 'android',
-        app_type: 'storefront',
-        merchant_id: REQUESTED_MERCHANT_ID,
-      })
-    );
-
-    expect(res.status).toBe(200);
-    expect(getMerchantForApiRequest).toHaveBeenCalledWith(
-      mockSupabase,
-      USER_ID,
-      { requestedMerchantId: REQUESTED_MERCHANT_ID }
-    );
-    expect(insertCalls[0]).toEqual(
-      expect.objectContaining({ merchant_id: REQUESTED_MERCHANT_ID })
-    );
-  });
-
-  it('passes app_type through to update when user_id matches', async () => {
-    selectResult = {
-      data: { id: 'existing-token-id', user_id: USER_ID },
-      error: null,
-    };
-
-    await POST(
-      makeRequest({
-        token: 'ExponentPushToken[xxx]',
-        platform: 'ios',
-        app_type: 'storefront',
-      })
-    );
-
-    expect(updateCalls.length).toBe(1);
-    expect(updateCalls[0].payload).toEqual(
-      expect.objectContaining({ app_type: 'storefront' })
-    );
-  });
-
-  it('uses the requested merchant id when updating an existing storefront token', async () => {
-    vi.mocked(getMerchantForApiRequest).mockResolvedValueOnce(
-      createMerchantContext(REQUESTED_MERCHANT_ID)
-    );
-    selectResult = {
-      data: { id: 'existing-token-id', user_id: USER_ID },
-      error: null,
-    };
 
     const res = await POST(
       makeRequest({
@@ -369,8 +247,8 @@ describe('POST /api/push-tokens/register', () => {
       USER_ID,
       { requestedMerchantId: REQUESTED_MERCHANT_ID }
     );
-    expect(updateCalls[0].payload).toEqual(
-      expect.objectContaining({ merchant_id: REQUESTED_MERCHANT_ID })
+    expect(rpcCalls[0]?.args).toEqual(
+      expect.objectContaining({ p_merchant_id: REQUESTED_MERCHANT_ID })
     );
   });
 });
