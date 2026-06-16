@@ -141,21 +141,18 @@ export async function savePushTokenToServer(
   }
 
   try {
-    const { error } = await supabase.from('push_tokens').upsert(
-      {
-        user_id: trimmedUserId,
-        merchant_id: trimmedMerchantId,
-        token: trimmedToken,
-        platform: Platform.OS,
-        device_name: Device?.modelName || 'Unknown',
-        app_type: 'storefront',
-        is_active: true,
-        last_used_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'token',
-      }
-    );
+    // Register via the SECURITY DEFINER RPC instead of a raw upsert. Expo push
+    // tokens are device-unique, so when a different account signs in on the same
+    // device the upsert's UPDATE branch (on conflict: token) hits a row still
+    // owned by the previous user_id and is blocked by RLS (42501). The RPC
+    // re-claims the token for the authenticated caller atomically.
+    const { error } = await supabase.rpc('register_push_token', {
+      p_token: trimmedToken,
+      p_merchant_id: trimmedMerchantId,
+      p_platform: Platform.OS,
+      p_device_name: Device?.modelName || 'Unknown',
+      p_app_type: 'storefront',
+    });
 
     if (error) {
       log.error('Failed to save push token:', error);
