@@ -10,13 +10,14 @@ const mockGetSitemapIndexLinks = vi.fn();
 const mockCreateSitemapResponse = vi.fn();
 const mockCreateSitemapIndexResponse = vi.fn();
 const mockCreateSitemapUnavailableResponse = vi.fn();
+const mockCreateSitemapNotFoundResponse = vi.fn();
 
 vi.mock('next/headers', () => ({
   headers: () => Promise.resolve(routeHeadersState.current),
 }));
 
 vi.mock('../../sitemap-data', () => ({
-  resolveStorefrontSitemapContext: (...args: unknown[]) =>
+  resolveStorefrontSitemapContextResult: (...args: unknown[]) =>
     mockResolveStorefrontSitemapContext(...args),
   getNamedSitemapEntries: (...args: unknown[]) =>
     mockGetNamedSitemapEntries(...args),
@@ -28,6 +29,8 @@ vi.mock('../../sitemap-data', () => ({
     mockCreateSitemapIndexResponse(...args),
   createSitemapUnavailableResponse: (...args: unknown[]) =>
     mockCreateSitemapUnavailableResponse(...args),
+  createSitemapNotFoundResponse: (...args: unknown[]) =>
+    mockCreateSitemapNotFoundResponse(...args),
 }));
 
 describe('GET /[slug]/sitemap/[id].xml', () => {
@@ -57,11 +60,22 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
           },
         })
     );
+    mockCreateSitemapNotFoundResponse.mockImplementation(
+      () =>
+        new Response('Not Found', {
+          status: 404,
+          headers: {
+            'content-type': 'application/xml; charset=utf-8',
+            'cache-control': 'no-store',
+          },
+        })
+    );
   });
 
   it('returns a named storefront sitemap response', async () => {
     mockResolveStorefrontSitemapContext.mockResolvedValue({
-      merchant: { id: 'm1' },
+      status: 'found',
+      context: { merchant: { id: 'm1' } },
     });
     mockGetNamedSitemapEntries.mockResolvedValue([
       { url: 'https://ogabassey.com/smartphones' },
@@ -91,7 +105,8 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
       ['x-merchant-domain', 'ogabassey.com'],
     ]);
     mockResolveStorefrontSitemapContext.mockResolvedValue({
-      merchant: { id: 'm1' },
+      status: 'found',
+      context: { merchant: { id: 'm1' } },
     });
     mockGetNamedSitemapEntries.mockResolvedValue([
       { url: 'https://ogabassey.com/laptops' },
@@ -112,7 +127,8 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
 
   it('normalizes .xml suffixes from live route params', async () => {
     mockResolveStorefrontSitemapContext.mockResolvedValue({
-      merchant: { id: 'm1' },
+      status: 'found',
+      context: { merchant: { id: 'm1' } },
     });
     mockGetNamedSitemapEntries.mockResolvedValue([
       { url: 'https://ogabassey.com/smartphones/iphone-17-pro' },
@@ -132,7 +148,8 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
 
   it('returns a sitemap index referencing child sitemaps for root.xml rewrites', async () => {
     mockResolveStorefrontSitemapContext.mockResolvedValue({
-      merchant: { id: 'm1' },
+      status: 'found',
+      context: { merchant: { id: 'm1' } },
     });
     mockGetSitemapIndexLinks.mockResolvedValue([
       'https://ogabassey.com/sitemap/static.xml',
@@ -157,8 +174,10 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
     expect(body).toContain('https://ogabassey.com/sitemap/products.xml');
   });
 
-  it('returns a 503 response when the storefront is unresolved', async () => {
-    mockResolveStorefrontSitemapContext.mockResolvedValue(null);
+  it('returns a 503 response when the storefront lookup is temporarily unavailable', async () => {
+    mockResolveStorefrontSitemapContext.mockResolvedValue({
+      status: 'unavailable',
+    });
     const mockUnavailableResponse = new Response('Service Unavailable', {
       status: 503,
       headers: {
@@ -183,9 +202,30 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
     expect(response.headers.get('retry-after')).toBe('300');
   });
 
+  it('returns a 404 response when the storefront does not exist', async () => {
+    mockResolveStorefrontSitemapContext.mockResolvedValue({
+      status: 'not-found',
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request(
+        'https://test-store.usebaci.com/test-store/sitemap/static.xml'
+      ),
+      {
+        params: Promise.resolve({ slug: 'test-store', id: 'static' }),
+      }
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(mockCreateSitemapNotFoundResponse).toHaveBeenCalledOnce();
+  });
+
   it('passes the Request object as the third argument to resolveStorefrontSitemapContext', async () => {
     mockResolveStorefrontSitemapContext.mockResolvedValue({
-      merchant: { id: 'm1' },
+      status: 'found',
+      context: { merchant: { id: 'm1' } },
     });
     mockGetNamedSitemapEntries.mockResolvedValue([]);
 

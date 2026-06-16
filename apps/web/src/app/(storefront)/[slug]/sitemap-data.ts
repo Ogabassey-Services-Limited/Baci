@@ -42,11 +42,15 @@ export interface StorefrontSitemapContext {
   supabase: ReturnType<typeof createAnonClient>;
 }
 
-export async function resolveStorefrontSitemapContext(
+export type StorefrontSitemapContextResult =
+  | { context: StorefrontSitemapContext; status: 'found' }
+  | { status: 'not-found' | 'unavailable' };
+
+export async function resolveStorefrontSitemapContextResult(
   headersList: Headers,
   routeIdentifierOverride?: string | null,
   request?: Request
-): Promise<StorefrontSitemapContext | null> {
+): Promise<StorefrontSitemapContextResult> {
   const rawIdentifiers: string[] = [];
   const requestHeaders = request ? new Headers(request.headers) : null;
 
@@ -114,10 +118,12 @@ export async function resolveStorefrontSitemapContext(
   );
 
   let merchant = null;
+  let hadLookupError = false;
   for (const routeIdentifier of routeIdentifiers) {
     try {
       merchant = await getMerchantByIdentifier(routeIdentifier);
     } catch (error) {
+      hadLookupError = true;
       console.warn('Failed to resolve sitemap merchant', {
         routeIdentifier,
         error,
@@ -145,21 +151,39 @@ export async function resolveStorefrontSitemapContext(
           )
         )
       : null;
-    console.error('storefront sitemap: unresolved context', {
+    const log = hadLookupError ? console.error : console.warn;
+    log('storefront sitemap: unresolved context', {
       candidates: rawIdentifiers,
       hosts: requestHostname ? [requestHostname] : [],
       safeHeaders,
     });
-    return null;
+    return { status: hadLookupError ? 'unavailable' : 'not-found' };
   }
 
   const storeUrlHeaders = requestHeaders ?? headersList;
 
   return {
-    merchant,
-    storeUrl: buildRequestScopedStoreUrl(merchant, storeUrlHeaders),
-    supabase: createAnonClient(),
+    status: 'found',
+    context: {
+      merchant,
+      storeUrl: buildRequestScopedStoreUrl(merchant, storeUrlHeaders),
+      supabase: createAnonClient(),
+    },
   };
+}
+
+export async function resolveStorefrontSitemapContext(
+  headersList: Headers,
+  routeIdentifierOverride?: string | null,
+  request?: Request
+): Promise<StorefrontSitemapContext | null> {
+  const result = await resolveStorefrontSitemapContextResult(
+    headersList,
+    routeIdentifierOverride,
+    request
+  );
+
+  return result.status === 'found' ? result.context : null;
 }
 
 // lastmod must reflect real content changes — Google ignores it site-wide
@@ -532,6 +556,19 @@ export function createSitemapUnavailableResponse(): Response {
         'content-type': 'application/xml; charset=utf-8',
         'cache-control': 'no-store',
         'retry-after': '300',
+      },
+    }
+  );
+}
+
+export function createSitemapNotFoundResponse(): Response {
+  return new Response(
+    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>',
+    {
+      status: 404,
+      headers: {
+        'content-type': 'application/xml; charset=utf-8',
+        'cache-control': 'no-store',
       },
     }
   );
