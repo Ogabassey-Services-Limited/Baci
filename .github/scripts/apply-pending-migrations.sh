@@ -12,10 +12,16 @@
 #      supabase_migrations.schema_migrations.
 #   3. Otherwise sends a single Management API request that runs the
 #      migration SQL AND registers a row in schema_migrations. Normal migrations
-#      are sent as one query payload so partial application is impossible. Files
-#      that start with `-- disable-transaction` are intentionally split into
-#      top-level statements first so operations like CREATE INDEX CONCURRENTLY
-#      can run outside a multi-statement transaction payload.
+#      are wrapped in one explicit BEGIN/COMMIT transaction, so the SQL and its
+#      history row are atomic: if any statement errors (e.g. a hot-table ALTER
+#      that times out on its lock) the whole block rolls back and NO history row
+#      is written, so the next deploy retries instead of skipping a migration
+#      that was recorded but never applied. The response is also validated (a
+#      non-array body = error) so a 200-with-error never counts as success.
+#      Files that start with `-- disable-transaction` are intentionally split
+#      into top-level statements first so operations like CREATE INDEX
+#      CONCURRENTLY can run outside a transaction; their history row is written
+#      only after every statement succeeds.
 #
 # `statements` in schema_migrations is left as ARRAY[]::text[]. The CLI's
 # `migration list` only consults version + name; round-tripping the migration
@@ -46,8 +52,21 @@ api_query() {
 }
 
 api_query_payload() {
-  local body="$1"
-  api_query <<<"$body" > /dev/null
+  local body="$1" response
+  # Capture the response so we can detect SQL errors. `api_query` (curl --fail)
+  # already aborts on HTTP >= 400, but the Management API can also report a
+  # failed statement with a 200 status and an error object in the body. The
+  # /database/query endpoint returns a JSON array of rows on success and a JSON
+  # object (with a `message`) on error, so treat anything that is not an array
+  # as a failure. Without this, a migration whose SQL errors could still have
+  # its schema_migrations row written and then be skipped on every future
+  # deploy (recorded-but-not-applied drift).
+  response="$(api_query <<<"$body")"
+  if ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$response"; then
+    echo "::error::Supabase query did not succeed; aborting before recording the migration." >&2
+    printf 'Response: %s\n' "$response" | head -c 2000 >&2
+    return 1
+  fi
 }
 
 split_sql_statements() {
@@ -273,9 +292,25 @@ for file in "${sorted_files[@]}"; do
     continue
   fi
 
+  # Transactional migrations must not contain statements that cannot run inside
+  # a BEGIN/COMMIT block. Those must opt out with the `-- disable-transaction`
+  # first-line marker (handled above); otherwise the explicit transaction
+  # wrapper below would fail.
+  if grep -qiE '\bconcurrently\b|\bvacuum\b|create[[:space:]]+database|drop[[:space:]]+database|reindex' "$file"; then
+    echo "::error::$file contains a non-transactional statement but is missing the '-- disable-transaction' first-line marker"
+    exit 1
+  fi
+
   # The migration SQL goes in untouched (jq --rawfile reads it verbatim and
   # JSON-encodes for transport). The INSERT registers the same version+name
   # we parsed from the filename, so the row matches the file 1:1.
+  #
+  # The SQL and the registration INSERT are wrapped in a single explicit
+  # transaction so they are atomic: if any migration statement errors (e.g. a
+  # hot-table ALTER that cannot acquire its lock), the whole block rolls back
+  # and the schema_migrations row is never written — so the next deploy retries
+  # instead of skipping a never-applied migration forever. `lock_timeout` keeps
+  # a blocked DDL from queueing on a busy table; it fails fast and retries.
   #
   # Version and name must be SQL string literals (single-quoted), NOT JSON
   # double-quoted (which Postgres parses as identifiers — `"20260428000000"`
@@ -284,11 +319,16 @@ for file in "${sorted_files[@]}"; do
   body="$(jq -n \
     --rawfile sql "$file" \
     --arg registration "$(build_register_migration_query "$version" "$name")" \
+    --arg prefix "BEGIN;
+SET LOCAL lock_timeout = '30s';
+" \
     '{
        query: (
-         $sql
+         $prefix
+         + $sql
          + "\n"
          + $registration
+         + "\nCOMMIT;"
        )
      }'
   )"
