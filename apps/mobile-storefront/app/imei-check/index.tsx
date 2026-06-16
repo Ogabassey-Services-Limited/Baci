@@ -41,6 +41,13 @@ const getImeiCheckNetworkErrorMessage = (err: unknown) =>
     ? 'Request timed out. Please check your connection and try again.'
     : 'Network error. Please check your connection and try again.';
 
+const handleTopUpWallet = (amount: number): void => {
+  const requiredAmount = Math.max(0, Math.ceil(amount));
+  router.push(
+    `/wallet?action=fund&requiredAmount=${requiredAmount}&returnTo=/imei-check`
+  );
+};
+
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -134,12 +141,6 @@ export default function ImeiCheckerScreen() {
     activeIdempotencyRef.current = null;
   };
 
-  const handleTopUpWallet = (amount: number) => {
-    const requiredAmount = Math.max(0, Math.ceil(amount));
-    router.push(
-      `/wallet?action=fund&requiredAmount=${requiredAmount}&returnTo=/imei-check`
-    );
-  };
   const walletBalance = walletQuery.data?.wallet.balance ?? 0;
 
   const handleCheck = async () => {

@@ -14,6 +14,15 @@ interface ReviewsListProps {
   onMarkHelpful?: (reviewId: string) => void;
 }
 
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-NG', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export function ReviewsList({
   reviews,
   stats,
@@ -24,15 +33,6 @@ export function ReviewsList({
 }: ReviewsListProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-NG', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
 
   const renderStars = (rating: number, size = 14) => (
     <View style={styles.starsContainer}>

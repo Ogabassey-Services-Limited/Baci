@@ -27,6 +27,10 @@ import { getTemplateConfig } from '@/lib/templates';
 
 const HEADER_SOLID_BACKGROUND_OFFSET_PX = 10;
 
+const handleSearchSubmit = (): void => {
+  Keyboard.dismiss();
+};
+
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -83,10 +87,6 @@ export default function HomeScreen() {
     searchVisibleShared.set(false);
     setSearchVisible(false);
     setSearchQuery('');
-  };
-
-  const handleSearchSubmit = () => {
-    Keyboard.dismiss();
   };
 
   const handleRefresh = () => {
