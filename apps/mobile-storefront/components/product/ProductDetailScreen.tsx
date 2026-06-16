@@ -23,6 +23,14 @@ import { ProductDetailRouteState } from './ProductDetailRouteState';
 
 const log = createLogger('ProductDetail');
 
+const handleProductRouteBack = (): void => {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+  router.replace('/');
+};
+
 type ProductDetailScreenProps = ReturnType<typeof useProduct>;
 
 export function ProductDetailScreen({
@@ -61,14 +69,6 @@ export function ProductDetailScreen({
   );
   const selectionHandlers = useProductDetailSelectionHandlers(routeData);
   useSavedToastAutoDismiss(savedToastState.show, dismissSavedToast);
-
-  const handleProductRouteBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace('/');
-  };
 
   if (!routeData.isValidSlug) {
     return (
