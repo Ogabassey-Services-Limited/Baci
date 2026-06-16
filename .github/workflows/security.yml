@@ -213,7 +213,8 @@ jobs:
             pkg:npm/protobufjs,
             pkg:npm/unicode-match-property-value-ecmascript,
             pkg:npm/unicode-property-aliases-ecmascript,
-            pkg:npm/katex
+            pkg:npm/katex,
+            pkg:npm/robust-predicates
 
   secrets-scan:
     name: Secret Scanning
