@@ -42,7 +42,11 @@ export function ProductRestockSheet({
   const [source, setSource] = useState<RestockSource>('merchant_stock');
   const [notes, setNotes] = useState('');
 
-  const { data: branches = [] } = useBranches();
+  const {
+    data: branches = [],
+    error: branchesError,
+    isLoading: isBranchesLoading,
+  } = useBranches();
   const restockMutation = useRestockVariantInventory();
   const identifiers = parseRestockIdentifiers(inputText);
   const isSubmitDisabled =
@@ -123,6 +127,17 @@ export function ProductRestockSheet({
         </Pressable>
       }
     >
+      {isBranchesLoading ? (
+        <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+          Loading branches…
+        </Text>
+      ) : null}
+      {branchesError ? (
+        <Text style={[styles.helperText, { color: colors.error }]}>
+          Could not load branches. Restocking will use Central Stock.
+        </Text>
+      ) : null}
+
       <ProductRestockOptions
         branches={branches}
         colors={colors}

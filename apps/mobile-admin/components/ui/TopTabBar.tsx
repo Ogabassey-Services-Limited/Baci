@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import {
+  type LayoutChangeEvent,
   Pressable,
   StyleSheet,
   Text,
   View,
-  type LayoutChangeEvent,
 } from 'react-native';
-import { selectRuntimePlatform } from '@/config/runtime-platform';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import { selectRuntimePlatform } from '@/config/runtime-platform';
 import { useTheme } from '@/hooks/useTheme';
 
 const TAB_TEXT_FONT_FAMILY = selectRuntimePlatform({
@@ -75,6 +75,7 @@ export function TopTabBar({
         ]}
       />
       <Pressable
+        accessibilityLabel={`In Stock tab ${activeTab === 'in_stock' ? 'selected' : 'not selected'}`}
         accessibilityRole="button"
         accessibilityState={{ selected: activeTab === 'in_stock' }}
         onPress={() => handlePress('in_stock')}
@@ -92,6 +93,7 @@ export function TopTabBar({
         </Text>
       </Pressable>
       <Pressable
+        accessibilityLabel={`On Website tab ${activeTab === 'on_website' ? 'selected' : 'not selected'}`}
         accessibilityRole="button"
         accessibilityState={{ selected: activeTab === 'on_website' }}
         onPress={() => handlePress('on_website')}

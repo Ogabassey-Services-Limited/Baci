@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
@@ -7,7 +7,11 @@ import { ProductRestockSheet } from './ProductRestockSheet';
 
 const mocks = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
-  useBranches: vi.fn(() => ({ data: [] as Record<string, unknown>[] })),
+  useBranches: vi.fn(() => ({
+    data: [] as Record<string, unknown>[],
+    error: null as Error | null,
+    isLoading: false,
+  })),
   alert: vi.fn(),
 }));
 
@@ -117,7 +121,11 @@ describe('ProductRestockSheet', () => {
     mocks.alert.mockReset();
     mocks.mutateAsync.mockReset();
     mocks.useBranches.mockReset();
-    mocks.useBranches.mockReturnValue({ data: [] });
+    mocks.useBranches.mockReturnValue({
+      data: [],
+      error: null,
+      isLoading: false,
+    });
   });
 
   const colors = {
@@ -134,6 +142,8 @@ describe('ProductRestockSheet', () => {
 
   it('renders restock form options and handles input parsing and submission', () => {
     mocks.useBranches.mockReturnValue({
+      error: null,
+      isLoading: false,
       data: [
         { id: 'branch-1', name: 'Branch A' },
         { id: 'branch-2', name: 'Branch B' },
@@ -206,8 +216,81 @@ describe('ProductRestockSheet', () => {
     expect(mocks.mutateAsync).not.toHaveBeenCalled();
   });
 
+  it('shows branch query loading state', () => {
+    mocks.useBranches.mockReturnValue({
+      data: [],
+      error: null,
+      isLoading: true,
+    });
+
+    render(
+      <ProductRestockSheet
+        colors={colors}
+        productId="product-1"
+        onClose={vi.fn()}
+        visible={true}
+      />
+    );
+
+    expect(screen.getByText('Loading branches…')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Could not load branches/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows branch query error state', () => {
+    mocks.useBranches.mockReturnValue({
+      data: [],
+      error: new Error('branches failed'),
+      isLoading: false,
+    });
+
+    render(
+      <ProductRestockSheet
+        colors={colors}
+        productId="product-1"
+        onClose={vi.fn()}
+        visible={true}
+      />
+    );
+
+    expect(screen.queryByText('Loading branches…')).not.toBeInTheDocument();
+    expect(screen.getByText(/Could not load branches/i)).toBeInTheDocument();
+  });
+
+  it('shows a failure alert when restock mutation rejects', async () => {
+    mocks.mutateAsync.mockRejectedValueOnce(new Error('restock failed'));
+    const onClose = vi.fn();
+
+    render(
+      <ProductRestockSheet
+        colors={colors}
+        productId="product-1"
+        onClose={onClose}
+        visible={true}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Identifiers text list'), {
+      target: { value: '123456789012345' },
+    });
+    fireEvent.click(screen.getByLabelText('Submit restock'));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Restock Failed',
+        'restock failed'
+      );
+    });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('validates invalid IMEI shapes', () => {
-    mocks.useBranches.mockReturnValue({ data: [] });
+    mocks.useBranches.mockReturnValue({
+      data: [],
+      error: null,
+      isLoading: false,
+    });
     render(
       <ProductRestockSheet
         colors={colors}

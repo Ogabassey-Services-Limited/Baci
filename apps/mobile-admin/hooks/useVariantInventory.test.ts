@@ -100,6 +100,19 @@ describe('useVariantInventory hooks', () => {
       expect(getNext?.(mockResult)).toEqual(mockResult.nextCursor);
     });
 
+    it('throws when supabase rpc returns an invalid response shape', async () => {
+      mocks.rpc.mockResolvedValueOnce({
+        data: { hasMore: 'yes', nextCursor: null, units: null },
+        error: null,
+      });
+
+      useVariantInventory({ productId: 'product-1' });
+
+      await expect(mocks.queryPromises[0]).rejects.toThrow(
+        'Invalid variant inventory response'
+      );
+    });
+
     it('throws error if supabase rpc returns error', async () => {
       mocks.rpc.mockResolvedValueOnce({
         data: null,

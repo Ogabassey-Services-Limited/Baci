@@ -17,6 +17,7 @@ import {
   ensurePaidOrderInventoryConfirmed,
   rollbackOrderStatusAfterInventoryConfirmationFailure,
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
@@ -457,6 +458,7 @@ export async function POST(
         await ensurePaidOrderInventoryConfirmed(supabase, merchantId, id);
       } catch (inventoryError) {
         let cleanupFailed = false;
+        let rollbackFailed = false;
 
         try {
           await rollbackOrderStatusAfterInventoryConfirmationFailure(
@@ -470,15 +472,35 @@ export async function POST(
           );
         } catch (rollbackError) {
           cleanupFailed = true;
+          rollbackFailed = true;
           logger.error({
             message:
               'RecordPayment failed to rollback order status after inventory confirmation failure',
             orderId: id,
             error: rollbackError,
           });
+          await fileInventoryConfirmationFailureReview({
+            gatewayReference: null,
+            merchantId,
+            metadata: {
+              inventoryError:
+                inventoryError instanceof Error
+                  ? inventoryError.message
+                  : inventoryError,
+              rollbackError:
+                rollbackError instanceof Error
+                  ? rollbackError.message
+                  : rollbackError,
+              source: 'record_payment_inventory_confirmation_rollback',
+            },
+            orderId: id,
+            reason:
+              'Manual payment reached paid state, but serialized inventory confirmation and status rollback both failed.',
+            transactionId: createdTransaction?.id ?? null,
+          });
         }
 
-        if (createdTransaction?.id) {
+        if (createdTransaction?.id && !rollbackFailed) {
           const { error: deleteTransactionError } = await supabase
             .from('transactions')
             .delete()
@@ -493,6 +515,23 @@ export async function POST(
               orderId: id,
               transactionId: createdTransaction.id,
               error: deleteTransactionError,
+            });
+            await fileInventoryConfirmationFailureReview({
+              gatewayReference: null,
+              merchantId,
+              metadata: {
+                deleteTransactionError,
+                inventoryError:
+                  inventoryError instanceof Error
+                    ? inventoryError.message
+                    : inventoryError,
+                source:
+                  'record_payment_inventory_confirmation_transaction_delete',
+              },
+              orderId: id,
+              reason:
+                'Manual payment inventory confirmation failed, but deleting the completed manual transaction also failed.',
+              transactionId: createdTransaction.id,
             });
           }
         }
@@ -514,10 +553,12 @@ export async function POST(
           );
         }
 
-        return NextResponse.json(
-          buildInventoryConfirmationFailurePayload(inventoryError),
-          { status: 409 }
-        );
+        const payload =
+          buildInventoryConfirmationFailurePayload(inventoryError);
+        return NextResponse.json(payload, {
+          status:
+            payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+        });
       }
 
       logger.info({ message: 'RecordPayment order fully paid', orderId: id });

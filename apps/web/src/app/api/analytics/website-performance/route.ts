@@ -146,6 +146,7 @@ export async function GET(request: NextRequest) {
   for (const event of events || []) {
     if (event.event_type === 'search' && event.event_data?.query) {
       const query = String(event.event_data.query).toLowerCase().trim();
+      if (!query) continue;
       searchCounts[query] = (searchCounts[query] || 0) + 1;
     }
   }
@@ -209,9 +210,11 @@ export async function GET(request: NextRequest) {
 
   let aiInsights: { insights: string[] } = { insights: [] };
 
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    timeoutId = setTimeout(() => controller.abort(), 15000);
 
     const gemmaResponse = await requestGemmaCompletion({
       provider: 'auto',
@@ -224,7 +227,6 @@ export async function GET(request: NextRequest) {
       signal: controller.signal,
       temperature: 0.2,
     });
-    clearTimeout(timeoutId);
 
     if (
       !gemmaResponse ||
@@ -277,6 +279,8 @@ export async function GET(request: NextRequest) {
         'No significant search or conversion trends detected in this period.',
       ],
     };
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   return NextResponse.json({

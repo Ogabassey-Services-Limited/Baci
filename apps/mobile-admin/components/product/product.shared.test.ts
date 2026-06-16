@@ -16,7 +16,9 @@ describe('product.shared formatters', () => {
     expect(formatLargePrice(50_000, '₦')).toBe('₦50k');
     expect(formatLargePrice(999_950, '₦')).toBe('₦999.9k');
     expect(formatLargePrice(1_250_000, '$')).toBe('$1.25M');
+    expect(formatLargePrice(999_999_500, '₦')).toBe('₦1B');
     expect(formatLargePrice(1_234_567_890, '₦')).toBe('₦1.235B');
+    expect(formatLargePrice(999_999_500_000, '₦')).toBe('₦1T');
   });
 
   it('formats unit metrics compactly', () => {
@@ -24,6 +26,7 @@ describe('product.shared formatters', () => {
     expect(formatMetric(1_200)).toBe('1.2k');
     expect(formatMetric(999_950)).toBe('999.9k');
     expect(formatMetric(1_000_000)).toBe('1M');
+    expect(formatMetric(999_999_500)).toBe('1B');
   });
 
   it('returns supported currency symbols and falls back to naira', () => {

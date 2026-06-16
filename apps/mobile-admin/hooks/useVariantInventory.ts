@@ -13,6 +13,44 @@ import type {
   VariantInventoryUnit,
 } from './useVariantInventory.types';
 
+interface VariantInventoryRpcResult {
+  units: VariantInventoryUnit[] | null;
+  nextCursor: VariantInventoryCursor | null;
+  hasMore: boolean;
+}
+
+function parseVariantInventoryRpcResult(
+  data: unknown
+): VariantInventoryRpcResult | null {
+  if (data === null || data === undefined) return null;
+  if (typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Invalid variant inventory response');
+  }
+
+  const result = data as Record<string, unknown>;
+  if (
+    !(Array.isArray(result.units) || result.units === null) ||
+    !(
+      (typeof result.nextCursor === 'object' &&
+        !Array.isArray(result.nextCursor)) ||
+      result.nextCursor === null
+    ) ||
+    typeof result.hasMore !== 'boolean'
+  ) {
+    throw new Error('Invalid variant inventory response');
+  }
+
+  return {
+    hasMore: result.hasMore,
+    nextCursor: result.nextCursor as VariantInventoryCursor | null,
+    units: result.units as VariantInventoryUnit[] | null,
+  };
+}
+
+export { useDeleteVariantInventoryUnit } from './useDeleteVariantInventoryUnit';
+export { useRestockVariantInventory } from './useRestockVariantInventory';
+export { useUpdateInventoryTrackingPolicy } from './useUpdateInventoryTrackingPolicy';
+export { useUpdateVariantInventoryUnit } from './useUpdateVariantInventoryUnit';
 export type {
   DeleteVariantInventoryUnitResult,
   DeleteVariantInventoryUnitVariables,
@@ -29,11 +67,6 @@ export type {
   VariantInventoryStatus,
   VariantInventoryUnit,
 } from './useVariantInventory.types';
-
-export { useDeleteVariantInventoryUnit } from './useDeleteVariantInventoryUnit';
-export { useRestockVariantInventory } from './useRestockVariantInventory';
-export { useUpdateInventoryTrackingPolicy } from './useUpdateInventoryTrackingPolicy';
-export { useUpdateVariantInventoryUnit } from './useUpdateVariantInventoryUnit';
 
 /**
  * Hook to fetch paginated units for a variant or product.
@@ -67,15 +100,10 @@ export function useVariantInventory(filters: VariantInventoryFilters) {
       );
 
       if (error) {
-        console.error('[VariantInventory] List fetch error:', error);
         throw new Error(error.message);
       }
 
-      const result = data as unknown as {
-        units: VariantInventoryUnit[] | null;
-        nextCursor: VariantInventoryCursor | null;
-        hasMore: boolean;
-      };
+      const result = parseVariantInventoryRpcResult(data);
 
       return {
         units: result?.units || [],

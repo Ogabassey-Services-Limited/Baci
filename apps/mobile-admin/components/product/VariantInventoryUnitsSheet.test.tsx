@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
         },
       ],
     },
+    error: null as Error | null,
     fetchNextPage: vi.fn(),
     hasNextPage: false,
     isFetchingNextPage: false,
@@ -252,6 +253,34 @@ describe('VariantInventoryUnitsSheet', () => {
       branchId: 'branch-2',
       setBranch: true,
     });
+  });
+
+  it('renders an error state with retry when inventory fetch fails', () => {
+    const refetch = vi.fn();
+    mocks.useVariantInventory.mockReturnValueOnce({
+      data: { pages: [{ units: [], nextCursor: null, hasMore: false }] },
+      error: new Error('load failed'),
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      isLoading: false,
+      refetch,
+    });
+
+    render(
+      <VariantInventoryUnitsSheet
+        colors={colors}
+        productId="product-1"
+        onClose={vi.fn()}
+        visible={true}
+      />
+    );
+
+    expect(
+      screen.getByText('Could not load inventory units.')
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Retry loading inventory units'));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it('shows an alert when updating a unit fails', async () => {

@@ -366,6 +366,27 @@ describe('cached-data product query projections', () => {
     );
   });
 
+  it('getCachedProducts gracefully degrades when serialized summary fetch fails', async () => {
+    const fetchError = new Error('RPC failed');
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockListResult.data = [{ id: 'product-123', slug: 'iphone-16' }];
+    harness.mockListResult.error = null;
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+    vi.mocked(
+      getPublicSerializedVariantSummariesByProductId
+    ).mockRejectedValueOnce(fetchError);
+
+    await expect(getCachedProducts('merchant-123')).resolves.toEqual([
+      expect.objectContaining({ id: 'product-123' }),
+    ]);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Error fetching serialized variant summaries:',
+      fetchError
+    );
+  });
+
   it('getCachedProducts falls back to empty variants when the public RPC fails', async () => {
     harness.mockListResult.data = productList;
     harness.mockListResult.error = null;

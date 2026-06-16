@@ -122,7 +122,7 @@ describe('ProductStockControls', () => {
     expect(
       screen.getByText((content) => content.trim() === '15')
     ).toBeInTheDocument();
-    expect(screen.getByText('Quantity (Read-only)')).toBeInTheDocument();
+    expect(screen.getByText(/Quantity \(Read-only\)/i)).toBeInTheDocument();
 
     // Should hide the input text box and increment/decrement buttons
     expect(

@@ -61,6 +61,24 @@ describe('fileInventoryConfirmationFailureReview', () => {
     );
   });
 
+  it('writes nullable identifiers and defaults metadata to an empty object', async () => {
+    await fileInventoryConfirmationFailureReview({
+      gatewayReference: null,
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      reason: 'Inventory confirmation failed',
+      transactionId: null,
+    });
+
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {},
+        paystack_ref: null,
+        txn_id: null,
+      })
+    );
+  });
+
   it('treats duplicate open reviews as a no-op', async () => {
     insertMock.mockResolvedValue({ error: { code: '23505' } });
 

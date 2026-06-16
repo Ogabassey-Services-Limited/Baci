@@ -63,6 +63,7 @@ const colors = {
   error: '#ef4444',
   inputBg: '#f8fafc',
   primary: '#2563eb',
+  returned: '#9333ea',
   success: '#22c55e',
   text: '#0f172a',
   textOnPrimary: '#ffffff',
@@ -126,6 +127,64 @@ describe('VariantInventoryUnitCard', () => {
 
     expect(onEdit).toHaveBeenCalledWith(unit);
     expect(onDelete).toHaveBeenCalledWith(unit);
+  });
+
+  it('renders returned units, omits empty notes, and falls back to Central Stock', () => {
+    render(
+      <VariantInventoryUnitCard
+        branches={branches}
+        colors={colors}
+        editBranchId={null}
+        editing={false}
+        editNotes=""
+        editStatus="returned"
+        onCancelEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+        onEditBranchChange={vi.fn()}
+        onEditNotesChange={vi.fn()}
+        onEditStatusChange={vi.fn()}
+        onSaveEdit={vi.fn()}
+        unit={{
+          ...unit,
+          branch_id: 'missing-branch',
+          notes: null,
+          status: 'returned',
+        }}
+      />
+    );
+
+    expect(screen.getByText('RETURNED')).toBeInTheDocument();
+    expect(
+      screen.getByText('IMEI • Central Stock • Source: merchant_stock')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Notes:/)).not.toBeInTheDocument();
+  });
+
+  it('renders additional inventory statuses', () => {
+    for (const status of ['reserved', 'sold', 'defective'] as const) {
+      const { unmount } = render(
+        <VariantInventoryUnitCard
+          branches={branches}
+          colors={colors}
+          editBranchId={null}
+          editing={false}
+          editNotes=""
+          editStatus={status}
+          onCancelEdit={vi.fn()}
+          onDelete={vi.fn()}
+          onEdit={vi.fn()}
+          onEditBranchChange={vi.fn()}
+          onEditNotesChange={vi.fn()}
+          onEditStatusChange={vi.fn()}
+          onSaveEdit={vi.fn()}
+          unit={{ ...unit, id: `unit-${status}`, status }}
+        />
+      );
+
+      expect(screen.getByText(status.toUpperCase())).toBeInTheDocument();
+      unmount();
+    }
   });
 
   it('renders edit controls and saves selected values', () => {

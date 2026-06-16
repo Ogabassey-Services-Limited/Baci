@@ -7,11 +7,16 @@ import {
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import {
+  ensurePaidOrderInventoryConfirmed,
+  rollbackOrderStatusAfterInventoryConfirmationFailure,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
@@ -129,6 +134,19 @@ async function verifyPaymentReference(reference: string) {
     transaction.status === 'completed' &&
     existingOrder?.payment_status === 'paid'
   ) {
+    try {
+      await ensurePaidOrderInventoryConfirmed(
+        supabase,
+        transaction.merchant_id,
+        transaction.order_id
+      );
+    } catch (inventoryError) {
+      const payload = buildInventoryConfirmationFailurePayload(inventoryError);
+      return NextResponse.json(payload, {
+        status: payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       status: 'success',
@@ -328,15 +346,51 @@ async function verifyPaymentReference(reference: string) {
         orderId: transaction.order_id,
         error: inventoryError,
       });
-      return NextResponse.json(
-        {
-          error:
-            inventoryError instanceof Error
-              ? inventoryError.message
-              : 'Inventory confirmation failed',
-        },
-        { status: 409 }
-      );
+
+      try {
+        await rollbackOrderStatusAfterInventoryConfirmationFailure(
+          supabase,
+          transaction.merchant_id,
+          transaction.order_id,
+          {
+            payment_status: existingOrder?.payment_status ?? null,
+            shipping_status: existingOrder?.shipping_status ?? null,
+          }
+        );
+      } catch (rollbackError) {
+        await fileInventoryConfirmationFailureReview({
+          gatewayReference:
+            transaction.gateway_reference ?? parsedReference.data,
+          merchantId: transaction.merchant_id,
+          metadata: {
+            inventoryError:
+              inventoryError instanceof Error
+                ? inventoryError.message
+                : inventoryError,
+            rollbackError:
+              rollbackError instanceof Error
+                ? rollbackError.message
+                : rollbackError,
+            source: 'payment_verify_inventory_confirmation_rollback',
+          },
+          orderId: transaction.order_id,
+          reason:
+            'Payment verification reached paid state, but serialized inventory confirmation and status rollback both failed.',
+          transactionId: transaction.id,
+        });
+        return NextResponse.json(
+          {
+            code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
+            error: 'Inventory confirmation cleanup failed',
+          },
+          { status: 500 }
+        );
+      }
+
+      const payload = buildInventoryConfirmationFailurePayload(inventoryError);
+      return NextResponse.json(payload, {
+        status: payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+      });
     }
   }
 

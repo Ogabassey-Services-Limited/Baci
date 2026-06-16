@@ -107,6 +107,17 @@ export const variantInventoryUnitsSheetStyles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: SPACING.sm,
   },
+  retryButton: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  retryButtonText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: '700',
+  },
   statusBadge: {
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.sm,

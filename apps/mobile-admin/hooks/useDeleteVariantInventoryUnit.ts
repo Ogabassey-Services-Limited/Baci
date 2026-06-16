@@ -32,7 +32,6 @@ export function useDeleteVariantInventoryUnit() {
       );
 
       if (error) {
-        console.error('[VariantInventory] Delete error:', error);
         throw toInventoryMutationError(error);
       }
 

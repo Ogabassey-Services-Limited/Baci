@@ -32,7 +32,11 @@ import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
-import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import {
+  ensurePaidOrderInventoryConfirmed,
+  rollbackOrderStatusAfterInventoryConfirmationFailure,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
@@ -1148,6 +1152,22 @@ export async function POST(request: NextRequest) {
       }
 
       logger.info({ message: 'Transaction already processed', reference });
+      if (transaction.order_id) {
+        try {
+          await ensurePaidOrderInventoryConfirmed(
+            supabase,
+            transaction.merchant_id,
+            transaction.order_id
+          );
+        } catch (inventoryError) {
+          const payload =
+            buildInventoryConfirmationFailurePayload(inventoryError);
+          return NextResponse.json(payload, {
+            status:
+              payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+          });
+        }
+      }
       if (gateway === 'paystack') {
         const reconciliationFailure = await reconcileAgenticPaystackDvaSession({
           metadata,
@@ -1738,6 +1758,47 @@ export async function POST(request: NextRequest) {
             orderId: transaction.order_id,
             error: inventoryError,
           });
+
+          try {
+            await rollbackOrderStatusAfterInventoryConfirmationFailure(
+              supabase,
+              transaction.merchant_id,
+              transaction.order_id,
+              {
+                payment_status: 'pending',
+                shipping_status: 'pending',
+              }
+            );
+          } catch (rollbackError) {
+            await fileInventoryConfirmationFailureReview({
+              gatewayReference: transaction.gateway_reference ?? reference,
+              merchantId: transaction.merchant_id,
+              metadata: {
+                gateway,
+                inventoryError:
+                  inventoryError instanceof Error
+                    ? inventoryError.message
+                    : inventoryError,
+                rollbackError:
+                  rollbackError instanceof Error
+                    ? rollbackError.message
+                    : rollbackError,
+                source: 'gateway_webhook_inventory_confirmation_rollback',
+              },
+              orderId: transaction.order_id,
+              reason:
+                'Gateway webhook reached paid state, but serialized inventory confirmation and status rollback both failed.',
+              transactionId: transaction.id,
+            });
+            return NextResponse.json(
+              {
+                code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
+                error: 'Inventory confirmation cleanup failed',
+              },
+              { status: 500 }
+            );
+          }
+
           const payload =
             buildInventoryConfirmationFailurePayload(inventoryError);
           return NextResponse.json(payload, {

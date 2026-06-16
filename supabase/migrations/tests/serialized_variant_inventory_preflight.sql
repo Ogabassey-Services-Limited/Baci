@@ -63,7 +63,7 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.products (id, merchant_id, name, description, price, category_id, status)
 VALUES (
-  'p0000000-0000-4000-8000-000000009001',
+  'a0000000-0000-4000-8000-000000009001',
   '8f0ed783-0000-4000-8000-000000000201',
   'Variant Fixture Product',
   'Parent row for variant inventory preflight fixtures',
@@ -76,7 +76,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.product_variants (id, product_id, merchant_id, attributes, stock_quantity)
 VALUES (
   'd0000000-0000-4000-8000-000000000001',
-  'p0000000-0000-4000-8000-000000009001',
+  'a0000000-0000-4000-8000-000000009001',
   '8f0ed783-0000-4000-8000-000000000201',
   '{"fixture": "serialized-preflight"}',
   0
@@ -258,7 +258,7 @@ BEGIN
   -- Baci baseline has products.fulfillment_details as JSONB
   INSERT INTO public.products (id, merchant_id, name, description, category_id, fulfillment_details)
   VALUES
-    ('p0000000-0000-4000-8000-000000000001', '8f0ed783-0000-4000-8000-000000000201', 'Product A', 'Desc', 'c0000000-0000-4000-8000-000000000001', '{"items": [{"imei": "111111111111111"}, {"serial": "111111111111111"}]}');
+    ('a0000000-0000-4000-8000-000000000001', '8f0ed783-0000-4000-8000-000000000201', 'Product A', 'Desc', 'c0000000-0000-4000-8000-000000000001', '{"items": [{"imei": "111111111111111"}, {"serial": "111111111111111"}]}');
 
   -- Preflight check for duplicate identifiers in legacy fulfillment_details
   BEGIN
@@ -300,7 +300,7 @@ BEGIN
 
   UPDATE public.products
   SET fulfillment_details = '{"items": [{"imei": "333333333333333", "serial": "222222222222222"}]}'
-  WHERE id = 'p0000000-0000-4000-8000-000000000001';
+  WHERE id = 'a0000000-0000-4000-8000-000000000001';
 
   BEGIN
     IF EXISTS (
@@ -338,7 +338,7 @@ BEGIN
 
   -- Clean up
   DELETE FROM public.variant_inventory WHERE identifier_value = '222222222222222';
-  DELETE FROM public.products WHERE id = 'p0000000-0000-4000-8000-000000000001';
+  DELETE FROM public.products WHERE id = 'a0000000-0000-4000-8000-000000000001';
 
   RAISE NOTICE 'OK: preflight legacy fulfillment duplicate checks verified';
 END $$;

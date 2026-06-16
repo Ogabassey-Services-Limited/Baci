@@ -37,7 +37,6 @@ export function useUpdateVariantInventoryUnit() {
       );
 
       if (error) {
-        console.error('[VariantInventory] Update error:', error);
         throw toInventoryMutationError(error);
       }
 

@@ -550,7 +550,7 @@ describe('PATCH /api/orders/[id]', () => {
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(500);
     expect(payload).toEqual({
       code: 'INVENTORY_CONFIRMATION_FAILED',
       error: 'Inventory confirmation failed',

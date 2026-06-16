@@ -1,6 +1,13 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
 import { AppPageSheet } from '@/components/ui/AppPageSheet';
 import { SPACING, type ThemeColors } from '@/constants/theme';
 import { useBranches } from '@/hooks/useBranches';
@@ -52,15 +59,22 @@ export function VariantInventoryUnitsSheet({
 
   const { data: branches = [] } = useBranches();
   const { branchId, branchScope } = toBranchScope(branchFilter);
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
-    useVariantInventory({
-      branchId,
-      branchScope,
-      limit: 20,
-      productId,
-      status: statusFilter,
-      variantId: variantId || null,
-    });
+  const {
+    data,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    refetch,
+  } = useVariantInventory({
+    branchId,
+    branchScope,
+    limit: 20,
+    productId,
+    status: statusFilter,
+    variantId: variantId || null,
+  });
 
   const updateMutation = useUpdateVariantInventoryUnit();
   const deleteMutation = useDeleteVariantInventoryUnit();
@@ -146,6 +160,22 @@ export function VariantInventoryUnitsSheet({
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Text style={[styles.emptyText, { color: colors.error }]}>
+            Could not load inventory units.
+          </Text>
+          <Pressable
+            accessibilityLabel="Retry loading inventory units"
+            accessibilityRole="button"
+            onPress={() => void refetch()}
+            style={[styles.retryButton, { borderColor: colors.border }]}
+          >
+            <Text style={[styles.retryButtonText, { color: colors.primary }]}>
+              Retry
+            </Text>
+          </Pressable>
         </View>
       ) : allUnits.length === 0 ? (
         <View style={styles.center}>

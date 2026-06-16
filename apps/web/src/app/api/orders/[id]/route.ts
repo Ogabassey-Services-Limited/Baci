@@ -297,10 +297,12 @@ export async function PATCH(
           orderId: id,
           error: inventoryError,
         });
-        return NextResponse.json(
-          buildInventoryConfirmationFailurePayload(inventoryError),
-          { status: 409 }
-        );
+        const payload =
+          buildInventoryConfirmationFailurePayload(inventoryError);
+        return NextResponse.json(payload, {
+          status:
+            payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+        });
       }
     }
 
@@ -439,10 +441,12 @@ export async function PATCH(
           orderId: id,
           error: inventoryError,
         });
-        return NextResponse.json(
-          buildInventoryConfirmationFailurePayload(inventoryError),
-          { status: 409 }
-        );
+        const payload =
+          buildInventoryConfirmationFailurePayload(inventoryError);
+        return NextResponse.json(payload, {
+          status:
+            payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+        });
       }
     }
 

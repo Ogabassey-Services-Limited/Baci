@@ -42,7 +42,6 @@ export function useRestockVariantInventory() {
       );
 
       if (error) {
-        console.error('[VariantInventory] Restock error:', error);
         throw toInventoryMutationError(error);
       }
 

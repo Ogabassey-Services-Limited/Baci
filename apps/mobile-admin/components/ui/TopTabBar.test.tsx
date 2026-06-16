@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TopTabBar } from './TopTabBar';
@@ -67,14 +68,17 @@ describe('TopTabBar', () => {
     expect(onTabChange).toHaveBeenCalledWith('in_stock');
   });
 
-  it('applies active styling correctly', () => {
-    const { getByText, rerender } = render(
+  it('exposes selected tab state through accessible labels', () => {
+    const { getByLabelText, rerender } = render(
       <TopTabBar activeTab="in_stock" onTabChange={vi.fn()} />
     );
 
-    expect(getByText('In Stock (0)')).toBeTruthy();
+    expect(getByLabelText('In Stock tab selected')).toBeTruthy();
+    expect(getByLabelText('On Website tab not selected')).toBeTruthy();
 
     rerender(<TopTabBar activeTab="on_website" onTabChange={vi.fn()} />);
-    expect(getByText('On Website (0)')).toBeTruthy();
+
+    expect(getByLabelText('In Stock tab not selected')).toBeTruthy();
+    expect(getByLabelText('On Website tab selected')).toBeTruthy();
   });
 });

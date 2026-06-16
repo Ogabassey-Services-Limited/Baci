@@ -27,7 +27,6 @@ export function useUpdateInventoryTrackingPolicy() {
       );
 
       if (error) {
-        console.error('[VariantInventory] Policy update error:', error);
         throw toInventoryMutationError(error);
       }
 

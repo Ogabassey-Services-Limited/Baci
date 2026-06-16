@@ -9,11 +9,16 @@ import {
 } from '@/lib/credit-direct';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
-import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import {
+  ensurePaidOrderInventoryConfirmed,
+  rollbackOrderStatusAfterInventoryConfirmationFailure,
+} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { createServiceClient } from '@/lib/supabase/service';
 
 function readNoteString(value: unknown) {
@@ -109,7 +114,7 @@ export async function POST(request: NextRequest) {
     const { data: orders, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, total, payment_status, payment_method, customer_email, customer_name, order_number, notes'
+        'id, merchant_id, total, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
       )
       .in('payment_method', ['credit_direct', 'klump'])
       .ilike('notes', `%${payload.checkoutTransactionId}%`);
@@ -132,6 +137,7 @@ export async function POST(request: NextRequest) {
       merchant_id: string;
       total: number;
       payment_status: string;
+      shipping_status: string | null;
       payment_method: string | null;
       customer_email: string;
       customer_name: string;
@@ -143,7 +149,7 @@ export async function POST(request: NextRequest) {
       const { data: orderById } = await supabase
         .from('orders')
         .select(
-          'id, merchant_id, total, payment_status, payment_method, customer_email, customer_name, order_number, notes'
+          'id, merchant_id, total, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
         )
         .eq('id', payload.metaData)
         .single();
@@ -326,7 +332,7 @@ export async function POST(request: NextRequest) {
             }),
           })
           .eq('id', order.id)
-          .select('id, shipping_status, cancelled_at')
+          .select('id, payment_status, shipping_status, cancelled_at')
           .maybeSingle();
 
         if (updateError) {
@@ -420,15 +426,54 @@ export async function POST(request: NextRequest) {
             orderId: order.id,
             error: inventoryError,
           });
-          return NextResponse.json(
-            {
-              error:
-                inventoryError instanceof Error
-                  ? inventoryError.message
-                  : 'Inventory confirmation failed',
-            },
-            { status: 409 }
-          );
+
+          try {
+            await rollbackOrderStatusAfterInventoryConfirmationFailure(
+              supabase,
+              order.merchant_id,
+              order.id,
+              {
+                payment_status: order.payment_status ?? null,
+                shipping_status: order.shipping_status ?? null,
+              }
+            );
+          } catch (rollbackError) {
+            await fileInventoryConfirmationFailureReview({
+              gatewayReference: payload.checkoutTransactionId,
+              merchantId: order.merchant_id,
+              metadata: {
+                inventoryError:
+                  inventoryError instanceof Error
+                    ? inventoryError.message
+                    : inventoryError,
+                rollbackError:
+                  rollbackError instanceof Error
+                    ? rollbackError.message
+                    : rollbackError,
+                source: 'credit_direct_inventory_confirmation_rollback',
+              },
+              orderId: order.id,
+              reason:
+                'Credit Direct merchant payment reached paid state, but serialized inventory confirmation and status rollback both failed.',
+              transactionId: recordedTransactionId,
+            });
+            return NextResponse.json(
+              {
+                code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
+                error: 'Inventory confirmation cleanup failed',
+              },
+              { status: 500 }
+            );
+          }
+
+          const responsePayload =
+            buildInventoryConfirmationFailurePayload(inventoryError);
+          return NextResponse.json(responsePayload, {
+            status:
+              responsePayload.code === 'serialized_inventory_unavailable'
+                ? 409
+                : 500,
+          });
         }
 
         // Notify merchant of new order and payment (non-blocking)
