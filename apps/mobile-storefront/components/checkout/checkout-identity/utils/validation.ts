@@ -13,7 +13,7 @@ import { VALIDATION_ERROR_MESSAGES } from './error-messages';
 /**
  * Email validation schema
  */
-export const emailSchema = z
+const emailSchema = z
   .string()
   .min(1, VALIDATION_ERROR_MESSAGES.emailRequired)
   .email(VALIDATION_ERROR_MESSAGES.emailInvalid);
@@ -21,7 +21,7 @@ export const emailSchema = z
 /**
  * Password validation schema
  */
-export const passwordSchema = z
+const passwordSchema = z
   .string()
   .min(1, VALIDATION_ERROR_MESSAGES.passwordRequired)
   .min(6, VALIDATION_ERROR_MESSAGES.passwordTooShort);
@@ -38,12 +38,3 @@ export const signInSchema = z.object({
  * Inferred type from the sign-in schema
  */
 export type SignInSchemaType = z.infer<typeof signInSchema>;
-
-/**
- * Email-only validation (for forgot password)
- */
-export const forgotPasswordSchema = z.object({
-  email: emailSchema,
-});
-
-export type ForgotPasswordSchemaType = z.infer<typeof forgotPasswordSchema>;
