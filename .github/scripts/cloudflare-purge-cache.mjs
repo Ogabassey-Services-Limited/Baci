@@ -2,6 +2,11 @@
 import { fileURLToPath } from 'node:url';
 
 const CLOUDFLARE_API_BASE_URL = 'https://api.cloudflare.com/client/v4';
+// Cloudflare single-file purge supports 100 operations per request on
+// Free/Pro/Business plans as of the April 2026 Cache docs. Keep the deploy
+// script at the portable non-Enterprise limit instead of assuming this list
+// always stays small.
+const CLOUDFLARE_SINGLE_FILE_PURGE_MAX_OPERATIONS = 100;
 
 export function parsePurgeUrls(value) {
   return String(value ?? '')
@@ -14,6 +19,18 @@ export function buildPurgePayload(urls) {
   return {
     files: [...new Set(urls)],
   };
+}
+
+export function chunkPurgeUrls(urls, size = CLOUDFLARE_SINGLE_FILE_PURGE_MAX_OPERATIONS) {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error('Cloudflare purge chunk size must be a positive integer');
+  }
+
+  const chunks = [];
+  for (let index = 0; index < urls.length; index += size) {
+    chunks.push(urls.slice(index, index + size));
+  }
+  return chunks;
 }
 
 async function defaultFetchJson(path, { body, method = 'GET', token } = {}) {
@@ -79,14 +96,18 @@ export async function purgeCloudflareCache({
 
   const resolvedZoneId =
     zoneId || (await discoverZoneId({ fetchJson, token, zoneName }));
-  const body = buildPurgePayload(uniqueUrls);
-  await fetchJson(`/zones/${resolvedZoneId}/purge_cache`, {
-    body,
-    method: 'POST',
-    token,
-  });
+  const batches = chunkPurgeUrls(uniqueUrls);
+  for (const batch of batches) {
+    await fetchJson(`/zones/${resolvedZoneId}/purge_cache`, {
+      body: buildPurgePayload(batch),
+      method: 'POST',
+      token,
+    });
+  }
 
-  logger.log(`Purged ${uniqueUrls.length} Cloudflare URL(s) from zone ${resolvedZoneId}.`);
+  logger.log(
+    `Purged ${uniqueUrls.length} Cloudflare URL(s) from zone ${resolvedZoneId} in ${batches.length} request(s).`
+  );
   return { purgedUrls: uniqueUrls, skipped: false, zoneId: resolvedZoneId };
 }
 

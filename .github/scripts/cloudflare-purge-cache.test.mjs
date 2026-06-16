@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildPurgePayload,
+  chunkPurgeUrls,
   discoverZoneId,
   parsePurgeUrls,
   purgeCloudflareCache,
@@ -25,6 +26,17 @@ test('builds a files purge payload without duplicates', () => {
       files: ['https://ogabassey.com/blog', 'https://ogabassey.com/blog/sitemap.xml'],
     }
   );
+});
+
+test('chunks purge URLs at the Cloudflare single-file portable limit', () => {
+  const urls = Array.from({ length: 205 }, (_, index) => `https://ogabassey.com/blog/${index}`);
+
+  const chunks = chunkPurgeUrls(urls);
+
+  assert.equal(chunks.length, 3);
+  assert.equal(chunks[0].length, 100);
+  assert.equal(chunks[1].length, 100);
+  assert.equal(chunks[2].length, 5);
 });
 
 test('discovers zone id by zone name using Cloudflare API', async () => {
@@ -129,4 +141,30 @@ test('purges files after zone discovery', async () => {
   assert.equal(result.skipped, false);
   assert.equal(calls[1].path, '/zones/zone-123/purge_cache');
   assert.deepEqual(calls[1].options.body, { files: ['https://ogabassey.com/blog'] });
+});
+
+test('sends multiple purge requests when URL list exceeds one Cloudflare batch', async () => {
+  const calls = [];
+  const logger = { log: () => {}, warn: () => {} };
+  const fetchJson = async (path, options) => {
+    calls.push({ path, options });
+    if (path.startsWith('/zones?')) {
+      return { result: [{ id: 'zone-123' }], success: true };
+    }
+    return { result: { id: 'purge-123' }, success: true };
+  };
+  const urls = Array.from({ length: 101 }, (_, index) => `https://ogabassey.com/blog/${index}`);
+
+  await purgeCloudflareCache({
+    fetchJson,
+    logger,
+    token: 'token',
+    urls,
+    zoneName: 'ogabassey.com',
+  });
+
+  const purgeCalls = calls.filter((call) => call.path.endsWith('/purge_cache'));
+  assert.equal(purgeCalls.length, 2);
+  assert.equal(purgeCalls[0].options.body.files.length, 100);
+  assert.equal(purgeCalls[1].options.body.files.length, 1);
 });
