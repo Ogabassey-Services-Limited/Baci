@@ -1,4 +1,8 @@
-import type { EditorView } from 'prosemirror-view';
+// Import EditorView from tiptap's re-export (not prosemirror-view directly) so the type
+// is identical to `editor.view`. Importing from 'prosemirror-view' resolves to apps/web's
+// own copy, which under nodeLinker:hoisted is a distinct type identity from the copy
+// @tiptap/pm uses — producing TS2345 'EditorView is not assignable to EditorView'.
+import type { EditorView } from '@tiptap/pm/view';
 
 interface TiptapCommandChain {
   run: () => void;
