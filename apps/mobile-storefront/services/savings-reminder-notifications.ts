@@ -1,7 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 
 const log = createLogger('SavingsReminderNotifications');
 const SAVINGS_REMINDER_CHANNEL_ID = 'savings';
