@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { useCartStore } from '@/stores/cart-store';
 
 export async function clearAndPersistCheckoutCart(clearCart: () => void) {
