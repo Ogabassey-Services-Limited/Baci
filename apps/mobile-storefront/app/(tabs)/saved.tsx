@@ -13,6 +13,12 @@ import { useNetworkState } from '@/hooks/use-network-state';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useSavedStore } from '@/stores/saved-store';
 
+const handleProductPress = (slug: string): void => {
+  // M12 FIX: Guard navigation - only navigate if slug is truthy
+  if (!slug) return;
+  router.push(`/product/${slug}`);
+};
+
 export default function SavedTabScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -21,12 +27,6 @@ export default function SavedTabScreen() {
   );
   const { isOnline, refresh } = useNetworkState();
   const { getListContentStyle } = useStorefrontInsets();
-
-  const handleProductPress = (slug: string) => {
-    // M12 FIX: Guard navigation - only navigate if slug is truthy
-    if (!slug) return;
-    router.push(`/product/${slug}`);
-  };
 
   const handleRemove = (productId: string) => {
     removeItem(productId);

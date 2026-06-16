@@ -3,6 +3,10 @@ import { isGatewayAmountDifferentFromOrderTotal } from '../utils';
 
 const DEFAULT_KLUMP_MIN_AMOUNT = 10_000;
 const DEFAULT_KLUMP_MAX_AMOUNT = 1_000_000;
+// Mirrors the server-side BNPL bounds enforced by /api/payments/credit-direct/sign
+// so the UI never offers Credit Direct for an amount the gateway will reject.
+const DEFAULT_CREDIT_DIRECT_MIN_AMOUNT = 5_000;
+const DEFAULT_CREDIT_DIRECT_MAX_AMOUNT = 5_000_000;
 
 export interface FeatureSettings {
   paystack_enabled?: boolean;
@@ -11,6 +15,8 @@ export interface FeatureSettings {
   pay_on_delivery_enabled?: boolean;
   credpal_enabled?: boolean;
   credit_direct_enabled?: boolean;
+  credit_direct_min_amount?: number | string | null;
+  credit_direct_max_amount?: number | string | null;
   klump_enabled?: boolean;
   klump_min_amount?: number | string | null;
   klump_max_amount?: number | string | null;
@@ -74,6 +80,42 @@ export function isKlumpEligible({
   return payableAmount >= minAmount && payableAmount <= maxAmount;
 }
 
+export function isCreditDirectEligible({
+  featureSettings,
+  currency,
+  orderAmount,
+  payableAmount,
+}: {
+  featureSettings?: FeatureSettings | null;
+  currency?: string | null;
+  orderAmount: number;
+  payableAmount: number;
+}): boolean {
+  if (featureSettings?.credit_direct_enabled !== true) {
+    return false;
+  }
+
+  const normalizedCurrency = typeof currency === 'string' ? currency : '';
+  if (normalizedCurrency.trim().toUpperCase() !== 'NGN') {
+    return false;
+  }
+
+  if (isGatewayAmountDifferentFromOrderTotal(payableAmount, orderAmount)) {
+    return false;
+  }
+
+  const minAmount = toAmountLimit(
+    featureSettings.credit_direct_min_amount,
+    DEFAULT_CREDIT_DIRECT_MIN_AMOUNT,
+  );
+  const maxAmount = toAmountLimit(
+    featureSettings.credit_direct_max_amount,
+    DEFAULT_CREDIT_DIRECT_MAX_AMOUNT,
+  );
+
+  return payableAmount >= minAmount && payableAmount <= maxAmount;
+}
+
 export function isPaymentMethodAvailable({
   paymentMethod,
   paystackCheckoutAvailable,
@@ -107,7 +149,12 @@ export function isPaymentMethodAvailable({
     case 'credpal':
       return featureSettings?.credpal_enabled === true;
     case 'credit_direct':
-      return featureSettings?.credit_direct_enabled === true;
+      return isCreditDirectEligible({
+        featureSettings,
+        currency,
+        orderAmount,
+        payableAmount,
+      });
     case 'klump':
       return isKlumpEligible({
         featureSettings,
@@ -137,7 +184,12 @@ export function hasAnyInstallmentOption({
 }): boolean {
   return Boolean(
     featureSettings?.credpal_enabled ||
-      featureSettings?.credit_direct_enabled ||
+      isCreditDirectEligible({
+        featureSettings,
+        currency,
+        orderAmount,
+        payableAmount,
+      }) ||
       isKlumpEligible({
         featureSettings,
         currency,

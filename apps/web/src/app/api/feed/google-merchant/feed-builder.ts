@@ -20,7 +20,12 @@ import {
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { ProductKeySpecs } from '@/lib/products';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
+import { escapeXml } from '@/lib/xml-utils';
 import { buildFeedDescription } from './build-feed-description';
+import {
+  buildGoogleColorXml,
+  buildGoogleProductDetailXml,
+} from './build-product-detail-xml';
 
 export interface FeedProduct {
   id: string;
@@ -268,17 +273,6 @@ function resolveVariantFeedImages(args: {
   );
 }
 
-function escapeXml(unsafe: string): string {
-  if (!unsafe) return '';
-  return unsafe
-    .toString()
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
 function getFeedStockCount(product: FeedProduct): number {
   if (isUnmanagedFeedStock(product.manage_stock)) {
     return UNLIMITED_STOCK_QUANTITY;
@@ -450,6 +444,7 @@ function buildBaseItemXml(args: {
   brandName: string;
   compareAtPrice?: number;
   condition: string;
+  colorXml?: string;
   currency: string;
   description: string;
   googleProductCategory?: string;
@@ -463,6 +458,7 @@ function buildBaseItemXml(args: {
   url: string;
   gtin?: string;
   mpn?: string;
+  productDetailsXml?: string;
 }) {
   const formattedPrice = args.price.toFixed(2);
   const priceLines =
@@ -489,6 +485,8 @@ function buildBaseItemXml(args: {
     args.gtin || (args.mpn && args.brandName)
       ? '        <g:identifier_exists>yes</g:identifier_exists>'
       : '        <g:identifier_exists>no</g:identifier_exists>',
+    args.colorXml,
+    args.productDetailsXml,
     args.googleProductCategory
       ? `        <g:google_product_category>${escapeXml(args.googleProductCategory)}</g:google_product_category>`
       : '',
@@ -553,11 +551,14 @@ export function generateGoogleMerchantFeed(
         getProductLevelManifestEntries(manifestEntries)
       );
       const description = buildFeedDescription(product);
+      const colorXml = buildGoogleColorXml(product);
+      const productDetailsXml = buildGoogleProductDetailXml(product);
       const shippingWeight =
         product.weight_value && product.weight_unit
           ? `        <g:shipping_weight>${product.weight_value} ${product.weight_unit}</g:shipping_weight>`
           : '';
       const effectiveBrand = product.brand || brandName;
+      const productType = getProductType(product);
       const conditionedVariants = getConditionedVariants(product);
       const shouldEmitVariantRows =
         merchant.gmc_variants_enabled !== false &&
@@ -594,6 +595,14 @@ export function generateGoogleMerchantFeed(
                 ...product,
                 variant_attributes: variant.attributes,
               });
+              const variantColorXml = buildGoogleColorXml({
+                ...product,
+                variant_attributes: variant.attributes,
+              });
+              const variantProductDetailsXml = buildGoogleProductDetailXml({
+                ...product,
+                variant_attributes: variant.attributes,
+              });
               const lines = [
                 `        <g:id>${escapeXml(variant.id)}</g:id>`,
                 `        <g:item_group_id>${escapeXml(product.id)}</g:item_group_id>`,
@@ -621,11 +630,13 @@ export function generateGoogleMerchantFeed(
                 product.gtin || (product.mpn && effectiveBrand)
                   ? '        <g:identifier_exists>yes</g:identifier_exists>'
                   : '        <g:identifier_exists>no</g:identifier_exists>',
+                variantColorXml,
+                variantProductDetailsXml,
                 product.google_product_category
                   ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
                   : '',
-                getProductType(product)
-                  ? `        <g:product_type>${escapeXml(getProductType(product) || '')}</g:product_type>`
+                productType
+                  ? `        <g:product_type>${escapeXml(productType)}</g:product_type>`
                   : '',
                 shippingWeight,
               ].filter(Boolean);
@@ -651,6 +662,7 @@ export function generateGoogleMerchantFeed(
           brandName: effectiveBrand,
           compareAtPrice: product.compare_at_price,
           condition: skuMatrixFallback.condition,
+          colorXml,
           currency,
           description,
           googleProductCategory: product.google_product_category,
@@ -659,7 +671,8 @@ export function generateGoogleMerchantFeed(
           imageUrl: productLevelImages.primaryImageUrl,
           mpn: product.mpn,
           price: skuMatrixFallback.price,
-          productType: getProductType(product),
+          productDetailsXml,
+          productType,
           shippingWeight,
           stockCount: skuMatrixFallback.stockCount,
           title: product.name,
@@ -674,6 +687,7 @@ export function generateGoogleMerchantFeed(
         brandName: effectiveBrand,
         compareAtPrice: product.compare_at_price,
         condition: toGmcCondition(product.condition),
+        colorXml,
         currency,
         description,
         googleProductCategory: product.google_product_category,
@@ -682,7 +696,8 @@ export function generateGoogleMerchantFeed(
         imageUrl: productLevelImages.primaryImageUrl,
         mpn: product.mpn,
         price: product.price,
-        productType: getProductType(product),
+        productDetailsXml,
+        productType,
         shippingWeight,
         stockCount: getFeedStockCount(product),
         title: product.name,
@@ -727,11 +742,13 @@ export function generateGoogleMerchantFeed(
             product.gtin || (product.mpn && effectiveBrand)
               ? '        <g:identifier_exists>yes</g:identifier_exists>'
               : '        <g:identifier_exists>no</g:identifier_exists>',
+            colorXml,
+            productDetailsXml,
             product.google_product_category
               ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
               : '',
-            getProductType(product)
-              ? `        <g:product_type>${escapeXml(getProductType(product) || '')}</g:product_type>`
+            productType
+              ? `        <g:product_type>${escapeXml(productType)}</g:product_type>`
               : '',
             shippingWeight,
           ].filter(Boolean);
