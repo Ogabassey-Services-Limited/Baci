@@ -102,18 +102,18 @@ describe('NegotiationModal', () => {
     expect(screen.getByPlaceholderText('Enter amount...')).toHaveFocus();
   });
 
-  it('accepts an offer within the 3% threshold and marks it as AI-reviewed', () => {
+  it('accepts an offer within the 2% threshold and marks it as AI-reviewed', () => {
     render(<NegotiationModal {...defaultProps} />);
 
     const input = screen.getByPlaceholderText('Enter amount...');
-    fireEvent.change(input, { target: { value: '9700' } }); // 3% off
+    fireEvent.change(input, { target: { value: '9800' } }); // 2% off
     fireEvent.click(screen.getByRole('button', { name: 'Submit Offer' }));
 
     act(() => {
       vi.advanceTimersByTime(1600);
     });
 
-    expect(defaultProps.onSuccess).toHaveBeenCalledWith(9700);
+    expect(defaultProps.onSuccess).toHaveBeenCalledWith(9800);
     expect(
       screen.getByText(/accepted by our AI/i)
     ).toBeInTheDocument();
@@ -136,11 +136,11 @@ describe('NegotiationModal', () => {
     expect(defaultProps.onSuccess).not.toHaveBeenCalled();
   });
 
-  it('counters a first offer beyond 3% at 1% off', () => {
+  it('counters a first offer beyond 2% at 1% off', () => {
     render(<NegotiationModal {...defaultProps} />);
 
     const input = screen.getByPlaceholderText('Enter amount...');
-    fireEvent.change(input, { target: { value: '9600' } }); // 4% off
+    fireEvent.change(input, { target: { value: '9700' } }); // 3% off
     fireEvent.click(screen.getByRole('button', { name: 'Submit Offer' }));
 
     act(() => {
@@ -152,29 +152,16 @@ describe('NegotiationModal', () => {
     expect(screen.getByText('₦9,900')).toBeInTheDocument();
   });
 
-  it('returns a final-price response for Tecno products', () => {
-    const onSuccess = vi.fn();
-    render(
-      <NegotiationModal
-        {...defaultProps}
-        productName="Tecno Spark 50"
-        onSuccess={onSuccess}
-      />
-    );
-
-    submitLowOffer('9000');
-
-    expect(onSuccess).not.toHaveBeenCalled();
-    expect(screen.getByText('Final Price')).toBeInTheDocument();
-    expect(screen.getByText(/that's the final price/i)).toBeInTheDocument();
-    expect(screen.queryByText('Counter Offer')).not.toBeInTheDocument();
-  });
-
   it.each([
     ['Infinix products', 'Infinix Hot 50'],
-    ['Redmi products', 'Redmi Note 13'],
+    ['Tecno products', 'Tecno Spark 50'],
     ['Vivo products', 'Vivo Y28'],
+    ['Redmi products', 'Redmi Note 13'],
+    ['Xiaomi products', 'Xiaomi 14T'],
+    ['Oppo products', 'Oppo A58'],
     ['Itel products', 'Itel S24'],
+    ['Honor products', 'Honor X8b'],
+    ['Samsung A-series products', 'Samsung Galaxy A16 5G'],
   ])('returns a final-price response for %s', (_label, productName) => {
     const onSuccess = vi.fn();
     render(
@@ -189,16 +176,19 @@ describe('NegotiationModal', () => {
 
     expect(onSuccess).not.toHaveBeenCalled();
     expect(screen.getByText('Final Price')).toBeInTheDocument();
-    expect(screen.getByText(/can't discount it further/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/already the best price|can't discount it further/i)
+    ).toBeInTheDocument();
     expect(screen.queryByText('Counter Offer')).not.toBeInTheDocument();
   });
 
-  it('returns a final-price response for Samsung Galaxy A series products', () => {
+  it('treats a non-negotiable brand from the productBrand prop as final price', () => {
     const onSuccess = vi.fn();
     render(
       <NegotiationModal
         {...defaultProps}
-        productName="Samsung Galaxy A16 5G"
+        productName="Hot 50"
+        productBrand="Infinix"
         onSuccess={onSuccess}
       />
     );
@@ -207,7 +197,7 @@ describe('NegotiationModal', () => {
 
     expect(onSuccess).not.toHaveBeenCalled();
     expect(screen.getByText('Final Price')).toBeInTheDocument();
-    expect(screen.getByText(/can't discount it further/i)).toBeInTheDocument();
+    expect(screen.queryByText('Counter Offer')).not.toBeInTheDocument();
   });
 
   it('keeps Samsung non-A-series products negotiable', () => {
@@ -271,7 +261,7 @@ describe('NegotiationModal', () => {
     expect(screen.getByText('₦9,900')).toBeInTheDocument();
   });
 
-  it('steps counter offers through 1%, 2%, and 3%', () => {
+  it('steps counter offers through 1%, 1.5%, and 2%', () => {
     render(<NegotiationModal {...defaultProps} />);
 
     submitLowOffer('1000');
@@ -279,17 +269,17 @@ describe('NegotiationModal', () => {
 
     fireEvent.click(screen.getByText('Negotiate Again'));
     submitLowOffer('1000');
-    expect(screen.getByText('₦9,800')).toBeInTheDocument();
+    expect(screen.getByText('₦9,850')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Negotiate Again'));
     submitLowOffer('1000');
-    expect(screen.getByText('₦9,700')).toBeInTheDocument();
+    expect(screen.getByText('₦9,800')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /i saw it cheaper/i })
     ).toBeInTheDocument();
   });
 
-  it('keeps final 3% counter-offer within server-acceptable bounds for low subtotals', () => {
+  it('keeps final 2% counter-offer within server-acceptable bounds for low subtotals', () => {
     render(<NegotiationModal {...defaultProps} currentPrice={999} />);
 
     submitLowOffer('500');
@@ -298,11 +288,11 @@ describe('NegotiationModal', () => {
     fireEvent.click(screen.getByText('Negotiate Again'));
     submitLowOffer('500');
 
-    expect(screen.getByText('₦970')).toBeInTheDocument();
-    expect(screen.queryByText('₦969')).not.toBeInTheDocument();
+    expect(screen.getByText('₦980')).toBeInTheDocument();
+    expect(screen.queryByText('₦979')).not.toBeInTheDocument();
   });
 
-  it('clamps final 3% counter-offers for fractional non-VAT totals', () => {
+  it('clamps final 2% counter-offers for fractional non-VAT totals', () => {
     render(<NegotiationModal {...defaultProps} currentPrice={1048.95} />);
 
     submitLowOffer('500');
@@ -311,11 +301,11 @@ describe('NegotiationModal', () => {
     fireEvent.click(screen.getByText('Negotiate Again'));
     submitLowOffer('500');
 
-    expect(screen.getByText('₦1,017.95')).toBeInTheDocument();
-    expect(screen.queryByText('₦1,017')).not.toBeInTheDocument();
+    expect(screen.getByText('₦1,028.95')).toBeInTheDocument();
+    expect(screen.queryByText('₦1,027')).not.toBeInTheDocument();
   });
 
-  it('keeps final 3% counter-offers within VAT-aware backend bounds', () => {
+  it('keeps final 2% counter-offers within VAT-aware backend bounds', () => {
     render(
       <NegotiationModal
         {...defaultProps}
@@ -330,8 +320,8 @@ describe('NegotiationModal', () => {
     fireEvent.click(screen.getByText('Negotiate Again'));
     submitLowOffer('500');
 
-    expect(screen.getByText('₦971')).toBeInTheDocument();
-    expect(screen.queryByText('₦970')).not.toBeInTheDocument();
+    expect(screen.getByText('₦981')).toBeInTheDocument();
+    expect(screen.queryByText('₦980')).not.toBeInTheDocument();
   });
 
   it('clears counter-offer message when returning to input state', () => {

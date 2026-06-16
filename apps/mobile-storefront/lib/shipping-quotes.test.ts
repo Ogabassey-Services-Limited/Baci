@@ -25,6 +25,7 @@ describe('shipping quote helpers', () => {
       quantity: 1,
       price: 500,
       negotiatedPrice: 450,
+      negotiationStatus: 'accepted',
       name: 'Product 2',
     },
   ];

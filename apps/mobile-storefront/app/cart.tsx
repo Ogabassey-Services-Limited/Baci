@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import CartLoadedView from '@/components/cart/CartLoadedView';
 import CartStateView from '@/components/cart/CartStateView';
 import { unavailableCartActions } from '@/components/cart/unavailable-cart-actions';
+import { useCartNegotiation } from '@/components/cart/use-cart-negotiation';
 import { warmCheckoutEntry } from '@/components/checkout/checkout-entry-prefetch';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -16,7 +17,6 @@ import { isValidCartStore } from '@/lib/cart-validation';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
-import { useUIStore } from '@/stores/ui-store';
 
 export default function CartScreen() {
   const insets = useSafeAreaInsets();
@@ -25,9 +25,6 @@ export default function CartScreen() {
   const colors = Colors[colorScheme];
   const { light: triggerHaptic } = useHaptics();
   const [isIdentityModalOpen, setIsIdentityModalOpen] = useState(false);
-  const [showNegotiateWarning, setShowNegotiateWarning] = useState(false);
-  const [pendingNegotiateItem, setPendingNegotiateItem] =
-    useState<CartItem | null>(null);
   const [isRetryingCartLoad, setIsRetryingCartLoad] = useState(false);
   const pendingOperations = useRef<Set<string>>(new Set());
 
@@ -84,9 +81,6 @@ export default function CartScreen() {
     ? unavailableCartActions.toggleAssurance
     : cartStore.toggleAssurance;
   const { isAuthenticated } = useAuthStatus();
-  const { openNegotiation } = useUIStore(
-    useShallow((state) => ({ openNegotiation: state.openNegotiation }))
-  );
   const enableNegotiationModal =
     getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID).features
       ?.negotiationModal ?? true;
@@ -141,44 +135,6 @@ export default function CartScreen() {
     router.replace('/');
   };
 
-  const actuallyOpenItemNegotiation = (item: CartItem) => {
-    const priceToUse = item.negotiatedPrice ?? item.price;
-    openNegotiation({
-      type: 'single',
-      itemId: item.id,
-      productName:
-        item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name,
-      currentPrice: priceToUse * item.quantity,
-    });
-    setShowNegotiateWarning(false);
-    setPendingNegotiateItem(null);
-  };
-
-  const openItemNegotiation = (item: CartItem) => {
-    const hasAnyIndividualNegotiation = items.some(
-      (cartItem) => cartItem.negotiatedPrice != null
-    );
-    const hasBulkDiscount = items.some((cartItem) => {
-      const discountedItem = cartItem as CartItem & { cartDiscount?: number };
-      return (discountedItem.cartDiscount ?? 0) > 0;
-    });
-
-    if (hasBulkDiscount) {
-      Alert.alert(
-        'Bulk Discount Active',
-        'You already have a bulk discount applied. Remove it before negotiating items individually.'
-      );
-      return;
-    }
-
-    if (hasAnyIndividualNegotiation) {
-      actuallyOpenItemNegotiation(item);
-    } else {
-      setPendingNegotiateItem(item);
-      setShowNegotiateWarning(true);
-    }
-  };
-
   const assuranceTotal = items.reduce((sum, item) => {
     if (!item.hasAssurance) return sum;
     const price = item.negotiatedPrice ?? item.price;
@@ -187,23 +143,16 @@ export default function CartScreen() {
     );
   }, 0);
   const grandTotal = subtotal + assuranceTotal;
-  const openTotalNegotiation = () => {
-    if (items.some((item) => item.negotiationStatus === 'accepted')) {
-      Alert.alert(
-        'Negotiation Active',
-        'Please reset individual item prices before negotiating the total cart.'
-      );
-      return;
-    }
-
-    openNegotiation({
-      type: 'total',
-      productName: 'Total Cart',
-      currentPrice: grandTotal,
-    });
-    setShowNegotiateWarning(false);
-    setPendingNegotiateItem(null);
-  };
+  const {
+    showNegotiateWarning,
+    setShowNegotiateWarning,
+    pendingNegotiateItem,
+    setPendingNegotiateItem,
+    hasNonNegotiableCartItem,
+    actuallyOpenItemNegotiation,
+    openItemNegotiation,
+    openTotalNegotiation,
+  } = useCartNegotiation({ items, grandTotal });
 
   const handleRetryCartLoad = () => {
     setIsRetryingCartLoad(true);
@@ -263,6 +212,7 @@ export default function CartScreen() {
       handleReturnHome={handleReturnHome}
       handleQuantityChange={handleQuantityChange}
       handleRemoveItem={handleRemoveItem}
+      hasNonNegotiableCartItem={hasNonNegotiableCartItem}
       insetsTop={insets.top}
       isIdentityModalOpen={isIdentityModalOpen}
       itemCount={itemCount}

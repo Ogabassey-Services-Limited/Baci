@@ -1,3 +1,4 @@
+import { isProductNegotiable } from '@baci/shared/lib';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Share } from 'react-native';
@@ -142,7 +143,18 @@ export function ProductDetailScreen({
             log.error('Failed to mark review helpful:', err)
           );
         },
-        onOpenNegotiation: () => setShowNegotiationModal(true),
+        onOpenNegotiation: () => {
+          const negotiableProduct = routeData.displayProduct ?? product;
+          if (
+            !isProductNegotiable({
+              brand: negotiableProduct?.brand,
+              name: negotiableProduct?.name,
+            })
+          ) {
+            return;
+          }
+          setShowNegotiationModal(true);
+        },
         onSelectAttribute: selectionHandlers.onSelectAttribute,
         onSelectColor: selectionHandlers.onSelectColor,
         onSelectStorage: selectionHandlers.onSelectStorage,

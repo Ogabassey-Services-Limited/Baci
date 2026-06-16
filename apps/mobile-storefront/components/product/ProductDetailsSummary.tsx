@@ -1,3 +1,4 @@
+import { isProductNegotiable } from '@baci/shared/lib';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
@@ -45,6 +46,11 @@ export function ProductDetailsSummary({
       : product.rating
         ? `${product.rating} (${product.review_count || 0} reviews)`
         : 'No reviews yet';
+
+  const canNegotiateProduct = isProductNegotiable({
+    brand: product.brand,
+    name: product.name,
+  });
 
   return (
     <>
@@ -119,7 +125,7 @@ export function ProductDetailsSummary({
         </View>
       )}
 
-      {negotiatedPrice == null && (
+      {negotiatedPrice == null && canNegotiateProduct && (
         <Pressable
           accessibilityRole="button"
           accessibilityHint={
@@ -141,6 +147,22 @@ export function ProductDetailsSummary({
             Make an Offer
           </Text>
         </Pressable>
+      )}
+
+      {negotiatedPrice == null && !canNegotiateProduct && (
+        <View
+          accessibilityLabel="This product is already at the best price"
+          style={[styles.bestPriceBadge, { borderColor: colors.border }]}
+        >
+          <Ionicons
+            name="pricetag-outline"
+            size={16}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.bestPriceText, { color: colors.textSecondary }]}>
+            Best price
+          </Text>
+        </View>
       )}
     </>
   );

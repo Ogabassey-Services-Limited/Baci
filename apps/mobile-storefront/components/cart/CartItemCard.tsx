@@ -7,6 +7,10 @@ import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import { resolveColorSwatchValue } from '@/lib/cart-display';
+import {
+  getCartItemEffectivePrice,
+  hasActiveNegotiatedPrice,
+} from '@/lib/cart-pricing';
 import type { CartItem } from '@/stores/cart-store';
 import AssuranceToggle from './AssuranceToggle';
 import CartQuantityInput from './CartQuantityInput';
@@ -44,7 +48,7 @@ export default function CartItemCard({
 }: CartItemCardProps) {
   const conditionText = item.condition ?? 'NEW';
   const isNew = conditionText.toLowerCase() === 'new';
-  const priceToUse = item.negotiatedPrice ?? item.price;
+  const priceToUse = getCartItemEffectivePrice(item);
   const itemTotal = priceToUse * item.quantity;
   const assuranceCost = item.hasAssurance
     ? Math.round(itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE))
@@ -229,7 +233,7 @@ export default function CartItemCard({
         </View>
 
         <View style={styles.priceContainer}>
-          {item.negotiatedPrice ? (
+          {hasActiveNegotiatedPrice(item) ? (
             <>
               <Text
                 style={[styles.originalPrice, { color: colors.textSecondary }]}

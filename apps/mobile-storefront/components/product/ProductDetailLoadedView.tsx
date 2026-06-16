@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Stack, router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -177,6 +177,7 @@ export function ProductDetailLoadedView({
         productId={product.id}
         merchantId={merchantId}
         productName={product.name}
+        productBrand={product.brand}
         currentPrice={calculatedPrice}
         onSuccess={onNegotiationSuccess}
       />

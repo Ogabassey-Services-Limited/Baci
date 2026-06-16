@@ -113,4 +113,24 @@ describe('ProductDetailsBody', () => {
     expect(screen.queryByRole('button', { name: 'Make an Offer' })).toBeNull();
     expect(screen.getByText('Your negotiated price!')).toBeTruthy();
   });
+
+  it('shows a best-price badge for non-negotiable budget-brand products', () => {
+    render(
+      <ProductDetailsBody
+        {...createProps({
+          product: {
+            ...baseProduct,
+            brand: 'Tecno',
+            name: 'Tecno Spark 50',
+            description: 'Budget smartphone',
+          },
+        })}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Make an Offer' })).toBeNull();
+    expect(
+      screen.getByLabelText('This product is already at the best price')
+    ).toBeTruthy();
+  });
 });
