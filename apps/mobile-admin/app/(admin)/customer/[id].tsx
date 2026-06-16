@@ -36,6 +36,24 @@ interface OrderSummary {
   total: number;
 }
 
+function getInitials(name: string | null): string {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString('en-NG', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 export default function CustomerDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors, shadows } = useTheme();
@@ -44,16 +62,6 @@ export default function CustomerDetailsScreen() {
   const router = useRouter();
 
   const { data: customer, isLoading, error } = useCustomer(id || '');
-
-  const getInitials = (name: string | null) => {
-    if (!name) return '?';
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   const getDisplayName = () => {
     if (!customer) return '';
@@ -82,14 +90,6 @@ export default function CustomerDetailsScreen() {
 
   const formatCurrency = (amount: number) => {
     return `${currencySymbol}${amount.toLocaleString()}`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-NG', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   const deleteCustomer = useDeleteCustomer();

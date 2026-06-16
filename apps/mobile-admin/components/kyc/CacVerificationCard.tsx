@@ -31,6 +31,19 @@ interface CacVerificationCardProps {
   verified: boolean;
 }
 
+function handleMutationError(error: unknown): void {
+  if (error instanceof NetworkError && error.statusCode === 429) {
+    Alert.alert(
+      'Rate Limited',
+      'Rate limit exceeded. Please wait a minute and try again.'
+    );
+    return;
+  }
+  const message =
+    error instanceof Error ? error.message : 'An unexpected error occurred';
+  Alert.alert('Error', message);
+}
+
 export default function CacVerificationCard({
   verified,
   prefillRcNumber,
@@ -138,19 +151,6 @@ export default function CacVerificationCard({
     },
     onError: (error: unknown) => handleMutationError(error),
   });
-
-  function handleMutationError(error: unknown) {
-    if (error instanceof NetworkError && error.statusCode === 429) {
-      Alert.alert(
-        'Rate Limited',
-        'Rate limit exceeded. Please wait a minute and try again.'
-      );
-      return;
-    }
-    const message =
-      error instanceof Error ? error.message : 'An unexpected error occurred';
-    Alert.alert('Error', message);
-  }
 
   function handleSearch() {
     if (!rcNumber.trim()) return;

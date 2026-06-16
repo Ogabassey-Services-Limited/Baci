@@ -2,12 +2,15 @@ import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
-import { Linking,
+import {
+  Linking,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
-  View, StatusBar } from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -17,6 +20,10 @@ interface HelpTopic {
   icon: IoniconsIconName;
   title: string;
   description: string;
+}
+
+function handleOpenHelp(): void {
+  Linking.openURL('https://mybaci.store/help');
 }
 
 export default function HelpCenterScreen() {
@@ -55,10 +62,6 @@ export default function HelpCenterScreen() {
       description: 'Configure delivery options',
     },
   ];
-
-  const handleOpenHelp = () => {
-    Linking.openURL('https://mybaci.store/help');
-  };
 
   return (
     <>
