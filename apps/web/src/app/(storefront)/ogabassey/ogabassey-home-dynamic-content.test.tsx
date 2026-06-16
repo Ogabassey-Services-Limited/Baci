@@ -57,9 +57,7 @@ vi.mock('@/components/analytics/analytics-pixel-provider', () => ({
   }: {
     merchant?: Record<string, string | null | undefined> | null;
   }) => (
-    <div aria-label="Merchant analytics" role="status">
-      {JSON.stringify(merchant)}
-    </div>
+    <output aria-label="Merchant analytics">{JSON.stringify(merchant)}</output>
   ),
 }));
 

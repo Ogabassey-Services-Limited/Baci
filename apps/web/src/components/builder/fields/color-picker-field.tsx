@@ -66,6 +66,7 @@ export function ColorPickerField({
                   <button
                     type="button"
                     key={color}
+                    aria-label={`Select color ${color}`}
                     className={cn(
                       'w-8 h-8 rounded-full border shadow-sm transition-transform hover:scale-110 focus:outline-hidden focus:ring-2 focus:ring-ring',
                       value === color && 'ring-2 ring-primary'

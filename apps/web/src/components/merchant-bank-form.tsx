@@ -659,6 +659,7 @@ export function MerchantBankForm({
                           className="size-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                           checked={field.value ?? false}
                           onChange={field.onChange}
+                          aria-label="Automatic Settlements"
                         />
                       </FormControl>
                     </FormItem>

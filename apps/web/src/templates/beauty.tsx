@@ -237,10 +237,10 @@ export function BeautyHome(props: TemplatePageProps) {
                     </p>
 
                     <div className="grid md:grid-cols-4 gap-6">
-                        {ingredients.map((ingredient, idx) => {
+                        {ingredients.map((ingredient) => {
                             const Icon = ingredient.icon;
                             return (
-                                <div key={idx} className="p-8 bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow">
+                                <div key={ingredient.name} className="p-8 bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow">
                                     <div className="size-16 bg-linear-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                                         <Icon className="size-8 text-rose-600" />
                                     </div>
@@ -308,10 +308,10 @@ export function BeautyHome(props: TemplatePageProps) {
                             { time: 'Morning', icon: Sun, steps: ['Cleanser', 'Vitamin C Serum', 'Moisturizer', 'SPF'] },
                             { time: 'Evening', icon: Moon, steps: ['Cleanser', 'Retinol Serum', 'Night Cream', 'Eye Cream'] },
                             { time: 'Weekly', icon: Sparkles, steps: ['Exfoliator', 'Face Mask', 'Treatment', 'Extra Care'] },
-                        ].map((routine, idx) => {
+                        ].map((routine) => {
                             const Icon = routine.icon;
                             return (
-                                <div key={idx} className="bg-white rounded-2xl p-8 shadow-lg">
+                                <div key={routine.time} className="bg-white rounded-2xl p-8 shadow-lg">
                                     <div className="size-16 bg-linear-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                                         <Icon className="size-8 text-rose-600" />
                                     </div>

@@ -69,4 +69,35 @@ describe('CheckoutPage', () => {
     render(<CheckoutPage />);
     expect(screen.getByText(/Your cart is empty/i)).toBeInTheDocument();
   });
+
+  it('associates every shipping field label with its input (WCAG 1.3.1/4.1.2)', () => {
+    mocks.cart = [
+      {
+        id: 'product-1',
+        cartItemId: 'product-1::variant=variant-1',
+        variantId: 'variant-1',
+        name: 'iPhone 15 Pro',
+        image: '/iphone.jpg',
+        price: 1_200_000,
+        quantity: 2,
+      } as CartItem,
+    ];
+    render(<CheckoutPage />);
+
+    // getByLabelText only matches inputs whose accessible name comes from an
+    // associated <label htmlFor>, so each assertion proves the association.
+    for (const labelText of [
+      'First Name',
+      'Last Name',
+      'Email Address',
+      'Address',
+      'City',
+      'State',
+      'Zip Code',
+    ]) {
+      expect(screen.getByLabelText(labelText)).toBeInstanceOf(
+        HTMLInputElement
+      );
+    }
+  });
 });

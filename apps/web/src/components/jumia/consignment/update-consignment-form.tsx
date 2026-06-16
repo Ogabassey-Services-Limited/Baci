@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Truck } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ThemedButton } from '@/components/themed/themed-button';
@@ -112,6 +112,8 @@ interface UpdateConsignmentFormProps {
 export function UpdateConsignmentForm({
   integrationId,
 }: UpdateConsignmentFormProps) {
+  const formId = useId();
+  const markAsShippedId = `${formId}-mark-as-shipped`;
   const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -218,9 +220,12 @@ export function UpdateConsignmentForm({
               name="isShipped"
               control={control}
               render={({ field }) => (
-                // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input internally
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label
+                  htmlFor={markAsShippedId}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
                   <Checkbox
+                    id={markAsShippedId}
                     checked={field.value}
                     onCheckedChange={(checked) =>
                       field.onChange(checked === true)

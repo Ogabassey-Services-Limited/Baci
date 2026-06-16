@@ -33,7 +33,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           {SUGGESTIONS.map((s, i) => (
             <button
               type="button"
-              key={i}
+              key={s.label}
               onClick={() => onSuggestionClick(s.label)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-gray-200 rounded-full text-xs font-medium text-gray-600 transition-colors whitespace-nowrap shrink-0"
             >
@@ -47,6 +47,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          aria-label={isSanta ? 'Tell Santa your wish' : 'Type your message'}
           placeholder={isSanta ? "Tell Santa your wish..." : "Type your message..."}
           className={`flex-1 px-4 py-2.5 rounded-full border focus:outline-hidden focus:ring-2 focus:ring-offset-1 transition-all text-sm ${isSanta
             ? 'border-red-200 focus:border-red-400 focus:ring-red-100 bg-white placeholder:text-red-300'

@@ -135,9 +135,9 @@ export function SelectionRequiredModal({
 
           {(missingFields.includes('Color') || missingFields.length === 0) && (
             <div>
-              <label className="mb-3 block text-sm font-bold text-gray-900">
+              <span className="mb-3 block text-sm font-bold text-gray-900">
                 Color
-              </label>
+              </span>
               <div className="flex flex-wrap gap-4">
                 {productData.colors.map((color, index) => {
                   const isSelected = selectedColor === index;

@@ -117,7 +117,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         {BANNER_SLIDES.map((slide, idx) => (
           <button
             type="button"
-            key={idx}
+            key={slide.id}
             role="tab"
             aria-selected={idx === currentSlide}
             aria-label={`Go to slide ${idx + 1}`}

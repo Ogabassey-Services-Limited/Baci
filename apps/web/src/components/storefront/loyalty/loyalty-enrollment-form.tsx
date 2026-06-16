@@ -154,12 +154,8 @@ export function LoyaltyEnrollmentForm({
 
       <CardContent className="pt-6">
         <div className="grid gap-3 mb-6">
-          {benefits.map((benefit, index) => (
-            <div
-              // biome-ignore lint/suspicious/noArrayIndexKey: Static list
-              key={index}
-              className="flex items-center gap-3"
-            >
+          {benefits.map((benefit) => (
+            <div key={benefit.text} className="flex items-center gap-3">
               <div className="p-1.5 bg-purple-100 rounded-full">
                 <benefit.icon className="size-4 text-purple-600" />
               </div>

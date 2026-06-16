@@ -283,7 +283,7 @@ export function PaymentTrustBadges() {
             <span className="text-xs text-store-background-text/60 font-medium">
                 Secure payments via
             </span>
-            <ul className="flex items-center gap-2" role="list">
+            <ul className="flex items-center gap-2">
                 <li><PaystackLogo className="size-6" /></li>
                 <li><KorapayLogo className="size-6" /></li>
                 <li><CredPalLogo className="size-6" /></li>

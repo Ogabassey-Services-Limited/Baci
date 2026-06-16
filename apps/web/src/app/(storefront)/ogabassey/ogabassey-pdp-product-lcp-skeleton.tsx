@@ -34,9 +34,9 @@ export function OgabasseyPdpProductLcpSkeleton({
   if (!primaryProductImage) {
     return (
       <div
-        className="mx-auto max-w-[1400px] px-4 md:px-6 mt-12 w-full animate-pulse"
-        data-testid="ogabassey-pdp-lcp-skeleton"
         role="status"
+        className="mx-auto block max-w-[1400px] px-4 md:px-6 mt-12 w-full animate-pulse"
+        data-testid="ogabassey-pdp-lcp-skeleton"
         aria-busy="true"
         aria-label="Loading product details"
       >
@@ -89,9 +89,9 @@ export function OgabasseyPdpProductLcpSkeleton({
 
   return (
     <div
-      className="mx-auto max-w-[1400px] px-4 md:px-6 mt-12 w-full"
-      data-testid="ogabassey-pdp-lcp-skeleton"
       role="status"
+      className="mx-auto block max-w-[1400px] px-4 md:px-6 mt-12 w-full"
+      data-testid="ogabassey-pdp-lcp-skeleton"
       aria-busy="true"
       aria-label="Loading product details"
     >

@@ -113,6 +113,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                   </span>
                   <input
                     type="number"
+                    aria-label="Minimum price"
                     value={minPrice || ''}
                     onChange={(e) =>
                       onPriceChange(Number(e.target.value), maxPrice)
@@ -128,6 +129,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                   </span>
                   <input
                     type="number"
+                    aria-label="Maximum price"
                     value={maxPrice || ''}
                     onChange={(e) =>
                       onPriceChange(minPrice, Number(e.target.value))

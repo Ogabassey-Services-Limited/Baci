@@ -398,9 +398,9 @@ export function CryptoCheckoutPage() {
 
           {/* Wallet Address */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+            <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
               Recipient Address
-            </label>
+            </span>
             <div className="relative group">
               <div className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-3 pr-12 font-mono text-xs text-gray-600 break-all">
                 {cryptoData.address}

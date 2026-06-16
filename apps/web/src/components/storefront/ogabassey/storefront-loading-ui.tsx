@@ -66,7 +66,7 @@ function LoadingStatus({
   children: React.ReactNode;
 }) {
   return (
-    <div aria-label={label} aria-live="polite" role="status">
+    <div role="status" aria-label={label} aria-live="polite" className="block">
       {children}
     </div>
   );

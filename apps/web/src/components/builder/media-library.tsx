@@ -261,6 +261,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            aria-label="Upload image"
             onChange={(e) => handleUpload(e.target.files)}
             className="hidden"
           />

@@ -100,9 +100,9 @@ export const NativeProductRow: React.FC<NativeProductRowProps> = ({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
                 {testMode
                     ? // Test mode: Use static components with sample data
-                    TEST_ADS.slice(0, count).map((ad, index) => (
+                    TEST_ADS.slice(0, count).map((ad) => (
                         <NativeProductAdStatic
-                            key={`test-ad-${index}`}
+                            key={ad.clickUrl}
                             ad={ad}
                             storeSlug={storeSlug}
                         />
