@@ -869,6 +869,64 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     );
   });
 
+  it('emits structured product_detail fields for variant-level specs', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          color: 'Black',
+          price: 700000,
+          product_key_specs: {
+            screen_size_inches: 6.8,
+            display_resolution: '3200 x 1440 (QHD+)',
+            ram_gb: 12,
+            storage_gb: 256,
+            main_camera_mp: 108,
+            front_camera_mp: 40,
+            weight_g: 229,
+          },
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-black-512',
+              condition: 'used',
+              price_override: 650000,
+              stock_quantity: 3,
+              attributes: {
+                color: 'Phantom Black',
+                ram: '12GB',
+                storage: '512GB',
+              },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      defaultManifest
+    );
+    const itemXml = extractItemXml(xml, 'variant-black-512');
+
+    expect(itemXml).toContain('<g:color>Phantom Black</g:color>');
+    expect(itemXml).toContain('<g:product_detail>');
+    expect(itemXml).toContain(
+      '<g:attribute_name>Screen resolution</g:attribute_name>'
+    );
+    expect(itemXml).toContain(
+      '<g:attribute_value>3200 x 1440 (QHD+)</g:attribute_value>'
+    );
+    expect(itemXml).toContain(
+      '<g:attribute_name>Storage capacity</g:attribute_name>'
+    );
+    expect(itemXml).toContain('<g:attribute_value>512GB</g:attribute_value>');
+    expect(itemXml).toContain(
+      '<g:attribute_name>Front camera resolution</g:attribute_name>'
+    );
+    expect(itemXml).toContain('<g:attribute_value>40MP</g:attribute_value>');
+    expect(itemXml).not.toContain(
+      '<g:attribute_value>256GB</g:attribute_value>'
+    );
+  });
+
   it('emits sku_matrix variant rows when the merchant flag is omitted', () => {
     const xml = generateGoogleMerchantFeed(
       [
