@@ -4,7 +4,7 @@ import {
   DEFAULT_TRANSLUCENT_PRIMARY,
   type ThemeColors,
 } from '@/constants/theme';
-import type { VariantInventoryUnit } from '@/hooks/useVariantInventory';
+import type { VariantInventoryUnit } from '@/hooks/variantInventory';
 import type { Branch } from '@/schemas/branch';
 import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
 import { variantInventoryUnitsSheetStyles as styles } from './VariantInventoryUnitsSheet.styles';

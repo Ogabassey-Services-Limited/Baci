@@ -47,7 +47,7 @@ vi.mock('@/hooks/useBranches', () => ({
   useBranches: mocks.useBranches,
 }));
 
-vi.mock('@/hooks/useVariantInventory', () => ({
+vi.mock('@/hooks/variantInventory', () => ({
   useVariantInventory: mocks.useVariantInventory,
   useUpdateVariantInventoryUnit: () => ({
     mutateAsync: mocks.updateMutateAsync,

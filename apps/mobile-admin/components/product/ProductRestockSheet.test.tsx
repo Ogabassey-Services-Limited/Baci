@@ -19,7 +19,7 @@ vi.mock('@/hooks/useBranches', () => ({
   useBranches: mocks.useBranches,
 }));
 
-vi.mock('@/hooks/useVariantInventory', () => ({
+vi.mock('@/hooks/variantInventory', () => ({
   useRestockVariantInventory: () => ({
     mutateAsync: mocks.mutateAsync,
     isPending: false,

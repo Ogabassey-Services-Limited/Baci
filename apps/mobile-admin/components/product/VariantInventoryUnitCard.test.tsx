@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
-import type { VariantInventoryUnit } from '@/hooks/useVariantInventory';
+import type { VariantInventoryUnit } from '@/hooks/variantInventory';
 import type { Branch } from '@/schemas/branch';
 import { VariantInventoryUnitCard } from './VariantInventoryUnitCard';
 

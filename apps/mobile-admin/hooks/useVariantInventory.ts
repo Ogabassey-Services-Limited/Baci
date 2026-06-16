@@ -28,45 +28,48 @@ function parseVariantInventoryRpcResult(
   }
 
   const result = data as Record<string, unknown>;
+  const nextCursor = parseVariantInventoryCursor(result.nextCursor);
+
   if (
     !(Array.isArray(result.units) || result.units === null) ||
-    !(
-      (typeof result.nextCursor === 'object' &&
-        !Array.isArray(result.nextCursor)) ||
-      result.nextCursor === null
-    ) ||
-    typeof result.hasMore !== 'boolean'
+    typeof result.hasMore !== 'boolean' ||
+    (result.hasMore && nextCursor === null) ||
+    (!result.hasMore && nextCursor !== null)
   ) {
     throw new Error('Invalid variant inventory response');
   }
 
   return {
     hasMore: result.hasMore,
-    nextCursor: result.nextCursor as VariantInventoryCursor | null,
+    nextCursor,
     units: result.units as VariantInventoryUnit[] | null,
   };
 }
 
-export { useDeleteVariantInventoryUnit } from './useDeleteVariantInventoryUnit';
-export { useRestockVariantInventory } from './useRestockVariantInventory';
-export { useUpdateInventoryTrackingPolicy } from './useUpdateInventoryTrackingPolicy';
-export { useUpdateVariantInventoryUnit } from './useUpdateVariantInventoryUnit';
-export type {
-  DeleteVariantInventoryUnitResult,
-  DeleteVariantInventoryUnitVariables,
-  InventoryTrackingPolicy,
-  RestockUnitInput,
-  RestockVariantInventoryResult,
-  RestockVariantInventoryVariables,
-  UpdateInventoryTrackingPolicyVariables,
-  UpdateVariantInventoryUnitVariables,
-  VariantInventoryCursor,
-  VariantInventoryFilters,
-  VariantInventoryPage,
-  VariantInventorySource,
-  VariantInventoryStatus,
-  VariantInventoryUnit,
-} from './useVariantInventory.types';
+function parseVariantInventoryCursor(
+  nextCursor: unknown
+): VariantInventoryCursor | null {
+  if (nextCursor === null) {
+    return null;
+  }
+  if (
+    typeof nextCursor !== 'object' ||
+    Array.isArray(nextCursor) ||
+    nextCursor === null
+  ) {
+    return null;
+  }
+
+  const cursor = nextCursor as Record<string, unknown>;
+  if (typeof cursor.created_at !== 'string' || typeof cursor.id !== 'string') {
+    return null;
+  }
+
+  return {
+    created_at: cursor.created_at,
+    id: cursor.id,
+  };
+}
 
 /**
  * Hook to fetch paginated units for a variant or product.

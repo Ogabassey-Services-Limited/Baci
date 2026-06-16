@@ -17,7 +17,7 @@ import {
   useVariantInventory,
   type VariantInventoryStatus,
   type VariantInventoryUnit,
-} from '@/hooks/useVariantInventory';
+} from '@/hooks/variantInventory';
 import { CENTRAL_STOCK_BRANCH_ID } from './VariantInventory.constants';
 import { VariantInventoryFiltersBar } from './VariantInventoryFiltersBar';
 import { VariantInventoryUnitCard } from './VariantInventoryUnitCard';

@@ -10,7 +10,7 @@ import {
 import { AppPageSheet } from '@/components/ui/AppPageSheet';
 import type { ThemeColors } from '@/constants/theme';
 import { useBranches } from '@/hooks/useBranches';
-import { useRestockVariantInventory } from '@/hooks/useVariantInventory';
+import { useRestockVariantInventory } from '@/hooks/variantInventory';
 import { ProductRestockOptions } from './ProductRestockOptions';
 import { productRestockSheetStyles as styles } from './ProductRestockSheet.styles';
 import {

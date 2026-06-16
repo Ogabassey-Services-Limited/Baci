@@ -1,7 +1,7 @@
 import type {
   RestockUnitInput,
   VariantInventorySource,
-} from '@/hooks/useVariantInventory';
+} from '@/hooks/variantInventory';
 
 export type RestockIdentifierMode = 'imei' | 'serial';
 export type RestockSource = VariantInventorySource;

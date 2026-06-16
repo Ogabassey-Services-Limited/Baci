@@ -113,6 +113,36 @@ describe('useVariantInventory hooks', () => {
       );
     });
 
+    it('rejects pagination responses with missing cursor fields while more data exists', async () => {
+      mocks.rpc.mockResolvedValueOnce({
+        data: { hasMore: true, nextCursor: {}, units: [] },
+        error: null,
+      });
+
+      useVariantInventory({ productId: 'product-1' });
+
+      await expect(mocks.queryPromises[0]).rejects.toThrow(
+        'Invalid variant inventory response'
+      );
+    });
+
+    it('rejects pagination responses with a cursor when no more data exists', async () => {
+      mocks.rpc.mockResolvedValueOnce({
+        data: {
+          hasMore: false,
+          nextCursor: { created_at: '2026-06-15T00:00:00Z', id: 'unit-1' },
+          units: [],
+        },
+        error: null,
+      });
+
+      useVariantInventory({ productId: 'product-1' });
+
+      await expect(mocks.queryPromises[0]).rejects.toThrow(
+        'Invalid variant inventory response'
+      );
+    });
+
     it('throws error if supabase rpc returns error', async () => {
       mocks.rpc.mockResolvedValueOnce({
         data: null,
