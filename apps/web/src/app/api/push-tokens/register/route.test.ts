@@ -37,7 +37,7 @@ let mockAuthError: { message: string } | null = null;
 // Track calls for assertion
 let selectResult: { data: unknown; error: unknown } = {
   data: null,
-  error: null,
+  error: { code: 'PGRST116', message: 'not found' },
 };
 let insertResult: { data: unknown; error: unknown } = {
   data: { id: 'token-id-1' },
@@ -225,6 +225,21 @@ describe('POST /api/push-tokens/register', () => {
     );
   });
 
+  it('returns 500 when fetching token fails with a true database error', async () => {
+    selectResult = {
+      data: null,
+      error: { code: '57014', message: 'query_canceled' },
+    };
+
+    const res = await POST(
+      makeRequest({ token: 'ExponentPushToken[xxx]', platform: 'ios' })
+    );
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Failed to verify token status');
+  });
+
   it('updates existing token when user_id matches', async () => {
     selectResult = {
       data: { id: 'existing-token-id', user_id: USER_ID },
@@ -283,22 +298,6 @@ describe('POST /api/push-tokens/register', () => {
     expect(insertCalls[0]).toEqual(
       expect.objectContaining({ app_type: 'admin' })
     );
-  });
-
-  it('returns 500 when token lookup returns an error', async () => {
-    selectResult = {
-      data: null,
-      error: { code: 'PGRST116', message: 'Multiple rows returned' },
-    };
-
-    const res = await POST(
-      makeRequest({ token: 'ExponentPushToken[xxx]', platform: 'ios' })
-    );
-
-    expect(res.status).toBe(500);
-    const json = await res.json();
-    expect(json.error).toBe('Failed to verify token status');
-    expect(insertCalls).toHaveLength(0);
   });
 
   it('passes app_type=storefront through to insert', async () => {
