@@ -1,4 +1,11 @@
 minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  # Security hotfixes released within the cooldown window; Dependabot alerts opened 2026-06-15.
+  - ws@5.2.5 || 6.2.4 || 7.5.11 || 8.21.0
+  - protobufjs@7.6.3
+  - form-data@2.5.6 || 3.0.5 || 4.0.6
+  - js-yaml@4.2.0
+  - '@babel/core@7.29.6'
 # Refuse packages whose trust signals (provenance, signatures) weaken between
 # updates. trustLockfile keeps already-locked entries installable — the current
 # lockfile carries upstream trust downgrades (e.g. undici-types@6.21.0,
@@ -6,6 +13,21 @@ minimumReleaseAge: 1440
 # would otherwise fail every install; new resolutions are still enforced.
 trustPolicy: no-downgrade
 trustLockfile: true
+trustPolicyExclude:
+  # Existing direct dependencies already locked before this security-only
+  # override update. pnpm 11.7 re-checks trust history while refreshing the
+  # lockfile; keep the exceptions exact so future updates remain protected.
+  - '@react-native-firebase/app@23.8.8'
+  - 'react-lite-youtube-embed@3.5.1'
+  - 'ua-parser-js@0.7.41 || 1.0.41'
+  - 'pino@9.14.0'
+  - 'express-rate-limit@8.2.2'
+  - 'reselect@5.1.1'
+  - 'react-redux@9.2.0'
+  - 'jose@4.15.9'
+  - 'undici-types@6.21.0'
+  - 'semver@6.3.1'
+  - 'uuid@13.0.1'
 
 # Workspace linkers & hoisting configurations for React Native/Expo in pnpm v11
 nodeLinker: hoisted
@@ -60,7 +82,7 @@ overrides:
   prismjs: "^1.30.0"
   # Pin to 6.15.2 to mitigate GHSA-q8mj-m7cp-5q26 in qs.stringify comma-format array handling.
   qs: "6.15.2"
-  markdown-it: "^14.1.1"
+  markdown-it: "14.2.0"
   "@modelcontextprotocol/sdk": "^1.25.2"
   react-native-worklets: "0.8.3"
   # Pin patched Hono floor for GHSA-2gcr-mfcq-wcc3, GHSA-xrhx-7g5j-rcj5, GHSA-3hrh-pfw6-9m5x, and GHSA-f577-qrjj-4474.
@@ -68,11 +90,11 @@ overrides:
   "@hono/node-server": "^2.0.2"
   svgo: "^3.3.3"
   underscore: "^1.13.8"
-  dompurify: "^3.4.0"
+  dompurify: "3.4.9"
   # Pin to 2.17.4 to mitigate GHSA-rpr9-rxv7-x643 / CVE-2026-44990: prevent xmp raw-text passthrough from rehydrating attacker-controlled markup after sanitization.
   sanitize-html: "2.17.4"
-  # Pin to 7.6.0 to close the 7.x CVE set, including GHSA-jggg-4jg4-v7c6 / CVE-2026-45740 for unbounded recursive JSON descriptor expansion. This preserves the protobufjs 7 major while moving beyond the prior 7.5.6 override, which became vulnerable.
-  protobufjs: "7.6.0"
+  # Pin to 7.6.3 to close the 7.x CVE set, including GHSA-jggg-4jg4-v7c6, GHSA-wcpc-wj8m-hjx6, and GHSA-f38q-mgvj-vph7, while preserving the protobufjs 7 major.
+  protobufjs: "7.6.3"
   # Pin to 1.1.1 to close GHSA-mm78-2hpw-9j97 (overlong UTF-8 decoding allows mis-encoded sequences through). 1.1.0 is the vulnerable transitive that the legacy protobufjs 6.x consumers still drag in; 1.1.1 is the patched release.
   "@protobufjs/utf8": "1.1.1"
   rollup: "^4.59.0"
@@ -84,8 +106,11 @@ overrides:
   minimatch: "10.2.3"
   # Pin older uuid consumers to 11.1.1 to mitigate GHSA-w5hq-g745-h8pq while staying on a CommonJS-compatible patched release.
   "minimatch>brace-expansion": "5.0.6"
-  # Pin vulnerable ws 8.x consumers to 8.20.1 to mitigate GHSA-58qx-3vcg-4xpx / CVE-2026-45736 without forcing older ws 7.x consumers across a major version.
-  "ws@>=8 <8.20.1": "8.20.1"
+  # Pin vulnerable ws consumers to patched lines for GHSA-96hv-2xvq-fx4p / CVE-2026-48779 without forcing cross-major upgrades.
+  "ws@>=5 <5.2.5": "5.2.5"
+  "ws@>=6 <6.2.4": "6.2.4"
+  "ws@>=7 <7.5.11": "7.5.11"
+  "ws@>=8 <8.21.0": "8.21.0"
   h3: "1.15.9"
   tar: "^7.5.8"
   # Pin to 5.7.2 to mitigate GHSA-gh4j-gqv2-49f6 in XMLBuilder comment/CDATA serialization while keeping transitive feed and storage XML tooling on the patched 5.x line.
@@ -198,6 +223,18 @@ overrides:
   "google-gax>@grpc/grpc-js": "1.14.4"
   # Pin vulnerable shell-quote consumers to the first patched release for CVE-2026-9277.
   "shell-quote@>=1.1.0 <=1.8.3": "1.8.4"
+  # Pin form-data patched lines for GHSA-hmw2-7cc7-3qxx / CVE-2026-12143.
+  "form-data@<2.5.6": "2.5.6"
+  "form-data@>=3 <3.0.5": "3.0.5"
+  "form-data@>=4 <4.0.6": "4.0.6"
+  # Pin js-yaml to the patched 4.2 line for GHSA-h67p-54hq-rp68 / CVE-2026-53550.
+  js-yaml: "4.2.0"
+  # Pin OpenTelemetry packages to the current 2.8 line to satisfy the core advisory while keeping @vercel/otel on its documented >=2 peer range.
+  "@opentelemetry/core": "2.8.0"
+  "@opentelemetry/resources": "2.8.0"
+  "@opentelemetry/sdk-trace-base": "2.8.0"
+  # Pin Babel 7 to the patched sourcemap handling release for GHSA-4x5r-pxfx-6jf8 / CVE-2026-49356.
+  "@babel/core": "7.29.6"
 
 patchedDependencies:
   "@react-native-community/datetimepicker@9.1.0": "patches/@react-native-community/datetimepicker@9.1.0.patch"

@@ -25,7 +25,7 @@ export const AUTH_ERROR_MESSAGES: Record<string, string> = {
 /**
  * Default error message when no specific match is found
  */
-export const DEFAULT_ERROR_MESSAGE = 'Something went wrong. Please try again.';
+const DEFAULT_ERROR_MESSAGE = 'Something went wrong. Please try again.';
 
 /**
  * Transforms a Supabase auth error into a user-friendly message
