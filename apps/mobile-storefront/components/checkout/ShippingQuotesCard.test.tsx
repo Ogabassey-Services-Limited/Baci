@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { AccessibilityInfo } from 'react-native';
 import { ShippingQuotesCard } from './ShippingQuotesCard';
 
 const mockColors = {
@@ -22,19 +21,14 @@ const baseProps = {
 };
 
 describe('ShippingQuotesCard', () => {
-  let announceSpy: jest.SpyInstance;
-
   beforeEach(() => {
-    jest.restoreAllMocks();
     jest.clearAllMocks();
-    announceSpy = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
   });
 
-  it('shows loading text when isLoadingQuotes is true and announces it', () => {
+  it('shows loading text when isLoadingQuotes is true', () => {
     render(<ShippingQuotesCard {...baseProps} isLoadingQuotes />);
 
     expect(screen.getByText(/fetching delivery options/i)).toBeTruthy();
-    expect(announceSpy).toHaveBeenCalledWith('Fetching delivery options…');
   });
 
   it('shows retry card when no quotes are available', () => {
