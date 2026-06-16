@@ -1,4 +1,4 @@
-import { asyncStorage as AsyncStorage } from '@/lib/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { OfflineQueueState } from './offline-queue.types';
 
 export const QUEUE_STORAGE_KEY = 'baci_offline_mutation_queue';

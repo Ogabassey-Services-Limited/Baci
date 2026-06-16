@@ -1,4 +1,4 @@
-import { asyncStorage as AsyncStorage } from '@/lib/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const PUSH_TOKEN_STORAGE_KEY = '@baci_storefront_push_token';
 
