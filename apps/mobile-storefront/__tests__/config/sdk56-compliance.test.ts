@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it, jest } from '@jest/globals';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 type AppConfig = typeof import('../../app.config').default;
@@ -36,9 +37,11 @@ describe('SDK 56 compliance', () => {
     const originalFacebookAppId = process.env.STOREFRONT_FACEBOOK_APP_ID;
     const originalFacebookClientToken =
       process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
+    const originalPosthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
 
     process.env.STOREFRONT_FACEBOOK_APP_ID = '123456789';
     process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN = 'client-token';
+    process.env.EXPO_PUBLIC_POSTHOG_API_KEY = 'ph_test';
 
     try {
       let config: ExpoConfig | undefined;
@@ -73,6 +76,12 @@ describe('SDK 56 compliance', () => {
       } else {
         process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN =
           originalFacebookClientToken;
+      }
+
+      if (originalPosthogApiKey === undefined) {
+        delete process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
+      } else {
+        process.env.EXPO_PUBLIC_POSTHOG_API_KEY = originalPosthogApiKey;
       }
     }
   });
