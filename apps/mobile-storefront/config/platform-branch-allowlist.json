@@ -129,6 +129,10 @@
       "justification": "Reviewed status-colored CSS box-shadow on web while preserving native order-card shadow styling."
     },
     {
+      "path": "components/orders/order-cancellation-prompt.ts",
+      "justification": "Reviewed React Native Alert docs: Android supports at most three alert buttons, so the cancellation reason picker uses an Android-only paged native alert while iOS can show all reasons in one alert."
+    },
+    {
       "path": "components/payment-gateway/PaymentGatewayCheckoutView.tsx",
       "justification": "Reviewed Android WebView scaling behavior."
     },

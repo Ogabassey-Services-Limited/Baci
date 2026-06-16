@@ -2,14 +2,24 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const NINETY_MINUTES_MS = 90 * 60 * 1000;
 
-export function getOrderStatus(row: Record<string, unknown>) {
+function getOrderRecord(row: Record<string, unknown>) {
   const orderValue = row.orders;
   const order = Array.isArray(orderValue) ? orderValue[0] : orderValue;
   if (!order || typeof order !== 'object') {
     return null;
   }
+  return order as { payment_status?: unknown; shipping_status?: unknown };
+}
 
-  const status = (order as { payment_status?: unknown }).payment_status;
+export function getOrderStatus(row: Record<string, unknown>) {
+  const order = getOrderRecord(row);
+  const status = order?.payment_status;
+  return typeof status === 'string' ? status : null;
+}
+
+export function getOrderShippingStatus(row: Record<string, unknown>) {
+  const order = getOrderRecord(row);
+  const status = order?.shipping_status;
   return typeof status === 'string' ? status : null;
 }
 
@@ -17,6 +27,13 @@ export function isActiveOrderDvaAlias(
   row: Record<string, unknown>,
   asOf: Date
 ) {
+  // A cancelled order's alias is never active, even if its payment_status is
+  // still 'unpaid' and it is inside the 90-minute window. Otherwise a lingering
+  // alias on a cancelled order would block wallet DVA top-up reconciliation.
+  if (getOrderShippingStatus(row) === 'cancelled') {
+    return false;
+  }
+
   const status = getOrderStatus(row);
   if (status !== 'unpaid' && status !== 'pending') {
     return false;
@@ -60,7 +77,7 @@ export async function hasActivePaystackOrderDvaAlias({
   const { data, error } = await supabase
     .from('order_payment_accounts')
     .select(
-      'order_id, created_at, expires_at, orders!inner(id, payment_status)'
+      'order_id, created_at, expires_at, orders!inner(id, payment_status, shipping_status)'
     )
     .eq('provider', 'paystack')
     .eq('account_number', accountNumber);

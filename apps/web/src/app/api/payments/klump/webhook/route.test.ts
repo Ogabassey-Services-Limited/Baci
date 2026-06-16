@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   notifyNewOrder: vi.fn(),
   notifyPaymentReceived: vi.fn(),
   recordMerchantSettlement: vi.fn(),
+  reconciliationInsert: vi.fn(),
   sendEmail: vi.fn(),
   transactionSelectSingle: vi.fn(),
   transactionUpdateMaybeSingle: vi.fn(),
@@ -172,6 +173,15 @@ function createSupabaseMock({
           update: vi.fn((payload: unknown) => {
             mocks.orderUpdateSingle(payload);
             return makeUpdateChain(orderUpdateResult);
+          }),
+        };
+      }
+
+      if (table === 'reconciliation_review') {
+        return {
+          insert: vi.fn((row: unknown) => {
+            mocks.reconciliationInsert(row);
+            return Promise.resolve({ data: null, error: null });
           }),
         };
       }
@@ -373,6 +383,48 @@ describe('POST /api/payments/klump/webhook', () => {
         p_merchant_id: 'merchant-123',
         p_source_id: 'order-123',
         p_source_type: 'order',
+      })
+    );
+  });
+
+  it('suppresses settlement + notification and files reconciliation when the order was clamped as cancelled', async () => {
+    mocks.createAdminClient.mockReturnValue(
+      createSupabaseMock({
+        orderUpdateResult: {
+          data: {
+            id: 'order-123',
+            merchant_id: 'merchant-123',
+            order_number: 'ORD-123',
+            customer_name: 'Buyer Name',
+            total: '50000',
+            currency: 'NGN',
+            shipping_status: 'cancelled',
+            cancelled_at: '2026-06-15T00:00:00Z',
+          },
+          error: null,
+        },
+      })
+    );
+
+    const rawBody = JSON.stringify(successfulPayload);
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      message: 'Klump payment recorded; order was cancelled, filed for review',
+      success: true,
+    });
+    // No settlement and no merchant notification fired.
+    expect(mocks.recordMerchantSettlement).not.toHaveBeenCalled();
+    expect(mocks.notifyNewOrder).not.toHaveBeenCalled();
+    // Reconciliation row was filed.
+    expect(mocks.reconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: 'order-123',
       })
     );
   });

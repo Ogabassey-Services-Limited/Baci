@@ -44,16 +44,18 @@ import {
   canShowStorefrontRiderContact,
   isStorefrontReceiptAvailable,
 } from '@/lib/post-purchase-actions';
-import { formatOrderDetailsDate } from './order-details.helpers';
 import { orderDetailsScreenStyles as styles } from './OrderDetailsScreen.styles';
+import { formatOrderDetailsDate } from './order-details.helpers';
 
 export function OrderDetailsScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const colors = Colors[colorScheme ?? 'light'];
   const {
+    canCancel,
     error,
     handleCallRider,
+    handleCancelOrder,
     handleContactSupport,
     handleGoBack,
     handleLeaveGoogleReview,
@@ -194,6 +196,7 @@ export function OrderDetailsScreen() {
           />
 
           <OrderDetailsActionsCard
+            canCancel={canCancel}
             canLeaveReview={canLeaveStorefrontGoogleReview(
               order.shipping_status
             )}
@@ -211,6 +214,7 @@ export function OrderDetailsScreen() {
               shippingStatus: order.shipping_status,
             })}
             onCallRider={handleCallRider}
+            onCancelOrder={handleCancelOrder}
             onLeaveGoogleReview={handleLeaveGoogleReview}
             onOpenReceipt={handleOpenReceipt}
             onReturnOrder={handleReturnOrder}

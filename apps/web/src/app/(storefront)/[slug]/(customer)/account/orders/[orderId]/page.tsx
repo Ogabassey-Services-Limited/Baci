@@ -65,6 +65,10 @@ export default function CustomerOrderDetailsPage() {
     order: StorefrontOrder | null;
     error: string | null;
   } | null>(null);
+  // Bumped to force a re-fetch of the order after a state change (e.g. a
+  // customer cancellation) so the server-derived `can_cancel` flag and status
+  // badges stay in sync.
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const resolvedBasePath = basePath || '';
 
@@ -75,7 +79,7 @@ export default function CustomerOrderDetailsPage() {
   // missing-param UI below show instead of an endless skeleton.
   const requestKey =
     customer && merchant?.slug && orderId
-      ? `${customer.id}|${merchant.slug}|${orderId}`
+      ? `${customer.id}|${merchant.slug}|${orderId}|${refreshNonce}`
       : null;
 
   useEffect(() => {
@@ -214,6 +218,7 @@ export default function CustomerOrderDetailsPage() {
       order={order}
       basePath={resolvedBasePath}
       merchantSlug={merchant.slug}
+      onOrderChanged={() => setRefreshNonce((nonce) => nonce + 1)}
     />
   );
 }
