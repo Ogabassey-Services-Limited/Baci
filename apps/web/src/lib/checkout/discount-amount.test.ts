@@ -46,6 +46,19 @@ describe('computeDiscountAmountForSubtotal', () => {
     ).toBe(5000);
   });
 
+  it('caps a fixed amount at maximum_discount_amount', () => {
+    expect(
+      computeDiscountAmountForSubtotal(
+        {
+          discount_type: 'fixed',
+          discount_value: 4000,
+          maximum_discount_amount: 1000,
+        },
+        5000
+      )
+    ).toBe(1000);
+  });
+
   it('never exceeds subtotal for a percentage', () => {
     expect(
       computeDiscountAmountForSubtotal(

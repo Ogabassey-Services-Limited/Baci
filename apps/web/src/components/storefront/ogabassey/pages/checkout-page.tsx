@@ -1820,7 +1820,7 @@ export const CheckoutPage: React.FC = () => {
                 deliveryCost +
                 giftWrappingCost +
                 (orderTotals?.taxAmount ?? 0) -
-                (appliedDiscount?.discount_amount ?? 0)
+                discountAmount
             ),
             client_total: Math.max(
               0,
@@ -1828,7 +1828,7 @@ export const CheckoutPage: React.FC = () => {
                 deliveryCost +
                 giftWrappingCost +
                 (orderTotals?.taxAmount ?? 0) -
-                (appliedDiscount?.discount_amount ?? 0)
+                discountAmount
             ),
             ...(appliedDiscount?.code
               ? { discount_code: appliedDiscount.code }
@@ -2886,16 +2886,22 @@ export const CheckoutPage: React.FC = () => {
           remainingAmount={remainingAmount > 0 ? remainingAmount : resumedOrder?.total || remainingAmount}
         />
 
-        <div className="mt-4">
-          <DiscountCodeInput
-            merchantId={merchant?.id || ''}
-            cartTotal={effectiveCheckoutCartTotal}
-            productIds={checkoutCart.map((item) => item.id)}
-            appliedDiscount={appliedDiscount}
-            onApply={setAppliedDiscount}
-            onRemove={() => setAppliedDiscount(null)}
-          />
-        </div>
+        {/* Hidden in the resumed-order flow: that path charges the persisted
+            resumedOrder.total and skips order creation, so a discount applied
+            here would only change the displayed total/fingerprint, not the
+            amount actually charged. */}
+        {!resumedOrder && (
+          <div className="mt-4">
+            <DiscountCodeInput
+              merchantId={merchant?.id || ''}
+              cartTotal={effectiveCheckoutCartTotal}
+              productIds={checkoutCart.map((item) => item.id)}
+              appliedDiscount={appliedDiscount}
+              onApply={setAppliedDiscount}
+              onRemove={() => setAppliedDiscount(null)}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           {/* LEFT COLUMN: Accordion Steps */}

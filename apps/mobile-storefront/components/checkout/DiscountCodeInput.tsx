@@ -109,6 +109,7 @@ export function DiscountCodeInput({
         />
         <Pressable
           accessibilityRole="button"
+          accessibilityHint="Validates and applies the discount code to your order"
           disabled={loading || code.trim().length === 0}
           onPress={handleApply}
           style={[

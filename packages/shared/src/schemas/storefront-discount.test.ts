@@ -46,6 +46,36 @@ describe('StorefrontDiscountValidateRequestSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts a code at the 50-character maximum', () => {
+    expect(
+      StorefrontDiscountValidateRequestSchema.safeParse({
+        merchant_id: '11111111-1111-4111-8111-111111111111',
+        code: 'X'.repeat(50),
+        cart_total: 5000,
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects a code exceeding 50 characters', () => {
+    expect(
+      StorefrontDiscountValidateRequestSchema.safeParse({
+        merchant_id: '11111111-1111-4111-8111-111111111111',
+        code: 'X'.repeat(51),
+        cart_total: 5000,
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts a cart_total of 0 (zero boundary)', () => {
+    expect(
+      StorefrontDiscountValidateRequestSchema.safeParse({
+        merchant_id: '11111111-1111-4111-8111-111111111111',
+        code: 'SAVE10',
+        cart_total: 0,
+      }).success
+    ).toBe(true);
+  });
 });
 
 describe('StorefrontDiscountValidateResponseSchema', () => {

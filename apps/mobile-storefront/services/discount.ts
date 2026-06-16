@@ -38,7 +38,16 @@ export async function validateDiscountCode(
   });
 
   if (!response.ok) {
-    throw new Error(`Discount validation failed: ${response.status}`);
+    let detail = '';
+    try {
+      const errorBody = (await response.json()) as { error?: unknown };
+      if (typeof errorBody?.error === 'string' && errorBody.error) {
+        detail = `: ${errorBody.error}`;
+      }
+    } catch {
+      // Non-JSON error body — the status code alone is enough context.
+    }
+    throw new Error(`Discount validation failed: ${response.status}${detail}`);
   }
 
   const parsed = StorefrontDiscountValidateResponseSchema.safeParse(

@@ -40,6 +40,14 @@ describe('orderCreateSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects a whitespace-only discount_code', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      discount_code: '   ',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('accepts a complete savings credit payload', () => {
     const result = orderCreateSchema.safeParse({
       ...validOrder,

@@ -4440,6 +4440,25 @@ describe('POST /api/orders — discount code', () => {
     expect((await readJson(response)).code).toBe('usage_limit_reached');
   });
 
+  it('maps per_customer_limit_reached to 409', async () => {
+    await setupDiscount(
+      {
+        get_storefront_discount_code: {
+          data: [DISCOUNT_CODE_ROW],
+          error: null,
+        },
+        create_storefront_order_with_discount_code: {
+          data: null,
+          error: { message: 'per_customer_limit_reached' },
+        },
+      },
+      { productRows: PRODUCT_ROWS }
+    );
+    const response = await POST(discountRequest({ discount_code: 'SAVE10' }));
+    expect(response.status).toBe(409);
+    expect((await readJson(response)).code).toBe('per_customer_limit_reached');
+  });
+
   it('maps discount_amount_mismatch to 400', async () => {
     await setupDiscount(
       {

@@ -36,6 +36,7 @@ describe('validateDiscountCode', () => {
     expect(String(url)).toContain('/api/storefront/discount/validate');
     expect(init?.method).toBe('POST');
     const body = JSON.parse(String(init?.body));
+    expect(body.merchant_id).toBe('merchant-1');
     expect(body.code).toBe('SAVE10');
     expect(body.cart_total).toBe(5000);
     expect(body.product_ids).toEqual(['p-1']);
@@ -59,5 +60,41 @@ describe('validateDiscountCode', () => {
     });
 
     expect(result.valid).toBe(false);
+  });
+
+  it('throws when the endpoint returns a non-ok HTTP response', async () => {
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'rate limited' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    global.fetch = fetchMock;
+
+    await expect(
+      validateDiscountCode({
+        merchantId: 'merchant-1',
+        code: 'SAVE10',
+        cartTotal: 5000,
+      })
+    ).rejects.toThrow('Discount validation failed: 429');
+  });
+
+  it('throws when the response fails schema validation', async () => {
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ valid: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    global.fetch = fetchMock;
+
+    await expect(
+      validateDiscountCode({
+        merchantId: 'merchant-1',
+        code: 'SAVE10',
+        cartTotal: 5000,
+      })
+    ).rejects.toThrow('Invalid discount validation response from server');
   });
 });
