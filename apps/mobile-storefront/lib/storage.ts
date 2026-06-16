@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
 import { createLogger } from './logger';
+import { getAsyncStorageEntries, removeAsyncStorageItems } from './storage-batch';
 
 const log = createLogger('Storage');
 
@@ -24,62 +25,6 @@ try {
     'Failed to initialize MMKV, falling back to AsyncStorage/memory:',
     error
   );
-}
-
-/**
- * Batch storage helpers
- * Uses MMKV when available, otherwise delegates to AsyncStorage v3.
- */
-type AsyncStorageBatchExtensions = typeof AsyncStorage & {
-  getMany?: (keys: string[]) => Promise<Record<string, string | null>>;
-  removeMany?: (keys: string[]) => Promise<void>;
-  multiGet?: (keys: string[]) => Promise<readonly StorageEntry[]>;
-  multiRemove?: (keys: string[]) => Promise<void>;
-};
-
-type StorageEntry = [string, string | null];
-
-const batchStorage = AsyncStorage as AsyncStorageBatchExtensions;
-
-async function getAsyncStorageEntries(
-  keys: readonly string[]
-): Promise<[string, string | null][]> {
-  if (keys.length === 0) return [];
-
-  if (typeof batchStorage.getMany === 'function') {
-    const record = await batchStorage.getMany([...keys]);
-    return keys.map((key) => [key, record[key] ?? null]);
-  }
-
-  if (typeof batchStorage.multiGet === 'function') {
-    const entries = await batchStorage.multiGet([...keys]);
-    return entries.map(([key, value]): StorageEntry => [key, value]);
-  }
-
-  return Promise.all(
-    keys.map(
-      async (key): Promise<StorageEntry> => [
-        key,
-        await AsyncStorage.getItem(key),
-      ]
-    )
-  );
-}
-
-async function removeAsyncStorageItems(keys: readonly string[]): Promise<void> {
-  if (keys.length === 0) return;
-
-  if (typeof batchStorage.removeMany === 'function') {
-    await batchStorage.removeMany([...keys]);
-    return;
-  }
-
-  if (typeof batchStorage.multiRemove === 'function') {
-    await batchStorage.multiRemove([...keys]);
-    return;
-  }
-
-  await Promise.all(keys.map((key) => AsyncStorage.removeItem(key)));
 }
 
 export async function getStorageEntries(
@@ -156,6 +101,30 @@ export const asyncStorage = {
     } catch (error) {
       log.warn('Failed to remove item:', name, error);
     }
+  },
+  // Union of MMKV + legacy AsyncStorage keys: migrated data lives in MMKV, but
+  // some keys (e.g. the React Query cache, which intentionally stays on
+  // AsyncStorage) are only in AsyncStorage — both must be visible to callers
+  // that enumerate keys. Storage backends are isolated so a legacy SQLite
+  // failure does not hide valid MMKV keys.
+  getAllKeys: async (): Promise<string[]> => {
+    const keys: string[] = [];
+
+    if (mmkvStorage) {
+      try {
+        keys.push(...mmkvStorage.getAllKeys());
+      } catch (error) {
+        log.warn('Failed to get MMKV keys:', error);
+      }
+    }
+
+    try {
+      keys.push(...(await AsyncStorage.getAllKeys()));
+    } catch (error) {
+      log.warn('Failed to get legacy AsyncStorage keys:', error);
+    }
+
+    return Array.from(new Set(keys));
   },
 };
 
