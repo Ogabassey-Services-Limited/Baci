@@ -2,7 +2,7 @@
 // Migrated from temp-source/components/SourceRequestModal.tsx
 import { CheckCircle2, Loader2, Search, X } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 interface SourceRequestModalProps {
   isOpen: boolean;
@@ -15,6 +15,11 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
   onClose,
   initialQuery,
 }) => {
+  const formId = useId();
+  const productNameId = `${formId}-product-name`;
+  const detailsId = `${formId}-details`;
+  const contactId = `${formId}-contact`;
+
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -83,10 +88,14 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
               </p>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                <label
+                  htmlFor={productNameId}
+                  className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5"
+                >
                   Product Name
                 </label>
                 <input
+                  id={productNameId}
                   type="text"
                   required
                   value={formData.productName}
@@ -99,10 +108,14 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                <label
+                  htmlFor={detailsId}
+                  className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5"
+                >
                   Additional Details
                 </label>
                 <textarea
+                  id={detailsId}
                   value={formData.details}
                   onChange={(e) =>
                     setFormData({ ...formData, details: e.target.value })
@@ -113,10 +126,14 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                <label
+                  htmlFor={contactId}
+                  className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5"
+                >
                   Contact Info
                 </label>
                 <input
+                  id={contactId}
                   type="text"
                   required
                   value={formData.contact}

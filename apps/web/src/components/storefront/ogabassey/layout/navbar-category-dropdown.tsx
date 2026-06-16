@@ -74,10 +74,9 @@ export function NavbarCategoryDropdown({
   }, [onClose]);
 
   return (
-    <div
+    <section
       className="ogabassey-navbar-secondary__dropdown"
       id={dropdownId}
-      role="region"
       aria-label="Category navigation"
     >
       <div className="ogabassey-navbar-secondary__dropdown-caret" />
@@ -116,6 +115,6 @@ export function NavbarCategoryDropdown({
           Loading categories…
         </div>
       )}
-    </div>
+    </section>
   );
 }

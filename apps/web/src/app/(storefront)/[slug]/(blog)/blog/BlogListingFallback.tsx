@@ -3,10 +3,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function BlogListingFallback() {
   return (
     <div
+      role="status"
       aria-label="Loading blog posts"
       aria-live="polite"
-      className="min-h-screen bg-background pb-20 pt-4"
-      role="status"
+      className="block min-h-screen bg-background pb-20 pt-4"
     >
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 pt-8 md:pt-12">
         <div className="mb-12 overflow-hidden rounded-4xl border border-border bg-card p-6 shadow-sm md:p-8">

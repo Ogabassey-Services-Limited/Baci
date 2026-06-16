@@ -170,6 +170,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                           onPriceChange(Number.isNaN(val) ? 0 : val, maxPrice);
                         }}
                         placeholder="Min"
+                        aria-label="Minimum price"
                         className="w-full pl-6 pr-2 py-2 text-sm bg-gray-100 border-transparent rounded-lg focus:bg-white focus:border-red-500 focus:ring-0 transition-colors font-medium text-gray-900 placeholder-gray-400"
                       />
                     </div>
@@ -194,6 +195,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                           onPriceChange(minPrice, Number.isNaN(val) ? 0 : val);
                         }}
                         placeholder="Max"
+                        aria-label="Maximum price"
                         className="w-full pl-6 pr-2 py-2 text-sm bg-gray-100 border-transparent rounded-lg focus:bg-white focus:border-red-500 focus:ring-0 transition-colors font-medium text-gray-900 placeholder-gray-400"
                       />
                     </div>

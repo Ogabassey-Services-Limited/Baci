@@ -146,6 +146,7 @@ export const OgabasseyV2Orders: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search Order ID, Item or Status..."
+              aria-label="Search orders by ID, item or status"
               className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-100 focus:border-red-200 transition-all text-sm"
             />
             <Search

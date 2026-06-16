@@ -40,13 +40,12 @@ export function DeferredProductDetailsSectionsLoader(
   const [isLoaded, setIsLoaded] = useState(false);
 
   return (
-    <div
+    <div role="status"
       ref={ref}
-      role="status"
       aria-live="polite"
       aria-busy={!isLoaded}
       aria-label={isLoaded ? 'Product details loaded' : 'Loading product details...'}
-      className="w-full"
+      className="block w-full"
     >
       {isActive ? (
         <DeferredProductDetailsSections

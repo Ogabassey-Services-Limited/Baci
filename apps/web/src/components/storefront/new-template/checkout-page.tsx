@@ -3,7 +3,7 @@
 import { ArrowLeft, Check, CreditCard, Lock, Truck } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
-import { useState, useSyncExternalStore } from 'react';
+import { useId, useState, useSyncExternalStore } from 'react';
 import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -26,6 +26,13 @@ export const CheckoutPage: React.FC = () => {
     getServerSnapshot
   );
   const [step, setStep] = useState(1); // 1: Shipping, 2: Payment, 3: Success
+  const firstNameId = useId();
+  const lastNameId = useId();
+  const emailId = useId();
+  const addressId = useId();
+  const cityId = useId();
+  const stateId = useId();
+  const zipCodeId = useId();
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
   const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
@@ -114,20 +121,28 @@ export const CheckoutPage: React.FC = () => {
                 <form className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
+                      <label
+                        htmlFor={firstNameId}
+                        className="block text-sm font-bold text-gray-700 mb-2"
+                      >
                         First Name
                       </label>
                       <input
+                        id={firstNameId}
                         type="text"
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="John"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
+                      <label
+                        htmlFor={lastNameId}
+                        className="block text-sm font-bold text-gray-700 mb-2"
+                      >
                         Last Name
                       </label>
                       <input
+                        id={lastNameId}
                         type="text"
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="Doe"
@@ -135,20 +150,28 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label
+                      htmlFor={emailId}
+                      className="block text-sm font-bold text-gray-700 mb-2"
+                    >
                       Email Address
                     </label>
                     <input
+                      id={emailId}
                       type="email"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                       placeholder="john@example.com"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label
+                      htmlFor={addressId}
+                      className="block text-sm font-bold text-gray-700 mb-2"
+                    >
                       Address
                     </label>
                     <input
+                      id={addressId}
                       type="text"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                       placeholder="123 Main St"
@@ -156,30 +179,42 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
+                      <label
+                        htmlFor={cityId}
+                        className="block text-sm font-bold text-gray-700 mb-2"
+                      >
                         City
                       </label>
                       <input
+                        id={cityId}
                         type="text"
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="Lagos"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
+                      <label
+                        htmlFor={stateId}
+                        className="block text-sm font-bold text-gray-700 mb-2"
+                      >
                         State
                       </label>
                       <input
+                        id={stateId}
                         type="text"
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="Lagos"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
+                      <label
+                        htmlFor={zipCodeId}
+                        className="block text-sm font-bold text-gray-700 mb-2"
+                      >
                         Zip Code
                       </label>
                       <input
+                        id={zipCodeId}
                         type="text"
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="100001"
