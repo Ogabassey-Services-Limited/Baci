@@ -20,6 +20,10 @@ import {
   type OrderConversionData,
   sendPurchaseConversion,
 } from '@/lib/offline-conversions';
+import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -156,6 +160,24 @@ export async function POST(request: NextRequest) {
 
     // Check if already processed (idempotency)
     if (transaction.status === 'completed') {
+      if (transaction.order_id) {
+        const { data: completedOrder } = await supabase
+          .from('orders')
+          .select('id, shipping_status, cancelled_at')
+          .eq('id', transaction.order_id)
+          .maybeSingle();
+
+        if (isOrderClampedAsCancelled(completedOrder)) {
+          await handlePaymentForCancelledOrder({
+            gatewayReference: reference,
+            order: completedOrder ?? { id: transaction.order_id },
+            reason:
+              'Juicyway completed-transaction retry observed a cancelled order',
+            transactionId: transaction.id,
+          });
+        }
+      }
+
       logger.info({ message: 'Transaction already processed', reference });
       return NextResponse.json({ message: 'Already processed' });
     }
@@ -189,7 +211,9 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
-        .select('*, order_items(*), ad_tracking')
+        .select(
+          'id, merchant_id, order_number, customer_name, customer_email, customer_phone, customer_id, subtotal, shipping_fee, total, shipping_address, currency, shipping_status, cancelled_at, ad_tracking, order_items(id, product_id, name, quantity, price)'
+        )
         .single();
 
       if (orderError) {
@@ -197,6 +221,22 @@ export async function POST(request: NextRequest) {
           message: 'Failed to update order',
           orderId: transaction.order_id,
           error: orderError,
+        });
+      } else if (isOrderClampedAsCancelled(order)) {
+        // The prevent_cancelled_order_reopen trigger clamped this reopen:
+        // suppress all paid-order side effects (email, push, conversions,
+        // settlement) and file a reconciliation row. Ack the gateway.
+        await handlePaymentForCancelledOrder({
+          gatewayReference: reference,
+          order,
+          reason:
+            'Juicyway payment captured for an order cancelled before finalization',
+          transactionId: transaction.id,
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Payment recorded; order was cancelled, filed for review',
         });
       } else {
         logger.info({

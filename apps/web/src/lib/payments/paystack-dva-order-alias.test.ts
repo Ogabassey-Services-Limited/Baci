@@ -94,6 +94,36 @@ describe('paystack DVA order alias helpers', () => {
     ).toBe(false);
   });
 
+  it('treats a cancelled order alias as inactive even when unpaid and in-window', () => {
+    expect(
+      isActiveOrderDvaAlias(
+        orderAliasRow({
+          orders: { payment_status: 'unpaid', shipping_status: 'cancelled' },
+        }),
+        new Date('2026-05-22T11:30:00.000Z')
+      )
+    ).toBe(false);
+  });
+
+  it('ignores a cancelled order alias when scanning Supabase rows', async () => {
+    const cancelledSupabase = createSupabaseResult({
+      data: [
+        orderAliasRow({
+          orders: { payment_status: 'unpaid', shipping_status: 'cancelled' },
+        }),
+      ],
+      error: null,
+    });
+
+    await expect(
+      hasActivePaystackOrderDvaAlias({
+        accountNumber: '1234567890',
+        asOf: new Date('2026-05-22T10:30:00.000Z'),
+        supabase: cancelledSupabase as unknown as SupabaseClient,
+      })
+    ).resolves.toBe(false);
+  });
+
   it('detects active aliases from Supabase rows', async () => {
     const supabase = createSupabaseResult({
       data: [orderAliasRow()],

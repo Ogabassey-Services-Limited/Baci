@@ -13,6 +13,10 @@ import {
 } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import {
+  handlePaymentForCancelledOrder,
+  isOrderClampedAsCancelled,
+} from '@/lib/payments/handle-payment-for-cancelled-order';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 import { recordPaymentBodySchema } from '@/schemas/record-payment';
@@ -288,7 +292,7 @@ export async function POST(
     // The pre-insert duplicate guard above catches known duplicates.
     // The partial unique index (migration 20260504120000) enforces uniqueness
     // at the DB level for concurrent inserts with the same reference.
-    const { error: transactionError } = await supabase
+    const { data: createdTransaction, error: transactionError } = await supabase
       .from('transactions')
       .insert({
         merchant_id: merchant.id,
@@ -308,7 +312,9 @@ export async function POST(
           payment_method: payment_method || 'manual',
           recorded_by: user.email,
         },
-      });
+      })
+      .select('id')
+      .single();
 
     if (transactionError) {
       // Detect duplicate reference conflict (unique constraint violation = code 23505)
@@ -347,14 +353,102 @@ export async function POST(
       shipping_status?: ShippingStatus;
     } = {};
 
-    // Payment Status Logic
-    if (newPaid >= orderTotal) {
-      logger.info({ message: 'RecordPayment order fully paid', orderId: id });
+    const isFullyPaid = newPaid >= orderTotal;
+
+    // Payment Status Logic — compute the intended status update first so we can
+    // apply it (and detect a prevent_cancelled_order_reopen clamp) BEFORE firing
+    // any paid-order side effects.
+    if (isFullyPaid) {
       updates.payment_status = 'paid';
-      // Auto-advance shipping if pending
-      if (order.shipping_status === 'pending') {
-        updates.shipping_status = 'processing';
+    } else {
+      updates.payment_status = 'partially_paid';
+    }
+    // Auto-advance shipping status if pending (indicates activity).
+    if (order.shipping_status === 'pending') {
+      updates.shipping_status = 'processing';
+    }
+
+    // Apply updates and read back the row so we can detect whether the
+    // prevent_cancelled_order_reopen trigger clamped this payment (order was
+    // cancelled by the customer before the merchant recorded the payment).
+    let orderCancelledByClamp = false;
+    if (Object.keys(updates).length > 0) {
+      logger.info({
+        message: 'RecordPayment applying status updates',
+        updates,
+        orderId: id,
+      });
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', id)
+        .eq('merchant_id', merchantId)
+        .select('id, shipping_status, cancelled_at')
+        .maybeSingle();
+
+      if (updateError || !updatedOrder) {
+        logger.error({
+          message:
+            'CRITICAL: RecordPayment failed to update order status after transaction created',
+          error: updateError ?? 'updated_order_missing',
+          orderId: id,
+          inconsistentState: true,
+        });
+        return NextResponse.json({
+          success: true,
+          amount_paid: parsedAmount,
+          new_balance: remainingBalance,
+          updated_status: {},
+          status_update_failed: true,
+        });
       }
+
+      if (isOrderClampedAsCancelled(updatedOrder)) {
+        orderCancelledByClamp = true;
+        // Link the reconciliation row to the transaction just recorded (matched
+        // by reference) so ops can trace the captured money. Falls back to null
+        // for a referenceless manual/cash payment.
+        let recordedTransactionId: string | null =
+          createdTransaction?.id ?? null;
+        if (!recordedTransactionId && reference) {
+          const { data: recordedTransaction } = await supabase
+            .from('transactions')
+            .select('id')
+            .eq('order_id', id)
+            .eq('gateway_reference', reference)
+            .maybeSingle();
+          recordedTransactionId = recordedTransaction?.id ?? null;
+        }
+        await handlePaymentForCancelledOrder({
+          gatewayReference: reference ?? null,
+          order: updatedOrder ?? { id },
+          reason:
+            'Manual payment recorded for an order cancelled by the customer before finalization',
+          transactionId: recordedTransactionId,
+        });
+      }
+    }
+
+    // Suppress all paid-order side effects (confirmation / receipt emails,
+    // offline-conversion events) when the order was clamped as cancelled.
+    if (orderCancelledByClamp) {
+      logger.warn({
+        message:
+          'RecordPayment: order was cancelled; suppressing emails and conversions',
+        orderId: id,
+      });
+      return NextResponse.json({
+        success: true,
+        amount_paid: parsedAmount,
+        new_balance: remainingBalance,
+        updated_status: {},
+        order_cancelled: true,
+      });
+    }
+
+    // Paid-order side effects (only when NOT cancelled).
+    if (isFullyPaid) {
+      logger.info({ message: 'RecordPayment order fully paid', orderId: id });
 
       // SEND CONFIRMATION EMAIL (If fully paid)
       try {
@@ -451,11 +545,6 @@ export async function POST(
         message: 'RecordPayment order partially paid',
         orderId: id,
       });
-      updates.payment_status = 'partially_paid';
-      // Auto-advance shipping status for partial payments too (indicates activity)
-      if (order.shipping_status === 'pending') {
-        updates.shipping_status = 'processing';
-      }
 
       // SEND PAYMENT RECEIPT EMAIL (Partial Payment)
       try {
@@ -523,32 +612,6 @@ export async function POST(
           message: 'Error preparing receipt email payload',
           error: emailErr,
         });
-      }
-    }
-
-    // Apply updates if needed
-    if (Object.keys(updates).length > 0) {
-      logger.info({
-        message: 'RecordPayment applying status updates',
-        updates,
-        orderId: id,
-      });
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update(updates)
-        .eq('id', id)
-        .eq('merchant_id', merchantId);
-
-      if (updateError) {
-        logger.error({
-          message:
-            'CRITICAL: RecordPayment failed to update order status after transaction created',
-          error: updateError,
-          orderId: id,
-          inconsistentState: true,
-        });
-        // Note: Transaction was already created, so we don't fail the request entirely,
-        // but it's an inconsistent state. Ideally would use a stored procedure/transaction.
       }
     }
 
