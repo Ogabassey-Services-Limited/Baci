@@ -6,8 +6,8 @@ import {
   it,
   jest,
 } from '@jest/globals';
-import { NavigationContext } from '@react-navigation/native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { NavigationContext } from 'expo-router/react-navigation';
 import type { ComponentProps } from 'react';
 import { Platform } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';

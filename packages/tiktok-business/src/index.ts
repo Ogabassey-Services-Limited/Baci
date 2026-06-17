@@ -1,4 +1,4 @@
-import { requireNativeModule } from 'expo-modules-core';
+import { requireNativeModule } from 'expo';
 import { Platform } from 'react-native';
 import { normalizeTikTokEventData, type TikTokEventData } from './event-data';
 
@@ -111,8 +111,10 @@ export function flush(): void {
   getNativeModule()?.flush();
 }
 
-export async function requestTrackingAuthorization(): Promise<TikTokTrackingAuthorizationStatus | null> {
-  return getNativeModule()?.requestTrackingAuthorization() ?? null;
+export function requestTrackingAuthorization(): Promise<TikTokTrackingAuthorizationStatus | null> {
+  return (
+    getNativeModule()?.requestTrackingAuthorization() ?? Promise.resolve(null)
+  );
 }
 
 const TikTokBusiness = {

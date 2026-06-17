@@ -108,7 +108,7 @@ overrides:
   qs: "6.15.2"
   markdown-it: "14.2.0"
   "@modelcontextprotocol/sdk": "^1.25.2"
-  react-native-worklets: "0.8.3"
+  react-native-worklets: "0.9.2"
   # Pin patched Hono floor for GHSA-2gcr-mfcq-wcc3, GHSA-xrhx-7g5j-rcj5, GHSA-3hrh-pfw6-9m5x, and GHSA-f577-qrjj-4474.
   hono: "^4.12.23"
   "@hono/node-server": "^2.0.2"
@@ -167,8 +167,8 @@ overrides:
   lodash-es: "4.18.1"
   diff: "^8.0.3"
   react-native-screens: "4.25.2"
-  react-native-reanimated: "4.3.1"
-  react-native-svg: "15.15.4"
+  react-native-reanimated: "4.4.1"
+  react-native-svg: "15.15.5"
   express-rate-limit: "8.2.2"
   # Keep the editor ecosystem on one current TipTap 3.x instance. Novel and Puck depend
   # on older TipTap ranges, but the web editor imports current TipTap extensions;

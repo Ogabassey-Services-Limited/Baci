@@ -1,5 +1,5 @@
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { router, Tabs } from 'expo-router';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useShallow } from 'zustand/react/shallow';
 import { ErrorFallback } from '@/components/ErrorBoundary';
 import { CustomTabBar } from '@/components/navigation/CustomTabBar';
