@@ -48,6 +48,22 @@ interface ProductSearchResult {
   status: string;
 }
 
+function escapeProductSearchTerm(value: string): string {
+  return value.replace(/[%_\\,()]/g, '\\$&').slice(0, 100);
+}
+
+function createProductSearchFilter(params: SearchProductsParams): string {
+  const terms = [params.query, params.category]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map((value) => escapeProductSearchTerm(value.trim()));
+  const uniqueTerms = [...new Set(terms)];
+  const columns = ['name', 'description', 'brand', 'category'];
+
+  return uniqueTerms
+    .flatMap((term) => columns.map((column) => `${column}.ilike.%${term}%`))
+    .join(',');
+}
+
 export async function handleSearchProducts(
   params: SearchProductsParams
 ): Promise<{ products: ProductSearchResult[]; total: number }> {
@@ -65,18 +81,7 @@ export async function handleSearchProducts(
 
   // Apply search filter (sanitize PostgREST metacharacters to prevent injection)
   if (params.query) {
-    const safeQuery = params.query.replace(/[%_\\,()]/g, '\\$&').slice(0, 100);
-    query = query.or(
-      `name.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`
-    );
-  }
-
-  // Apply category filter
-  if (params.category) {
-    const safeCategory = params.category
-      .replace(/[%_\\,()]/g, '\\$&')
-      .slice(0, 100);
-    query = query.ilike('category', `%${safeCategory}%`);
+    query = query.or(createProductSearchFilter(params));
   }
 
   // Apply price filters
