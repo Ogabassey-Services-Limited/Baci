@@ -1,17 +1,20 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StatusBar, Text, View } from 'react-native';
 import { StoreSettingsDetailsCard } from '@/components/store-settings/StoreSettingsDetailsCard';
+import {
+  StoreSettingsBackButton,
+  StoreSettingsSaveButton,
+} from '@/components/store-settings/StoreSettingsHeaderButtons';
 import { StoreSubscriptionCard } from '@/components/store-settings/StoreSubscriptionCard';
+import { storeSettingsStyles as styles } from '@/components/store-settings/store-settings.styles';
+import {
+  buildBaselineFromMerchant,
+  buildInitialFormValues,
+  buildMerchantUpdatePayload,
+  type StoreSettingsFormValues,
+} from '@/components/store-settings/store-settings-payload';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { CountryPickerModal } from '@/components/ui/CountryPickerModal';
 import { LogoPicker } from '@/components/ui/LogoPicker';
@@ -21,55 +24,13 @@ import {
   type StatusModalState,
 } from '@/components/ui/StatusModal';
 import { COUNTRIES } from '@/constants/countries';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCachedImageUri } from '@/hooks/useCachedImageUri';
-import { type Merchant, useMerchant } from '@/hooks/useMerchant';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
-
-/** Editable merchant columns owned by the store-settings form. */
-type EditableMerchantColumns = Pick<
-  Merchant,
-  | 'business_name'
-  | 'phone'
-  | 'support_phone'
-  | 'support_email'
-  | 'business_address'
-  | 'country'
-  | 'payout_currency'
-  | 'slug'
->;
-
-/** Form values for the editable columns (always strings — empty when blank). */
-type StoreSettingsFormValues = {
-  [K in keyof EditableMerchantColumns]: string;
-};
-
-/**
- * Build a changed-only update payload by diffing the current form values against
- * the baseline values captured when the merchant was loaded. Only columns whose
- * value actually changed are included, so a stale full-form snapshot can never
- * revert an untouched column. Returns an empty object when nothing changed.
- */
-export function buildMerchantUpdatePayload(
-  baseline: StoreSettingsFormValues,
-  formValues: StoreSettingsFormValues
-): Partial<EditableMerchantColumns> {
-  const payload: Partial<EditableMerchantColumns> = {};
-
-  for (const key of Object.keys(
-    formValues
-  ) as (keyof StoreSettingsFormValues)[]) {
-    if (formValues[key] !== baseline[key]) {
-      payload[key] = formValues[key];
-    }
-  }
-
-  return payload;
-}
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -110,43 +71,24 @@ export default function StoreSettingsScreen() {
   if (merchant && merchant !== syncedMerchant) {
     setSyncedMerchant(merchant);
 
-    const initialBusinessName = merchant.business_name || '';
-    const initialPhone = merchant.phone || '';
-    const initialSupportPhone = merchant.support_phone || '';
-    const initialEmail = merchant.email || merchant.support_email || '';
-    const initialAddress = merchant.business_address || '';
-
-    const initialCountry = merchant.country || COUNTRIES[0].code;
-    const defaultCurrencyForCountry = COUNTRIES.find(
-      (c) => c.code === initialCountry || c.name === initialCountry
-    )?.currency;
-    const initialCurrency =
-      merchant.payout_currency ||
-      defaultCurrencyForCountry ||
-      COUNTRIES[0].currency;
-    const initialSlug = merchant.slug || '';
-
-    setBusinessName(initialBusinessName);
-    setPhone(initialPhone);
-    setSupportPhone(initialSupportPhone);
-    setEmail(initialEmail);
-    setAddress(initialAddress);
-    setCountry(initialCountry);
-    setCurrency(initialCurrency);
-    setSlug(initialSlug);
+    // Form state uses UI fallbacks (e.g. a default country/currency) so the
+    // picker is never empty.
+    const initialForm = buildInitialFormValues(merchant);
+    setBusinessName(initialForm.businessName);
+    setPhone(initialForm.phone);
+    setSupportPhone(initialForm.supportPhone);
+    setEmail(initialForm.email);
+    setAddress(initialForm.address);
+    setCountry(initialForm.country);
+    setCurrency(initialForm.currency);
+    setSlug(initialForm.slug);
     if (merchant.slug) setIsSlugEdited(true);
 
-    // Capture the loaded values so the save can diff only the edited columns.
-    setBaseline({
-      business_name: initialBusinessName,
-      phone: initialPhone,
-      support_phone: initialSupportPhone,
-      support_email: initialEmail,
-      business_address: initialAddress,
-      country: initialCountry,
-      payout_currency: initialCurrency,
-      slug: initialSlug,
-    });
+    // The baseline diffs against the merchant's REAL persisted columns (null →
+    // empty string), never the UI fallback. Otherwise a merchant whose country
+    // is null would baseline to the visible default, so saving that default
+    // would produce an empty diff and never write the column.
+    setBaseline(buildBaselineFromMerchant(merchant));
   }
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
@@ -274,31 +216,17 @@ export default function StoreSettingsScreen() {
         options={{
           title: 'Store Settings',
           headerLeft: () => (
-            <Pressable
-              accessibilityLabel="Back"
-              accessibilityRole="button"
+            <StoreSettingsBackButton
+              color={colors.text}
               onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </Pressable>
+            />
           ),
           headerRight: () => (
-            <Pressable
-              accessibilityLabel="Save store settings"
-              accessibilityRole="button"
+            <StoreSettingsSaveButton
+              colors={colors}
+              isSaving={saveMutation.isPending}
               onPress={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              style={styles.saveButton}
-            >
-              {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={[styles.saveText, { color: colors.primary }]}>
-                  Save
-                </Text>
-              )}
-            </Pressable>
+            />
           ),
         }}
       />
@@ -366,24 +294,3 @@ export default function StoreSettingsScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  backButton: { padding: SPACING.sm, marginLeft: -SPACING.sm },
-  saveButton: { padding: SPACING.sm },
-  saveText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },
-  card: {
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.lg,
-    padding: SPACING.lg,
-  },
-  label: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginBottom: SPACING.sm,
-  },
-});
