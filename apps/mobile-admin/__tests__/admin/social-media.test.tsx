@@ -27,8 +27,12 @@ vi.mock('expo-router', () => ({
     Screen: ({
       options,
     }: {
-      options?: { headerRight?: () => React.ReactNode };
-    }) => <div data-testid="stack-screen">{options?.headerRight?.()}</div>,
+      options?: { headerRight?: () => React.ReactNode; title?: string };
+    }) => (
+      <div data-testid="stack-screen" data-title={options?.title}>
+        {options?.headerRight?.()}
+      </div>
+    ),
   },
   useRouter: () => ({
     back: mocks.back,
@@ -173,6 +177,10 @@ describe('SocialMediaScreen', () => {
     render(<SocialMediaScreen />);
 
     expect(screen.getByTestId('screen-skeleton')).toBeInTheDocument();
+    expect(screen.getByTestId('stack-screen')).toHaveAttribute(
+      'data-title',
+      'Social Media'
+    );
   });
 
   it('renders all social media inputs and populates values', () => {
@@ -321,6 +329,10 @@ describe('SocialMediaScreen', () => {
     render(<SocialMediaScreen />);
 
     expect(screen.getByText("Couldn't load your settings")).toBeInTheDocument();
+    expect(screen.getByTestId('stack-screen')).toHaveAttribute(
+      'data-title',
+      'Social Media'
+    );
     expect(screen.getByText('Retry')).toBeInTheDocument();
     // No Save button can mount, so an empty form can never overwrite saved handles.
     expect(screen.queryByText('Save')).not.toBeInTheDocument();

@@ -96,6 +96,12 @@ export default function SocialMediaScreen() {
   const { merchant, isLoading, error } = useMerchant();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const screenOptions = {
+    title: 'Social Media',
+    headerStyle: { backgroundColor: colors.background },
+    headerShadowVisible: false,
+    headerTintColor: colors.text,
+  };
 
   const instagram = merchant?.social_media?.instagram ?? '';
   const twitter = merchant?.social_media?.twitter ?? '';
@@ -181,11 +187,14 @@ export default function SocialMediaScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <ScreenSkeleton variant="settings" cards={4} />
-      </SafeAreaView>
+      <>
+        <Stack.Screen options={screenOptions} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+        >
+          <ScreenSkeleton variant="settings" cards={4} />
+        </SafeAreaView>
+      </>
     );
   }
 
@@ -193,33 +202,38 @@ export default function SocialMediaScreen() {
   // write blank handles over the merchant's saved social_media. (V4 drift guard)
   if (error || !merchant) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <View style={styles.errorState}>
-          <Ionicons
-            name="cloud-offline-outline"
-            size={48}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.errorTitle, { color: colors.text }]}>
-            Couldn't load your settings
-          </Text>
-          <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
-            We couldn't reach your store data. Saving now could overwrite your
-            saved links, so please retry.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() =>
-              queryClient.invalidateQueries({ queryKey: ['merchant'] })
-            }
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-          >
-            <Text style={styles.retryText}>Retry</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <>
+        <Stack.Screen options={screenOptions} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+        >
+          <View style={styles.errorState}>
+            <Ionicons
+              name="cloud-offline-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.errorTitle, { color: colors.text }]}>
+              Couldn't load your settings
+            </Text>
+            <Text
+              style={[styles.errorSubtitle, { color: colors.textSecondary }]}
+            >
+              We couldn't reach your store data. Saving now could overwrite your
+              saved links, so please retry.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                queryClient.invalidateQueries({ queryKey: ['merchant'] })
+              }
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.retryText}>Retry</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </>
     );
   }
 
@@ -227,7 +241,7 @@ export default function SocialMediaScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Social Media',
+          ...screenOptions,
           /* Native back button */
           headerRight: () => (
             <Pressable
@@ -244,9 +258,6 @@ export default function SocialMediaScreen() {
               )}
             </Pressable>
           ),
-          headerStyle: { backgroundColor: colors.background },
-          headerShadowVisible: false,
-          headerTintColor: colors.text,
           // headerBackTitleVisible: false,
         }}
       />
