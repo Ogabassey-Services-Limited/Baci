@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
+import { Alert } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Sentinel hex values so the test catches accidental reintroduction of the
@@ -213,6 +214,7 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 import AnalyticsConfigScreen from './analytics-config';
+
 describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -456,6 +458,7 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
 
     await act(async () => {
       mutationMocks.state.options?.onSuccess?.();
+      await Promise.resolve();
     });
     expect(queryClientMocks.setQueryData).toHaveBeenCalledWith(
       ['merchant-analytics-full', 'user-1'],
@@ -474,6 +477,45 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     };
     expect(options.refetchOnWindowFocus).toBe(true);
     expect(options.refetchOnReconnect).toBe(true);
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('snapshots the saved analytics and reports success after a save so the post-save buffer is clean', async () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+
+    expandMetaCard();
+    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
+      target: { value: 'EDITED-PIXEL-123' },
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      mutationMocks.state.options?.onSuccess?.();
+      await Promise.resolve();
+    });
+
+    // The success alert is surfaced and the saved buffer becomes the new
+    // snapshot, so a repeat save with no further edits issues no update.
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Success',
+      'Analytics settings saved!',
+      expect.any(Array)
+    );
+    expect(queryClientMocks.setQueryData).toHaveBeenCalledWith(
+      ['merchant-analytics-full', 'user-1'],
+      expect.objectContaining({ facebook_pixel_id: 'EDITED-PIXEL-123' })
+    );
 
     await mutationMocks.state.options?.mutationFn();
     expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
