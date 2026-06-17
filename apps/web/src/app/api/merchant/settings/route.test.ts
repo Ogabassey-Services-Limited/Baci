@@ -214,7 +214,46 @@ describe('PATCH /api/merchant/settings', () => {
     );
   });
 
+  it('fails closed when the existing social_media read fails', async () => {
+    mockReadSingle.mockResolvedValue({
+      data: null,
+      error: { message: 'read failure' },
+    });
+
+    const response = await PATCH(
+      createPatchRequest(
+        JSON.stringify({
+          social_media: { instagram: '@newinsta' },
+        })
+      )
+    );
+
+    expect(response.status).toBe(500);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
   it('clears all social handles when clear_social_media is true', async () => {
+    mockReadSingle.mockResolvedValue({
+      data: { social_media: { twitter: '@oga', instagram: '@oga' } },
+      error: null,
+    });
+
+    const response = await PATCH(
+      createPatchRequest(
+        JSON.stringify({
+          social_media: {},
+          clear_social_media: true,
+        })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ social_media: {} })
+    );
+  });
+
+  it('treats the current full-form all-blank payload as an explicit clear', async () => {
     mockReadSingle.mockResolvedValue({
       data: { social_media: { twitter: '@oga', instagram: '@oga' } },
       error: null,
@@ -225,9 +264,14 @@ describe('PATCH /api/merchant/settings', () => {
         JSON.stringify({
           social_media: {
             twitter: '',
+            facebook: '',
             instagram: '',
+            tiktok: '',
+            youtube: '',
+            pinterest: '',
+            linkedin: '',
+            snapchat: '',
           },
-          clear_social_media: true,
         })
       )
     );
