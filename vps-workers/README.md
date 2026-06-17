@@ -206,8 +206,8 @@ upload is finalized, using the matching `IMPORT_JOB_TRIGGER_URL` and
 `IMPORT_JOB_TRIGGER_SECRET` values in the web deployment. The listener starts
 `bin/process-import-jobs.sh` under `process-import-jobs.lock` with
 `IMPORT_JOB_TRIGGER_JOB_ID`, so it targets the finalized upload immediately.
-The five-minute cron entry remains as a fallback sweep for missed signals, not
-the primary scheduler.
+The hourly cron entry remains as a fallback sweep for missed signals, not the
+primary scheduler.
 
 ## Vercel Error Remediator
 
