@@ -149,6 +149,24 @@ describe('updateMerchantSettingsSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('accepts an optional clear_social_media boolean flag', () => {
+    const result = updateMerchantSettingsSchema.safeParse({
+      social_media: {},
+      clear_social_media: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.clear_social_media).toBe(true);
+    }
+  });
+
+  it('rejects a non-boolean clear_social_media value', () => {
+    const result = updateMerchantSettingsSchema.safeParse({
+      clear_social_media: 'yes',
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('formatMerchantSettingsErrors', () => {
