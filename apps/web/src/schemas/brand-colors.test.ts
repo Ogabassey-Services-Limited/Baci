@@ -14,6 +14,19 @@ describe('parseBrandColors', () => {
     expect(parseBrandColors(palette)).toEqual(palette);
   });
 
+  it('allows the optional secondary color used by persisted storefront palettes', () => {
+    // Arrange
+    const palette = {
+      primary: '#000000',
+      background: '#ffffff',
+      accent: '#F59E0B',
+      secondary: '#111111',
+    };
+
+    // Act & Assert
+    expect(parseBrandColors(palette)).toEqual(palette);
+  });
+
   it('rejects null', () => {
     // Act & Assert
     expect(parseBrandColors(null)).toBeNull();
@@ -46,7 +59,7 @@ describe('parseBrandColors', () => {
     ).toBeNull();
   });
 
-  it('rejects palettes with extra properties', () => {
+  it('rejects palettes with unknown extra properties', () => {
     // Act & Assert
     expect(
       parseBrandColors({

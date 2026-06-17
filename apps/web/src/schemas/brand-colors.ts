@@ -15,6 +15,7 @@ export const brandColorsSchema: z.ZodType<BrandColors> = z
     primary: brandColorValueSchema,
     background: brandColorValueSchema,
     accent: brandColorValueSchema,
+    secondary: brandColorValueSchema.optional(),
   })
   .strict();
 

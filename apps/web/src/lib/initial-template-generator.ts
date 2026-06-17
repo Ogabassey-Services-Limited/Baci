@@ -17,6 +17,7 @@ interface TemplateParams {
     primary: string;
     background: string;
     accent: string;
+    secondary?: string;
   };
   merchant: Record<string, unknown>;
 }
@@ -194,6 +195,7 @@ export function deriveThemeFromColors(brandColors: {
   primary: string;
   background: string;
   accent: string;
+  secondary?: string;
 }): ThemeConfiguration {
   // Helper to get contrasting text color (simplified)
   const getContrastColor = (bgColor: string): string => {
@@ -222,7 +224,7 @@ export function deriveThemeFromColors(brandColors: {
     colors: {
       // Base colors
       primary: brandColors.primary,
-      secondary: darken(brandColors.primary, 20),
+      secondary: brandColors.secondary ?? darken(brandColors.primary, 20),
       accent: brandColors.accent,
       background: brandColors.background,
       foreground: '#000000',

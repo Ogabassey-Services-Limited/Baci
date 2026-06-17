@@ -30,8 +30,8 @@ const supabaseMocks = vi.hoisted(() => ({
 // invokes the mutationFn so the per-field dirty diff actually runs.
 const mutationMocks = vi.hoisted(() => {
   type MutationOptions = {
-    mutationFn: () => Promise<unknown>;
-    onSuccess?: () => void;
+    mutationFn: (variables?: unknown) => Promise<unknown>;
+    onSuccess?: (data?: unknown) => void;
   };
   const state: { options: MutationOptions | null } = { options: null };
   return {
@@ -40,8 +40,10 @@ const mutationMocks = vi.hoisted(() => {
       state.options = options;
       return {
         isPending: false,
-        mutate: () => {
-          void options.mutationFn();
+        mutate: (variables?: unknown) => {
+          void options.mutationFn(variables).then((data) => {
+            options.onSuccess?.(data);
+          });
         },
       };
     },
@@ -480,6 +482,54 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
 
     await mutationMocks.state.options?.mutationFn();
     expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps edits made while a save is pending dirty after the save succeeds', async () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+
+    expandMetaCard();
+    const pixelInput = screen.getByPlaceholderText('1234567890123456');
+    fireEvent.change(pixelInput, {
+      target: { value: 'SAVED-PIXEL-123' },
+    });
+
+    const savedAnalytics = await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledWith({
+      facebook_pixel_id: 'SAVED-PIXEL-123',
+    });
+
+    fireEvent.change(pixelInput, {
+      target: { value: 'PENDING-PIXEL-456' },
+    });
+
+    await act(async () => {
+      mutationMocks.state.options?.onSuccess?.(savedAnalytics);
+      await Promise.resolve();
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    expect(
+      (screen.getByPlaceholderText('1234567890123456') as HTMLInputElement)
+        .value
+    ).toBe('PENDING-PIXEL-456');
+
+    const options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(false);
+    expect(options.refetchOnReconnect).toBe(false);
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenLastCalledWith({
+      facebook_pixel_id: 'PENDING-PIXEL-456',
+    });
   });
 
   it('snapshots the saved analytics and reports success after a save so the post-save buffer is clean', async () => {

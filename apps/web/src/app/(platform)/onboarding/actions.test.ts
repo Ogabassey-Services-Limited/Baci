@@ -733,6 +733,7 @@ describe('submitOnboarding', () => {
       primary: '#123456',
       background: '#abcdef',
       accent: '#fedcba',
+      secondary: '#654321',
     };
     mockAdminMaybeSingle
       .mockResolvedValueOnce({ data: null, error: null }) // pre-check by email

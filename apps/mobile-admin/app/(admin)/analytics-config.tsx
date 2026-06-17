@@ -4,7 +4,7 @@ import Ionicons, {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import type React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -200,6 +200,7 @@ export default function AnalyticsConfigScreen() {
   const queryClient = useQueryClient();
 
   const [analytics, setAnalytics] = useState<AnalyticsState>(INITIAL_STATE);
+  const analyticsRef = useRef<AnalyticsState>(INITIAL_STATE);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [seededSnapshot, setSeededSnapshot] = useState<AnalyticsState | null>(
@@ -245,6 +246,7 @@ export default function AnalyticsConfigScreen() {
     const seeded = toAnalyticsState(merchant);
     if (!analyticsStatesEqual(seededSnapshot, seeded)) {
       setSeededSnapshot(seeded);
+      analyticsRef.current = seeded;
       setAnalytics(seeded);
     }
   }
@@ -253,17 +255,18 @@ export default function AnalyticsConfigScreen() {
   // dirty diff vs the seeded snapshot). A no-op save (no diff) skips the write
   // entirely so unchanged analytics fields are never rewritten.
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (submittedAnalytics?: AnalyticsState) => {
       if (!seededSnapshot) {
         throw new Error(
           'Analytics settings are still loading. Please try again.'
         );
       }
 
-      const update = buildAnalyticsDiff(analytics, seededSnapshot);
+      const savedAnalytics = submittedAnalytics ?? analyticsRef.current;
+      const update = buildAnalyticsDiff(savedAnalytics, seededSnapshot);
 
       if (Object.keys(update).length === 0) {
-        return true;
+        return savedAnalytics;
       }
 
       const { error } = await supabase
@@ -272,12 +275,15 @@ export default function AnalyticsConfigScreen() {
         .eq('user_id', user?.id);
 
       if (error) throw error;
-      return true;
+      return savedAnalytics;
     },
-    onSuccess: () => {
-      const savedAnalytics = { ...analytics };
+    onSuccess: (savedAnalytics = analyticsRef.current) => {
+      const hasPendingEdits = !analyticsStatesEqual(
+        analyticsRef.current,
+        savedAnalytics
+      );
       setSeededSnapshot(savedAnalytics);
-      setIsDirty(false);
+      setIsDirty(hasPendingEdits);
       queryClient.setQueryData(
         ['merchant-analytics-full', user?.id],
         savedAnalytics
@@ -295,7 +301,7 @@ export default function AnalyticsConfigScreen() {
   });
 
   const handleSave = () => {
-    saveMutation.mutate();
+    saveMutation.mutate({ ...analyticsRef.current });
   };
 
   const updateField = (
@@ -303,7 +309,11 @@ export default function AnalyticsConfigScreen() {
     value: string | boolean
   ) => {
     setIsDirty(true);
-    setAnalytics((prev) => ({ ...prev, [field]: value }));
+    setAnalytics((prev) => {
+      const next = { ...prev, [field]: value };
+      analyticsRef.current = next;
+      return next;
+    });
   };
 
   const toggleSection = (section: string) => {
