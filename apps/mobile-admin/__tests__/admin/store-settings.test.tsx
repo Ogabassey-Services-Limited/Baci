@@ -4,14 +4,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_KEYBOARD_CONTAINER_LABEL } from '../auth/app-keyboard-container.mock';
 
 const mocks = vi.hoisted(() => {
-  const eq = vi.fn(async () => ({ error: null }));
-  const update = vi.fn(() => ({ eq }));
+  // Rows returned by the terminal `.select('id')`. Default: one row updated.
+  const selectResult: { data: Array<{ id: string }> | null; error: unknown } = {
+    data: [{ id: 'merchant-1' }],
+    error: null,
+  };
+  const select = vi.fn(async (_columns?: string) => selectResult);
+  // `.eq()` is chainable (id, then optional updated_at) and terminal via select.
+  const eq = vi.fn((_column: string, _value: unknown) => builder);
+  const builder = { eq, select };
+  const update = vi.fn((_payload: Record<string, unknown>) => builder);
 
   return {
     back: vi.fn(),
     invalidateQueries: vi.fn(),
     update,
     eq,
+    select,
+    selectResult,
     useMerchant: vi.fn(),
   };
 });
@@ -61,17 +71,42 @@ vi.mock('@/components/store-settings/StoreSettingsDetailsCard', () => ({
     businessName,
     countryLabel,
     currency,
+    onBusinessNameChange,
     onOpenCountryPicker,
+    onPhoneChange,
+    onSupportPhoneChange,
+    phone,
+    supportPhone,
   }: {
     businessName: string;
     countryLabel: string;
     currency: string;
+    onBusinessNameChange: (text: string) => void;
     onOpenCountryPicker: () => void;
+    onPhoneChange: (text: string) => void;
+    onSupportPhoneChange: (text: string) => void;
+    phone: string;
+    supportPhone: string;
   }) => (
     <div>
       <Text>{`Business: ${businessName}`}</Text>
       <Text>{`Country: ${countryLabel}`}</Text>
       <Text>{`Currency: ${currency}`}</Text>
+      <input
+        aria-label="Business Name"
+        onChange={(event) => onBusinessNameChange(event.target.value)}
+        value={businessName}
+      />
+      <input
+        aria-label="Phone Number"
+        onChange={(event) => onPhoneChange(event.target.value)}
+        value={phone}
+      />
+      <input
+        aria-label="Support Phone"
+        onChange={(event) => onSupportPhoneChange(event.target.value)}
+        value={supportPhone}
+      />
       <button
         aria-label="Open country picker"
         onClick={onOpenCountryPicker}
@@ -287,11 +322,20 @@ vi.mock('react-native', () => ({
 }));
 
 import StoreSettingsScreen from '@/app/(admin)/store-settings';
+import { COUNTRIES } from '@/constants/countries';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
+
+// COUNTRIES is sorted by name, so the UI fallback default is COUNTRIES[0]
+// (not necessarily Nigeria). Reference it directly so the tests stay correct
+// if the country list changes.
+const DEFAULT_COUNTRY = COUNTRIES[0];
 
 describe('StoreSettingsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // `vi.clearAllMocks` resets call history but not shared object state.
+    mocks.selectResult.data = [{ id: 'merchant-1' }];
+    mocks.selectResult.error = null;
     mocks.useMerchant.mockReturnValue({
       merchant: {
         id: 'merchant-1',
@@ -303,8 +347,9 @@ describe('StoreSettingsScreen', () => {
         payout_currency: 'NGN',
         phone: '+2348012345678',
         slug: 'baci-foods',
-        support_email: null,
-        support_phone: null,
+        support_email: 'support@usebaci.com',
+        support_phone: '+2347000000000',
+        updated_at: '2026-06-17T08:00:00.000Z',
       },
       isLoading: false,
     });
@@ -329,31 +374,194 @@ describe('StoreSettingsScreen', () => {
     expect(screen.getByText('Currency: GHS')).toBeInTheDocument();
   });
 
-  it('saves merchant settings through the shared shell flow', async () => {
+  it('sends only the edited column when one field changes', async () => {
+    render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Baci Foods Ltd' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    });
+    // Payload contains ONLY the changed column — no blanket snapshot.
+    expect(mocks.update).toHaveBeenCalledWith({
+      business_name: 'Baci Foods Ltd',
+    });
+
+    expect(await screen.findByText('Success!')).toBeInTheDocument();
+    expect(mocks.eq).toHaveBeenCalledWith('id', 'merchant-1');
+  });
+
+
+  it('guards saves with the loaded updated_at concurrency token', async () => {
+    render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Baci Foods Ltd' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mocks.eq).toHaveBeenCalledWith(
+      'updated_at',
+      '2026-06-17T08:00:00.000Z'
+    );
+  });
+
+  it('shows a conflict error when the OCC guard detects a stale write', async () => {
+    mocks.selectResult.data = [];
+
+    render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Baci Foods Ltd' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Update Failed')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText(
+        'These settings changed elsewhere. Reopen the page and try again.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('keeps phone and support_phone as distinct columns instead of collapsing them', async () => {
+    render(<StoreSettingsScreen />);
+
+    // The form must load the two phone columns into separate inputs.
+    expect(
+      (screen.getByLabelText('Phone Number') as HTMLInputElement).value
+    ).toBe('+2348012345678');
+    expect(
+      (screen.getByLabelText('Support Phone') as HTMLInputElement).value
+    ).toBe('+2347000000000');
+
+    // Editing the support phone alone must not overwrite the primary phone.
+    fireEvent.change(screen.getByLabelText('Support Phone'), {
+      target: { value: '+2349999999999' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.update).toHaveBeenCalledWith({
+      support_phone: '+2349999999999',
+    });
+    // Primary phone is NOT part of the payload — the columns stay independent.
+    expect(mocks.update.mock.calls[0][0]).not.toHaveProperty('phone');
+  });
+
+
+  it('uses a newly entered phone as support_phone when no public contact exists', async () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        business_address: '12 Allen Avenue',
+        business_name: 'Baci Foods',
+        country: 'NG',
+        email: 'owner@usebaci.com',
+        logo_url: 'https://example.com/logo.png',
+        payout_currency: 'NGN',
+        phone: '',
+        slug: 'baci-foods',
+        support_email: null,
+        support_phone: null,
+        updated_at: '2026-06-17T08:00:00.000Z',
+      },
+      isLoading: false,
+    });
+
+    render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Phone Number'), {
+      target: { value: '+2348011111111' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.update).toHaveBeenCalledWith({
+      phone: '+2348011111111',
+      support_phone: '+2348011111111',
+    });
+  });
+
+  it('does not run the mutation when nothing changed (empty diff)', async () => {
     render(<StoreSettingsScreen />);
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Save store settings' })
     );
 
-    await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledWith({
+    expect(await screen.findByText('Success!')).toBeInTheDocument();
+    // No edits → no write at all.
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('writes the default country/currency when they were never persisted', async () => {
+    // Brand-new merchant: country/currency are null in the DB but the form
+    // shows the default. Saving must write the defaults, not no-op.
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
         business_address: '12 Allen Avenue',
         business_name: 'Baci Foods',
-        country: 'NG',
-        payout_currency: 'NGN',
+        country: null,
+        payout_currency: null,
+        email: 'support@usebaci.com',
+        logo_url: 'https://example.com/logo.png',
         phone: '+2348012345678',
         slug: 'baci-foods',
         support_email: 'support@usebaci.com',
-        support_phone: '+2348012345678',
-      });
+        support_phone: '+2347000000000',
+        updated_at: '2026-06-17T08:00:00.000Z',
+      },
+      isLoading: false,
     });
 
-    expect(await screen.findByText('Success!')).toBeInTheDocument();
-    expect(mocks.eq).toHaveBeenCalledWith('id', 'merchant-1');
+    render(<StoreSettingsScreen />);
+
+    // The picker shows the default even though nothing is persisted.
     expect(
-      await screen.findByText('Store settings updated successfully.')
+      screen.getByText(`Country: ${DEFAULT_COUNTRY.name}`)
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(`Currency: ${DEFAULT_COUNTRY.currency}`)
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    });
+    // Saving the visible default persists the columns instead of an empty diff.
+    expect(mocks.update).toHaveBeenCalledWith({
+      country: DEFAULT_COUNTRY.code,
+      payout_currency: DEFAULT_COUNTRY.currency,
+    });
   });
 
   it('does not show the status modal when native subscription management returns false', async () => {
