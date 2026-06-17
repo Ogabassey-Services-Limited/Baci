@@ -40,7 +40,8 @@ function isCacIdentityConflictError(
     return false;
   }
 
-  return (error as { code?: unknown }).code === CAC_IDENTITY_CONFLICT_SQLSTATE;
+  const code = Reflect.get(error, 'code');
+  return typeof code === 'string' && code === CAC_IDENTITY_CONFLICT_SQLSTATE;
 }
 
 function getExtension(mimeType: string): string {

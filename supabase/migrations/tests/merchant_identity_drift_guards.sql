@@ -171,7 +171,7 @@ BEGIN
   PERFORM public.record_cac_verification(
     v_mid,
     'cac/drift-guard-retry.pdf',
-    '  drift guard limited  ',
+    '  drift   guard   limited  ',
     ' rc-123456 '
   );
 

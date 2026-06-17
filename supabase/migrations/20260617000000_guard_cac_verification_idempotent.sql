@@ -43,9 +43,9 @@ BEGIN
   END IF;
 
   v_existing_rc_key := NULLIF(regexp_replace(UPPER(BTRIM(v_existing_rc)), '[[:space:]-]+', '', 'g'), '');
-  v_existing_name_key := NULLIF(UPPER(BTRIM(v_existing_name)), '');
+  v_existing_name_key := NULLIF(regexp_replace(UPPER(BTRIM(v_existing_name)), '[[:space:]]+', ' ', 'g'), '');
   v_incoming_rc_key := NULLIF(regexp_replace(UPPER(BTRIM(p_rc_number)), '[[:space:]-]+', '', 'g'), '');
-  v_incoming_name_key := NULLIF(UPPER(BTRIM(p_cac_approved_name)), '');
+  v_incoming_name_key := NULLIF(regexp_replace(UPPER(BTRIM(p_cac_approved_name)), '[[:space:]]+', ' ', 'g'), '');
 
   -- Conflict only after a prior successful CAC verification. A manually-entered legal name
   -- from tax/settings is not an established CAC identity and must not block the first
