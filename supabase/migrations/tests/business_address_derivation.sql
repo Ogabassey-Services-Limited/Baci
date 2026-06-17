@@ -22,6 +22,7 @@ DO $$
 DECLARE
   derived text;
   insecure_function text;
+  v_trigger_definition text;
 BEGIN
   -- 1. function + trigger present
   IF NOT EXISTS (
@@ -48,6 +49,19 @@ BEGIN
       AND NOT tgisinternal
   ) THEN
     RAISE EXCEPTION 'business_address sync trigger missing';
+  END IF;
+
+  SELECT pg_get_triggerdef(oid)
+  INTO v_trigger_definition
+  FROM pg_trigger
+  WHERE tgname = 'zz_sync_business_address_from_registered'
+    AND tgrelid = 'public.merchants'::regclass
+    AND NOT tgisinternal;
+
+  IF v_trigger_definition NOT LIKE '%UPDATE OF%'
+     OR v_trigger_definition NOT LIKE '%registered_address%'
+     OR v_trigger_definition NOT LIKE '%business_address%' THEN
+    RAISE EXCEPTION 'business_address sync trigger must be scoped to address columns';
   END IF;
 
   -- The formatter must not be EXECUTE-able by anon/authenticated, and must not
@@ -198,6 +212,12 @@ BEGIN
        jsonb_build_object('street', '12 Allen Avenue', 'country', 'Nigeria')
      ) IS DISTINCT FROM '12 Allen Avenue' THEN
     RAISE EXCEPTION 'format_merchant_address must ignore the country part';
+  END IF;
+
+  IF public.format_merchant_address(
+       jsonb_build_object('street', '12 Allen Avenue', 'city', 'Ikeja', 'state', 'Lagos', 'postalCode', '100271')
+     ) IS DISTINCT FROM '12 Allen Avenue, Ikeja, Lagos, 100271' THEN
+    RAISE EXCEPTION 'format_merchant_address must include legacy camelCase postalCode';
   END IF;
 
   RAISE NOTICE 'OK: business_address is derived from registered_address and clears to NULL';

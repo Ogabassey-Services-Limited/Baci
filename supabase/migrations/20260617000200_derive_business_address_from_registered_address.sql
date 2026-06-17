@@ -46,6 +46,7 @@
 
 -- 1. IMMUTABLE formatter: comma-join the non-empty structured parts.
 --    Mirrors the shared TS `formatMerchantAddress()` (parity-tested).
+--    Reads snake_case `postal_code` first, then legacy camelCase `postalCode`.
 --    Returns NULL (never an empty string) for null/empty input.
 CREATE OR REPLACE FUNCTION public.format_merchant_address(p_address jsonb)
 RETURNS text
@@ -56,22 +57,15 @@ SET search_path = ''
 AS $$
   SELECT NULLIF(
     array_to_string(
-      ARRAY(
-        SELECT trimmed_part
-        FROM unnest(
-          ARRAY[
-            p_address->>'street',
-            p_address->>'city',
-            p_address->>'state',
-            p_address->>'postal_code'
-          ]
-        ) AS part(raw_part)
-        CROSS JOIN LATERAL (
-          SELECT pg_catalog.regexp_replace(raw_part, '^[[:space:]]+|[[:space:]]+$', '', 'g') AS trimmed_part
-        ) trimmed
-        WHERE raw_part IS NOT NULL
-          AND trimmed_part <> ''
-      ),
+      ARRAY[
+        NULLIF(pg_catalog.regexp_replace(p_address->>'street', '^[[:space:]]+|[[:space:]]+$', '', 'g'), ''),
+        NULLIF(pg_catalog.regexp_replace(p_address->>'city', '^[[:space:]]+|[[:space:]]+$', '', 'g'), ''),
+        NULLIF(pg_catalog.regexp_replace(p_address->>'state', '^[[:space:]]+|[[:space:]]+$', '', 'g'), ''),
+        COALESCE(
+          NULLIF(pg_catalog.regexp_replace(p_address->>'postal_code', '^[[:space:]]+|[[:space:]]+$', '', 'g'), ''),
+          NULLIF(pg_catalog.regexp_replace(p_address->>'postalCode', '^[[:space:]]+|[[:space:]]+$', '', 'g'), '')
+        )
+      ],
       ', '
     ),
     ''
@@ -83,7 +77,7 @@ REVOKE ALL ON FUNCTION public.format_merchant_address(jsonb) FROM anon;
 REVOKE ALL ON FUNCTION public.format_merchant_address(jsonb) FROM authenticated;
 
 COMMENT ON FUNCTION public.format_merchant_address(jsonb)
-IS 'Formats a structured registered_address jsonb into the free-text business_address (comma-joined non-empty street/city/state/postal_code). Returns NULL for null/empty input. IMMUTABLE, parity-tested against the shared TS formatMerchantAddress().';
+IS 'Formats a structured registered_address jsonb into the free-text business_address (comma-joined non-empty street/city/state/postal_code, with legacy postalCode fallback). Returns NULL for null/empty input. IMMUTABLE, parity-tested against the shared TS formatMerchantAddress().';
 
 -- 2. Trigger function: derive business_address from registered_address on every
 --    insert and on updates that touch either address column. This catches legacy
@@ -137,7 +131,7 @@ IS 'Keeps merchants.business_address (free-text, footer/JSON-LD) derived from th
 
 DROP TRIGGER IF EXISTS zz_sync_business_address_from_registered ON public.merchants;
 CREATE TRIGGER zz_sync_business_address_from_registered
-BEFORE INSERT OR UPDATE ON public.merchants
+BEFORE INSERT OR UPDATE OF registered_address, business_address ON public.merchants
 FOR EACH ROW
 EXECUTE FUNCTION public.sync_business_address_from_registered();
 
@@ -150,13 +144,21 @@ EXECUTE FUNCTION public.sync_business_address_from_registered();
 --    evaluate format_merchant_address('{}') -> NULL and WIPE the only address they
 --    have — turning unification into data loss. Those free-text values are
 --    preserved here and only ever get re-derived once a structured
---    registered_address is supplied (then the trigger takes over). We also guard
---    against overwriting any existing business_address with NULL.
+--    registered_address is supplied (then the trigger takes over).
+--
+--    Non-empty structured objects that contain no displayable parts (for example
+--    `{"country": "Nigeria"}` from partially-completed tax saves) are not
+--    legacy free-text-only rows. If they already have a stale business_address,
+--    clear it now; otherwise the targeted trigger will not revisit them until an
+--    address column changes again.
 UPDATE public.merchants
 SET business_address = public.format_merchant_address(registered_address)
 WHERE registered_address IS NOT NULL
   AND registered_address <> '{}'::jsonb
-  AND public.format_merchant_address(registered_address) IS NOT NULL
+  AND (
+    public.format_merchant_address(registered_address) IS NOT NULL
+    OR business_address IS NOT NULL
+  )
   AND business_address IS DISTINCT FROM public.format_merchant_address(registered_address);
 
 COMMENT ON COLUMN public.merchants.business_address

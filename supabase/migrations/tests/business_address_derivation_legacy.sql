@@ -91,6 +91,18 @@ BEGIN
   )
   ON CONFLICT (id) DO NOTHING;
 
+  -- (c) semantically empty structured row with a stale free-text address
+  INSERT INTO public.merchants (id, email, business_name, slug, business_address, registered_address)
+  VALUES (
+    '8f0ed783-0000-4000-8000-0000000003f6',
+    'empty-structured-backfill@example.com',
+    'Empty Structured Backfill Store',
+    'empty-structured-backfill-store',
+    'STALE COUNTRY ONLY ADDRESS',
+    jsonb_build_object('country', 'Nigeria')
+  )
+  ON CONFLICT (id) DO NOTHING;
+
   ALTER TABLE public.merchants ENABLE TRIGGER zz_sync_business_address_from_registered;
 
   -- Replay the migration's back-fill statement verbatim.
@@ -98,7 +110,10 @@ BEGIN
   SET business_address = public.format_merchant_address(registered_address)
   WHERE registered_address IS NOT NULL
     AND registered_address <> '{}'::jsonb
-    AND public.format_merchant_address(registered_address) IS NOT NULL
+    AND (
+      public.format_merchant_address(registered_address) IS NOT NULL
+      OR business_address IS NOT NULL
+    )
     AND business_address IS DISTINCT FROM public.format_merchant_address(registered_address);
 
   SELECT business_address INTO preserved
@@ -113,7 +128,13 @@ BEGIN
     RAISE EXCEPTION 'back-fill did not derive structured address, got: %', COALESCE(derived, '<null>');
   END IF;
 
-  RAISE NOTICE 'OK: back-fill preserves free-text-only addresses and derives structured ones';
+  SELECT business_address INTO derived
+  FROM public.merchants WHERE id = '8f0ed783-0000-4000-8000-0000000003f6';
+  IF derived IS NOT NULL THEN
+    RAISE EXCEPTION 'back-fill did not clear semantically empty structured address, got: %', derived;
+  END IF;
+
+  RAISE NOTICE 'OK: back-fill preserves free-text-only addresses, derives structured ones, and clears semantically empty structured rows';
 END;
 $$ LANGUAGE plpgsql;
 

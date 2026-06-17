@@ -26,6 +26,8 @@ export interface RegisteredAddress {
   city?: string | null;
   state?: string | null;
   postal_code?: string | null;
+  /** Legacy persisted key from older address payloads; postal_code is canonical. */
+  postalCode?: string | null;
   country?: string | null;
 }
 
@@ -128,7 +130,8 @@ export function normalizeRegisteredAddress(
  * Formats a structured {@link RegisteredAddress} into the free-text address
  * shown in the storefront footer, JSON-LD, receipts and invoices.
  *
- * Comma-joins the non-empty `street`, `city`, `state` and `postal_code` parts.
+ * Comma-joins the non-empty `street`, `city`, `state` and `postal_code` parts
+ * (falling back to the legacy stored `postalCode` key).
  * Returns `null` (never an empty string) when the address is null/empty so a
  * cleared structured address never leaves a stale free-text value behind.
  *
@@ -144,12 +147,8 @@ export function formatMerchantAddress(
     return null;
   }
 
-  const parts = [
-    address.street,
-    address.city,
-    address.state,
-    address.postal_code,
-  ]
+  const postalCode = address.postal_code?.trim() || address.postalCode?.trim();
+  const parts = [address.street, address.city, address.state, postalCode]
     .map((part) => part?.trim() ?? '')
     .filter((part) => part.length > 0);
 

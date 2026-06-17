@@ -12,8 +12,8 @@ import {
  * `supabase/migrations/20260617000200_derive_business_address_from_registered_address.sql`.
  *
  * It mirrors the SQL semantics exactly:
- *   - reads ONLY street, city, state, postal_code (in that order),
- *   - `btrim`s each part, drops parts that are NULL or trim-to-empty,
+ *   - reads ONLY street, city, state, postal_code/postalCode (in that order),
+ *   - regexp-trims each part, drops parts that are NULL or trim-to-empty,
  *   - `array_to_string(..., ', ')` joins the survivors,
  *   - `NULLIF(result, '')` collapses an all-empty result to NULL.
  *
@@ -21,26 +21,29 @@ import {
  * output to this SQL reference for every fixture, so the trigger-derived
  * `business_address` can never diverge from what TS readers would compute.
  */
+function trimSqlAddressPart(part: string | null | undefined): string | null {
+  if (part == null) {
+    return null;
+  }
+  const trimmed = part.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 function sqlFormatMerchantAddress(
   address: RegisteredAddress | null | undefined
 ): string | null {
   if (address == null) {
     return null;
   }
-  const parts = [
-    address.street,
-    address.city,
-    address.state,
-    address.postal_code,
-  ];
+  const postalCode =
+    trimSqlAddressPart(address.postal_code) ??
+    trimSqlAddressPart(address.postalCode);
+  const parts = [address.street, address.city, address.state, postalCode];
   const kept: string[] = [];
   for (const part of parts) {
-    // SQL: `part IS NOT NULL AND btrim(part) <> ''` then SELECT btrim(part).
-    if (part == null) {
-      continue;
-    }
-    const trimmed = part.trim();
-    if (trimmed === '') {
+    // SQL: regexp-trim the part, then omit NULL or trim-to-empty values.
+    const trimmed = trimSqlAddressPart(part);
+    if (trimmed == null) {
       continue;
     }
     kept.push(trimmed);
@@ -65,6 +68,12 @@ const ADDRESS_PARITY_FIXTURES: Array<RegisteredAddress | null> = [
   { street: '  ', city: 'Ikeja', state: '', postal_code: null },
   { city: 'Ikeja' },
   { postal_code: '100271' },
+  // legacy camelCase stored key is accepted as a fallback
+  { postalCode: '100271' },
+  // canonical snake_case takes precedence when both postal keys are populated
+  { postal_code: '100271', postalCode: '999999' },
+  // whitespace-only snake_case falls back to legacy camelCase
+  { postal_code: '   ', postalCode: '100271' },
   // surrounding whitespace is trimmed
   { street: '  7 Marina Road  ', city: '  Lagos Island  ' },
   // all-empty collapses to null (no stale empty string)
@@ -118,6 +127,17 @@ describe('formatMerchantAddress', () => {
         city: 'Ikeja',
         state: 'Lagos',
         postal_code: '100271',
+      })
+    ).toBe('12 Allen Avenue, Ikeja, Lagos, 100271');
+  });
+
+  it('falls back to legacy camelCase postalCode', () => {
+    expect(
+      formatMerchantAddress({
+        street: '12 Allen Avenue',
+        city: 'Ikeja',
+        state: 'Lagos',
+        postalCode: '100271',
       })
     ).toBe('12 Allen Avenue, Ikeja, Lagos, 100271');
   });
