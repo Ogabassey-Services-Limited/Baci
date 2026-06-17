@@ -258,10 +258,10 @@ describe('PATCH /api/merchant/settings', () => {
 
     expect(response.status).toBe(200);
     // The update still runs (updated_at touch), but social_media is omitted.
-    const updatePayload = mockUpdate.mock.calls[0]?.[0] as Record<
-      string,
-      unknown
-    >;
+    expect(mockUpdate).toHaveBeenCalled();
+    const [updatePayload] = mockUpdate.mock.calls.at(-1) as unknown as [
+      Record<string, unknown>,
+    ];
     expect(updatePayload).not.toHaveProperty('social_media');
   });
 
