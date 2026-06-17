@@ -298,11 +298,65 @@ describe('SocialMediaScreen', () => {
 
     render(<SocialMediaScreen />);
 
+    // Make the form dirty so Save is enabled (V4 gates Save on a real change).
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'insta_changed' },
+    });
     const saveButton = screen.getByText('Save');
     fireEvent.click(saveButton);
 
     await waitFor(() => {
       expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network Error');
     });
+  });
+
+  // ---- V4 drift guards ----
+  it('shows a retry state (and no Save) when the merchant load errored', () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: null,
+      isLoading: false,
+      error: new Error('Failed to fetch'),
+    });
+
+    render(<SocialMediaScreen />);
+
+    expect(screen.getByText("Couldn't load your settings")).toBeInTheDocument();
+    expect(screen.getByText('Retry')).toBeInTheDocument();
+    // No Save button can mount, so an empty form can never overwrite saved handles.
+    expect(screen.queryByText('Save')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Instagram Handle')).not.toBeInTheDocument();
+  });
+
+  it('shows a retry state when settled with no merchant (no wipe)', () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: null,
+      isLoading: false,
+      error: null,
+    });
+
+    render(<SocialMediaScreen />);
+
+    expect(screen.getByText('Retry')).toBeInTheDocument();
+    expect(screen.queryByText('Save')).not.toBeInTheDocument();
+    expect(mocks.updateMerchantSettings).not.toHaveBeenCalled();
+  });
+
+  it('disables Save until a handle actually changes (no no-op write)', () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: { social_media: { instagram: 'insta' } },
+      isLoading: false,
+    });
+
+    render(<SocialMediaScreen />);
+
+    const saveButton = screen.getByText('Save').closest('button');
+    expect(saveButton).toBeDisabled();
+    fireEvent.click(saveButton as HTMLButtonElement);
+    expect(mocks.updateMerchantSettings).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'insta2' },
+    });
+    expect(screen.getByText('Save').closest('button')).not.toBeDisabled();
   });
 });
