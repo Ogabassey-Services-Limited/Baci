@@ -690,6 +690,25 @@ describe('submitOnboarding', () => {
     );
   });
 
+  it('omits brand_colors when the palette is valid JSON with a null shape on a new merchant', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+
+    const result = await submitOnboarding(
+      prevState,
+      makeFormData({ ...validFields, brandColors: 'null' })
+    );
+
+    expect(result.success).toBe(true);
+    const insertPayload = mockAdminInsert.mock.calls[0]?.[0];
+    expect(insertPayload).not.toHaveProperty('brand_colors');
+    expect(mockAdminInsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({ brand_colors: null })
+    );
+  });
+
   it('omits brand_colors when malformed while completing an incomplete merchant, leaving the established palette untouched', async () => {
     const preservedPalette = {
       primary: '#123456',
@@ -712,6 +731,47 @@ describe('submitOnboarding', () => {
     const result = await submitOnboarding(
       prevState,
       makeFormData({ ...validFields, brandColors: 'NOT JSON' })
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockAdminInsert).not.toHaveBeenCalled();
+    const updatePayload = mockAdminUpdate.mock.calls[0]?.[0];
+    expect(updatePayload).not.toHaveProperty('brand_colors');
+    expect(mockAdminUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ brand_colors: null })
+    );
+    expect(mockGenerateInitialTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({ brandColors: preservedPalette })
+    );
+    expect(mockAiJobsInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({ brandColors: preservedPalette }),
+      })
+    );
+  });
+
+  it('omits brand_colors when the palette is valid JSON with the wrong shape while completing an incomplete merchant', async () => {
+    const preservedPalette = {
+      primary: '#123456',
+      background: '#abcdef',
+      accent: '#fedcba',
+    };
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null }) // pre-check by email
+      .mockResolvedValueOnce({
+        data: { id: 'existing-1', business_name: null, slug: 'teststore' },
+        error: null,
+      }); // lookup by user_id — incomplete record
+    setupChainedMock({
+      id: 'existing-1',
+      slug: 'teststore',
+      brand_colors: preservedPalette,
+    });
+    mockIsAiStorefrontGenerationEnabled.mockReturnValue(true);
+
+    const result = await submitOnboarding(
+      prevState,
+      makeFormData({ ...validFields, brandColors: '{}' })
     );
 
     expect(result.success).toBe(true);

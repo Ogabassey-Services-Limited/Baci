@@ -18,6 +18,7 @@ import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { logger } from '@/lib/logger';
 import type { createAdminClient as createAdminClientFactory } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { parseBrandColors } from '@/schemas/brand-colors';
 import { onboardingSchema } from '@/schemas/onboarding';
 import { onboardingMagicLinkSchema } from '@/schemas/onboarding-magic-link';
 import type { BrandColors } from '@/types';
@@ -28,19 +29,6 @@ const DEFAULT_BRAND_COLORS: BrandColors = {
   accent: '#F59E0B',
 };
 
-function isBrandColors(value: unknown): value is BrandColors {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const candidate = value as Partial<Record<keyof BrandColors, unknown>>;
-  return (
-    typeof candidate.primary === 'string' &&
-    typeof candidate.background === 'string' &&
-    typeof candidate.accent === 'string'
-  );
-}
-
 function resolveStarterBrandColors(
   parsedBrandColors: BrandColors | null,
   merchant: { brand_colors?: unknown } | null
@@ -49,8 +37,9 @@ function resolveStarterBrandColors(
     return parsedBrandColors;
   }
 
-  if (isBrandColors(merchant?.brand_colors)) {
-    return merchant.brand_colors;
+  const persistedBrandColors = parseBrandColors(merchant?.brand_colors);
+  if (persistedBrandColors) {
+    return persistedBrandColors;
   }
 
   return DEFAULT_BRAND_COLORS;
@@ -176,8 +165,12 @@ export async function submitOnboarding(
   let brandColorsParsed = false;
   if (brandColorsString) {
     try {
-      brandColors = JSON.parse(brandColorsString);
-      brandColorsParsed = true;
+      const parsed: unknown = JSON.parse(brandColorsString);
+      brandColors = parseBrandColors(parsed);
+      brandColorsParsed = brandColors !== null;
+      if (!brandColorsParsed) {
+        logger.error({ message: 'Parsed brand colors invalid format' });
+      }
     } catch (e) {
       logger.error({ message: 'Failed to parse brand colors', error: e });
     }
