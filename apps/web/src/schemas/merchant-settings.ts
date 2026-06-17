@@ -76,6 +76,7 @@ export const registeredAddressSchema: z.ZodType<RegisteredAddress> = z.object({
 export const updateMerchantSettingsSchema = z
   .object({
     social_media: socialMediaSchema.optional(),
+    clear_social_media: z.boolean().optional(),
     vat_registration_status: z
       .enum(['not_registered', 'registered', 'exempt', 'pending'])
       .optional(),
@@ -92,7 +93,7 @@ export const updateMerchantSettingsSchema = z
     registered_address: registeredAddressSchema.optional().nullable(),
     state_code: z
       .string()
-      .transform((value) => sanitizeText(value, 16))
+      .transform((value) => sanitizeText(value, 10))
       .optional()
       .nullable(),
   })

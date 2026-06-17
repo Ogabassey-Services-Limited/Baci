@@ -11,9 +11,7 @@ export const SOCIAL_MEDIA_KEYS = [
 
 export type SocialMediaKey = (typeof SOCIAL_MEDIA_KEYS)[number];
 export type SocialMediaValues = Partial<Record<SocialMediaKey, string>>;
-type SocialMediaInputValues = Partial<
-  Record<SocialMediaKey, string | null | undefined>
->;
+type SocialMediaInputValues = Partial<Record<SocialMediaKey, unknown>>;
 
 export type MerchantVatRegistrationStatus =
   | 'not_registered'
@@ -33,6 +31,15 @@ export interface RegisteredAddress {
 
 export interface MerchantSettingsUpdatePayload {
   social_media?: SocialMediaValues;
+  /**
+   * Explicit "clear all social handles" intent. When the normalized
+   * `social_media` payload reduces to `{}`, the server SKIPS the write
+   * (so a partial/errored payload can't wipe untouched handles) UNLESS this
+   * flag is `true`, which authorizes persisting the empty `{}`.
+   * See RFC 7386 (JSON Merge Patch): an out-of-band signal is required to
+   * disambiguate "leave untouched" from "intentionally clear".
+   */
+  clear_social_media?: boolean;
   vat_registration_status?: MerchantVatRegistrationStatus;
   tax_identification_number?: string | null;
   legal_entity_name?: string | null;
@@ -102,9 +109,30 @@ export function normalizeSocialMediaValues(
 ): SocialMediaValues {
   return Object.fromEntries(
     Object.entries(socialMedia)
-      .map(([key, value]) => [key, value?.trim() ?? ''])
+      .map(([key, value]) => [
+        key,
+        typeof value === 'string' ? value.trim() : '',
+      ])
       .filter(([, value]) => value.length > 0)
   ) as SocialMediaValues;
+}
+
+/**
+ * Merge a partial social-media payload over the existing persisted values,
+ * then normalize. Follows RFC 7386 JSON Merge Patch object semantics: keys
+ * absent from `incoming` are left untouched; keys present in `incoming`
+ * override the existing value (an empty/blank handle clears just that key via
+ * `normalizeSocialMediaValues`). This is the server-side defense-in-depth that
+ * stops a partial caller from dropping handles it never touched.
+ */
+export function mergeSocialMediaValues(
+  existing: SocialMediaInputValues | null | undefined,
+  incoming: SocialMediaInputValues
+): SocialMediaValues {
+  return normalizeSocialMediaValues({
+    ...(existing ?? {}),
+    ...incoming,
+  });
 }
 
 export function normalizeRegisteredAddress(

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatMerchantAddress,
+  type MerchantSettingsUpdatePayload,
+  mergeSocialMediaValues,
   normalizeRegisteredAddress,
   normalizeSocialMediaValues,
   type RegisteredAddress,
@@ -116,6 +118,49 @@ describe('merchant settings contracts', () => {
       postal_code: null,
       country: 'Nigeria',
     });
+  });
+
+  it('merges a partial social payload over existing handles (untouched survive)', () => {
+    expect(
+      mergeSocialMediaValues(
+        { twitter: '@oga', facebook: 'fb.com/oga', instagram: '@old' },
+        { instagram: '@new' }
+      )
+    ).toEqual({
+      twitter: '@oga',
+      facebook: 'fb.com/oga',
+      instagram: '@new',
+    });
+  });
+
+  it('collapses to {} only when every merged handle is blank', () => {
+    expect(
+      mergeSocialMediaValues({ twitter: '@oga' }, { twitter: '  ' })
+    ).toEqual({});
+  });
+
+  it('treats a null existing value as an empty base', () => {
+    expect(mergeSocialMediaValues(null, { twitter: ' @baci ' })).toEqual({
+      twitter: '@baci',
+    });
+  });
+
+  it('ignores corrupt persisted non-string handles while applying valid incoming values', () => {
+    expect(
+      mergeSocialMediaValues(
+        { twitter: true, facebook: { url: 'fb.com/bad' } },
+        { instagram: ' @baci ' }
+      )
+    ).toEqual({ instagram: '@baci' });
+  });
+
+  it('accepts an explicit clear_social_media flag on the update payload', () => {
+    const payload: MerchantSettingsUpdatePayload = {
+      social_media: {},
+      clear_social_media: true,
+    };
+
+    expect(payload.clear_social_media).toBe(true);
   });
 });
 
