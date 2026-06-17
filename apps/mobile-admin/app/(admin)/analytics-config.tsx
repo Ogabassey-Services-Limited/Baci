@@ -52,6 +52,56 @@ const INITIAL_STATE: AnalyticsState = {
   offline_conversions_enabled: true,
 };
 
+// String credential fields are persisted as `value || null` (empty string ->
+// NULL). The toggle is stored as a plain boolean. Listing the keys explicitly
+// keeps the dirty diff exhaustive and type-checked.
+const STRING_FIELDS = [
+  'google_analytics_id',
+  'ga4_api_secret',
+  'facebook_pixel_id',
+  'facebook_capi_token',
+  'tiktok_pixel_id',
+  'tiktok_access_token',
+  'snapchat_pixel_id',
+  'snapchat_capi_token',
+] as const satisfies readonly (keyof AnalyticsState)[];
+
+// Row shape sent to Supabase: string fields become `string | null`, the toggle
+// stays a boolean. Partial because only changed fields are written.
+type AnalyticsUpdate = Partial<
+  Record<(typeof STRING_FIELDS)[number], string | null> & {
+    offline_conversions_enabled: boolean;
+  }
+>;
+
+// Build a per-field dirty diff between the originally seeded snapshot and the
+// current buffer, so unchanged analytics fields are NOT rewritten (drift vector
+// V3: a blanket all-field update lets a stale buffer clobber values another
+// surface changed). Returns only the keys the user actually edited.
+export function buildAnalyticsDiff(
+  current: AnalyticsState,
+  baseline: AnalyticsState | null
+): AnalyticsUpdate {
+  const update: AnalyticsUpdate = {};
+
+  for (const field of STRING_FIELDS) {
+    const nextValue = current[field] || null;
+    const prevValue = baseline ? baseline[field] || null : undefined;
+    if (!baseline || nextValue !== prevValue) {
+      update[field] = nextValue;
+    }
+  }
+
+  if (
+    !baseline ||
+    current.offline_conversions_enabled !== baseline.offline_conversions_enabled
+  ) {
+    update.offline_conversions_enabled = current.offline_conversions_enabled;
+  }
+
+  return update;
+}
+
 // Help links for each platform
 const HELP_LINKS = {
   facebook: 'https://www.facebook.com/business/help/952192354843755',
@@ -200,7 +250,11 @@ export default function AnalyticsConfigScreen() {
   const [analytics, setAnalytics] = useState<AnalyticsState>(INITIAL_STATE);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  // Fetch merchant data with all analytics fields
+  // Fetch merchant data with all analytics fields.
+  // refetchOnWindowFocus/Reconnect are disabled on THIS query so a background
+  // revalidation (reconnect / app-foreground) cannot repaint the editable
+  // buffer mid-edit and cause the user to save reverted values (drift vector
+  // V3). The seed below is also one-shot as defense-in-depth.
   const { data: merchant, isLoading } = useQuery({
     queryKey: ['merchant-analytics-full', user?.id],
     queryFn: async () => {
@@ -224,14 +278,21 @@ export default function AnalyticsConfigScreen() {
     },
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
-  // Seed the editable form state from freshly fetched merchant data during
-  // render (avoids the stale frame + cascading re-render of an effect sync).
-  const [prevMerchant, setPrevMerchant] = useState<typeof merchant>(undefined);
-  if (merchant && merchant !== prevMerchant) {
-    setPrevMerchant(merchant);
-    setAnalytics({
+  // Seed the editable buffer from the fetched merchant data EXACTLY ONCE. The
+  // seed is keyed on a one-shot flag (not on object identity), so a later
+  // background refetch that returns a fresh `merchant` object reference does
+  // NOT repaint the buffer and clobber the user's in-progress edits. We also
+  // remember the seeded snapshot so the save can diff per-field.
+  const [hasSeeded, setHasSeeded] = useState(false);
+  const [seededSnapshot, setSeededSnapshot] = useState<AnalyticsState | null>(
+    null
+  );
+  if (merchant && !hasSeeded) {
+    const seeded: AnalyticsState = {
       google_analytics_id: merchant.google_analytics_id || '',
       ga4_api_secret: merchant.ga4_api_secret || '',
       facebook_pixel_id: merchant.facebook_pixel_id || '',
@@ -242,25 +303,26 @@ export default function AnalyticsConfigScreen() {
       snapchat_capi_token: merchant.snapchat_capi_token || '',
       offline_conversions_enabled:
         merchant.offline_conversions_enabled !== false,
-    });
+    };
+    setHasSeeded(true);
+    setSeededSnapshot(seeded);
+    setAnalytics(seeded);
   }
 
-  // Save Mutation
+  // Save Mutation — writes only the fields the user actually changed (per-field
+  // dirty diff vs the seeded snapshot). A no-op save (no diff) skips the write
+  // entirely so unchanged analytics fields are never rewritten.
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const update = buildAnalyticsDiff(analytics, seededSnapshot);
+
+      if (Object.keys(update).length === 0) {
+        return true;
+      }
+
       const { error } = await supabase
         .from('merchants')
-        .update({
-          google_analytics_id: analytics.google_analytics_id || null,
-          ga4_api_secret: analytics.ga4_api_secret || null,
-          facebook_pixel_id: analytics.facebook_pixel_id || null,
-          facebook_capi_token: analytics.facebook_capi_token || null,
-          tiktok_pixel_id: analytics.tiktok_pixel_id || null,
-          tiktok_access_token: analytics.tiktok_access_token || null,
-          snapchat_pixel_id: analytics.snapchat_pixel_id || null,
-          snapchat_capi_token: analytics.snapchat_capi_token || null,
-          offline_conversions_enabled: analytics.offline_conversions_enabled,
-        })
+        .update(update)
         .eq('user_id', user?.id);
 
       if (error) throw error;
