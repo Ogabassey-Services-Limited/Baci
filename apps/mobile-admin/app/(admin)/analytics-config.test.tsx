@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +11,10 @@ const THEME_TEXT = '#abcdef';
 const THEME_TEXT_ON_PRIMARY = '#fedcba';
 const queryMocks = vi.hoisted(() => ({
   useQuery: vi.fn(),
+}));
+const queryClientMocks = vi.hoisted(() => ({
+  invalidateQueries: vi.fn(),
+  setQueryData: vi.fn(),
 }));
 
 // Captures the Supabase `.update()` payload so tests can assert exactly which
@@ -24,7 +28,10 @@ const supabaseMocks = vi.hoisted(() => ({
 // Drives the real mutationFn: useMutation captures the options and `mutate`
 // invokes the mutationFn so the per-field dirty diff actually runs.
 const mutationMocks = vi.hoisted(() => {
-  type MutationOptions = { mutationFn: () => Promise<unknown> };
+  type MutationOptions = {
+    mutationFn: () => Promise<unknown>;
+    onSuccess?: () => void;
+  };
   const state: { options: MutationOptions | null } = { options: null };
   return {
     state,
@@ -149,7 +156,7 @@ vi.mock('@react-native-vector-icons/ionicons', async () => {
 
 vi.mock('expo-router', () => ({
   Stack: { Screen: () => null },
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ back: vi.fn(), push: vi.fn() }),
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -202,7 +209,7 @@ const merchantAnalytics = {
 vi.mock('@tanstack/react-query', () => ({
   useMutation: mutationMocks.useMutation,
   useQuery: queryMocks.useQuery,
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => queryClientMocks,
 }));
 
 import AnalyticsConfigScreen from './analytics-config';
@@ -417,5 +424,58 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     };
     expect(options.refetchOnWindowFocus).toBe(false);
     expect(options.refetchOnReconnect).toBe(false);
+  });
+
+  it('marks the saved buffer clean so refetching resumes and repeated saves do not rewrite the same fields', async () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+
+    expandMetaCard();
+    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
+      target: { value: 'EDITED-PIXEL-123' },
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    let options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(false);
+    expect(options.refetchOnReconnect).toBe(false);
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
+    expect(supabaseMocks.update).toHaveBeenLastCalledWith({
+      facebook_pixel_id: 'EDITED-PIXEL-123',
+    });
+
+    await act(async () => {
+      mutationMocks.state.options?.onSuccess?.();
+    });
+    expect(queryClientMocks.setQueryData).toHaveBeenCalledWith(
+      ['merchant-analytics-full', 'user-1'],
+      expect.objectContaining({ facebook_pixel_id: 'EDITED-PIXEL-123' })
+    );
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics, facebook_pixel_id: 'EDITED-PIXEL-123' },
+      isError: false,
+      isLoading: false,
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(true);
+    expect(options.refetchOnReconnect).toBe(true);
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
   });
 });

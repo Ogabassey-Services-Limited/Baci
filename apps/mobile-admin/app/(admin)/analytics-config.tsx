@@ -275,6 +275,13 @@ export default function AnalyticsConfigScreen() {
       return true;
     },
     onSuccess: () => {
+      const savedAnalytics = { ...analytics };
+      setSeededSnapshot(savedAnalytics);
+      setIsDirty(false);
+      queryClient.setQueryData(
+        ['merchant-analytics-full', user?.id],
+        savedAnalytics
+      );
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
       queryClient.invalidateQueries({ queryKey: ['merchant-analytics-full'] });
       queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
