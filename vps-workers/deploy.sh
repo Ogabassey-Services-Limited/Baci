@@ -58,6 +58,24 @@ WantedBy=default.target
 EOF
 ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-ai-storefront-trigger.service"
 
+echo "==> Installing import job trigger user service"
+cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-import-job-trigger.service"
+[Unit]
+Description=Baci import job trigger server
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$REMOTE_DIR
+ExecStart=$NODE_BIN $REMOTE_DIR/jobs/import-job-trigger-server.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-import-job-trigger.service"
+
 echo "==> Installing crontab entries on VPS (idempotent)"
 CRON_BLOCK_START="# >>> baci-workers >>>"
 CRON_BLOCK_END="# <<< baci-workers <<<"
@@ -192,3 +210,6 @@ echo "         AI_STOREFRONT_GENERATION_ENABLED=false"
 echo "         AI_STOREFRONT_TRIGGER_SECRET=..."
 echo "         AI_STOREFRONT_TRIGGER_HOST=127.0.0.1"
 echo "         AI_STOREFRONT_TRIGGER_PORT=3917"
+echo "         IMPORT_JOB_TRIGGER_SECRET=..."
+echo "         IMPORT_JOB_TRIGGER_HOST=127.0.0.1"
+echo "         IMPORT_JOB_TRIGGER_PORT=3918"
