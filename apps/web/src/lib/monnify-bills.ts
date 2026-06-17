@@ -33,6 +33,8 @@ const MONNIFY_PROCESSING_STATUSES = new Set([
 const MONNIFY_FAILED_STATUSES = new Set(['FAILED', 'FAILURE', 'UNSUCCESSFUL']);
 const SENSITIVE_DIGIT_SEQUENCE_PATTERN = /(?<!\d)\d{7,}(?!\d)/g;
 const MONNIFY_ERROR_DETAIL_MAX_LENGTH = 240;
+// 64 chars covers normal phone/account/reference lengths while keeping regex work bounded.
+const MONNIFY_ERROR_DETAIL_REDACTION_LOOKAHEAD = 64;
 
 class MonnifyHttpError extends Error {
   readonly detail: string | null;
@@ -75,8 +77,20 @@ export class MonnifyTransientVendError extends Error {
   }
 }
 
-function sanitizeMonnifyErrorDetail(value: string) {
-  return value
+export function sanitizeMonnifyErrorDetail(value: string) {
+  const redactionBound =
+    MONNIFY_ERROR_DETAIL_MAX_LENGTH + MONNIFY_ERROR_DETAIL_REDACTION_LOOKAHEAD;
+  let boundedValue = value.slice(0, redactionBound);
+
+  if (
+    boundedValue.length === redactionBound &&
+    /\d$/.test(boundedValue) &&
+    /^\d/.test(value.slice(redactionBound, redactionBound + 1))
+  ) {
+    boundedValue = boundedValue.replace(/\d+$/, '');
+  }
+
+  return boundedValue
     .replace(SENSITIVE_DIGIT_SEQUENCE_PATTERN, '[redacted]')
     .slice(0, MONNIFY_ERROR_DETAIL_MAX_LENGTH)
     .trim();

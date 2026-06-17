@@ -18,6 +18,7 @@ import {
   getCachedBillerProducts,
   getCachedBillers,
   purchaseBill,
+  sanitizeMonnifyErrorDetail,
   verifyBillCustomer,
 } from './monnify-bills';
 
@@ -32,6 +33,37 @@ vi.mock('@/env', () => ({
 describe('Monnify Bills Client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe('sanitizeMonnifyErrorDetail', () => {
+    it('preserves six digit sequences and redacts seven digit sequences', () => {
+      expect(sanitizeMonnifyErrorDetail('provider code 123456')).toBe(
+        'provider code 123456'
+      );
+      expect(sanitizeMonnifyErrorDetail('provider code 1234567')).toBe(
+        'provider code [redacted]'
+      );
+    });
+
+    it('redacts digit sequences adjacent to letters and underscores', () => {
+      expect(
+        sanitizeMonnifyErrorDetail('customer_08012345678 id12345678')
+      ).toBe('customer_[redacted] id[redacted]');
+    });
+
+    it('truncates long messages to the configured detail cap', () => {
+      expect(sanitizeMonnifyErrorDetail('x'.repeat(260))).toHaveLength(240);
+    });
+
+    it('drops digit sequences cut by the lookahead bound after redaction', () => {
+      const result = sanitizeMonnifyErrorDetail(
+        `${'1'.repeat(100)} ${'x'.repeat(198)} 9876543210`
+      );
+
+      expect(result.length).toBeLessThanOrEqual(240);
+      expect(result).toContain('[redacted]');
+      expect(result).not.toContain('9876');
+    });
   });
 
   describe('Discovery Helpers', () => {
@@ -761,10 +793,15 @@ describe('Monnify Bills Client', () => {
       );
 
       expect(result.status).toBe('failed');
-      expect(result.message).toContain('Monnify API error: 400 Bad Request -');
-      expect(result.message).toContain('customerId');
-      expect(result.message).toContain('[redacted]');
-      expect(result.message).not.toContain('08012345678');
+      expect(result.message).toBe(
+        'Monnify rejected the bill payment request. Please verify the details and try again.'
+      );
+      expect(result.providerErrorDetail).toContain(
+        'Monnify API error: 400 Bad Request -'
+      );
+      expect(result.providerErrorDetail).toContain('customerId');
+      expect(result.providerErrorDetail).toContain('[redacted]');
+      expect(result.providerErrorDetail).not.toContain('08012345678');
     });
 
     it('sanitizes plain-text HTTP error bodies before returning terminal 4xx failures', async () => {
@@ -846,10 +883,13 @@ describe('Monnify Bills Client', () => {
       );
 
       expect(result.status).toBe('failed');
-      expect(result.message).toContain('customer_[redacted]');
-      expect(result.message).toContain('id[redacted]');
-      expect(result.message).not.toContain('08012345678');
-      expect(result.message).not.toContain('123456789');
+      expect(result.message).toBe(
+        'Monnify rejected the bill payment request. Please verify the details and try again.'
+      );
+      expect(result.providerErrorDetail).toContain('customer_[redacted]');
+      expect(result.providerErrorDetail).toContain('id[redacted]');
+      expect(result.providerErrorDetail).not.toContain('08012345678');
+      expect(result.providerErrorDetail).not.toContain('123456789');
     });
 
     it('throws a retryable transient error for timeouts, network issues, and HTTP 5xx before transactionReference is known', async () => {
