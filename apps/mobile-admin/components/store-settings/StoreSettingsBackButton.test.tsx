@@ -54,4 +54,3 @@ describe('StoreSettingsBackButton', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 });
-
