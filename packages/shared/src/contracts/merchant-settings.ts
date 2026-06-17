@@ -11,9 +11,7 @@ export const SOCIAL_MEDIA_KEYS = [
 
 export type SocialMediaKey = (typeof SOCIAL_MEDIA_KEYS)[number];
 export type SocialMediaValues = Partial<Record<SocialMediaKey, string>>;
-type SocialMediaInputValues = Partial<
-  Record<SocialMediaKey, string | null | undefined>
->;
+type SocialMediaInputValues = Partial<Record<SocialMediaKey, unknown>>;
 
 export type MerchantVatRegistrationStatus =
   | 'not_registered'
@@ -109,7 +107,10 @@ export function normalizeSocialMediaValues(
 ): SocialMediaValues {
   return Object.fromEntries(
     Object.entries(socialMedia)
-      .map(([key, value]) => [key, value?.trim() ?? ''])
+      .map(([key, value]) => [
+        key,
+        typeof value === 'string' ? value.trim() : '',
+      ])
       .filter(([, value]) => value.length > 0)
   ) as SocialMediaValues;
 }

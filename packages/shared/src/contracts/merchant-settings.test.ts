@@ -69,6 +69,15 @@ describe('merchant settings contracts', () => {
     });
   });
 
+  it('ignores corrupt persisted non-string handles while applying valid incoming values', () => {
+    expect(
+      mergeSocialMediaValues(
+        { twitter: true, facebook: { url: 'fb.com/bad' } },
+        { instagram: ' @baci ' }
+      )
+    ).toEqual({ instagram: '@baci' });
+  });
+
   it('accepts an explicit clear_social_media flag on the update payload', () => {
     const payload: MerchantSettingsUpdatePayload = {
       social_media: {},
