@@ -103,3 +103,7 @@
 **Learning:** Icon-only toggle buttons in React Native (such as Grid vs List view switchers using Pressable) must explicitly include `accessibilityRole="button"`, a descriptive `accessibilityLabel`, and `accessibilityState={{ selected: <boolean> }}` to be fully accessible to screen readers, as Biome's a11y linting does not catch this automatically for RN.
 **Action:** When adding or updating icon-only interactive elements in React Native, explicitly add `accessibilityRole`, `accessibilityLabel`, and relevant `accessibilityState`.
 **Source:** Memory and React Native Accessibility API docs
+## 2024-06-17 — State-aware semantics in React Native
+**Learning:** Icon-only toggle buttons and popover menus in React Native components (like `FilterBar`) often lack `accessibilityState` semantics and `accessibilityRole`. While visual cues like color changes are present, screen readers don't announce whether a toggle is expanded or which popover item is currently selected.
+**Action:** Always verify that interactive elements reflecting state changes use `accessibilityState={{ expanded: boolean }}` for toggles and `accessibilityState={{ selected: boolean }}` for lists/tabs, along with `accessibilityRole="button"` and a descriptive `accessibilityLabel`.
+**Source:** WCAG SC 4.1.2 Name, Role, Value
