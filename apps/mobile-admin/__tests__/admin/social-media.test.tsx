@@ -353,6 +353,31 @@ describe('SocialMediaScreen', () => {
     expect(mocks.updateMerchantSettings).not.toHaveBeenCalled();
   });
 
+  it('keeps the form editable when cached merchant data exists despite a refetch error', () => {
+    // TanStack Query keeps the previous `data` while setting `error` on a failed
+    // background refetch, so `useMerchant` returns both. The form must stay editable
+    // (gated on `!merchant`, not `error`) so a transient refetch failure can't hide
+    // the saved handles. (V4 drift guard)
+    mocks.useMerchant.mockReturnValue({
+      merchant: { social_media: { instagram: 'cached_insta' } },
+      isLoading: false,
+      error: new Error('Background refetch failed'),
+    });
+
+    render(<SocialMediaScreen />);
+
+    // Form is rendered (not the retry state) and seeded from cached data.
+    expect(screen.getByLabelText('Instagram Handle')).toHaveValue(
+      'cached_insta'
+    );
+    expect(
+      screen.queryByText("Couldn't load your settings")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Retry')).not.toBeInTheDocument();
+    // The Save action remains available so the merchant can still edit.
+    expect(screen.getByText('Save')).toBeInTheDocument();
+  });
+
   it('disables Save until a handle actually changes (no no-op write)', () => {
     mocks.useMerchant.mockReturnValue({
       merchant: { social_media: { instagram: 'insta' } },
