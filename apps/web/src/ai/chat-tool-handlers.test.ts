@@ -12,6 +12,7 @@ import {
   handleCheckPaymentStatus,
   handleGetProductDetails,
   handleGetRecommendations,
+  handleSearchProducts,
 } from './chat-tool-handlers';
 
 const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
@@ -19,15 +20,20 @@ const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 type QueryResult = {
   data: unknown;
   error?: unknown;
+  count?: number | null;
 };
 
 function createQueryMock(result: QueryResult = { data: null, error: null }) {
   const query = Object.assign(Promise.resolve(result), {
     select: vi.fn<(...args: unknown[]) => unknown>(),
     eq: vi.fn<(...args: unknown[]) => unknown>(),
+    or: vi.fn<(...args: unknown[]) => unknown>(),
+    ilike: vi.fn<(...args: unknown[]) => unknown>(),
     neq: vi.fn<(...args: unknown[]) => unknown>(),
     gt: vi.fn<(...args: unknown[]) => unknown>(),
+    gte: vi.fn<(...args: unknown[]) => unknown>(),
     lt: vi.fn<(...args: unknown[]) => unknown>(),
+    lte: vi.fn<(...args: unknown[]) => unknown>(),
     in: vi.fn<(...args: unknown[]) => unknown>(),
     order: vi.fn<(...args: unknown[]) => unknown>(),
     limit: vi.fn<(...args: unknown[]) => unknown>(),
@@ -37,9 +43,13 @@ function createQueryMock(result: QueryResult = { data: null, error: null }) {
 
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.or.mockReturnValue(query);
+  query.ilike.mockReturnValue(query);
   query.neq.mockReturnValue(query);
   query.gt.mockReturnValue(query);
+  query.gte.mockReturnValue(query);
   query.lt.mockReturnValue(query);
+  query.lte.mockReturnValue(query);
   query.in.mockReturnValue(query);
   query.order.mockReturnValue(query);
   query.limit.mockReturnValue(query);
@@ -52,6 +62,95 @@ function createQueryMock(result: QueryResult = { data: null, error: null }) {
 describe('chat tool handlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('searches active products across names, descriptions, brands, and categories with price filters', async () => {
+    const query = createQueryMock({
+      data: [
+        {
+          id: 'macbook-air-m4',
+          name: '15" MacBook Air M4 (2025)',
+          price: 1_265_000,
+          description: 'Apple laptop',
+          brand: 'Apple',
+          category: 'Laptops',
+          images: [{ url: 'https://cdn.example.com/macbook.jpg' }],
+          stock: 3,
+          status: 'active',
+        },
+      ],
+      error: null,
+    });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
+
+    const result = await handleSearchProducts({
+      query: 'laptop',
+      minPrice: 1_200_000,
+      maxPrice: 1_400_000,
+    });
+
+    expect(query.eq).toHaveBeenCalledWith('merchant_id', OGABASSEY_MERCHANT_ID);
+    expect(query.eq).toHaveBeenCalledWith('status', 'active');
+    expect(query.or).toHaveBeenCalledWith(
+      'name.ilike.%laptop%,description.ilike.%laptop%,brand.ilike.%laptop%,category.ilike.%laptop%'
+    );
+    expect(query.gte).toHaveBeenCalledWith('price', 1_200_000);
+    expect(query.lte).toHaveBeenCalledWith('price', 1_400_000);
+    expect(result).toEqual({
+      products: [
+        {
+          id: 'macbook-air-m4',
+          name: '15" MacBook Air M4 (2025)',
+          price: 1_265_000,
+          description: 'Apple laptop',
+          brand: 'Apple',
+          category: 'Laptops',
+          image_url: 'https://cdn.example.com/macbook.jpg',
+          stock: 3,
+          status: 'active',
+        },
+      ],
+      total: 1,
+    });
+  });
+
+  it('uses optional category as an additional search term instead of a hard AND filter', async () => {
+    const query = createQueryMock({ data: [], error: null });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
+
+    await handleSearchProducts({
+      query: 'MacBook',
+      category: 'Laptops',
+      minPrice: 1_200_000,
+      maxPrice: 1_400_000,
+    });
+
+    expect(query.or).toHaveBeenCalledWith(
+      'name.ilike.%MacBook%,description.ilike.%MacBook%,brand.ilike.%MacBook%,category.ilike.%MacBook%,name.ilike.%Laptops%,description.ilike.%Laptops%,brand.ilike.%Laptops%,category.ilike.%Laptops%'
+    );
+    expect(query.ilike).not.toHaveBeenCalled();
+  });
+
+  it('searches by category when no free-text query is provided', async () => {
+    const query = createQueryMock({ data: [], error: null });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
+
+    await handleSearchProducts({
+      query: '',
+      category: 'Laptops',
+      minPrice: 1_200_000,
+      maxPrice: 1_400_000,
+    });
+
+    expect(query.or).toHaveBeenCalledWith(
+      'name.ilike.%Laptops%,description.ilike.%Laptops%,brand.ilike.%Laptops%,category.ilike.%Laptops%'
+    );
   });
 
   it('restricts product details to active Ogabassey products', async () => {
