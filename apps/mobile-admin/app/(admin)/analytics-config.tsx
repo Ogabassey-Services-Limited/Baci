@@ -26,7 +26,7 @@ import {
   type AnalyticsState,
   analyticsStatesEqual,
   buildAnalyticsDiff,
-} from './analytics-config-diff';
+} from '@/lib/analytics-config-diff';
 
 const INITIAL_STATE: AnalyticsState = {
   google_analytics_id: '',
