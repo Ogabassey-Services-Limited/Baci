@@ -21,12 +21,12 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
 import {
   type AnalyticsState,
   analyticsStatesEqual,
   buildAnalyticsDiff,
 } from '@/lib/analytics-config-diff';
+import { supabase } from '@/lib/supabase';
 
 const INITIAL_STATE: AnalyticsState = {
   google_analytics_id: '',
