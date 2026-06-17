@@ -1,15 +1,19 @@
 import type { Thing, WithContext } from 'schema-dts';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 
-interface JsonLdProps<T extends Thing> {
-  data: WithContext<T>;
+export type JsonLdData<T extends Thing = Thing> =
+  | WithContext<T>
+  | Record<string, unknown>;
+
+interface JsonLdProps<T extends Thing = Thing> {
+  data: JsonLdData<T>;
 }
 
 /**
  * Renders a script tag with valid JSON-LD structured data.
  * Adheres to Google's rigorous Rich Result testing standards.
  */
-export function JsonLd<T extends Thing>({ data }: JsonLdProps<T>) {
+export function JsonLd<T extends Thing = Thing>({ data }: JsonLdProps<T>) {
   if (!data) return null;
   return (
     <script type="application/ld+json">{safeJsonLdStringify(data)}</script>
