@@ -540,6 +540,26 @@ describe('cached-data merchant safety helpers', () => {
   });
 
   describe('getMerchantStrict', () => {
+    it('throws the retry error when both non-PPR attempts fail', async () => {
+      const firstError = new Error('First failure');
+      const retryError = new Error('Second failure');
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(firstError)
+        .mockRejectedValueOnce(retryError);
+
+      await expect(getMerchantStrict('test-store')).rejects.toBe(retryError);
+      expect(mockUnstableRethrow).toHaveBeenCalledWith(firstError);
+      expect(mockUnstableRethrow).toHaveBeenCalledWith(retryError);
+      expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(2);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Strict merchant lookup failed after retry:',
+        'test-store'
+      );
+    });
+
     it('rethrows Next PPR control-flow errors without retrying', async () => {
       const pprError = Object.assign(
         new Error(

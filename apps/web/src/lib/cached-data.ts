@@ -1233,8 +1233,8 @@ export async function getMerchantSafe(
 
 /**
  * Strict merchant lookup with retry — throws on transient failures.
- * Use inside 'use cache: remote' functions where returning null on a
- * transient error would cache the failure across instances.
+ * Use inside cached functions where returning null on a transient error would
+ * cache the failure instead of letting the caller retry on a later render.
  * A genuine "merchant not found" still returns null (safe to cache).
  */
 export async function getMerchantStrict(
