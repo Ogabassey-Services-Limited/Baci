@@ -135,6 +135,24 @@ describe('chat tool handlers', () => {
     expect(query.ilike).not.toHaveBeenCalled();
   });
 
+  it('searches by category when no free-text query is provided', async () => {
+    const query = createQueryMock({ data: [], error: null });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
+
+    await handleSearchProducts({
+      query: '',
+      category: 'Laptops',
+      minPrice: 1_200_000,
+      maxPrice: 1_400_000,
+    });
+
+    expect(query.or).toHaveBeenCalledWith(
+      'name.ilike.%Laptops%,description.ilike.%Laptops%,brand.ilike.%Laptops%,category.ilike.%Laptops%'
+    );
+  });
+
   it('restricts product details to active Ogabassey products', async () => {
     const query = createQueryMock();
     mocks.createAgenticScopedSupabaseClient.mockReturnValue({

@@ -79,9 +79,12 @@ export async function handleSearchProducts(
     .order('price', { ascending: false })
     .limit(10);
 
-  // Apply search filter (sanitize PostgREST metacharacters to prevent injection)
-  if (params.query) {
-    query = query.or(createProductSearchFilter(params));
+  // Apply search/category filter (sanitize PostgREST metacharacters to prevent injection).
+  // Category-only requests still need a filter; category acts as an extra search
+  // term rather than a hard AND so laptop queries can match names/brands too.
+  const searchFilter = createProductSearchFilter(params);
+  if (searchFilter) {
+    query = query.or(searchFilter);
   }
 
   // Apply price filters
