@@ -1,8 +1,4 @@
-import {
-  MERCHANT_SETTINGS_COLUMNS,
-  normalizeRegisteredAddress,
-  normalizeSocialMediaValues,
-} from '@baci/shared';
+import { normalizeRegisteredAddress, SOCIAL_MEDIA_KEYS } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -14,6 +10,17 @@ import {
   formatMerchantSettingsErrors,
   updateMerchantSettingsSchema,
 } from '@/schemas/merchant-settings';
+
+function isFullBlankSocialMediaPayload(
+  socialMedia: Record<string, string | null | undefined>
+): boolean {
+  return (
+    SOCIAL_MEDIA_KEYS.every((key) => Object.hasOwn(socialMedia, key)) &&
+    Object.values(socialMedia).every(
+      (value) => (value ?? '').trim().length === 0
+    )
+  );
+}
 
 export async function PATCH(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
@@ -56,43 +63,58 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = parseResult.data;
-    const updates: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
+    const settingsPatch: Record<string, unknown> = {};
+    const hasSocialMediaUpdate =
+      body.social_media !== undefined || body.clear_social_media === true;
 
-    if (body.social_media !== undefined) {
-      updates.social_media = normalizeSocialMediaValues(body.social_media);
-    }
+    const incomingSocialMedia = body.social_media ?? {};
+    const shouldClearSocialMedia =
+      body.clear_social_media === true ||
+      (body.social_media !== undefined &&
+        isFullBlankSocialMediaPayload(incomingSocialMedia));
 
     if (body.vat_registration_status !== undefined) {
-      updates.vat_registration_status = body.vat_registration_status;
+      settingsPatch.vat_registration_status = body.vat_registration_status;
     }
 
     if (body.tax_identification_number !== undefined) {
-      updates.tax_identification_number =
+      settingsPatch.tax_identification_number =
         body.tax_identification_number || null;
     }
 
     if (body.legal_entity_name !== undefined) {
-      updates.legal_entity_name = body.legal_entity_name || null;
+      settingsPatch.legal_entity_name = body.legal_entity_name || null;
     }
 
     if (body.registered_address !== undefined) {
-      updates.registered_address = normalizeRegisteredAddress(
+      settingsPatch.registered_address = normalizeRegisteredAddress(
         body.registered_address
       );
     }
 
     if (body.state_code !== undefined) {
-      updates.state_code = body.state_code || null;
+      settingsPatch.state_code = body.state_code || null;
     }
 
-    const { data: merchant, error } = await auth.supabase
-      .from('merchants')
-      .update(updates)
-      .eq('id', access.merchantId)
-      .select(MERCHANT_SETTINGS_COLUMNS)
-      .single();
+    if (!hasSocialMediaUpdate && Object.keys(settingsPatch).length === 0) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: { _root: ['No changes provided'] },
+        },
+        { status: 400 }
+      );
+    }
+
+    const { data: merchant, error } = await auth.supabase.rpc(
+      'update_merchant_social_media',
+      {
+        p_clear: shouldClearSocialMedia,
+        p_merchant_id: access.merchantId,
+        p_settings: settingsPatch,
+        p_social_media: hasSocialMediaUpdate ? incomingSocialMedia : {},
+      }
+    );
 
     if (error || !merchant) {
       console.error('Merchant settings update failed:', error);
