@@ -148,4 +148,55 @@ describe('PATCH /api/staff/[id]', () => {
     expect(updateEqId).toHaveBeenCalledWith('id', STAFF_ID);
     expect(updateEqMerchant).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
   });
+
+  it('returns 401 when no authenticated user is present', async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+    const { PATCH } = await import('@/app/api/staff/[id]/route');
+    const request = createPatchRequest();
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: STAFF_ID }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when the request body has no allowed update fields', async () => {
+    const { PATCH } = await import('@/app/api/staff/[id]/route');
+    const request = createPatchRequest({ email: 'intruder@example.com' });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: STAFF_ID }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'No valid fields to update',
+    });
+    expect(existingEqId).toHaveBeenCalledWith('id', STAFF_ID);
+    expect(existingEqMerchant).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 and skips mutation when the staff row is outside the merchant scope', async () => {
+    existingSingle.mockResolvedValue({ data: null, error: null });
+    const { PATCH } = await import('@/app/api/staff/[id]/route');
+    const request = createPatchRequest({ name: 'Ada Sales' });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: STAFF_ID }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Staff member not found',
+    });
+    expect(existingEqId).toHaveBeenCalledWith('id', STAFF_ID);
+    expect(existingEqMerchant).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    expect(update).not.toHaveBeenCalled();
+  });
 });
