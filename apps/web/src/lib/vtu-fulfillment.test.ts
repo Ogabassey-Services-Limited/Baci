@@ -2233,11 +2233,13 @@ describe('fulfillPendingVtuTransaction', () => {
       success: false,
       status: 'failed',
       message: 'Explicit user failure',
+      providerErrorDetail: 'Monnify API error: 400 Bad Request - [redacted]',
       transactionId: 'monnify-bill-3',
       amount: 1000,
     });
 
     const rpcImpl = vi.fn().mockResolvedValue({ data: null, error: null });
+    const updatePayloads: unknown[] = [];
 
     const supabase = createPendingTransactionSupabaseMock({
       transactionRow: {
@@ -2265,6 +2267,7 @@ describe('fulfillPendingVtuTransaction', () => {
         customer_identifier: '43901766923',
       },
       rpcImpl,
+      updatePayloads,
     });
 
     const result = await fulfillPendingVtuTransaction({
@@ -2278,6 +2281,16 @@ describe('fulfillPendingVtuTransaction', () => {
     expect(rpcImpl).toHaveBeenCalledWith(
       'refund_customer_wallet_for_vtu',
       expect.any(Object)
+    );
+    expect(updatePayloads).toContainEqual(
+      expect.objectContaining({
+        error_message: 'Explicit user failure',
+        metadata: expect.objectContaining({
+          providerErrorDetail:
+            'Monnify API error: 400 Bad Request - [redacted]',
+        }),
+        status: 'failed',
+      })
     );
   });
 

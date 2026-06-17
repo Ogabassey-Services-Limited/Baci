@@ -33,7 +33,39 @@ const MONNIFY_PROCESSING_STATUSES = new Set([
 const MONNIFY_FAILED_STATUSES = new Set(['FAILED', 'FAILURE', 'UNSUCCESSFUL']);
 const SENSITIVE_DIGIT_SEQUENCE_PATTERN = /\b\d{7,}\b/g;
 const MONNIFY_ERROR_DETAIL_MAX_LENGTH = 240;
-const MONNIFY_ERROR_DETAIL_REDACTION_LOOKAHEAD = 64;
+
+class MonnifyHttpError extends Error {
+  readonly detail: string | null;
+  readonly status: number;
+  readonly statusText: string;
+
+  constructor({
+    detail,
+    prefix,
+    status,
+    statusText,
+  }: {
+    detail: string | null;
+    prefix: string;
+    status: number;
+    statusText: string;
+  }) {
+    super(`${prefix}: ${status} ${statusText}`.trim());
+    Object.setPrototypeOf(this, MonnifyHttpError.prototype);
+    this.name = 'MonnifyHttpError';
+    this.detail = detail;
+    this.status = status;
+    this.statusText = statusText;
+  }
+
+  get isClientError() {
+    return this.status >= 400 && this.status < 500;
+  }
+
+  get diagnosticMessage() {
+    return this.detail ? `${this.message} - ${this.detail}` : this.message;
+  }
+}
 
 export class MonnifyTransientVendError extends Error {
   constructor(message: string) {
@@ -44,12 +76,7 @@ export class MonnifyTransientVendError extends Error {
 }
 
 function sanitizeMonnifyErrorDetail(value: string) {
-  const boundedValue = value.slice(
-    0,
-    MONNIFY_ERROR_DETAIL_MAX_LENGTH + MONNIFY_ERROR_DETAIL_REDACTION_LOOKAHEAD
-  );
-
-  return boundedValue
+  return value
     .replace(SENSITIVE_DIGIT_SEQUENCE_PATTERN, '[redacted]')
     .slice(0, MONNIFY_ERROR_DETAIL_MAX_LENGTH)
     .trim();
@@ -95,13 +122,13 @@ async function getMonnifyHttpErrorDetail(response: Response) {
   }
 }
 
-async function createMonnifyHttpErrorMessage(
-  response: Response,
-  prefix: string
-) {
-  const detail = await getMonnifyHttpErrorDetail(response);
-  const statusMessage = `${prefix}: ${response.status} ${response.statusText}`;
-  return detail ? `${statusMessage} - ${detail}` : statusMessage;
+async function createMonnifyHttpError(response: Response, prefix: string) {
+  return new MonnifyHttpError({
+    detail: await getMonnifyHttpErrorDetail(response),
+    prefix,
+    status: response.status,
+    statusText: response.statusText,
+  });
 }
 
 function getMonnifyEnvelopeMessage({
@@ -204,13 +231,9 @@ async function monnifyRequest<T = unknown>(
 
     if (!response.ok) {
       if (response.status >= 500) {
-        throw new Error(
-          await createMonnifyHttpErrorMessage(response, 'Monnify server error')
-        );
+        throw await createMonnifyHttpError(response, 'Monnify server error');
       }
-      throw new Error(
-        await createMonnifyHttpErrorMessage(response, 'Monnify API error')
-      );
+      throw await createMonnifyHttpError(response, 'Monnify API error');
     }
 
     return (await response.json()) as T;
@@ -364,7 +387,12 @@ export async function verifyBillCustomer(
   } catch (error) {
     return {
       verified: false,
-      message: error instanceof Error ? error.message : 'Verification failed',
+      message:
+        error instanceof MonnifyHttpError
+          ? 'Verification could not be completed with Monnify. Please check the details and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'Verification failed',
     };
   }
 }
@@ -451,17 +479,24 @@ export async function purchaseBill(
       amount,
     };
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    // Explicit client HTTP 4xx errors are terminal business failures
-    if (errorMsg.includes('Monnify API error: 4')) {
+    if (error instanceof MonnifyHttpError && error.isClientError) {
       return {
         success: false,
         reference: requestReference,
-        message: errorMsg,
+        message:
+          'Monnify rejected the bill payment request. Please verify the details and try again.',
+        providerErrorDetail: error.diagnosticMessage,
         status: 'failed',
         amount,
       };
     }
+
+    const errorMsg =
+      error instanceof MonnifyHttpError
+        ? error.diagnosticMessage
+        : error instanceof Error
+          ? error.message
+          : String(error);
 
     if (error instanceof MonnifyTransientVendError) {
       throw error;

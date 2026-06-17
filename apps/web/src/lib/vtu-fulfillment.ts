@@ -2536,9 +2536,13 @@ export async function fulfillPendingVtuTransaction({
           transactionId: row.id,
         })
       : undefined);
+  const providerErrorDetail = result.success
+    ? undefined
+    : result.providerErrorDetail?.trim();
   const updatedMetadata = {
     ...(row.metadata ?? {}),
     ...(voucherPin && { voucherPin }),
+    ...(providerErrorDetail && { providerErrorDetail }),
   };
 
   if (result.status === 'pending') {

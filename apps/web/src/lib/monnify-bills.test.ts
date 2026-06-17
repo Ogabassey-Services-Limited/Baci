@@ -406,7 +406,7 @@ describe('Monnify Bills Client', () => {
       );
     });
 
-    it('propagates sanitized HTTP 5xx response details on discovery helpers', async () => {
+    it('keeps HTTP 5xx response body details out of discovery helper messages', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 500,
@@ -419,7 +419,10 @@ describe('Monnify Bills Client', () => {
       });
 
       await expect(getBillerCategories()).rejects.toThrow(
-        'Monnify server error: 500 Internal Server Error - Gateway failed for request [redacted]'
+        'Monnify server error: 500 Internal Server Error'
+      );
+      await expect(getBillerCategories()).rejects.not.toThrow(
+        'Gateway failed for request'
       );
     });
   });
@@ -577,6 +580,33 @@ describe('Monnify Bills Client', () => {
       expect(result.verified).toBe(false);
       expect(result.message).toContain('Network disconnected');
     });
+
+    it('does not expose Monnify HTTP body diagnostics in verification responses', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            responseMessage:
+              'Provider wallet 1234567890 cannot validate customer 08012345678',
+          })
+        ),
+      });
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+
+      expect(result.verified).toBe(false);
+      expect(result.message).toBe(
+        'Verification could not be completed with Monnify. Please check the details and try again.'
+      );
+      expect(result.message).not.toContain('1234567890');
+      expect(result.message).not.toContain('08012345678');
+    });
   });
 
   describe('purchaseBill', () => {
@@ -699,11 +729,14 @@ describe('Monnify Bills Client', () => {
       );
       expect(result.status).toBe('failed');
       expect(result.success).toBe(false);
-      expect(result.message).toContain(
+      expect(result.message).toBe(
+        'Monnify rejected the bill payment request. Please verify the details and try again.'
+      );
+      expect(result.providerErrorDetail).toContain(
         'Monnify API error: 400 Bad Request - Insufficient wallet balance'
       );
-      expect(result.message).toContain('[redacted]');
-      expect(result.message).not.toContain('08012345678');
+      expect(result.providerErrorDetail).toContain('[redacted]');
+      expect(result.providerErrorDetail).not.toContain('08012345678');
     });
 
     it('sanitizes plain-text HTTP error bodies before returning terminal 4xx failures', async () => {
@@ -729,10 +762,15 @@ describe('Monnify Bills Client', () => {
       );
 
       expect(result.status).toBe('failed');
-      expect(result.message).toContain('Plain error code 123456 customer');
-      expect(result.message).toContain('[redacted]');
-      expect(result.message).not.toContain('1234567');
-      expect(result.message).not.toContain('not-visible');
+      expect(result.message).toBe(
+        'Monnify rejected the bill payment request. Please verify the details and try again.'
+      );
+      expect(result.providerErrorDetail).toContain(
+        'Plain error code 123456 customer'
+      );
+      expect(result.providerErrorDetail).toContain('[redacted]');
+      expect(result.providerErrorDetail).not.toContain('1234567');
+      expect(result.providerErrorDetail).not.toContain('not-visible');
     });
 
     it('redacts sensitive digit sequences that cross the error detail boundary', async () => {
@@ -754,7 +792,8 @@ describe('Monnify Bills Client', () => {
 
       expect(result.status).toBe('failed');
       expect(result.message).not.toContain('9876');
-      expect(result.message).toContain('[red');
+      expect(result.providerErrorDetail).not.toContain('9876');
+      expect(result.providerErrorDetail).toContain('[red');
     });
 
     it('throws a retryable transient error for timeouts, network issues, and HTTP 5xx before transactionReference is known', async () => {
