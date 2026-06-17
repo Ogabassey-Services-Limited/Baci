@@ -1,5 +1,12 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import type {
+  BreadcrumbList,
+  CollectionPage,
+  FAQPage,
+  WithContext,
+} from 'schema-dts';
+import { JsonLd } from '@/components/seo/json-ld';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
 import {
@@ -8,7 +15,6 @@ import {
 } from '@/lib/cached-data';
 import type { RawDbProduct } from '@/lib/normalize-product';
 import type { Product as SeoProduct } from '@/lib/products';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
@@ -187,16 +193,14 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
 
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(collectionSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(breadcrumbSchema)}
-      </script>
+      <JsonLd
+        data={collectionSchema as unknown as WithContext<CollectionPage>}
+      />
+      <JsonLd
+        data={breadcrumbSchema as unknown as WithContext<BreadcrumbList>}
+      />
       {faqSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(faqSchema)}
-        </script>
+        <JsonLd data={faqSchema as unknown as WithContext<FAQPage>} />
       )}
 
       <V2ComparisonScope storageNamespace={merchant.id}>

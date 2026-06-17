@@ -1,5 +1,11 @@
 import { notFound } from 'next/navigation';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import type {
+  BreadcrumbList,
+  FAQPage,
+  ItemList,
+  WithContext,
+} from 'schema-dts';
+import { JsonLd } from '@/components/seo/json-ld';
 import {
   buildComparePageSchemas,
   buildProductCompareItemListSchema,
@@ -83,18 +89,14 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
 
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(schemas.breadcrumb)}
-      </script>
+      <JsonLd
+        data={schemas.breadcrumb as unknown as WithContext<BreadcrumbList>}
+      />
       {schemas.faq && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(schemas.faq)}
-        </script>
+        <JsonLd data={schemas.faq as unknown as WithContext<FAQPage>} />
       )}
       {itemListSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(itemListSchema)}
-        </script>
+        <JsonLd data={itemListSchema as unknown as WithContext<ItemList>} />
       )}
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="space-y-4">
