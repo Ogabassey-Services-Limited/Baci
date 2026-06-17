@@ -31,7 +31,7 @@ const MONNIFY_PROCESSING_STATUSES = new Set([
   'PROCESSING',
 ]);
 const MONNIFY_FAILED_STATUSES = new Set(['FAILED', 'FAILURE', 'UNSUCCESSFUL']);
-const SENSITIVE_DIGIT_SEQUENCE_PATTERN = /\b\d{7,}\b/g;
+const SENSITIVE_DIGIT_SEQUENCE_PATTERN = /(?<!\d)\d{7,}(?!\d)/g;
 const MONNIFY_ERROR_DETAIL_MAX_LENGTH = 240;
 
 class MonnifyHttpError extends Error {
@@ -113,7 +113,10 @@ async function getMonnifyHttpErrorDetail(response: Response) {
 
     try {
       const parsed = JSON.parse(responseText) as unknown;
-      return getMonnifyErrorDetailFromBody(parsed);
+      return (
+        getMonnifyErrorDetailFromBody(parsed) ??
+        sanitizeMonnifyErrorDetail(responseText)
+      );
     } catch {
       return sanitizeMonnifyErrorDetail(responseText);
     }
