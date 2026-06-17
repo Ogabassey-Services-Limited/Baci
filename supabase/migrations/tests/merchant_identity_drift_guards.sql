@@ -124,8 +124,12 @@ BEGIN
     RAISE EXCEPTION 'record_cac_verification is missing the cac_identity_conflict guard';
   END IF;
 
-  IF position('UPPER(BTRIM' in v_def) = 0 THEN
-    RAISE EXCEPTION 'record_cac_verification does not canonicalize CAC identity comparisons';
+  IF position('regexp_replace(UPPER(BTRIM' in v_def) = 0 THEN
+    RAISE EXCEPTION 'record_cac_verification does not canonicalize CAC registration comparisons';
+  END IF;
+
+  IF position('v_has_prior_cac' in v_def) = 0 THEN
+    RAISE EXCEPTION 'record_cac_verification does not scope conflicts to prior CAC verification';
   END IF;
 
   IF position('ERRCODE = ''PT409''' in v_def) = 0 THEN
@@ -140,6 +144,12 @@ BEGIN
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
   PERFORM set_config('request.jwt.claim.sub', v_owner_uid::text, true);
 
+  -- A manual pre-CAC legal name/RC value must not block the first official CAC verification.
+  UPDATE public.merchants
+     SET legal_entity_name = 'Manual Drift Guard LLC',
+         cac_rc_number = 'RC-123456'
+   WHERE id = v_mid;
+
   PERFORM public.record_cac_verification(
     v_mid,
     'cac/drift-guard.pdf',
@@ -147,12 +157,22 @@ BEGIN
     'RC123456'
   );
 
+  IF EXISTS (
+    SELECT 1
+      FROM public.merchants
+     WHERE id = v_mid
+       AND (legal_entity_name IS DISTINCT FROM 'Drift Guard Limited'
+            OR cac_rc_number IS DISTINCT FROM 'RC123456')
+  ) THEN
+    RAISE EXCEPTION 'first CAC verification did not replace manual legal identity values';
+  END IF;
+
   -- Re-verification with harmless case/spacing changes is idempotent and preserves established display values.
   PERFORM public.record_cac_verification(
     v_mid,
     'cac/drift-guard-retry.pdf',
     '  drift guard limited  ',
-    ' rc123456 '
+    ' rc-123456 '
   );
 
   IF EXISTS (

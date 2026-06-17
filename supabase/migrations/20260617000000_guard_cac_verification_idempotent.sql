@@ -19,30 +19,41 @@ DECLARE
   v_existing_name_key TEXT;
   v_incoming_rc_key   TEXT;
   v_incoming_name_key TEXT;
+  v_has_prior_cac     BOOLEAN;
 BEGIN
   v_caller_uid := auth.uid();
 
   -- Atomically authorize and lock the merchant row before comparing identity.
-  SELECT cac_rc_number, legal_entity_name
-    INTO v_existing_rc, v_existing_name
-    FROM merchants
-   WHERE id = p_merchant_id
-     AND user_id = v_caller_uid
+  SELECT m.cac_rc_number,
+         m.legal_entity_name,
+         EXISTS (
+           SELECT 1
+             FROM merchant_verifications mv
+            WHERE mv.merchant_id = m.id
+              AND mv.cac_verified IS TRUE
+         )
+    INTO v_existing_rc, v_existing_name, v_has_prior_cac
+    FROM merchants m
+   WHERE m.id = p_merchant_id
+     AND m.user_id = v_caller_uid
    FOR UPDATE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'not authorized';
   END IF;
 
-  v_existing_rc_key := NULLIF(UPPER(BTRIM(v_existing_rc)), '');
+  v_existing_rc_key := NULLIF(regexp_replace(UPPER(BTRIM(v_existing_rc)), '[[:space:]-]+', '', 'g'), '');
   v_existing_name_key := NULLIF(UPPER(BTRIM(v_existing_name)), '');
-  v_incoming_rc_key := NULLIF(UPPER(BTRIM(p_rc_number)), '');
+  v_incoming_rc_key := NULLIF(regexp_replace(UPPER(BTRIM(p_rc_number)), '[[:space:]-]+', '', 'g'), '');
   v_incoming_name_key := NULLIF(UPPER(BTRIM(p_cac_approved_name)), '');
 
-  -- Conflict: an established (non-null / non-empty) identity differs from what we are about to write.
-  -- Compare canonical values so harmless casing/spacing differences remain idempotent.
-  IF (v_existing_rc_key IS NOT NULL AND v_existing_rc_key IS DISTINCT FROM v_incoming_rc_key)
-     OR (v_existing_name_key IS NOT NULL AND v_existing_name_key IS DISTINCT FROM v_incoming_name_key) THEN
+  -- Conflict only after a prior successful CAC verification. A manually-entered legal name
+  -- from tax/settings is not an established CAC identity and must not block the first
+  -- official CAC verification from replacing it.
+  -- Compare canonical values so harmless casing/spacing/hyphen differences remain idempotent.
+  IF v_has_prior_cac
+     AND ((v_existing_rc_key IS NOT NULL AND v_existing_rc_key IS DISTINCT FROM v_incoming_rc_key)
+       OR (v_existing_name_key IS NOT NULL AND v_existing_name_key IS DISTINCT FROM v_incoming_name_key)) THEN
     RAISE EXCEPTION 'cac_identity_conflict'
       USING ERRCODE = 'PT409',
             DETAIL = 'CAC verification would overwrite an existing, different legal identity for this merchant.',
@@ -61,8 +72,14 @@ BEGIN
   -- Preserve the established display values on canonical matches so harmless retry casing/spacing
   -- cannot drift invoices or legal identity displays.
   UPDATE merchants
-  SET legal_entity_name = COALESCE(NULLIF(BTRIM(legal_entity_name), ''), p_cac_approved_name),
-      cac_rc_number = COALESCE(NULLIF(BTRIM(cac_rc_number), ''), p_rc_number),
+  SET legal_entity_name = CASE
+        WHEN v_has_prior_cac THEN COALESCE(NULLIF(BTRIM(legal_entity_name), ''), p_cac_approved_name)
+        ELSE p_cac_approved_name
+      END,
+      cac_rc_number = CASE
+        WHEN v_has_prior_cac THEN COALESCE(NULLIF(BTRIM(cac_rc_number), ''), p_rc_number)
+        ELSE p_rc_number
+      END,
       kyc_status = CASE
         WHEN kyc_status = 'verified' THEN 'verified'
         ELSE 'pending'
