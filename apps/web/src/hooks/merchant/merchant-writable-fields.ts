@@ -20,6 +20,7 @@
 // Both lists are typed `satisfies readonly (keyof MerchantData)[]`, so a typo or
 // a removed `MerchantData` field is a compile error rather than a silent leak.
 
+import { logger } from '@/lib/logger';
 import type { MerchantData } from './types';
 
 /**
@@ -114,19 +115,37 @@ export function assertNoIdentityFields(data: Partial<MerchantData>): void {
 /**
  * Picks the payload down to the `MERCHANT_GENERIC_WRITABLE` allowlist. Identity
  * fields must already have been rejected by `assertNoIdentityFields`; any other
- * non-allowlisted key is silently dropped (never reaches the DB).
+ * non-allowlisted key is dropped (never reaches the DB). Keys that are on
+ * NEITHER list are logged via `logger.warn` so a developer who adds a caller
+ * passing a new, uncategorised field can discover the silent drop.
  */
 export function pickGenericWritable(
   data: Partial<MerchantData>
 ): Partial<MerchantData> {
   const result: Partial<MerchantData> = {};
+  const droppedUncategorised: string[] = [];
   for (const [key, value] of Object.entries(data)) {
     if (GENERIC_WRITABLE_SET.has(key)) {
       // The allowlist is derived from keyof MerchantData, so this assignment is
       // sound; the index signature on Partial<MerchantData> is the only reason a
       // cast is needed here.
       (result as Record<string, unknown>)[key] = value;
+    } else if (!IDENTITY_FIELD_SET.has(key)) {
+      // The key is on NEITHER list: it is silently dropped here. Identity keys
+      // are handled (and thrown on) by assertNoIdentityFields, so a key landing
+      // here is an uncategorised field a developer likely expected to persist.
+      // Warn so the silent drop is discoverable instead of a debugging mystery.
+      droppedUncategorised.push(key);
     }
+  }
+  if (droppedUncategorised.length > 0) {
+    logger.warn({
+      message:
+        'pickGenericWritable dropped uncategorised merchant field(s) ' +
+        '(not identity, not generic-writable). Add them to ' +
+        'MERCHANT_GENERIC_WRITABLE or persist via a dedicated route.',
+      fields: droppedUncategorised,
+    });
   }
   return result;
 }
