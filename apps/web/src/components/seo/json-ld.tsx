@@ -1,9 +1,7 @@
 import type { Thing, WithContext } from 'schema-dts';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 
-export type JsonLdData<T extends Thing = Thing> =
-  | WithContext<T>
-  | Record<string, unknown>;
+export type JsonLdData<T extends Thing = Thing> = WithContext<T>;
 
 interface JsonLdProps<T extends Thing = Thing> {
   data: JsonLdData<T>;

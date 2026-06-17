@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { JsonLd } from '@/components/seo/json-ld';
+import type { BreadcrumbList, CollectionPage, FAQPage } from 'schema-dts';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
 import {
@@ -159,7 +160,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     merchantName: merchant.business_name,
     country: merchant.country || 'NG',
     currency: merchant.payout_currency || 'NGN',
-  });
+  }) as unknown as JsonLdData<CollectionPage>;
 
   const breadcrumbItems = [{ name: merchant.business_name, url: baseUrl }];
   const parent = data.category?.parent as unknown as {
@@ -179,10 +180,14 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     url: `${baseUrl}/${category}`,
   });
 
-  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
+  const breadcrumbSchema = generateBreadcrumbSchema(
+    breadcrumbItems
+  ) as unknown as JsonLdData<BreadcrumbList>;
   const faqSchema =
     hubContent.faqItems.length > 0
-      ? generateFAQSchema(hubContent.faqItems)
+      ? (generateFAQSchema(
+          hubContent.faqItems
+        ) as unknown as JsonLdData<FAQPage>)
       : null;
 
   return (

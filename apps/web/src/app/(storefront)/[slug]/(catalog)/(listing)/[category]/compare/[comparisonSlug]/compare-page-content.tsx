@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { JsonLd } from '@/components/seo/json-ld';
+import type { BreadcrumbList, FAQPage, ItemList } from 'schema-dts';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import {
   buildComparePageSchemas,
   buildProductCompareItemListSchema,
@@ -83,9 +84,15 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
 
   return (
     <>
-      <JsonLd data={schemas.breadcrumb} />
-      {schemas.faq && <JsonLd data={schemas.faq} />}
-      {itemListSchema && <JsonLd data={itemListSchema} />}
+      <JsonLd
+        data={schemas.breadcrumb as unknown as JsonLdData<BreadcrumbList>}
+      />
+      {schemas.faq && (
+        <JsonLd data={schemas.faq as unknown as JsonLdData<FAQPage>} />
+      )}
+      {itemListSchema && (
+        <JsonLd data={itemListSchema as unknown as JsonLdData<ItemList>} />
+      )}
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="space-y-4">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
