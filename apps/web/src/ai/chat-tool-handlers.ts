@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import type {
   AddToCartParams,
   CheckPaymentStatusParams,
@@ -49,14 +50,19 @@ interface ProductSearchResult {
 }
 
 function escapeProductSearchTerm(value: string): string {
-  return value.replace(/[%_\\,()]/g, '\\$&').slice(0, 100);
+  const sanitized = sanitizeSearchQuery(value)
+    .replace(/\s+/g, ' ')
+    .slice(0, 100)
+    .trim();
+
+  return sanitized ? sanitizeLikePattern(sanitized) : '';
 }
 
 function createProductSearchFilter(params: SearchProductsParams): string {
   const terms = [params.query, params.category]
     .filter((value): value is string => Boolean(value?.trim()))
     .map((value) => escapeProductSearchTerm(value.trim()));
-  const uniqueTerms = [...new Set(terms)];
+  const uniqueTerms = [...new Set(terms)].filter(Boolean);
   const columns = ['name', 'description', 'brand', 'category'];
 
   return uniqueTerms

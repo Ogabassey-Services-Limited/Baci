@@ -153,6 +153,66 @@ describe('chat tool handlers', () => {
     );
   });
 
+  it('does not apply an empty PostgREST search filter for whitespace-only text', async () => {
+    const query = createQueryMock({ data: [], error: null });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
+
+    await handleSearchProducts({
+      query: '   ',
+    });
+
+    expect(query.or).not.toHaveBeenCalled();
+  });
+
+  it('removes PostgREST OR separators from free-text search terms', async () => {
+    const query = createQueryMock({ data: [], error: null });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
+
+    await handleSearchProducts({
+      query: 'iPhone, (Pro)',
+    });
+
+    expect(query.or).toHaveBeenCalledWith(
+      'name.ilike.%iPhone Pro%,description.ilike.%iPhone Pro%,brand.ilike.%iPhone Pro%,category.ilike.%iPhone Pro%'
+    );
+  });
+
+  it('truncates raw search terms before escaping LIKE wildcards', async () => {
+    const query = createQueryMock({ data: [], error: null });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
+    const boundaryWildcardQuery = `${'a'.repeat(99)}%`;
+    const escapedBoundaryTerm = `${'a'.repeat(99)}\\%`;
+
+    await handleSearchProducts({
+      query: boundaryWildcardQuery,
+    });
+
+    expect(query.or).toHaveBeenCalledWith(
+      `name.ilike.%${escapedBoundaryTerm}%,description.ilike.%${escapedBoundaryTerm}%,brand.ilike.%${escapedBoundaryTerm}%,category.ilike.%${escapedBoundaryTerm}%`
+    );
+  });
+
+  it('escapes wildcard-only search terms before building the PostgREST filter', async () => {
+    const query = createQueryMock({ data: [], error: null });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
+
+    await handleSearchProducts({
+      query: '%%%',
+    });
+
+    expect(query.or).toHaveBeenCalledWith(
+      'name.ilike.%\\%\\%\\%%,description.ilike.%\\%\\%\\%%,brand.ilike.%\\%\\%\\%%,category.ilike.%\\%\\%\\%%'
+    );
+  });
+
   it('restricts product details to active Ogabassey products', async () => {
     const query = createQueryMock();
     mocks.createAgenticScopedSupabaseClient.mockReturnValue({
