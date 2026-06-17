@@ -1,5 +1,9 @@
 import { sanitizeText } from '@/lib/sanitize-core';
-import { generateBreadcrumbSchema, getProductUrl } from '@/lib/seo-utils';
+import {
+  generateBreadcrumbSchema,
+  generateFAQSchema,
+  getProductUrl,
+} from '@/lib/seo-utils';
 import type { ProductComparisonMatrix } from '@/lib/storefront-specs/spec-matrix';
 
 interface BreadcrumbItem {
@@ -50,7 +54,7 @@ export function buildComparePageSchemas(input: {
 }) {
   return {
     breadcrumb: generateBreadcrumbSchema(input.breadcrumbItems),
-    faq: null,
+    faq: input.faqItems.length > 0 ? generateFAQSchema(input.faqItems) : null,
   };
 }
 

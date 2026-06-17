@@ -6,7 +6,7 @@ import {
 } from './compare-schema';
 
 describe('buildComparePageSchemas', () => {
-  it('builds breadcrumb schema without FAQPage rich-result markup for compare pages', () => {
+  it('builds breadcrumb + FAQPage schema when the compare page has FAQ items', () => {
     const schemas = buildComparePageSchemas({
       breadcrumbItems: [
         { name: 'Ogabassey', url: 'https://ogabassey.com' },
@@ -18,6 +18,21 @@ describe('buildComparePageSchemas', () => {
           answer: 'It depends on the buyer.',
         },
       ],
+    });
+
+    expect(schemas.breadcrumb['@type']).toBe('BreadcrumbList');
+    expect(schemas.faq).not.toBeNull();
+    expect(schemas.faq?.['@type']).toBe('FAQPage');
+    const mainEntity = schemas.faq?.mainEntity as
+      | Array<{ name: string }>
+      | undefined;
+    expect(mainEntity?.[0]?.name).toBe('Which phone is better?');
+  });
+
+  it('omits FAQPage schema when the compare page has no FAQ items', () => {
+    const schemas = buildComparePageSchemas({
+      breadcrumbItems: [{ name: 'Ogabassey', url: 'https://ogabassey.com' }],
+      faqItems: [],
     });
 
     expect(schemas.breadcrumb['@type']).toBe('BreadcrumbList');
