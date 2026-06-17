@@ -1,4 +1,4 @@
-import type Ionicons from '@react-native-vector-icons/ionicons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { ComponentProps } from 'react';
 import type { MerchantSocialMedia } from '@/hooks/useMerchant';
 
