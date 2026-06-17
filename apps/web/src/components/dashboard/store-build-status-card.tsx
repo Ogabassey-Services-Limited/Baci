@@ -51,7 +51,7 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
   const [status, setStatus] = useState<StoreBuildStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [reloadToken, setReloadToken] = useState(0);
+  const [_reloadToken, setReloadToken] = useState(0);
   const [applying, setApplying] = useState(false);
   const [showStaleDialog, setShowStaleDialog] = useState(false);
   const { toast } = useToast();
@@ -90,7 +90,7 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
     return () => {
       active = false;
     };
-  }, [reloadToken]);
+  }, []);
 
   const retryLoad = () => {
     setLoading(true);

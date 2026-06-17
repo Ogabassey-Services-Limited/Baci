@@ -355,7 +355,7 @@ export function SetupChecklist({
   const [readiness, setReadiness] = useState<StoreReadiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [reloadToken, setReloadToken] = useState(0);
+  const [_reloadToken, setReloadToken] = useState(0);
   const [publishing, setPublishing] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -413,7 +413,7 @@ export function SetupChecklist({
     return () => {
       active = false;
     };
-  }, [reloadToken]);
+  }, []);
 
   const retryLoad = () => {
     setLoading(true);
