@@ -322,172 +322,13 @@ vi.mock('react-native', () => ({
 }));
 
 import StoreSettingsScreen from '@/app/(admin)/store-settings';
-import {
-  buildBaselineFromMerchant,
-  buildInitialFormValues,
-  buildMerchantUpdatePayload,
-} from '@/components/store-settings/store-settings-payload';
 import { COUNTRIES } from '@/constants/countries';
-import type { Merchant } from '@/hooks/useMerchant';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 // COUNTRIES is sorted by name, so the UI fallback default is COUNTRIES[0]
 // (not necessarily Nigeria). Reference it directly so the tests stay correct
 // if the country list changes.
 const DEFAULT_COUNTRY = COUNTRIES[0];
-
-const baselineForm = {
-  business_name: 'Baci Foods',
-  phone: '+2348012345678',
-  support_phone: '+2347000000000',
-  support_email: 'support@usebaci.com',
-  business_address: '12 Allen Avenue',
-  country: 'NG',
-  payout_currency: 'NGN',
-  slug: 'baci-foods',
-};
-
-describe('buildMerchantUpdatePayload', () => {
-  it('returns only the changed column when a single field is edited', () => {
-    const payload = buildMerchantUpdatePayload(baselineForm, {
-      ...baselineForm,
-      business_name: 'Baci Foods Ltd',
-    });
-
-    expect(payload).toEqual({ business_name: 'Baci Foods Ltd' });
-  });
-
-  it('preserves phone and support_phone as separate columns', () => {
-    const payload = buildMerchantUpdatePayload(baselineForm, {
-      ...baselineForm,
-      support_phone: '+2349999999999',
-    });
-
-    expect(payload).toEqual({ support_phone: '+2349999999999' });
-    expect(payload).not.toHaveProperty('phone');
-  });
-
-  it('returns an empty object when nothing changed', () => {
-    expect(
-      buildMerchantUpdatePayload(baselineForm, { ...baselineForm })
-    ).toEqual({});
-  });
-
-  it('includes every distinct edited column', () => {
-    const payload = buildMerchantUpdatePayload(baselineForm, {
-      ...baselineForm,
-      phone: '+2340000000001',
-      support_phone: '+2340000000002',
-    });
-
-    expect(payload).toEqual({
-      phone: '+2340000000001',
-      support_phone: '+2340000000002',
-    });
-  });
-
-  it('copies a newly entered primary phone into support_phone when no public contact exists', () => {
-    const payload = buildMerchantUpdatePayload(
-      { ...baselineForm, phone: '', support_email: '', support_phone: '' },
-      {
-        ...baselineForm,
-        phone: '+2340000000001',
-        support_email: '',
-        support_phone: '',
-      }
-    );
-
-    expect(payload).toEqual({
-      phone: '+2340000000001',
-      support_phone: '+2340000000001',
-    });
-  });
-});
-
-function makeMerchant(overrides: Partial<Merchant> = {}): Merchant {
-  return {
-    id: 'merchant-1',
-    business_name: 'Baci Foods',
-    phone: '+2348012345678',
-    support_phone: '+2347000000000',
-    support_email: 'support@usebaci.com',
-    business_address: '12 Allen Avenue',
-    country: 'NG',
-    payout_currency: 'NGN',
-    slug: 'baci-foods',
-    email: 'owner@usebaci.com',
-    updated_at: '2026-06-17T08:00:00.000Z',
-    ...overrides,
-  } as Merchant;
-}
-
-describe('buildBaselineFromMerchant', () => {
-  it('baselines nullable columns to empty strings, not UI fallbacks', () => {
-    // A brand-new merchant with no country/currency persisted yet.
-    const baseline = buildBaselineFromMerchant(
-      makeMerchant({ country: null, payout_currency: null })
-    );
-
-    // The baseline reflects the REAL persisted (empty) value so saving the
-    // visible default still produces a diff.
-    expect(baseline.country).toBe('');
-    expect(baseline.payout_currency).toBe('');
-  });
-
-  it('captures persisted column values verbatim when present', () => {
-    const baseline = buildBaselineFromMerchant(makeMerchant());
-
-    expect(baseline).toMatchObject({
-      business_name: 'Baci Foods',
-      country: 'NG',
-      payout_currency: 'NGN',
-      slug: 'baci-foods',
-    });
-  });
-});
-
-describe('buildInitialFormValues', () => {
-  it('applies the default country/currency so the picker is never empty', () => {
-    const form = buildInitialFormValues(
-      makeMerchant({ country: null, payout_currency: null })
-    );
-
-    expect(form.country).toBe(DEFAULT_COUNTRY.code);
-    expect(form.currency).toBe(DEFAULT_COUNTRY.currency);
-  });
-
-
-  it('does not use the auth email as an editable support_email fallback', () => {
-    const form = buildInitialFormValues(
-      makeMerchant({ email: 'owner@usebaci.com', support_email: null })
-    );
-
-    expect(form.email).toBe('');
-  });
-
-  it('writes the displayed default when the persisted column was null', () => {
-    // The regression: country=null baselines to '' but the form shows the
-    // default, so the diff must still write the column.
-    const merchant = makeMerchant({ country: null, payout_currency: null });
-    const baseline = buildBaselineFromMerchant(merchant);
-    const form = buildInitialFormValues(merchant);
-
-    const payload = buildMerchantUpdatePayload(baseline, {
-      business_name: form.businessName,
-      phone: form.phone,
-      support_phone: form.supportPhone,
-      support_email: form.email,
-      business_address: form.address,
-      country: form.country,
-      payout_currency: form.currency,
-      slug: form.slug,
-    });
-
-    // Saving the visible default now writes the column instead of no-op'ing.
-    expect(payload.country).toBe(DEFAULT_COUNTRY.code);
-    expect(payload.payout_currency).toBe(DEFAULT_COUNTRY.currency);
-  });
-});
 
 describe('StoreSettingsScreen', () => {
   beforeEach(() => {
@@ -574,6 +415,29 @@ describe('StoreSettingsScreen', () => {
       'updated_at',
       '2026-06-17T08:00:00.000Z'
     );
+  });
+
+  it('shows a conflict error when the OCC guard detects a stale write', async () => {
+    mocks.selectResult.data = [];
+
+    render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Baci Foods Ltd' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Update Failed')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText(
+        'These settings changed elsewhere. Reopen the page and try again.'
+      )
+    ).toBeInTheDocument();
   });
 
   it('keeps phone and support_phone as distinct columns instead of collapsing them', async () => {

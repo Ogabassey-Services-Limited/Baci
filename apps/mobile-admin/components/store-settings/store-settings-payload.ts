@@ -115,6 +115,7 @@ export function buildMerchantUpdatePayload(
   if (
     !baseline.support_email &&
     !baseline.support_phone &&
+    !formValues.support_email &&
     !formValues.support_phone &&
     formValues.phone.trim().length > 0 &&
     formValues.phone !== baseline.phone

@@ -75,6 +75,23 @@ describe('store settings payload helpers', () => {
     });
   });
 
+  it('does not copy primary phone when support email is provided', () => {
+    expect(
+      buildMerchantUpdatePayload(
+        { ...baselineForm, phone: '', support_email: '', support_phone: '' },
+        {
+          ...baselineForm,
+          phone: '+2340000000001',
+          support_email: 'support@usebaci.com',
+          support_phone: '',
+        }
+      )
+    ).toEqual({
+      phone: '+2340000000001',
+      support_email: 'support@usebaci.com',
+    });
+  });
+
   it('baselines nullable columns to empty strings, not UI fallbacks', () => {
     const baseline = buildBaselineFromMerchant(
       makeMerchant({ country: null, payout_currency: null })
