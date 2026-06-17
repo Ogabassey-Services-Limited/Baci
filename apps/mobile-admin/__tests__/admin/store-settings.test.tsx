@@ -321,10 +321,20 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
-import StoreSettingsScreen, {
+import StoreSettingsScreen from '@/app/(admin)/store-settings';
+import {
+  buildBaselineFromMerchant,
+  buildInitialFormValues,
   buildMerchantUpdatePayload,
-} from '@/app/(admin)/store-settings';
+} from '@/components/store-settings/store-settings-payload';
+import { COUNTRIES } from '@/constants/countries';
+import type { Merchant } from '@/hooks/useMerchant';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
+
+// COUNTRIES is sorted by name, so the UI fallback default is COUNTRIES[0]
+// (not necessarily Nigeria). Reference it directly so the tests stay correct
+// if the country list changes.
+const DEFAULT_COUNTRY = COUNTRIES[0];
 
 const baselineForm = {
   business_name: 'Baci Foods',
@@ -374,6 +384,81 @@ describe('buildMerchantUpdatePayload', () => {
       phone: '+2340000000001',
       support_phone: '+2340000000002',
     });
+  });
+});
+
+function makeMerchant(overrides: Partial<Merchant> = {}): Merchant {
+  return {
+    id: 'merchant-1',
+    business_name: 'Baci Foods',
+    phone: '+2348012345678',
+    support_phone: '+2347000000000',
+    support_email: 'support@usebaci.com',
+    business_address: '12 Allen Avenue',
+    country: 'NG',
+    payout_currency: 'NGN',
+    slug: 'baci-foods',
+    email: 'owner@usebaci.com',
+    ...overrides,
+  } as Merchant;
+}
+
+describe('buildBaselineFromMerchant', () => {
+  it('baselines nullable columns to empty strings, not UI fallbacks', () => {
+    // A brand-new merchant with no country/currency persisted yet.
+    const baseline = buildBaselineFromMerchant(
+      makeMerchant({ country: null, payout_currency: null })
+    );
+
+    // The baseline reflects the REAL persisted (empty) value so saving the
+    // visible default still produces a diff.
+    expect(baseline.country).toBe('');
+    expect(baseline.payout_currency).toBe('');
+  });
+
+  it('captures persisted column values verbatim when present', () => {
+    const baseline = buildBaselineFromMerchant(makeMerchant());
+
+    expect(baseline).toMatchObject({
+      business_name: 'Baci Foods',
+      country: 'NG',
+      payout_currency: 'NGN',
+      slug: 'baci-foods',
+    });
+  });
+});
+
+describe('buildInitialFormValues', () => {
+  it('applies the default country/currency so the picker is never empty', () => {
+    const form = buildInitialFormValues(
+      makeMerchant({ country: null, payout_currency: null })
+    );
+
+    expect(form.country).toBe(DEFAULT_COUNTRY.code);
+    expect(form.currency).toBe(DEFAULT_COUNTRY.currency);
+  });
+
+  it('writes the displayed default when the persisted column was null', () => {
+    // The regression: country=null baselines to '' but the form shows the
+    // default, so the diff must still write the column.
+    const merchant = makeMerchant({ country: null, payout_currency: null });
+    const baseline = buildBaselineFromMerchant(merchant);
+    const form = buildInitialFormValues(merchant);
+
+    const payload = buildMerchantUpdatePayload(baseline, {
+      business_name: form.businessName,
+      phone: form.phone,
+      support_phone: form.supportPhone,
+      support_email: form.email,
+      business_address: form.address,
+      country: form.country,
+      payout_currency: form.currency,
+      slug: form.slug,
+    });
+
+    // Saving the visible default now writes the column instead of no-op'ing.
+    expect(payload.country).toBe(DEFAULT_COUNTRY.code);
+    expect(payload.payout_currency).toBe(DEFAULT_COUNTRY.currency);
   });
 });
 
@@ -481,6 +566,50 @@ describe('StoreSettingsScreen', () => {
     expect(await screen.findByText('Success!')).toBeInTheDocument();
     // No edits → no write at all.
     expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('writes the default country/currency when they were never persisted', async () => {
+    // Brand-new merchant: country/currency are null in the DB but the form
+    // shows the default. Saving must write the defaults, not no-op.
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        business_address: '12 Allen Avenue',
+        business_name: 'Baci Foods',
+        country: null,
+        payout_currency: null,
+        email: 'support@usebaci.com',
+        logo_url: 'https://example.com/logo.png',
+        phone: '+2348012345678',
+        slug: 'baci-foods',
+        support_email: 'support@usebaci.com',
+        support_phone: '+2347000000000',
+      },
+      isLoading: false,
+    });
+
+    render(<StoreSettingsScreen />);
+
+    // The picker shows the default even though nothing is persisted.
+    expect(
+      screen.getByText(`Country: ${DEFAULT_COUNTRY.name}`)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(`Currency: ${DEFAULT_COUNTRY.currency}`)
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    });
+    // Saving the visible default persists the columns instead of an empty diff.
+    expect(mocks.update).toHaveBeenCalledWith({
+      country: DEFAULT_COUNTRY.code,
+      payout_currency: DEFAULT_COUNTRY.currency,
+    });
   });
 
   it('does not show the status modal when native subscription management returns false', async () => {
