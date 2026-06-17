@@ -1,17 +1,18 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StatusBar, Text, View } from 'react-native';
 import { StoreSettingsDetailsCard } from '@/components/store-settings/StoreSettingsDetailsCard';
+import { StoreSettingsBackButton } from '@/components/store-settings/StoreSettingsBackButton';
+import { StoreSettingsSaveButton } from '@/components/store-settings/StoreSettingsSaveButton';
 import { StoreSubscriptionCard } from '@/components/store-settings/StoreSubscriptionCard';
+import { storeSettingsStyles as styles } from '@/components/store-settings/store-settings.styles';
+import {
+  buildBaselineFromMerchant,
+  buildInitialFormValues,
+  buildMerchantUpdatePayload,
+  type StoreSettingsFormValues,
+} from '@/components/store-settings/store-settings-payload';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { CountryPickerModal } from '@/components/ui/CountryPickerModal';
 import { LogoPicker } from '@/components/ui/LogoPicker';
@@ -21,7 +22,6 @@ import {
   type StatusModalState,
 } from '@/components/ui/StatusModal';
 import { COUNTRIES } from '@/constants/countries';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCachedImageUri } from '@/hooks/useCachedImageUri';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
@@ -46,6 +46,7 @@ export default function StoreSettingsScreen() {
   });
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
+  const [supportPhone, setSupportPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [country, setCountry] = useState(COUNTRIES[0].code);
@@ -53,6 +54,10 @@ export default function StoreSettingsScreen() {
   const [slug, setSlug] = useState('');
   const [isSlugEdited, setIsSlugEdited] = useState(false);
   const [syncedMerchant, setSyncedMerchant] = useState<typeof merchant | null>(
+    null
+  );
+  // Snapshot of the form values as loaded, used to diff only the edited columns.
+  const [baseline, setBaseline] = useState<StoreSettingsFormValues | null>(
     null
   );
   const { handleManageSubscription } = useSubscriptionManagement({
@@ -63,25 +68,25 @@ export default function StoreSettingsScreen() {
   // form never paints a stale frame (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
   if (merchant && merchant !== syncedMerchant) {
     setSyncedMerchant(merchant);
-    setBusinessName(merchant.business_name || '');
-    setPhone(merchant.phone || merchant.support_phone || '');
-    setEmail(merchant.email || merchant.support_email || '');
-    setAddress(merchant.business_address || '');
 
-    const initialCountry = merchant.country || COUNTRIES[0].code;
-    setCountry(initialCountry);
-
-    const defaultCurrencyForCountry = COUNTRIES.find(
-      (c) => c.code === initialCountry || c.name === initialCountry
-    )?.currency;
-    setCurrency(
-      merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
-    );
-
-    setSlug(merchant.slug || '');
+    // Form state uses UI fallbacks (e.g. a default country/currency) so the
+    // picker is never empty.
+    const initialForm = buildInitialFormValues(merchant);
+    setBusinessName(initialForm.businessName);
+    setPhone(initialForm.phone);
+    setSupportPhone(initialForm.supportPhone);
+    setEmail(initialForm.email);
+    setAddress(initialForm.address);
+    setCountry(initialForm.country);
+    setCurrency(initialForm.currency);
+    setSlug(initialForm.slug);
     if (merchant.slug) setIsSlugEdited(true);
+
+    // The baseline diffs against the merchant's REAL persisted columns (null →
+    // empty string), never the UI fallback. Otherwise a merchant whose country
+    // is null would baseline to the visible default, so saving that default
+    // would produce an empty diff and never write the column.
+    setBaseline(buildBaselineFromMerchant(merchant));
   }
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
@@ -114,21 +119,49 @@ export default function StoreSettingsScreen() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!merchant?.id) throw new Error('No merchant found');
-      const { error } = await supabase
+      if (!merchant?.id || !baseline) throw new Error('No merchant found');
+
+      // Build the payload from a dirty-field diff against the loaded snapshot so
+      // only edited columns are written. This stops a stale full-form snapshot
+      // from reverting columns the user never touched (the recurring identity
+      // drift) and keeps phone/support_phone as independent columns.
+      const payload = buildMerchantUpdatePayload(baseline, {
+        business_name: businessName,
+        phone,
+        support_phone: supportPhone,
+        support_email: email,
+        business_address: address,
+        country,
+        payout_currency: currency,
+        slug,
+      });
+
+      // Nothing changed — skip the write entirely.
+      if (Object.keys(payload).length === 0) {
+        return;
+      }
+
+      let query = supabase
         .from('merchants')
-        .update({
-          business_name: businessName,
-          phone: phone,
-          support_phone: phone,
-          support_email: email,
-          business_address: address,
-          country: country,
-          payout_currency: currency,
-          slug: slug,
-        })
+        .update(payload)
         .eq('id', merchant.id);
+
+      // Optimistic-concurrency guard: only overwrite the row we actually loaded.
+      // If the row moved on (updated_at differs), the filter matches no rows and
+      // we surface a conflict instead of silently clobbering the newer write.
+      const loadedUpdatedAt = syncedMerchant?.updated_at;
+      if (loadedUpdatedAt) {
+        query = query.eq('updated_at', loadedUpdatedAt);
+      }
+
+      const { data, error } = await query.select('id');
       if (error) throw error;
+
+      if (loadedUpdatedAt && (!data || data.length === 0)) {
+        throw new Error(
+          'These settings changed elsewhere. Reopen the page and try again.'
+        );
+      }
     },
     onSuccess: () => {
       invalidateMerchantQueries();
@@ -181,31 +214,17 @@ export default function StoreSettingsScreen() {
         options={{
           title: 'Store Settings',
           headerLeft: () => (
-            <Pressable
-              accessibilityLabel="Back"
-              accessibilityRole="button"
+            <StoreSettingsBackButton
+              color={colors.text}
               onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </Pressable>
+            />
           ),
           headerRight: () => (
-            <Pressable
-              accessibilityLabel="Save store settings"
-              accessibilityRole="button"
+            <StoreSettingsSaveButton
+              colors={colors}
+              isSaving={saveMutation.isPending}
               onPress={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              style={styles.saveButton}
-            >
-              {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={[styles.saveText, { color: colors.primary }]}>
-                  Save
-                </Text>
-              )}
-            </Pressable>
+            />
           ),
         }}
       />
@@ -244,9 +263,11 @@ export default function StoreSettingsScreen() {
           onOpenCountryPicker={() => setShowCountryModal(true)}
           onPhoneChange={setPhone}
           onSlugChange={handleSlugChange}
+          onSupportPhoneChange={setSupportPhone}
           phone={phone}
           shadowStyle={shadows.sm}
           slug={slug}
+          supportPhone={supportPhone}
         />
 
         <StoreSubscriptionCard
@@ -271,24 +292,3 @@ export default function StoreSettingsScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  backButton: { padding: SPACING.sm, marginLeft: -SPACING.sm },
-  saveButton: { padding: SPACING.sm },
-  saveText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },
-  card: {
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.lg,
-    padding: SPACING.lg,
-  },
-  label: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginBottom: SPACING.sm,
-  },
-});
