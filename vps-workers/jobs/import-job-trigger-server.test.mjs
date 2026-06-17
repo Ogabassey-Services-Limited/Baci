@@ -130,11 +130,10 @@ describe('import job trigger server', () => {
   });
 
   it('returns 413 for oversized node request bodies', async () => {
-    const port = 3928;
     const server = startImportJobTriggerServer({
       env: {
         IMPORT_JOB_TRIGGER_HOST: '127.0.0.1',
-        IMPORT_JOB_TRIGGER_PORT: String(port),
+        IMPORT_JOB_TRIGGER_PORT: '0',
         IMPORT_JOB_TRIGGER_SECRET: 'secret',
       },
       logger: noopLogger,
@@ -142,6 +141,8 @@ describe('import job trigger server', () => {
 
     try {
       await once(server, 'listening');
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
 
       const response = await sendNodeRequest({
         body: 'x'.repeat(4097),
@@ -158,10 +159,10 @@ describe('import job trigger server', () => {
     }
   });
 
-  it('passes the target job id to the spawned import worker environment', () => {
+  it('passes the target job id to the spawned import worker environment', async () => {
     let spawnCall;
 
-    const result = spawnImportJobWorker({
+    const result = await spawnImportJobWorker({
       env: { EXISTING_ENV: 'present' },
       logger: noopLogger,
       payload: {
@@ -176,6 +177,7 @@ describe('import job trigger server', () => {
 
     assert.equal(result.pid, 1234);
     assert.equal(spawnCall.command, 'flock');
+    assert.deepEqual(spawnCall.args.slice(0, 2), ['-w', '30']);
     assert.equal(spawnCall.options.stdio, 'ignore');
     assert.equal(
       spawnCall.options.env.IMPORT_JOB_TRIGGER_JOB_ID,
@@ -185,10 +187,10 @@ describe('import job trigger server', () => {
     assert.equal(spawnCall.options.env.NODE_ENV, 'production');
   });
 
-  it('redirects worker output to the import worker append log', () => {
+  it('redirects worker output to the import worker append log', async () => {
     let spawnCall;
 
-    spawnImportJobWorker({
+    await spawnImportJobWorker({
       logger: noopLogger,
       payload: {
         jobId: '11111111-1111-4111-8111-111111111111',
@@ -205,5 +207,28 @@ describe('import job trigger server', () => {
       spawnCall.args.at(-1),
       /process-import-jobs\.sh' >> '.+process-import-jobs\.log' 2>&1/
     );
+  });
+
+  it('returns 503 when the worker process cannot be spawned', async () => {
+    const handler = createImportJobTriggerHandler({
+      env: { IMPORT_JOB_TRIGGER_SECRET: 'secret' },
+      logger: noopLogger,
+      spawnWorker: async () => {
+        throw new Error('spawn failed');
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        headers: { authorization: 'Bearer secret' },
+        body: {
+          jobId: '11111111-1111-4111-8111-111111111111',
+          source: 'api',
+        },
+      })
+    );
+
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: 'worker_start_failed' });
   });
 });

@@ -100,7 +100,14 @@ export function spawnImportJobWorker({
 
   const child = spawnFn(
     'flock',
-    [join(locksDir, 'process-import-jobs.lock'), 'bash', '-lc', workerCommand],
+    [
+      '-w',
+      '30',
+      join(locksDir, 'process-import-jobs.lock'),
+      'bash',
+      '-lc',
+      workerCommand,
+    ],
     {
       cwd: WORKER_ROOT,
       detached: true,
@@ -113,22 +120,24 @@ export function spawnImportJobWorker({
       stdio: 'ignore',
     }
   );
-  child.on?.('error', (error) => {
-    logger.error?.({
-      message: 'Import job trigger failed to start worker process',
-      error,
+  const waitForSpawn =
+    typeof child.once === 'function'
+      ? new Promise((resolve, reject) => {
+          child.once('spawn', resolve);
+          child.once('error', reject);
+        })
+      : Promise.resolve();
+
+  return waitForSpawn.then(() => {
+    child.unref();
+    logger.info?.({
+      message: 'Import job trigger started worker process',
       jobId: payload.jobId,
+      pid: child.pid,
       source: payload.source,
     });
+    return { pid: child.pid };
   });
-  child.unref();
-  logger.info?.({
-    message: 'Import job trigger started worker process',
-    jobId: payload.jobId,
-    pid: child.pid,
-    source: payload.source,
-  });
-  return { pid: child.pid };
 }
 
 export function createImportJobTriggerHandler({
@@ -167,8 +176,18 @@ export function createImportJobTriggerHandler({
       return jsonResponse({ error: 'invalid_payload' }, 400);
     }
 
-    spawnWorker(payload);
-    return jsonResponse({ accepted: true, status: 'started' }, 202);
+    try {
+      await spawnWorker(payload);
+      return jsonResponse({ accepted: true, status: 'started' }, 202);
+    } catch (error) {
+      logger.error?.({
+        message: 'Import job trigger failed to start worker process',
+        error,
+        jobId: payload.jobId,
+        source: payload.source,
+      });
+      return jsonResponse({ error: 'worker_start_failed' }, 503);
+    }
   };
 }
 
