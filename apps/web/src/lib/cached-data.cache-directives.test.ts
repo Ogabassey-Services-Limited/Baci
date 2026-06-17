@@ -1,108 +1,43 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type * as TypeScript from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+const require = createRequire(import.meta.url);
+const ts = require('typescript') as typeof TypeScript;
 const CACHED_DATA_SOURCE = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), 'cached-data.ts'),
   'utf8'
 );
+const CACHED_DATA_AST = ts.createSourceFile(
+  'cached-data.ts',
+  CACHED_DATA_SOURCE,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TS
+);
 
 function getFunctionSource(functionName: string): string {
-  const start = CACHED_DATA_SOURCE.indexOf(
-    `export async function ${functionName}(`
-  );
-  if (start === -1) {
+  let match: TypeScript.FunctionDeclaration | undefined;
+
+  function visit(node: TypeScript.Node): void {
+    if (match) return;
+    if (ts.isFunctionDeclaration(node) && node.name?.text === functionName) {
+      match = node;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(CACHED_DATA_AST);
+
+  if (!match) {
     throw new Error(`Unable to locate ${functionName} in cached-data.ts`);
   }
 
-  const paramsStart = CACHED_DATA_SOURCE.indexOf('(', start);
-  if (paramsStart === -1) {
-    throw new Error(
-      `Unable to locate ${functionName} params in cached-data.ts`
-    );
-  }
-
-  let parenDepth = 0;
-  let signatureEnd = -1;
-  for (let index = paramsStart; index < CACHED_DATA_SOURCE.length; index += 1) {
-    const char = CACHED_DATA_SOURCE[index];
-    if (char === '(') parenDepth += 1;
-    if (char === ')') {
-      parenDepth -= 1;
-      if (parenDepth === 0) {
-        signatureEnd = index;
-        break;
-      }
-    }
-  }
-
-  if (signatureEnd === -1) {
-    throw new Error(
-      `Unable to locate ${functionName} signature end in cached-data.ts`
-    );
-  }
-
-  const bodyStart = CACHED_DATA_SOURCE.indexOf('{', signatureEnd);
-  if (bodyStart === -1) {
-    throw new Error(`Unable to locate ${functionName} body in cached-data.ts`);
-  }
-
-  let depth = 0;
-  let quote: '"' | "'" | '`' | null = null;
-  let inBlockComment = false;
-  let inLineComment = false;
-
-  for (let index = bodyStart; index < CACHED_DATA_SOURCE.length; index += 1) {
-    const char = CACHED_DATA_SOURCE[index];
-    const nextChar = CACHED_DATA_SOURCE[index + 1];
-    const previousChar = CACHED_DATA_SOURCE[index - 1];
-
-    if (inLineComment) {
-      if (char === '\n') inLineComment = false;
-      continue;
-    }
-
-    if (inBlockComment) {
-      if (char === '*' && nextChar === '/') {
-        inBlockComment = false;
-        index += 1;
-      }
-      continue;
-    }
-
-    if (quote) {
-      if (char === quote && previousChar !== '\\') quote = null;
-      continue;
-    }
-
-    if (char === '/' && nextChar === '/') {
-      inLineComment = true;
-      index += 1;
-      continue;
-    }
-
-    if (char === '/' && nextChar === '*') {
-      inBlockComment = true;
-      index += 1;
-      continue;
-    }
-
-    if (char === '"' || char === "'" || char === '`') {
-      quote = char;
-      continue;
-    }
-
-    if (char === '{') depth += 1;
-    if (char === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        return CACHED_DATA_SOURCE.slice(start, index + 1);
-      }
-    }
-  }
-
-  throw new Error(`Unable to locate ${functionName} end in cached-data.ts`);
+  return CACHED_DATA_SOURCE.slice(match.getStart(CACHED_DATA_AST), match.end);
 }
 
 describe('cached-data cache directives', () => {
