@@ -11,10 +11,7 @@ import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabasse
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
-import {
-  buildOgabasseyPdpCriticalProduct,
-  getOgabasseyPdpImageVersion,
-} from '@/components/storefront/ogabassey/pdp/critical-product';
+import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import {
@@ -499,13 +496,6 @@ function getDirectProductPreloadKey(src: string): string {
   return `direct:${src}`;
 }
 
-function getSameOriginProductPreloadKey(
-  productSlug: string,
-  imageVersion: string
-): string {
-  return `same-origin:${productSlug.trim().toLowerCase()}:${imageVersion}`;
-}
-
 function parseRouteProductNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -790,30 +780,12 @@ async function getProductRouteControl(
       earlyPreloadResult.cachedProduct
     ) {
       try {
-        const hintProductSlug =
-          earlyPreloadResult.cachedProduct.slug || productSlug;
-        const hintImageVersion = getOgabasseyPdpImageVersion(
-          earlyPreloadResult.cachedProduct
+        preloadOgabasseyPdpProductResources({
+          src: earlyPreloadResult.primaryImage,
+        });
+        preloadedProductResourceKey = getDirectProductPreloadKey(
+          earlyPreloadResult.primaryImage
         );
-
-        if (hintImageVersion) {
-          preloadOgabasseyPdpProductResources({
-            imageVersion: hintImageVersion,
-            productSlug: hintProductSlug,
-            src: null,
-          });
-          preloadedProductResourceKey = getSameOriginProductPreloadKey(
-            hintProductSlug,
-            hintImageVersion
-          );
-        } else {
-          preloadOgabasseyPdpProductResources({
-            src: earlyPreloadResult.primaryImage,
-          });
-          preloadedProductResourceKey = getDirectProductPreloadKey(
-            earlyPreloadResult.primaryImage
-          );
-        }
       } catch (error) {
         console.warn(
           'Unable to preload OgaBassey PDP resources early:',
@@ -1371,52 +1343,25 @@ export default async function CategoryProductPage({
   }
 
   const primaryProductImage = product.imageLarge || product.image || null;
-  const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(slug);
-  const normalizedSlug = slug.trim().toLowerCase();
-  const normalizedOgaBasseyDomain = OGABASSEY_DOMAIN.toLowerCase();
-  const isOgaBasseyCustomDomain = normalizedSlug === normalizedOgaBasseyDomain;
   const criticalProduct =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
-  const canUseSameOriginProductImage = Boolean(
-    knownOgaBasseyMerchantId && criticalProduct?.imageVersion
-  );
-  const pageOwnsProductPreload =
-    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
-    (!knownOgaBasseyMerchantId ||
-      isOgaBasseyCustomDomain ||
-      canUseSameOriginProductImage);
-  const pagePreloadProductImage =
-    pageOwnsProductPreload && !canUseSameOriginProductImage
-      ? primaryProductImage
-      : null;
+  const pageOwnsProductPreload = merchant.template_id === OGABASSEY_TEMPLATE_ID;
+  const pagePreloadProductImage = pageOwnsProductPreload
+    ? primaryProductImage
+    : null;
   const pagePreloadResourceKey =
-    pageOwnsProductPreload &&
-    canUseSameOriginProductImage &&
-    criticalProduct?.imageVersion
-      ? getSameOriginProductPreloadKey(
-          criticalProduct.slug,
-          criticalProduct.imageVersion
-        )
-      : pagePreloadProductImage
-        ? getDirectProductPreloadKey(pagePreloadProductImage)
-        : null;
+    pagePreloadProductImage !== null
+      ? getDirectProductPreloadKey(pagePreloadProductImage)
+      : null;
   const shouldPreloadProductImage =
     pagePreloadResourceKey !== null &&
     pagePreloadResourceKey !== preloadedProductResourceKey;
 
   try {
-    if (shouldPreloadProductImage) {
-      if (canUseSameOriginProductImage && criticalProduct?.imageVersion) {
-        preloadOgabasseyPdpProductResources({
-          imageVersion: criticalProduct.imageVersion,
-          productSlug: criticalProduct.slug,
-          src: null,
-        });
-      } else if (pagePreloadProductImage) {
-        preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
-      }
+    if (shouldPreloadProductImage && pagePreloadProductImage) {
+      preloadOgabasseyPdpProductResources({ src: pagePreloadProductImage });
     }
   } catch (error) {
     console.warn(
@@ -1439,9 +1384,6 @@ export default async function CategoryProductPage({
           <OgabasseyPdpCriticalShell
             basePath={getCategoryProductBasePath(slug)}
             basePathPromise={criticalBasePathPromise}
-            imageDelivery={
-              canUseSameOriginProductImage ? 'same-origin' : 'direct'
-            }
             product={criticalProduct}
           >
             <Suspense fallback={null}>
