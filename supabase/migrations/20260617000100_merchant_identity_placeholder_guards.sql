@@ -5,6 +5,26 @@
 -- updated rows ARE checked immediately. Follow-up: data-cleanup pass across all merchants, then VALIDATE CONSTRAINT.
 -- Patterns are intentionally tight (distinctive dummy fragments) to avoid rejecting legitimate addresses.
 
+-- Clean known dirty rows before adding NOT VALID constraints. PostgreSQL still
+-- enforces NOT VALID CHECK constraints for future UPDATEs, so leaving existing
+-- placeholder values would block unrelated merchant settings saves.
+UPDATE public.merchants
+   SET business_address = NULL
+ WHERE business_address ILIKE '%New City, State%'
+    OR business_address ILIKE '%Oak Avenue, New City%';
+
+UPDATE public.merchants
+   SET phone = NULL
+ WHERE btrim(phone) IN ('1234567890', '0000000000');
+
+UPDATE public.merchants
+   SET support_phone = NULL
+ WHERE btrim(support_phone) IN ('1234567890', '0000000000');
+
+UPDATE public.merchants
+   SET registered_address = registered_address - 'street'
+ WHERE registered_address->>'street' ILIKE '123 Main St%';
+
 ALTER TABLE public.merchants
   ADD CONSTRAINT merchants_business_address_not_placeholder
   CHECK (

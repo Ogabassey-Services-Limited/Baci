@@ -45,6 +45,14 @@ BEGIN
     RAISE EXCEPTION 'record_cac_verification is missing the cac_identity_conflict guard';
   END IF;
 
+  IF position('UPPER(BTRIM' in v_def) = 0 THEN
+    RAISE EXCEPTION 'record_cac_verification does not canonicalize CAC identity comparisons';
+  END IF;
+
+  IF position('ERRCODE = ''PT409''' in v_def) = 0 THEN
+    RAISE EXCEPTION 'record_cac_verification does not expose the app-visible PT409 conflict code';
+  END IF;
+
   RAISE NOTICE 'OK: merchant identity drift guards enforced';
 END;
 $test$ LANGUAGE plpgsql;

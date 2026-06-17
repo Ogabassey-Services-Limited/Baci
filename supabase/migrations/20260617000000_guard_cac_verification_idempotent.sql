@@ -13,8 +13,12 @@ CREATE OR REPLACE FUNCTION "public"."record_cac_verification"("p_merchant_id" "u
     AS $func$
 DECLARE
   v_caller_uid    UUID;
-  v_existing_rc   TEXT;
-  v_existing_name TEXT;
+  v_existing_rc      TEXT;
+  v_existing_name    TEXT;
+  v_existing_rc_key   TEXT;
+  v_existing_name_key TEXT;
+  v_incoming_rc_key   TEXT;
+  v_incoming_name_key TEXT;
 BEGIN
   v_caller_uid := auth.uid();
   IF NOT EXISTS (SELECT 1 FROM merchants WHERE id = p_merchant_id AND user_id = v_caller_uid) THEN
@@ -28,12 +32,19 @@ BEGIN
    WHERE id = p_merchant_id
    FOR UPDATE;
 
+  v_existing_rc_key := NULLIF(UPPER(BTRIM(v_existing_rc)), '');
+  v_existing_name_key := NULLIF(UPPER(BTRIM(v_existing_name)), '');
+  v_incoming_rc_key := NULLIF(UPPER(BTRIM(p_rc_number)), '');
+  v_incoming_name_key := NULLIF(UPPER(BTRIM(p_cac_approved_name)), '');
+
   -- Conflict: an established (non-null / non-empty) identity differs from what we are about to write.
-  -- (NULL/empty existing values are first-time verifications and may be set freely.)
-  IF (NULLIF(BTRIM(v_existing_rc), '')     IS NOT NULL AND v_existing_rc   IS DISTINCT FROM p_rc_number)
-     OR (NULLIF(BTRIM(v_existing_name), '') IS NOT NULL AND v_existing_name IS DISTINCT FROM p_cac_approved_name) THEN
+  -- Compare canonical values so harmless casing/spacing differences remain idempotent.
+  IF (v_existing_rc_key IS NOT NULL AND v_existing_rc_key IS DISTINCT FROM v_incoming_rc_key)
+     OR (v_existing_name_key IS NOT NULL AND v_existing_name_key IS DISTINCT FROM v_incoming_name_key) THEN
     RAISE EXCEPTION 'cac_identity_conflict'
-      USING DETAIL = 'CAC verification would overwrite an existing, different legal identity for this merchant.';
+      USING ERRCODE = 'PT409',
+            DETAIL = 'CAC verification would overwrite an existing, different legal identity for this merchant.',
+            HINT = 'Confirm the CAC RC number and approved name match the merchant legal identity before retrying.';
   END IF;
 
   INSERT INTO merchant_verifications

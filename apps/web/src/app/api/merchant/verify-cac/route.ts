@@ -17,6 +17,7 @@ const ALLOWED_MIME_TYPES = [
 ] as const;
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const CAC_IDENTITY_CONFLICT_SQLSTATE = 'PT409';
 
 // Magic byte signatures for allowed MIME types — guards against spoofed file.type
 const FILE_SIGNATURES: Record<string, number[][]> = {
@@ -30,6 +31,16 @@ function validateFileMagicBytes(buffer: Uint8Array, mimeType: string): boolean {
   const signatures = FILE_SIGNATURES[mimeType];
   if (!signatures) return false;
   return signatures.some((sig) => sig.every((byte, i) => buffer[i] === byte));
+}
+
+function isCacIdentityConflictError(
+  error: unknown
+): error is { code: string; details?: string; message?: string } {
+  if (typeof error !== 'object' || error === null || !('code' in error)) {
+    return false;
+  }
+
+  return (error as { code?: unknown }).code === CAC_IDENTITY_CONFLICT_SQLSTATE;
 }
 
 function getExtension(mimeType: string): string {
@@ -223,6 +234,20 @@ export async function POST(request: NextRequest) {
       if (rpcError) {
         console.error('record_cac_verification error:', rpcError);
         await removeStorageFile(auth.supabase, storagePath);
+
+        if (isCacIdentityConflictError(rpcError)) {
+          return NextResponse.json(
+            {
+              code: 'CAC_IDENTITY_CONFLICT',
+              error: 'CAC identity conflict',
+              details:
+                rpcError.details ||
+                'CAC verification would overwrite an existing, different legal identity for this merchant.',
+            },
+            { status: 409 }
+          );
+        }
+
         return NextResponse.json(
           { error: 'Failed to record verification' },
           { status: 500 }
