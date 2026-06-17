@@ -1,7 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,6 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SocialMediaInput from '@/components/settings/SocialMediaInput';
+import SocialMediaRetryState from '@/components/settings/SocialMediaRetryState';
+import {
+  EMPTY_SOCIAL_MEDIA,
+  SOCIAL_MEDIA_FIELDS,
+} from '@/components/settings/social-media-fields';
 import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -20,80 +24,9 @@ import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { updateMerchantSettings } from '@/lib/merchant-settings';
 
-const EMPTY_SOCIAL_MEDIA: MerchantSocialMedia = {
-  instagram: '',
-  twitter: '',
-  facebook: '',
-  tiktok: '',
-  youtube: '',
-  pinterest: '',
-  linkedin: '',
-  snapchat: '',
-};
-
-type SocialMediaFieldConfig = {
-  platform: keyof MerchantSocialMedia;
-  label: string;
-  icon: ComponentProps<typeof Ionicons>['name'];
-  placeholder: string;
-  badge?: string;
-};
-
-const SOCIAL_MEDIA_FIELDS: readonly SocialMediaFieldConfig[] = [
-  {
-    platform: 'instagram',
-    label: 'Instagram Handle',
-    icon: 'logo-instagram',
-    placeholder: '@username',
-  },
-  {
-    platform: 'twitter',
-    label: 'Twitter/X Handle',
-    icon: 'logo-twitter',
-    placeholder: '@username',
-  },
-  {
-    platform: 'snapchat',
-    label: 'Snapchat Handle',
-    icon: 'logo-snapchat',
-    placeholder: '@username',
-    badge: 'NEW',
-  },
-  {
-    platform: 'facebook',
-    label: 'Facebook URL',
-    icon: 'logo-facebook',
-    placeholder: 'https://facebook.com/page',
-  },
-  {
-    platform: 'youtube',
-    label: 'YouTube URL',
-    icon: 'logo-youtube',
-    placeholder: 'https://youtube.com/@channel',
-  },
-  {
-    platform: 'pinterest',
-    label: 'Pinterest URL',
-    icon: 'logo-pinterest',
-    placeholder: 'https://pinterest.com/profile',
-  },
-  {
-    platform: 'tiktok',
-    label: 'TikTok Handle',
-    icon: 'logo-tiktok',
-    placeholder: '@username',
-  },
-  {
-    platform: 'linkedin',
-    label: 'LinkedIn URL',
-    icon: 'logo-linkedin',
-    placeholder: 'https://linkedin.com/company/...',
-  },
-] as const;
-
 export default function SocialMediaScreen() {
   const { colors, shadows } = useTheme();
-  const { merchant, isLoading, error } = useMerchant();
+  const { merchant, isLoading } = useMerchant();
   const router = useRouter();
   const queryClient = useQueryClient();
   const screenOptions = {
@@ -101,6 +34,13 @@ export default function SocialMediaScreen() {
     headerStyle: { backgroundColor: colors.background },
     headerShadowVisible: false,
     headerTintColor: colors.text,
+  };
+  // Non-edit states (loading / retry) must explicitly clear headerRight. React
+  // Navigation merges Stack.Screen options, so omitting it would leave a stale
+  // Save action from a previously-rendered form. (V4 drift guard)
+  const guardedScreenOptions = {
+    ...screenOptions,
+    headerRight: () => null,
   };
 
   const instagram = merchant?.social_media?.instagram ?? '';
@@ -144,7 +84,8 @@ export default function SocialMediaScreen() {
   }
 
   // Only allow saving when the form actually changed, so a no-op save can't churn the row
-  // and (with the error guard below) an empty/errored load can never blank saved handles. (V4)
+  // and (with the no-merchant guard below) a load that produced no merchant data can never
+  // blank saved handles. (V4)
   const isDirty = (
     Object.keys(EMPTY_SOCIAL_MEDIA) as (keyof MerchantSocialMedia)[]
   ).some(
@@ -188,7 +129,7 @@ export default function SocialMediaScreen() {
   if (isLoading) {
     return (
       <>
-        <Stack.Screen options={screenOptions} />
+        <Stack.Screen options={guardedScreenOptions} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
         >
@@ -198,40 +139,24 @@ export default function SocialMediaScreen() {
     );
   }
 
-  // Failed-but-settled load: show a retry state instead of an empty form, so Save can never
-  // write blank handles over the merchant's saved social_media. (V4 drift guard)
-  if (error || !merchant) {
+  // No merchant data to edit (settled with null, or a hard load error that left no
+  // cached data): show a retry state instead of an empty form, so Save can never write
+  // blank handles over the merchant's saved social_media. A cached merchant with a
+  // background-refetch error keeps the form editable (TanStack keeps `data` + `error`),
+  // because saving from cached handles is safe. (V4 drift guard)
+  if (!merchant) {
     return (
       <>
-        <Stack.Screen options={screenOptions} />
+        <Stack.Screen options={guardedScreenOptions} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
         >
-          <View style={styles.errorState}>
-            <Ionicons
-              name="cloud-offline-outline"
-              size={48}
-              color={colors.textSecondary}
-            />
-            <Text style={[styles.errorTitle, { color: colors.text }]}>
-              Couldn't load your settings
-            </Text>
-            <Text
-              style={[styles.errorSubtitle, { color: colors.textSecondary }]}
-            >
-              We couldn't reach your store data. Saving now could overwrite your
-              saved links, so please retry.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() =>
-                queryClient.invalidateQueries({ queryKey: ['merchant'] })
-              }
-              style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            >
-              <Text style={styles.retryText}>Retry</Text>
-            </Pressable>
-          </View>
+          <SocialMediaRetryState
+            colors={colors}
+            onRetry={() =>
+              queryClient.invalidateQueries({ queryKey: ['merchant'] })
+            }
+          />
         </SafeAreaView>
       </>
     );
@@ -342,34 +267,5 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginBottom: SPACING.xl,
     lineHeight: 20,
-  },
-  errorState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.xl,
-    gap: SPACING.md,
-  },
-  errorTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    textAlign: 'center',
-  },
-  errorSubtitle: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryButton: {
-    marginTop: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.xl,
-    borderRadius: RADIUS.md,
-  },
-  retryText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    color: '#fff',
   },
 });
