@@ -123,6 +123,12 @@ describe('cached-data cache directives', () => {
       const source = getFunctionSource(functionName);
       expect(source, functionName).toContain("'use cache';");
       expect(source, functionName).not.toContain("'use cache: remote';");
+
+      // Next 16's local `use cache` API explicitly supports cacheLife/cacheTag.
+      // Keep these so blog metadata/content stays tag-revalidatable and has an
+      // intentional cache lifetime without reintroducing RemoteCacheHandler.
+      expect(source, functionName).toContain("cacheLife('merchant');");
+      expect(source, functionName).toContain('cacheTag(');
     }
   });
 });
