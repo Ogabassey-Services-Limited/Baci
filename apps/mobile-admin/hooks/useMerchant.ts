@@ -63,6 +63,9 @@ export const MerchantSchema = z.object({
   social_media: SocialMediaSchema.nullable(),
   registered_address: RegisteredAddressSchema.nullable().optional(),
   state_code: z.string().nullable().optional(),
+  // Optimistic-concurrency token. Present only when the merchant-context RPC
+  // selects it; the store-settings save guards on it when available.
+  updated_at: z.string().nullable().optional(),
   google_analytics_id: z.string().nullable(),
   facebook_pixel_id: z.string().nullable(),
   tiktok_pixel_id: z.string().nullable(),
