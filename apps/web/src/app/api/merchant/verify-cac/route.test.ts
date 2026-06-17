@@ -337,6 +337,34 @@ describe('POST /api/merchant/verify-cac', () => {
     expect(body.reason).toBe('RC number mismatch');
   });
 
+  it('returns 409 when CAC RPC reports an identity conflict', async () => {
+    const supabaseMock = makeSupabaseMock(null, {
+      code: 'PT409',
+      details: 'CAC verification would overwrite an existing legal identity.',
+      message: 'cac_identity_conflict',
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: supabaseMock,
+    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
+    vi.mocked(compareCACData).mockReturnValue({ match: true });
+
+    const req = makeFormDataRequest({
+      file: makeValidFile(),
+      rcNumber: 'RC123456',
+      approvedName: 'Baci Technologies Ltd',
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      code: 'CAC_IDENTITY_CONFLICT',
+      details: 'CAC verification would overwrite an existing legal identity.',
+      error: 'CAC identity conflict',
+    });
+  });
+
   it('returns 500 when RPC throws', async () => {
     const supabaseMock = makeSupabaseMock(null, { message: 'DB error' });
     vi.mocked(authenticateApiRequest).mockResolvedValue({
