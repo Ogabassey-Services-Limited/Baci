@@ -66,7 +66,7 @@ function createRequest(
   body: unknown = {
     name: 'Updated Name',
   },
-  headers: Record<string, string> = {},
+  headers: Record<string, string> = {}
 ) {
   return new NextRequest('https://usebaci.com/api/staff/staff-1', {
     method: 'PATCH',
@@ -105,7 +105,7 @@ describe('PATCH /api/staff/[id]', () => {
     updateEqFirst.mockReturnValue({
       eq: updateEqSecond,
       select: updateSelect,
-    } as any);
+    } as unknown as ReturnType<typeof updateEqFirst>);
     update.mockReturnValue({ eq: updateEqFirst });
     mockFrom.mockReturnValue({ select: lookupSelect, update });
   });
@@ -122,7 +122,7 @@ describe('PATCH /api/staff/[id]', () => {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Updated Name',
-      }),
+      })
     );
     expect(updateEqFirst).toHaveBeenCalledWith('id', 'staff-1');
     expect(updateEqSecond).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
