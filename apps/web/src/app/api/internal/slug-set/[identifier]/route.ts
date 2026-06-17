@@ -1,9 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getInternalApiSecret } from '@/env';
 import { getMerchantSafe } from '@/lib/cached-data';
+import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
 import { getCachedStorefrontProductSlugSet } from '@/lib/cached-storefront-product-slug-set';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
+import { getProductUrl } from '@/lib/seo-utils';
 import {
   internalSlugSetParamsSchema,
   internalSlugSetQuerySchema,
@@ -14,12 +16,33 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 // `hasError` is false, so any uncertainty returns hasError:true.
 const FAIL_OPEN = { hasError: true, present: false };
 
+function hasSafeInternalRedirectShape(path: string): boolean {
+  return (
+    path.startsWith('/') &&
+    !path.startsWith('//') &&
+    !path.startsWith('/\\') &&
+    !path.includes(':')
+  );
+}
+
+function isSafeInternalRedirectPath(value: string): boolean {
+  if (!hasSafeInternalRedirectShape(value)) {
+    return false;
+  }
+
+  try {
+    return hasSafeInternalRedirectShape(decodeURIComponent(value));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Internal product-slug MEMBERSHIP endpoint for the proxy's crawl-budget
  * hard-404. The proxy can't call a `'use cache'` function directly, so it
  * fetches this route, which legally can — and returns only `{ hasError,
- * present }` (NOT the whole slug list) so a large catalog doesn't add slug-list
- * transfer/parse to every PDP navigation.
+ * present, redirectPath? }` (NOT the whole slug list) so a large catalog
+ * doesn't add slug-list transfer/parse to every PDP navigation.
  *
  * `identifier` is the storefront slug or custom domain the proxy has; `?slug=`
  * is the product slug to test. Always 200 (no-store). Fails open
@@ -80,9 +103,38 @@ export async function GET(
 
   const target = query.data.slug.toLowerCase();
   const present = set.slugs.some((slug) => slug.toLowerCase() === target);
+  if (!present) {
+    return NextResponse.json(
+      { hasError: false, present: false },
+      { status: 200, headers: NO_STORE }
+    );
+  }
+
+  try {
+    const resolution = await getCachedStorefrontProductSlugResolution(
+      merchant.id,
+      query.data.slug
+    );
+    if (!resolution.hasError && resolution.redirectTarget) {
+      const redirectPath = getProductUrl(resolution.redirectTarget);
+      if (isSafeInternalRedirectPath(redirectPath)) {
+        return NextResponse.json(
+          { hasError: false, present: true, redirectPath },
+          { status: 200, headers: NO_STORE }
+        );
+      }
+    }
+  } catch (error) {
+    logger.warn({
+      message: 'Failed to resolve legacy product redirect target',
+      error,
+      merchantId: merchant.id,
+      slug: query.data.slug,
+    });
+  }
 
   return NextResponse.json(
-    { hasError: false, present },
+    { hasError: false, present: true },
     { status: 200, headers: NO_STORE }
   );
 }

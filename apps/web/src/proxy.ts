@@ -34,7 +34,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
-import { isStorefrontProductSlugMissing } from '@/lib/storefront-product-slug-membership';
+import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -1154,14 +1154,15 @@ function buildHardStatusStorefrontResponse(
 }
 
 /**
- * Crawl-budget hard-404 for a confirmed-missing storefront product (PR-B §3.2).
+ * Crawl-budget pre-React status for storefront PDP product slugs (PR-B §3.2).
  *
  * Gated tightly to clean, non-prefetch, GET/HEAD HTML navigations to a
  * 2-segment PDP path (`/{category}/{productSlug}`). It asks the internal
- * slug-set route whether the product slug exists for this merchant and, only if
- * positively absent, returns a hard 404. Every uncertain path (params,
- * RSC/prefetch, non-PDP shape, reserved segment, unavailable/empty slug set)
- * falls through — fail-open, so a live product is never 404'd.
+ * slug-set route whether the product slug is active, redirectable legacy, or
+ * absent. Redirectable archived aliases get a real 308 before the PDP route can
+ * stream a 200; positively absent slugs get a hard 404. Every uncertain path
+ * (params, RSC/prefetch, non-PDP shape, reserved segment, unavailable/empty
+ * slug set) falls through — fail-open, so a live product is never 404'd.
  */
 async function resolveStorefrontPdpHardNotFound(
   request: NextRequest,
@@ -1240,13 +1241,21 @@ async function resolveStorefrontPdpHardNotFound(
     return null;
   }
 
-  const missing = await isStorefrontProductSlugMissing({
+  const resolution = await resolveStorefrontProductSlugResolution({
     origin: request.nextUrl.origin,
     identifier,
     productSlug,
     secret: getInternalApiSecret(),
   });
-  if (!missing) {
+
+  if (resolution.kind === 'redirect') {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = resolution.redirectPath;
+    redirectUrl.search = '';
+    return NextResponse.redirect(redirectUrl, 308);
+  }
+
+  if (resolution.kind !== 'missing') {
     return null;
   }
 
