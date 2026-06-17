@@ -1,7 +1,8 @@
 import {
   MERCHANT_SETTINGS_COLUMNS,
+  mergeSocialMediaValues,
   normalizeRegisteredAddress,
-  normalizeSocialMediaValues,
+  type SocialMediaValues,
 } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
@@ -61,7 +62,29 @@ export async function PATCH(request: NextRequest) {
     };
 
     if (body.social_media !== undefined) {
-      updates.social_media = normalizeSocialMediaValues(body.social_media);
+      // Defense-in-depth (RFC 7386 merge semantics): merge the incoming
+      // payload over the EXISTING row so a partial caller can't drop handles
+      // it never touched. Read the current value scoped to this merchant.
+      const { data: existing } = await auth.supabase
+        .from('merchants')
+        .select('social_media')
+        .eq('id', access.merchantId)
+        .single<{ social_media: SocialMediaValues | null }>();
+
+      const mergedSocialMedia = mergeSocialMediaValues(
+        existing?.social_media,
+        body.social_media
+      );
+
+      // Skip the write when the merge collapses to {} UNLESS the caller
+      // explicitly asked to clear all handles. This stops an errored/partial
+      // payload from wiping social_media while still honoring a real clear.
+      if (
+        Object.keys(mergedSocialMedia).length > 0 ||
+        body.clear_social_media === true
+      ) {
+        updates.social_media = mergedSocialMedia;
+      }
     }
 
     if (body.vat_registration_status !== undefined) {
