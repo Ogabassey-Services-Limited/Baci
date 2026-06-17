@@ -6,11 +6,22 @@ const mockCheckCsrfProtection = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
+
+// Write chain: update(updates).eq('id', merchantId).select(COLUMNS).single()
 const mockSingle = vi.fn();
 const mockSelect = vi.fn(() => ({ single: mockSingle }));
 const mockEq = vi.fn(() => ({ select: mockSelect }));
 const mockUpdate = vi.fn(() => ({ eq: mockEq }));
-const mockFrom = vi.fn(() => ({ update: mockUpdate }));
+
+// Existing-row read chain: select('social_media').eq('id', merchantId).single()
+const mockReadSingle = vi.fn();
+const mockReadEq = vi.fn(() => ({ single: mockReadSingle }));
+const mockReadSelect = vi.fn(() => ({ eq: mockReadEq }));
+
+const mockFrom = vi.fn(() => ({
+  update: mockUpdate,
+  select: mockReadSelect,
+}));
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
@@ -54,6 +65,11 @@ describe('PATCH /api/merchant/settings', () => {
     mockHasPermission.mockReturnValue(true);
     mockSingle.mockResolvedValue({
       data: { id: 'merchant-1' },
+      error: null,
+    });
+    // Default: existing row has no stored social handles.
+    mockReadSingle.mockResolvedValue({
+      data: { social_media: null },
       error: null,
     });
   });
@@ -161,5 +177,117 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(500);
+  });
+
+  it('merges a partial social payload over existing handles so untouched ones survive', async () => {
+    mockReadSingle.mockResolvedValue({
+      data: {
+        social_media: {
+          twitter: '@oldtwitter',
+          facebook: 'fb.com/oga',
+          instagram: '@oldinsta',
+        },
+      },
+      error: null,
+    });
+
+    const response = await PATCH(
+      createPatchRequest(
+        JSON.stringify({
+          // Only Instagram is being changed in this partial payload.
+          social_media: { instagram: '@newinsta' },
+        })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockReadSelect).toHaveBeenCalledWith('social_media');
+    expect(mockReadEq).toHaveBeenCalledWith('id', 'merchant-1');
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        social_media: {
+          twitter: '@oldtwitter',
+          facebook: 'fb.com/oga',
+          instagram: '@newinsta',
+        },
+      })
+    );
+  });
+
+  it('clears all social handles when clear_social_media is true', async () => {
+    mockReadSingle.mockResolvedValue({
+      data: { social_media: { twitter: '@oga', instagram: '@oga' } },
+      error: null,
+    });
+
+    const response = await PATCH(
+      createPatchRequest(
+        JSON.stringify({
+          social_media: {
+            twitter: '',
+            instagram: '',
+          },
+          clear_social_media: true,
+        })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ social_media: {} })
+    );
+  });
+
+  it('skips the social_media write when the merge collapses to {} without the clear flag', async () => {
+    mockReadSingle.mockResolvedValue({
+      data: { social_media: {} },
+      error: null,
+    });
+
+    const response = await PATCH(
+      createPatchRequest(
+        JSON.stringify({
+          // Errored/partial client sent all-blank handles, no clear intent.
+          social_media: {
+            twitter: '',
+            instagram: '',
+          },
+        })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    // The update still runs (updated_at touch), but social_media is omitted.
+    const updatePayload = mockUpdate.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(updatePayload).not.toHaveProperty('social_media');
+  });
+
+  it('replaces with a full social object while preserving merge semantics', async () => {
+    mockReadSingle.mockResolvedValue({
+      data: { social_media: { twitter: '@stale' } },
+      error: null,
+    });
+
+    const response = await PATCH(
+      createPatchRequest(
+        JSON.stringify({
+          social_media: {
+            twitter: '@baci',
+            facebook: 'fb.com/baci',
+            instagram: ' ',
+          },
+        })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        social_media: { twitter: '@baci', facebook: 'fb.com/baci' },
+      })
+    );
   });
 });
