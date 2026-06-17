@@ -24,6 +24,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
+import { updateSocial } from '@/hooks/merchant/update-social';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import type { CachedMerchant, HeroSlide } from '@/lib/cached-data';
@@ -160,11 +161,15 @@ async function saveSettings({
 }: SaveSettingsContext) {
   setIsSaving(true);
   try {
+    // Generic (non-identity) settings go through the generic hook.
     await updateMerchant({
       ...data,
       hero_slides: heroSlides,
-      social_media: sanitizeSocialMedia(socialMedia),
     } as Parameters<UpdateMerchantFn>[0]);
+    // social_media is an IDENTITY field — persist it via the dedicated,
+    // server-allowlisted /api/merchant/settings PATCH route (the generic hook
+    // now throws on identity keys).
+    await updateSocial(sanitizeSocialMedia(socialMedia));
     toast({
       title: 'Settings Saved!',
       description: 'Your store settings have been updated.',
@@ -394,7 +399,6 @@ export function SettingsForm({
 
         <SocialMediaCard
           initialSocialMedia={buildSocialMediaDraft(initialMerchant)}
-          updateMerchant={updateMerchant}
           onSocialMediaChange={setSocialMediaEdits}
         />
 
