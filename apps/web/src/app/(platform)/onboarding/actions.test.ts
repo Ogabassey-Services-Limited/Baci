@@ -645,6 +645,91 @@ describe('submitOnboarding', () => {
     expect(result.success).toBe(true);
     expect(mockAiJobsInsert).not.toHaveBeenCalled();
   });
+
+  it('persists the parsed brand_colors palette when the payload is valid JSON', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    expect(mockAdminInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brand_colors: {
+          primary: '#000000',
+          background: '#ffffff',
+          accent: '#F59E0B',
+        },
+      })
+    );
+  });
+
+  it('omits brand_colors entirely (no null write) when the palette JSON is malformed on a new merchant', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+
+    const result = await submitOnboarding(
+      prevState,
+      makeFormData({ ...validFields, brandColors: '{not-valid-json' })
+    );
+
+    expect(result.success).toBe(true);
+    const insertPayload = mockAdminInsert.mock.calls[0]?.[0];
+    expect(insertPayload).not.toHaveProperty('brand_colors');
+    expect(mockAdminInsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({ brand_colors: null })
+    );
+  });
+
+  it('omits brand_colors when malformed while completing an incomplete merchant, leaving the established palette untouched', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null }) // pre-check by email
+      .mockResolvedValueOnce({
+        data: { id: 'existing-1', business_name: null, slug: 'teststore' },
+        error: null,
+      }); // lookup by user_id — incomplete record
+    setupChainedMock({ id: 'existing-1', slug: 'teststore' });
+
+    const result = await submitOnboarding(
+      prevState,
+      makeFormData({ ...validFields, brandColors: 'NOT JSON' })
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockAdminInsert).not.toHaveBeenCalled();
+    const updatePayload = mockAdminUpdate.mock.calls[0]?.[0];
+    expect(updatePayload).not.toHaveProperty('brand_colors');
+    expect(mockAdminUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ brand_colors: null })
+    );
+  });
+
+  it('still writes brand_colors when valid while completing an incomplete merchant', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({
+        data: { id: 'existing-1', business_name: null, slug: 'teststore' },
+        error: null,
+      });
+    setupChainedMock({ id: 'existing-1', slug: 'teststore' });
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    expect(mockAdminUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brand_colors: {
+          primary: '#000000',
+          background: '#ffffff',
+          accent: '#F59E0B',
+        },
+      })
+    );
+  });
 });
 
 describe('sendMagicLink', () => {
