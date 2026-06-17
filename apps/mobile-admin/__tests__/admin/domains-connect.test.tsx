@@ -183,9 +183,8 @@ describe('ConnectDomainScreen', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Domain already exists');
     });
-
-    expect(mocks.alert).toHaveBeenCalledWith('Error', 'Domain already exists');
   });
 
   it('shows a fallback error alert when the network request throws', async () => {
@@ -200,8 +199,7 @@ describe('ConnectDomainScreen', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network request failed');
     });
-
-    expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network request failed');
   });
 });
