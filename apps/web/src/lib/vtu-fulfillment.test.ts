@@ -1989,6 +1989,7 @@ describe('fulfillPendingVtuTransaction', () => {
       amount: 1000,
       status: 'successful',
     });
+    const updatePayloads: unknown[] = [];
 
     const supabase = createPendingTransactionSupabaseMock({
       transactionRow: {
@@ -2006,6 +2007,7 @@ describe('fulfillPendingVtuTransaction', () => {
           provider: 'monnify',
           billerCode: 'biller1',
           productCode: 'product1',
+          providerErrorDetail: 'stale Monnify failure detail',
         },
         error_message: null,
         merchant_commission: 0,
@@ -2014,6 +2016,7 @@ describe('fulfillPendingVtuTransaction', () => {
         biller_item_code: null,
         customer_identifier: '43901766923',
       },
+      updatePayloads,
     });
 
     const result = await fulfillPendingVtuTransaction({
@@ -2037,6 +2040,14 @@ describe('fulfillPendingVtuTransaction', () => {
       reference: 'VTU-123',
       status: 'successful',
     });
+    expect(updatePayloads).toContainEqual(
+      expect.objectContaining({
+        metadata: expect.not.objectContaining({
+          providerErrorDetail: expect.anything(),
+        }),
+        status: 'successful',
+      })
+    );
   });
 
   it('routes to Monnify status requery and reconciles status successfully when metadata.provider is monnify', async () => {
