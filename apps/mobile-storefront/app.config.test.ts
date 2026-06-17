@@ -49,6 +49,13 @@ function findFacebookPlugin(config: ExpoConfig) {
   );
 }
 
+function findPostHogPlugin(config: ExpoConfig) {
+  return config.plugins?.find(
+    (plugin): plugin is [string, Record<string, unknown>] =>
+      Array.isArray(plugin) && plugin[0] === 'posthog-react-native/expo'
+  );
+}
+
 describe('Expo app config (Facebook SDK and merchant domain)', () => {
   afterEach(() => {
     process.env = originalEnv;
@@ -198,6 +205,22 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
     expect(customHostConfig.extra?.posthogHost).toBe(
       'https://posthog.example.com'
     );
+  });
+
+  it('enables the PostHog Expo plugin with native symbol uploads', () => {
+    const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
+      STOREFRONT_FACEBOOK_APP_ID: '123456789',
+      STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+    });
+    const config = renderConfig(appConfig);
+
+    expect(findPostHogPlugin(config)).toEqual([
+      'posthog-react-native/expo',
+      {
+        uploadNativeSymbols: true,
+      },
+    ]);
   });
 
   it('declares SKAdNetwork identifiers for TikTok and Facebook campaign attribution', () => {

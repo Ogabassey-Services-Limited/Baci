@@ -1,0 +1,139 @@
+import type { CaptureResult, PostHogConfig, Properties } from 'posthog-js';
+import {
+  getPostHogProxyPath,
+  getPostHogUiHost,
+  type PostHogEnv,
+} from './config';
+
+const SENSITIVE_PROPERTY_PATTERN =
+  /(?:password|passcode|token|secret|authorization|cookie|otp|pin|cvv|card|bvn|nin|email|phone|address)/i;
+const URL_PROPERTY_PATTERN = /(?:url|href|referrer|current_url|pathname)/i;
+const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+const REDACTED_VALUE = '[Filtered]';
+const QUERY_OR_HASH_PATTERN = /[?#]/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function redactUrlQuery(value: string): string {
+  const markerIndex = value.search(QUERY_OR_HASH_PATTERN);
+  return markerIndex === -1 ? value : value.slice(0, markerIndex);
+}
+
+function sanitizePropertyValue(key: string, value: unknown): unknown {
+  if (SENSITIVE_PROPERTY_PATTERN.test(key)) {
+    return REDACTED_VALUE;
+  }
+
+  if (typeof value === 'string') {
+    if (URL_PROPERTY_PATTERN.test(key)) {
+      return redactUrlQuery(value);
+    }
+
+    if (EMAIL_VALUE_PATTERN.test(value)) {
+      return value.replace(EMAIL_VALUE_PATTERN, REDACTED_VALUE);
+    }
+
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizePropertyValue(key, item));
+  }
+
+  if (isRecord(value)) {
+    return sanitizePostHogProperties(value);
+  }
+
+  return value;
+}
+
+export function sanitizePostHogProperties(
+  properties: Record<string, unknown> | undefined
+): Properties | undefined {
+  if (!properties) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(properties).map(([key, value]) => [
+      key,
+      sanitizePropertyValue(key, value),
+    ])
+  ) as Properties;
+}
+
+export function sanitizePostHogCapture(
+  capture: CaptureResult | null
+): CaptureResult | null {
+  if (!capture) {
+    return null;
+  }
+
+  return {
+    ...capture,
+    properties: sanitizePostHogProperties(capture.properties) ?? {},
+    $set: sanitizePostHogProperties(capture.$set),
+    $set_once: sanitizePostHogProperties(capture.$set_once),
+  };
+}
+
+export function buildPostHogClientConfig(
+  env: PostHogEnv = process.env
+): Partial<PostHogConfig> {
+  return {
+    api_host: getPostHogProxyPath(env),
+    ui_host: getPostHogUiHost(env),
+    defaults: '2026-05-30',
+    autocapture: true,
+    rageclick: true,
+    capture_dead_clicks: true,
+    capture_heatmaps: true,
+    capture_pageview: true,
+    capture_pageleave: 'if_capture_pageview',
+    capture_exceptions: {
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    },
+    capture_performance: {
+      web_vitals: true,
+      web_vitals_allowed_metrics: ['LCP', 'CLS', 'FCP', 'INP'],
+      web_vitals_delayed_flush_ms: 5000,
+      web_vitals_attribution: true,
+      network_timing: true,
+    },
+    disable_session_recording: false,
+    session_recording: {
+      maskAllInputs: true,
+      maskTextSelector:
+        '[data-ph-mask], [data-private], [data-sensitive], input, textarea, [contenteditable="true"]',
+      blockSelector: '[data-ph-block], [data-session-replay-block]',
+    },
+    property_blacklist: [
+      'password',
+      'token',
+      'secret',
+      'authorization',
+      'cookie',
+      'otp',
+      'pin',
+      'cvv',
+      'card_number',
+      'bvn',
+      'nin',
+      'email',
+      'phone',
+      'address',
+    ],
+    before_send: sanitizePostHogCapture,
+    loaded(posthog) {
+      posthog.register({
+        app_surface: 'web',
+        deployment_environment:
+          env.NEXT_PUBLIC_VERCEL_ENV || env.NODE_ENV || 'development',
+      });
+    },
+  };
+}

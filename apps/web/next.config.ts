@@ -1,11 +1,20 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
+import { withPostHogConfig } from '@posthog/nextjs-config';
 import type { NextConfig } from 'next';
 import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-discovery-link-header';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
 } from './src/config/storefront-metadata-cache-bots';
+import {
+  getPostHogAssetsHost,
+  getPostHogIngestHost,
+  getPostHogProxyPath,
+  getPostHogReleaseVersion,
+  getPostHogUiHost,
+  isPostHogSourceMapUploadEnabled,
+} from './src/lib/posthog/config';
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -60,6 +69,29 @@ const OGABASSEY_GENERIC_DOCUMENT_ROUTE_SOURCE = `/:path((?!(?:(?!(?:${OGABASSEY_
 // header preloads cannot carry responsive image selection safely and previously
 // triggered an unused mobile-header image fetch that competed with the real LCP.
 const OGABASSEY_PDP_LINK_HEADER_VALUE = OGABASSEY_AGENT_DISCOVERY_LINK_HEADER;
+const POSTHOG_SOURCE_MAP_UPLOAD_ENABLED = isPostHogSourceMapUploadEnabled();
+
+function getPostHogRewriteRules() {
+  const proxyPath = getPostHogProxyPath();
+  const assetsHost = getPostHogAssetsHost();
+  const ingestHost = getPostHogIngestHost();
+
+  return [
+    {
+      source: `${proxyPath}/static/:path*`,
+      destination: `${assetsHost}/static/:path*`,
+    },
+    {
+      source: `${proxyPath}/array/:path*`,
+      destination: `${assetsHost}/array/:path*`,
+    },
+    {
+      source: `${proxyPath}/:path*`,
+      destination: `${ingestHost}/:path*`,
+    },
+  ];
+}
+
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // jsPDF stays external here so server PDF generators can use the package
@@ -473,6 +505,7 @@ const nextConfig: NextConfig = {
   rewrites() {
     const mcpServerUrl = process.env.MCP_SERVER_URL;
     const beforeFiles = [
+      ...getPostHogRewriteRules(),
       {
         source: '/',
         has: [
@@ -594,5 +627,15 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzer(nextConfig);
+export default withPostHogConfig(withBundleAnalyzer(nextConfig), {
+  personalApiKey: process.env.POSTHOG_API_KEY ?? '',
+  projectId: process.env.POSTHOG_PROJECT_ID,
+  host: getPostHogUiHost(),
+  sourcemaps: {
+    enabled: POSTHOG_SOURCE_MAP_UPLOAD_ENABLED,
+    releaseName: 'baci-web',
+    releaseVersion: getPostHogReleaseVersion(),
+    deleteAfterUpload: true,
+  },
+});
 // Force rebuild: ${new Date().toISOString()}

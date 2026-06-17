@@ -1,9 +1,11 @@
 import {
   trackAddToCart,
+  trackCategoryViewed,
   trackError,
   trackOrderCompleted,
   trackProductViewed,
   trackSearch,
+  trackWishlistAction,
 } from './analytics-events';
 import { trackEvent } from './analytics-core';
 
@@ -27,11 +29,12 @@ describe('analytics event wrappers', () => {
 
     expect(trackEvent).toHaveBeenCalledWith('Product Viewed', {
       product_id: 'product-1',
+      category: 'Phones',
+      name: 'Redmi Note 14',
       product_name: 'Redmi Note 14',
       price: 220000,
       currency: 'NGN',
-      category: 'Phones',
-      brand: undefined,
+      value: 220000,
       slug: 'redmi-note-14',
     });
   });
@@ -59,11 +62,12 @@ describe('analytics event wrappers', () => {
 
     expect(trackEvent).toHaveBeenNthCalledWith(1, 'Product Added', {
       product_id: 'product-1',
+      name: 'Redmi Note 14',
       product_name: 'Redmi Note 14',
       price: 220000,
       quantity: 2,
       currency: 'NGN',
-      category: undefined,
+      value: 440000,
       cart_value: 440000,
     });
     expect(trackEvent).toHaveBeenNthCalledWith(
@@ -72,6 +76,7 @@ describe('analytics event wrappers', () => {
       expect.objectContaining({
         order_id: 'order-1',
         order_number: 'BAC-001',
+        value: 450000,
         payment_method: 'card',
       })
     );
@@ -90,6 +95,27 @@ describe('analytics event wrappers', () => {
       error_type: 'stock_check',
       error_message: 'Unavailable',
       product_id: 'product-1',
+    });
+  });
+
+  it('tracks category and wishlist events with canonical ecommerce names', () => {
+    trackCategoryViewed('Smartphones', 'smartphones', 24);
+    trackWishlistAction('added', {
+      id: 'product-1',
+      name: 'Redmi Note 14',
+    });
+
+    expect(trackEvent).toHaveBeenNthCalledWith(1, 'Product List Viewed', {
+      list_id: 'smartphones',
+      category: 'Smartphones',
+      category_name: 'Smartphones',
+      category_slug: 'smartphones',
+      product_count: 24,
+    });
+    expect(trackEvent).toHaveBeenNthCalledWith(2, 'Product Added to Wishlist', {
+      product_id: 'product-1',
+      name: 'Redmi Note 14',
+      product_name: 'Redmi Note 14',
     });
   });
 });

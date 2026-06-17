@@ -320,6 +320,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     './config/withAdaptiveAndroidManifest.js',
     './config/withAndroidSystemBars.js',
     './config/withAndroidGradleFixes.js',
+    [
+      'posthog-react-native/expo',
+      {
+        uploadNativeSymbols: true,
+      },
+    ],
     'expo-localization',
     'expo-apple-authentication',
     ...(facebookSdkPlugin ? [facebookSdkPlugin] : []),

@@ -5,6 +5,7 @@ const mockInfo = jest.fn();
 const mockError = jest.fn();
 const mockCapture = jest.fn();
 const mockCaptureException = jest.fn();
+const mockRegister = jest.fn();
 const mockScreen = jest.fn();
 const mockIdentify = jest.fn();
 const mockReset = jest.fn();
@@ -17,9 +18,15 @@ const mockReloadFeatureFlags = jest.fn();
 let mockExpoConfigExtra: {
   posthogApiKey: string;
   posthogHost?: string;
+  merchantId?: string;
+  merchantSlug?: string;
+  merchantDomain?: string;
 } = {
   posthogApiKey: 'ph_test',
   posthogHost: 'https://posthog.example.com',
+  merchantId: 'merchant-1',
+  merchantSlug: 'ogabassey',
+  merchantDomain: 'ogabassey.com',
 };
 
 jest.mock('@/lib/logger', () => ({
@@ -42,6 +49,7 @@ jest.mock('posthog-react-native', () =>
   jest.fn().mockImplementation(() => ({
     capture: mockCapture,
     captureException: mockCaptureException,
+    register: mockRegister,
     screen: mockScreen,
     identify: mockIdentify,
     reset: mockReset,
@@ -60,6 +68,9 @@ describe('analytics core', () => {
     mockExpoConfigExtra = {
       posthogApiKey: 'ph_test',
       posthogHost: 'https://posthog.example.com',
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      merchantDomain: 'ogabassey.com',
     };
     jest.useFakeTimers().setSystemTime(new Date('2026-05-29T12:00:00.000Z'));
   });
@@ -80,8 +91,23 @@ describe('analytics core', () => {
 
     expect(PostHog).toHaveBeenCalledWith(
       'ph_test',
-      expect.objectContaining({ host: 'https://posthog.example.com' })
+      expect.objectContaining({
+        host: 'https://posthog.example.com',
+        sessionReplayConfig: expect.objectContaining({
+          maskAllTextInputs: true,
+          maskAllImages: true,
+          maskAllSandboxedViews: true,
+          captureLog: false,
+          captureNetworkTelemetry: true,
+        }),
+      })
     );
+    expect(mockRegister).toHaveBeenCalledWith({
+      app_surface: 'mobile-storefront',
+      merchant_id: 'merchant-1',
+      merchant_slug: 'ogabassey',
+      merchant_domain: 'ogabassey.com',
+    });
     expect(mockCapture).toHaveBeenCalledWith('Checkout Started', {
       subtotal: 2000,
       timestamp: '2026-05-29T12:00:00.000Z',
@@ -95,6 +121,9 @@ describe('analytics core', () => {
     mockExpoConfigExtra = {
       posthogApiKey: 'ph_test',
       posthogHost: undefined,
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      merchantDomain: 'ogabassey.com',
     };
 
     const { initAnalytics } = await import('./analytics-core');
@@ -155,6 +184,7 @@ describe('analytics core', () => {
           autocapture: expect.objectContaining({
             uncaughtExceptions: true,
             unhandledRejections: true,
+            nativeCrashes: true,
           }),
         },
       })
