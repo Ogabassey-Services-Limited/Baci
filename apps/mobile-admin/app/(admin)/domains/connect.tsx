@@ -274,7 +274,7 @@ export default function ConnectDomainScreen() {
           ]}
           onPress={handleDone}
         >
-          <Text style={styles.buttonText}>I've Added the Record</Text>
+          <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>I've Added the Record</Text>
         </Pressable>
       </ScrollView>
     );
@@ -327,9 +327,9 @@ export default function ConnectDomainScreen() {
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color="white" />
+          <ActivityIndicator color={colors.textOnPrimary} />
         ) : (
-          <Text style={styles.buttonText}>Connect Domain</Text>
+          <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>Connect Domain</Text>
         )}
       </Pressable>
     </AppFormScreen>
