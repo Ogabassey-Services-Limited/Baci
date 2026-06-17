@@ -168,7 +168,7 @@ describe('getCachedStorefrontProductSlugResolution', () => {
 const migrationSql = readFileSync(
   resolve(
     dirname(fileURLToPath(import.meta.url)),
-    '../../../../supabase/migrations/20260617094500_add_merchant_product_slug_resolution_rpc.sql'
+    '../../../../supabase/migrations/20260617082800_add_merchant_product_slug_resolution_rpc.sql'
   ),
   'utf8'
 );
