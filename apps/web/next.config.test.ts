@@ -1,8 +1,10 @@
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import nextConfig from './next.config';
+import type { NextConfig } from 'next';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
+import { beforeAll, describe, expect, it } from 'vitest';
+import rawNextConfig from './next.config';
 import {
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
@@ -18,6 +20,13 @@ const { compileNonPath } =
     compileNonPath: (value: string, params: Record<string, string>) => string;
   };
 
+type NextConfigFunction = (
+  phase: string,
+  context: { defaultConfig: NextConfig }
+) => NextConfig | Promise<NextConfig>;
+
+type ResolvableNextConfig = NextConfig | NextConfigFunction;
+
 function expectStructuredRewrites(
   rewrites: unknown
 ): asserts rewrites is { beforeFiles?: unknown[]; afterFiles?: unknown[] } {
@@ -26,7 +35,23 @@ function expectStructuredRewrites(
   expect(rewrites).not.toBeNull();
 }
 
+function resolveNextConfig(config: ResolvableNextConfig): Promise<NextConfig> {
+  if (typeof config === 'function') {
+    return Promise.resolve(
+      config(PHASE_PRODUCTION_BUILD, { defaultConfig: {} })
+    );
+  }
+
+  return Promise.resolve(config);
+}
+
 describe('next.config OgaBassey resource headers', () => {
+  let nextConfig: NextConfig;
+
+  beforeAll(async () => {
+    nextConfig = await resolveNextConfig(rawNextConfig as ResolvableNextConfig);
+  });
+
   it('lets proxy handle legacy Klump webhook trailing slash compatibility', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
