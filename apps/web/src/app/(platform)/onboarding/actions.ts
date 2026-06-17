@@ -132,10 +132,18 @@ export async function submitOnboarding(
   } = validationResult.data;
   const payoutCurrency = getCountryByCode(country)?.currency ?? 'USD';
 
+  // Parse brand colors defensively. On a malformed JSON payload we MUST NOT
+  // write `brand_colors: null` — a re-run of onboarding on a stub merchant
+  // would then wipe a real, already-persisted palette (drift vector V5).
+  // `brandColorsParsed` tracks whether parsing succeeded so the write below can
+  // conditionally spread the column only on success (mirrors the existing
+  // conditional-slug pattern).
   let brandColors: BrandColors | null = null;
+  let brandColorsParsed = false;
   if (brandColorsString) {
     try {
       brandColors = JSON.parse(brandColorsString);
+      brandColorsParsed = true;
     } catch (e) {
       logger.error({ message: 'Failed to parse brand colors', error: e });
     }
@@ -289,7 +297,9 @@ export async function submitOnboarding(
           logo_url: logoUrl,
           // Sync logo to favicon for mobile app compatibility
           favicon_png_192_url: logoUrl,
-          brand_colors: brandColors,
+          // Only write brand_colors when JSON.parse succeeded; a malformed
+          // payload must not overwrite an existing palette with null (V5).
+          ...(brandColorsParsed ? { brand_colors: brandColors } : {}),
           ...(resolvedSlug ? { slug: resolvedSlug } : {}),
         })
         .eq('id', existing.id)
@@ -315,7 +325,10 @@ export async function submitOnboarding(
           logo_url: logoUrl,
           // Sync logo to favicon for mobile app compatibility
           favicon_png_192_url: logoUrl,
-          brand_colors: brandColors,
+          // Only write brand_colors when JSON.parse succeeded; a malformed
+          // payload must not persist a null palette (V5). Omitting the column
+          // lets the table default apply instead.
+          ...(brandColorsParsed ? { brand_colors: brandColors } : {}),
           slug,
           template_id: 'puck', // Force Builder Engine for new merchants
           signup_source: 'web',
