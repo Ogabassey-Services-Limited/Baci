@@ -93,7 +93,7 @@ export const updateMerchantSettingsSchema = z
     registered_address: registeredAddressSchema.optional().nullable(),
     state_code: z
       .string()
-      .transform((value) => sanitizeText(value, 16))
+      .transform((value) => sanitizeText(value, 10))
       .optional()
       .nullable(),
   })

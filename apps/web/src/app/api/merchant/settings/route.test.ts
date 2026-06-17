@@ -6,17 +6,7 @@ const mockCheckCsrfProtection = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
-
-// Write chain: update(updates).eq('id', merchantId).select(COLUMNS).single()
-const mockSingle = vi.fn();
-const mockSelect = vi.fn(() => ({ single: mockSingle }));
-const mockEq = vi.fn(() => ({ select: mockSelect }));
-const mockUpdate = vi.fn(() => ({ eq: mockEq }));
 const mockRpc = vi.fn();
-
-const mockFrom = vi.fn(() => ({
-  update: mockUpdate,
-}));
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
@@ -48,7 +38,7 @@ describe('PATCH /api/merchant/settings', () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       user: { id: 'user-1' },
-      supabase: { from: mockFrom, rpc: mockRpc },
+      supabase: { rpc: mockRpc },
     });
     mockGetUserAccess.mockResolvedValue({
       merchantId: 'merchant-1',
@@ -58,17 +48,13 @@ describe('PATCH /api/merchant/settings', () => {
       role: 'owner',
     });
     mockHasPermission.mockReturnValue(true);
-    mockSingle.mockResolvedValue({
-      data: { id: 'merchant-1' },
-      error: null,
-    });
     mockRpc.mockResolvedValue({
       data: { id: 'merchant-1', social_media: null },
       error: null,
     });
   });
 
-  it('updates normalized merchant settings', async () => {
+  it('updates normalized merchant settings atomically through one RPC', async () => {
     const response = await PATCH(
       createPatchRequest(
         JSON.stringify({
@@ -86,18 +72,36 @@ describe('PATCH /api/merchant/settings', () => {
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: false,
       p_merchant_id: 'merchant-1',
+      p_settings: { tax_identification_number: '1234567890' },
       p_social_media: { instagram: '@baci', twitter: '' },
     });
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tax_identification_number: '1234567890',
-      })
-    );
-    expect(mockEq).toHaveBeenCalledWith('id', 'merchant-1');
     expect(payload).toEqual({
       merchant: {
         id: 'merchant-1',
+        social_media: null,
       },
+    });
+  });
+
+  it('updates ordinary merchant settings through the same atomic RPC', async () => {
+    const response = await PATCH(
+      createPatchRequest(
+        JSON.stringify({
+          legal_entity_name: ' Baci Ltd ',
+          state_code: ' NG-LA ',
+        })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
+      p_clear: false,
+      p_merchant_id: 'merchant-1',
+      p_settings: {
+        legal_entity_name: 'Baci Ltd',
+        state_code: 'NG-LA',
+      },
+      p_social_media: {},
     });
   });
 
@@ -113,7 +117,7 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns 401 when authentication fails', async () => {
@@ -129,7 +133,7 @@ describe('PATCH /api/merchant/settings', () => {
 
     expect(response.status).toBe(401);
     expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns 403 when csrf validation fails', async () => {
@@ -147,25 +151,34 @@ describe('PATCH /api/merchant/settings', () => {
 
     expect(response.status).toBe(403);
     expect(mockAuthenticateApiRequest).toHaveBeenCalledOnce();
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns 400 when validation fails', async () => {
     const response = await PATCH(createPatchRequest(JSON.stringify({})));
 
     expect(response.status).toBe(400);
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the request body is invalid json', async () => {
     const response = await PATCH(createPatchRequest('{'));
 
     expect(response.status).toBe(400);
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it('returns 500 when the merchant update fails', async () => {
-    mockSingle.mockResolvedValue({
+  it('returns 400 when the only provided change is a false clear flag', async () => {
+    const response = await PATCH(
+      createPatchRequest(JSON.stringify({ clear_social_media: false }))
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the atomic settings RPC fails', async () => {
+    mockRpc.mockResolvedValue({
       data: null,
       error: { message: 'db failure' },
     });
@@ -191,9 +204,9 @@ describe('PATCH /api/merchant/settings', () => {
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: false,
       p_merchant_id: 'merchant-1',
+      p_settings: {},
       p_social_media: { instagram: '@newinsta' },
     });
-    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('fails closed when the atomic social_media update fails', async () => {
@@ -211,7 +224,6 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(500);
-    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('clears all social handles when clear_social_media is true', async () => {
@@ -228,9 +240,9 @@ describe('PATCH /api/merchant/settings', () => {
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: true,
       p_merchant_id: 'merchant-1',
+      p_settings: {},
       p_social_media: {},
     });
-    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('honors clear_social_media even when social_media is omitted', async () => {
@@ -246,25 +258,27 @@ describe('PATCH /api/merchant/settings', () => {
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: true,
       p_merchant_id: 'merchant-1',
+      p_settings: {},
       p_social_media: {},
     });
-    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('treats the current full-form all-blank payload as an explicit clear', async () => {
+    const social_media = {
+      twitter: '',
+      facebook: '',
+      instagram: '',
+      tiktok: '',
+      youtube: '',
+      pinterest: '',
+      linkedin: '',
+      snapchat: '',
+    };
+
     const response = await PATCH(
       createPatchRequest(
         JSON.stringify({
-          social_media: {
-            twitter: '',
-            facebook: '',
-            instagram: '',
-            tiktok: '',
-            youtube: '',
-            pinterest: '',
-            linkedin: '',
-            snapchat: '',
-          },
+          social_media,
         })
       )
     );
@@ -273,18 +287,9 @@ describe('PATCH /api/merchant/settings', () => {
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: true,
       p_merchant_id: 'merchant-1',
-      p_social_media: {
-        twitter: '',
-        facebook: '',
-        instagram: '',
-        tiktok: '',
-        youtube: '',
-        pinterest: '',
-        linkedin: '',
-        snapchat: '',
-      },
+      p_settings: {},
+      p_social_media: social_media,
     });
-    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('sends partial blank handles to the atomic merge without the clear flag', async () => {
@@ -304,12 +309,12 @@ describe('PATCH /api/merchant/settings', () => {
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: false,
       p_merchant_id: 'merchant-1',
+      p_settings: {},
       p_social_media: {
         twitter: '',
         instagram: '',
       },
     });
-    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('replaces with a full social object while preserving merge semantics', async () => {
@@ -329,12 +334,12 @@ describe('PATCH /api/merchant/settings', () => {
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: false,
       p_merchant_id: 'merchant-1',
+      p_settings: {},
       p_social_media: {
         twitter: '@baci',
         facebook: 'fb.com/baci',
         instagram: '',
       },
     });
-    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });

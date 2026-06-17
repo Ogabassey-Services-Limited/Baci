@@ -77,6 +77,16 @@ describe('updateMerchantSettingsSchema', () => {
     }
   });
 
+  it('normalizes state_code to the database column length', () => {
+    const result = updateMerchantSettingsSchema.safeParse({
+      state_code: ' NG-LAGOS-EXTRA ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.state_code).toBe('NG-LAGOS-E');
+    }
+  });
+
   it('accepts null for state_code', () => {
     const result = updateMerchantSettingsSchema.safeParse({
       state_code: null,

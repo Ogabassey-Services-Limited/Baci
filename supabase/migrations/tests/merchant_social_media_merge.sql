@@ -10,7 +10,10 @@ DECLARE
   v_owner_uid uuid := '8f0ed783-0000-4000-8000-000000000402';
   v_staff_uid uuid := '8f0ed783-0000-4000-8000-000000000403';
   v_settings_staff_uid uuid := '8f0ed783-0000-4000-8000-000000000404';
+  v_result jsonb;
   v_social jsonb;
+  v_legal_entity_name text;
+  v_state_code text;
 BEGIN
   INSERT INTO auth.users (
     id,
@@ -164,7 +167,68 @@ BEGIN
     RAISE EXCEPTION 'settings staff could not update social_media: %', v_social;
   END IF;
 
-  RAISE NOTICE 'OK: merchant social_media merge is atomic, clearable, and permission-gated';
+  v_result := public.update_merchant_social_media(
+    v_mid,
+    jsonb_build_object('youtube', 'https://youtube.com/@baci'),
+    false,
+    jsonb_build_object(
+      'legal_entity_name', 'Baci Atomic Ltd',
+      'state_code', 'NG-LA'
+    )
+  );
+
+  IF v_result ? 'nin' OR v_result ? 'bvn' OR v_result ? 'firs_credentials_encrypted' THEN
+    RAISE EXCEPTION 'RPC returned sensitive merchant columns: %', v_result;
+  END IF;
+
+  IF v_result ->> 'legal_entity_name' IS DISTINCT FROM 'Baci Atomic Ltd'
+    OR v_result ->> 'state_code' IS DISTINCT FROM 'NG-LA' THEN
+    RAISE EXCEPTION 'RPC did not return the settings projection: %', v_result;
+  END IF;
+
+  SELECT social_media, legal_entity_name, state_code
+    INTO v_social, v_legal_entity_name, v_state_code
+    FROM public.merchants
+   WHERE id = v_mid;
+
+  IF v_social IS DISTINCT FROM jsonb_build_object(
+      'instagram', '@staff',
+      'youtube', 'https://youtube.com/@baci'
+    )
+    OR v_legal_entity_name IS DISTINCT FROM 'Baci Atomic Ltd'
+    OR v_state_code IS DISTINCT FROM 'NG-LA' THEN
+    RAISE EXCEPTION 'mixed social/settings update was not atomic: %, %, %',
+      v_social,
+      v_legal_entity_name,
+      v_state_code;
+  END IF;
+
+  BEGIN
+    PERFORM public.update_merchant_social_media(
+      v_mid,
+      jsonb_build_object('website', 'https://usebaci.com'),
+      false
+    );
+    RAISE EXCEPTION 'invalid social-media key was accepted';
+  EXCEPTION
+    WHEN invalid_parameter_value THEN
+      NULL;
+  END;
+
+  BEGIN
+    PERFORM public.update_merchant_social_media(
+      v_mid,
+      '{}'::jsonb,
+      false,
+      jsonb_build_object('state_code', 'NG-LAGOS-TOO-LONG')
+    );
+    RAISE EXCEPTION 'oversized state_code was accepted';
+  EXCEPTION
+    WHEN invalid_parameter_value THEN
+      NULL;
+  END;
+
+  RAISE NOTICE 'OK: merchant settings/social_media merge is atomic, narrow, validated, clearable, and permission-gated';
 END;
 $$ LANGUAGE plpgsql;
 
