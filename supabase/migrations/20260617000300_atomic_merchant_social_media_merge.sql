@@ -22,7 +22,13 @@ BEGIN
     RAISE EXCEPTION 'merchant_id_required' USING ERRCODE = '22023';
   END IF;
 
-  IF NOT public.has_merchant_access(p_merchant_id) THEN
+  IF COALESCE((SELECT auth.role()), '') <> 'service_role'
+    AND NOT public.check_staff_permission(
+      (SELECT auth.uid()),
+      p_merchant_id,
+      'settings',
+      'edit'
+    ) THEN
     RAISE EXCEPTION 'insufficient_privilege' USING ERRCODE = '42501';
   END IF;
 
