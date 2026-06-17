@@ -73,6 +73,13 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({ updateMerchant: mockUpdateMerchant }),
 }));
 
+// social_media is an identity field — it persists via the dedicated PATCH route
+// (updateSocial), not the generic updateMerchant hook.
+const mockUpdateSocial = vi.fn();
+vi.mock('@/hooks/merchant/update-social', () => ({
+  updateSocial: (data: Record<string, string>) => mockUpdateSocial(data),
+}));
+
 // Mock useToast
 const mockToast = vi.fn();
 vi.mock('@/hooks/use-toast', () => ({
@@ -144,9 +151,12 @@ describe('SettingsForm', () => {
     ).toBeInTheDocument();
   });
 
-  it('submit calls updateMerchant on valid data', async () => {
+  it('submit saves generic fields via updateMerchant and social_media via the dedicated path', async () => {
     // Arrange
     mockUpdateMerchant.mockResolvedValueOnce(undefined);
+    mockUpdateSocial.mockResolvedValueOnce({
+      merchant: { id: 'merchant-1', social_media: { twitter: '@test' } },
+    });
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
@@ -160,21 +170,32 @@ describe('SettingsForm', () => {
     // Act
     fireEvent.submit(form);
 
-    // Assert
+    // Assert — generic hook gets non-identity fields only (no social_media).
     await waitFor(() => {
       expect(mockUpdateMerchant).toHaveBeenCalledWith(
         expect.objectContaining({
           business_name: 'Test Store',
           country: 'NG',
           hero_slides: [],
-          social_media: { twitter: '@test' },
         })
       );
     });
+    expect(mockUpdateMerchant.mock.calls[0]?.[0]).not.toHaveProperty(
+      'social_media'
+    );
 
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'Settings Saved!',
-      description: 'Your store settings have been updated.',
+    // Assert — social_media persists via the dedicated PATCH helper.
+    await waitFor(() => {
+      expect(mockUpdateSocial).toHaveBeenCalledWith(
+        expect.objectContaining({ twitter: '@test' })
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'Settings Saved!',
+        description: 'Your store settings have been updated.',
+      });
     });
   });
 
