@@ -439,6 +439,35 @@ describe('Monnify Bills Client', () => {
       });
     });
 
+    it('sends only documented Monnify validate-customer fields', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: {
+          customerName: 'JANE DOE',
+          requireValidationRef: false,
+        },
+      };
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+      global.fetch = fetchSpy;
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+
+      expect(result.verified).toBe(true);
+      expect(JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string)).toEqual({
+        productCode: 'IKEDC-PREPAID',
+        customerId: '12345678',
+      });
+    });
+
     it('returns nested vendInstruction validation details on success', async () => {
       const mockResponse = {
         requestSuccessful: true,
@@ -635,6 +664,12 @@ describe('Monnify Bills Client', () => {
         ok: false,
         status: 400,
         statusText: 'Bad Request',
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            responseMessage:
+              'Insufficient wallet balance for customer 08012345678',
+          })
+        ),
       });
 
       const result = await purchaseBill(
@@ -647,7 +682,11 @@ describe('Monnify Bills Client', () => {
       );
       expect(result.status).toBe('failed');
       expect(result.success).toBe(false);
-      expect(result.message).toContain('Monnify API error: 400');
+      expect(result.message).toContain(
+        'Monnify API error: 400 Bad Request - Insufficient wallet balance'
+      );
+      expect(result.message).toContain('[redacted]');
+      expect(result.message).not.toContain('08012345678');
     });
 
     it('throws a retryable transient error for timeouts, network issues, and HTTP 5xx before transactionReference is known', async () => {
