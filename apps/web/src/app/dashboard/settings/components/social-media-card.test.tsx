@@ -20,6 +20,11 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
+const mockReloadMerchant = vi.fn();
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchant: () => ({ reloadMerchant: mockReloadMerchant }),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn() },
 }));
@@ -58,6 +63,7 @@ describe('SocialMediaCard', () => {
     expect(mockUpdateSocial).toHaveBeenCalledWith(
       expect.objectContaining({ twitter: '@oga' })
     );
+    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
   });
 
   it('shows a destructive toast when the dedicated save fails', async () => {

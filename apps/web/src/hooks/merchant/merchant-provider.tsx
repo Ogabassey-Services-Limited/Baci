@@ -315,6 +315,12 @@ export const MerchantProvider = ({
     // Allowlist: drop everything not explicitly generic-writable so no unknown
     // key can ever reach the DB through this path.
     const writableData = pickGenericWritable(data);
+    if (Object.keys(writableData).length === 0) {
+      logger.info({
+        message: 'Merchant update skipped: no generic-writable fields present.',
+      });
+      return;
+    }
 
     logger.info({
       message: 'Updating merchant data in Supabase...',

@@ -37,6 +37,7 @@ export const IDENTITY_FIELDS = [
   'social_media',
   'legal_entity_name',
   'cac_rc_number',
+  'tax_identification_number',
   'state_code',
 ] as const satisfies readonly (keyof MerchantData)[];
 

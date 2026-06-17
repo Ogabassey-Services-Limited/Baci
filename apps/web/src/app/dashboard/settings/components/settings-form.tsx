@@ -146,6 +146,7 @@ interface SaveSettingsContext {
   heroSlides: HeroSlide[];
   socialMedia: Record<string, string>;
   updateMerchant: UpdateMerchantFn;
+  reloadMerchant: () => void;
   toast: ToastFn;
   setIsSaving: Dispatch<SetStateAction<boolean>>;
 }
@@ -156,20 +157,29 @@ async function saveSettings({
   heroSlides,
   socialMedia,
   updateMerchant,
+  reloadMerchant,
   toast,
   setIsSaving,
 }: SaveSettingsContext) {
   setIsSaving(true);
   try {
-    // Generic (non-identity) settings go through the generic hook.
-    await updateMerchant({
-      ...data,
-      hero_slides: heroSlides,
-    } as Parameters<UpdateMerchantFn>[0]);
-    // social_media is an IDENTITY field — persist it via the dedicated,
-    // server-allowlisted /api/merchant/settings PATCH route (the generic hook
-    // now throws on identity keys).
-    await updateSocial(sanitizeSocialMedia(socialMedia));
+    await Promise.all([
+      // Generic (non-identity) settings go through the generic hook. Suppress
+      // its implicit reload so the context refresh happens once, after the
+      // dedicated social_media write also commits.
+      updateMerchant(
+        {
+          ...data,
+          hero_slides: heroSlides,
+        } as Parameters<UpdateMerchantFn>[0],
+        { skipReload: true }
+      ),
+      // social_media is an IDENTITY field — persist it via the dedicated,
+      // server-allowlisted /api/merchant/settings PATCH route (the generic hook
+      // now throws on identity keys).
+      updateSocial(sanitizeSocialMedia(socialMedia)),
+    ]);
+    reloadMerchant();
     toast({
       title: 'Settings Saved!',
       description: 'Your store settings have been updated.',
@@ -190,7 +200,7 @@ export function SettingsForm({
   initialBlogEnabled,
 }: SettingsFormProps) {
   const { toast } = useToast();
-  const { updateMerchant } = useMerchant();
+  const { reloadMerchant, updateMerchant } = useMerchant();
 
   const [merchantState, setMerchantState] = useState(initialMerchant);
   const [isDirty, setIsDirty] = useState(false);
@@ -342,6 +352,7 @@ export function SettingsForm({
       heroSlides,
       socialMedia: socialMediaEdits ?? buildSocialMediaDraft(initialMerchant),
       updateMerchant,
+      reloadMerchant,
       toast,
       setIsSaving,
     });

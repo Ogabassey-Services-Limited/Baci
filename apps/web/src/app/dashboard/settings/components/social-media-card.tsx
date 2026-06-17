@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { updateSocial } from '@/hooks/merchant/update-social';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -69,6 +70,7 @@ export function SocialMediaCard({
   onSocialMediaChange,
 }: SocialMediaCardProps) {
   const { toast } = useToast();
+  const { reloadMerchant } = useMerchant();
   const [socialMedia, setSocialMedia] =
     useState<Record<string, string>>(initialSocialMedia);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
@@ -104,6 +106,7 @@ export function SocialMediaCard({
         // generic updateMerchant hook (which now throws on it). Persist via the
         // dedicated, server-allowlisted /api/merchant/settings PATCH route.
         await updateSocial(dataToSave);
+        reloadMerchant();
         setSaveStatus('saved');
         if (resetStatusTimeoutRef.current) {
           clearTimeout(resetStatusTimeoutRef.current);

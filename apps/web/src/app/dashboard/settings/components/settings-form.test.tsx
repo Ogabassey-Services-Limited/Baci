@@ -69,8 +69,12 @@ vi.mock('@/lib/logger', () => ({
 
 // Mock useMerchant
 const mockUpdateMerchant = vi.fn();
+const mockReloadMerchant = vi.fn();
 vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: () => ({ updateMerchant: mockUpdateMerchant }),
+  useMerchant: () => ({
+    reloadMerchant: mockReloadMerchant,
+    updateMerchant: mockUpdateMerchant,
+  }),
 }));
 
 // social_media is an identity field — it persists via the dedicated PATCH route
@@ -151,7 +155,7 @@ describe('SettingsForm', () => {
     ).toBeInTheDocument();
   });
 
-  it('submit saves generic fields via updateMerchant and social_media via the dedicated path', async () => {
+  it('submit saves generic fields and social_media before one context reload', async () => {
     // Arrange
     mockUpdateMerchant.mockResolvedValueOnce(undefined);
     mockUpdateSocial.mockResolvedValueOnce({
@@ -177,7 +181,8 @@ describe('SettingsForm', () => {
           business_name: 'Test Store',
           country: 'NG',
           hero_slides: [],
-        })
+        }),
+        { skipReload: true }
       );
     });
     expect(mockUpdateMerchant.mock.calls[0]?.[0]).not.toHaveProperty(
@@ -190,6 +195,14 @@ describe('SettingsForm', () => {
         expect.objectContaining({ twitter: '@test' })
       );
     });
+
+    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
+    expect(
+      Math.max(
+        mockUpdateMerchant.mock.invocationCallOrder[0] ?? 0,
+        mockUpdateSocial.mock.invocationCallOrder[0] ?? 0
+      )
+    ).toBeLessThan(mockReloadMerchant.mock.invocationCallOrder[0] ?? 0);
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
