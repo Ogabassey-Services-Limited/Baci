@@ -44,8 +44,8 @@ export class MonnifyTransientVendError extends Error {
 
 function sanitizeMonnifyErrorDetail(value: string) {
   return value
-    .replace(SENSITIVE_DIGIT_SEQUENCE_PATTERN, '[redacted]')
     .slice(0, MONNIFY_ERROR_DETAIL_MAX_LENGTH)
+    .replace(SENSITIVE_DIGIT_SEQUENCE_PATTERN, '[redacted]')
     .trim();
 }
 

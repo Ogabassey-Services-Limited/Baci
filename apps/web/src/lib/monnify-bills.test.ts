@@ -405,6 +405,23 @@ describe('Monnify Bills Client', () => {
         'Monnify server error'
       );
     });
+
+    it('propagates sanitized HTTP 5xx response details on discovery helpers', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            responseMessage: 'Gateway failed for request 1234567',
+          })
+        ),
+      });
+
+      await expect(getBillerCategories()).rejects.toThrow(
+        'Monnify server error: 500 Internal Server Error - Gateway failed for request [redacted]'
+      );
+    });
   });
 
   describe('verifyBillCustomer', () => {
@@ -687,6 +704,35 @@ describe('Monnify Bills Client', () => {
       );
       expect(result.message).toContain('[redacted]');
       expect(result.message).not.toContain('08012345678');
+    });
+
+    it('sanitizes plain-text HTTP error bodies before returning terminal 4xx failures', async () => {
+      const longTail = 'x'.repeat(260);
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: vi
+          .fn()
+          .mockResolvedValue(
+            `Plain error code 123456 customer 1234567 ${longTail} not-visible`
+          ),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.message).toContain('Plain error code 123456 customer');
+      expect(result.message).toContain('[redacted]');
+      expect(result.message).not.toContain('1234567');
+      expect(result.message).not.toContain('not-visible');
     });
 
     it('throws a retryable transient error for timeouts, network issues, and HTTP 5xx before transactionReference is known', async () => {
