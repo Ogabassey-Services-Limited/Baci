@@ -735,6 +735,28 @@ describe('Monnify Bills Client', () => {
       expect(result.message).not.toContain('not-visible');
     });
 
+    it('redacts sensitive digit sequences that cross the error detail boundary', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: vi.fn().mockResolvedValue(`${'x'.repeat(235)} 9876543 tail`),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.message).not.toContain('9876');
+      expect(result.message).toContain('[red');
+    });
+
     it('throws a retryable transient error for timeouts, network issues, and HTTP 5xx before transactionReference is known', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,

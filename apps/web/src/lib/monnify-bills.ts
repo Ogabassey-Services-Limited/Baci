@@ -33,6 +33,7 @@ const MONNIFY_PROCESSING_STATUSES = new Set([
 const MONNIFY_FAILED_STATUSES = new Set(['FAILED', 'FAILURE', 'UNSUCCESSFUL']);
 const SENSITIVE_DIGIT_SEQUENCE_PATTERN = /\b\d{7,}\b/g;
 const MONNIFY_ERROR_DETAIL_MAX_LENGTH = 240;
+const MONNIFY_ERROR_DETAIL_REDACTION_LOOKAHEAD = 64;
 
 export class MonnifyTransientVendError extends Error {
   constructor(message: string) {
@@ -43,9 +44,14 @@ export class MonnifyTransientVendError extends Error {
 }
 
 function sanitizeMonnifyErrorDetail(value: string) {
-  return value
-    .slice(0, MONNIFY_ERROR_DETAIL_MAX_LENGTH)
+  const boundedValue = value.slice(
+    0,
+    MONNIFY_ERROR_DETAIL_MAX_LENGTH + MONNIFY_ERROR_DETAIL_REDACTION_LOOKAHEAD
+  );
+
+  return boundedValue
     .replace(SENSITIVE_DIGIT_SEQUENCE_PATTERN, '[redacted]')
+    .slice(0, MONNIFY_ERROR_DETAIL_MAX_LENGTH)
     .trim();
 }
 
