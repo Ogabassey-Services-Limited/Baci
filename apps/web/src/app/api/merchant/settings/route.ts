@@ -1,9 +1,7 @@
 import {
   MERCHANT_SETTINGS_COLUMNS,
-  mergeSocialMediaValues,
   normalizeRegisteredAddress,
   SOCIAL_MEDIA_KEYS,
-  type SocialMediaValues,
 } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
@@ -73,42 +71,34 @@ export async function PATCH(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    // `clear_social_media: true` is an independent signal: a caller may ask to
-    // wipe handles without resending the `social_media` object. Treat that key
-    // alone as a clear so the explicit-clear contract can't silently no-op.
-    const explicitClear = body.clear_social_media === true;
+    let socialMediaMerchant: unknown = null;
+    if (body.social_media !== undefined || body.clear_social_media === true) {
+      const incomingSocialMedia = body.social_media ?? {};
+      const shouldClearSocialMedia =
+        body.clear_social_media === true ||
+        isFullBlankSocialMediaPayload(incomingSocialMedia);
 
-    if (body.social_media !== undefined || explicitClear) {
-      // Defense-in-depth (RFC 7386 merge semantics): merge the incoming
-      // payload over the EXISTING row so a partial caller can't drop handles
-      // it never touched. Read the current value scoped to this merchant.
-      const { data: existing, error: existingError } = await auth.supabase
-        .from('merchants')
-        .select('social_media')
-        .eq('id', access.merchantId)
-        .single<{ social_media: SocialMediaValues | null }>();
+      // Defense-in-depth (RFC 7386 merge semantics): merge the incoming object
+      // over the existing row in one Postgres UPDATE so concurrent partial
+      // requests cannot lose each other's handles.
+      const { data, error } = await auth.supabase.rpc(
+        'update_merchant_social_media',
+        {
+          p_clear: shouldClearSocialMedia,
+          p_merchant_id: access.merchantId,
+          p_social_media: incomingSocialMedia,
+        }
+      );
 
-      if (existingError) {
-        console.error('Merchant social media read failed:', existingError);
+      if (error || !data) {
+        console.error('Merchant social media update failed:', error);
         return NextResponse.json(
           { error: 'Failed to update merchant settings' },
           { status: 500 }
         );
       }
 
-      const incomingSocialMedia = body.social_media ?? {};
-      const shouldClearSocialMedia =
-        explicitClear || isFullBlankSocialMediaPayload(incomingSocialMedia);
-      const mergedSocialMedia = mergeSocialMediaValues(
-        shouldClearSocialMedia ? null : existing?.social_media,
-        incomingSocialMedia
-      );
-
-      // Skip the write when a partial merge collapses to {}. A true clear flag
-      // or the current full-form all-blank payload remains an explicit clear.
-      if (Object.keys(mergedSocialMedia).length > 0 || shouldClearSocialMedia) {
-        updates.social_media = mergedSocialMedia;
-      }
+      socialMediaMerchant = data;
     }
 
     if (body.vat_registration_status !== undefined) {
@@ -134,22 +124,40 @@ export async function PATCH(request: NextRequest) {
       updates.state_code = body.state_code || null;
     }
 
-    const { data: merchant, error } = await auth.supabase
-      .from('merchants')
-      .update(updates)
-      .eq('id', access.merchantId)
-      .select(MERCHANT_SETTINGS_COLUMNS)
-      .single();
+    const hasColumnUpdates = Object.keys(updates).some(
+      (key) => key !== 'updated_at'
+    );
 
-    if (error || !merchant) {
-      console.error('Merchant settings update failed:', error);
-      return NextResponse.json(
-        { error: 'Failed to update merchant settings' },
-        { status: 500 }
-      );
+    if (hasColumnUpdates) {
+      const { data: merchant, error } = await auth.supabase
+        .from('merchants')
+        .update(updates)
+        .eq('id', access.merchantId)
+        .select(MERCHANT_SETTINGS_COLUMNS)
+        .single();
+
+      if (error || !merchant) {
+        console.error('Merchant settings update failed:', error);
+        return NextResponse.json(
+          { error: 'Failed to update merchant settings' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ merchant });
     }
 
-    return NextResponse.json({ merchant });
+    if (socialMediaMerchant) {
+      return NextResponse.json({ merchant: socialMediaMerchant });
+    }
+
+    return NextResponse.json(
+      {
+        error: 'Validation failed',
+        details: { _root: ['No changes provided'] },
+      },
+      { status: 400 }
+    );
   } catch (error) {
     console.error('Invalid merchant settings payload:', error);
     return NextResponse.json(

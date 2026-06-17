@@ -12,15 +12,10 @@ const mockSingle = vi.fn();
 const mockSelect = vi.fn(() => ({ single: mockSingle }));
 const mockEq = vi.fn(() => ({ select: mockSelect }));
 const mockUpdate = vi.fn(() => ({ eq: mockEq }));
-
-// Existing-row read chain: select('social_media').eq('id', merchantId).single()
-const mockReadSingle = vi.fn();
-const mockReadEq = vi.fn(() => ({ single: mockReadSingle }));
-const mockReadSelect = vi.fn(() => ({ eq: mockReadEq }));
+const mockRpc = vi.fn();
 
 const mockFrom = vi.fn(() => ({
   update: mockUpdate,
-  select: mockReadSelect,
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -53,7 +48,7 @@ describe('PATCH /api/merchant/settings', () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       user: { id: 'user-1' },
-      supabase: { from: mockFrom },
+      supabase: { from: mockFrom, rpc: mockRpc },
     });
     mockGetUserAccess.mockResolvedValue({
       merchantId: 'merchant-1',
@@ -67,9 +62,8 @@ describe('PATCH /api/merchant/settings', () => {
       data: { id: 'merchant-1' },
       error: null,
     });
-    // Default: existing row has no stored social handles.
-    mockReadSingle.mockResolvedValue({
-      data: { social_media: null },
+    mockRpc.mockResolvedValue({
+      data: { id: 'merchant-1', social_media: null },
       error: null,
     });
   });
@@ -89,9 +83,13 @@ describe('PATCH /api/merchant/settings', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
+      p_clear: false,
+      p_merchant_id: 'merchant-1',
+      p_social_media: { instagram: '@baci', twitter: '' },
+    });
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        social_media: { instagram: '@baci' },
         tax_identification_number: '1234567890',
       })
     );
@@ -180,17 +178,6 @@ describe('PATCH /api/merchant/settings', () => {
   });
 
   it('merges a partial social payload over existing handles so untouched ones survive', async () => {
-    mockReadSingle.mockResolvedValue({
-      data: {
-        social_media: {
-          twitter: '@oldtwitter',
-          facebook: 'fb.com/oga',
-          instagram: '@oldinsta',
-        },
-      },
-      error: null,
-    });
-
     const response = await PATCH(
       createPatchRequest(
         JSON.stringify({
@@ -201,23 +188,18 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockReadSelect).toHaveBeenCalledWith('social_media');
-    expect(mockReadEq).toHaveBeenCalledWith('id', 'merchant-1');
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        social_media: {
-          twitter: '@oldtwitter',
-          facebook: 'fb.com/oga',
-          instagram: '@newinsta',
-        },
-      })
-    );
+    expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
+      p_clear: false,
+      p_merchant_id: 'merchant-1',
+      p_social_media: { instagram: '@newinsta' },
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it('fails closed when the existing social_media read fails', async () => {
-    mockReadSingle.mockResolvedValue({
+  it('fails closed when the atomic social_media update fails', async () => {
+    mockRpc.mockResolvedValue({
       data: null,
-      error: { message: 'read failure' },
+      error: { message: 'rpc failure' },
     });
 
     const response = await PATCH(
@@ -233,11 +215,6 @@ describe('PATCH /api/merchant/settings', () => {
   });
 
   it('clears all social handles when clear_social_media is true', async () => {
-    mockReadSingle.mockResolvedValue({
-      data: { social_media: { twitter: '@oga', instagram: '@oga' } },
-      error: null,
-    });
-
     const response = await PATCH(
       createPatchRequest(
         JSON.stringify({
@@ -248,33 +225,33 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ social_media: {} })
-    );
+    expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
+      p_clear: true,
+      p_merchant_id: 'merchant-1',
+      p_social_media: {},
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it('clears handles when clear_social_media is true without a social_media object', async () => {
-    mockReadSingle.mockResolvedValue({
-      data: { social_media: { twitter: '@oga', instagram: '@oga' } },
-      error: null,
-    });
-
+  it('honors clear_social_media even when social_media is omitted', async () => {
     const response = await PATCH(
-      createPatchRequest(JSON.stringify({ clear_social_media: true }))
+      createPatchRequest(
+        JSON.stringify({
+          clear_social_media: true,
+        })
+      )
     );
 
     expect(response.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ social_media: {} })
-    );
+    expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
+      p_clear: true,
+      p_merchant_id: 'merchant-1',
+      p_social_media: {},
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('treats the current full-form all-blank payload as an explicit clear', async () => {
-    mockReadSingle.mockResolvedValue({
-      data: { social_media: { twitter: '@oga', instagram: '@oga' } },
-      error: null,
-    });
-
     const response = await PATCH(
       createPatchRequest(
         JSON.stringify({
@@ -293,17 +270,24 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ social_media: {} })
-    );
+    expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
+      p_clear: true,
+      p_merchant_id: 'merchant-1',
+      p_social_media: {
+        twitter: '',
+        facebook: '',
+        instagram: '',
+        tiktok: '',
+        youtube: '',
+        pinterest: '',
+        linkedin: '',
+        snapchat: '',
+      },
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it('skips the social_media write when the merge collapses to {} without the clear flag', async () => {
-    mockReadSingle.mockResolvedValue({
-      data: { social_media: {} },
-      error: null,
-    });
-
+  it('sends partial blank handles to the atomic merge without the clear flag', async () => {
     const response = await PATCH(
       createPatchRequest(
         JSON.stringify({
@@ -317,20 +301,18 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(200);
-    // The update still runs (updated_at touch), but social_media is omitted.
-    expect(mockUpdate).toHaveBeenCalled();
-    const [updatePayload] = mockUpdate.mock.calls.at(-1) as unknown as [
-      Record<string, unknown>,
-    ];
-    expect(updatePayload).not.toHaveProperty('social_media');
+    expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
+      p_clear: false,
+      p_merchant_id: 'merchant-1',
+      p_social_media: {
+        twitter: '',
+        instagram: '',
+      },
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('replaces with a full social object while preserving merge semantics', async () => {
-    mockReadSingle.mockResolvedValue({
-      data: { social_media: { twitter: '@stale' } },
-      error: null,
-    });
-
     const response = await PATCH(
       createPatchRequest(
         JSON.stringify({
@@ -344,10 +326,15 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        social_media: { twitter: '@baci', facebook: 'fb.com/baci' },
-      })
-    );
+    expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
+      p_clear: false,
+      p_merchant_id: 'merchant-1',
+      p_social_media: {
+        twitter: '@baci',
+        facebook: 'fb.com/baci',
+        instagram: '',
+      },
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
