@@ -29,6 +29,20 @@ describe('imageLoader', () => {
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(url);
   });
 
+  it('builds transformed OgaBassey CDN URLs only for explicit preload callers', () => {
+    const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
+    expect(
+      imageLoader({
+        preferOgabasseyTransform: true,
+        quality: 30,
+        src: url,
+        width: 750,
+      })
+    ).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/iphone.avif'
+    );
+  });
+
   it('preserves explicit OgaBassey CDN transformer URLs without resizing them', () => {
     const url =
       'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/codex/post-landscape_16x9.jpg';

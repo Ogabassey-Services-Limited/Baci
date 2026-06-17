@@ -4,12 +4,14 @@ interface ImageLoaderParams {
   src: string;
   width: number;
   quality?: number;
+  preferOgabasseyTransform?: boolean;
 }
 
 const OGABASSEY_CDN_HOSTNAME = new URL(DEFAULT_MEDIA_CDN_ORIGIN).hostname;
 const DEFAULT_IMAGE_QUALITY = 75;
 const MIN_TRANSFORM_WIDTH = 16;
 const MAX_TRANSFORM_WIDTH = 3840;
+const TRANSFORMABLE_IMAGE_EXTENSION_PATTERN = /\.(avif|jpe?g|png|webp)$/i;
 
 /**
  * Custom image loader for next/image.
@@ -28,6 +30,7 @@ export default function imageLoader({
   src,
   width,
   quality,
+  preferOgabasseyTransform = false,
 }: ImageLoaderParams): string {
   if (typeof src !== 'string') {
     return '';
@@ -43,6 +46,10 @@ export default function imageLoader({
   // path for already-optimized OgaBassey CDN assets.
   if (src.startsWith('https://') || src.startsWith('http://')) {
     if (isOgabasseyCdnUrl(src)) {
+      if (preferOgabasseyTransform) {
+        return buildOgabasseyCdnTransformUrl({ quality, src, width }) ?? src;
+      }
+
       return src;
     }
 
@@ -72,6 +79,32 @@ function isOgabasseyCdnUrl(src: string): boolean {
   } catch {
     return false;
   }
+}
+
+function buildOgabasseyCdnTransformUrl({
+  src,
+  width,
+  quality,
+}: ImageLoaderParams): string | null {
+  let url: URL;
+  try {
+    url = new URL(src);
+  } catch {
+    return null;
+  }
+
+  if (
+    url.hostname !== OGABASSEY_CDN_HOSTNAME ||
+    url.pathname.startsWith('/image/') ||
+    !TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(url.pathname)
+  ) {
+    return null;
+  }
+
+  const transformWidth = clampDimension(width);
+  const transformQuality = clampQuality(quality);
+
+  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=auto${url.pathname}${url.search}${url.hash}`;
 }
 
 function clampDimension(width: number): number {
