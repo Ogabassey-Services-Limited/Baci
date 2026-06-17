@@ -154,6 +154,88 @@ describe('searchStorefrontProducts', () => {
 
     expect(result.didYouMean).toBe('iphone');
   });
+
+  it('passes optional filter and pagination arguments to search_products_v2', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [{ product_id: 'prod-1', total_count: 1 }],
+      error: null,
+    });
+
+    await searchStorefrontProducts({
+      supabase: mockSupabase as never,
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      query: 'iphone',
+      limit: 12,
+      offset: 24,
+      filters: {
+        brand: 'Apple',
+        categoryId: '22222222-2222-2222-2222-222222222222',
+        condition: 'used',
+        minPrice: 100000,
+        maxPrice: 500000,
+        minRating: 4,
+        stock: 'in_stock',
+      },
+      sort: 'price_asc',
+    });
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({
+        brand_filter: 'Apple',
+        category_id_filter: '22222222-2222-2222-2222-222222222222',
+        condition_filter: 'used',
+        max_price_filter: 500000,
+        min_price_filter: 100000,
+        min_rating_filter: 4,
+        result_limit: 12,
+        result_offset: 24,
+        sort_by: 'price_asc',
+        stock_filter: 'in_stock',
+      })
+    );
+  });
+
+  it('clamps result limits before calling the rpc', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [{ product_id: 'prod-1', total_count: 1 }],
+      error: null,
+    });
+
+    await searchStorefrontProducts({
+      supabase: mockSupabase as never,
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      query: 'iphone',
+      limit: 500,
+    });
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ result_limit: 100 })
+    );
+  });
+
+  it('can disable analytics for autocomplete-style callers', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [{ product_id: 'prod-1', total_count: 1 }],
+      error: null,
+    });
+
+    await searchStorefrontProducts({
+      supabase: mockSupabase as never,
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      query: 'iphone',
+      limit: 10,
+      trackAnalytics: false,
+    });
+
+    expect(createPublicClient).not.toHaveBeenCalledWith({
+      clientInfo: 'baci-storefront-search-analytics',
+    });
+    expect(mockAnalyticsSupabase.from).not.toHaveBeenCalledWith(
+      'search_analytics'
+    );
+  });
 });
 
 describe('getStorefrontSearchProducts', () => {
@@ -233,5 +315,77 @@ describe('getStorefrontSearchProducts', () => {
       price: 1000,
       slug: 'phone-one',
     });
+  });
+
+  it('applies storefront condition-family filters after hydrating ranked results', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        { product_id: 'product-1', total_count: 2 },
+        { product_id: 'product-2', total_count: 2 },
+      ],
+      error: null,
+    });
+
+    vi.mocked(createClient).mockReturnValue({
+      rpc,
+      from: vi.fn(() => ({
+        insert: vi.fn().mockResolvedValue({ error: null }),
+      })),
+    } as never);
+
+    vi.mocked(createPublicClient)
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            in: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({
+                  data: [
+                    {
+                      id: 'product-1',
+                      name: 'Phone Offer Family',
+                      price: 1000,
+                      slug: 'phone-offer-family',
+                      condition: 'new',
+                      has_condition_offers: true,
+                      available_conditions: ['new', 'open_box'],
+                    },
+                    {
+                      id: 'product-2',
+                      name: 'New Only Phone',
+                      price: 2000,
+                      slug: 'new-only-phone',
+                      condition: 'new',
+                      has_condition_offers: false,
+                      available_conditions: ['new'],
+                    },
+                  ],
+                  error: null,
+                }),
+              })),
+            })),
+          })),
+        })),
+      } as never)
+      .mockReturnValueOnce(mockAnalyticsSupabase as never);
+
+    const result = await getStorefrontSearchProducts({
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      query: 'phone',
+      limit: 20,
+      filters: { condition: 'open_box' },
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({
+        condition_filter: null,
+        result_limit: 100,
+        result_offset: 0,
+      })
+    );
+    expect(result.products.map((product) => product.id)).toEqual(['product-1']);
+    expect(result.productIds).toEqual(['product-1']);
+    expect(result.count).toBe(1);
   });
 });

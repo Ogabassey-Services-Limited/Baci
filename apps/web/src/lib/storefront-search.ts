@@ -7,6 +7,7 @@ import { after } from 'next/server';
 import { logger } from './logger';
 import { type NormalizedProduct, normalizeProduct } from './normalize-product';
 import { isValidUuid, sanitizeSearchQuery } from './sanitize-core';
+import { storefrontProductFilters } from './storefront-product-filters';
 import { STOREFRONT_PRODUCTS_COMPACT_SELECT } from './storefront-products-select';
 import { createPublicClient } from './supabase/public';
 import { createClient } from './supabase/server';
@@ -34,12 +35,38 @@ interface StorefrontSearchAnalyticsSupabase {
   };
 }
 
+export type StorefrontSearchSort =
+  | 'relevance'
+  | 'price_asc'
+  | 'price_desc'
+  | 'popular'
+  | 'newest';
+
+export type StorefrontSearchStockFilter =
+  | 'in_stock'
+  | 'low_stock'
+  | 'out_of_stock';
+
+export interface StorefrontSearchFilters {
+  brand?: string | null;
+  categoryId?: string | null;
+  condition?: string | null;
+  maxPrice?: number | null;
+  minPrice?: number | null;
+  minRating?: number | null;
+  stock?: StorefrontSearchStockFilter | null;
+}
+
 interface SearchStorefrontProductsArgs {
   supabase: StorefrontSearchSupabase;
   analyticsSupabase?: StorefrontSearchAnalyticsSupabase;
+  filters?: StorefrontSearchFilters;
   merchantId: string;
   query: string;
   limit: number;
+  offset?: number;
+  sort?: StorefrontSearchSort;
+  trackAnalytics?: boolean;
 }
 
 export interface StorefrontSearchResult {
@@ -63,6 +90,30 @@ function createSearchAnalyticsClient() {
   return createPublicClient({
     clientInfo: 'baci-storefront-search-analytics',
   });
+}
+
+function clampSearchLimit(limit: number) {
+  return Math.min(Math.max(Math.trunc(limit || 20), 1), 100);
+}
+
+function normalizeSearchOffset(offset?: number) {
+  return Math.max(Math.trunc(offset || 0), 0);
+}
+
+export function toStorefrontSearchSort(
+  sort?: string | null
+): StorefrontSearchSort {
+  const sortMap: Record<string, StorefrontSearchSort> = {
+    newest: 'newest',
+    popular: 'popular',
+    'price-asc': 'price_asc',
+    'price-desc': 'price_desc',
+    price_asc: 'price_asc',
+    price_desc: 'price_desc',
+    relevance: 'relevance',
+  };
+
+  return sort ? (sortMap[sort] ?? 'relevance') : 'relevance';
 }
 
 function runSearchAnalyticsAfterResponse(callback: () => Promise<void>) {
@@ -137,33 +188,39 @@ function scheduleSearchAnalyticsInsert(args: {
 export async function searchStorefrontProducts({
   supabase,
   analyticsSupabase,
+  filters,
   merchantId,
   query,
   limit,
+  offset,
+  sort = 'relevance',
+  trackAnalytics = true,
 }: SearchStorefrontProductsArgs): Promise<StorefrontSearchResult> {
   if (!isValidUuid(merchantId)) {
     throw new InvalidMerchantIdError();
   }
 
   const sanitizedQuery = sanitizeSearchQuery(query);
+  const safeLimit = clampSearchLimit(limit);
+  const safeOffset = normalizeSearchOffset(offset);
 
   const { data: rankedResultsRaw, error } = await supabase.rpc(
     'search_products_v2',
     {
-      brand_filter: null,
-      category_id_filter: null,
-      condition_filter: null,
-      max_price_filter: null,
+      brand_filter: filters?.brand ?? null,
+      category_id_filter: filters?.categoryId ?? null,
+      condition_filter: filters?.condition ?? null,
+      max_price_filter: filters?.maxPrice ?? null,
       merchant_id_param: merchantId,
-      min_price_filter: null,
-      min_rating_filter: null,
+      min_price_filter: filters?.minPrice ?? null,
+      min_rating_filter: filters?.minRating ?? null,
       parent_only: false,
-      result_limit: limit,
-      result_offset: 0,
+      result_limit: safeLimit,
+      result_offset: safeOffset,
       search_query: sanitizedQuery,
-      sort_by: 'relevance',
+      sort_by: sort,
       status_filter: 'active',
-      stock_filter: null,
+      stock_filter: filters?.stock ?? null,
     }
   );
 
@@ -175,12 +232,14 @@ export async function searchStorefrontProducts({
   const productIds = extractProductSearchIds(rankedResults);
   const count = getProductSearchTotalCount(rankedResults);
 
-  scheduleSearchAnalyticsInsert({
-    supabase: analyticsSupabase,
-    merchantId,
-    query: sanitizedQuery,
-    resultsCount: count,
-  });
+  if (trackAnalytics) {
+    scheduleSearchAnalyticsInsert({
+      supabase: analyticsSupabase,
+      merchantId,
+      query: sanitizedQuery,
+      resultsCount: count,
+    });
+  }
 
   let didYouMean: string | null = null;
 
@@ -218,20 +277,35 @@ export async function searchStorefrontProducts({
 }
 
 export async function getStorefrontSearchProducts(args: {
+  filters?: StorefrontSearchFilters;
   merchantId: string;
   query: string;
   limit: number;
+  offset?: number;
+  sort?: StorefrontSearchSort;
 }): Promise<StorefrontSearchProductsPage> {
   const publicSupabase = createPublicClient({
     clientInfo: 'baci-storefront-search-page',
   });
   const serverSupabase = createClient(await cookies());
+  const requestedLimit = clampSearchLimit(args.limit);
+  const requestedOffset = normalizeSearchOffset(args.offset);
+  const conditionFilter = args.filters?.condition ?? null;
+  const needsConditionFamilyFilter = Boolean(
+    conditionFilter && !storefrontProductFilters.isAllFilter(conditionFilter)
+  );
+  const searchFilters = needsConditionFamilyFilter
+    ? { ...args.filters, condition: null }
+    : args.filters;
 
   const searchResult = await searchStorefrontProducts({
     supabase: serverSupabase,
+    filters: searchFilters,
     merchantId: args.merchantId,
     query: args.query,
-    limit: args.limit,
+    limit: needsConditionFamilyFilter ? 100 : requestedLimit,
+    offset: needsConditionFamilyFilter ? 0 : requestedOffset,
+    sort: args.sort,
   });
 
   if (searchResult.productIds.length === 0) {
@@ -259,8 +333,27 @@ export async function getStorefrontSearchProducts(args: {
 
   mapped.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 
+  const filteredProducts = needsConditionFamilyFilter
+    ? mapped.filter((product) =>
+        storefrontProductFilters.matchesStorefrontConditionFilter(
+          product,
+          conditionFilter ?? ''
+        )
+      )
+    : mapped;
+  const products = needsConditionFamilyFilter
+    ? filteredProducts.slice(requestedOffset, requestedOffset + requestedLimit)
+    : filteredProducts;
+  const productIds = needsConditionFamilyFilter
+    ? products.map((product) => product.id)
+    : searchResult.productIds;
+
   return {
     ...searchResult,
-    products: mapped,
+    count: needsConditionFamilyFilter
+      ? filteredProducts.length
+      : searchResult.count,
+    productIds,
+    products,
   };
 }
