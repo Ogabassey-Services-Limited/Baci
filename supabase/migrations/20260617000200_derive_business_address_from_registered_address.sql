@@ -35,10 +35,14 @@
 -- The format function is still declared IMMUTABLE so a future move to a
 -- generated column needs no function change.
 --
--- Recompute rule: on EVERY insert/update, `business_address` is set to
+-- Recompute rule: on insert, and on any update that touches either address
+-- column, `business_address` is set to
 -- `format_merchant_address(registered_address)`. When `registered_address` is
--- null/empty, that yields NULL — a cleared address never leaves a stale
--- free-text value behind.
+-- null/empty, that yields NULL — a cleared structured address never leaves a
+-- stale free-text value behind. The one-time back-fill (step 3) is narrower than
+-- the trigger: it deliberately PRESERVES legacy free-text-only addresses (rows
+-- whose registered_address is still `{}`) so the migration can never wipe the
+-- only address a merchant has.
 
 -- 1. IMMUTABLE formatter: comma-join the non-empty structured parts.
 --    Mirrors the shared TS `formatMerchantAddress()` (parity-tested).
@@ -81,9 +85,19 @@ IS 'Formats a structured registered_address jsonb into the free-text business_ad
 -- 2. Trigger function: derive business_address from registered_address on every
 --    insert and on updates that touch either address column. This catches legacy
 --    direct business_address writers while avoiding work on unrelated updates.
+--
+--    SECURITY DEFINER is REQUIRED: the helper format_merchant_address has EXECUTE
+--    revoked from anon/authenticated (above). A SECURITY INVOKER trigger function
+--    resolves that nested call against the *calling* role, so an authenticated
+--    client updating registered_address would fail with "permission denied for
+--    function format_merchant_address". Running the trigger as DEFINER resolves
+--    the helper against the function owner (which retains EXECUTE). This does not
+--    widen table access: it is a BEFORE trigger that only rewrites NEW, and the
+--    locked-down search_path below blocks search-path hijacking.
 CREATE OR REPLACE FUNCTION public.sync_business_address_from_registered()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public'
 AS $$
 BEGIN
@@ -110,12 +124,23 @@ BEFORE INSERT OR UPDATE ON public.merchants
 FOR EACH ROW
 EXECUTE FUNCTION public.sync_business_address_from_registered();
 
--- 3. One-time back-fill: derive business_address for every existing row from its
---    current registered_address. Rows whose structured address is null/empty get
---    business_address = NULL (no stale free-text retained).
+-- 3. One-time back-fill: derive business_address ONLY for rows that already have a
+--    non-empty structured registered_address. We deliberately do NOT touch rows
+--    whose registered_address is null/empty (`{}`), because some legacy merchants
+--    only ever stored their address as free-text business_address (the pre-UI
+--    mobile store-settings screen writes that column directly while
+--    registered_address keeps its `{}` default). Deriving for those rows would
+--    evaluate format_merchant_address('{}') -> NULL and WIPE the only address they
+--    have — turning unification into data loss. Those free-text values are
+--    preserved here and only ever get re-derived once a structured
+--    registered_address is supplied (then the trigger takes over). We also guard
+--    against overwriting any existing business_address with NULL.
 UPDATE public.merchants
 SET business_address = public.format_merchant_address(registered_address)
-WHERE business_address IS DISTINCT FROM public.format_merchant_address(registered_address);
+WHERE registered_address IS NOT NULL
+  AND registered_address <> '{}'::jsonb
+  AND public.format_merchant_address(registered_address) IS NOT NULL
+  AND business_address IS DISTINCT FROM public.format_merchant_address(registered_address);
 
 COMMENT ON COLUMN public.merchants.business_address
 IS 'Derived (do not write directly): comma-joined free-text form of registered_address, kept in sync by zz_sync_business_address_from_registered. Displayed in storefront footer. PR-F address unification.';
