@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { extractAttribution } from './web-vitals-reporter';
+import {
+  buildWebVitalEndpointPayload,
+  extractAttribution,
+} from './web-vitals-reporter';
 
 const base = { value: 1, id: 'v1', rating: 'poor', navigationType: 'navigate' };
 
@@ -80,5 +83,28 @@ describe('extractAttribution', () => {
         attribution: { element: 'img', target: { nested: true } },
       })
     ).toEqual({ debugTarget: 'img' });
+  });
+});
+
+describe('buildWebVitalEndpointPayload', () => {
+  it('keeps custom endpoint payloads compatible with the legacy schema', () => {
+    const payload = buildWebVitalEndpointPayload({
+      ...base,
+      name: 'LCP',
+      attribution: {
+        element: 'img.hero',
+        resourceLoadDuration: 1800,
+      },
+    });
+
+    expect(payload).toMatchObject({
+      name: 'LCP',
+      value: 1,
+      rating: 'poor',
+      id: 'v1',
+      navigationType: 'navigate',
+    });
+    expect(payload).not.toHaveProperty('attribution');
+    expect(typeof payload.timestamp).toBe('number');
   });
 });

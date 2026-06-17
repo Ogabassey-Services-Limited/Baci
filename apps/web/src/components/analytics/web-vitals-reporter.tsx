@@ -63,6 +63,15 @@ interface WebVitalMetric {
   attribution?: unknown;
 }
 
+interface WebVitalEndpointPayload {
+  name: string;
+  value: number;
+  rating: string;
+  id: string;
+  navigationType: string;
+  timestamp: number;
+}
+
 /**
  * Pull the most useful per-metric attribution fields (the element selector +
  * the timing sub-parts) so real-user reports show WHICH node is the LCP / what
@@ -99,6 +108,19 @@ export function extractAttribution(
   return out;
 }
 
+export function buildWebVitalEndpointPayload(
+  metric: WebVitalMetric
+): WebVitalEndpointPayload {
+  return {
+    name: metric.name,
+    value: metric.value,
+    rating: metric.rating,
+    id: metric.id,
+    navigationType: metric.navigationType,
+    timestamp: Date.now(),
+  };
+}
+
 function handleWebVitalMetric(
   metric: WebVitalMetric,
   debug: boolean,
@@ -127,6 +149,10 @@ function handleWebVitalMetric(
   ) {
     const gtag = (window as unknown as { gtag: (...args: unknown[]) => void })
       .gtag;
+    // GA4 collects custom event parameters immediately. To use them in GA4 UI
+    // reporting, register the relevant event-scoped custom dimensions/metrics
+    // in the GA property; otherwise keep high-cardinality selectors/URLs for
+    // DebugView or BigQuery export analysis.
     gtag('event', metric.name, {
       value: Math.round(
         metric.name === 'CLS' ? metric.value * 1000 : metric.value
@@ -141,15 +167,7 @@ function handleWebVitalMetric(
 
   // Send to custom endpoint if provided
   if (endpoint) {
-    const body = JSON.stringify({
-      name: metric.name,
-      value: metric.value,
-      rating: metric.rating,
-      id: metric.id,
-      navigationType: metric.navigationType,
-      attribution: extractAttribution(metric),
-      timestamp: Date.now(),
-    });
+    const body = JSON.stringify(buildWebVitalEndpointPayload(metric));
 
     if (navigator.sendBeacon) {
       navigator.sendBeacon(endpoint, body);
