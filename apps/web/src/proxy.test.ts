@@ -590,6 +590,36 @@ describe('Middleware Proxy', () => {
       );
     });
 
+    it('preserves attribution query params when redirecting a legacy product alias', async () => {
+      resolutionMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/iphone-15-pro-max',
+      });
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/iphone-15-pro-max-8gb-256gb?utm_source=email&gclid=abc123'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/smartphones/iphone-15-pro-max?utm_source=email&gclid=abc123'
+      );
+    });
+
+    it('does not hard-404 query-param product URLs even when the slug is reported missing', async () => {
+      mockMissing(true);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/totally-made-up?utm_source=email'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+    });
+
     it('falls through (rewrite, not 404) when the product slug exists', async () => {
       mockMissing(false);
       const req = new NextRequest(

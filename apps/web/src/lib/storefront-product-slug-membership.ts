@@ -1,3 +1,5 @@
+import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+
 interface SlugMissingOptions {
   /**
    * Public request origin, e.g. `https://ogabassey.com` — used as the fallback
@@ -57,32 +59,6 @@ function resolveInternalBaseUrl(origin: string): string | null {
   return isLoopbackOrigin(origin) ? origin : null;
 }
 
-function hasSafeInternalRedirectShape(path: string): boolean {
-  return (
-    path.startsWith('/') &&
-    !path.startsWith('//') &&
-    !path.startsWith('/\\') &&
-    !path.includes(':')
-  );
-}
-
-function isSafeInternalRedirectPath(value: unknown): value is string {
-  if (typeof value !== 'string') {
-    return false;
-  }
-
-  const path = value.trim();
-  if (!hasSafeInternalRedirectShape(path)) {
-    return false;
-  }
-
-  try {
-    return hasSafeInternalRedirectShape(decodeURIComponent(path));
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Resolves a storefront PDP slug for the proxy: missing slugs become real hard
  * 404s, archived aliases become real 308s, and every uncertain/live case falls
@@ -137,11 +113,9 @@ export async function resolveStorefrontProductSlugResolution(
       return { kind: 'present-or-unknown' };
     }
 
-    if (
-      body.present === true &&
-      isSafeInternalRedirectPath(body.redirectPath)
-    ) {
-      return { kind: 'redirect', redirectPath: body.redirectPath.trim() };
+    const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+    if (body.present === true && redirectPath) {
+      return { kind: 'redirect', redirectPath };
     }
 
     // Hard-404 ONLY on an explicit, error-free "absent" verdict. Any other

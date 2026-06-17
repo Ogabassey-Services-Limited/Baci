@@ -20,9 +20,9 @@ export default function StorefrontNotFound() {
         role="status"
         aria-label="Loading page"
       >
-        <div className="h-32 w-48 bg-gray-200 dark:bg-gray-800 rounded-lg mb-8" />
-        <div className="h-8 w-64 bg-gray-200 dark:bg-gray-800 rounded mb-4" />
-        <div className="h-4 w-96 bg-gray-200 dark:bg-gray-800 rounded" />
+        <div className="h-32 w-48 bg-store-background-text/10 rounded-lg mb-8" />
+        <div className="h-8 w-64 bg-store-background-text/10 rounded mb-4" />
+        <div className="h-4 w-96 bg-store-background-text/10 rounded" />
       </div>
     );
   }
@@ -31,17 +31,11 @@ export default function StorefrontNotFound() {
     <div className="relative isolate flex min-h-[calc(100svh-4rem)] flex-col items-center justify-center bg-store-background px-4 py-16 text-store-background-text sm:px-8">
       <div className="text-center space-y-6 max-w-lg rounded-3xl border border-store-border bg-store-background/95 p-6 shadow-2xl sm:p-8">
         {/* Animated 404 number with brand color */}
-        <div
-          className="text-8xl md:text-9xl font-bold opacity-20"
-          style={{ color: 'var(--store-primary, #3B82F6)' }}
-        >
+        <div className="text-8xl font-bold text-store-primary opacity-20 md:text-9xl">
           404
         </div>
 
-        <h1
-          className="text-3xl md:text-4xl font-bold -mt-8"
-          style={{ color: 'var(--store-primary, #1F2937)' }}
-        >
+        <h1 className="-mt-8 text-3xl font-bold text-store-primary md:text-4xl">
           Page Not Found
         </h1>
 
@@ -75,7 +69,7 @@ export default function StorefrontNotFound() {
         </div>
 
         {/* Navigation help */}
-        <div className="pt-8 border-t border-border mt-8">
+        <div className="pt-8 border-t border-store-border mt-8">
           <p className="text-sm text-store-background-text mb-4">
             Here are some helpful links:
           </p>
@@ -86,7 +80,7 @@ export default function StorefrontNotFound() {
             >
               <ArrowLeft className="size-3" /> Home
             </Link>
-            <span className="text-border">|</span>
+            <span className="text-store-border">|</span>
             <Link
               href={asRoute(`${basePath || ''}/#products`)}
               className="text-store-background-text hover:text-store-primary transition-colors"
@@ -95,7 +89,7 @@ export default function StorefrontNotFound() {
             </Link>
             {merchant?.pages?.contact && (
               <>
-                <span className="text-border">|</span>
+                <span className="text-store-border">|</span>
                 <Link
                   href={asRoute(`${basePath || ''}/pages/contact`)}
                   className="text-store-background-text hover:text-store-primary transition-colors"

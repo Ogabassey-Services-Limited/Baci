@@ -5,6 +5,7 @@ import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefron
 import { getCachedStorefrontProductSlugSet } from '@/lib/cached-storefront-product-slug-set';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
+import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { getProductUrl } from '@/lib/seo-utils';
 import {
   internalSlugSetParamsSchema,
@@ -15,27 +16,6 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 // Fail-open membership: the proxy hard-404s ONLY when `present` is false AND
 // `hasError` is false, so any uncertainty returns hasError:true.
 const FAIL_OPEN = { hasError: true, present: false };
-
-function hasSafeInternalRedirectShape(path: string): boolean {
-  return (
-    path.startsWith('/') &&
-    !path.startsWith('//') &&
-    !path.startsWith('/\\') &&
-    !path.includes(':')
-  );
-}
-
-function isSafeInternalRedirectPath(value: string): boolean {
-  if (!hasSafeInternalRedirectShape(value)) {
-    return false;
-  }
-
-  try {
-    return hasSafeInternalRedirectShape(decodeURIComponent(value));
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Internal product-slug MEMBERSHIP endpoint for the proxy's crawl-budget
@@ -116,8 +96,10 @@ export async function GET(
       query.data.slug
     );
     if (!resolution.hasError && resolution.redirectTarget) {
-      const redirectPath = getProductUrl(resolution.redirectTarget);
-      if (isSafeInternalRedirectPath(redirectPath)) {
+      const redirectPath = toSafeInternalRedirectPath(
+        getProductUrl(resolution.redirectTarget)
+      );
+      if (redirectPath) {
         return NextResponse.json(
           { hasError: false, present: true, redirectPath },
           { status: 200, headers: NO_STORE }

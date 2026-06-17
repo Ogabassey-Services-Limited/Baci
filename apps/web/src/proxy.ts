@@ -1174,10 +1174,9 @@ async function resolveStorefrontPdpHardNotFound(
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return null;
   }
-  // Param URLs canonicalize/redirect elsewhere; only judge clean canonical URLs.
-  if (request.nextUrl.search.length > 0) {
-    return null;
-  }
+  // Param URLs should not become hard 404s, but redirectable legacy aliases
+  // should still canonicalize while preserving attribution/search params.
+  const hasSearchParams = request.nextUrl.search.length > 0;
   // Never hard-404 RSC/prefetch navigations Next expects to succeed.
   if (
     request.headers.get('rsc') === '1' ||
@@ -1251,11 +1250,10 @@ async function resolveStorefrontPdpHardNotFound(
   if (resolution.kind === 'redirect') {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = resolution.redirectPath;
-    redirectUrl.search = '';
     return NextResponse.redirect(redirectUrl, 308);
   }
 
-  if (resolution.kind !== 'missing') {
+  if (resolution.kind !== 'missing' || hasSearchParams) {
     return null;
   }
 
