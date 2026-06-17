@@ -24,6 +24,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
+import { updateSocial } from '@/hooks/merchant/update-social';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import type { CachedMerchant, HeroSlide } from '@/lib/cached-data';
@@ -145,6 +146,7 @@ interface SaveSettingsContext {
   heroSlides: HeroSlide[];
   socialMedia: Record<string, string>;
   updateMerchant: UpdateMerchantFn;
+  reloadMerchant: () => void;
   toast: ToastFn;
   setIsSaving: Dispatch<SetStateAction<boolean>>;
 }
@@ -155,16 +157,29 @@ async function saveSettings({
   heroSlides,
   socialMedia,
   updateMerchant,
+  reloadMerchant,
   toast,
   setIsSaving,
 }: SaveSettingsContext) {
   setIsSaving(true);
   try {
-    await updateMerchant({
-      ...data,
-      hero_slides: heroSlides,
-      social_media: sanitizeSocialMedia(socialMedia),
-    } as Parameters<UpdateMerchantFn>[0]);
+    await Promise.all([
+      // Generic (non-identity) settings go through the generic hook. Suppress
+      // its implicit reload so the context refresh happens once, after the
+      // dedicated social_media write also commits.
+      updateMerchant(
+        {
+          ...data,
+          hero_slides: heroSlides,
+        } as Parameters<UpdateMerchantFn>[0],
+        { skipReload: true }
+      ),
+      // social_media is an IDENTITY field — persist it via the dedicated,
+      // server-allowlisted /api/merchant/settings PATCH route (the generic hook
+      // now throws on identity keys).
+      updateSocial(sanitizeSocialMedia(socialMedia)),
+    ]);
+    reloadMerchant();
     toast({
       title: 'Settings Saved!',
       description: 'Your store settings have been updated.',
@@ -185,7 +200,7 @@ export function SettingsForm({
   initialBlogEnabled,
 }: SettingsFormProps) {
   const { toast } = useToast();
-  const { updateMerchant } = useMerchant();
+  const { reloadMerchant, updateMerchant } = useMerchant();
 
   const [merchantState, setMerchantState] = useState(initialMerchant);
   const [isDirty, setIsDirty] = useState(false);
@@ -337,6 +352,7 @@ export function SettingsForm({
       heroSlides,
       socialMedia: socialMediaEdits ?? buildSocialMediaDraft(initialMerchant),
       updateMerchant,
+      reloadMerchant,
       toast,
       setIsSaving,
     });
@@ -394,7 +410,6 @@ export function SettingsForm({
 
         <SocialMediaCard
           initialSocialMedia={buildSocialMediaDraft(initialMerchant)}
-          updateMerchant={updateMerchant}
           onSocialMediaChange={setSocialMediaEdits}
         />
 
