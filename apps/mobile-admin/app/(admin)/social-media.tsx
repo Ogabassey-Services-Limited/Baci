@@ -93,7 +93,7 @@ const SOCIAL_MEDIA_FIELDS: readonly SocialMediaFieldConfig[] = [
 
 export default function SocialMediaScreen() {
   const { colors, shadows } = useTheme();
-  const { merchant, isLoading } = useMerchant();
+  const { merchant, isLoading, error } = useMerchant();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -137,6 +137,15 @@ export default function SocialMediaScreen() {
     setSocialMedia(merchantSocialMedia);
   }
 
+  // Only allow saving when the form actually changed, so a no-op save can't churn the row
+  // and (with the error guard below) an empty/errored load can never blank saved handles. (V4)
+  const isDirty = (
+    Object.keys(EMPTY_SOCIAL_MEDIA) as (keyof MerchantSocialMedia)[]
+  ).some(
+    (platform) =>
+      (socialMedia[platform] ?? '') !== (merchantSocialMedia[platform] ?? '')
+  );
+
   // Save Mutation
   const saveMutation = useMutation({
     mutationFn: async () =>
@@ -156,6 +165,7 @@ export default function SocialMediaScreen() {
   });
 
   const handleSave = () => {
+    if (!merchant || !isDirty) return;
     saveMutation.mutate();
   };
 
@@ -179,6 +189,40 @@ export default function SocialMediaScreen() {
     );
   }
 
+  // Failed-but-settled load: show a retry state instead of an empty form, so Save can never
+  // write blank handles over the merchant's saved social_media. (V4 drift guard)
+  if (error || !merchant) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <View style={styles.errorState}>
+          <Ionicons
+            name="cloud-offline-outline"
+            size={48}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>
+            Couldn't load your settings
+          </Text>
+          <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
+            We couldn't reach your store data. Saving now could overwrite your
+            saved links, so please retry.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              queryClient.invalidateQueries({ queryKey: ['merchant'] })
+            }
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <>
       <Stack.Screen
@@ -188,7 +232,7 @@ export default function SocialMediaScreen() {
           headerRight: () => (
             <Pressable
               onPress={handleSave}
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || !isDirty}
               style={styles.saveButton}
             >
               {saveMutation.isPending ? (
@@ -287,5 +331,34 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginBottom: SPACING.xl,
     lineHeight: 20,
+  },
+  errorState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+    gap: SPACING.md,
+  },
+  errorTitle: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryButton: {
+    marginTop: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.md,
+  },
+  retryText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    color: '#fff',
   },
 });
