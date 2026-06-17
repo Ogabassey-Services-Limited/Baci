@@ -42,7 +42,6 @@ export const connectStyles = StyleSheet.create({
     marginTop: SPACING.xl,
   },
   buttonText: {
-    color: 'white',
     fontSize: 16,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
