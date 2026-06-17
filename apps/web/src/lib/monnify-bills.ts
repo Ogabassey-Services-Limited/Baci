@@ -86,7 +86,10 @@ async function getMonnifyHttpErrorDetail(response: Response) {
 
     try {
       const parsed = JSON.parse(responseText) as unknown;
-      return getMonnifyErrorDetailFromBody(parsed);
+      return (
+        getMonnifyErrorDetailFromBody(parsed) ??
+        sanitizeMonnifyErrorDetail(responseText)
+      );
     } catch {
       return sanitizeMonnifyErrorDetail(responseText);
     }

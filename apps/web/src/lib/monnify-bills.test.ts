@@ -706,6 +706,34 @@ describe('Monnify Bills Client', () => {
       expect(result.message).not.toContain('08012345678');
     });
 
+    it('falls back to sanitized raw JSON when Monnify omits message fields', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            errors: [{ field: 'customerId', value: '08012345678' }],
+          })
+        ),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.message).toContain('Monnify API error: 400 Bad Request -');
+      expect(result.message).toContain('customerId');
+      expect(result.message).toContain('[redacted]');
+      expect(result.message).not.toContain('08012345678');
+    });
+
     it('sanitizes plain-text HTTP error bodies before returning terminal 4xx failures', async () => {
       const longTail = 'x'.repeat(260);
       global.fetch = vi.fn().mockResolvedValue({
