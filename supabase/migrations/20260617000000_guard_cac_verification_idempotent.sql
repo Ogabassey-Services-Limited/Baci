@@ -58,9 +58,11 @@ BEGIN
     cac_approved_name = p_cac_approved_name, updated_at = NOW();
 
   -- Safe now: either the identity fields were null/empty, or they already equal the incoming values.
+  -- Preserve the established display values on canonical matches so harmless retry casing/spacing
+  -- cannot drift invoices or legal identity displays.
   UPDATE merchants
-  SET legal_entity_name = p_cac_approved_name,
-      cac_rc_number = p_rc_number,
+  SET legal_entity_name = COALESCE(NULLIF(BTRIM(legal_entity_name), ''), p_cac_approved_name),
+      cac_rc_number = COALESCE(NULLIF(BTRIM(cac_rc_number), ''), p_rc_number),
       kyc_status = CASE
         WHEN kyc_status = 'verified' THEN 'verified'
         ELSE 'pending'

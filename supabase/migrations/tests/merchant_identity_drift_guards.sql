@@ -17,6 +17,35 @@ DECLARE
   v_def text;
 BEGIN
   -- ---------- Placeholder CHECK constraints ----------
+  -- The merchant fixture must satisfy the merchants.user_id foreign key on branch DBs.
+  INSERT INTO auth.users (
+    id,
+    instance_id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    created_at,
+    updated_at,
+    raw_app_meta_data,
+    raw_user_meta_data
+  )
+  VALUES (
+    v_owner_uid,
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    format('drift-guard-owner-%s-%s@example.com', v_owner_uid, txid_current()),
+    'test',
+    now(),
+    now(),
+    now(),
+    '{}'::jsonb,
+    '{}'::jsonb
+  )
+  ON CONFLICT (id) DO NOTHING;
+
   -- A clean row inserts fine. The email includes v_mid + txid_current() so repeated
   -- local test runs cannot collide with unique email constraints.
   INSERT INTO public.merchants (
@@ -58,13 +87,28 @@ BEGIN
     RAISE EXCEPTION 'placeholder support_phone was accepted';
   EXCEPTION WHEN check_violation THEN NULL; END;
 
-  -- The seeded dummy registered address street must be rejected.
+  -- The complete seeded dummy registered address must be rejected.
   BEGIN
     UPDATE public.merchants
-       SET registered_address = jsonb_build_object('street', '123 Main Street', 'city', 'New City')
+       SET registered_address = jsonb_build_object(
+         'street', '123 Main Street',
+         'city', 'New City',
+         'state', 'State',
+         'postal_code', '12345'
+       )
      WHERE id = v_mid;
-    RAISE EXCEPTION 'placeholder registered_address.street was accepted';
+    RAISE EXCEPTION 'placeholder registered_address was accepted';
   EXCEPTION WHEN check_violation THEN NULL; END;
+
+  -- A real Main Street address must not be rejected solely because of its street name.
+  UPDATE public.merchants
+     SET registered_address = jsonb_build_object(
+       'street', '123 Main Street',
+       'city', 'Ikeja',
+       'state', 'Lagos',
+       'postal_code', '100001'
+     )
+   WHERE id = v_mid;
 
   -- Real values still write for all guarded fields.
   UPDATE public.merchants
@@ -103,13 +147,23 @@ BEGIN
     'RC123456'
   );
 
-  -- Re-verification with harmless case/spacing changes is idempotent.
+  -- Re-verification with harmless case/spacing changes is idempotent and preserves established display values.
   PERFORM public.record_cac_verification(
     v_mid,
     'cac/drift-guard-retry.pdf',
     '  drift guard limited  ',
     ' rc123456 '
   );
+
+  IF EXISTS (
+    SELECT 1
+      FROM public.merchants
+     WHERE id = v_mid
+       AND (legal_entity_name IS DISTINCT FROM 'Drift Guard Limited'
+            OR cac_rc_number IS DISTINCT FROM 'RC123456')
+  ) THEN
+    RAISE EXCEPTION 'canonical CAC retry changed established legal identity display values';
+  END IF;
 
   -- A materially different legal identity must surface as an app-visible conflict.
   BEGIN

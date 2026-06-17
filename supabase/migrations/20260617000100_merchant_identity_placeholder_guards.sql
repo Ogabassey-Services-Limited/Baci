@@ -22,8 +22,11 @@ UPDATE public.merchants
  WHERE btrim(support_phone) IN ('1234567890', '0000000000');
 
 UPDATE public.merchants
-   SET registered_address = registered_address - 'street'
- WHERE registered_address->>'street' ILIKE '123 Main St%';
+   SET registered_address = NULL
+ WHERE COALESCE(registered_address->>'street', '') ILIKE '123 Main St%'
+   AND COALESCE(registered_address->>'city', '') ILIKE 'New City'
+   AND COALESCE(registered_address->>'state', '') ILIKE 'State'
+   AND COALESCE(registered_address->>'postal_code', registered_address->>'postalCode', '') = '12345';
 
 DO $$
 BEGIN
@@ -74,7 +77,12 @@ BEGIN
       ADD CONSTRAINT merchants_registered_street_not_placeholder
       CHECK (
         registered_address IS NULL
-        OR COALESCE(registered_address->>'street', '') NOT ILIKE '123 Main St%'
+        OR NOT (
+          COALESCE(registered_address->>'street', '') ILIKE '123 Main St%'
+          AND COALESCE(registered_address->>'city', '') ILIKE 'New City'
+          AND COALESCE(registered_address->>'state', '') ILIKE 'State'
+          AND COALESCE(registered_address->>'postal_code', registered_address->>'postalCode', '') = '12345'
+        )
       ) NOT VALID;
   END IF;
 END
@@ -87,4 +95,4 @@ COMMENT ON CONSTRAINT merchants_phone_not_placeholder ON public.merchants IS
 COMMENT ON CONSTRAINT merchants_support_phone_not_placeholder ON public.merchants IS
   'Drift backstop (2026-06): rejects seeded dummy support phone values. NOT VALID pending cleanup.';
 COMMENT ON CONSTRAINT merchants_registered_street_not_placeholder ON public.merchants IS
-  'Drift backstop (2026-06): rejects the seeded dummy registered-address street. NOT VALID pending cleanup.';
+  'Drift backstop (2026-06): rejects the complete seeded dummy registered-address object without blocking real Main Street addresses. NOT VALID pending cleanup.';
