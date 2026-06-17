@@ -60,6 +60,43 @@ interface WebVitalMetric {
   id: string;
   rating: string;
   navigationType: string;
+  attribution?: unknown;
+}
+
+/**
+ * Pull the most useful per-metric attribution fields (the element selector +
+ * the timing sub-parts) so real-user reports show WHICH node is the LCP / what
+ * shifts (CLS) / what blocks interaction (INP) — not just the score.
+ */
+export function extractAttribution(
+  metric: WebVitalMetric
+): Record<string, string | number> {
+  const a = metric.attribution;
+  if (!a || typeof a !== 'object') return {};
+  const out: Record<string, string | number> = {};
+  const pick = (key: string, label?: string) => {
+    const v = (a as Record<string, unknown>)[key];
+    if (typeof v === 'string' || typeof v === 'number') out[label ?? key] = v;
+  };
+  if (metric.name === 'LCP') {
+    pick('element', 'debugTarget');
+    pick('url', 'lcpUrl');
+    pick('timeToFirstByte', 'ttfb');
+    pick('resourceLoadDelay', 'loadDelay');
+    pick('resourceLoadDuration', 'loadDuration');
+    pick('elementRenderDelay', 'renderDelay');
+  } else if (metric.name === 'CLS') {
+    pick('largestShiftTarget', 'debugTarget');
+    pick('largestShiftValue', 'shiftValue');
+    pick('loadState');
+  } else if (metric.name === 'INP') {
+    pick('interactionTarget', 'debugTarget');
+    pick('interactionType');
+    pick('inputDelay');
+    pick('processingDuration');
+    pick('presentationDelay');
+  }
+  return out;
 }
 
 function handleWebVitalMetric(
@@ -98,6 +135,7 @@ function handleWebVitalMetric(
       metric_rating: metric.rating,
       navigation_type: metric.navigationType,
       non_interaction: true,
+      ...extractAttribution(metric),
     });
   }
 
@@ -109,6 +147,7 @@ function handleWebVitalMetric(
       rating: metric.rating,
       id: metric.id,
       navigationType: metric.navigationType,
+      attribution: extractAttribution(metric),
       timestamp: Date.now(),
     });
 
@@ -133,7 +172,11 @@ async function registerWebVitals(
 ): Promise<void> {
   try {
     // Dynamic import to avoid Turbopack bundling issues
-    const { onCLS, onFCP, onINP, onLCP, onTTFB } = await import('web-vitals');
+    // Attribution build: emits metric.attribution (LCP element, CLS shift
+    // target, INP target) so the FIELD reveals WHICH node is slow/shifting.
+    const { onCLS, onFCP, onINP, onLCP, onTTFB } = await import(
+      'web-vitals/attribution'
+    );
     const handleMetric = (metric: WebVitalMetric) =>
       handleWebVitalMetric(metric, debug, endpoint);
 
