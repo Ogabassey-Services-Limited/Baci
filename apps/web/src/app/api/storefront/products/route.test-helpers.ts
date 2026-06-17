@@ -32,6 +32,10 @@ const mockProductsByIdsResult = {
   },
 };
 
+const mockSearchRpc = {
+  current: vi.fn(),
+};
+
 const mockProductsQuery = {
   current: null as MockProductsQuery | null,
 };
@@ -81,6 +85,7 @@ const mockCreateStaticClient = vi.fn(() => ({
 }));
 
 const mockCreateServerClient = vi.fn(() => ({
+  rpc: (...args: unknown[]) => mockSearchRpc.current(...args),
   from: vi.fn((table: string) => {
     if (table === 'products') {
       return createProductsByIdsQuery();
@@ -130,6 +135,7 @@ function reset() {
     data: [],
     error: null,
   };
+  mockSearchRpc.current = vi.fn();
 }
 
 export const storefrontProductsRouteTestHarness = {
@@ -139,6 +145,7 @@ export const storefrontProductsRouteTestHarness = {
   mockProductsByIdsResult,
   mockProductsQuery,
   mockProductsResult,
+  mockSearchRpc,
   createRawProduct,
   reset,
 } as const;

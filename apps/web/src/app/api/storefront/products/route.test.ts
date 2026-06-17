@@ -448,8 +448,298 @@ describe('GET /api/storefront/products', () => {
     ).toContain('available_conditions.cs.{refurbished}');
   });
 
-  it('escapes ilike wildcard characters in q filters before building the OR clause', async () => {
-    storefrontProductsRouteTestHarness.mockProductsResult.current = {
+  it('uses ranked storefront search when q is present', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [
+          { product_id: 'product-2', total_count: 2 },
+          { product_id: 'product-1', total_count: 2 },
+        ],
+        error: null,
+      }
+    );
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          name: 'iPhone X',
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-2',
+          name: 'iPhone 16 Pro',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=iphnoe&limit=20'))
+    );
+
+    const body = await response.json();
+    expect(
+      storefrontProductsRouteTestHarness.mockSearchRpc.current
+    ).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({
+        search_query: 'iphnoe',
+        sort_by: 'relevance',
+      })
+    );
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsByIdsQuery.current?.in
+    ).toHaveBeenCalledWith('id', ['product-2', 'product-1']);
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-2',
+      'product-1',
+    ]);
+    expect(body.count).toBe(2);
+  });
+
+  it('preserves category filtering when q is present', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [
+          { product_id: 'product-3', total_count: 3 },
+          { product_id: 'product-2', total_count: 3 },
+          { product_id: 'product-1', total_count: 3 },
+        ],
+        error: null,
+      }
+    );
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          name: 'iPhone Case',
+          category: 'Accessories',
+          categories: {
+            id: 'cat-1',
+            name: 'Accessories',
+            slug: 'accessories',
+          },
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-2',
+          name: 'iPhone 16 Pro',
+          category: 'Phones',
+          categories: { id: 'cat-2', name: 'Phones', slug: 'phones' },
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-3',
+          name: 'iPhone Stand',
+          category: 'Accessories',
+          categories: {
+            id: 'cat-1',
+            name: 'Accessories',
+            slug: 'accessories',
+          },
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=iphone&category=phones&limit=20'))
+    );
+
+    const body = await response.json();
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-2',
+    ]);
+    expect(
+      storefrontProductsRouteTestHarness.mockSearchRpc.current
+    ).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ result_limit: 100 })
+    );
+  });
+
+  it('preserves slug-form brand filtering when q is present', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [
+          { product_id: 'product-1', total_count: 2 },
+          { product_id: 'product-2', total_count: 2 },
+        ],
+        error: null,
+      }
+    );
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          name: 'Sony Ericsson Xperia',
+          brand: 'Sony Ericsson',
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-2',
+          name: 'LG C3',
+          brand: 'LG',
+          slug: 'lg-c3',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=phone&brand=sony-ericsson&limit=1'))
+    );
+
+    const body = await response.json();
+    expect(
+      storefrontProductsRouteTestHarness.mockSearchRpc.current
+    ).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ brand_filter: null, result_limit: 100 })
+    );
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-1',
+    ]);
+  });
+
+  it('keeps ranked count when q is present with all filters', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [{ product_id: 'product-1', total_count: 7 }],
+        error: null,
+      }
+    );
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          name: 'iPhone 16 Pro',
+          brand: 'Apple',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(
+        createRequestUrl(
+          'q=iphone&brand=All&category=All&condition=all&limit=1'
+        )
+      )
+    );
+
+    const body = await response.json();
+    expect(
+      storefrontProductsRouteTestHarness.mockSearchRpc.current
+    ).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ result_limit: 1 })
+    );
+    expect(body.count).toBe(7);
+  });
+
+  it('preserves secondary category memberships when q is present', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [
+          { product_id: 'product-1', total_count: 2 },
+          { product_id: 'product-2', total_count: 2 },
+        ],
+        error: null,
+      }
+    );
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          name: 'Gaming Monitor',
+          category: 'Gaming',
+          categories: { id: 'cat-3', name: 'Gaming', slug: 'gaming' },
+          product_categories: [
+            {
+              categories: {
+                id: 'cat-1',
+                name: 'Smart TVs',
+                slug: 'smart-tvs',
+              },
+            },
+          ],
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-2',
+          name: 'Console',
+          category: 'Gaming',
+          categories: { id: 'cat-3', name: 'Gaming', slug: 'gaming' },
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=gaming&category=smart-tvs&limit=20'))
+    );
+
+    const body = await response.json();
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-1',
+    ]);
+  });
+
+  it('preserves condition-offer filtering when q is present', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [
+          { product_id: 'product-1', total_count: 2 },
+          { product_id: 'product-2', total_count: 2 },
+        ],
+        error: null,
+      }
+    );
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          name: 'iPhone 13',
+          condition: 'new',
+          has_condition_offers: true,
+          available_conditions: [],
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-2',
+          name: 'iPhone 12',
+          condition: 'new',
+          has_condition_offers: false,
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=iphone&condition=used&limit=20'))
+    );
+
+    const body = await response.json();
+    expect(
+      storefrontProductsRouteTestHarness.mockSearchRpc.current
+    ).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ condition_filter: null, result_limit: 100 })
+    );
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-1',
+    ]);
+  });
+
+  it('routes q filters through ranked search without raw ilike OR clauses', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [{ product_id: 'tv-1', total_count: 1 }],
+        error: null,
+      }
+    );
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
       data: [
         storefrontProductsRouteTestHarness.createRawProduct({
           id: 'tv-1',
@@ -466,10 +756,14 @@ describe('GET /api/storefront/products', () => {
     expect(response.status).toBe(200);
     expect(payload.products).toHaveLength(1);
     expect(
-      storefrontProductsRouteTestHarness.mockProductsQuery.current?.or
+      storefrontProductsRouteTestHarness.mockSearchRpc.current
     ).toHaveBeenCalledWith(
-      'name.ilike.%\\%\\_sony\\\\demo%,description.ilike.%\\%\\_sony\\\\demo%'
+      'search_products_v2',
+      expect.objectContaining({ search_query: '%_sonydemo' })
     );
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current
+    ).toBeNull();
   });
 
   it('returns 500 when the products query fails', async () => {

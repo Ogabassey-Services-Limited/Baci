@@ -8,6 +8,10 @@ import {
   buildStorefrontProductsCacheKeyParts,
   buildStorefrontProductsCacheTags,
 } from '@/lib/storefront-products-cache-key';
+import {
+  searchStorefrontProducts,
+  toStorefrontSearchSort,
+} from '@/lib/storefront-search';
 import { createClient } from '@/lib/supabase/server';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import type { StorefrontProductsQuery } from '@/schemas/storefront-products-query.types';
@@ -175,6 +179,16 @@ async function fetchProductsByIds(
   ids: string[],
   options: { compact?: boolean } = {}
 ) {
+  const products = await fetchProductRowsByIds(merchantId, ids, options);
+
+  return products.map(storefrontProductsRouteData.mapProduct);
+}
+
+async function fetchProductRowsByIds(
+  merchantId: string,
+  ids: string[],
+  options: { compact?: boolean } = {}
+) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const selectColumns: string =
@@ -193,7 +207,48 @@ async function fetchProductsByIds(
 
   if (error) throw error;
 
-  return (products || []).map(storefrontProductsRouteData.mapProduct);
+  return products || [];
+}
+
+function hasActiveStorefrontFilter(value: string | undefined) {
+  return Boolean(value && !storefrontProductFilters.isAllFilter(value));
+}
+
+function matchesRouteProductFilters(
+  product: RawStorefrontProductRow,
+  filters: Pick<ProductFilters, 'brand' | 'category' | 'condition'>
+) {
+  if (
+    filters.category &&
+    !storefrontProductFilters.matchesStorefrontCategoryFilter(
+      storefrontProductsRouteData.buildCategoryFilterSource(product),
+      filters.category
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    filters.brand &&
+    !storefrontProductFilters.matchesStorefrontBrandFilter(
+      product,
+      filters.brand
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    filters.condition &&
+    !storefrontProductFilters.matchesStorefrontConditionFilter(
+      product,
+      filters.condition
+    )
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export async function GET(request: NextRequest) {
@@ -257,6 +312,89 @@ export async function GET(request: NextRequest) {
         {
           headers: {
             'Cache-Control': 'private, max-age=60',
+          },
+        }
+      );
+    }
+
+    if (q) {
+      const cookieStore = await cookies();
+      const supabase = createClient(cookieStore);
+      const requestedLimit = limit ?? 20;
+      const searchSort = searchParams.has('sort')
+        ? toStorefrontSearchSort(sort)
+        : 'relevance';
+      const usesInMemoryFilters =
+        hasActiveStorefrontFilter(category) ||
+        hasActiveStorefrontFilter(brand) ||
+        hasActiveStorefrontFilter(condition);
+      const rankedLimit = usesInMemoryFilters ? 100 : requestedLimit;
+      const ranked = await searchStorefrontProducts({
+        supabase,
+        merchantId,
+        query: q,
+        limit: rankedLimit,
+        filters: {
+          brand: null,
+          condition: null,
+          maxPrice: max_price ?? null,
+          minPrice: min_price ?? null,
+        },
+        sort: searchSort,
+      });
+
+      if (ranked.productIds.length === 0) {
+        return NextResponse.json(
+          {
+            products: [],
+            didYouMean: ranked.didYouMean,
+            count: ranked.count,
+          },
+          {
+            headers: {
+              'Cache-Control':
+                'public, s-maxage=60, stale-while-revalidate=300',
+            },
+          }
+        );
+      }
+
+      const productRows = await fetchProductRowsByIds(
+        merchantId,
+        ranked.productIds,
+        { compact }
+      );
+      const order = new Map(
+        ranked.productIds.map((id, index) => [id, index] as const)
+      );
+      const activeFilters = {
+        brand: hasActiveStorefrontFilter(brand) ? brand : undefined,
+        category: hasActiveStorefrontFilter(category) ? category : undefined,
+        condition: hasActiveStorefrontFilter(condition) ? condition : undefined,
+      };
+      const filteredRows = productRows.filter((product) =>
+        matchesRouteProductFilters(product, activeFilters)
+      );
+      filteredRows.sort(
+        (a, b) =>
+          (order.get(String(a.id)) ?? 0) - (order.get(String(b.id)) ?? 0)
+      );
+      const visibleProducts = filteredRows
+        .slice(0, requestedLimit)
+        .map(storefrontProductsRouteData.mapProduct);
+      const responseCount = usesInMemoryFilters
+        ? filteredRows.length
+        : ranked.count;
+
+      return NextResponse.json(
+        {
+          products: visibleProducts,
+          didYouMean: ranked.didYouMean,
+          count: responseCount,
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
           },
         }
       );
