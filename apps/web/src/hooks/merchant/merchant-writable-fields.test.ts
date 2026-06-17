@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '@/lib/logger';
 import {
   assertNoIdentityFields,
   IDENTITY_FIELDS,
@@ -7,6 +8,16 @@ import {
   pickGenericWritable,
 } from './merchant-writable-fields';
 import type { MerchantData } from './types';
+
+vi.mock('@/lib/logger', () => ({
+  logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+const mockLoggerWarn = vi.mocked(logger.warn);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe('assertNoIdentityFields (fail-closed deny-list)', () => {
   it('throws when payload contains phone', () => {
@@ -35,6 +46,25 @@ describe('assertNoIdentityFields (fail-closed deny-list)', () => {
 
     // Act & Assert
     expect(() => assertNoIdentityFields(data)).toThrow(IdentityFieldWriteError);
+  });
+
+  it('throws when payload contains tax_identification_number (sensitive TIN)', () => {
+    // Arrange — the TIN must be explicitly rejected, never silently dropped.
+    const data: Partial<MerchantData> = {
+      tax_identification_number: '12345678-0001',
+    };
+
+    // Act
+    let caught: IdentityFieldWriteError | undefined;
+    try {
+      assertNoIdentityFields(data);
+    } catch (error) {
+      caught = error as IdentityFieldWriteError;
+    }
+
+    // Assert
+    expect(caught).toBeInstanceOf(IdentityFieldWriteError);
+    expect(caught?.fields).toEqual(['tax_identification_number']);
   });
 
   it('throws when a products-page-style payload carries a stray identity key', () => {
@@ -125,6 +155,50 @@ describe('pickGenericWritable (allowlist)', () => {
 
     // Assert
     expect(result).toEqual({ template_id: 'ogabassey' });
+  });
+
+  it('warns once with every dropped uncategorised key (NEITHER list)', () => {
+    // Arrange — `id`/`user_id` are columns on neither list (silent drops).
+    const data = {
+      template_id: 'ogabassey',
+      id: 'merchant-1',
+      user_id: 'user-1',
+    } as Partial<MerchantData>;
+
+    // Act
+    pickGenericWritable(data);
+
+    // Assert — a single developer warning naming the dropped keys.
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ fields: ['id', 'user_id'] })
+    );
+  });
+
+  it('does not warn when only allowlisted fields are present', () => {
+    // Arrange
+    const data: Partial<MerchantData> = { country: 'NG' };
+
+    // Act
+    pickGenericWritable(data);
+
+    // Assert — nothing dropped, so no developer warning.
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
+  });
+
+  it('does not flag identity keys as uncategorised drops', () => {
+    // Arrange — identity keys are rejected upstream by assertNoIdentityFields,
+    // so pickGenericWritable must NOT warn about them (only true unknowns).
+    const data = { phone: '0800', id: 'merchant-1' } as Partial<MerchantData>;
+
+    // Act
+    pickGenericWritable(data);
+
+    // Assert — only the uncategorised `id` is reported, never `phone`.
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ fields: ['id'] })
+    );
   });
 
   it('keeps every allowlisted field when all are present', () => {
