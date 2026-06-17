@@ -253,6 +253,22 @@ describe('PATCH /api/merchant/settings', () => {
     );
   });
 
+  it('clears handles when clear_social_media is true without a social_media object', async () => {
+    mockReadSingle.mockResolvedValue({
+      data: { social_media: { twitter: '@oga', instagram: '@oga' } },
+      error: null,
+    });
+
+    const response = await PATCH(
+      createPatchRequest(JSON.stringify({ clear_social_media: true }))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ social_media: {} })
+    );
+  });
+
   it('treats the current full-form all-blank payload as an explicit clear', async () => {
     mockReadSingle.mockResolvedValue({
       data: { social_media: { twitter: '@oga', instagram: '@oga' } },
