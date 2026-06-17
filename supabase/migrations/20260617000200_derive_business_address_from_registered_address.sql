@@ -27,20 +27,20 @@
 --      writer that still sets `business_address` directly (mobile free-text
 --      Business Address field, pre-UI-migration) would HARD-ERROR
 --      ("cannot insert a non-DEFAULT value into column business_address").
---      A BEFORE trigger instead OVERWRITES whatever the app sends, so the
---      derivation is backward-compatible and ships before the optional UI
---      change. The free-text writer is harmlessly ignored, not broken.
+--      A BEFORE trigger can ship before the optional UI change: structured
+--      writes are derived immediately, while legacy direct free-text writes are
+--      preserved when registered_address is still empty, not broken or wiped.
 --   3. The trigger catches EVERY heterogeneous writer (mobile writes `merchants`
 --      directly; web tax writes via the route) in one place.
 -- The format function is still declared IMMUTABLE so a future move to a
 -- generated column needs no function change.
 --
--- Recompute rule: on insert, and on any update that touches either address
--- column, `business_address` is set to
--- `format_merchant_address(registered_address)`. When `registered_address` is
--- null/empty, that yields NULL — a cleared structured address never leaves a
--- stale free-text value behind. The one-time back-fill (step 3) is narrower than
--- the trigger: it deliberately PRESERVES legacy free-text-only addresses (rows
+-- Recompute rule: when structured `registered_address` is present,
+-- `business_address` is set to `format_merchant_address(registered_address)`.
+-- When the structured address is cleared, `business_address` is nulled unless
+-- the update is a legacy direct free-text write while registered_address is still
+-- empty; those writes are preserved until the mobile structured-input follow-up.
+-- The one-time back-fill (step 3) is narrower than the trigger: it deliberately PRESERVES legacy free-text-only addresses (rows
 -- whose registered_address is still `{}`) so the migration can never wipe the
 -- only address a merchant has.
 
@@ -57,7 +57,7 @@ AS $$
   SELECT NULLIF(
     array_to_string(
       ARRAY(
-        SELECT btrim(part)
+        SELECT trimmed_part
         FROM unnest(
           ARRAY[
             p_address->>'street',
@@ -65,9 +65,12 @@ AS $$
             p_address->>'state',
             p_address->>'postal_code'
           ]
-        ) AS part
-        WHERE part IS NOT NULL
-          AND btrim(part) <> ''
+        ) AS part(raw_part)
+        CROSS JOIN LATERAL (
+          SELECT pg_catalog.regexp_replace(raw_part, '^[[:space:]]+|[[:space:]]+$', '', 'g') AS trimmed_part
+        ) trimmed
+        WHERE raw_part IS NOT NULL
+          AND trimmed_part <> ''
       ),
       ', '
     ),
@@ -98,13 +101,27 @@ CREATE OR REPLACE FUNCTION public.sync_business_address_from_registered()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'pg_catalog', 'public'
+SET search_path = ''
 AS $$
+DECLARE
+  v_formatted_address text;
 BEGIN
-  IF TG_OP = 'INSERT'
-     OR NEW.registered_address IS DISTINCT FROM OLD.registered_address
-     OR NEW.business_address IS DISTINCT FROM OLD.business_address THEN
-    NEW.business_address := public.format_merchant_address(NEW.registered_address);
+  v_formatted_address := public.format_merchant_address(NEW.registered_address);
+
+  IF v_formatted_address IS NOT NULL THEN
+    NEW.business_address := v_formatted_address;
+  ELSIF TG_OP = 'INSERT' THEN
+    NEW.business_address := NULLIF(
+      pg_catalog.regexp_replace(COALESCE(NEW.business_address, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g'),
+      ''
+    );
+  ELSIF NEW.registered_address IS DISTINCT FROM OLD.registered_address THEN
+    NEW.business_address := NULL;
+  ELSIF NEW.business_address IS DISTINCT FROM OLD.business_address THEN
+    NEW.business_address := NULLIF(
+      pg_catalog.regexp_replace(COALESCE(NEW.business_address, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g'),
+      ''
+    );
   END IF;
 
   RETURN NEW;

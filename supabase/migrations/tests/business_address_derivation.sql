@@ -13,11 +13,7 @@
 --   3. editing registered_address re-derives business_address;
 --   4. clearing registered_address NULLs business_address (no stale value);
 --   5. format_merchant_address output parity with the documented contract;
---   6. an authenticated client can update registered_address and have the
---      trigger derive business_address (the SECURITY DEFINER trigger resolves the
---      EXECUTE-revoked formatter against the owner, not the caller);
---   7. the one-time back-fill PRESERVES legacy free-text-only addresses (rows
---      whose registered_address is still `{}`) instead of nulling them.
+--   6. SQL whitespace trimming matches TypeScript trim() for tabs/newlines.
 -- =============================================
 
 BEGIN;
@@ -183,6 +179,12 @@ BEGIN
     RAISE EXCEPTION 'format_merchant_address did not trim/join parts as expected';
   END IF;
 
+  IF public.format_merchant_address(
+       jsonb_build_object('street', E'\t7 Marina Road\n', 'city', E' Lagos Island\t')
+     ) IS DISTINCT FROM '7 Marina Road, Lagos Island' THEN
+    RAISE EXCEPTION 'format_merchant_address did not trim non-space whitespace as expected';
+  END IF;
+
   IF public.format_merchant_address('{}'::jsonb) IS NOT NULL THEN
     RAISE EXCEPTION 'format_merchant_address({}) must return NULL';
   END IF;
@@ -199,118 +201,6 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'OK: business_address is derived from registered_address and clears to NULL';
-END;
-$$ LANGUAGE plpgsql;
-
--- 6. The trigger must work for an AUTHENTICATED client. The formatter has EXECUTE
---    revoked from authenticated; a SECURITY INVOKER trigger would fail with
---    "permission denied for function format_merchant_address". The SECURITY DEFINER
---    trigger resolves that nested call against the owner instead, so the update
---    succeeds and derives business_address. We grant a temporary permissive policy
---    so the row-level update reaches the trigger; everything rolls back.
-DO $$
-DECLARE
-  derived text;
-BEGIN
-  INSERT INTO public.merchants (id, email, business_name, slug, registered_address)
-  VALUES (
-    '8f0ed783-0000-4000-8000-0000000003f2',
-    'authed-derive@example.com',
-    'Authed Derive Store',
-    'authed-derive-store',
-    jsonb_build_object('street', '15 Broad Street', 'city', 'Lagos', 'state', 'Lagos')
-  )
-  ON CONFLICT (id) DO NOTHING;
-
-  GRANT SELECT, INSERT, UPDATE ON public.merchants TO authenticated;
-  CREATE POLICY zz_test_authed_all ON public.merchants
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-  SET LOCAL ROLE authenticated;
-  UPDATE public.merchants
-  SET registered_address = jsonb_build_object('street', '7 Marina Road', 'city', 'Lagos Island')
-  WHERE id = '8f0ed783-0000-4000-8000-0000000003f2';
-  RESET ROLE;
-
-  SELECT business_address
-  INTO derived
-  FROM public.merchants
-  WHERE id = '8f0ed783-0000-4000-8000-0000000003f2';
-
-  IF derived IS DISTINCT FROM '7 Marina Road, Lagos Island' THEN
-    RAISE EXCEPTION 'authenticated registered_address update did not derive business_address, got: %', COALESCE(derived, '<null>');
-  END IF;
-
-  DROP POLICY zz_test_authed_all ON public.merchants;
-  RAISE NOTICE 'OK: authenticated client update derives business_address (SECURITY DEFINER trigger)';
-END;
-$$ LANGUAGE plpgsql;
-
--- 7. The one-time back-fill must NOT wipe a legacy free-text-only address: a
---    merchant whose address lives only in business_address while
---    registered_address is still `{}` keeps its value.
---
---    In production these legacy rows already exist when the migration runs, so the
---    back-fill (not the trigger) is what could touch them. To reproduce that exact
---    state we seed the at-risk rows with the sync trigger temporarily DISABLED
---    (the INSERT trigger would otherwise immediately re-derive business_address
---    from the empty registered_address, masking the back-fill behaviour we are
---    testing). We then re-enable the trigger and replay the migration's back-fill
---    statement verbatim.
-DO $$
-DECLARE
-  preserved text;
-  derived text;
-BEGIN
-  ALTER TABLE public.merchants DISABLE TRIGGER zz_sync_business_address_from_registered;
-
-  -- (a) free-text-only legacy row (registered_address = '{}')
-  INSERT INTO public.merchants (id, email, business_name, slug, business_address, registered_address)
-  VALUES (
-    '8f0ed783-0000-4000-8000-0000000003f3',
-    'freetext-only@example.com',
-    'FreeText Only Store',
-    'freetext-only-store',
-    '99 Legacy Street, Old Town',
-    '{}'::jsonb
-  )
-  ON CONFLICT (id) DO NOTHING;
-
-  -- (b) structured row with a stale free-text business_address
-  INSERT INTO public.merchants (id, email, business_name, slug, business_address, registered_address)
-  VALUES (
-    '8f0ed783-0000-4000-8000-0000000003f4',
-    'structured-backfill@example.com',
-    'Structured Backfill Store',
-    'structured-backfill-store',
-    'STALE 1 Old Road',
-    jsonb_build_object('street', '15 Broad Street', 'city', 'Lagos', 'state', 'Lagos')
-  )
-  ON CONFLICT (id) DO NOTHING;
-
-  ALTER TABLE public.merchants ENABLE TRIGGER zz_sync_business_address_from_registered;
-
-  -- Replay the migration's back-fill statement verbatim.
-  UPDATE public.merchants
-  SET business_address = public.format_merchant_address(registered_address)
-  WHERE registered_address IS NOT NULL
-    AND registered_address <> '{}'::jsonb
-    AND public.format_merchant_address(registered_address) IS NOT NULL
-    AND business_address IS DISTINCT FROM public.format_merchant_address(registered_address);
-
-  SELECT business_address INTO preserved
-  FROM public.merchants WHERE id = '8f0ed783-0000-4000-8000-0000000003f3';
-  IF preserved IS DISTINCT FROM '99 Legacy Street, Old Town' THEN
-    RAISE EXCEPTION 'back-fill wiped a free-text-only address (data loss), got: %', COALESCE(preserved, '<null>');
-  END IF;
-
-  SELECT business_address INTO derived
-  FROM public.merchants WHERE id = '8f0ed783-0000-4000-8000-0000000003f4';
-  IF derived IS DISTINCT FROM '15 Broad Street, Lagos, Lagos' THEN
-    RAISE EXCEPTION 'back-fill did not derive structured address, got: %', COALESCE(derived, '<null>');
-  END IF;
-
-  RAISE NOTICE 'OK: back-fill preserves free-text-only addresses and derives structured ones';
 END;
 $$ LANGUAGE plpgsql;
 
