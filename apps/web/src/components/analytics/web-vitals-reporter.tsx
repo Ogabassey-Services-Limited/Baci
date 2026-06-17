@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { extractWebVitalAttribution } from './web-vital-attribution';
+import { buildWebVitalEndpointPayload } from './web-vital-endpoint-payload';
 
 /**
  * Web Vitals Reporter Component
@@ -63,64 +65,6 @@ interface WebVitalMetric {
   attribution?: unknown;
 }
 
-interface WebVitalEndpointPayload {
-  name: string;
-  value: number;
-  rating: string;
-  id: string;
-  navigationType: string;
-  timestamp: number;
-}
-
-/**
- * Pull the most useful per-metric attribution fields (the element selector +
- * the timing sub-parts) so real-user reports show WHICH node is the LCP / what
- * shifts (CLS) / what blocks interaction (INP) — not just the score.
- */
-export function extractAttribution(
-  metric: WebVitalMetric
-): Record<string, string | number> {
-  const a = metric.attribution;
-  if (!a || typeof a !== 'object') return {};
-  const out: Record<string, string | number> = {};
-  const pick = (key: string, label?: string) => {
-    const v = (a as Record<string, unknown>)[key];
-    if (typeof v === 'string' || typeof v === 'number') out[label ?? key] = v;
-  };
-  if (metric.name === 'LCP') {
-    pick('element', 'debugTarget');
-    pick('url', 'lcpUrl');
-    pick('timeToFirstByte', 'ttfb');
-    pick('resourceLoadDelay', 'loadDelay');
-    pick('resourceLoadDuration', 'loadDuration');
-    pick('elementRenderDelay', 'renderDelay');
-  } else if (metric.name === 'CLS') {
-    pick('largestShiftTarget', 'debugTarget');
-    pick('largestShiftValue', 'shiftValue');
-    pick('loadState');
-  } else if (metric.name === 'INP') {
-    pick('interactionTarget', 'debugTarget');
-    pick('interactionType');
-    pick('inputDelay');
-    pick('processingDuration');
-    pick('presentationDelay');
-  }
-  return out;
-}
-
-export function buildWebVitalEndpointPayload(
-  metric: WebVitalMetric
-): WebVitalEndpointPayload {
-  return {
-    name: metric.name,
-    value: metric.value,
-    rating: metric.rating,
-    id: metric.id,
-    navigationType: metric.navigationType,
-    timestamp: Date.now(),
-  };
-}
-
 function handleWebVitalMetric(
   metric: WebVitalMetric,
   debug: boolean,
@@ -161,7 +105,7 @@ function handleWebVitalMetric(
       metric_rating: metric.rating,
       navigation_type: metric.navigationType,
       non_interaction: true,
-      ...extractAttribution(metric),
+      ...extractWebVitalAttribution(metric),
     });
   }
 

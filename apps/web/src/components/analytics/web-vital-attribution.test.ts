@@ -1,19 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildWebVitalEndpointPayload,
-  extractAttribution,
-} from './web-vitals-reporter';
+import { extractWebVitalAttribution } from './web-vital-attribution';
 
 const base = { value: 1, id: 'v1', rating: 'poor', navigationType: 'navigate' };
 
-describe('extractAttribution', () => {
-  it('maps LCP attribution to the element + load sub-parts', () => {
+describe('extractWebVitalAttribution', () => {
+  it('maps web-vitals v5 LCP target attribution to the debug target', () => {
     expect(
-      extractAttribution({
+      extractWebVitalAttribution({
         ...base,
         name: 'LCP',
         attribution: {
-          element: 'img.hero',
+          target: 'img.hero',
           url: 'https://cdn.ogabassey.com/x.avif',
           timeToFirstByte: 600,
           resourceLoadDelay: 200,
@@ -31,9 +28,19 @@ describe('extractAttribution', () => {
     });
   });
 
+  it('falls back to legacy LCP element attribution when target is absent', () => {
+    expect(
+      extractWebVitalAttribution({
+        ...base,
+        name: 'LCP',
+        attribution: { element: 'img.legacy-hero' },
+      })
+    ).toEqual({ debugTarget: 'img.legacy-hero' });
+  });
+
   it('maps CLS attribution to the largest-shift target + value', () => {
     expect(
-      extractAttribution({
+      extractWebVitalAttribution({
         ...base,
         name: 'CLS',
         attribution: {
@@ -51,7 +58,7 @@ describe('extractAttribution', () => {
 
   it('maps INP attribution to the interaction target + timings', () => {
     expect(
-      extractAttribution({
+      extractWebVitalAttribution({
         ...base,
         name: 'INP',
         attribution: {
@@ -72,39 +79,16 @@ describe('extractAttribution', () => {
   });
 
   it('returns an empty object when attribution is absent', () => {
-    expect(extractAttribution({ ...base, name: 'FCP' })).toEqual({});
+    expect(extractWebVitalAttribution({ ...base, name: 'FCP' })).toEqual({});
   });
 
-  it('ignores non-string/number attribution fields (e.g. nested objects)', () => {
+  it('ignores non-string/number attribution fields', () => {
     expect(
-      extractAttribution({
+      extractWebVitalAttribution({
         ...base,
         name: 'LCP',
-        attribution: { element: 'img', target: { nested: true } },
+        attribution: { target: { nested: true }, element: 'img' },
       })
     ).toEqual({ debugTarget: 'img' });
-  });
-});
-
-describe('buildWebVitalEndpointPayload', () => {
-  it('keeps custom endpoint payloads compatible with the legacy schema', () => {
-    const payload = buildWebVitalEndpointPayload({
-      ...base,
-      name: 'LCP',
-      attribution: {
-        element: 'img.hero',
-        resourceLoadDuration: 1800,
-      },
-    });
-
-    expect(payload).toMatchObject({
-      name: 'LCP',
-      value: 1,
-      rating: 'poor',
-      id: 'v1',
-      navigationType: 'navigate',
-    });
-    expect(payload).not.toHaveProperty('attribution');
-    expect(typeof payload.timestamp).toBe('number');
   });
 });
