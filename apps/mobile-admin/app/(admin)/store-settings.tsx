@@ -23,12 +23,53 @@ import {
 import { COUNTRIES } from '@/constants/countries';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCachedImageUri } from '@/hooks/useCachedImageUri';
-import { useMerchant } from '@/hooks/useMerchant';
+import { type Merchant, useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
+
+/** Editable merchant columns owned by the store-settings form. */
+type EditableMerchantColumns = Pick<
+  Merchant,
+  | 'business_name'
+  | 'phone'
+  | 'support_phone'
+  | 'support_email'
+  | 'business_address'
+  | 'country'
+  | 'payout_currency'
+  | 'slug'
+>;
+
+/** Form values for the editable columns (always strings — empty when blank). */
+type StoreSettingsFormValues = {
+  [K in keyof EditableMerchantColumns]: string;
+};
+
+/**
+ * Build a changed-only update payload by diffing the current form values against
+ * the baseline values captured when the merchant was loaded. Only columns whose
+ * value actually changed are included, so a stale full-form snapshot can never
+ * revert an untouched column. Returns an empty object when nothing changed.
+ */
+export function buildMerchantUpdatePayload(
+  baseline: StoreSettingsFormValues,
+  formValues: StoreSettingsFormValues
+): Partial<EditableMerchantColumns> {
+  const payload: Partial<EditableMerchantColumns> = {};
+
+  for (const key of Object.keys(
+    formValues
+  ) as (keyof StoreSettingsFormValues)[]) {
+    if (formValues[key] !== baseline[key]) {
+      payload[key] = formValues[key];
+    }
+  }
+
+  return payload;
+}
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -46,6 +87,7 @@ export default function StoreSettingsScreen() {
   });
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
+  const [supportPhone, setSupportPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [country, setCountry] = useState(COUNTRIES[0].code);
@@ -53,6 +95,10 @@ export default function StoreSettingsScreen() {
   const [slug, setSlug] = useState('');
   const [isSlugEdited, setIsSlugEdited] = useState(false);
   const [syncedMerchant, setSyncedMerchant] = useState<typeof merchant | null>(
+    null
+  );
+  // Snapshot of the form values as loaded, used to diff only the edited columns.
+  const [baseline, setBaseline] = useState<StoreSettingsFormValues | null>(
     null
   );
   const { handleManageSubscription } = useSubscriptionManagement({
@@ -63,25 +109,44 @@ export default function StoreSettingsScreen() {
   // form never paints a stale frame (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
   if (merchant && merchant !== syncedMerchant) {
     setSyncedMerchant(merchant);
-    setBusinessName(merchant.business_name || '');
-    setPhone(merchant.phone || merchant.support_phone || '');
-    setEmail(merchant.email || merchant.support_email || '');
-    setAddress(merchant.business_address || '');
+
+    const initialBusinessName = merchant.business_name || '';
+    const initialPhone = merchant.phone || '';
+    const initialSupportPhone = merchant.support_phone || '';
+    const initialEmail = merchant.email || merchant.support_email || '';
+    const initialAddress = merchant.business_address || '';
 
     const initialCountry = merchant.country || COUNTRIES[0].code;
-    setCountry(initialCountry);
-
     const defaultCurrencyForCountry = COUNTRIES.find(
       (c) => c.code === initialCountry || c.name === initialCountry
     )?.currency;
-    setCurrency(
+    const initialCurrency =
       merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
-    );
+      defaultCurrencyForCountry ||
+      COUNTRIES[0].currency;
+    const initialSlug = merchant.slug || '';
 
-    setSlug(merchant.slug || '');
+    setBusinessName(initialBusinessName);
+    setPhone(initialPhone);
+    setSupportPhone(initialSupportPhone);
+    setEmail(initialEmail);
+    setAddress(initialAddress);
+    setCountry(initialCountry);
+    setCurrency(initialCurrency);
+    setSlug(initialSlug);
     if (merchant.slug) setIsSlugEdited(true);
+
+    // Capture the loaded values so the save can diff only the edited columns.
+    setBaseline({
+      business_name: initialBusinessName,
+      phone: initialPhone,
+      support_phone: initialSupportPhone,
+      support_email: initialEmail,
+      business_address: initialAddress,
+      country: initialCountry,
+      payout_currency: initialCurrency,
+      slug: initialSlug,
+    });
   }
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
@@ -114,21 +179,49 @@ export default function StoreSettingsScreen() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!merchant?.id) throw new Error('No merchant found');
-      const { error } = await supabase
+      if (!merchant?.id || !baseline) throw new Error('No merchant found');
+
+      // Build the payload from a dirty-field diff against the loaded snapshot so
+      // only edited columns are written. This stops a stale full-form snapshot
+      // from reverting columns the user never touched (the recurring identity
+      // drift) and keeps phone/support_phone as independent columns.
+      const payload = buildMerchantUpdatePayload(baseline, {
+        business_name: businessName,
+        phone,
+        support_phone: supportPhone,
+        support_email: email,
+        business_address: address,
+        country,
+        payout_currency: currency,
+        slug,
+      });
+
+      // Nothing changed — skip the write entirely.
+      if (Object.keys(payload).length === 0) {
+        return;
+      }
+
+      let query = supabase
         .from('merchants')
-        .update({
-          business_name: businessName,
-          phone: phone,
-          support_phone: phone,
-          support_email: email,
-          business_address: address,
-          country: country,
-          payout_currency: currency,
-          slug: slug,
-        })
+        .update(payload)
         .eq('id', merchant.id);
+
+      // Optimistic-concurrency guard: only overwrite the row we actually loaded.
+      // If the row moved on (updated_at differs), the filter matches no rows and
+      // we surface a conflict instead of silently clobbering the newer write.
+      const loadedUpdatedAt = syncedMerchant?.updated_at;
+      if (loadedUpdatedAt) {
+        query = query.eq('updated_at', loadedUpdatedAt);
+      }
+
+      const { data, error } = await query.select('id');
       if (error) throw error;
+
+      if (loadedUpdatedAt && (!data || data.length === 0)) {
+        throw new Error(
+          'These settings changed elsewhere. Reopen the page and try again.'
+        );
+      }
     },
     onSuccess: () => {
       invalidateMerchantQueries();
@@ -244,9 +337,11 @@ export default function StoreSettingsScreen() {
           onOpenCountryPicker={() => setShowCountryModal(true)}
           onPhoneChange={setPhone}
           onSlugChange={handleSlugChange}
+          onSupportPhoneChange={setSupportPhone}
           phone={phone}
           shadowStyle={shadows.sm}
           slug={slug}
+          supportPhone={supportPhone}
         />
 
         <StoreSubscriptionCard
