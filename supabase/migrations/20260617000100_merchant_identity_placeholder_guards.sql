@@ -25,28 +25,66 @@ UPDATE public.merchants
    SET registered_address = registered_address - 'street'
  WHERE registered_address->>'street' ILIKE '123 Main St%';
 
-ALTER TABLE public.merchants
-  ADD CONSTRAINT merchants_business_address_not_placeholder
-  CHECK (
-    business_address IS NULL
-    OR (business_address NOT ILIKE '%New City, State%'
-        AND business_address NOT ILIKE '%Oak Avenue, New City%')
-  ) NOT VALID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_constraint
+     WHERE conrelid = 'public.merchants'::regclass
+       AND conname = 'merchants_business_address_not_placeholder'
+  ) THEN
+    ALTER TABLE public.merchants
+      ADD CONSTRAINT merchants_business_address_not_placeholder
+      CHECK (
+        business_address IS NULL
+        OR (business_address NOT ILIKE '%New City, State%'
+            AND business_address NOT ILIKE '%Oak Avenue, New City%')
+      ) NOT VALID;
+  END IF;
 
-ALTER TABLE public.merchants
-  ADD CONSTRAINT merchants_phone_not_placeholder
-  CHECK (phone IS NULL OR btrim(phone) NOT IN ('1234567890', '0000000000')) NOT VALID;
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_constraint
+     WHERE conrelid = 'public.merchants'::regclass
+       AND conname = 'merchants_phone_not_placeholder'
+  ) THEN
+    ALTER TABLE public.merchants
+      ADD CONSTRAINT merchants_phone_not_placeholder
+      CHECK (phone IS NULL OR btrim(phone) NOT IN ('1234567890', '0000000000')) NOT VALID;
+  END IF;
 
-ALTER TABLE public.merchants
-  ADD CONSTRAINT merchants_support_phone_not_placeholder
-  CHECK (support_phone IS NULL OR btrim(support_phone) NOT IN ('1234567890', '0000000000')) NOT VALID;
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_constraint
+     WHERE conrelid = 'public.merchants'::regclass
+       AND conname = 'merchants_support_phone_not_placeholder'
+  ) THEN
+    ALTER TABLE public.merchants
+      ADD CONSTRAINT merchants_support_phone_not_placeholder
+      CHECK (support_phone IS NULL OR btrim(support_phone) NOT IN ('1234567890', '0000000000')) NOT VALID;
+  END IF;
 
-ALTER TABLE public.merchants
-  ADD CONSTRAINT merchants_registered_street_not_placeholder
-  CHECK (
-    registered_address IS NULL
-    OR COALESCE(registered_address->>'street', '') NOT ILIKE '123 Main St%'
-  ) NOT VALID;
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_constraint
+     WHERE conrelid = 'public.merchants'::regclass
+       AND conname = 'merchants_registered_street_not_placeholder'
+  ) THEN
+    ALTER TABLE public.merchants
+      ADD CONSTRAINT merchants_registered_street_not_placeholder
+      CHECK (
+        registered_address IS NULL
+        OR COALESCE(registered_address->>'street', '') NOT ILIKE '123 Main St%'
+      ) NOT VALID;
+  END IF;
+END
+$$;
 
 COMMENT ON CONSTRAINT merchants_business_address_not_placeholder ON public.merchants IS
   'Drift backstop (2026-06): rejects the seeded dummy business address. Tight patterns; NOT VALID pending a cleanup + VALIDATE follow-up.';
+COMMENT ON CONSTRAINT merchants_phone_not_placeholder ON public.merchants IS
+  'Drift backstop (2026-06): rejects seeded dummy phone values. NOT VALID pending cleanup.';
+COMMENT ON CONSTRAINT merchants_support_phone_not_placeholder ON public.merchants IS
+  'Drift backstop (2026-06): rejects seeded dummy support phone values. NOT VALID pending cleanup.';
+COMMENT ON CONSTRAINT merchants_registered_street_not_placeholder ON public.merchants IS
+  'Drift backstop (2026-06): rejects the seeded dummy registered-address street. NOT VALID pending cleanup.';

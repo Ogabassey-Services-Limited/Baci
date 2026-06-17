@@ -21,16 +21,18 @@ DECLARE
   v_incoming_name_key TEXT;
 BEGIN
   v_caller_uid := auth.uid();
-  IF NOT EXISTS (SELECT 1 FROM merchants WHERE id = p_merchant_id AND user_id = v_caller_uid) THEN
-    RAISE EXCEPTION 'not authorized';
-  END IF;
 
-  -- Lock the row and read the current legal identity.
+  -- Atomically authorize and lock the merchant row before comparing identity.
   SELECT cac_rc_number, legal_entity_name
     INTO v_existing_rc, v_existing_name
     FROM merchants
    WHERE id = p_merchant_id
+     AND user_id = v_caller_uid
    FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'not authorized';
+  END IF;
 
   v_existing_rc_key := NULLIF(UPPER(BTRIM(v_existing_rc)), '');
   v_existing_name_key := NULLIF(UPPER(BTRIM(v_existing_name)), '');
@@ -63,7 +65,12 @@ BEGIN
         WHEN kyc_status = 'verified' THEN 'verified'
         ELSE 'pending'
       END
-  WHERE id = p_merchant_id;
+  WHERE id = p_merchant_id
+    AND user_id = v_caller_uid;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'not authorized';
+  END IF;
 END; $func$;
 
 ALTER FUNCTION "public"."record_cac_verification"("p_merchant_id" "uuid", "p_cac_certificate_path" "text", "p_cac_approved_name" "text", "p_rc_number" "text") OWNER TO "postgres";
