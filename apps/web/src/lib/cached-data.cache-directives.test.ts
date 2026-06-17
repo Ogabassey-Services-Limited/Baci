@@ -16,7 +16,34 @@ function getFunctionSource(functionName: string): string {
     throw new Error(`Unable to locate ${functionName} in cached-data.ts`);
   }
 
-  const bodyStart = CACHED_DATA_SOURCE.indexOf('{', start);
+  const paramsStart = CACHED_DATA_SOURCE.indexOf('(', start);
+  if (paramsStart === -1) {
+    throw new Error(
+      `Unable to locate ${functionName} params in cached-data.ts`
+    );
+  }
+
+  let parenDepth = 0;
+  let signatureEnd = -1;
+  for (let index = paramsStart; index < CACHED_DATA_SOURCE.length; index += 1) {
+    const char = CACHED_DATA_SOURCE[index];
+    if (char === '(') parenDepth += 1;
+    if (char === ')') {
+      parenDepth -= 1;
+      if (parenDepth === 0) {
+        signatureEnd = index;
+        break;
+      }
+    }
+  }
+
+  if (signatureEnd === -1) {
+    throw new Error(
+      `Unable to locate ${functionName} signature end in cached-data.ts`
+    );
+  }
+
+  const bodyStart = CACHED_DATA_SOURCE.indexOf('{', signatureEnd);
   if (bodyStart === -1) {
     throw new Error(`Unable to locate ${functionName} body in cached-data.ts`);
   }
@@ -85,6 +112,14 @@ describe('cached-data cache directives', () => {
       'getCachedMerchantByDomain',
       'getCachedFeatureSettings',
     ]) {
+      const source = getFunctionSource(functionName);
+      expect(source, functionName).toContain("'use cache';");
+      expect(source, functionName).not.toContain("'use cache: remote';");
+    }
+  });
+
+  it('keeps public blog metadata and listing data off the remote cache handler', () => {
+    for (const functionName of ['getCachedBlogPost', 'getCachedBlogListing']) {
       const source = getFunctionSource(functionName);
       expect(source, functionName).toContain("'use cache';");
       expect(source, functionName).not.toContain("'use cache: remote';");
