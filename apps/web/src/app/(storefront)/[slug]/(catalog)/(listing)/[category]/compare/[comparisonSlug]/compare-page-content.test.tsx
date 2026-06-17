@@ -184,7 +184,7 @@ describe('ComparePageContent', () => {
     );
   });
 
-  it('renders breadcrumb and product ItemList JSON-LD scripts without FAQPage schema', async () => {
+  it('renders breadcrumb, FAQPage, and product ItemList JSON-LD scripts when FAQ items are present', async () => {
     const { ComparePageContent } = await import('./compare-page-content');
 
     const { container } = render(
@@ -201,11 +201,11 @@ describe('ComparePageContent', () => {
       'script[type="application/ld+json"]'
     );
 
-    expect(schemaScripts).toHaveLength(2);
+    expect(schemaScripts).toHaveLength(3);
     expect(schemaScripts[0]?.textContent).toContain('"@type":"BreadcrumbList"');
-    expect(schemaScripts[1]?.textContent).toContain('"@type":"ItemList"');
-    expect(schemaScripts[1]?.textContent).toContain('"@type":"Product"');
-    expect(schemaScripts[1]?.textContent).not.toContain('"@type":"FAQPage"');
+    expect(schemaScripts[1]?.textContent).toContain('"@type":"FAQPage"');
+    expect(schemaScripts[2]?.textContent).toContain('"@type":"ItemList"');
+    expect(schemaScripts[2]?.textContent).toContain('"@type":"Product"');
   });
 
   it('keeps product ItemList JSON-LD when visible FAQ items are absent', async () => {
