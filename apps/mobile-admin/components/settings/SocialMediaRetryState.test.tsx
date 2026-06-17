@@ -56,6 +56,8 @@ describe('SocialMediaRetryState', () => {
       screen.getByText(/Saving now could overwrite your saved links/i)
     ).toBeTruthy();
 
+    expect(handleRetry).not.toHaveBeenCalled();
+
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
     expect(handleRetry).toHaveBeenCalledOnce();

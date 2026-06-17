@@ -16,7 +16,7 @@ import SocialMediaRetryState from '@/components/settings/SocialMediaRetryState';
 import {
   EMPTY_SOCIAL_MEDIA,
   SOCIAL_MEDIA_FIELDS,
-} from '@/components/settings/social-media-fields';
+} from '@/constants/social-media-fields';
 import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
