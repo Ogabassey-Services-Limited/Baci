@@ -127,46 +127,14 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(options).not.toHaveProperty('media');
   });
 
-  it('uses versioned same-origin PDP image URLs when a product slug is provided', () => {
-    renderToStaticMarkup(
-      createElement(OgabasseyPdpProductResourceHints, {
-        imageVersion: 'lcpv1',
-        productSlug: 'z-fold-7-jet-black',
-        src: null,
-      })
-    );
-
-    expect(mockGetImageProps).toHaveBeenCalledWith(
-      expect.objectContaining({
-        loader: expect.any(Function),
-        quality: 35,
-        sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        src: '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black?v=lcpv1',
-      })
-    );
-
-    expect(mockPreload).toHaveBeenCalledTimes(1);
-    const { href, options } = getPreloadCall(0);
-    expect(href).toBe(
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black?v=lcpv1&w=640&q=35'
-    );
-    expect(href).not.toContain('cdn.ogabassey.com');
-    expect(href).not.toContain('/_next/image');
-    expect(options.imageSrcSet).toContain(
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/z-fold-7-jet-black?v=lcpv1&w=640&q=35 640w'
-    );
-    expect(options.imageSrcSet).not.toContain('cdn.ogabassey.com');
-    expect(options.imageSrcSet).not.toContain('/_next/image');
-    expect(options.imageSizes).toBe(OGABASSEY_PDP_PRIMARY_IMAGE_SIZES);
-    expect(options).not.toHaveProperty('media');
-  });
-
-  it('skips same-origin PDP image preloads without an image version', () => {
+  it('skips legacy same-origin PDP image preload inputs without a direct image source', () => {
+    const legacySameOriginProps = {
+      imageVersion: 'lcpv1',
+      productSlug: 'z-fold-7-jet-black',
+      src: null,
+    } as unknown as { src: null };
     const html = renderToStaticMarkup(
-      createElement(OgabasseyPdpProductResourceHints, {
-        productSlug: 'z-fold-7-jet-black',
-        src: null,
-      })
+      createElement(OgabasseyPdpProductResourceHints, legacySameOriginProps)
     );
 
     expect(html).toBe('');
