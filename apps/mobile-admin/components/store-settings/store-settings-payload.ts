@@ -77,7 +77,7 @@ export function buildInitialFormValues(
     businessName: merchant.business_name || '',
     phone: merchant.phone || '',
     supportPhone: merchant.support_phone || '',
-    email: merchant.email || merchant.support_email || '',
+    email: merchant.support_email || '',
     address: merchant.business_address || '',
     country,
     currency:
@@ -106,6 +106,20 @@ export function buildMerchantUpdatePayload(
     if (formValues[key] !== baseline[key]) {
       payload[key] = formValues[key];
     }
+  }
+
+  // Store readiness accepts public support contact only. Until the mobile UI
+  // migrates to structured contact input, a merchant that only edits the
+  // visible primary phone should still complete contact readiness when no
+  // support email/phone exists yet.
+  if (
+    !baseline.support_email &&
+    !baseline.support_phone &&
+    !formValues.support_phone &&
+    formValues.phone.trim().length > 0 &&
+    formValues.phone !== baseline.phone
+  ) {
+    payload.support_phone = formValues.phone;
   }
 
   return payload;

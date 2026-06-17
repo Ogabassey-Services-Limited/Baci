@@ -2,10 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
-import {
-  StoreSettingsBackButton,
-  StoreSettingsSaveButton,
-} from './StoreSettingsHeaderButtons';
+import { StoreSettingsSaveButton } from './StoreSettingsSaveButton';
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
@@ -43,21 +40,6 @@ vi.mock('react-native', () => ({
     <span>{children}</span>
   ),
 }));
-
-describe('StoreSettingsBackButton', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('invokes onPress when tapped', () => {
-    const onPress = vi.fn();
-    render(<StoreSettingsBackButton color="#000" onPress={onPress} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-
-    expect(onPress).toHaveBeenCalledTimes(1);
-  });
-});
 
 describe('StoreSettingsSaveButton', () => {
   beforeEach(() => {

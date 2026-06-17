@@ -3,10 +3,8 @@ import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StatusBar, Text, View } from 'react-native';
 import { StoreSettingsDetailsCard } from '@/components/store-settings/StoreSettingsDetailsCard';
-import {
-  StoreSettingsBackButton,
-  StoreSettingsSaveButton,
-} from '@/components/store-settings/StoreSettingsHeaderButtons';
+import { StoreSettingsBackButton } from '@/components/store-settings/StoreSettingsBackButton';
+import { StoreSettingsSaveButton } from '@/components/store-settings/StoreSettingsSaveButton';
 import { StoreSubscriptionCard } from '@/components/store-settings/StoreSubscriptionCard';
 import { storeSettingsStyles as styles } from '@/components/store-settings/store-settings.styles';
 import {

@@ -385,6 +385,23 @@ describe('buildMerchantUpdatePayload', () => {
       support_phone: '+2340000000002',
     });
   });
+
+  it('copies a newly entered primary phone into support_phone when no public contact exists', () => {
+    const payload = buildMerchantUpdatePayload(
+      { ...baselineForm, phone: '', support_email: '', support_phone: '' },
+      {
+        ...baselineForm,
+        phone: '+2340000000001',
+        support_email: '',
+        support_phone: '',
+      }
+    );
+
+    expect(payload).toEqual({
+      phone: '+2340000000001',
+      support_phone: '+2340000000001',
+    });
+  });
 });
 
 function makeMerchant(overrides: Partial<Merchant> = {}): Merchant {
@@ -399,6 +416,7 @@ function makeMerchant(overrides: Partial<Merchant> = {}): Merchant {
     payout_currency: 'NGN',
     slug: 'baci-foods',
     email: 'owner@usebaci.com',
+    updated_at: '2026-06-17T08:00:00.000Z',
     ...overrides,
   } as Merchant;
 }
@@ -436,6 +454,15 @@ describe('buildInitialFormValues', () => {
 
     expect(form.country).toBe(DEFAULT_COUNTRY.code);
     expect(form.currency).toBe(DEFAULT_COUNTRY.currency);
+  });
+
+
+  it('does not use the auth email as an editable support_email fallback', () => {
+    const form = buildInitialFormValues(
+      makeMerchant({ email: 'owner@usebaci.com', support_email: null })
+    );
+
+    expect(form.email).toBe('');
   });
 
   it('writes the displayed default when the persisted column was null', () => {
@@ -481,6 +508,7 @@ describe('StoreSettingsScreen', () => {
         slug: 'baci-foods',
         support_email: 'support@usebaci.com',
         support_phone: '+2347000000000',
+        updated_at: '2026-06-17T08:00:00.000Z',
       },
       isLoading: false,
     });
@@ -527,6 +555,27 @@ describe('StoreSettingsScreen', () => {
     expect(mocks.eq).toHaveBeenCalledWith('id', 'merchant-1');
   });
 
+
+  it('guards saves with the loaded updated_at concurrency token', async () => {
+    render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Baci Foods Ltd' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mocks.eq).toHaveBeenCalledWith(
+      'updated_at',
+      '2026-06-17T08:00:00.000Z'
+    );
+  });
+
   it('keeps phone and support_phone as distinct columns instead of collapsing them', async () => {
     render(<StoreSettingsScreen />);
 
@@ -554,6 +603,44 @@ describe('StoreSettingsScreen', () => {
     });
     // Primary phone is NOT part of the payload — the columns stay independent.
     expect(mocks.update.mock.calls[0][0]).not.toHaveProperty('phone');
+  });
+
+
+  it('uses a newly entered phone as support_phone when no public contact exists', async () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        business_address: '12 Allen Avenue',
+        business_name: 'Baci Foods',
+        country: 'NG',
+        email: 'owner@usebaci.com',
+        logo_url: 'https://example.com/logo.png',
+        payout_currency: 'NGN',
+        phone: '',
+        slug: 'baci-foods',
+        support_email: null,
+        support_phone: null,
+        updated_at: '2026-06-17T08:00:00.000Z',
+      },
+      isLoading: false,
+    });
+
+    render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Phone Number'), {
+      target: { value: '+2348011111111' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.update).toHaveBeenCalledWith({
+      phone: '+2348011111111',
+      support_phone: '+2348011111111',
+    });
   });
 
   it('does not run the mutation when nothing changed (empty diff)', async () => {
@@ -584,6 +671,7 @@ describe('StoreSettingsScreen', () => {
         slug: 'baci-foods',
         support_email: 'support@usebaci.com',
         support_phone: '+2347000000000',
+        updated_at: '2026-06-17T08:00:00.000Z',
       },
       isLoading: false,
     });
