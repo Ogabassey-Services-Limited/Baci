@@ -6,6 +6,10 @@ import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/client';
 import { defaultStaffAccess } from './constants';
 import { MerchantContext } from './merchant-context';
+import {
+  assertNoIdentityFields,
+  pickGenericWritable,
+} from './merchant-writable-fields';
 import { getDemoMerchant } from './mock-data';
 import {
   fetchDashboardMerchant,
@@ -302,16 +306,29 @@ export const MerchantProvider = ({
       throw new Error(errorMsg);
     }
 
-    logger.info({ message: 'Updating merchant data in Supabase...', data });
+    // PR-D / V1: fail-closed deny-list — identity/contact/legal fields must NOT
+    // be written through this generic sink (they drifted to placeholders when an
+    // unfiltered payload from any caller landed a stale identity key in the DB).
+    // They go through the dedicated /api/merchant/settings PATCH route instead.
+    assertNoIdentityFields(data);
+
+    // Allowlist: drop everything not explicitly generic-writable so no unknown
+    // key can ever reach the DB through this path.
+    const writableData = pickGenericWritable(data);
+
+    logger.info({
+      message: 'Updating merchant data in Supabase...',
+      data: writableData,
+    });
 
     const query = staffAccess.isOwner
       ? supabaseRef.current
           .from('merchants')
-          .update(data)
+          .update(writableData)
           .eq('user_id', user.id)
       : supabaseRef.current
           .from('merchants')
-          .update(data)
+          .update(writableData)
           .eq('id', merchant?.id);
 
     const { error } = await query;
@@ -325,7 +342,7 @@ export const MerchantProvider = ({
     }
 
     if (options?.skipReload) {
-      setMerchant((prev) => (prev ? { ...prev, ...data } : prev));
+      setMerchant((prev) => (prev ? { ...prev, ...writableData } : prev));
       logger.info({ message: 'Merchant data updated optimistically.' });
     } else {
       logger.info({ message: 'Merchant data updated, reloading.' });
