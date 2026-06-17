@@ -105,6 +105,7 @@ vi.mock('next/image', async () => {
       alt,
       fetchPriority,
       loader,
+      loading,
       preload,
       quality,
       src,
@@ -116,6 +117,7 @@ vi.mock('next/image', async () => {
         src: string;
         width: number;
       }) => string;
+      loading?: string;
       preload?: boolean;
       quality?: number;
       src: string;
@@ -130,6 +132,7 @@ vi.mock('next/image', async () => {
           alt={alt}
           data-fetch-priority={fetchPriority}
           data-loader-prop={String(typeof loader === 'function')}
+          data-loading={loading}
           data-preload={String(Boolean(preload))}
           src={resolvedSrc}
         />
@@ -1601,16 +1604,16 @@ describe('[category]/[productSlug] page render', () => {
     const productImageSrc = productImageElement.getAttribute('src');
 
     expect(productImageSrc).toContain(
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/hp-laptop-14-ep0063nia?v='
+      'https://cdn.ogabassey.com/image/width=640,quality=35,format=auto/core-assets/products/hp-laptop.avif'
     );
-    expect(productImageSrc).toContain('&w=640&q=35');
-    expect(productImageSrc).not.toContain('cdn.ogabassey.com');
+    expect(productImageSrc).not.toContain('/api/ogabassey/pdp-lcp-image');
     expect(productImageElement).toHaveAttribute('data-loader-prop', 'false');
-    expect(productImageElement).toHaveAttribute('data-preload', 'true');
+    expect(productImageElement).toHaveAttribute('data-fetch-priority', 'high');
+    expect(productImageElement).toHaveAttribute('data-loading', 'eager');
+    expect(productImageElement).toHaveAttribute('data-preload', 'false');
+    expect(productImageElement).not.toHaveAttribute('priority');
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      imageVersion: expect.any(String),
-      productSlug: 'hp-laptop-14-ep0063nia',
-      src: null,
+      src: productImage,
     });
   });
 
@@ -2126,18 +2129,14 @@ describe('[category]/[productSlug] page render', () => {
       'product-hints',
     ]);
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      imageVersion: expect.any(String),
-      productSlug: 'hp-laptop-14-ep0063nia',
-      src: null,
+      src: earlyProductImage,
     });
 
     resolveMerchant?.(ogabasseyMerchant);
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      imageVersion: expect.any(String),
-      productSlug: 'hp-laptop-14-ep0063nia',
-      src: null,
+      src: earlyProductImage,
     });
     expect(routeEvents).toEqual([
       `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
@@ -2211,9 +2210,7 @@ describe('[category]/[productSlug] page render', () => {
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      imageVersion: expect.any(String),
-      productSlug: 'hp-laptop-14-ep0063nia',
-      src: null,
+      src: delayedProductImage,
     });
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledTimes(1);
     expect(routeEvents).toEqual([

@@ -163,8 +163,9 @@ export function OgabasseyPdpCriticalShell({
             <Image
               alt={product.name}
               data-ogabassey-pdp-image="true"
+              fetchPriority="high"
               fill
-              preload
+              loading="eager"
               quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
               sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
               src={productImageSrc}
