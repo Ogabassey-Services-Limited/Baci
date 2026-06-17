@@ -107,8 +107,12 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+const { mockGenerateInitialTemplate } = vi.hoisted(() => ({
+  mockGenerateInitialTemplate: vi.fn().mockResolvedValue({}),
+}));
+
 vi.mock('@/lib/initial-template-generator', () => ({
-  generateInitialTemplate: vi.fn().mockResolvedValue({}),
+  generateInitialTemplate: mockGenerateInitialTemplate,
 }));
 
 vi.mock('@/lib/ai-storefront/trigger-storefront-worker', () => ({
@@ -184,6 +188,7 @@ describe('submitOnboarding', () => {
       triggered: true,
       status: 202,
     });
+    mockGenerateInitialTemplate.mockResolvedValue({});
     mockAdminRpc.mockResolvedValue({ data: null, error: null });
     mockPageConfigSingle.mockResolvedValue({
       data: { updated_at: MOCK_PAGE_CONFIG_UPDATED_AT },
@@ -686,13 +691,23 @@ describe('submitOnboarding', () => {
   });
 
   it('omits brand_colors when malformed while completing an incomplete merchant, leaving the established palette untouched', async () => {
+    const preservedPalette = {
+      primary: '#123456',
+      background: '#abcdef',
+      accent: '#fedcba',
+    };
     mockAdminMaybeSingle
       .mockResolvedValueOnce({ data: null, error: null }) // pre-check by email
       .mockResolvedValueOnce({
         data: { id: 'existing-1', business_name: null, slug: 'teststore' },
         error: null,
       }); // lookup by user_id — incomplete record
-    setupChainedMock({ id: 'existing-1', slug: 'teststore' });
+    setupChainedMock({
+      id: 'existing-1',
+      slug: 'teststore',
+      brand_colors: preservedPalette,
+    });
+    mockIsAiStorefrontGenerationEnabled.mockReturnValue(true);
 
     const result = await submitOnboarding(
       prevState,
@@ -705,6 +720,14 @@ describe('submitOnboarding', () => {
     expect(updatePayload).not.toHaveProperty('brand_colors');
     expect(mockAdminUpdate).not.toHaveBeenCalledWith(
       expect.objectContaining({ brand_colors: null })
+    );
+    expect(mockGenerateInitialTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({ brandColors: preservedPalette })
+    );
+    expect(mockAiJobsInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({ brandColors: preservedPalette }),
+      })
     );
   });
 

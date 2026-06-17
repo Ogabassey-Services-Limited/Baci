@@ -22,6 +22,40 @@ import { onboardingSchema } from '@/schemas/onboarding';
 import { onboardingMagicLinkSchema } from '@/schemas/onboarding-magic-link';
 import type { BrandColors } from '@/types';
 
+const DEFAULT_BRAND_COLORS: BrandColors = {
+  primary: '#000000',
+  background: '#ffffff',
+  accent: '#F59E0B',
+};
+
+function isBrandColors(value: unknown): value is BrandColors {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Partial<Record<keyof BrandColors, unknown>>;
+  return (
+    typeof candidate.primary === 'string' &&
+    typeof candidate.background === 'string' &&
+    typeof candidate.accent === 'string'
+  );
+}
+
+function resolveStarterBrandColors(
+  parsedBrandColors: BrandColors | null,
+  merchant: { brand_colors?: unknown } | null
+): BrandColors {
+  if (parsedBrandColors) {
+    return parsedBrandColors;
+  }
+
+  if (isBrandColors(merchant?.brand_colors)) {
+    return merchant.brand_colors;
+  }
+
+  return DEFAULT_BRAND_COLORS;
+}
+
 export type ServerActionState = {
   message: string;
   success: boolean;
@@ -268,7 +302,7 @@ export async function submitOnboarding(
       .eq('user_id', user.id)
       .maybeSingle();
 
-    let merchant: { id: string; slug?: string } | null;
+    let merchant: { id: string; slug?: string; brand_colors?: unknown } | null;
 
     if (existing) {
       if (existing.business_name) {
@@ -364,12 +398,10 @@ export async function submitOnboarding(
       const { generateInitialTemplate } = await import(
         '@/lib/initial-template-generator'
       );
-      // Ensure brandColors is never null by providing defaults
-      const safeBrandColors = brandColors || {
-        primary: '#000000',
-        background: '#ffffff',
-        accent: '#F59E0B', // Default amber/yellow accent
-      };
+      // Ensure starter generation uses the same palette persisted on the merchant row.
+      // If parsing failed while completing a stub merchant, brand_colors was intentionally
+      // omitted above, so use the preserved row palette instead of falling back to defaults.
+      const safeBrandColors = resolveStarterBrandColors(brandColors, merchant);
       const config = await generateInitialTemplate({
         businessName,
         businessType: finalBusinessType,

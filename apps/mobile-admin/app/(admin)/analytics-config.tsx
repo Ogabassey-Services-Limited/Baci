@@ -22,23 +22,11 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-
-interface AnalyticsState {
-  // Google Analytics 4
-  google_analytics_id: string;
-  ga4_api_secret: string;
-  // Facebook/Meta
-  facebook_pixel_id: string;
-  facebook_capi_token: string;
-  // TikTok
-  tiktok_pixel_id: string;
-  tiktok_access_token: string;
-  // Snapchat
-  snapchat_pixel_id: string;
-  snapchat_capi_token: string;
-  // Feature toggle
-  offline_conversions_enabled: boolean;
-}
+import {
+  type AnalyticsState,
+  analyticsStatesEqual,
+  buildAnalyticsDiff,
+} from './analytics-config-diff';
 
 const INITIAL_STATE: AnalyticsState = {
   google_analytics_id: '',
@@ -52,54 +40,18 @@ const INITIAL_STATE: AnalyticsState = {
   offline_conversions_enabled: true,
 };
 
-// String credential fields are persisted as `value || null` (empty string ->
-// NULL). The toggle is stored as a plain boolean. Listing the keys explicitly
-// keeps the dirty diff exhaustive and type-checked.
-const STRING_FIELDS = [
-  'google_analytics_id',
-  'ga4_api_secret',
-  'facebook_pixel_id',
-  'facebook_capi_token',
-  'tiktok_pixel_id',
-  'tiktok_access_token',
-  'snapchat_pixel_id',
-  'snapchat_capi_token',
-] as const satisfies readonly (keyof AnalyticsState)[];
-
-// Row shape sent to Supabase: string fields become `string | null`, the toggle
-// stays a boolean. Partial because only changed fields are written.
-type AnalyticsUpdate = Partial<
-  Record<(typeof STRING_FIELDS)[number], string | null> & {
-    offline_conversions_enabled: boolean;
-  }
->;
-
-// Build a per-field dirty diff between the originally seeded snapshot and the
-// current buffer, so unchanged analytics fields are NOT rewritten (drift vector
-// V3: a blanket all-field update lets a stale buffer clobber values another
-// surface changed). Returns only the keys the user actually edited.
-export function buildAnalyticsDiff(
-  current: AnalyticsState,
-  baseline: AnalyticsState | null
-): AnalyticsUpdate {
-  const update: AnalyticsUpdate = {};
-
-  for (const field of STRING_FIELDS) {
-    const nextValue = current[field] || null;
-    const prevValue = baseline ? baseline[field] || null : undefined;
-    if (!baseline || nextValue !== prevValue) {
-      update[field] = nextValue;
-    }
-  }
-
-  if (
-    !baseline ||
-    current.offline_conversions_enabled !== baseline.offline_conversions_enabled
-  ) {
-    update.offline_conversions_enabled = current.offline_conversions_enabled;
-  }
-
-  return update;
+function toAnalyticsState(merchant: Partial<AnalyticsState>): AnalyticsState {
+  return {
+    google_analytics_id: merchant.google_analytics_id || '',
+    ga4_api_secret: merchant.ga4_api_secret || '',
+    facebook_pixel_id: merchant.facebook_pixel_id || '',
+    facebook_capi_token: merchant.facebook_capi_token || '',
+    tiktok_pixel_id: merchant.tiktok_pixel_id || '',
+    tiktok_access_token: merchant.tiktok_access_token || '',
+    snapchat_pixel_id: merchant.snapchat_pixel_id || '',
+    snapchat_capi_token: merchant.snapchat_capi_token || '',
+    offline_conversions_enabled: merchant.offline_conversions_enabled !== false,
+  };
 }
 
 // Help links for each platform
@@ -249,12 +201,15 @@ export default function AnalyticsConfigScreen() {
 
   const [analytics, setAnalytics] = useState<AnalyticsState>(INITIAL_STATE);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [seededSnapshot, setSeededSnapshot] = useState<AnalyticsState | null>(
+    null
+  );
 
-  // Fetch merchant data with all analytics fields.
-  // refetchOnWindowFocus/Reconnect are disabled on THIS query so a background
-  // revalidation (reconnect / app-foreground) cannot repaint the editable
-  // buffer mid-edit and cause the user to save reverted values (drift vector
-  // V3). The seed below is also one-shot as defense-in-depth.
+  // Fetch merchant data with all analytics fields. Background revalidation stays
+  // enabled until the merchant edits the form, so cached query data can be
+  // replaced by fresher server data before the buffer becomes dirty. Once dirty,
+  // refetches stop repainting the editable buffer.
   const { data: merchant, isLoading } = useQuery({
     queryKey: ['merchant-analytics-full', user?.id],
     queryFn: async () => {
@@ -278,35 +233,20 @@ export default function AnalyticsConfigScreen() {
     },
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: !isDirty,
+    refetchOnReconnect: !isDirty,
   });
 
-  // Seed the editable buffer from the fetched merchant data EXACTLY ONCE. The
-  // seed is keyed on a one-shot flag (not on object identity), so a later
-  // background refetch that returns a fresh `merchant` object reference does
-  // NOT repaint the buffer and clobber the user's in-progress edits. We also
-  // remember the seeded snapshot so the save can diff per-field.
-  const [hasSeeded, setHasSeeded] = useState(false);
-  const [seededSnapshot, setSeededSnapshot] = useState<AnalyticsState | null>(
-    null
-  );
-  if (merchant && !hasSeeded) {
-    const seeded: AnalyticsState = {
-      google_analytics_id: merchant.google_analytics_id || '',
-      ga4_api_secret: merchant.ga4_api_secret || '',
-      facebook_pixel_id: merchant.facebook_pixel_id || '',
-      facebook_capi_token: merchant.facebook_capi_token || '',
-      tiktok_pixel_id: merchant.tiktok_pixel_id || '',
-      tiktok_access_token: merchant.tiktok_access_token || '',
-      snapchat_pixel_id: merchant.snapchat_pixel_id || '',
-      snapchat_capi_token: merchant.snapchat_capi_token || '',
-      offline_conversions_enabled:
-        merchant.offline_conversions_enabled !== false,
-    };
-    setHasSeeded(true);
-    setSeededSnapshot(seeded);
-    setAnalytics(seeded);
+  // Seed/reseed the editable buffer from fetched merchant data until the user
+  // edits the form. This lets cached data be replaced by a fresher refetch while
+  // the form is clean, but prevents background refetches from clobbering typed
+  // edits once dirty.
+  if (merchant && !isDirty) {
+    const seeded = toAnalyticsState(merchant);
+    if (!analyticsStatesEqual(seededSnapshot, seeded)) {
+      setSeededSnapshot(seeded);
+      setAnalytics(seeded);
+    }
   }
 
   // Save Mutation — writes only the fields the user actually changed (per-field
@@ -314,6 +254,12 @@ export default function AnalyticsConfigScreen() {
   // entirely so unchanged analytics fields are never rewritten.
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (!seededSnapshot) {
+        throw new Error(
+          'Analytics settings are still loading. Please try again.'
+        );
+      }
+
       const update = buildAnalyticsDiff(analytics, seededSnapshot);
 
       if (Object.keys(update).length === 0) {
@@ -349,6 +295,7 @@ export default function AnalyticsConfigScreen() {
     field: keyof AnalyticsState,
     value: string | boolean
   ) => {
+    setIsDirty(true);
     setAnalytics((prev) => ({ ...prev, [field]: value }));
   };
 

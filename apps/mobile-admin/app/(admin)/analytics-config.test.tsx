@@ -205,9 +205,11 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
-import AnalyticsConfigScreen, { buildAnalyticsDiff } from './analytics-config';
-
-type AnalyticsState = Parameters<typeof buildAnalyticsDiff>[0];
+import AnalyticsConfigScreen from './analytics-config';
+import {
+  type AnalyticsState,
+  buildAnalyticsDiff,
+} from './analytics-config-diff';
 
 const seededState: AnalyticsState = {
   facebook_capi_token: '',
@@ -286,6 +288,21 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
     });
     expect(screen.getAllByText('Not configured')).toHaveLength(4);
   });
+
+  it('blocks saving before analytics data has successfully seeded', async () => {
+    queryMocks.useQuery.mockReturnValueOnce({
+      data: null,
+      isError: true,
+      isLoading: false,
+    });
+
+    render(<AnalyticsConfigScreen />);
+
+    await expect(mutationMocks.state.options?.mutationFn()).rejects.toThrow(
+      'Analytics settings are still loading'
+    );
+    expect(supabaseMocks.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('AnalyticsConfigScreen — background refetch must not clobber edits (V3)', () => {
@@ -347,6 +364,33 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     });
   });
 
+  it('reseeds from fresher analytics data while the form is still clean', () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+    expandMetaCard();
+    expect(
+      (screen.getByPlaceholderText('1234567890123456') as HTMLInputElement)
+        .value
+    ).toBe('');
+
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics, facebook_pixel_id: 'FRESH-PIXEL-456' },
+      isError: false,
+      isLoading: false,
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    expect(
+      (screen.getByPlaceholderText('1234567890123456') as HTMLInputElement)
+        .value
+    ).toBe('FRESH-PIXEL-456');
+  });
+
   it('skips the write entirely when nothing changed (no-op save)', async () => {
     queryMocks.useQuery.mockReturnValue({
       data: { ...merchantAnalytics },
@@ -360,16 +404,31 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     expect(supabaseMocks.update).not.toHaveBeenCalled();
   });
 
-  it('disables refetch on window focus and reconnect for the analytics query', () => {
+  it('keeps reconnect and focus refetching enabled until the form becomes dirty', () => {
     queryMocks.useQuery.mockReturnValue({
       data: { ...merchantAnalytics },
       isError: false,
       isLoading: false,
     });
 
-    render(<AnalyticsConfigScreen />);
+    const { rerender } = render(<AnalyticsConfigScreen />);
 
-    const options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+    let options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(true);
+    expect(options.refetchOnReconnect).toBe(true);
+
+    fireEvent.click(
+      screen.getByText('Meta (Facebook/Instagram)').closest('button') as Element
+    );
+    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
+      target: { value: 'EDITED-PIXEL-123' },
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
       refetchOnWindowFocus?: boolean;
       refetchOnReconnect?: boolean;
     };
