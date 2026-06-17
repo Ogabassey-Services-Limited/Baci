@@ -73,7 +73,12 @@ export async function PATCH(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    if (body.social_media !== undefined) {
+    // `clear_social_media: true` is an independent signal: a caller may ask to
+    // wipe handles without resending the `social_media` object. Treat that key
+    // alone as a clear so the explicit-clear contract can't silently no-op.
+    const explicitClear = body.clear_social_media === true;
+
+    if (body.social_media !== undefined || explicitClear) {
       // Defense-in-depth (RFC 7386 merge semantics): merge the incoming
       // payload over the EXISTING row so a partial caller can't drop handles
       // it never touched. Read the current value scoped to this merchant.
@@ -91,12 +96,12 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
+      const incomingSocialMedia = body.social_media ?? {};
       const shouldClearSocialMedia =
-        body.clear_social_media === true ||
-        isFullBlankSocialMediaPayload(body.social_media);
+        explicitClear || isFullBlankSocialMediaPayload(incomingSocialMedia);
       const mergedSocialMedia = mergeSocialMediaValues(
         shouldClearSocialMedia ? null : existing?.social_media,
-        body.social_media
+        incomingSocialMedia
       );
 
       // Skip the write when a partial merge collapses to {}. A true clear flag
