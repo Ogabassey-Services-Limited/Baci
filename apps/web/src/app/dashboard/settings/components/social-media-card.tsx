@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { updateSocial } from '@/hooks/merchant/update-social';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -60,16 +61,11 @@ const SOCIAL_FIELDS = [
 
 interface SocialMediaCardProps {
   initialSocialMedia: Record<string, string>;
-  updateMerchant: (
-    data: { social_media: Record<string, string> },
-    options?: { skipReload?: boolean }
-  ) => Promise<void>;
   onSocialMediaChange: (socialMedia: Record<string, string>) => void;
 }
 
 export function SocialMediaCard({
   initialSocialMedia,
-  updateMerchant,
   onSocialMediaChange,
 }: SocialMediaCardProps) {
   const { toast } = useToast();
@@ -104,10 +100,10 @@ export function SocialMediaCard({
 
       setSaveStatus('saving');
       try {
-        await updateMerchant(
-          { social_media: dataToSave },
-          { skipReload: true }
-        );
+        // social_media is an IDENTITY field — it must NOT flow through the
+        // generic updateMerchant hook (which now throws on it). Persist via the
+        // dedicated, server-allowlisted /api/merchant/settings PATCH route.
+        await updateSocial(dataToSave);
         setSaveStatus('saved');
         if (resetStatusTimeoutRef.current) {
           clearTimeout(resetStatusTimeoutRef.current);
