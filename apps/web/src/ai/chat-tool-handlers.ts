@@ -7,7 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { sanitizeLikePattern, sanitizeText } from '@/lib/sanitize-core';
 import type {
   AddToCartParams,
   CheckPaymentStatusParams,
@@ -50,12 +50,13 @@ interface ProductSearchResult {
 }
 
 function escapeProductSearchTerm(value: string): string {
-  const sanitized = sanitizeSearchQuery(value)
-    .replace(/\s+/g, ' ')
-    .slice(0, 100)
-    .trim();
+  const sanitized = sanitizeText(value, 100).replace(/\s+/g, ' ').trim();
 
   return sanitized ? sanitizeLikePattern(sanitized) : '';
+}
+
+function quotePostgrestFilterValue(value: string): string {
+  return `"${value.replace(/["\\]/g, '\\$&')}"`;
 }
 
 function createProductSearchFilter(params: SearchProductsParams): string {
@@ -66,7 +67,11 @@ function createProductSearchFilter(params: SearchProductsParams): string {
   const columns = ['name', 'description', 'brand', 'category'];
 
   return uniqueTerms
-    .flatMap((term) => columns.map((column) => `${column}.ilike.%${term}%`))
+    .flatMap((term) =>
+      columns.map(
+        (column) => `${column}.ilike.${quotePostgrestFilterValue(`%${term}%`)}`
+      )
+    )
     .join(',');
 }
 

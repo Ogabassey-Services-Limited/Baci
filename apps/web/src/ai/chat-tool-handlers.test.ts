@@ -16,6 +16,7 @@ import {
 } from './chat-tool-handlers';
 
 const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
+const PRODUCT_SEARCH_COLUMNS = ['name', 'description', 'brand', 'category'];
 
 type QueryResult = {
   data: unknown;
@@ -59,6 +60,20 @@ function createQueryMock(result: QueryResult = { data: null, error: null }) {
   return query;
 }
 
+function quotePostgrestFilterValue(value: string): string {
+  return `"${value.replace(/["\\]/g, '\\$&')}"`;
+}
+
+function expectedProductSearchFilter(...terms: string[]): string {
+  return terms
+    .flatMap((term) =>
+      PRODUCT_SEARCH_COLUMNS.map(
+        (column) => `${column}.ilike.${quotePostgrestFilterValue(`%${term}%`)}`
+      )
+    )
+    .join(',');
+}
+
 describe('chat tool handlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,7 +109,7 @@ describe('chat tool handlers', () => {
     expect(query.eq).toHaveBeenCalledWith('merchant_id', OGABASSEY_MERCHANT_ID);
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
     expect(query.or).toHaveBeenCalledWith(
-      'name.ilike.%laptop%,description.ilike.%laptop%,brand.ilike.%laptop%,category.ilike.%laptop%'
+      expectedProductSearchFilter('laptop')
     );
     expect(query.gte).toHaveBeenCalledWith('price', 1_200_000);
     expect(query.lte).toHaveBeenCalledWith('price', 1_400_000);
@@ -130,7 +145,7 @@ describe('chat tool handlers', () => {
     });
 
     expect(query.or).toHaveBeenCalledWith(
-      'name.ilike.%MacBook%,description.ilike.%MacBook%,brand.ilike.%MacBook%,category.ilike.%MacBook%,name.ilike.%Laptops%,description.ilike.%Laptops%,brand.ilike.%Laptops%,category.ilike.%Laptops%'
+      expectedProductSearchFilter('MacBook', 'Laptops')
     );
     expect(query.ilike).not.toHaveBeenCalled();
   });
@@ -149,7 +164,7 @@ describe('chat tool handlers', () => {
     });
 
     expect(query.or).toHaveBeenCalledWith(
-      'name.ilike.%Laptops%,description.ilike.%Laptops%,brand.ilike.%Laptops%,category.ilike.%Laptops%'
+      expectedProductSearchFilter('Laptops')
     );
   });
 
@@ -166,18 +181,21 @@ describe('chat tool handlers', () => {
     expect(query.or).not.toHaveBeenCalled();
   });
 
-  it('removes PostgREST OR separators from free-text search terms', async () => {
+  it('preserves product-title punctuation inside quoted PostgREST filter values', async () => {
     const query = createQueryMock({ data: [], error: null });
     mocks.createAgenticScopedSupabaseClient.mockReturnValue({
       from: vi.fn(() => query),
     });
 
     await handleSearchProducts({
-      query: 'iPhone, (Pro)',
+      query: '15" MacBook Air M4 (2025)',
     });
 
+    const filter = query.or.mock.calls[0]?.[0];
+    expect(filter).toContain('name.ilike."%15\\" MacBook Air M4 (2025)%"');
+    expect(filter).not.toContain('MacBook Air M4 2025');
     expect(query.or).toHaveBeenCalledWith(
-      'name.ilike.%iPhone Pro%,description.ilike.%iPhone Pro%,brand.ilike.%iPhone Pro%,category.ilike.%iPhone Pro%'
+      expectedProductSearchFilter('15" MacBook Air M4 (2025)')
     );
   });
 
@@ -194,7 +212,7 @@ describe('chat tool handlers', () => {
     });
 
     expect(query.or).toHaveBeenCalledWith(
-      `name.ilike.%${escapedBoundaryTerm}%,description.ilike.%${escapedBoundaryTerm}%,brand.ilike.%${escapedBoundaryTerm}%,category.ilike.%${escapedBoundaryTerm}%`
+      expectedProductSearchFilter(escapedBoundaryTerm)
     );
   });
 
@@ -209,7 +227,7 @@ describe('chat tool handlers', () => {
     });
 
     expect(query.or).toHaveBeenCalledWith(
-      'name.ilike.%\\%\\%\\%%,description.ilike.%\\%\\%\\%%,brand.ilike.%\\%\\%\\%%,category.ilike.%\\%\\%\\%%'
+      expectedProductSearchFilter('\\%\\%\\%')
     );
   });
 
