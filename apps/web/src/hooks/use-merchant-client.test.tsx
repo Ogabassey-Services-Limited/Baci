@@ -25,7 +25,7 @@ vi.mock('@/contexts/auth-context', () => ({
 
 // Mock logger
 vi.mock('@/lib/logger', () => ({
-  logger: { error: vi.fn(), info: vi.fn() },
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
 const testMerchant: MerchantData = {
