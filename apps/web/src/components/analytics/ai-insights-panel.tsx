@@ -112,7 +112,8 @@ export function AIInsightsPanel({
     });
 
     return () => controller.abort();
-  }, []);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: startTransition is required for the fetch call
+  }, [startTransition]);
 
   // Filter insights based on active category
   const filteredInsights =

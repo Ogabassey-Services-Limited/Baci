@@ -132,7 +132,9 @@ describe('StoreBuildStatusCard', () => {
 
     render(<StoreBuildStatusCard />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /retry/i }));
+    expect(await screen.findByText('Failed to load store build status.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
     expect(await screen.findByText('AI design ready')).toBeInTheDocument();
     expect(

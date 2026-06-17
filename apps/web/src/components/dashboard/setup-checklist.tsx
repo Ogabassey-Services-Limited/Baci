@@ -413,7 +413,8 @@ export function SetupChecklist({
     return () => {
       active = false;
     };
-  }, []);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken is used to trigger re-fetches
+  }, [_reloadToken]);
 
   const retryLoad = () => {
     setLoading(true);
