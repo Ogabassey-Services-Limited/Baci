@@ -19,7 +19,7 @@ export class InvalidMerchantIdError extends Error {
   }
 }
 
-interface StorefrontSearchSupabase {
+export interface StorefrontSearchSupabase {
   rpc: (
     fn: string,
     args: Record<string, unknown>
