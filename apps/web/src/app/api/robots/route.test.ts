@@ -107,6 +107,7 @@ describe('GET /api/robots', () => {
   });
 
   it('omits unsupported host and crawl-delay records from robots.txt', async () => {
+    vi.resetModules();
     vi.doMock('@/app/robots', () => ({
       default: vi.fn(async () => ({
         host: 'ogabassey.com',
