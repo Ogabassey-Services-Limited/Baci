@@ -87,6 +87,7 @@
       var(--ogabassey-surface-text) 64%,
       transparent
     );
+    --ogabassey-ad-placeholder-text: var(--store-background-text, #374151);
 
     --ogabassey-border: var(
       --store-border,
@@ -103,6 +104,10 @@
 
   .ogabassey-storefront-main {
     flex: 1 1 auto;
+  }
+
+  .ogabassey-ad-placeholder-text {
+    color: var(--ogabassey-ad-placeholder-text, #374151);
   }
 
   .storefront-shell-loading {

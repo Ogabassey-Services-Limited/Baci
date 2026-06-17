@@ -182,6 +182,32 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('allows Cloudflare Insights beacon hosts on storefront CSP', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/products`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+    const csp = res.headers.get('Content-Security-Policy') || '';
+    const directives = Object.fromEntries(
+      csp
+        .split(';')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+          const [name, ...values] = entry.split(/\s+/);
+          return [name, values.join(' ')];
+        })
+    );
+
+    expect(directives['script-src']).toContain(
+      'https://static.cloudflareinsights.com'
+    );
+    expect(directives['connect-src']).toContain("'self'");
+    expect(directives['connect-src']).not.toContain(
+      'https://cloudflareinsights.com'
+    );
+  });
+
   it('does not allow unsafe-eval on production storefront routes', async () => {
     const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/products`);
     req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
