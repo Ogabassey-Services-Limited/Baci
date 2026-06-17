@@ -129,6 +129,20 @@ BEGIN
     RAISE EXCEPTION 'direct business_address write was not overwritten by derivation, got: %', COALESCE(derived, '<null>');
   END IF;
 
+  -- 3c. a direct write to business_address alone is also overwritten.
+  UPDATE public.merchants
+  SET business_address = 'STALE ONLY WRITE'
+  WHERE id = '8f0ed783-0000-4000-8000-0000000003f1';
+
+  SELECT business_address
+  INTO derived
+  FROM public.merchants
+  WHERE id = '8f0ed783-0000-4000-8000-0000000003f1';
+
+  IF derived IS DISTINCT FROM '9 Awolowo Way, Ikoyi' THEN
+    RAISE EXCEPTION 'direct business_address-only write was not overwritten, got: %', COALESCE(derived, '<null>');
+  END IF;
+
   -- 4. clearing registered_address NULLs business_address (no stale value)
   UPDATE public.merchants
   SET registered_address = '{}'::jsonb

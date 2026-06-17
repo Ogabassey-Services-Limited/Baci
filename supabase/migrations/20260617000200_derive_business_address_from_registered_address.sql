@@ -79,8 +79,8 @@ COMMENT ON FUNCTION public.format_merchant_address(jsonb)
 IS 'Formats a structured registered_address jsonb into the free-text business_address (comma-joined non-empty street/city/state/postal_code). Returns NULL for null/empty input. IMMUTABLE, parity-tested against the shared TS formatMerchantAddress().';
 
 -- 2. Trigger function: derive business_address from registered_address on every
---    write. Recomputes only when registered_address actually changed on UPDATE
---    (or always on INSERT) so unrelated column updates do not pay the cost.
+--    insert and on updates that touch either address column. This catches legacy
+--    direct business_address writers while avoiding work on unrelated updates.
 CREATE OR REPLACE FUNCTION public.sync_business_address_from_registered()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -88,7 +88,8 @@ SET search_path TO 'pg_catalog', 'public'
 AS $$
 BEGIN
   IF TG_OP = 'INSERT'
-     OR NEW.registered_address IS DISTINCT FROM OLD.registered_address THEN
+     OR NEW.registered_address IS DISTINCT FROM OLD.registered_address
+     OR NEW.business_address IS DISTINCT FROM OLD.business_address THEN
     NEW.business_address := public.format_merchant_address(NEW.registered_address);
   END IF;
 
@@ -105,7 +106,7 @@ IS 'Keeps merchants.business_address (free-text, footer/JSON-LD) derived from th
 
 DROP TRIGGER IF EXISTS zz_sync_business_address_from_registered ON public.merchants;
 CREATE TRIGGER zz_sync_business_address_from_registered
-BEFORE INSERT OR UPDATE OF registered_address ON public.merchants
+BEFORE INSERT OR UPDATE ON public.merchants
 FOR EACH ROW
 EXECUTE FUNCTION public.sync_business_address_from_registered();
 
