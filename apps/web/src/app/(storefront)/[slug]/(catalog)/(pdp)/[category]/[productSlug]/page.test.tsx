@@ -32,11 +32,7 @@ const {
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
   mockOgabasseyPdpProductResourceHints: vi.fn<
-    (props: {
-      imageVersion?: string | null | undefined;
-      productSlug?: string | null | undefined;
-      src: string | null | undefined;
-    }) => null
+    (props: { src: string | null | undefined }) => null
   >(() => null),
   mockOgabasseyPdpSemanticSections: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpStaticResourceHints: vi.fn<() => void>(),
@@ -261,13 +257,9 @@ vi.mock(
   '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints',
   () => ({
     OgabasseyPdpProductResourceHints: (props: {
-      imageVersion?: string | null | undefined;
-      productSlug?: string | null | undefined;
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
     preloadOgabasseyPdpProductResources: (props: {
-      imageVersion?: string | null | undefined;
-      productSlug?: string | null | undefined;
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
   })

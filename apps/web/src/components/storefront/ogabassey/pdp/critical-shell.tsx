@@ -7,13 +7,11 @@ import {
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
-import { buildOgabasseyPdpSameOriginProfileImageUrl } from './product-image-source';
 
 interface OgabasseyPdpCriticalShellProps {
   basePath?: string;
   basePathPromise?: Promise<string>;
   children?: ReactNode;
-  imageDelivery?: 'direct' | 'same-origin';
   product: OgabasseyPdpCriticalProduct;
 }
 
@@ -96,29 +94,13 @@ async function OgabasseyPdpResolvedCriticalBreadcrumbs({
   );
 }
 
-function getProductImageSrc(
-  product: OgabasseyPdpCriticalProduct,
-  imageDelivery: OgabasseyPdpCriticalShellProps['imageDelivery']
-) {
-  if (imageDelivery !== 'same-origin' || !product.imageVersion) {
-    return product.image;
-  }
-
-  return buildOgabasseyPdpSameOriginProfileImageUrl(
-    product.slug,
-    'desktop',
-    product.imageVersion
-  );
-}
 
 export function OgabasseyPdpCriticalShell({
   basePath = '',
   basePathPromise,
   children,
-  imageDelivery = 'direct',
   product,
 }: OgabasseyPdpCriticalShellProps) {
-  const productImageSrc = getProductImageSrc(product, imageDelivery);
   const aggregateRatingCount = Math.max(
     product.reviewCount,
     product.ratingCount
@@ -168,7 +150,7 @@ export function OgabasseyPdpCriticalShell({
               loading="eager"
               quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
               sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
-              src={productImageSrc}
+              src={product.image}
             />
             <span data-ogabassey-pdp-condition>
               {product.condition}

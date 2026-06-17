@@ -139,9 +139,7 @@ describe('OgabasseyPdpCriticalShell', () => {
     expect(productImage).not.toHaveAttribute('quality');
     expect(productImage).not.toHaveAttribute('fill');
     expect(document.querySelector('source')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
-    ).toHaveAttribute(
+    expect(productImage).toHaveAttribute(
       'sizes',
       '(max-width: 767.98px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px'
     );
@@ -162,36 +160,6 @@ describe('OgabasseyPdpCriticalShell', () => {
     ).toBeInTheDocument();
   });
 
-  it('can render same-origin PDP image URLs for known OgaBassey routes', () => {
-    render(
-      <OgabasseyPdpCriticalShell
-        basePath=""
-        imageDelivery="same-origin"
-        product={{
-          ...defaultProduct,
-          image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
-          imageVersion: 'lcpv2',
-          name: 'Lenovo Legion Pro 9',
-          slug: 'lenovo-legion-pro-9',
-        }}
-      />
-    );
-
-    const sameOriginProductImage = screen.getByRole('img', {
-      name: 'Lenovo Legion Pro 9',
-    });
-
-    expect(sameOriginProductImage).toHaveAttribute(
-      'src',
-      '/api/ogabassey/pdp-lcp-image/profile/desktop/lenovo-legion-pro-9?v=lcpv2'
-    );
-    expect(sameOriginProductImage).toHaveAttribute(
-      'data-fetch-priority',
-      'high'
-    );
-    expect(sameOriginProductImage).toHaveAttribute('data-loading', 'eager');
-    expect(sameOriginProductImage).toHaveAttribute('data-preload', 'false');
-  });
 
   it('does not render filled stars for products without reviews', () => {
     renderCriticalShell();
