@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   type AnalyticsState,
+  analyticsStatesEqual,
   buildAnalyticsDiff,
 } from './analytics-config-diff';
 
@@ -56,5 +57,38 @@ describe('buildAnalyticsDiff', () => {
     expect(diff.tiktok_pixel_id).toBe('tt-1');
     expect(diff.facebook_pixel_id).toBeNull();
     expect(diff.offline_conversions_enabled).toBe(true);
+  });
+});
+
+describe('analyticsStatesEqual', () => {
+  it('treats two null snapshots as equal', () => {
+    expect(analyticsStatesEqual(null, null)).toBe(true);
+  });
+
+  it('treats a null snapshot and a non-null snapshot as not equal', () => {
+    expect(analyticsStatesEqual(null, seededState)).toBe(false);
+    expect(analyticsStatesEqual(seededState, null)).toBe(false);
+  });
+
+  it('treats two identical snapshots as equal', () => {
+    expect(analyticsStatesEqual(seededState, { ...seededState })).toBe(true);
+  });
+
+  it('detects a single-field difference', () => {
+    const edited: AnalyticsState = {
+      ...seededState,
+      facebook_pixel_id: 'fb-123',
+    };
+
+    expect(analyticsStatesEqual(seededState, edited)).toBe(false);
+  });
+
+  it('detects a difference in the boolean toggle field', () => {
+    const edited: AnalyticsState = {
+      ...seededState,
+      offline_conversions_enabled: false,
+    };
+
+    expect(analyticsStatesEqual(seededState, edited)).toBe(false);
   });
 });
