@@ -32,6 +32,7 @@ describe('PostHog client config', () => {
         network_timing: false,
       },
       mask_all_text: true,
+      mask_all_element_attributes: true,
       session_recording: expect.objectContaining({
         maskAllInputs: true,
         maskTextFn: expect.any(Function),
@@ -65,6 +66,16 @@ describe('PostHog client config', () => {
         email: 'buyer@example.com',
         note: 'Contact buyer@example.com and support@example.com before delivery',
         $current_url: 'https://ogabassey.com/cart?token=secret#checkout',
+        $el_text: 'Jane Buyer, 12 Checkout Street',
+        $elements_chain: 'button:contains("Jane Buyer paid order")',
+        $elements: [
+          {
+            tag_name: 'button',
+            text: 'Jane Buyer paid order',
+            'attr__aria-label': 'Pay Jane Buyer',
+            href: '/checkout?email=buyer@example.com',
+          },
+        ],
         request_path: '/checkout/success?email=buyer@example.com',
         $session_id: '018f-session',
         nested: {
@@ -76,6 +87,16 @@ describe('PostHog client config', () => {
       email: '[Filtered]',
       note: 'Contact [Filtered] and [Filtered] before delivery',
       $current_url: 'https://ogabassey.com/cart',
+      $el_text: '[Filtered]',
+      $elements_chain: '[Filtered]',
+      $elements: [
+        {
+          tag_name: 'button',
+          text: '[Filtered]',
+          'attr__aria-label': '[Filtered]',
+          href: '/checkout',
+        },
+      ],
       request_path: '/checkout/success',
       $session_id: '018f-session',
       nested: {

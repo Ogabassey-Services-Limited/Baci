@@ -9,6 +9,8 @@ const SENSITIVE_PROPERTY_PATTERN =
   /(?:password|passcode|token|secret|authorization|cookie|otp|pin|cvv|card|bvn|nin|email|phone|address)/i;
 const URL_PROPERTY_PATTERN =
   /(?:url|href|referrer|current_url|pathname|request_path)/i;
+const AUTOCAPTURE_TEXT_PROPERTY_PATTERN =
+  /^(?:\$el_text|\$elements_chain|text|attr__(?:aria-label|placeholder|title))$/i;
 const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const REDACTED_VALUE = '[Filtered]';
 const QUERY_OR_HASH_PATTERN = /[?#]/;
@@ -23,6 +25,10 @@ function redactUrlQuery(value: string): string {
 }
 
 function sanitizePropertyValue(key: string, value: unknown): unknown {
+  if (AUTOCAPTURE_TEXT_PROPERTY_PATTERN.test(key)) {
+    return REDACTED_VALUE;
+  }
+
   if (SENSITIVE_PROPERTY_PATTERN.test(key)) {
     return REDACTED_VALUE;
   }
@@ -89,6 +95,8 @@ export function buildPostHogClientConfig(
     capture_heatmaps: true,
     capture_pageview: true,
     capture_pageleave: 'if_capture_pageview',
+    mask_all_text: true,
+    mask_all_element_attributes: true,
     capture_exceptions: {
       capture_unhandled_errors: true,
       capture_unhandled_rejections: true,
@@ -101,7 +109,6 @@ export function buildPostHogClientConfig(
       web_vitals_attribution: true,
       network_timing: false,
     },
-    mask_all_text: true,
     disable_session_recording: false,
     session_recording: {
       maskAllInputs: true,

@@ -37,6 +37,10 @@ export function initAnalytics(): void {
     posthogClient = new PostHog(POSTHOG_API_KEY, {
       host: POSTHOG_HOST,
       captureAppLifecycleEvents: true,
+      customAppProperties: (properties) => ({
+        ...properties,
+        ...getAnalyticsSuperProperties(),
+      }),
       enableSessionReplay: true,
       sessionReplayConfig: {
         maskAllTextInputs: true,

@@ -93,6 +93,7 @@ describe('analytics core', () => {
       'ph_test',
       expect.objectContaining({
         host: 'https://posthog.example.com',
+        customAppProperties: expect.any(Function),
         sessionReplayConfig: expect.objectContaining({
           maskAllTextInputs: true,
           maskAllImages: true,
@@ -102,6 +103,23 @@ describe('analytics core', () => {
         }),
       })
     );
+    const [, options] = (PostHog as jest.Mock).mock.calls[0] as [
+      string,
+      { customAppProperties: (properties: Record<string, unknown>) => unknown },
+    ];
+    expect(
+      options.customAppProperties({
+        $app_version: '1.0.0',
+        $app_build: '100',
+      })
+    ).toEqual({
+      $app_version: '1.0.0',
+      $app_build: '100',
+      app_surface: 'mobile-storefront',
+      merchant_id: 'merchant-1',
+      merchant_slug: 'ogabassey',
+      merchant_domain: 'ogabassey.com',
+    });
     expect(mockRegister).toHaveBeenCalledWith({
       app_surface: 'mobile-storefront',
       merchant_id: 'merchant-1',
