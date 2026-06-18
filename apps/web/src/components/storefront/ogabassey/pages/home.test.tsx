@@ -202,15 +202,12 @@ describe('OgabasseyHomePage', () => {
       })
     );
 
-    const reservedStripFallback = [
-      ...container.querySelectorAll('[aria-hidden="true"]'),
-    ].find((element) => element.classList.contains('min-h-[120px]'));
-
-    expect(reservedStripFallback).toBeInTheDocument();
-    expect(reservedStripFallback).toHaveClass(
-      'min-h-[120px]',
-      'content-auto',
-      '[contain-intrinsic-size:1400px_120px]'
-    );
+    // CLS protection for the strip is now delegated to DeferredAdUnit's default
+    // AdSlotShell, which reserves a box height-locked to the exact creative size
+    // (mobile 50px / desktop 90px) instead of a hand-rolled min-height fallback.
+    // So the strip passes no custom fallback.
+    expect(
+      (homepageStripCall?.[0] as { fallback?: unknown }).fallback
+    ).toBeUndefined();
   });
 });
