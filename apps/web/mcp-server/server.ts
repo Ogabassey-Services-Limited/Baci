@@ -42,6 +42,10 @@ import {
   updateAgenticCheckoutSessionMcpInputSchema,
 } from './agentic-checkout-client';
 import { registerAgenticUcpTools } from './agentic-ucp-tools';
+import {
+  buildSearchProductsV2RpcArgs,
+  orderRowsByRankedProductIds,
+} from './search-products-ranking';
 
 // =============================================================================
 // CONFIGURATION
@@ -1239,42 +1243,117 @@ function createOgabasseyServer() {
         const sanitizedQuery = args.query
           ? sanitizeString(args.query, 100)
           : undefined;
+        const sanitizedBrand = args.brand
+          ? sanitizeString(args.brand, 50)
+          : undefined;
+        const sanitizedCategory = args.category
+          ? sanitizeString(args.category, 50)
+          : undefined;
         const limit = Math.min(Math.max(args.limit || 10, 1), 20);
 
+        const ranked = sanitizedQuery
+          ? await supabase.rpc(
+              'search_products_v2',
+              buildSearchProductsV2RpcArgs({
+                args: {
+                  brand: sanitizedBrand,
+                  category: sanitizedCategory,
+                  condition: args.condition
+                    ? sanitizeString(args.condition, 50)
+                    : undefined,
+                  max_price: args.max_price,
+                  min_price: args.min_price,
+                  sort: args.sort,
+                },
+                limit,
+                merchantId,
+                sanitizedQuery,
+              })
+            )
+          : null;
+
+        if (ranked?.error) throw ranked.error;
+
+        const rankedProductIds = Array.isArray(ranked?.data)
+          ? ranked.data
+              .map((row) =>
+                row && typeof row === 'object' && 'product_id' in row
+                  ? String(row.product_id)
+                  : null
+              )
+              .filter((id): id is string => Boolean(id))
+          : [];
+
+        if (sanitizedQuery && rankedProductIds.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No specific products found for "${sanitizedQuery}". Try broader terms.`,
+              },
+            ],
+            structuredContent: { products: [], status: 'empty' },
+          };
+        }
+
+        const productSelect =
+          'id, name, slug, price, compare_at_price, images, condition, condition_detail, brand, category, stock_quantity, has_variants, updated_at, created_at';
         let query = supabase
           .from('products')
-          .select(
-            'id, name, slug, price, compare_at_price, images, condition, condition_detail, brand, category, stock_quantity, has_variants, updated_at, created_at'
-          )
+          .select(productSelect)
           .eq('merchant_id', merchantId)
-          .eq('status', 'active')
-          .limit(limit);
+          .eq('status', 'active');
 
-        // Filters
-        if (sanitizedQuery) query = query.ilike('name', `%${sanitizedQuery}%`);
-        if (args.condition) query = query.eq('condition', args.condition);
-        if (args.category)
-          query = query.ilike(
-            'category',
-            `%${sanitizeString(args.category, 50)}%`
-          );
-        if (args.brand)
-          query = query.ilike('brand', `%${sanitizeString(args.brand, 50)}%`);
-        if (args.min_price) query = query.gte('price', args.min_price);
-        if (args.max_price) query = query.lte('price', args.max_price);
+        if (sanitizedQuery) {
+          query = query.in('id', rankedProductIds);
+        } else {
+          query = query.limit(limit);
 
-        // Sorting
-        if (args.sort === 'price_asc')
-          query = query.order('price', { ascending: true });
-        else if (args.sort === 'price_desc')
-          query = query.order('price', { ascending: false });
-        else if (args.sort === 'newest')
-          query = query.order('created_at', { ascending: false });
-        else query = query.order('stock_quantity', { ascending: false }); // Relevance proxy: push in-stock items up
+          // Filters
+          if (args.condition) query = query.eq('condition', args.condition);
+          if (sanitizedCategory)
+            query = query.ilike('category', `%${sanitizedCategory}%`);
+          if (sanitizedBrand)
+            query = query.ilike('brand', `%${sanitizedBrand}%`);
+          if (args.min_price) query = query.gte('price', args.min_price);
+          if (args.max_price) query = query.lte('price', args.max_price);
 
-        const { data: products, error } = await query;
+          // Sorting
+          if (args.sort === 'price_asc')
+            query = query.order('price', { ascending: true });
+          else if (args.sort === 'price_desc')
+            query = query.order('price', { ascending: false });
+          else if (args.sort === 'newest')
+            query = query.order('created_at', { ascending: false });
+          else query = query.order('stock_quantity', { ascending: false }); // Relevance proxy: push in-stock items up
+        }
+
+        const { data: productRows, error } = await query;
 
         if (error) throw error;
+
+        let products = productRows || [];
+
+        if (sanitizedQuery) {
+          if (sanitizedCategory) {
+            const categoryFilter = sanitizedCategory.toLowerCase();
+            products = products.filter((product) =>
+              String(product.category ?? '')
+                .toLowerCase()
+                .includes(categoryFilter)
+            );
+          }
+          if (sanitizedBrand) {
+            const brandFilter = sanitizedBrand.toLowerCase();
+            products = products.filter((product) =>
+              String(product.brand ?? '').toLowerCase().includes(brandFilter)
+            );
+          }
+          products = orderRowsByRankedProductIds(
+            products,
+            rankedProductIds
+          ).slice(0, limit);
+        }
 
         // Graceful fallback for empty results
         if (!products || products.length === 0) {

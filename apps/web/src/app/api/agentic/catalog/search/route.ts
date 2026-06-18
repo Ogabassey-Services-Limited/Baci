@@ -15,6 +15,7 @@ import {
   type UcpCatalogProductRow,
 } from '@/lib/agentic/ucp-catalog-adapters';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { searchStorefrontProducts } from '@/lib/storefront-search';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ucpCatalogSearchRequestSchema } from '@/schemas/ucp-catalog-request';
 
@@ -44,22 +45,38 @@ export async function POST(request: NextRequest) {
     return context.response;
   }
 
+  const limit = parsed.data.pagination?.limit ?? 20;
+  const ranked = parsed.data.query
+    ? await searchStorefrontProducts({
+        supabase: context.supabase,
+        merchantId: context.merchant.id,
+        query: parsed.data.query,
+        limit,
+        trackAnalytics: false,
+      })
+    : null;
+
   let query = context.supabase
     .from('products')
     .select(PRODUCT_SELECT)
     .eq('merchant_id', context.merchant.id)
     .eq('status', 'active');
 
-  if (parsed.data.query) {
-    const escapedQuery = escapeLikePattern(parsed.data.query.slice(0, 100));
-    query = query.or(
-      `name.ilike.%${escapedQuery}%,description.ilike.%${escapedQuery}%`
-    );
+  if (ranked) {
+    if (ranked.productIds.length === 0) {
+      return NextResponse.json(
+        buildUcpCatalogProductsResponse({
+          capability: UCP_CATALOG_SEARCH_CAPABILITY,
+          products: [],
+        })
+      );
+    }
+    query = query.in('id', ranked.productIds);
   }
 
   const { data, error } = await query
     .order('created_at', { ascending: false })
-    .limit(parsed.data.pagination?.limit ?? 20);
+    .limit(limit);
   if (error) {
     return NextResponse.json(
       { error: 'Catalog search failed' },
@@ -68,15 +85,24 @@ export async function POST(request: NextRequest) {
   }
 
   const baseUrl = buildRequestScopedStoreUrl(context.merchant, request.headers);
+  const order = new Map(
+    (ranked?.productIds ?? []).map((id, index) => [id, index] as const)
+  );
   const products = filterActiveUcpCatalogProductRows(
     (data ?? []) as UcpCatalogProductRow[]
-  ).map((row) =>
-    mapUcpCatalogProductRow({
-      baseUrl,
-      currency: CATALOG_CURRENCY,
-      row,
-    })
-  );
+  )
+    .map((row) =>
+      mapUcpCatalogProductRow({
+        baseUrl,
+        currency: CATALOG_CURRENCY,
+        row,
+      })
+    )
+    .sort(
+      (a, b) =>
+        (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+        (order.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+    );
 
   return NextResponse.json(
     buildUcpCatalogProductsResponse({
@@ -145,11 +171,4 @@ async function readJsonBody(
       ),
     };
   }
-}
-
-function escapeLikePattern(value: string) {
-  return value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('%', '\\%')
-    .replaceAll('_', '\\_');
 }
