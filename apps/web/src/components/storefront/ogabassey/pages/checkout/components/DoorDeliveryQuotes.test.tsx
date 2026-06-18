@@ -1,17 +1,13 @@
-import type { ComponentProps } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DeliveryMethodDetails } from './DeliveryMethodDetails';
+import { DoorDeliveryQuotes } from './DoorDeliveryQuotes';
 
 vi.mock('../../../components/SmartQuoteLoader', () => ({
   SmartQuoteLoader: vi.fn(() => <output role="status">Loading quotes...</output>),
 }));
 
-describe('DeliveryMethodDetails', () => {
-  const defaultProps: ComponentProps<typeof DeliveryMethodDetails> = {
-    deliveryMethod: 'door',
-    airportType: 'delivery',
-    setAirportType: vi.fn(),
+describe('DoorDeliveryQuotes', () => {
+  const defaultProps = {
     shippingQuotes: [],
     isLoadingQuotes: false,
     selectedQuoteId: '',
@@ -30,28 +26,15 @@ describe('DeliveryMethodDetails', () => {
     vi.clearAllMocks();
   });
 
-  it('renders pickup details for pickup delivery', () => {
-    render(<DeliveryMethodDetails {...defaultProps} deliveryMethod="pickup" />);
+  it('renders the quote loader while rates are loading', () => {
+    render(<DoorDeliveryQuotes {...defaultProps} isLoadingQuotes={true} />);
 
-    expect(screen.getByText('Main Office Pickup')).toBeInTheDocument();
-    expect(screen.getByText(/Ikeja Store/i)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading quotes...');
   });
 
-  it('renders airport options and selects an airport preference', () => {
-    render(<DeliveryMethodDetails {...defaultProps} deliveryMethod="airport" />);
-
-    expect(
-      screen.getByRole('group', { name: /airport delivery preference/i }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('radio', { name: /airport pickup/i }));
-
-    expect(defaultProps.setAirportType).toHaveBeenCalledWith('pickup');
-  });
-
-  it('renders available shipping quotes and selects one', () => {
+  it('selects an available shipping quote', () => {
     render(
-      <DeliveryMethodDetails
+      <DoorDeliveryQuotes
         {...defaultProps}
         shippingQuotes={[
           {
@@ -66,18 +49,40 @@ describe('DeliveryMethodDetails', () => {
             pickupIncluded: false,
             insuranceIncluded: false,
           },
+          {
+            id: 'q2',
+            provider: 'TOPSHIP',
+            serviceTier: 'express',
+            carrierName: 'Topship Express',
+            displayName: 'Express Delivery',
+            price: 5200,
+            estimatedDays: 1,
+            currency: 'NGN',
+            pickupIncluded: false,
+            insuranceIncluded: false,
+          },
         ]}
       />,
     );
 
+    expect(screen.getByText('GIGL')).toBeInTheDocument();
+    expect(screen.getByText('Best Value')).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('radio', { name: /standard delivery/i }));
 
-    expect(screen.getByText('Standard Delivery')).toBeInTheDocument();
     expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('q1');
   });
 
-  it('refreshes shipping quotes using the current address', () => {
-    render(<DeliveryMethodDetails {...defaultProps} />);
+  it('shows the empty-state refresh button when no quotes are available', () => {
+    render(<DoorDeliveryQuotes {...defaultProps} />);
+
+    expect(
+      screen.getByRole('button', { name: /refresh rates/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('refreshes rates with the current address and customer details', () => {
+    render(<DoorDeliveryQuotes {...defaultProps} />);
 
     fireEvent.click(screen.getByRole('button', { name: /refresh rates/i }));
 
@@ -92,14 +97,8 @@ describe('DeliveryMethodDetails', () => {
     );
   });
 
-  it('does not refresh shipping quotes when state or city is missing', () => {
-    render(
-      <DeliveryMethodDetails
-        {...defaultProps}
-        newAddressState=""
-        newAddressCity="Ikeja"
-      />,
-    );
+  it('does not refresh rates when the location is incomplete', () => {
+    render(<DoorDeliveryQuotes {...defaultProps} newAddressState="" />);
 
     fireEvent.click(screen.getByRole('button', { name: /refresh rates/i }));
 

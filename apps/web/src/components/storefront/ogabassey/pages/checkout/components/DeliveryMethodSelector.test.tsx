@@ -30,6 +30,23 @@ describe('DeliveryMethodSelector', () => {
     expect(screen.getByRole('radio', { name: /pickup/i })).toBeInTheDocument();
   });
 
+  it('does not render before a usable location is available', () => {
+    render(
+      <DeliveryMethodSelector
+        {...defaultProps}
+        isHydrated={false}
+        newAddressState=""
+        newAddressCity=""
+      />,
+    );
+
+    expect(
+      screen.queryByRole('group', {
+        name: /how would you like to receive your order/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it('renders airport for eligible non-Lagos states and hides pickup', () => {
     render(
       <DeliveryMethodSelector

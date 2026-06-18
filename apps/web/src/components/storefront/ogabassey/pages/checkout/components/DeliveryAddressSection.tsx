@@ -58,10 +58,7 @@ export function DeliveryAddressSection({
   const hasDetectedLocation = Boolean(newAddressState && newAddressCity);
   const manualLocationInUse =
     manualLocationOpen || manualLocationLocked || placesFailed;
-  const showManualLocation =
-    manualLocationOpen ||
-    manualLocationLocked ||
-    (placesFailed && !hasDetectedLocation);
+  const showManualLocation = manualLocationInUse;
   const showManualToggle = !showManualLocation && !hasDetectedLocation;
 
   return (
@@ -98,11 +95,18 @@ export function DeliveryAddressSection({
                   onChange={() => {
                     setSelectedAddressId(addr.id);
                     setIsNewAddressMode(false);
-                    const parts = addr.address.split(',').map((s) => s.trim());
-                    if (parts.length >= 2) {
-                      setNewAddressState(parts[parts.length - 1] || '');
-                      setNewAddressCity(parts[parts.length - 2] || '');
+                    const inferred = inferAddressLocationFromInput(
+                      addr.address,
+                      shippingStates,
+                    );
+                    if (inferred) {
+                      setNewAddressState(inferred.state);
+                      setNewAddressCity(inferred.city);
                       setManualLocationLocked(false);
+                    } else {
+                      setNewAddressState('');
+                      setNewAddressCity('');
+                      setManualLocationLocked(true);
                     }
                   }}
                   className="mt-1 size-4 text-store-primary focus:ring-store-primary border-gray-300"

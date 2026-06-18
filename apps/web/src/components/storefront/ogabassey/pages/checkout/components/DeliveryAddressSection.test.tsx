@@ -117,6 +117,25 @@ describe('DeliveryAddressSection', () => {
     expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('');
   });
 
+  it('reveals manual State and City fields when Places suggestions fail', () => {
+    render(
+      <DeliveryAddressSection
+        {...defaultProps}
+        newAddressState="Lagos"
+        newAddressCity="Ikeja"
+      />,
+    );
+
+    expect(screen.queryByLabelText('State')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /trigger places error/i }),
+    );
+
+    expect(screen.getByLabelText('State')).toBeInTheDocument();
+    expect(screen.getByLabelText(/city/i)).toBeInTheDocument();
+  });
+
   it('keeps manual location values when the street field is edited', () => {
     render(<DeliveryAddressSection {...defaultProps} />);
 
@@ -158,6 +177,54 @@ describe('DeliveryAddressSection', () => {
     expect(defaultProps.setNewAddressStreet).toHaveBeenCalledWith(
       '7 Unknown Road',
     );
+    expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('');
+    expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('');
+  });
+
+  it('parses saved addresses with trailing country before setting state and city', () => {
+    render(
+      <DeliveryAddressSection
+        {...defaultProps}
+        user={{ id: 'customer-1' }}
+        addresses={[
+          {
+            id: 12,
+            label: 'Home',
+            address: '12 Test Street, Ikeja, Lagos, Nigeria',
+            phone: '+2348012345678',
+            isDefault: false,
+          },
+        ]}
+        isNewAddressMode={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: /home/i }));
+
+    expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('Lagos');
+    expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('Ikeja');
+  });
+
+  it('clears stale saved-address location when location parsing fails', () => {
+    render(
+      <DeliveryAddressSection
+        {...defaultProps}
+        user={{ id: 'customer-1' }}
+        addresses={[
+          {
+            id: 13,
+            label: 'Unclear',
+            address: 'Apartment 4',
+            phone: '+2348012345678',
+            isDefault: false,
+          },
+        ]}
+        isNewAddressMode={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: /unclear/i }));
+
     expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('');
     expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('');
   });

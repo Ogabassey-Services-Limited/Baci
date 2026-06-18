@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Check, ChevronRight } from 'lucide-react';
+import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
 import { DeliveryAddressSection } from './DeliveryAddressSection';
 import { DeliveryMethodDetails } from './DeliveryMethodDetails';
 import { DeliveryMethodSelector } from './DeliveryMethodSelector';
@@ -98,9 +100,30 @@ export function DeliveryStep({
   lastName,
   customerEmail,
 }: DeliveryStepProps) {
-  const canChooseDeliveryMethod =
+  const canChooseDeliveryMethod = Boolean(
     isHydrated &&
-    ((newAddressState && newAddressCity) || (!isNewAddressMode && selectedAddressId));
+      ((newAddressState && newAddressCity) ||
+        (!isNewAddressMode && selectedAddressId)),
+  );
+
+  useEffect(() => {
+    if (!canChooseDeliveryMethod) return;
+
+    const isMethodEligible =
+      deliveryMethod === 'door' ||
+      (deliveryMethod === 'pickup' && isPickupEligible(newAddressState)) ||
+      (deliveryMethod === 'airport' &&
+        isAirportDeliveryEligible(newAddressState));
+
+    if (!isMethodEligible) {
+      setDeliveryMethod('door');
+    }
+  }, [
+    canChooseDeliveryMethod,
+    deliveryMethod,
+    newAddressState,
+    setDeliveryMethod,
+  ]);
 
   return (
     <div
