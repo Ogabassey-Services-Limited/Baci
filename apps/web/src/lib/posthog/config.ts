@@ -2,6 +2,18 @@ export const DEFAULT_POSTHOG_INGEST_HOST = 'https://eu.i.posthog.com';
 export const DEFAULT_POSTHOG_ASSETS_HOST = 'https://eu-assets.i.posthog.com';
 export const DEFAULT_POSTHOG_UI_HOST = 'https://eu.posthog.com';
 export const DEFAULT_POSTHOG_PROXY_PATH = '/baci-relay';
+const RESERVED_POSTHOG_PROXY_PATH_PREFIXES = [
+  '/api',
+  '/_next',
+  '/admin',
+  '/auth',
+  '/builder',
+  '/checkout',
+  '/dashboard',
+  '/login',
+  '/logout',
+  '/track',
+] as const;
 
 export type PostHogEnv = Record<string, string | undefined>;
 
@@ -13,7 +25,19 @@ export function normalizePostHogProxyPath(value?: string | null): string {
   }
 
   const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLeadingSlash.replace(/\/+$/, '') || DEFAULT_POSTHOG_PROXY_PATH;
+  const normalized =
+    withLeadingSlash.replace(/\/+$/, '') || DEFAULT_POSTHOG_PROXY_PATH;
+
+  return isReservedPostHogProxyPath(normalized)
+    ? DEFAULT_POSTHOG_PROXY_PATH
+    : normalized;
+}
+
+function isReservedPostHogProxyPath(pathname: string): boolean {
+  const normalized = pathname.toLowerCase();
+  return RESERVED_POSTHOG_PROXY_PATH_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`)
+  );
 }
 
 export function normalizePostHogHost(value: string | undefined): string {

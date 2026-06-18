@@ -85,6 +85,7 @@ const POSTHOG_RELAY_CREDENTIAL_HEADERS = [
   'authorization',
   'cookie',
   'proxy-authorization',
+  'referer',
   'x-csrf-token',
   'x-supabase-auth-token',
 ] as const;
@@ -2847,6 +2848,10 @@ export const config = {
   matcher: [
     '/agent-commerce.json',
     '/agent-trust.json',
+    // Next statically analyzes matcher values. Keep this literal in sync with
+    // DEFAULT_POSTHOG_RELAY_PATH so relay static assets do not bypass header
+    // stripping just because they end in .js/.css/.json.
+    '/baci-relay/:path*',
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)

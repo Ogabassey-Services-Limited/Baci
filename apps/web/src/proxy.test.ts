@@ -534,6 +534,10 @@ describe('Middleware Proxy', () => {
     req.headers.set('cookie', 'sb-auth-token=secret');
     req.headers.set('authorization', 'Bearer secret');
     req.headers.set('proxy-authorization', 'Bearer proxy-secret');
+    req.headers.set(
+      'referer',
+      `https://ogabassey.${ROOT_DOMAIN}/checkout?email=buyer@example.com`
+    );
     req.headers.set('x-csrf-token', 'csrf-secret');
     req.headers.set('x-supabase-auth-token', 'supabase-secret');
 
@@ -545,6 +549,7 @@ describe('Middleware Proxy', () => {
     expect(
       res.headers.get('x-middleware-request-proxy-authorization')
     ).toBeNull();
+    expect(res.headers.get('x-middleware-request-referer')).toBeNull();
     expect(res.headers.get('x-middleware-request-x-csrf-token')).toBeNull();
     expect(
       res.headers.get('x-middleware-request-x-supabase-auth-token')
@@ -552,6 +557,10 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-middleware-request-user-agent')).toBe(
       'PostHog Test Agent'
     );
+  });
+
+  it('matches PostHog relay static assets so rewrites cannot bypass header stripping', () => {
+    expect(config.matcher).toContain('/baci-relay/:path*');
   });
 
   it('falls back to the default PostHog relay path for reserved route prefixes', async () => {

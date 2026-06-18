@@ -21,6 +21,16 @@ describe('PostHog config helpers', () => {
     expect(normalizePostHogProxyPath('/baci-observe///')).toBe('/baci-observe');
   });
 
+  it('falls back when proxy path overrides collide with reserved app routes', () => {
+    expect(normalizePostHogProxyPath('/api')).toBe(DEFAULT_POSTHOG_PROXY_PATH);
+    expect(normalizePostHogProxyPath('/checkout/posthog')).toBe(
+      DEFAULT_POSTHOG_PROXY_PATH
+    );
+    expect(
+      getPostHogProxyPath({ NEXT_PUBLIC_POSTHOG_PROXY_PATH: '/_next/static' })
+    ).toBe(DEFAULT_POSTHOG_PROXY_PATH);
+  });
+
   it('uses EU hosts by default', () => {
     expect(getPostHogIngestHost({})).toBe(DEFAULT_POSTHOG_INGEST_HOST);
     expect(getPostHogAssetsHost({})).toBe(DEFAULT_POSTHOG_ASSETS_HOST);
