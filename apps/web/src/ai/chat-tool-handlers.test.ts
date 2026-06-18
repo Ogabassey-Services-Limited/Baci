@@ -265,6 +265,50 @@ describe('chat tool handlers', () => {
     expect(result.total).toBe(2);
   });
 
+  it('sanitizes PostgREST separator characters before ranked chat search', async () => {
+    mocks.searchStorefrontProducts.mockResolvedValue({
+      count: 1,
+      didYouMean: null,
+      productIds: ['iphone-case'],
+      query: 'iphone casecover',
+    });
+    const query = createQueryMock({
+      data: [
+        {
+          id: 'iphone-case',
+          name: 'iPhone Case',
+          price: 25_000,
+          description: 'Protective case',
+          brand: 'Apple',
+          category: 'Accessories',
+          images: [{ url: 'https://cdn.example.com/case.jpg' }],
+          stock: 7,
+          status: 'active',
+        },
+      ],
+      error: null,
+    });
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => query),
+      rpc: vi.fn(),
+    });
+
+    const result = await handleSearchProducts({
+      query: 'iphone, case|cover();\\',
+    });
+
+    expect(mocks.searchStorefrontProducts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'iphone casecover',
+      })
+    );
+    expect(query.or).not.toHaveBeenCalled();
+    expect(query.ilike).not.toHaveBeenCalled();
+    expect(result.products).toHaveLength(1);
+    expect(result.products[0]?.id).toBe('iphone-case');
+    expect(result.total).toBe(1);
+  });
+
   it('uses category text as the ranked search query when no free-text query is provided', async () => {
     mocks.searchStorefrontProducts.mockResolvedValue({
       count: 0,

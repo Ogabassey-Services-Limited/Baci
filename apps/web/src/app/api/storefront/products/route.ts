@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { logger } from '@/lib/logger';
+import { getPrimaryProductImage } from '@/lib/product-image';
 import { storefrontProductFilters } from '@/lib/storefront-product-filters';
 import {
   buildStorefrontProductsCacheKeyParts,
@@ -217,12 +218,10 @@ function hasActiveStorefrontFilter(value: string | undefined) {
 }
 
 function hasRouteProductImage(product: RawStorefrontProductRow) {
-  if (!Array.isArray(product.images)) {
-    return false;
-  }
-
-  return product.images.some((image) =>
-    typeof image === 'string' ? image.trim().length > 0 : false
+  return Boolean(
+    getPrimaryProductImage(
+      product.images as Array<string | { url?: string | null }> | null
+    )
   );
 }
 

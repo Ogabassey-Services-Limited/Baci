@@ -22,19 +22,27 @@ export function buildSearchProductsV2RpcArgs({
   merchantId: string;
   sanitizedQuery: string;
 }) {
-  const conditionFilter =
-    normalizeCanonicalProductCondition(args.condition) || null;
+  const hasConditionFamilyFilter = Boolean(
+    normalizeCanonicalProductCondition(args.condition)
+  );
 
   return {
     brand_filter: null,
     category_id_filter: null,
-    condition_filter: conditionFilter,
+    // search_products_v2 condition_filter is an exact DB-value filter. MCP
+    // condition inputs are storefront family filters (`open_box` also covers
+    // legacy `refurbished` rows), so condition narrowing happens after ranked
+    // hydration rather than inside the RPC.
+    condition_filter: null,
     max_price_filter: args.max_price ?? null,
     merchant_id_param: merchantId,
     min_price_filter: args.min_price ?? null,
     min_rating_filter: null,
     parent_only: false,
-    result_limit: args.brand || args.category ? POST_FILTER_RESULT_BUFFER : limit,
+    result_limit:
+      args.brand || args.category || hasConditionFamilyFilter
+        ? POST_FILTER_RESULT_BUFFER
+        : limit,
     result_offset: 0,
     search_query: sanitizedQuery,
     sort_by: args.sort ?? 'relevance',

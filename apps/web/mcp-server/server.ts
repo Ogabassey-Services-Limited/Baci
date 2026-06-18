@@ -24,8 +24,10 @@ import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createClient } from '@supabase/supabase-js';
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { z } from 'zod';
 import 'dotenv/config';
+import { storefrontProductFilters } from '../src/lib/storefront-product-filters';
 import {
   AGENTIC_CHECKOUT_AGENT_ID,
   type AgenticCheckoutClientConfig,
@@ -313,6 +315,52 @@ function sanitizeString(input: string, maxLength = 200): string {
     .replace(/[\x00-\x1f]/g, '') // Remove null bytes and control characters
     .replace(/[<>"'`\\;]/g, '') // Remove potentially dangerous chars including semicolons and backslashes
     .trim();
+}
+
+function getConditionPrefilterClauses(condition: string) {
+  const normalized = normalizeCanonicalProductCondition(condition);
+
+  if (!normalized) {
+    return [];
+  }
+
+  const rawConditions =
+    normalized === 'open_box'
+      ? ['open_box', 'refurbished']
+      : normalized === 'used'
+        ? ['used', 'uk_used']
+        : ['new'];
+  const clauses = new Set<string>();
+
+  for (const rawCondition of rawConditions) {
+    clauses.add(`condition.eq.${rawCondition}`);
+    clauses.add(`available_conditions.cs.{${rawCondition}}`);
+  }
+
+  if (normalized === 'new' || normalized === 'used') {
+    clauses.add('has_condition_offers.eq.true');
+  }
+
+  return Array.from(clauses);
+}
+
+function matchesConditionFamily(
+  product: Record<string, unknown>,
+  condition: string | undefined
+) {
+  if (!condition) {
+    return true;
+  }
+
+  return storefrontProductFilters.matchesStorefrontConditionFilter(
+    {
+      available_conditions: product.available_conditions,
+      condition:
+        typeof product.condition === 'string' ? product.condition : null,
+      has_condition_offers: product.has_condition_offers === true,
+    },
+    condition
+  );
 }
 
 // Validate and sanitize price input
@@ -1297,7 +1345,7 @@ function createOgabasseyServer() {
         }
 
         const productSelect =
-          'id, name, slug, price, compare_at_price, images, condition, condition_detail, brand, category, stock_quantity, has_variants, updated_at, created_at';
+          'id, name, slug, price, compare_at_price, images, condition, condition_detail, available_conditions, has_condition_offers, brand, category, stock_quantity, has_variants, updated_at, created_at';
         let query = supabase
           .from('products')
           .select(productSelect)
@@ -1310,7 +1358,14 @@ function createOgabasseyServer() {
           query = query.limit(limit);
 
           // Filters
-          if (args.condition) query = query.eq('condition', args.condition);
+          if (args.condition) {
+            const conditionClauses = getConditionPrefilterClauses(
+              args.condition
+            );
+            if (conditionClauses.length > 0) {
+              query = query.or(conditionClauses.join(','));
+            }
+          }
           if (sanitizedCategory)
             query = query.ilike('category', `%${sanitizedCategory}%`);
           if (sanitizedBrand)
@@ -1349,10 +1404,19 @@ function createOgabasseyServer() {
               String(product.brand ?? '').toLowerCase().includes(brandFilter)
             );
           }
+          if (args.condition) {
+            products = products.filter((product) =>
+              matchesConditionFamily(product, args.condition)
+            );
+          }
           products = orderRowsByRankedProductIds(
             products,
             rankedProductIds
           ).slice(0, limit);
+        } else if (args.condition) {
+          products = products.filter((product) =>
+            matchesConditionFamily(product, args.condition)
+          );
         }
 
         // Graceful fallback for empty results

@@ -541,7 +541,7 @@ describe('GET /api/storefront/products', () => {
     );
   });
 
-  it('rejects non-string image payloads when q and has_images=true are present', async () => {
+  it('accepts object image payloads when q and has_images=true are present', async () => {
     storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
       {
         data: [
@@ -581,8 +581,9 @@ describe('GET /api/storefront/products', () => {
     const body = await response.json();
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'product-2',
+      'product-3',
     ]);
-    expect(body.count).toBe(1);
+    expect(body.count).toBe(2);
   });
 
   it('keeps unexpected unranked hydration rows after ranked products', async () => {

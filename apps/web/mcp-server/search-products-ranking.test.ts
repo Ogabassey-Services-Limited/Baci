@@ -22,7 +22,7 @@ describe('MCP search_products ranking helpers', () => {
     ).toEqual({
       brand_filter: null,
       category_id_filter: null,
-      condition_filter: 'used',
+      condition_filter: null,
       max_price_filter: 500_000,
       merchant_id_param: '123e4567-e89b-12d3-a456-426614174000',
       min_price_filter: 100_000,
@@ -37,7 +37,7 @@ describe('MCP search_products ranking helpers', () => {
     });
   });
 
-  it('normalizes MCP condition aliases before building rpc arguments', () => {
+  it('leaves condition aliases for post-hydration family filtering', () => {
     expect(
       buildSearchProductsV2RpcArgs({
         args: {
@@ -48,7 +48,8 @@ describe('MCP search_products ranking helpers', () => {
         sanitizedQuery: 'iphone',
       })
     ).toMatchObject({
-      condition_filter: 'open_box',
+      condition_filter: null,
+      result_limit: 100,
     });
   });
 
