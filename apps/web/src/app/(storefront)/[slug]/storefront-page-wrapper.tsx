@@ -1,5 +1,5 @@
-import type { MerchantData } from "@/hooks/merchant/types";
 'use client';
+import type { MerchantData } from "@/hooks/merchant/types";
 
 import { type ReactNode, useEffect, useState } from 'react';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';

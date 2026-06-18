@@ -1,5 +1,5 @@
-import type { MerchantData } from "@/hooks/merchant/types";
 'use client';
+import type { MerchantData } from "@/hooks/merchant/types";
 
 import {
   Cookie,

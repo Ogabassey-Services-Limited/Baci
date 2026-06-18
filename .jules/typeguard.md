@@ -31,3 +31,7 @@
 ## 2026-06-18 — [Replace any in storefront components]
 **Learning:** Hardcoded props and mismatched data property maps were causing incorrect type structures which led to runtime issues with 'any'. Using 'Partial<MerchantData>' resolves the 'any' while forcing correct internal structures.
 **Action:** Always verify property names in existing typings against data accessors before mapping them. Use Partial<T> where T is defined but data might be incomplete.
+
+## 2026-06-18 — [Fix 'use client' invalidation]
+**Learning:** Adding imports *above* the `'use client'` directive invalidates the directive, causing CI to fail with 'Misplaced "use client" directive' error. In React/Next.js, `'use client'` must be at the absolute top of the file, before any imports.
+**Action:** When adding imports programmatically via `sed`, always ensure `'use client'` (if present) remains the very first line of the file. Insert imports on the line *after* it (e.g., using `sed '1a ...'`).
