@@ -117,40 +117,40 @@ function createMockSupabase() {
     remove: mockStorageRemove,
   });
 
-  const mockSelect = vi.fn().mockReturnValue({
-    eq: vi.fn().mockReturnValue({
-      in: vi.fn().mockReturnValue({
-        not: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({
-            data: Array.from({ length: 5 }, (_, i) => ({
-              normalized_payload: {
-                externalSourceId: `ext-${i}`,
-                customer: { email: `test${i}@example.com` },
-                items: [],
-              },
-            })),
-            error: null,
-          }),
-        }),
-      }),
-      single: vi.fn().mockResolvedValue({
-        data: {
-          id: 'merchant-1',
-          slug: 'test-merchant',
-          business_name: 'Test Store',
-          custom_domain: null,
-          support_email: null,
-          email_sender_name: null,
-          email: 'merchant@test.com',
+  const mockQuery = {
+    eq: vi.fn(),
+    in: vi.fn(),
+    not: vi.fn(),
+    order: vi.fn().mockResolvedValue({
+      data: Array.from({ length: 5 }, (_, i) => ({
+        normalized_payload: {
+          externalSourceId: `ext-${i}`,
+          customer: { email: `test${i}@example.com` },
+          items: [],
         },
-        error: null,
-      }),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: null,
-        error: null,
-      }),
+      })),
+      error: null,
     }),
-  });
+    single: vi.fn().mockResolvedValue({
+      data: {
+        id: 'merchant-1',
+        slug: 'test-merchant',
+        business_name: 'Test Store',
+        support_email: null,
+        email_sender_name: null,
+        email: 'merchant@test.com',
+      },
+      error: null,
+    }),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: null,
+      error: null,
+    }),
+  };
+  mockQuery.eq.mockReturnValue(mockQuery);
+  mockQuery.in.mockReturnValue(mockQuery);
+  mockQuery.not.mockReturnValue(mockQuery);
+  const mockSelect = vi.fn().mockReturnValue(mockQuery);
 
   return {
     from: vi.fn().mockReturnValue({

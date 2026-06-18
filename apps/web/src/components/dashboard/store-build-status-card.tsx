@@ -57,6 +57,8 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
   const { toast } = useToast();
 
   useEffect(() => {
+    // The retry button increments reloadToken to intentionally re-run this effect.
+    void reloadToken;
     let active = true;
 
     fetch('/api/merchant/readiness', {

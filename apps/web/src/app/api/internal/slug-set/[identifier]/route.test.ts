@@ -1,9 +1,12 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '@/lib/logger';
 
 const mockGetInternalApiSecret = vi.fn();
 const mockGetMerchantSafe = vi.fn();
 const mockGetCachedStorefrontProductSlugSet = vi.fn();
+const mockGetCachedStorefrontProductSlugResolution = vi.fn();
+const mockGetProductUrl = vi.fn();
 
 vi.mock('@/env', () => ({
   getInternalApiSecret: () => mockGetInternalApiSecret(),
@@ -14,6 +17,13 @@ vi.mock('@/lib/cached-data', () => ({
 vi.mock('@/lib/cached-storefront-product-slug-set', () => ({
   getCachedStorefrontProductSlugSet: (...args: unknown[]) =>
     mockGetCachedStorefrontProductSlugSet(...args),
+}));
+vi.mock('@/lib/cached-storefront-product-slug-resolution', () => ({
+  getCachedStorefrontProductSlugResolution: (...args: unknown[]) =>
+    mockGetCachedStorefrontProductSlugResolution(...args),
+}));
+vi.mock('@/lib/seo-utils', () => ({
+  getProductUrl: (...args: unknown[]) => mockGetProductUrl(...args),
 }));
 
 import { GET } from './route';
@@ -50,6 +60,14 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
       hasError: false,
       slugs: ['iphone-15', 'macbook-air-m1'],
     });
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: true,
+    });
+    mockGetProductUrl.mockImplementation(
+      (product: { categories?: { slug?: string } | null; slug: string }) =>
+        `/${product.categories?.slug ?? 'products'}/${product.slug}`
+    );
   });
 
   it('returns present:true when the slug exists for the merchant', async () => {
@@ -62,6 +80,149 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     expect(mockGetCachedStorefrontProductSlugSet).toHaveBeenCalledWith(
       MERCHANT_ID
     );
+    expect(mockGetCachedStorefrontProductSlugResolution).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      'iphone-15'
+    );
+  });
+
+  it('returns redirectPath when a present slug is an archived alias for a canonical product', async () => {
+    mockGetCachedStorefrontProductSlugSet.mockResolvedValue({
+      hasError: false,
+      slugs: ['iphone-15-pro-max-8gb-256gb'],
+    });
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: true,
+      redirectTarget: {
+        id: 'parent-1',
+        name: 'iPhone 15 Pro Max',
+        slug: 'iphone-15-pro-max',
+        category: 'Smartphones',
+        categories: {
+          id: 'category-1',
+          name: 'Smartphones',
+          slug: 'smartphones',
+          parent_id: null,
+        },
+      },
+    });
+
+    const res = await GET(
+      request('iphone-15-pro-max-8gb-256gb', `Bearer ${SECRET}`),
+      context()
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      hasError: false,
+      present: true,
+      redirectPath: '/smartphones/iphone-15-pro-max',
+    });
+  });
+
+  it('keeps present:true without redirectPath when legacy resolution is uncertain', async () => {
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: true,
+      present: false,
+    });
+
+    const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ hasError: false, present: true });
+  });
+
+  it('keeps present:true and logs when legacy resolution throws', async () => {
+    const warnSpy = vi
+      .spyOn(logger, 'warn')
+      .mockImplementation(() => undefined);
+    mockGetCachedStorefrontProductSlugResolution.mockRejectedValueOnce(
+      new Error('resolution unavailable')
+    );
+
+    try {
+      const res = await GET(
+        request('iphone-15', `Bearer ${SECRET}`),
+        context()
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ hasError: false, present: true });
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Failed to resolve legacy product redirect target',
+          merchantId: MERCHANT_ID,
+          slug: 'iphone-15',
+        })
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('rejects unsafe legacy redirect paths and falls through as present', async () => {
+    mockGetCachedStorefrontProductSlugSet.mockResolvedValue({
+      hasError: false,
+      slugs: ['iphone-15-pro-max-8gb-256gb'],
+    });
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: true,
+      redirectTarget: {
+        id: 'parent-1',
+        name: 'iPhone 15 Pro Max',
+        slug: 'iphone-15-pro-max',
+        category: 'Smartphones',
+        categories: {
+          id: 'category-1',
+          name: 'Smartphones',
+          slug: 'smartphones',
+          parent_id: null,
+        },
+      },
+    });
+    mockGetProductUrl.mockReturnValueOnce('//evil.example/path');
+
+    const res = await GET(
+      request('iphone-15-pro-max-8gb-256gb', `Bearer ${SECRET}`),
+      context()
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ hasError: false, present: true });
+  });
+
+  it('rejects URL-encoded unsafe legacy redirect paths and falls through as present', async () => {
+    mockGetCachedStorefrontProductSlugSet.mockResolvedValue({
+      hasError: false,
+      slugs: ['iphone-15-pro-max-8gb-256gb'],
+    });
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: true,
+      redirectTarget: {
+        id: 'parent-1',
+        name: 'iPhone 15 Pro Max',
+        slug: 'iphone-15-pro-max',
+        category: 'Smartphones',
+        categories: {
+          id: 'category-1',
+          name: 'Smartphones',
+          slug: 'smartphones',
+          parent_id: null,
+        },
+      },
+    });
+    mockGetProductUrl.mockReturnValueOnce('/%2f%2fevil.example/path');
+
+    const res = await GET(
+      request('iphone-15-pro-max-8gb-256gb', `Bearer ${SECRET}`),
+      context()
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ hasError: false, present: true });
   });
 
   it('returns present:false when the slug is absent from the merchant set', async () => {
@@ -72,6 +233,7 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ hasError: false, present: false });
+    expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
   });
 
   it('matches the slug case-insensitively', async () => {

@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { captureClientException } from '@/lib/posthog/client-exceptions';
 import styles from './system-error.module.css';
 
 // Global Error must include its own html and body tags
@@ -8,6 +10,14 @@ export default function GlobalError({
 }: {
   error: Error & { digest?: string };
 }) {
+  useEffect(() => {
+    captureClientException(error, {
+      route_surface: 'global',
+      digest: error.digest,
+    });
+    console.error('Global application error:', error);
+  }, [error]);
+
   return (
     <html lang="en">
       <body>

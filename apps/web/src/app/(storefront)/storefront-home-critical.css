@@ -48,7 +48,7 @@
   }
 
   .ogabassey-home-products__eyebrow {
-    color: var(--store-primary, #2a2c6e);
+    color: var(--ogabassey-shell-accent-text, #ff7377);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.05em;
@@ -62,6 +62,12 @@
     font-weight: 700;
     line-height: 1.75rem;
     margin-top: 0.25rem;
+  }
+
+  .ogabassey-home-products__count {
+    color: var(--ogabassey-shell-muted-text, #aeb7c4);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
   }
 
   .ogabassey-home-products__view-all {

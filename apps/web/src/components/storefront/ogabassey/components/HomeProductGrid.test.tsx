@@ -147,6 +147,9 @@ describe('HomeProductGrid', () => {
 
     expect(screen.getAllByRole('article')).toHaveLength(8);
     expect(screen.queryByText('Product 13')).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 8 of 13 products')).toHaveClass(
+      'ogabassey-home-products__count'
+    );
   });
 
   it('renders the critical product-grid shell classes used by the homepage CSS partition', () => {
@@ -164,6 +167,24 @@ describe('HomeProductGrid', () => {
     );
     expect(grid).toHaveClass('ogabassey-home-products__grid');
     expect(grid).not.toHaveClass('grid-cols-2');
+  });
+
+  it('uses accessible foreground colors for inline ad fallback copy', () => {
+    render(
+      <HomeProductGrid
+        storeSlug="test-store"
+        products={Array.from({ length: 9 }, (_, index) =>
+          createTestProduct(index + 1)
+        )}
+      />
+    );
+
+    expect(screen.getByText('Sponsored')).toHaveClass(
+      'ogabassey-ad-placeholder-text'
+    );
+    expect(screen.getByText('Ad Space')).toHaveClass(
+      'ogabassey-ad-placeholder-text'
+    );
   });
 
   it('links the view-all CTA to the storefront products route', () => {
