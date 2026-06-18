@@ -47,7 +47,6 @@ const values = [
   },
 ];
 
-// Define props interface if not imported (but we can use any for now or import)
 interface AboutProps {
   merchant?: Partial<MerchantData>;
 }

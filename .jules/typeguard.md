@@ -35,3 +35,7 @@
 ## 2026-06-18 — [Fix 'use client' invalidation]
 **Learning:** Adding imports *above* the `'use client'` directive invalidates the directive, causing CI to fail with 'Misplaced "use client" directive' error. In React/Next.js, `'use client'` must be at the absolute top of the file, before any imports.
 **Action:** When adding imports programmatically via `sed`, always ensure `'use client'` (if present) remains the very first line of the file. Insert imports on the line *after* it (e.g., using `sed '1a ...'`).
+
+## 2026-06-18 — [Clean up orphaned/outdated comments]
+**Learning:** Outdated or contradictory comments left behind after applying a fix can trigger code review warnings. Even though the types are correct, comments explicitly mentioning the usage of `any` violate the spirit of type safety improvements.
+**Action:** When updating a property or removing `any`, always ensure related comments that document the old state are deleted or updated to reflect the new implementation.
