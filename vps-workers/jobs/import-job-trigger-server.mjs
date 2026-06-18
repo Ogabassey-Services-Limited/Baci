@@ -82,7 +82,7 @@ function buildTriggerMetadataEnv(payload) {
 }
 
 export function spawnImportJobWorker({
-  env = process.env,
+  env = {},
   logger = console,
   payload,
   spawnFn = spawn,
