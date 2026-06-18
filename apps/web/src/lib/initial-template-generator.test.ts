@@ -1,6 +1,7 @@
 import { generateObject } from 'ai';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  deriveThemeFromColors,
   generateFeatures,
   generateHeroSlides,
   generateInitialTemplate,
@@ -133,6 +134,27 @@ describe('initial template fallback content', () => {
         })
       );
     }
+  });
+
+  it('preserves an explicit secondary color in the generated theme', () => {
+    const theme = deriveThemeFromColors({
+      primary: '#14532d',
+      background: '#fff7ed',
+      accent: '#f97316',
+      secondary: '#0f766e',
+    });
+
+    expect(theme.colors.secondary).toBe('#0f766e');
+  });
+
+  it('falls back to the derived secondary color when none is provided', () => {
+    const theme = deriveThemeFromColors({
+      primary: '#14532d',
+      background: '#fff7ed',
+      accent: '#f97316',
+    });
+
+    expect(theme.colors.secondary).toBe('#14532d');
   });
 
   it('builds Puck content using the selected industry profile', async () => {
