@@ -5,23 +5,59 @@ import { DeliveryStep } from './DeliveryStep';
 // Mock AddressAutocomplete. Exposes a button to simulate a Places failure so
 // the manual-fallback behaviour can be exercised without a real network call.
 vi.mock('@/components/address-autocomplete', () => ({
-  AddressAutocomplete: vi.fn(({ id, value, onChange, placeholder, onError }) => (
-    <>
-      <input
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
-      <button
-        type="button"
-        data-testid="trigger-places-error"
-        onClick={() => onError?.(true)}
-      >
-        trigger places error
-      </button>
-    </>
-  )),
+  AddressAutocomplete: vi.fn(
+    ({
+      id,
+      value,
+      onChange,
+      onSelect,
+      placeholder,
+      onError,
+    }: {
+      id?: string;
+      value?: string;
+      onChange: (value: string) => void;
+      onSelect?: (place: {
+        streetNumber: string;
+        route: string;
+        city: string;
+        state: string;
+        zip: string;
+        country: string;
+        formattedAddress: string;
+      }) => void;
+      placeholder?: string;
+      onError?: (failed: boolean) => void;
+    }) => (
+      <>
+        <input
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+        />
+        <button type="button" onClick={() => onError?.(true)}>
+          trigger places error
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onSelect?.({
+              streetNumber: '',
+              route: '',
+              city: '',
+              state: '',
+              zip: '',
+              country: 'Nigeria',
+              formattedAddress: '7 Unknown Road',
+            })
+          }
+        >
+          select place without city or state
+        </button>
+      </>
+    ),
+  ),
 }));
 
 // Mock SmartQuoteLoader
@@ -141,10 +177,34 @@ describe('DeliveryStep', () => {
 
       expect(screen.queryByLabelText('State')).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByTestId('trigger-places-error'));
+      fireEvent.click(
+        screen.getByRole('button', { name: /trigger places error/i }),
+      );
 
       expect(screen.getByLabelText('State')).toBeInTheDocument();
       expect(screen.getByLabelText(/city/i)).toBeInTheDocument();
+    });
+
+    it('clears stale location values when a selected place has no city or state', () => {
+      render(
+        <DeliveryStep
+          {...defaultProps}
+          newAddressState="Lagos"
+          newAddressCity="Ikeja"
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /select place without city or state/i,
+        }),
+      );
+
+      expect(defaultProps.setNewAddressStreet).toHaveBeenCalledWith(
+        '7 Unknown Road',
+      );
+      expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('');
+      expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('');
     });
 
     it('clears inferred location and quotes when manual input no longer matches', () => {
