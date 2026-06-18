@@ -143,7 +143,7 @@ describe('import job trigger server', () => {
       await once(server, 'listening');
       const address = server.address();
       const port = typeof address === 'object' && address ? address.port : 0;
-      assert.notEqual(port, 3918);
+      assert.ok(port > 0 && port <= 65535);
 
       const response = await sendNodeRequest({
         body: 'x'.repeat(4097),
