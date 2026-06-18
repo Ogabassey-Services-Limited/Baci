@@ -97,7 +97,7 @@ describe('PostHog server exceptions', () => {
     process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
     const { captureServerException } = await import('./server');
     const error = new Error(
-      'Paystack failed for buyer@example.com at https://pay.example/callback?token=raw_secret&reference=ref_1234567 phone=08012345678'
+      'Paystack failed for buyer@example.com at https://pay.example/callback?token=raw_secret&reference=ref_1234567 phone=08012345678 body={"token":"json_secret","transaction_reference":"ref_json_123"}'
     );
     error.stack =
       'Error: token=raw_secret reference=ref_1234567 buyer@example.com phone=08012345678';
@@ -117,12 +117,47 @@ describe('PostHog server exceptions', () => {
     expect(capturedError?.message).not.toContain('buyer@example.com');
     expect(capturedError?.message).not.toContain('raw_secret');
     expect(capturedError?.message).not.toContain('ref_1234567');
+    expect(capturedError?.message).not.toContain('json_secret');
+    expect(capturedError?.message).not.toContain('ref_json_123');
     expect(capturedError?.message).not.toContain('08012345678');
     expect(capturedError?.stack).not.toContain('buyer@example.com');
     expect(capturedError?.stack).not.toContain('raw_secret');
     expect(capturedError?.stack).not.toContain('ref_1234567');
     expect(capturedError?.cause?.message).not.toContain('sk_test_secret');
     expect(capturedError?.cause?.message).not.toContain('08012345678');
+  });
+
+  it('sanitizes object causes before upload', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureServerException } = await import('./server');
+    const error = new Error('provider failed');
+    Object.defineProperty(error, 'cause', {
+      configurable: true,
+      value: {
+        token: 'cause_secret',
+        nested: {
+          authorization: 'Bearer nested_secret',
+          note: 'reference=ref_1234567 buyer@example.com',
+        },
+      },
+    });
+
+    await expect(captureServerException(error)).resolves.toBe(true);
+
+    const capturedError = postHogMocks.captureExceptionImmediate.mock
+      .calls[0]?.[0] as
+      | (Error & {
+          cause?: Record<string, unknown>;
+        })
+      | undefined;
+
+    expect(capturedError?.cause).toEqual({
+      token: REDACTED_VALUE,
+      nested: {
+        authorization: REDACTED_VALUE,
+        note: `reference=${REDACTED_VALUE} ${REDACTED_VALUE}`,
+      },
+    });
   });
 
   it('creates a new server client when token or host changes', async () => {
