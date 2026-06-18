@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { render } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   initializePostHogBrowser: vi.fn(),
@@ -8,18 +9,11 @@ vi.mock('@/lib/posthog/browser', () => ({
   initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
 
-function importInstrumentationClient() {
-  return import('./instrumentation-client');
-}
+import { PostHogClientBootstrap } from './posthog-client-bootstrap';
 
-afterEach(() => {
-  vi.clearAllMocks();
-  vi.resetModules();
-});
-
-describe('instrumentation-client', () => {
-  it('initializes browser PostHog instrumentation', async () => {
-    await importInstrumentationClient();
+describe('PostHogClientBootstrap', () => {
+  it('initializes PostHog when the browser module loads', () => {
+    render(<PostHogClientBootstrap />);
 
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
