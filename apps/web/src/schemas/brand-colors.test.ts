@@ -71,6 +71,18 @@ describe('parseBrandColors', () => {
     ).toBeNull();
   });
 
+  it('rejects palettes with an invalid optional secondary color', () => {
+    // Act & Assert
+    expect(
+      parseBrandColors({
+        primary: '#000000',
+        background: '#ffffff',
+        accent: '#F59E0B',
+        secondary: 'not-a-color',
+      })
+    ).toBeNull();
+  });
+
   it('rejects palettes with non-string color values', () => {
     // Act & Assert
     expect(
