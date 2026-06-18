@@ -18,9 +18,32 @@ import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { logger } from '@/lib/logger';
 import type { createAdminClient as createAdminClientFactory } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { parseBrandColors } from '@/schemas/brand-colors';
 import { onboardingSchema } from '@/schemas/onboarding';
 import { onboardingMagicLinkSchema } from '@/schemas/onboarding-magic-link';
 import type { BrandColors } from '@/types';
+
+const DEFAULT_BRAND_COLORS: BrandColors = {
+  primary: '#000000',
+  background: '#ffffff',
+  accent: '#F59E0B',
+};
+
+function resolveStarterBrandColors(
+  parsedBrandColors: BrandColors | null,
+  merchant: { brand_colors?: unknown } | null
+): BrandColors {
+  if (parsedBrandColors) {
+    return parsedBrandColors;
+  }
+
+  const persistedBrandColors = parseBrandColors(merchant?.brand_colors);
+  if (persistedBrandColors) {
+    return persistedBrandColors;
+  }
+
+  return DEFAULT_BRAND_COLORS;
+}
 
 export type ServerActionState = {
   message: string;
@@ -132,10 +155,22 @@ export async function submitOnboarding(
   } = validationResult.data;
   const payoutCurrency = getCountryByCode(country)?.currency ?? 'USD';
 
+  // Parse brand colors defensively. On a malformed JSON payload we MUST NOT
+  // write `brand_colors: null` — a re-run of onboarding on a stub merchant
+  // would then wipe a real, already-persisted palette (drift vector V5).
+  // `brandColorsParsed` tracks whether parsing succeeded so the write below can
+  // conditionally spread the column only on success (mirrors the existing
+  // conditional-slug pattern).
   let brandColors: BrandColors | null = null;
+  let brandColorsParsed = false;
   if (brandColorsString) {
     try {
-      brandColors = JSON.parse(brandColorsString);
+      const parsed: unknown = JSON.parse(brandColorsString);
+      brandColors = parseBrandColors(parsed);
+      brandColorsParsed = brandColors !== null;
+      if (!brandColorsParsed) {
+        logger.error({ message: 'Parsed brand colors invalid format' });
+      }
     } catch (e) {
       logger.error({ message: 'Failed to parse brand colors', error: e });
     }
@@ -260,7 +295,7 @@ export async function submitOnboarding(
       .eq('user_id', user.id)
       .maybeSingle();
 
-    let merchant: { id: string; slug?: string } | null;
+    let merchant: { id: string; slug?: string; brand_colors?: unknown } | null;
 
     if (existing) {
       if (existing.business_name) {
@@ -289,11 +324,16 @@ export async function submitOnboarding(
           logo_url: logoUrl,
           // Sync logo to favicon for mobile app compatibility
           favicon_png_192_url: logoUrl,
-          brand_colors: brandColors,
+          // Only write brand_colors when JSON.parse succeeded; a malformed
+          // payload must not overwrite an existing palette with null (V5).
+          ...(brandColorsParsed ? { brand_colors: brandColors } : {}),
           ...(resolvedSlug ? { slug: resolvedSlug } : {}),
         })
         .eq('id', existing.id)
-        .select()
+        // Select the columns the starter generator reads downstream
+        // (brand_colors preserves the stored palette via
+        // resolveStarterBrandColors; hero_image_ids/logo_url feed the template).
+        .select('id, slug, brand_colors, hero_image_ids, logo_url')
         .single();
 
       if (updateError)
@@ -315,12 +355,18 @@ export async function submitOnboarding(
           logo_url: logoUrl,
           // Sync logo to favicon for mobile app compatibility
           favicon_png_192_url: logoUrl,
-          brand_colors: brandColors,
+          // Only write brand_colors when JSON.parse succeeded; a malformed
+          // payload must not persist a null palette (V5). Omitting the column
+          // lets the table default apply instead.
+          ...(brandColorsParsed ? { brand_colors: brandColors } : {}),
           slug,
           template_id: 'puck', // Force Builder Engine for new merchants
           signup_source: 'web',
         })
-        .select()
+        // Select the columns the starter generator reads downstream
+        // (brand_colors preserves the stored palette via
+        // resolveStarterBrandColors; hero_image_ids/logo_url feed the template).
+        .select('id, slug, brand_colors, hero_image_ids, logo_url')
         .single();
 
       if (createError)
@@ -351,12 +397,10 @@ export async function submitOnboarding(
       const { generateInitialTemplate } = await import(
         '@/lib/initial-template-generator'
       );
-      // Ensure brandColors is never null by providing defaults
-      const safeBrandColors = brandColors || {
-        primary: '#000000',
-        background: '#ffffff',
-        accent: '#F59E0B', // Default amber/yellow accent
-      };
+      // Ensure starter generation uses the same palette persisted on the merchant row.
+      // If parsing failed while completing a stub merchant, brand_colors was intentionally
+      // omitted above, so use the preserved row palette instead of falling back to defaults.
+      const safeBrandColors = resolveStarterBrandColors(brandColors, merchant);
       const config = await generateInitialTemplate({
         businessName,
         businessType: finalBusinessType,
