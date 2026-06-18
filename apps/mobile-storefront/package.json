@@ -24,6 +24,7 @@
     "@expo/dom-webview": "^56.0.5",
     "@expo/metro-runtime": "~56.0.15",
     "@hookform/resolvers": "^5.4.0",
+    "@posthog/react-native-plugin": "^2.0.1",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-community/netinfo": "12.0.1",
@@ -98,6 +99,7 @@
   "devDependencies": {
     "@babel/plugin-transform-dynamic-import": "^7.29.7",
     "@jest/globals": "^29.7.0",
+    "@posthog/cli": "^0.7.24",
     "@react-native/metro-config": "0.85.3",
     "@tanstack/query-core": "^5.101.0",
     "@testing-library/jest-native": "^5.4.3",

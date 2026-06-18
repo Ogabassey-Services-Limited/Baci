@@ -112,7 +112,7 @@ export function AIInsightsPanel({
     });
 
     return () => controller.abort();
-  }, [startTransition]);
+  }, []);
 
   // Filter insights based on active category
   const filteredInsights =

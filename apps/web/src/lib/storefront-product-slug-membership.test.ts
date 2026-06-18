@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { isStorefrontProductSlugMissing } from '@/lib/storefront-product-slug-membership';
+import {
+  isStorefrontProductSlugMissing,
+  resolveStorefrontProductSlugResolution,
+} from '@/lib/storefront-product-slug-membership';
 
 const BASE = {
   origin: 'https://ogabassey.com',
@@ -186,5 +189,96 @@ describe('isStorefrontProductSlugMissing', () => {
     });
 
     expect(result).toBe(false);
+  });
+});
+
+describe('resolveStorefrontProductSlugResolution', () => {
+  const originalVercelUrl = process.env.VERCEL_URL;
+
+  beforeEach(() => {
+    process.env.VERCEL_URL = 'baci-test.vercel.app';
+  });
+
+  afterEach(() => {
+    if (originalVercelUrl === undefined) {
+      delete process.env.VERCEL_URL;
+    } else {
+      process.env.VERCEL_URL = originalVercelUrl;
+    }
+  });
+
+  it('returns redirect for a safe internal redirectPath from the route', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        hasError: false,
+        present: true,
+        redirectPath: '/smartphones/iphone-15-pro-max',
+      })
+    );
+
+    const result = await resolveStorefrontProductSlugResolution({
+      ...BASE,
+      productSlug: 'iphone-15-pro-max-8gb-256gb',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({
+      kind: 'redirect',
+      redirectPath: '/smartphones/iphone-15-pro-max',
+    });
+  });
+
+  it.each([
+    'https://evil.example/path',
+    '//evil.example/path',
+    '/\\\\evil.example',
+    '/smartphones/iphone:15',
+    '/%2f%2fevil.example/path',
+    '/smartphones/iphone%3a15',
+    '',
+  ])('fails open for unsafe redirectPath %s', async (redirectPath) => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        hasError: false,
+        present: true,
+        redirectPath,
+      })
+    );
+
+    const result = await resolveStorefrontProductSlugResolution({
+      ...BASE,
+      productSlug: 'iphone-15-pro-max-8gb-256gb',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+  });
+
+  it('returns present-or-unknown for a present product without a redirectPath', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ hasError: false, present: true }));
+
+    const result = await resolveStorefrontProductSlugResolution({
+      ...BASE,
+      productSlug: 'iphone-15',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+  });
+
+  it('returns missing only for an explicit error-free absent verdict', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
+
+    const result = await resolveStorefrontProductSlugResolution({
+      ...BASE,
+      productSlug: 'not-real',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'missing' });
   });
 });

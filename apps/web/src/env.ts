@@ -243,6 +243,15 @@ const serverSchema = z
     INTERNAL_API_SECRET: z.string().optional(),
     IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
     IMPORT_JOB_DIRECT_UPLOAD_ENABLED: booleanStringSchema.optional(),
+    IMPORT_JOB_TRIGGER_URL: httpsOrLocalhostUrl(
+      'IMPORT_JOB_TRIGGER_URL'
+    ).optional(),
+    IMPORT_JOB_TRIGGER_SECRET: optionalTrimmedStringSchema,
+    IMPORT_JOB_TRIGGER_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(5000),
     TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS: z.coerce
       .number()
       .int()
@@ -377,6 +386,24 @@ const serverSchema = z
         message:
           'AI_STOREFRONT_TRIGGER_URL is required when AI_STOREFRONT_TRIGGER_SECRET is set',
         path: ['AI_STOREFRONT_TRIGGER_URL'],
+      });
+    }
+  })
+  .superRefine((value, ctx) => {
+    if (value.IMPORT_JOB_TRIGGER_URL && !value.IMPORT_JOB_TRIGGER_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'IMPORT_JOB_TRIGGER_SECRET is required when IMPORT_JOB_TRIGGER_URL is set',
+        path: ['IMPORT_JOB_TRIGGER_SECRET'],
+      });
+    }
+    if (value.IMPORT_JOB_TRIGGER_SECRET && !value.IMPORT_JOB_TRIGGER_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'IMPORT_JOB_TRIGGER_URL is required when IMPORT_JOB_TRIGGER_SECRET is set',
+        path: ['IMPORT_JOB_TRIGGER_URL'],
       });
     }
   })
@@ -550,6 +577,10 @@ const getEnv = () => {
         MYCOVER_WEBHOOK_SECRET: process.env.MYCOVER_WEBHOOK_SECRET,
         CRON_SECRET: process.env.CRON_SECRET,
         IMPORT_JOB_WORKER_BATCH_SIZE: process.env.IMPORT_JOB_WORKER_BATCH_SIZE,
+        IMPORT_JOB_TRIGGER_URL: process.env.IMPORT_JOB_TRIGGER_URL,
+        IMPORT_JOB_TRIGGER_SECRET: process.env.IMPORT_JOB_TRIGGER_SECRET,
+        IMPORT_JOB_TRIGGER_TIMEOUT_MS:
+          process.env.IMPORT_JOB_TRIGGER_TIMEOUT_MS,
         TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS:
           process.env.TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS,
         JUMIA_ENVIRONMENT: process.env.JUMIA_ENVIRONMENT,
@@ -1153,6 +1184,28 @@ export const getInternalApiSecret = () => {
 
 export const getImportJobWorkerBatchSize = () =>
   env?.IMPORT_JOB_WORKER_BATCH_SIZE || 3;
+
+export const getImportJobWorkerTriggerUrl = () => {
+  if (isBrowserRuntime())
+    throw new Error('IMPORT_JOB_TRIGGER_URL cannot be accessed on the client');
+  return env?.IMPORT_JOB_TRIGGER_URL;
+};
+
+export const getImportJobWorkerTriggerSecret = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'IMPORT_JOB_TRIGGER_SECRET cannot be accessed on the client'
+    );
+  return env?.IMPORT_JOB_TRIGGER_SECRET;
+};
+
+export const getImportJobWorkerTriggerTimeoutMs = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'IMPORT_JOB_TRIGGER_TIMEOUT_MS cannot be accessed on the client'
+    );
+  return env?.IMPORT_JOB_TRIGGER_TIMEOUT_MS || 5000;
+};
 
 export const getTerminalIdempotencyRecordWindowMs = () => {
   if (isBrowserRuntime())

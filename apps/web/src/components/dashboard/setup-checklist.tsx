@@ -382,6 +382,8 @@ export function SetupChecklist({
   }, [toast]);
 
   useEffect(() => {
+    // The retry button increments reloadToken to intentionally re-run this effect.
+    void reloadToken;
     let active = true;
 
     fetch('/api/merchant/readiness')

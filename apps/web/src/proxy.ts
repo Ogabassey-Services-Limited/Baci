@@ -34,7 +34,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
-import { isStorefrontProductSlugMissing } from '@/lib/storefront-product-slug-membership';
+import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -68,6 +68,32 @@ const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
 const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
 const CANONICAL_STOREFRONT_TERMS_PATH = '/terms';
+const DEFAULT_POSTHOG_RELAY_PATH = '/baci-relay';
+const RESERVED_POSTHOG_RELAY_PATH_PREFIXES = [
+  '/api',
+  '/_next',
+  '/admin',
+  '/auth',
+  '/builder',
+  '/checkout',
+  '/dashboard',
+  '/login',
+  '/logout',
+  '/track',
+] as const;
+const POSTHOG_RELAY_CREDENTIAL_HEADERS = [
+  'authorization',
+  'cookie',
+  'proxy-authorization',
+  'referer',
+  'x-csrf-token',
+  'x-supabase-auth-token',
+] as const;
+const STATIC_ASSET_EXTENSION_REGEX =
+  /\.(?:svg|png|jpg|jpeg|gif|webp|avif|woff|woff2|ttf|eot|css|js|json)$/i;
+const POSTHOG_RELAY_PATH = normalizePostHogRelayPath(
+  process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH
+);
 const LEGACY_STOREFRONT_TERMS_ALIAS_PATHS = new Set([
   '/terms-and-conditions',
   '/terms-of-service',
@@ -107,6 +133,14 @@ function buildProxyRequestHeaders(request: NextRequest): Headers {
     STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
     getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
   );
+  return headers;
+}
+
+function buildPostHogRelayRequestHeaders(request: NextRequest): Headers {
+  const headers = buildProxyRequestHeaders(request);
+  for (const header of POSTHOG_RELAY_CREDENTIAL_HEADERS) {
+    headers.delete(header);
+  }
   return headers;
 }
 
@@ -162,6 +196,44 @@ function buildLegacyTermsAliasRedirectResponse(
 
 function isPublicMachineReadablePath(pathname: string): boolean {
   return PUBLIC_MACHINE_READABLE_PATHS.has(pathname);
+}
+
+function normalizePostHogRelayPath(value?: string): string {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return DEFAULT_POSTHOG_RELAY_PATH;
+  }
+
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  const normalized =
+    withLeadingSlash.replace(/\/+$/, '') || DEFAULT_POSTHOG_RELAY_PATH;
+
+  return isReservedPostHogRelayPath(normalized)
+    ? DEFAULT_POSTHOG_RELAY_PATH
+    : normalized;
+}
+
+function isReservedPostHogRelayPath(pathname: string): boolean {
+  const normalized = pathname.toLowerCase();
+  return RESERVED_POSTHOG_RELAY_PATH_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`)
+  );
+}
+
+function isPostHogRelayPath(pathname: string): boolean {
+  return (
+    pathname === POSTHOG_RELAY_PATH ||
+    pathname.startsWith(`${POSTHOG_RELAY_PATH}/`)
+  );
+}
+
+function isStaticAssetOutsidePostHogRelay(pathname: string): boolean {
+  return (
+    /\/(?:static|array)\//.test(pathname) &&
+    STATIC_ASSET_EXTENSION_REGEX.test(pathname) &&
+    !isPostHogRelayPath(pathname)
+  );
 }
 
 function isPlatformHost(hostname: string): boolean {
@@ -428,6 +500,7 @@ const MAIN_APP_ROUTES = [
   '/onboarding',
   '/builder',
   '/reset-password',
+  POSTHOG_RELAY_PATH,
   '/_next',
   '/robots.txt',
   '/manifest.webmanifest',
@@ -452,6 +525,7 @@ const CASE_PRESERVING_PREFIXES = [
   '/onboarding',
   '/builder',
   '/reset-password',
+  POSTHOG_RELAY_PATH,
   '/favicon.ico',
   '/robots.txt',
   '/sitemap.xml',
@@ -1068,10 +1142,10 @@ function generateCSP(
       : routeType === 'storefront'
         ? {
             ...baseDirectives,
-            'script-src': `'self' 'unsafe-inline'${storefrontUnsafeEval} https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://js.useklump.com https://asset.useklump.com https://checkout.useklump.com https://checkout-v2.useklump.com https://directdebit.useklump.com https://checkout.credpal.com https://checkout.creditdirect.ng https://app.creditdirect.ng https://cdl.test.lendastack.io https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google https://cm.g.doubleclick.net`,
+            'script-src': `'self' 'unsafe-inline'${storefrontUnsafeEval} https://vercel.live https://va.vercel-scripts.com https://static.cloudflareinsights.com https://*.myhuaweicloud.com https://js.useklump.com https://asset.useklump.com https://checkout.useklump.com https://checkout-v2.useklump.com https://directdebit.useklump.com https://checkout.credpal.com https://checkout.creditdirect.ng https://app.creditdirect.ng https://cdl.test.lendastack.io https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google https://cm.g.doubleclick.net`,
             'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
             'connect-src':
-              "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.useklump.com https://checkout-v2.useklump.com https://directdebit.useklump.com https://checkout.credpal.com https://api.credpal.com https://checkout.creditdirect.ng https://app.creditdirect.ng https://cdl.test.lendastack.io https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org https://cm.g.doubleclick.net",
+              "'self' https://*.supabase.co https://vitals.vercel-insights.com https://cloudflareinsights.com https://checkout.useklump.com https://checkout-v2.useklump.com https://directdebit.useklump.com https://checkout.credpal.com https://api.credpal.com https://checkout.creditdirect.ng https://app.creditdirect.ng https://cdl.test.lendastack.io https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org https://cm.g.doubleclick.net",
             'frame-src':
               "'self' https://asset.useklump.com https://checkout.useklump.com https://checkout-v2.useklump.com https://directdebit.useklump.com https://checkout.credpal.com https://checkout.creditdirect.ng https://app.creditdirect.ng https://cdl.test.lendastack.io https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google https://cm.g.doubleclick.net https://securepubads.g.doubleclick.net",
           }
@@ -1154,14 +1228,15 @@ function buildHardStatusStorefrontResponse(
 }
 
 /**
- * Crawl-budget hard-404 for a confirmed-missing storefront product (PR-B §3.2).
+ * Crawl-budget pre-React status for storefront PDP product slugs (PR-B §3.2).
  *
  * Gated tightly to clean, non-prefetch, GET/HEAD HTML navigations to a
  * 2-segment PDP path (`/{category}/{productSlug}`). It asks the internal
- * slug-set route whether the product slug exists for this merchant and, only if
- * positively absent, returns a hard 404. Every uncertain path (params,
- * RSC/prefetch, non-PDP shape, reserved segment, unavailable/empty slug set)
- * falls through — fail-open, so a live product is never 404'd.
+ * slug-set route whether the product slug is active, redirectable legacy, or
+ * absent. Redirectable archived aliases get a real 308 before the PDP route can
+ * stream a 200; positively absent slugs get a hard 404. Every uncertain path
+ * (params, RSC/prefetch, non-PDP shape, reserved segment, unavailable/empty
+ * slug set) falls through — fail-open, so a live product is never 404'd.
  */
 async function resolveStorefrontPdpHardNotFound(
   request: NextRequest,
@@ -1173,10 +1248,9 @@ async function resolveStorefrontPdpHardNotFound(
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return null;
   }
-  // Param URLs canonicalize/redirect elsewhere; only judge clean canonical URLs.
-  if (request.nextUrl.search.length > 0) {
-    return null;
-  }
+  // Param URLs should not become hard 404s, but redirectable legacy aliases
+  // should still canonicalize while preserving attribution/search params.
+  const hasSearchParams = request.nextUrl.search.length > 0;
   // Never hard-404 RSC/prefetch navigations Next expects to succeed.
   if (
     request.headers.get('rsc') === '1' ||
@@ -1240,13 +1314,23 @@ async function resolveStorefrontPdpHardNotFound(
     return null;
   }
 
-  const missing = await isStorefrontProductSlugMissing({
+  const resolution = await resolveStorefrontProductSlugResolution({
     origin: request.nextUrl.origin,
     identifier,
     productSlug,
     secret: getInternalApiSecret(),
   });
-  if (!missing) {
+
+  if (resolution.kind === 'redirect') {
+    const redirectUrl = request.nextUrl.clone();
+    const redirectPath = isSlugPrefixedStorefrontRequest(hostname)
+      ? `/${identifier}${resolution.redirectPath}`
+      : resolution.redirectPath;
+    redirectUrl.pathname = redirectPath;
+    return NextResponse.redirect(redirectUrl, 308);
+  }
+
+  if (resolution.kind !== 'missing' || hasSearchParams) {
     return null;
   }
 
@@ -1278,6 +1362,31 @@ function buildStrictCspResponse(
       },
     }),
   };
+}
+
+function buildPostHogRelayPassThroughResponse(
+  request: NextRequest,
+  pathname: string,
+  userAgent: string,
+  hostname: string
+): NextResponse {
+  const requestHeaders = buildPostHogRelayRequestHeaders(request);
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  return applySecurityHeaders(
+    response,
+    pathname,
+    userAgent,
+    'api',
+    isLocalhost(hostname),
+    undefined,
+    request,
+    hostname
+  );
 }
 
 /**
@@ -1314,6 +1423,22 @@ export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const userAgent = request.headers.get('user-agent') || '';
   const pathname = request.nextUrl.pathname;
+
+  if (isStaticAssetOutsidePostHogRelay(pathname)) {
+    return NextResponse.next();
+  }
+
+  // ==== POSTHOG RELAY PASSTHROUGH ====
+  // Let Next.js beforeFiles rewrites proxy PostHog ingest/assets on the same
+  // merchant origin before URL canonicalization can redirect relay calls.
+  if (isPostHogRelayPath(pathname)) {
+    return buildPostHogRelayPassThroughResponse(
+      request,
+      pathname,
+      userAgent,
+      hostname
+    );
+  }
 
   // ==== URL NORMALIZATION: STATIC PREFIXES FIRST ====
   // Lowercase only prefixes that are EXCLUSIVELY non-storefront and/or have
@@ -2747,6 +2872,15 @@ export const config = {
   matcher: [
     '/agent-commerce.json',
     '/agent-trust.json',
+    // Next statically analyzes matcher values. Keep this literal in sync with
+    // DEFAULT_POSTHOG_RELAY_PATH so relay static assets do not bypass header
+    // stripping just because they end in .js/.css/.json.
+    '/baci-relay/:path*',
+    // Custom relay paths are runtime-configurable, while matcher values are
+    // statically analyzed. Catch custom `/relay/static/*.js` and
+    // `/relay/array/*.js` assets, but keep Next's own static chunks out of
+    // middleware so critical JS/CSS does not pay proxy overhead on every page.
+    '/((?!_next/static(?:/|$))(?:.+/)?(?:static|array)/.*)',
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
