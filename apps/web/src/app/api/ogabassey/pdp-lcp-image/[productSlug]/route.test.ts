@@ -93,6 +93,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
       'dell-alienware-m18-r3-rtx-5080'
     );
     expect(mockImageLoader).toHaveBeenCalledWith({
+      preferOgabasseyTransform: true,
       quality: 30,
       src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
       width: 750,

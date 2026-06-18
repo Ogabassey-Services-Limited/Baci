@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
+import { Alert } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Sentinel hex values so the test catches accidental reintroduction of the
@@ -12,6 +13,42 @@ const THEME_TEXT_ON_PRIMARY = '#fedcba';
 const queryMocks = vi.hoisted(() => ({
   useQuery: vi.fn(),
 }));
+const queryClientMocks = vi.hoisted(() => ({
+  invalidateQueries: vi.fn(),
+  setQueryData: vi.fn(),
+}));
+
+// Captures the Supabase `.update()` payload so tests can assert exactly which
+// analytics fields were written (drift vector V3: a save must not rewrite
+// unchanged fields, and a background refetch must not clobber typed edits).
+const supabaseMocks = vi.hoisted(() => ({
+  update: vi.fn(() => ({ eq: () => ({ error: null }) })),
+  selectSingle: vi.fn(async () => ({ data: null, error: null })),
+}));
+
+// Drives the real mutationFn: useMutation captures the options and `mutate`
+// invokes the mutationFn so the per-field dirty diff actually runs.
+const mutationMocks = vi.hoisted(() => {
+  type MutationOptions = {
+    mutationFn: (variables?: unknown) => Promise<unknown>;
+    onSuccess?: (data?: unknown) => void;
+  };
+  const state: { options: MutationOptions | null } = { options: null };
+  return {
+    state,
+    useMutation: (options: MutationOptions) => {
+      state.options = options;
+      return {
+        isPending: false,
+        mutate: (variables?: unknown) => {
+          void options.mutationFn(variables).then((data) => {
+            options.onSuccess?.(data);
+          });
+        },
+      };
+    },
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -72,8 +109,23 @@ vi.mock('react-native', async () => {
     StyleSheet: { create: <T,>(s: T) => s },
     Text: ({ children, ...rest }: ViewLike) =>
       React.createElement('span', forwardTestID(rest), children),
-    TextInput: ({ ...rest }: ViewLike) =>
-      React.createElement('input', forwardTestID(rest)),
+    TextInput: ({
+      value,
+      placeholder,
+      onChangeText,
+      ...rest
+    }: ViewLike & {
+      value?: string;
+      placeholder?: string;
+      onChangeText?: (text: string) => void;
+    }) =>
+      React.createElement('input', {
+        ...forwardTestID(rest),
+        placeholder,
+        value: value ?? '',
+        onChange: (e: { target: { value: string } }) =>
+          onChangeText?.(e.target.value),
+      }),
     View: ({ children, ...rest }: ViewLike) =>
       React.createElement('div', forwardTestID(rest), children),
   };
@@ -107,7 +159,7 @@ vi.mock('@react-native-vector-icons/ionicons', async () => {
 
 vi.mock('expo-router', () => ({
   Stack: { Screen: () => null },
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ back: vi.fn(), push: vi.fn() }),
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -134,8 +186,9 @@ vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: () => ({
       select: () => ({
-        eq: () => ({ single: async () => ({ data: null, error: null }) }),
+        eq: () => ({ single: supabaseMocks.selectSingle }),
       }),
+      update: supabaseMocks.update,
     }),
   },
 }));
@@ -157,15 +210,24 @@ const merchantAnalytics = {
 };
 
 vi.mock('@tanstack/react-query', () => ({
-  useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+  useMutation: mutationMocks.useMutation,
   useQuery: queryMocks.useQuery,
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => queryClientMocks,
 }));
 
 import AnalyticsConfigScreen from './analytics-config';
 
 describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    supabaseMocks.update.mockImplementation(() => ({
+      eq: () => ({ error: null }),
+    }));
+    supabaseMocks.selectSingle.mockImplementation(async () => ({
+      data: null,
+      error: null,
+    }));
+    mutationMocks.state.options = null;
     queryMocks.useQuery.mockReturnValue({
       data: { ...merchantAnalytics },
       isError: false,
@@ -219,5 +281,330 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
       backgroundColor: THEME_TEXT_ON_PRIMARY,
     });
     expect(screen.getAllByText('Not configured')).toHaveLength(4);
+  });
+
+  it('blocks saving before analytics data has successfully seeded', async () => {
+    queryMocks.useQuery.mockReturnValueOnce({
+      data: null,
+      isError: true,
+      isLoading: false,
+    });
+
+    render(<AnalyticsConfigScreen />);
+
+    await expect(mutationMocks.state.options?.mutationFn()).rejects.toThrow(
+      'Analytics settings are still loading'
+    );
+    expect(supabaseMocks.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('AnalyticsConfigScreen — background refetch must not clobber edits (V3)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    supabaseMocks.update.mockImplementation(() => ({
+      eq: () => ({ error: null }),
+    }));
+    supabaseMocks.selectSingle.mockImplementation(async () => ({
+      data: null,
+      error: null,
+    }));
+    mutationMocks.state.options = null;
+  });
+
+  function expandMetaCard() {
+    fireEvent.click(
+      screen.getByText('Meta (Facebook/Instagram)').closest('button') as Element
+    );
+  }
+
+  it('keeps a typed edit when a background refetch returns the original value, and saves only the edited field', async () => {
+    // Arrange: initial fetch returns the persisted (empty) palette of creds.
+    const persisted = { ...merchantAnalytics };
+    queryMocks.useQuery.mockReturnValue({
+      data: persisted,
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+    expandMetaCard();
+
+    // Act: the user types a Facebook Pixel ID into the buffer.
+    const pixelInput = screen.getByPlaceholderText('1234567890123456');
+    fireEvent.change(pixelInput, { target: { value: 'EDITED-PIXEL-123' } });
+
+    // A background refetch (reconnect / focus) resolves and returns a FRESH
+    // object reference carrying the ORIGINAL, still-empty value.
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics }, // new identity, same (empty) data
+      isError: false,
+      isLoading: false,
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    // Assert: the user's typed value survives (one-shot seed did not repaint).
+    expect(
+      (screen.getByPlaceholderText('1234567890123456') as HTMLInputElement)
+        .value
+    ).toBe('EDITED-PIXEL-123');
+
+    // Act: save. The per-field dirty diff must write ONLY the edited field.
+    await mutationMocks.state.options?.mutationFn();
+
+    expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
+    expect(supabaseMocks.update).toHaveBeenCalledWith({
+      facebook_pixel_id: 'EDITED-PIXEL-123',
+    });
+  });
+
+  it('reseeds from fresher analytics data while the form is still clean', () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+    expandMetaCard();
+    expect(
+      (screen.getByPlaceholderText('1234567890123456') as HTMLInputElement)
+        .value
+    ).toBe('');
+
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics, facebook_pixel_id: 'FRESH-PIXEL-456' },
+      isError: false,
+      isLoading: false,
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    expect(
+      (screen.getByPlaceholderText('1234567890123456') as HTMLInputElement)
+        .value
+    ).toBe('FRESH-PIXEL-456');
+  });
+
+  it('skips the write entirely when nothing changed (no-op save)', async () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    render(<AnalyticsConfigScreen />);
+    await mutationMocks.state.options?.mutationFn();
+
+    expect(supabaseMocks.update).not.toHaveBeenCalled();
+  });
+
+  it('keeps reconnect and focus refetching enabled after a query error even once the user types, so recovery can seed the buffer', () => {
+    // Initial query errors: no data, so the buffer never seeds.
+    queryMocks.useQuery.mockReturnValue({
+      data: null,
+      isError: true,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+
+    let options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(true);
+    expect(options.refetchOnReconnect).toBe(true);
+
+    // The user types before reconnect succeeds: the buffer becomes dirty while
+    // it is still unseeded (seededSnapshot === null).
+    fireEvent.click(
+      screen.getByText('Meta (Facebook/Instagram)').closest('button') as Element
+    );
+    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
+      target: { value: 'EDITED-BEFORE-RECONNECT' },
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    // Recovery must stay enabled until the first successful seed, otherwise a
+    // reconnect refetch can never seed the snapshot and Save throws forever.
+    options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(true);
+    expect(options.refetchOnReconnect).toBe(true);
+  });
+
+  it('keeps reconnect and focus refetching enabled until the form becomes dirty', () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+
+    let options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(true);
+    expect(options.refetchOnReconnect).toBe(true);
+
+    fireEvent.click(
+      screen.getByText('Meta (Facebook/Instagram)').closest('button') as Element
+    );
+    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
+      target: { value: 'EDITED-PIXEL-123' },
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(false);
+    expect(options.refetchOnReconnect).toBe(false);
+  });
+
+  it('marks the saved buffer clean so refetching resumes and repeated saves do not rewrite the same fields', async () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+
+    expandMetaCard();
+    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
+      target: { value: 'EDITED-PIXEL-123' },
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    let options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(false);
+    expect(options.refetchOnReconnect).toBe(false);
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
+    expect(supabaseMocks.update).toHaveBeenLastCalledWith({
+      facebook_pixel_id: 'EDITED-PIXEL-123',
+    });
+
+    await act(async () => {
+      mutationMocks.state.options?.onSuccess?.();
+      await Promise.resolve();
+    });
+    expect(queryClientMocks.setQueryData).toHaveBeenCalledWith(
+      ['merchant-analytics-full', 'user-1'],
+      expect.objectContaining({ facebook_pixel_id: 'EDITED-PIXEL-123' })
+    );
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics, facebook_pixel_id: 'EDITED-PIXEL-123' },
+      isError: false,
+      isLoading: false,
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(true);
+    expect(options.refetchOnReconnect).toBe(true);
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps edits made while a save is pending dirty after the save succeeds', async () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+
+    expandMetaCard();
+    const pixelInput = screen.getByPlaceholderText('1234567890123456');
+    fireEvent.change(pixelInput, {
+      target: { value: 'SAVED-PIXEL-123' },
+    });
+
+    const savedAnalytics = await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledWith({
+      facebook_pixel_id: 'SAVED-PIXEL-123',
+    });
+
+    fireEvent.change(pixelInput, {
+      target: { value: 'PENDING-PIXEL-456' },
+    });
+
+    await act(async () => {
+      mutationMocks.state.options?.onSuccess?.(savedAnalytics);
+      await Promise.resolve();
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    expect(
+      (screen.getByPlaceholderText('1234567890123456') as HTMLInputElement)
+        .value
+    ).toBe('PENDING-PIXEL-456');
+
+    const options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(false);
+    expect(options.refetchOnReconnect).toBe(false);
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenLastCalledWith({
+      facebook_pixel_id: 'PENDING-PIXEL-456',
+    });
+  });
+
+  it('snapshots the saved analytics and reports success after a save so the post-save buffer is clean', async () => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+
+    expandMetaCard();
+    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
+      target: { value: 'EDITED-PIXEL-123' },
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      mutationMocks.state.options?.onSuccess?.();
+      await Promise.resolve();
+    });
+
+    // The success alert is surfaced and the saved buffer becomes the new
+    // snapshot, so a repeat save with no further edits issues no update.
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Success',
+      'Analytics settings saved!',
+      expect.any(Array)
+    );
+    expect(queryClientMocks.setQueryData).toHaveBeenCalledWith(
+      ['merchant-analytics-full', 'user-1'],
+      expect.objectContaining({ facebook_pixel_id: 'EDITED-PIXEL-123' })
+    );
+
+    await mutationMocks.state.options?.mutationFn();
+    expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
   });
 });

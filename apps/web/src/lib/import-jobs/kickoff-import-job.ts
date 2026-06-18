@@ -1,21 +1,45 @@
 import { isProduction } from '@/env';
 import { processImportJobById } from '@/lib/import-jobs/process-import-job';
+import { triggerImportJobWorker } from '@/lib/import-jobs/trigger-import-job-worker';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // API routes persist the import job before calling this helper. In production,
-// processing is owned by the VPS cron worker; non-production inline processing
-// may throw and callers should keep wrapping this helper in background try/catch.
+// processing is signaled to the VPS worker trigger, with the VPS cron sweep as
+// fallback. Non-production inline processing may throw and callers should keep
+// wrapping this helper in background try/catch.
 export async function startImportJob(
   jobId: string,
   origin: string
 ): Promise<void> {
   if (isProduction()) {
-    logger.info({
-      message: 'Import job persisted; VPS worker will process',
-      jobId,
-      origin,
-    });
+    try {
+      const result = await triggerImportJobWorker({ jobId, source: 'api' });
+      if (!result.triggered) {
+        logger.warn({
+          message:
+            'Import job persisted; VPS trigger is not configured, cron fallback will process',
+          jobId,
+          origin,
+          reason: result.reason,
+        });
+        return;
+      }
+
+      logger.info({
+        message: 'Import job VPS trigger accepted',
+        jobId,
+        origin,
+        status: result.status,
+      });
+    } catch (error) {
+      logger.error({
+        message: 'Import job VPS trigger failed; cron fallback will process',
+        error,
+        jobId,
+        origin,
+      });
+    }
     return;
   }
 

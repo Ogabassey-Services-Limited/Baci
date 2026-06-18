@@ -25,6 +25,17 @@ jest.mock('expo/metro-config', () => ({
   }),
 }));
 
+const mockGetPostHogExpoConfig = jest.fn(
+  (
+    projectRoot: string,
+    options: { getDefaultConfig: (root: string) => { resolver: object } }
+  ) => options.getDefaultConfig(projectRoot)
+);
+
+jest.mock('posthog-react-native/metro', () => ({
+  getPostHogExpoConfig: mockGetPostHogExpoConfig,
+}));
+
 const metroConfig = jest.requireActual<{
   resolver: { blockList?: RegExp[]; resolveRequest?: MetroResolver };
   watchFolders?: string[];
@@ -45,6 +56,12 @@ function getResolver(): MetroResolver {
 }
 
 describe('Metro web runtime resolution', () => {
+  it('uses PostHog Metro instrumentation for React Native source maps', () => {
+    expect(mockGetPostHogExpoConfig).toHaveBeenCalledWith(projectRoot, {
+      getDefaultConfig: expect.any(Function),
+    });
+  });
+
   it('watches root node_modules so pnpm hoisted dependencies resolve', () => {
     expect(metroConfig.watchFolders).toEqual(
       expect.arrayContaining([

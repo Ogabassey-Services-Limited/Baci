@@ -1,17 +1,22 @@
 # Modern browsers only
 # This targets browsers that natively support ES2020+ features
 # Eliminates need for polyfills like Array.prototype.at, Object.hasOwn, etc.
+#
+# Floors are set to the Baseline where the previously-polyfilled features are
+# native (Array.prototype.at + Object.hasOwn are the binding constraint):
+#   Chrome/Edge 93 - Firefox 92 - Safari/iOS 15.4 (approx March 2022).
+# Setting them lower (e.g. Safari 14) silently re-introduces those polyfills.
 
 # Chrome/Edge (Chromium)
-chrome >= 90
-edge >= 90
+chrome >= 93
+edge >= 93
 
 # Firefox
-firefox >= 88
+firefox >= 92
 
 # Safari
-safari >= 14
+safari >= 15.4
 
 # Mobile browsers
-iOS >= 14
-ChromeAndroid >= 90
+iOS >= 15.4
+ChromeAndroid >= 93

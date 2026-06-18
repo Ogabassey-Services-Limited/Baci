@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMerchantSafe, getRequestScopedMerchant } from '@/lib/cached-data';
+import {
+  getMerchantSafe,
+  getMerchantStrict,
+  getRequestScopedMerchant,
+} from '@/lib/cached-data';
+
+const mockUnstableRethrow = vi.hoisted(() => vi.fn());
+
 import {
   buildCachedDataTestHarness,
   type CachedDataTestHarness,
@@ -15,6 +22,9 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
+vi.mock('next/navigation', () => ({
+  unstable_rethrow: (error: unknown) => mockUnstableRethrow(error),
+}));
 vi.mock('react', () => ({ cache: vi.fn((fn) => fn) }));
 vi.mock('@supabase/supabase-js', async () => {
   const { getMockCreateClient } = await import('@/lib/cached-data.test-utils');
@@ -43,6 +53,8 @@ vi.mock('@supabase/supabase-js', async () => {
 let harness: CachedDataTestHarness;
 
 beforeEach(() => {
+  mockUnstableRethrow.mockReset();
+  mockUnstableRethrow.mockImplementation(() => undefined);
   harness = buildCachedDataTestHarness();
 });
 
@@ -162,6 +174,22 @@ describe('cached-data merchant safety helpers', () => {
       expect(merchantTableLookups).toHaveLength(2);
     });
 
+    it('rethrows Next PPR control-flow errors instead of logging them as merchant failures', async () => {
+      const pprError = Object.assign(
+        new Error(
+          'During prerendering, dynamic "use cache" rejects when the prerender is complete'
+        ),
+        { digest: 'HANGING_PROMISE_REJECTION' }
+      );
+      mockUnstableRethrow.mockImplementation((error: unknown) => {
+        if (error === pprError) throw error;
+      });
+      harness.mockMaybeSingle.mockRejectedValueOnce(pprError);
+
+      await expect(getMerchantSafe('test-store')).rejects.toBe(pprError);
+      expect(mockUnstableRethrow).toHaveBeenCalledWith(pprError);
+      expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(1);
+    });
     it('returns null after both attempts fail', async () => {
       harness.mockMaybeSingle
         .mockRejectedValueOnce(new Error('First failure'))
@@ -508,6 +536,45 @@ describe('cached-data merchant safety helpers', () => {
       await expect(getMerchantSafe('<script>')).resolves.toBeNull();
       expect(harness.mockMaybeSingle).not.toHaveBeenCalled();
       expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getMerchantStrict', () => {
+    it('throws the retry error when both non-PPR attempts fail', async () => {
+      const firstError = new Error('First failure');
+      const retryError = new Error('Second failure');
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(firstError)
+        .mockRejectedValueOnce(retryError);
+
+      await expect(getMerchantStrict('test-store')).rejects.toBe(retryError);
+      expect(mockUnstableRethrow).toHaveBeenCalledWith(firstError);
+      expect(mockUnstableRethrow).toHaveBeenCalledWith(retryError);
+      expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(2);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Strict merchant lookup failed after retry:',
+        'test-store'
+      );
+    });
+
+    it('rethrows Next PPR control-flow errors without retrying', async () => {
+      const pprError = Object.assign(
+        new Error(
+          'During prerendering, dynamic "use cache" rejects when the prerender is complete'
+        ),
+        { digest: 'HANGING_PROMISE_REJECTION' }
+      );
+      mockUnstableRethrow.mockImplementation((error: unknown) => {
+        if (error === pprError) throw error;
+      });
+      harness.mockMaybeSingle.mockRejectedValueOnce(pprError);
+
+      await expect(getMerchantStrict('test-store')).rejects.toBe(pprError);
+      expect(mockUnstableRethrow).toHaveBeenCalledWith(pprError);
+      expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(1);
     });
   });
 

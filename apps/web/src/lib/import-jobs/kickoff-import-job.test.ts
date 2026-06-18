@@ -20,12 +20,17 @@ vi.mock('@/lib/import-jobs/process-import-job', () => ({
   processImportJobById: vi.fn(),
 }));
 
+vi.mock('@/lib/import-jobs/trigger-import-job-worker', () => ({
+  triggerImportJobWorker: vi.fn(),
+}));
+
 import { isProduction } from '@/env';
 import {
   kickoffImportJob,
   startImportJob,
 } from '@/lib/import-jobs/kickoff-import-job';
 import { processImportJobById } from '@/lib/import-jobs/process-import-job';
+import { triggerImportJobWorker } from '@/lib/import-jobs/trigger-import-job-worker';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -35,17 +40,67 @@ beforeEach(() => {
     'service-client' as unknown as ReturnType<typeof createAdminClient>
   );
   vi.mocked(isProduction).mockReturnValue(false);
+  vi.mocked(triggerImportJobWorker).mockResolvedValue({
+    status: 202,
+    triggered: true,
+  });
 });
 
 describe('startImportJob', () => {
-  it('queues the job for the VPS worker in production', async () => {
+  it('triggers the VPS worker in production', async () => {
     vi.mocked(isProduction).mockReturnValue(true);
 
     await startImportJob('job-1', 'https://usebaci.com');
 
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'Import job persisted; VPS worker will process',
+        message: 'Import job VPS trigger accepted',
+        jobId: 'job-1',
+        origin: 'https://usebaci.com',
+        status: 202,
+      })
+    );
+    expect(triggerImportJobWorker).toHaveBeenCalledWith({
+      jobId: 'job-1',
+      source: 'api',
+    });
+    expect(processImportJobById).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the VPS cron sweep when the production trigger is not configured', async () => {
+    vi.mocked(isProduction).mockReturnValue(true);
+    vi.mocked(triggerImportJobWorker).mockResolvedValue({
+      reason: 'not_configured',
+      triggered: false,
+    });
+
+    await startImportJob('job-1', 'https://usebaci.com');
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'Import job persisted; VPS trigger is not configured, cron fallback will process',
+        jobId: 'job-1',
+        origin: 'https://usebaci.com',
+        reason: 'not_configured',
+      })
+    );
+    expect(processImportJobById).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it('logs trigger failures and leaves production processing to the VPS cron fallback', async () => {
+    const error = new Error('trigger unavailable');
+    vi.mocked(isProduction).mockReturnValue(true);
+    vi.mocked(triggerImportJobWorker).mockRejectedValue(error);
+
+    await startImportJob('job-1', 'https://usebaci.com');
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Import job VPS trigger failed; cron fallback will process',
+        error,
         jobId: 'job-1',
         origin: 'https://usebaci.com',
       })

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import { ThemedButton } from '@/components/themed/themed-button';
 import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
+import { captureClientException } from '@/lib/posthog/client-exceptions';
 import { asRoute } from '@/lib/routes';
 
 interface ErrorProps {
@@ -17,9 +18,13 @@ export default function StorefrontError({ error, reset }: ErrorProps) {
   const basePath = merchantContext?.basePath;
 
   useEffect(() => {
-    // Log the error to an error reporting service
+    captureClientException(error, {
+      route_surface: 'storefront',
+      storefront_base_path: basePath,
+      digest: error.digest,
+    });
     console.error('Storefront error:', error);
-  }, [error]);
+  }, [basePath, error]);
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center p-8">

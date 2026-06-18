@@ -226,8 +226,30 @@ describe('useShipping', () => {
     it('fetches quotes when deliveryMethod is door with new address', async () => {
       // Arrange
       const mockQuotes = [
-        { id: 'quote-1', provider: 'GIGL', price: 2000 },
-        { id: 'quote-2', provider: 'Topship', price: 2500 },
+        {
+          id: 'quote-1',
+          provider: 'GIGL',
+          serviceTier: 'standard',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics',
+          estimatedDays: 2,
+          price: 2000,
+          currency: 'NGN',
+          pickupIncluded: false,
+          insuranceIncluded: true,
+        },
+        {
+          id: 'quote-2',
+          provider: 'TOPSHIP',
+          serviceTier: 'standard',
+          carrierName: 'Topship',
+          displayName: 'Topship',
+          estimatedDays: 3,
+          price: 2500,
+          currency: 'NGN',
+          pickupIncluded: false,
+          insuranceIncluded: true,
+        },
       ];
       const cart = [
         { name: 'Product 1', quantity: 2, price: 5000 },
@@ -452,7 +474,20 @@ describe('useShipping', () => {
         },
       ];
 
-      const mockQuotes = [{ id: 'quote-1', provider: 'GIGL', price: 2000 }];
+      const mockQuotes = [
+        {
+          id: 'quote-1',
+          provider: 'GIGL',
+          serviceTier: 'standard',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics',
+          estimatedDays: 2,
+          price: 2000,
+          currency: 'NGN',
+          pickupIncluded: false,
+          insuranceIncluded: true,
+        },
+      ];
 
       (global.fetch as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce({
