@@ -14,6 +14,7 @@ function hasSafeInternalRedirectShape(path: string): boolean {
     path.startsWith('/') &&
     !path.startsWith('//') &&
     !path.startsWith('/\\') &&
+    !path.includes('\\') &&
     !path.includes(':') &&
     !hasDotPathSegment(path)
   );

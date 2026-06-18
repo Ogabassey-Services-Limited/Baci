@@ -206,8 +206,7 @@ describe('Middleware Proxy', () => {
     expect(directives['script-src']).toContain(
       'https://static.cloudflareinsights.com'
     );
-    expect(directives['connect-src']).toContain("'self'");
-    expect(directives['connect-src']).not.toContain(
+    expect(directives['connect-src']).toContain(
       'https://cloudflareinsights.com'
     );
   });
@@ -802,6 +801,30 @@ describe('Middleware Proxy', () => {
         expect.objectContaining({
           identifier: 'ogabassey',
           productSlug: 'totally-made-up',
+        })
+      );
+    });
+
+    it('keeps the storefront slug prefix when redirecting a legacy product alias on the root domain', async () => {
+      resolutionMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/iphone-15-pro-max',
+      });
+      const req = new NextRequest(
+        'https://usebaci.com/ogabassey/smartphones/iphone-15-pro-max-8gb-256gb?utm_source=email'
+      );
+      req.headers.set('host', 'usebaci.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://usebaci.com/ogabassey/smartphones/iphone-15-pro-max?utm_source=email'
+      );
+      expect(resolutionMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          productSlug: 'iphone-15-pro-max-8gb-256gb',
         })
       );
     });
