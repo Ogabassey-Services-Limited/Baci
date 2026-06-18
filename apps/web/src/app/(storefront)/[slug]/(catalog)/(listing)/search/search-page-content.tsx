@@ -1,10 +1,11 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { BreadcrumbList, CollectionPage, WithContext } from 'schema-dts';
+import { JsonLd } from '@/components/seo/json-ld';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema, getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getStorefrontSearchProducts } from '@/lib/storefront-search';
@@ -150,12 +151,12 @@ export async function SearchPageContent({
 
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(breadcrumbSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(searchResultsSchema)}
-      </script>
+      <JsonLd
+        data={breadcrumbSchema as unknown as WithContext<BreadcrumbList>}
+      />
+      <JsonLd
+        data={searchResultsSchema as unknown as WithContext<CollectionPage>}
+      />
       <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
         <div className="mx-auto max-w-[1400px] px-4 md:px-6">
           <nav className="flex items-center gap-2 text-sm text-store-background-text/55">
