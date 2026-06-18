@@ -4,11 +4,13 @@ const mocks = vi.hoisted(() => ({
   buildPostHogClientConfig: vi.fn(() => ({
     api_host: '/baci-relay',
   })),
+  posthogCapture: vi.fn(),
   posthogInit: vi.fn(),
 }));
 
 vi.mock('posthog-js', () => ({
   default: {
+    capture: mocks.posthogCapture,
     init: mocks.posthogInit,
   },
 }));
@@ -41,6 +43,23 @@ describe('initializePostHogBrowser', () => {
     expect(mocks.posthogInit).toHaveBeenCalledOnce();
     expect(mocks.posthogInit).toHaveBeenCalledWith('ph_project_token', {
       api_host: '/baci-relay',
+    });
+  });
+
+  it('captures pageviews after PostHog initializes', async () => {
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    };
+    const { capturePostHogPageview, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    capturePostHogPageview('https://usebaci.com/before-init');
+    initializePostHogBrowser(env);
+    capturePostHogPageview('https://usebaci.com/pricing?plan=starter');
+
+    expect(mocks.posthogCapture).toHaveBeenCalledOnce();
+    expect(mocks.posthogCapture).toHaveBeenCalledWith('$pageview', {
+      $current_url: 'https://usebaci.com/pricing?plan=starter',
     });
   });
 
