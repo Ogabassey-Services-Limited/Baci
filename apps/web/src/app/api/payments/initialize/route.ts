@@ -40,6 +40,7 @@ import {
   calculatePlatformFee as calculatePaystackFee,
   initializeTransaction as initializePaystackPayment,
 } from '@/lib/paystack';
+import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // =============================================================================
@@ -761,11 +762,14 @@ async function initializePaystack(
     : undefined;
 
   // Debug log to confirm what we have after formatting
-  console.log('[PaymentInit] Paystack Phone Debug:', {
-    original: data.customer_phone,
-    formatted: customerPhone,
-    type: typeof customerPhone,
-  });
+  console.log(
+    '[PaymentInit] Paystack Phone Debug:',
+    sanitizeForLog({
+      original: data.customer_phone,
+      formatted: customerPhone,
+      type: typeof customerPhone,
+    })
+  );
 
   if (!customerPhone || customerPhone.length < 5) {
     throw new Error(
@@ -893,7 +897,7 @@ export async function POST(request: NextRequest) {
     const body = await request.clone().json();
     console.log(
       '[PaymentInit] Raw Request Body:',
-      JSON.stringify(body, null, 2)
+      JSON.stringify(sanitizeForLog(body), null, 2)
     );
 
     const parseResult = PaymentInitRequestSchema.safeParse(body);
