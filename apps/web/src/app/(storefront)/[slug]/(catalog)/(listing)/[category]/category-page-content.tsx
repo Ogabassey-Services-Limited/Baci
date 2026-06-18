@@ -1,5 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import type { BreadcrumbList, CollectionPage, FAQPage } from 'schema-dts';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
 import {
@@ -8,7 +10,6 @@ import {
 } from '@/lib/cached-data';
 import type { RawDbProduct } from '@/lib/normalize-product';
 import type { Product as SeoProduct } from '@/lib/products';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
@@ -159,7 +160,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     merchantName: merchant.business_name,
     country: merchant.country || 'NG',
     currency: merchant.payout_currency || 'NGN',
-  });
+  }) as unknown as JsonLdData<CollectionPage>;
 
   const breadcrumbItems = [{ name: merchant.business_name, url: baseUrl }];
   const parent = data.category?.parent as unknown as {
@@ -179,25 +180,21 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     url: `${baseUrl}/${category}`,
   });
 
-  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
+  const breadcrumbSchema = generateBreadcrumbSchema(
+    breadcrumbItems
+  ) as unknown as JsonLdData<BreadcrumbList>;
   const faqSchema =
     hubContent.faqItems.length > 0
-      ? generateFAQSchema(hubContent.faqItems)
+      ? (generateFAQSchema(
+          hubContent.faqItems
+        ) as unknown as JsonLdData<FAQPage>)
       : null;
 
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(collectionSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(breadcrumbSchema)}
-      </script>
-      {faqSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(faqSchema)}
-        </script>
-      )}
+      <JsonLd data={collectionSchema} />
+      <JsonLd data={breadcrumbSchema} />
+      {faqSchema && <JsonLd data={faqSchema} />}
 
       <V2ComparisonScope storageNamespace={merchant.id}>
         <OgabasseyCategoryPage

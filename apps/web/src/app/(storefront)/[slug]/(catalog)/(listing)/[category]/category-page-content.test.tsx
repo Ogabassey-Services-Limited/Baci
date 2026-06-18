@@ -89,7 +89,7 @@ vi.mock('@/lib/cached-data', () => ({
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
-  safeJsonLdStringify: () => '{}',
+  safeJsonLdStringify: (value: unknown) => JSON.stringify(value),
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
@@ -154,6 +154,54 @@ describe('CategoryPageContent', () => {
       trustFeatures: [],
       faqItems: [],
     });
+  });
+
+  it('renders collection, breadcrumb, and FAQ JSON-LD through the shared JsonLd component', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+    });
+    mockBuildCategoryPageHubModel.mockReturnValueOnce({
+      intro: { heading: 'Phones', description: 'Phone collection' },
+      trustFeatures: [],
+      faqItems: [
+        {
+          question: 'Do these phones have warranty?',
+          answer: 'Yes, eligible phones include warranty coverage.',
+        },
+      ],
+    });
+    mockGenerateCollectionPageSchema.mockReturnValueOnce({
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'Phones collection',
+    });
+    mockGenerateBreadcrumbSchema.mockReturnValueOnce({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+    });
+    mockGenerateFAQSchema.mockReturnValueOnce({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+    });
+
+    const ui = await CategoryPageContent({
+      params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    const { container } = render(ui);
+    const schemaScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+
+    expect(schemaScripts).toHaveLength(3);
+    expect(schemaScripts[0]?.textContent).toContain('"@type":"CollectionPage"');
+    expect(schemaScripts[1]?.textContent).toContain('"@type":"BreadcrumbList"');
+    expect(schemaScripts[2]?.textContent).toContain('"@type":"FAQPage"');
   });
 
   it('passes the merchant payout currency into collection schema generation', async () => {

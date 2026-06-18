@@ -1595,9 +1595,8 @@ describe('[category]/[productSlug] page render', () => {
     });
     const productImageSrc = productImageElement.getAttribute('src');
 
-    expect(productImageSrc).toContain(
-      'https://cdn.ogabassey.com/image/width=640,quality=35,format=auto/core-assets/products/hp-laptop.avif'
-    );
+    expect(productImageSrc).toBe(productImage);
+    expect(productImageSrc).not.toContain('/image/width=');
     expect(productImageSrc).not.toContain('/api/ogabassey/pdp-lcp-image');
     expect(productImageElement).toHaveAttribute('data-loader-prop', 'false');
     expect(productImageElement).toHaveAttribute('data-fetch-priority', 'high');
@@ -1795,7 +1794,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('triggers notFound without rendering a body marker when the product is missing', async () => {
+  it('throws notFound from the route before returning streamed body markup when the product is missing', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -1803,16 +1802,16 @@ describe('[category]/[productSlug] page render', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
 
     try {
-      const page = await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'missing-product',
-        }),
-        searchParams: Promise.resolve({}),
-      });
-
-      expect(() => render(page as ReactElement)).toThrow('NEXT_NOT_FOUND');
+      await expect(
+        CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'missing-product',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
 
       expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
         baseMerchant.id,

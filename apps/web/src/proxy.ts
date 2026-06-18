@@ -34,7 +34,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
-import { isStorefrontProductSlugMissing } from '@/lib/storefront-product-slug-membership';
+import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -1068,7 +1068,7 @@ function generateCSP(
       : routeType === 'storefront'
         ? {
             ...baseDirectives,
-            'script-src': `'self' 'unsafe-inline'${storefrontUnsafeEval} https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://js.useklump.com https://asset.useklump.com https://checkout.useklump.com https://checkout-v2.useklump.com https://directdebit.useklump.com https://checkout.credpal.com https://checkout.creditdirect.ng https://app.creditdirect.ng https://cdl.test.lendastack.io https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google https://cm.g.doubleclick.net`,
+            'script-src': `'self' 'unsafe-inline'${storefrontUnsafeEval} https://vercel.live https://va.vercel-scripts.com https://static.cloudflareinsights.com https://*.myhuaweicloud.com https://js.useklump.com https://asset.useklump.com https://checkout.useklump.com https://checkout-v2.useklump.com https://directdebit.useklump.com https://checkout.credpal.com https://checkout.creditdirect.ng https://app.creditdirect.ng https://cdl.test.lendastack.io https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google https://cm.g.doubleclick.net`,
             'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
             'connect-src':
               "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.useklump.com https://checkout-v2.useklump.com https://directdebit.useklump.com https://checkout.credpal.com https://api.credpal.com https://checkout.creditdirect.ng https://app.creditdirect.ng https://cdl.test.lendastack.io https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org https://cm.g.doubleclick.net",
@@ -1154,14 +1154,15 @@ function buildHardStatusStorefrontResponse(
 }
 
 /**
- * Crawl-budget hard-404 for a confirmed-missing storefront product (PR-B §3.2).
+ * Crawl-budget pre-React status for storefront PDP product slugs (PR-B §3.2).
  *
  * Gated tightly to clean, non-prefetch, GET/HEAD HTML navigations to a
  * 2-segment PDP path (`/{category}/{productSlug}`). It asks the internal
- * slug-set route whether the product slug exists for this merchant and, only if
- * positively absent, returns a hard 404. Every uncertain path (params,
- * RSC/prefetch, non-PDP shape, reserved segment, unavailable/empty slug set)
- * falls through — fail-open, so a live product is never 404'd.
+ * slug-set route whether the product slug is active, redirectable legacy, or
+ * absent. Redirectable archived aliases get a real 308 before the PDP route can
+ * stream a 200; positively absent slugs get a hard 404. Every uncertain path
+ * (params, RSC/prefetch, non-PDP shape, reserved segment, unavailable/empty
+ * slug set) falls through — fail-open, so a live product is never 404'd.
  */
 async function resolveStorefrontPdpHardNotFound(
   request: NextRequest,
@@ -1173,10 +1174,9 @@ async function resolveStorefrontPdpHardNotFound(
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return null;
   }
-  // Param URLs canonicalize/redirect elsewhere; only judge clean canonical URLs.
-  if (request.nextUrl.search.length > 0) {
-    return null;
-  }
+  // Param URLs should not become hard 404s, but redirectable legacy aliases
+  // should still canonicalize while preserving attribution/search params.
+  const hasSearchParams = request.nextUrl.search.length > 0;
   // Never hard-404 RSC/prefetch navigations Next expects to succeed.
   if (
     request.headers.get('rsc') === '1' ||
@@ -1240,13 +1240,20 @@ async function resolveStorefrontPdpHardNotFound(
     return null;
   }
 
-  const missing = await isStorefrontProductSlugMissing({
+  const resolution = await resolveStorefrontProductSlugResolution({
     origin: request.nextUrl.origin,
     identifier,
     productSlug,
     secret: getInternalApiSecret(),
   });
-  if (!missing) {
+
+  if (resolution.kind === 'redirect') {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = resolution.redirectPath;
+    return NextResponse.redirect(redirectUrl, 308);
+  }
+
+  if (resolution.kind !== 'missing' || hasSearchParams) {
     return null;
   }
 

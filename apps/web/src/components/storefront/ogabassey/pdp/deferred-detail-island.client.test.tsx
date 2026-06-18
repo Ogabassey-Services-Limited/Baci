@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import { type ReactNode, useEffect } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyPdpDeferredDetailClient } from './deferred-detail-island.client';
@@ -11,29 +10,14 @@ vi.mock('@/components/storefront/use-viewport-activation', () => ({
   useViewportActivation: mockUseViewportActivation,
 }));
 
-vi.mock('next/dynamic', () => ({
-  default: (
-    loader: () => Promise<unknown>,
-    options?: { loading?: () => ReactNode }
-  ) => {
-    const FallbackComponent = options?.loading || (() => null);
-    return function MockDynamic(props: { mode?: string; product: Product }) {
-      useEffect(() => {
-        void loader();
-      }, [loader]);
-
-      if (!props.product) {
-        return <FallbackComponent />;
-      }
-
-      mockProductDetailsPage(props);
-      return <section aria-label="Deferred product details">{props.mode}</section>;
-    };
-  },
-}));
-
+// The component lazy-loads this module via runtime import() once active.
 vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
-  ProductDetailsPage: () => null,
+  ProductDetailsPage: (props: { mode?: string; product: Product }) => {
+    mockProductDetailsPage(props);
+    return (
+      <section aria-label="Deferred product details">{props.mode}</section>
+    );
+  },
 }));
 
 const product = {
@@ -51,7 +35,7 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
     mockUseViewportActivation.mockReset();
   });
 
-  it('does not render ProductDetailsPage before viewport activation', () => {
+  it('does not import or render ProductDetailsPage before viewport activation', () => {
     mockUseViewportActivation.mockReturnValue({
       ref: { current: null },
       isActive: false,
@@ -65,7 +49,25 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders below-fold ProductDetailsPage after viewport activation', () => {
+  it('renders a recoverable error state when the details chunk fails to load', async () => {
+    mockUseViewportActivation.mockReturnValue({
+      ref: { current: null },
+      isActive: true,
+    });
+
+    render(
+      <OgabasseyPdpDeferredDetailClient
+        loadDetailsComponent={() => Promise.reject(new Error('chunk failed'))}
+        product={product}
+      />
+    );
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/product details could not be loaded/i);
+    expect(mockProductDetailsPage).not.toHaveBeenCalled();
+  });
+
+  it('lazy-loads + renders below-fold ProductDetailsPage after viewport activation', async () => {
     mockUseViewportActivation.mockReturnValue({
       ref: { current: null },
       isActive: true,
@@ -73,6 +75,11 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
 
     render(<OgabasseyPdpDeferredDetailClient product={product} />);
 
+    // The runtime import() resolves asynchronously, then the island re-renders
+    // with the real (mocked) details component.
+    expect(
+      await screen.findByRole('region', { name: /deferred product details/i })
+    ).toBeInTheDocument();
     expect(mockProductDetailsPage).toHaveBeenCalledWith(
       expect.objectContaining({ mode: 'belowFold', product })
     );

@@ -79,7 +79,7 @@ function renderProductGridAdFallback() {
       className="w-full flex justify-center items-center my-6"
     >
       <div className="flex flex-col items-center">
-        <span className="text-[9px] text-gray-300 uppercase tracking-widest mb-1 self-start ml-1">
+        <span className="ogabassey-ad-placeholder-text text-[9px] uppercase tracking-widest mb-1 self-start ml-1">
           Sponsored
         </span>
         <div
@@ -89,14 +89,14 @@ function renderProductGridAdFallback() {
             minWidth: `${PRODUCT_GRID_MPU_CONFIG.mobileWidth}px`,
           }}
         >
-          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 z-0 opacity-50 bg-[repeating-linear-gradient(45deg,#e5e7eb_0,#e5e7eb_1px,transparent_1px,transparent_10px)]">
-            <span className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-1">
+          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 z-0 bg-[repeating-linear-gradient(45deg,#e5e7eb_0,#e5e7eb_1px,transparent_1px,transparent_10px)]">
+            <span className="ogabassey-ad-placeholder-text text-xs font-bold uppercase tracking-widest mb-1">
               Ad Space
             </span>
-            <span className="text-[10px] text-gray-400 font-medium">
+            <span className="ogabassey-ad-placeholder-text text-[10px] font-medium">
               {PRODUCT_GRID_MPU_CONFIG.name}
             </span>
-            <span className="text-[9px] text-gray-300 mt-1">
+            <span className="ogabassey-ad-placeholder-text text-[9px] mt-1">
               {PRODUCT_GRID_MPU_CONFIG.width}x{PRODUCT_GRID_MPU_CONFIG.height}
             </span>
           </div>
@@ -275,7 +275,7 @@ export function HomeProductGrid({
           >
             Load More Products
           </button>
-          <span className="text-sm text-gray-500">
+          <span className="ogabassey-home-products__count">
             Showing {visibleProducts.length} of {featuredProducts.length}{' '}
             products
           </span>

@@ -100,11 +100,13 @@ describe('OgabasseyPdpProductResourceHints', () => {
         as: 'image',
         fetchPriority: 'high',
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        imageSrcSet: expect.stringContaining('quality=35'),
+        imageSrcSet: expect.stringContaining(productImage),
       })
     );
     const { options } = getPreloadCall(0);
     expect(options).not.toHaveProperty('media');
+    expect(desktopPreloadHref).toBe(productImage);
+    expect(options.imageSrcSet).not.toContain('/image/width=');
     expect(options.imageSrcSet).not.toContain('quality=30');
   });
 
@@ -121,7 +123,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(options).toEqual(
       expect.objectContaining({
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        imageSrcSet: expect.stringContaining('quality=35'),
+        imageSrcSet: expect.stringContaining(productImage),
       })
     );
     expect(options).not.toHaveProperty('media');

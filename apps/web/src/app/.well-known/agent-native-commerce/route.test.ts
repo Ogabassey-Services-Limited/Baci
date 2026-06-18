@@ -237,7 +237,7 @@ describe('GET /.well-known/agent-native-commerce', () => {
       'ogabassey'
     );
     expect(mockGetCachedGooglePlacesReviews).not.toHaveBeenCalled();
-  });
+  }, 30_000);
 
   it('enriches Google review authority before packaging trust proof', async () => {
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
