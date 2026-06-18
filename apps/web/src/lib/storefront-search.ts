@@ -81,7 +81,13 @@ export interface StorefrontSearchProductsPage extends StorefrontSearchResult {
 }
 
 const MAX_SEARCH_LIMIT = 100;
-const CONDITION_FAMILY_RESULT_BUFFER = 100;
+// search_products_v2 clamps result_limit to 100 and only matches conditions
+// exactly. When a storefront "family" filter must be applied in memory we page
+// through the ranked results and accumulate candidates up to this bound, so the
+// post-filter count and pagination stay accurate for realistic catalogs instead
+// of silently truncating at a single 100-row page.
+const RANKED_FILTER_PAGE_SIZE = MAX_SEARCH_LIMIT;
+const RANKED_FILTER_MAX_CANDIDATES = 500;
 
 function isAfterOutsideRequestScopeError(error: unknown) {
   return (
@@ -279,6 +285,95 @@ export async function searchStorefrontProducts({
   };
 }
 
+export interface RankedSearchCandidates {
+  productIds: string[];
+  query: string;
+  didYouMean: string | null;
+  /** True when more matches exist than `maxCandidates` could collect. */
+  truncated: boolean;
+}
+
+/**
+ * Pages through `search_products_v2` and accumulates ranked product IDs up to
+ * `maxCandidates`. Used when a storefront family filter (condition/brand/
+ * category) must be applied in memory: the RPC only matches conditions exactly
+ * and caps each page at 100 rows, so a single page would silently drop matches
+ * ranked past row 100. Analytics is recorded once (first page) per search.
+ */
+export async function collectRankedSearchProductIds(args: {
+  supabase: StorefrontSearchSupabase;
+  analyticsSupabase?: StorefrontSearchAnalyticsSupabase;
+  merchantId: string;
+  query: string;
+  filters?: StorefrontSearchFilters;
+  sort?: StorefrontSearchSort;
+  maxCandidates: number;
+}): Promise<RankedSearchCandidates> {
+  const productIds: string[] = [];
+  let query = '';
+  let didYouMean: string | null = null;
+  let total = Number.POSITIVE_INFINITY;
+  let pageOffset = 0;
+
+  while (productIds.length < args.maxCandidates && pageOffset < total) {
+    const page = await searchStorefrontProducts({
+      supabase: args.supabase,
+      analyticsSupabase: args.analyticsSupabase,
+      merchantId: args.merchantId,
+      query: args.query,
+      filters: args.filters,
+      sort: args.sort,
+      limit: RANKED_FILTER_PAGE_SIZE,
+      offset: pageOffset,
+      trackAnalytics: pageOffset === 0,
+    });
+
+    total = page.count;
+    if (pageOffset === 0) {
+      query = page.query;
+      didYouMean = page.didYouMean;
+    }
+
+    if (page.productIds.length === 0) {
+      break;
+    }
+
+    productIds.push(...page.productIds);
+    pageOffset += RANKED_FILTER_PAGE_SIZE;
+  }
+
+  return {
+    productIds: productIds.slice(0, args.maxCandidates),
+    query,
+    didYouMean,
+    truncated: Number.isFinite(total) && total > args.maxCandidates,
+  };
+}
+
+async function hydrateRankedStorefrontProducts(args: {
+  supabase: ReturnType<typeof createPublicClient>;
+  merchantId: string;
+  productIds: string[];
+}): Promise<NormalizedProduct[]> {
+  const { data, error } = await args.supabase
+    .from('products')
+    .select(STOREFRONT_PRODUCTS_COMPACT_SELECT)
+    .in('id', args.productIds)
+    .eq('merchant_id', args.merchantId)
+    .eq('status', 'active');
+
+  if (error) {
+    throw error;
+  }
+
+  const mapped = (data ?? []).map((row) => normalizeProduct(row as never));
+  const order = new Map(
+    args.productIds.map((id, index) => [id, index] as const)
+  );
+  mapped.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return mapped;
+}
+
 export async function getStorefrontSearchProducts(args: {
   filters?: StorefrontSearchFilters;
   merchantId: string;
@@ -297,68 +392,86 @@ export async function getStorefrontSearchProducts(args: {
   const needsConditionFamilyFilter = Boolean(
     conditionFilter && !storefrontProductFilters.isAllFilter(conditionFilter)
   );
-  const searchFilters = needsConditionFamilyFilter
-    ? { ...args.filters, condition: null }
-    : args.filters;
 
-  const searchResult = await searchStorefrontProducts({
+  // Fast path: no in-memory family filter, so search_products_v2 owns
+  // pagination and returns the exact total count in one page.
+  if (!needsConditionFamilyFilter) {
+    const searchResult = await searchStorefrontProducts({
+      supabase: serverSupabase,
+      filters: args.filters,
+      merchantId: args.merchantId,
+      query: args.query,
+      limit: requestedLimit,
+      offset: requestedOffset,
+      sort: args.sort,
+    });
+
+    if (searchResult.productIds.length === 0) {
+      return { ...searchResult, products: [] };
+    }
+
+    const products = await hydrateRankedStorefrontProducts({
+      supabase: publicSupabase,
+      merchantId: args.merchantId,
+      productIds: searchResult.productIds,
+    });
+
+    return { ...searchResult, products };
+  }
+
+  // Family-filter path: condition families are matched in memory, so accumulate
+  // ranked candidates across pages to keep the count and pagination accurate.
+  const candidates = await collectRankedSearchProductIds({
     supabase: serverSupabase,
-    filters: searchFilters,
     merchantId: args.merchantId,
     query: args.query,
-    limit: needsConditionFamilyFilter
-      ? CONDITION_FAMILY_RESULT_BUFFER
-      : requestedLimit,
-    offset: needsConditionFamilyFilter ? 0 : requestedOffset,
+    filters: { ...args.filters, condition: null },
     sort: args.sort,
+    maxCandidates: RANKED_FILTER_MAX_CANDIDATES,
   });
 
-  if (searchResult.productIds.length === 0) {
+  if (candidates.productIds.length === 0) {
     return {
-      ...searchResult,
+      count: 0,
+      didYouMean: candidates.didYouMean,
+      productIds: [],
       products: [],
+      query: candidates.query,
     };
   }
 
-  const { data, error } = await publicSupabase
-    .from('products')
-    .select(STOREFRONT_PRODUCTS_COMPACT_SELECT)
-    .in('id', searchResult.productIds)
-    .eq('merchant_id', args.merchantId)
-    .eq('status', 'active');
-
-  if (error) {
-    throw error;
+  if (candidates.truncated) {
+    logger.warn({
+      message:
+        'Storefront search condition-family candidate set truncated; count is a lower bound',
+      merchantId: args.merchantId,
+      query: candidates.query,
+      maxCandidates: RANKED_FILTER_MAX_CANDIDATES,
+    });
   }
 
-  const mapped = (data ?? []).map((row) => normalizeProduct(row as never));
-  const order = new Map(
-    searchResult.productIds.map((id, index) => [id, index] as const)
+  const hydrated = await hydrateRankedStorefrontProducts({
+    supabase: publicSupabase,
+    merchantId: args.merchantId,
+    productIds: candidates.productIds,
+  });
+
+  const filteredProducts = hydrated.filter((product) =>
+    storefrontProductFilters.matchesStorefrontConditionFilter(
+      product,
+      conditionFilter ?? ''
+    )
+  );
+  const products = filteredProducts.slice(
+    requestedOffset,
+    requestedOffset + requestedLimit
   );
 
-  mapped.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-
-  const filteredProducts = needsConditionFamilyFilter
-    ? mapped.filter((product) =>
-        storefrontProductFilters.matchesStorefrontConditionFilter(
-          product,
-          conditionFilter ?? ''
-        )
-      )
-    : mapped;
-  const products = needsConditionFamilyFilter
-    ? filteredProducts.slice(requestedOffset, requestedOffset + requestedLimit)
-    : filteredProducts;
-  const productIds = needsConditionFamilyFilter
-    ? products.map((product) => product.id)
-    : searchResult.productIds;
-
   return {
-    ...searchResult,
-    count: needsConditionFamilyFilter
-      ? filteredProducts.length
-      : searchResult.count,
-    productIds,
+    count: filteredProducts.length,
+    didYouMean: candidates.didYouMean,
+    productIds: products.map((product) => product.id),
     products,
+    query: candidates.query,
   };
 }

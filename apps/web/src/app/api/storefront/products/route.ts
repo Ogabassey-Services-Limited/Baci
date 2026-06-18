@@ -3,12 +3,14 @@ import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { logger } from '@/lib/logger';
 import { storefrontProductFilters } from '@/lib/storefront-product-filters';
 import {
   buildStorefrontProductsCacheKeyParts,
   buildStorefrontProductsCacheTags,
 } from '@/lib/storefront-products-cache-key';
 import {
+  collectRankedSearchProductIds,
   searchStorefrontProducts,
   toStorefrontSearchSort,
 } from '@/lib/storefront-search';
@@ -335,6 +337,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (q) {
+      // Cap for accumulating ranked candidates when family filters run in
+      // memory (search_products_v2 only matches conditions exactly and caps each
+      // page at 100). Covers realistic single-merchant catalogs; beyond this the
+      // count is reported as a logged lower bound rather than silently dropped.
+      const MAX_FILTER_CANDIDATES = 500;
       const cookieStore = await cookies();
       const supabase = createClient(cookieStore);
       const requestedLimit = limit ?? 20;
@@ -346,27 +353,58 @@ export async function GET(request: NextRequest) {
         hasActiveStorefrontFilter(brand) ||
         hasActiveStorefrontFilter(condition) ||
         has_images === true;
-      const rankedLimit = usesInMemoryFilters ? 100 : requestedLimit;
-      const ranked = await searchStorefrontProducts({
-        supabase,
-        merchantId,
-        query: q,
-        limit: rankedLimit,
-        filters: {
-          brand: null,
-          condition: null,
-          maxPrice: max_price ?? null,
-          minPrice: min_price ?? null,
-        },
-        sort: searchSort,
-      });
+      const searchFilters = {
+        brand: null,
+        condition: null,
+        maxPrice: max_price ?? null,
+        minPrice: min_price ?? null,
+      };
 
-      if (ranked.productIds.length === 0) {
+      let rankedProductIds: string[];
+      let didYouMean: string | null;
+      // Exact RPC total when no in-memory filter narrows the result set.
+      let dbCount: number | null;
+      if (usesInMemoryFilters) {
+        const candidates = await collectRankedSearchProductIds({
+          supabase,
+          merchantId,
+          query: q,
+          filters: searchFilters,
+          sort: searchSort,
+          maxCandidates: MAX_FILTER_CANDIDATES,
+        });
+        rankedProductIds = candidates.productIds;
+        didYouMean = candidates.didYouMean;
+        dbCount = null;
+        if (candidates.truncated) {
+          logger.warn({
+            message:
+              'Storefront products search filter candidate set truncated; count is a lower bound',
+            merchantId,
+            query: q,
+            maxCandidates: MAX_FILTER_CANDIDATES,
+          });
+        }
+      } else {
+        const ranked = await searchStorefrontProducts({
+          supabase,
+          merchantId,
+          query: q,
+          limit: requestedLimit,
+          filters: searchFilters,
+          sort: searchSort,
+        });
+        rankedProductIds = ranked.productIds;
+        didYouMean = ranked.didYouMean;
+        dbCount = ranked.count;
+      }
+
+      if (rankedProductIds.length === 0) {
         return NextResponse.json(
           {
             products: [],
-            didYouMean: ranked.didYouMean,
-            count: ranked.count,
+            didYouMean,
+            count: dbCount ?? 0,
           },
           {
             headers: {
@@ -379,11 +417,11 @@ export async function GET(request: NextRequest) {
 
       const productRows = await fetchProductRowsByIds(
         merchantId,
-        ranked.productIds,
+        rankedProductIds,
         { compact }
       );
       const order = new Map(
-        ranked.productIds.map((id, index) => [id, index] as const)
+        rankedProductIds.map((id, index) => [id, index] as const)
       );
       const activeFilters = {
         brand: hasActiveStorefrontFilter(brand) ? brand : undefined,
@@ -404,12 +442,12 @@ export async function GET(request: NextRequest) {
         .map(storefrontProductsRouteData.mapProduct);
       const responseCount = usesInMemoryFilters
         ? filteredRows.length
-        : ranked.count;
+        : (dbCount ?? filteredRows.length);
 
       return NextResponse.json(
         {
           products: visibleProducts,
-          didYouMean: ranked.didYouMean,
+          didYouMean,
           count: responseCount,
         },
         {

@@ -388,4 +388,76 @@ describe('getStorefrontSearchProducts', () => {
     expect(result.productIds).toEqual(['product-1']);
     expect(result.count).toBe(1);
   });
+
+  it('accumulates ranked candidates across pages so condition-family counts are not capped at one page', async () => {
+    const page1 = Array.from({ length: 100 }, (_, index) => ({
+      product_id: `p${index}`,
+      total_count: 150,
+    }));
+    const page2 = Array.from({ length: 50 }, (_, index) => ({
+      product_id: `p${100 + index}`,
+      total_count: 150,
+    }));
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: page1, error: null })
+      .mockResolvedValueOnce({ data: page2, error: null });
+
+    vi.mocked(createClient).mockReturnValue({
+      rpc,
+      from: vi.fn(() => ({
+        insert: vi.fn().mockResolvedValue({ error: null }),
+      })),
+    } as never);
+
+    // Even-indexed products belong to the open_box family (75 of 150).
+    const hydrated = Array.from({ length: 150 }, (_, index) => ({
+      id: `p${index}`,
+      name: `Phone ${index}`,
+      price: 1000 + index,
+      slug: `phone-${index}`,
+      condition: 'new',
+      has_condition_offers: index % 2 === 0,
+      available_conditions: index % 2 === 0 ? ['new', 'open_box'] : ['new'],
+    }));
+
+    vi.mocked(createPublicClient)
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            in: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({ data: hydrated, error: null }),
+              })),
+            })),
+          })),
+        })),
+      } as never)
+      .mockReturnValue(mockAnalyticsSupabase as never);
+
+    const result = await getStorefrontSearchProducts({
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      query: 'phone',
+      limit: 20,
+      offset: 20,
+      filters: { condition: 'open_box' },
+    });
+
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenNthCalledWith(
+      1,
+      'search_products_v2',
+      expect.objectContaining({ result_offset: 0, result_limit: 100 })
+    );
+    expect(rpc).toHaveBeenNthCalledWith(
+      2,
+      'search_products_v2',
+      expect.objectContaining({ result_offset: 100, result_limit: 100 })
+    );
+    // Count reflects the full filtered set, not a single 100-row page.
+    expect(result.count).toBe(75);
+    // Second page (offset 20, limit 20) of the filtered open_box products.
+    expect(result.products).toHaveLength(20);
+    expect(result.products[0].id).toBe('p40');
+  });
 });
