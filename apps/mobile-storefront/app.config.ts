@@ -326,6 +326,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         uploadNativeSymbols: true,
       },
     ],
+    './config/withPostHogXcodeCliPath.js',
     'expo-localization',
     'expo-apple-authentication',
     ...(facebookSdkPlugin ? [facebookSdkPlugin] : []),

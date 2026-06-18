@@ -563,6 +563,46 @@ describe('Middleware Proxy', () => {
     expect(config.matcher).toContain('/baci-relay/:path*');
   });
 
+  it('strips app credentials from custom PostHog relay static asset paths', async () => {
+    const originalRelayPath = process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
+    process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = '/baci-observe';
+
+    try {
+      vi.resetModules();
+      const { config: configWithCustomRelay, proxy: proxyWithCustomRelay } =
+        await import('./proxy');
+
+      expect(configWithCustomRelay.matcher).toContain(
+        '/((?:.+/)?(?:static|array)/.*)'
+      );
+
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/baci-observe/static/recorder.js`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+      req.headers.set('cookie', 'sb-auth-token=secret');
+      req.headers.set('authorization', 'Bearer secret');
+      req.headers.set(
+        'referer',
+        `https://ogabassey.${ROOT_DOMAIN}/checkout?email=buyer@example.com`
+      );
+
+      const res = await proxyWithCustomRelay(req);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('x-middleware-request-cookie')).toBeNull();
+      expect(res.headers.get('x-middleware-request-authorization')).toBeNull();
+      expect(res.headers.get('x-middleware-request-referer')).toBeNull();
+    } finally {
+      if (originalRelayPath === undefined) {
+        delete process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
+      } else {
+        process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = originalRelayPath;
+      }
+      vi.resetModules();
+    }
+  });
+
   it('falls back to the default PostHog relay path for reserved route prefixes', async () => {
     const originalRelayPath = process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
     process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = '/api';

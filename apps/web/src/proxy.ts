@@ -89,6 +89,8 @@ const POSTHOG_RELAY_CREDENTIAL_HEADERS = [
   'x-csrf-token',
   'x-supabase-auth-token',
 ] as const;
+const STATIC_ASSET_EXTENSION_REGEX =
+  /\.(?:svg|png|jpg|jpeg|gif|webp|avif|woff|woff2|ttf|eot|css|js|json)$/i;
 const POSTHOG_RELAY_PATH = normalizePostHogRelayPath(
   process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH
 );
@@ -223,6 +225,14 @@ function isPostHogRelayPath(pathname: string): boolean {
   return (
     pathname === POSTHOG_RELAY_PATH ||
     pathname.startsWith(`${POSTHOG_RELAY_PATH}/`)
+  );
+}
+
+function isStaticAssetOutsidePostHogRelay(pathname: string): boolean {
+  return (
+    /\/(?:static|array)\//.test(pathname) &&
+    STATIC_ASSET_EXTENSION_REGEX.test(pathname) &&
+    !isPostHogRelayPath(pathname)
   );
 }
 
@@ -1403,6 +1413,10 @@ export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const userAgent = request.headers.get('user-agent') || '';
   const pathname = request.nextUrl.pathname;
+
+  if (isStaticAssetOutsidePostHogRelay(pathname)) {
+    return NextResponse.next();
+  }
 
   // ==== POSTHOG RELAY PASSTHROUGH ====
   // Let Next.js beforeFiles rewrites proxy PostHog ingest/assets on the same
@@ -2852,6 +2866,11 @@ export const config = {
     // DEFAULT_POSTHOG_RELAY_PATH so relay static assets do not bypass header
     // stripping just because they end in .js/.css/.json.
     '/baci-relay/:path*',
+    // Custom relay paths are runtime-configurable, while matcher values are
+    // statically analyzed. This catches custom `/relay/static/*.js` and
+    // `/relay/array/*.js` asset rewrites so credentials are stripped before the
+    // external PostHog rewrite. Non-relay static assets return early above.
+    '/((?:.+/)?(?:static|array)/.*)',
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)

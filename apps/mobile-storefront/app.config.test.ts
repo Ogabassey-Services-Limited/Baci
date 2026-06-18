@@ -223,6 +223,26 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
     ]);
   });
 
+  it('runs the durable PostHog Xcode CLI path plugin after the stock plugin', () => {
+    const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
+      STOREFRONT_FACEBOOK_APP_ID: '123456789',
+      STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+    });
+    const config = renderConfig(appConfig);
+    const plugins = config.plugins ?? [];
+    const posthogIndex = plugins.findIndex(
+      (plugin) =>
+        Array.isArray(plugin) && plugin[0] === 'posthog-react-native/expo'
+    );
+    const xcodeCliPathIndex = plugins.indexOf(
+      './config/withPostHogXcodeCliPath.js'
+    );
+
+    expect(posthogIndex).toBeGreaterThan(-1);
+    expect(xcodeCliPathIndex).toBeGreaterThan(posthogIndex);
+  });
+
   it('declares SKAdNetwork identifiers for TikTok and Facebook campaign attribution', () => {
     const appConfig = loadAppConfigWithEnv({
       EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
