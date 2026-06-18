@@ -33,11 +33,11 @@ AS $$
                   pg_catalog.regexp_replace(
                     pg_catalog.regexp_replace(
                       public.immutable_unaccent(search_text),
-                      '([a-z])([0-9])',
+                      '([A-Za-z])([0-9])',
                       '\1 \2',
                       'g'
                     ),
-                    '([0-9])([a-z])',
+                    '([0-9])([A-Za-z])',
                     '\1 \2',
                     'g'
                   )

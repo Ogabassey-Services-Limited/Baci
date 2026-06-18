@@ -15,7 +15,10 @@ import {
   type UcpCatalogProductRow,
 } from '@/lib/agentic/ucp-catalog-adapters';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { searchStorefrontProducts } from '@/lib/storefront-search';
+import {
+  type StorefrontSearchResult,
+  searchStorefrontProducts,
+} from '@/lib/storefront-search';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ucpCatalogSearchRequestSchema } from '@/schemas/ucp-catalog-request';
 
@@ -46,15 +49,24 @@ export async function POST(request: NextRequest) {
   }
 
   const limit = parsed.data.pagination?.limit ?? 20;
-  const ranked = parsed.data.query
-    ? await searchStorefrontProducts({
+  let ranked: StorefrontSearchResult | null = null;
+  if (parsed.data.query) {
+    try {
+      ranked = await searchStorefrontProducts({
         supabase: context.supabase,
         merchantId: context.merchant.id,
         query: parsed.data.query,
         limit,
         trackAnalytics: false,
-      })
-    : null;
+      });
+    } catch (error: unknown) {
+      console.error('Agentic catalog search failed:', error);
+      return NextResponse.json(
+        { error: 'Catalog search failed' },
+        { status: 500 }
+      );
+    }
+  }
 
   let query = context.supabase
     .from('products')

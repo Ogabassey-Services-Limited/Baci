@@ -105,8 +105,8 @@ export async function SearchPageContent({
 
   const headersList = await headers();
   const pathPrefix = getStorefrontPathPrefix(headersList, merchant.slug);
-  const allProductsHref = `${pathPrefix}/products` || '/products';
-  const contactHref = `${pathPrefix}/contact` || '/contact';
+  const allProductsHref = `${pathPrefix}/products`;
+  const contactHref = `${pathPrefix}/contact`;
   const didYouMeanHref = searchResult.didYouMean
     ? `${pathPrefix}/search?q=${encodeURIComponent(searchResult.didYouMean)}`
     : null;

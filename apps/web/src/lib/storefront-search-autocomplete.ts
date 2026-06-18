@@ -1,9 +1,8 @@
-import {
-  type StorefrontSearchSupabase,
-  searchStorefrontProducts,
-} from './storefront-search';
+import type { StorefrontSearchSupabase } from './storefront-search';
+import { searchStorefrontProducts } from './storefront-search';
 
 const AUTOCOMPLETE_PRODUCT_SELECT = 'id, name, category, price, images, slug';
+const MAX_AUTOCOMPLETE_LIMIT = 100;
 
 interface AutocompleteProductRow {
   id: string;
@@ -71,6 +70,10 @@ export async function getStorefrontAutocompleteProducts({
     return { suggestions: [], popularSearches: [] };
   }
 
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_AUTOCOMPLETE_LIMIT) {
+    throw new Error(`limit must be between 1 and ${MAX_AUTOCOMPLETE_LIMIT}`);
+  }
+
   const ranked = await searchStorefrontProducts({
     supabase,
     merchantId,
@@ -107,7 +110,11 @@ export async function getStorefrontAutocompleteProducts({
       slug: product.slug,
       relevance: 1,
     }))
-    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    .sort(
+      (a, b) =>
+        (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+        (order.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+    );
 
   return { suggestions, popularSearches: [] };
 }

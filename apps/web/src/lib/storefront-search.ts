@@ -80,6 +80,9 @@ export interface StorefrontSearchProductsPage extends StorefrontSearchResult {
   products: NormalizedProduct[];
 }
 
+const MAX_SEARCH_LIMIT = 100;
+const CONDITION_FAMILY_RESULT_BUFFER = 100;
+
 function isAfterOutsideRequestScopeError(error: unknown) {
   return (
     error instanceof Error && error.message.includes('outside a request scope')
@@ -93,7 +96,7 @@ function createSearchAnalyticsClient() {
 }
 
 function clampSearchLimit(limit: number) {
-  return Math.min(Math.max(Math.trunc(limit || 20), 1), 100);
+  return Math.min(Math.max(Math.trunc(limit || 20), 1), MAX_SEARCH_LIMIT);
 }
 
 function normalizeSearchOffset(offset?: number) {
@@ -303,7 +306,9 @@ export async function getStorefrontSearchProducts(args: {
     filters: searchFilters,
     merchantId: args.merchantId,
     query: args.query,
-    limit: needsConditionFamilyFilter ? 100 : requestedLimit,
+    limit: needsConditionFamilyFilter
+      ? CONDITION_FAMILY_RESULT_BUFFER
+      : requestedLimit,
     offset: needsConditionFamilyFilter ? 0 : requestedOffset,
     sort: args.sort,
   });

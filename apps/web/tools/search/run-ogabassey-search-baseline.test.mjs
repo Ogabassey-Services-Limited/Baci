@@ -60,4 +60,95 @@ describe('createBaselineReport', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(report.results.length);
   });
+
+  it('marks only the failed surface as errored when fetch rejects', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValue(response(JSON.stringify({ products: [] })));
+
+    const report = await createBaselineReport({
+      fetchImpl: fetchMock,
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      origin: 'https://ogabassey.test',
+    });
+
+    expect(report.results[0].surfaces.searchPage).toMatchObject({
+      ok: false,
+      sample: 'Fetch error: network down',
+      status: 0,
+    });
+    expect(report.results[0].surfaces.apiSearch).toMatchObject({
+      ok: true,
+      status: 200,
+    });
+  });
+
+  it.sequential('marks a slow surface as errored when the timeout signal aborts the request', async () => {
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockImplementation((timeoutMs) => {
+        expect(timeoutMs).toBe(30_000);
+        const controller = new AbortController();
+        queueMicrotask(() => {
+          controller.abort(
+            new DOMException('Request timed out', 'TimeoutError')
+          );
+        });
+        return controller.signal;
+      });
+    const fetchMock = vi.fn((_url, init) => {
+      if (fetchMock.mock.calls.length === 1) {
+        return new Promise((_, reject) => {
+          init.signal.addEventListener(
+            'abort',
+            () => reject(init.signal.reason),
+            { once: true }
+          );
+        });
+      }
+
+      return Promise.resolve(response(JSON.stringify({ products: [] })));
+    });
+
+    try {
+      const report = await createBaselineReport({
+        fetchImpl: fetchMock,
+        merchantId: '123e4567-e89b-12d3-a456-426614174000',
+        origin: 'https://ogabassey.test',
+      });
+
+      expect(report.results[0].surfaces.searchPage).toMatchObject({
+        ok: false,
+        sample: 'Fetch error: Request timed out',
+        status: 0,
+      });
+      expect(report.results[0].surfaces.apiSearch).toMatchObject({
+        ok: true,
+        status: 200,
+      });
+    } finally {
+      timeoutSpy.mockRestore();
+    }
+  });
+
+  it('limits sampled response bodies to 1000 characters', async () => {
+    const longBody = 'x'.repeat(1200);
+    const fetchMock = vi.fn(async () => response(longBody));
+
+    const report = await createBaselineReport({
+      fetchImpl: fetchMock,
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      origin: 'https://ogabassey.test',
+    });
+
+    expect(report.results[0].surfaces.searchPage).toMatchObject({
+      ok: true,
+      status: 200,
+    });
+    expect(report.results[0].surfaces.searchPage.sample).toHaveLength(1000);
+    expect(report.results[0].surfaces.searchPage.sample).toBe(
+      longBody.slice(0, 1000)
+    );
+  });
 });

@@ -4,6 +4,7 @@ DO $$
 DECLARE
   v_normalized_plain text;
   v_normalized_accent text;
+  v_normalized_uppercase_model text;
   v_unaccent_schema text;
   v_has_blank_search_path boolean;
 BEGIN
@@ -25,6 +26,13 @@ BEGIN
     RAISE EXCEPTION 'accented and unaccented search terms should normalize equally: % <> %',
       v_normalized_accent,
       v_normalized_plain;
+  END IF;
+
+  SELECT public.normalize_product_search_text('IPHONE12') INTO v_normalized_uppercase_model;
+
+  IF v_normalized_uppercase_model <> 'iphone 12' THEN
+    RAISE EXCEPTION 'uppercase model names should split letters and numbers before lowercasing: %',
+      v_normalized_uppercase_model;
   END IF;
 
   SELECT EXISTS (

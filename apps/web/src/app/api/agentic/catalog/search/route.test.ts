@@ -38,6 +38,8 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({})),
 }));
 
+import { POST } from './route';
+
 type ProductRow = {
   id: string;
   name: string;
@@ -111,7 +113,6 @@ describe('POST /api/agentic/catalog/search', () => {
   it('returns 401 when the agent key is missing', async () => {
     mockVerifyAgenticApiKey.mockReturnValueOnce(false);
 
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'iphone' }),
@@ -134,7 +135,6 @@ describe('POST /api/agentic/catalog/search', () => {
       },
     ]);
 
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'iphone', pagination: { limit: 10 } }),
@@ -181,7 +181,6 @@ describe('POST /api/agentic/catalog/search', () => {
       ['product-2', 'product-1']
     );
 
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'iphnoe', pagination: { limit: 20 } }),
@@ -201,13 +200,30 @@ describe('POST /api/agentic/catalog/search', () => {
     ]);
   });
 
+  it('returns 500 when ranked catalog search fails', async () => {
+    mockProductRows([]);
+    mockRpc.mockRejectedValueOnce(new Error('RPC down'));
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'iphone' }),
+        method: 'POST',
+      })
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      error: 'Catalog search failed',
+    });
+    expect(response.status).toBe(500);
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
   it('omits unpublished products returned by the database', async () => {
     mockProductRows([
       { id: 'draft-product', name: 'Draft', status: 'draft' },
       { id: 'product-1', name: 'Live', status: 'active' },
     ]);
 
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'phone' }),
@@ -222,7 +238,6 @@ describe('POST /api/agentic/catalog/search', () => {
   });
 
   it('does not use select star in Supabase queries', async () => {
-    const { POST } = await import('./route');
     await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'phone' }),

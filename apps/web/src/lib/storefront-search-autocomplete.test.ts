@@ -76,6 +76,69 @@ describe('getStorefrontAutocompleteProducts', () => {
     expect(result.popularSearches).toEqual([]);
   });
 
+  it('keeps unmatched database rows after ranked suggestions', async () => {
+    searchStorefrontProducts.mockResolvedValueOnce({
+      count: 2,
+      didYouMean: null,
+      productIds: ['p1', 'p2'],
+      query: 'iphone',
+    });
+
+    const unmatchedQuery = {
+      select: vi.fn(() => unmatchedQuery),
+      in: vi.fn(() => unmatchedQuery),
+      eq: vi.fn(() => unmatchedQuery),
+      // biome-ignore lint/suspicious/noThenProperty: thenable mock mirrors Supabase query builders
+      then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
+        Promise.resolve({
+          data: [
+            {
+              id: 'p3',
+              name: 'iPhone Case',
+              category: 'Accessories',
+              price: 30_000,
+              images: [],
+              slug: 'iphone-case',
+            },
+            {
+              id: 'p2',
+              name: 'iPhone 16 Pro',
+              category: 'Smartphones',
+              price: 1_200_000,
+              images: ['two.jpg'],
+              slug: 'iphone-16-pro',
+            },
+            {
+              id: 'p1',
+              name: 'iPhone X',
+              category: 'Smartphones',
+              price: 240_000,
+              images: ['one.jpg'],
+              slug: 'iphone-x',
+            },
+          ],
+          error: null,
+        }).then(resolve),
+    };
+    const unmatchedSupabase = {
+      rpc: vi.fn(),
+      from: vi.fn(() => unmatchedQuery),
+    };
+
+    const result = await getStorefrontAutocompleteProducts({
+      supabase: unmatchedSupabase as never,
+      merchantId: VALID_MERCHANT_ID,
+      query: 'iphone',
+      limit: 10,
+    });
+
+    expect(result.suggestions.map((product) => product.id)).toEqual([
+      'p1',
+      'p2',
+      'p3',
+    ]);
+  });
+
   it('returns empty suggestions for short queries without hitting the rpc', async () => {
     const result = await getStorefrontAutocompleteProducts({
       supabase: supabase as never,
@@ -87,5 +150,150 @@ describe('getStorefrontAutocompleteProducts', () => {
     expect(result).toEqual({ suggestions: [], popularSearches: [] });
     expect(searchStorefrontProducts).not.toHaveBeenCalled();
     expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid limits before searching', async () => {
+    await expect(
+      getStorefrontAutocompleteProducts({
+        supabase: supabase as never,
+        merchantId: VALID_MERCHANT_ID,
+        query: 'iphone',
+        limit: 0,
+      })
+    ).rejects.toThrow('limit must be between 1 and 100');
+
+    expect(searchStorefrontProducts).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects limits above the maximum before searching', async () => {
+    await expect(
+      getStorefrontAutocompleteProducts({
+        supabase: supabase as never,
+        merchantId: VALID_MERCHANT_ID,
+        query: 'iphone',
+        limit: 101,
+      })
+    ).rejects.toThrow('limit must be between 1 and 100');
+
+    expect(searchStorefrontProducts).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('throws when product hydration fails', async () => {
+    searchStorefrontProducts.mockResolvedValueOnce({
+      count: 1,
+      didYouMean: null,
+      productIds: ['p1'],
+      query: 'iphone',
+    });
+
+    const hydrationError = new Error('DB error');
+    const errorQuery = {
+      select: vi.fn(() => errorQuery),
+      in: vi.fn(() => errorQuery),
+      eq: vi.fn(() => errorQuery),
+      // biome-ignore lint/suspicious/noThenProperty: thenable mock mirrors Supabase query builders
+      then: (resolve: (value: { data: null; error: Error }) => unknown) =>
+        Promise.resolve({ data: null, error: hydrationError }).then(resolve),
+    };
+    const errorSupabase = {
+      rpc: vi.fn(),
+      from: vi.fn(() => errorQuery),
+    };
+
+    await expect(
+      getStorefrontAutocompleteProducts({
+        supabase: errorSupabase as never,
+        merchantId: VALID_MERCHANT_ID,
+        query: 'iphone',
+        limit: 10,
+      })
+    ).rejects.toThrow('DB error');
+  });
+
+  it('handles null data from product hydration', async () => {
+    searchStorefrontProducts.mockResolvedValueOnce({
+      count: 1,
+      didYouMean: null,
+      productIds: ['p1'],
+      query: 'iphone',
+    });
+
+    const nullDataQuery = {
+      select: vi.fn(() => nullDataQuery),
+      in: vi.fn(() => nullDataQuery),
+      eq: vi.fn(() => nullDataQuery),
+      // biome-ignore lint/suspicious/noThenProperty: thenable mock mirrors Supabase query builders
+      then: (resolve: (value: { data: null; error: null }) => unknown) =>
+        Promise.resolve({ data: null, error: null }).then(resolve),
+    };
+    const nullDataSupabase = {
+      rpc: vi.fn(),
+      from: vi.fn(() => nullDataQuery),
+    };
+
+    await expect(
+      getStorefrontAutocompleteProducts({
+        supabase: nullDataSupabase as never,
+        merchantId: VALID_MERCHANT_ID,
+        query: 'iphone',
+        limit: 10,
+      })
+    ).resolves.toEqual({ suggestions: [], popularSearches: [] });
+  });
+
+  it('returns null thumbnails for non-array and empty image payloads', async () => {
+    searchStorefrontProducts.mockResolvedValueOnce({
+      count: 2,
+      didYouMean: null,
+      productIds: ['p1', 'p2'],
+      query: 'iphone',
+    });
+
+    const imageQuery = {
+      select: vi.fn(() => imageQuery),
+      in: vi.fn(() => imageQuery),
+      eq: vi.fn(() => imageQuery),
+      // biome-ignore lint/suspicious/noThenProperty: thenable mock mirrors Supabase query builders
+      then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
+        Promise.resolve({
+          data: [
+            {
+              id: 'p1',
+              name: 'iPhone X',
+              category: 'Smartphones',
+              price: 240_000,
+              images: [],
+              slug: 'iphone-x',
+            },
+            {
+              id: 'p2',
+              name: 'iPhone 16 Pro',
+              category: 'Smartphones',
+              price: 1_200_000,
+              images: { small: 'two.jpg' },
+              slug: 'iphone-16-pro',
+            },
+          ],
+          error: null,
+        }).then(resolve),
+    };
+    const imageSupabase = {
+      rpc: vi.fn(),
+      from: vi.fn(() => imageQuery),
+    };
+
+    const result = await getStorefrontAutocompleteProducts({
+      supabase: imageSupabase as never,
+      merchantId: VALID_MERCHANT_ID,
+      query: 'iphone',
+      limit: 10,
+    });
+
+    expect(result.suggestions.map((product) => product.image_small)).toEqual([
+      null,
+      null,
+    ]);
   });
 });

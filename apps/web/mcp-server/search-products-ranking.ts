@@ -1,5 +1,7 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 
+const POST_FILTER_RESULT_BUFFER = 100;
+
 interface McpSearchProductsArgs {
   brand?: string;
   category?: string;
@@ -32,7 +34,7 @@ export function buildSearchProductsV2RpcArgs({
     min_price_filter: args.min_price ?? null,
     min_rating_filter: null,
     parent_only: false,
-    result_limit: args.brand || args.category ? 100 : limit,
+    result_limit: args.brand || args.category ? POST_FILTER_RESULT_BUFFER : limit,
     result_offset: 0,
     search_query: sanitizedQuery,
     sort_by: args.sort ?? 'relevance',

@@ -497,6 +497,127 @@ describe('GET /api/storefront/products', () => {
     expect(body.count).toBe(2);
   });
 
+  it('applies the image-presence filter when q and has_images=true are present', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [
+          { product_id: 'product-1', total_count: 2 },
+          { product_id: 'product-2', total_count: 2 },
+        ],
+        error: null,
+      }
+    );
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          name: 'iPhone X',
+          images: [],
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-2',
+          name: 'iPhone 16 Pro',
+          images: ['https://cdn.example.com/iphone-16-pro.jpg'],
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=iphone&has_images=true&limit=20'))
+    );
+
+    const body = await response.json();
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-2',
+    ]);
+    expect(body.count).toBe(1);
+    expect(
+      storefrontProductsRouteTestHarness.mockSearchRpc.current
+    ).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ result_limit: 100 })
+    );
+  });
+
+  it('rejects non-string image payloads when q and has_images=true are present', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [
+          { product_id: 'product-1', total_count: 3 },
+          { product_id: 'product-2', total_count: 3 },
+          { product_id: 'product-3', total_count: 3 },
+        ],
+        error: null,
+      }
+    );
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          name: 'iPhone X',
+          images: [],
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-2',
+          name: 'iPhone 16 Pro',
+          images: ['https://cdn.example.com/iphone-16-pro.jpg'],
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-3',
+          name: 'iPhone Case',
+          images: [{ url: 'https://cdn.example.com/case.jpg' }],
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=iphone&has_images=true&limit=20'))
+    );
+
+    const body = await response.json();
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-2',
+    ]);
+    expect(body.count).toBe(1);
+  });
+
+  it('keeps unexpected unranked hydration rows after ranked products', async () => {
+    storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+      {
+        data: [{ product_id: 'product-2', total_count: 1 }],
+        error: null,
+      }
+    );
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          name: 'iPhone Case',
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-2',
+          name: 'iPhone 16 Pro',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=iphone&limit=20'))
+    );
+
+    const body = await response.json();
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-2',
+      'product-1',
+    ]);
+  });
+
   it('preserves category filtering when q is present', async () => {
     storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
       {
@@ -549,6 +670,7 @@ describe('GET /api/storefront/products', () => {
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'product-2',
     ]);
+    expect(body.count).toBe(1);
     expect(
       storefrontProductsRouteTestHarness.mockSearchRpc.current
     ).toHaveBeenCalledWith(
@@ -599,6 +721,7 @@ describe('GET /api/storefront/products', () => {
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'product-1',
     ]);
+    expect(body.count).toBe(1);
   });
 
   it('keeps ranked count when q is present with all filters', async () => {
@@ -684,6 +807,7 @@ describe('GET /api/storefront/products', () => {
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'product-1',
     ]);
+    expect(body.count).toBe(1);
   });
 
   it('preserves condition-offer filtering when q is present', async () => {
@@ -730,6 +854,7 @@ describe('GET /api/storefront/products', () => {
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'product-1',
     ]);
+    expect(body.count).toBe(1);
   });
 
   it('routes q filters through ranked search without raw ilike OR clauses', async () => {

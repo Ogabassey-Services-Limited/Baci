@@ -214,10 +214,26 @@ function hasActiveStorefrontFilter(value: string | undefined) {
   return Boolean(value && !storefrontProductFilters.isAllFilter(value));
 }
 
+function hasRouteProductImage(product: RawStorefrontProductRow) {
+  if (!Array.isArray(product.images)) {
+    return false;
+  }
+
+  return product.images.some((image) =>
+    typeof image === 'string' ? image.trim().length > 0 : false
+  );
+}
+
 function matchesRouteProductFilters(
   product: RawStorefrontProductRow,
-  filters: Pick<ProductFilters, 'brand' | 'category' | 'condition'>
+  filters: Pick<ProductFilters, 'brand' | 'category' | 'condition'> & {
+    hasImages?: boolean;
+  }
 ) {
+  if (filters.hasImages && !hasRouteProductImage(product)) {
+    return false;
+  }
+
   if (
     filters.category &&
     !storefrontProductFilters.matchesStorefrontCategoryFilter(
@@ -282,6 +298,7 @@ export async function GET(request: NextRequest) {
       max_price,
       sort,
       q,
+      has_images,
     } = parsed.data;
 
     if (!merchantId) {
@@ -327,7 +344,8 @@ export async function GET(request: NextRequest) {
       const usesInMemoryFilters =
         hasActiveStorefrontFilter(category) ||
         hasActiveStorefrontFilter(brand) ||
-        hasActiveStorefrontFilter(condition);
+        hasActiveStorefrontFilter(condition) ||
+        has_images === true;
       const rankedLimit = usesInMemoryFilters ? 100 : requestedLimit;
       const ranked = await searchStorefrontProducts({
         supabase,
@@ -371,13 +389,15 @@ export async function GET(request: NextRequest) {
         brand: hasActiveStorefrontFilter(brand) ? brand : undefined,
         category: hasActiveStorefrontFilter(category) ? category : undefined,
         condition: hasActiveStorefrontFilter(condition) ? condition : undefined,
+        hasImages: has_images === true ? true : undefined,
       };
       const filteredRows = productRows.filter((product) =>
         matchesRouteProductFilters(product, activeFilters)
       );
       filteredRows.sort(
         (a, b) =>
-          (order.get(String(a.id)) ?? 0) - (order.get(String(b.id)) ?? 0)
+          (order.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER) -
+          (order.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER)
       );
       const visibleProducts = filteredRows
         .slice(0, requestedLimit)
