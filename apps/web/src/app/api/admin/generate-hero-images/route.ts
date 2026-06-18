@@ -1,10 +1,16 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
+import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createClient } from '@/lib/supabase/server';
 import { generateHeroImageBatch } from '@/services/hero-image-generator';
+
+function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
+  return status === 'unauthenticated'
+    ? NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    : NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+}
 
 /**
  * API endpoint to generate hero images for a specific category
@@ -19,47 +25,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const auth = await getPlatformAdminAuth();
+  if (auth.status !== 'authenticated') {
+    return toAuthErrorResponse(auth.status);
+  }
+
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Check if user is authenticated and has admin role
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Resolve merchant (supports both owners and staff)
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
-    if (!merchantContext) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    // Admin routes require being the merchant owner, not staff
-    if (merchantContext.staffAccess.isStaff) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    const merchantId = merchantContext.merchantId;
-
-    // RBAC: Only platform admins can trigger AI image generation
-    const { data: adminCheck } = await supabase
-      .from('merchants')
-      .select('is_platform_admin')
-      .eq('id', merchantId)
-      .maybeSingle();
-
-    if (!adminCheck?.is_platform_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const body = await request.json();
     const { category, count = 10 } = body;
 
@@ -128,46 +99,14 @@ export async function POST(request: NextRequest) {
  * GET /api/admin/generate-hero-images
  */
 export async function GET() {
+  const auth = await getPlatformAdminAuth();
+  if (auth.status !== 'authenticated') {
+    return toAuthErrorResponse(auth.status);
+  }
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    // Check if user is authenticated
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Resolve merchant (supports both owners and staff)
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
-    if (!merchantContext) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    // Admin routes require being the merchant owner, not staff
-    if (merchantContext.staffAccess.isStaff) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    const merchantId = merchantContext.merchantId;
-
-    // RBAC: Only platform admins can access statistics
-    const { data: adminCheck } = await supabase
-      .from('merchants')
-      .select('is_platform_admin')
-      .eq('id', merchantId)
-      .maybeSingle();
-
-    if (!adminCheck?.is_platform_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
 
     // Get statistics per category
     const { data: stats, error: statsError } = await supabase
