@@ -18,6 +18,12 @@ describe('toSafeInternalRedirectPath', () => {
     );
   });
 
+  it('allows dots inside ordinary slug segments', () => {
+    expect(toSafeInternalRedirectPath('/products/iphone-15.pro')).toBe(
+      '/products/iphone-15.pro'
+    );
+  });
+
   it.each([
     null,
     undefined,
@@ -30,6 +36,12 @@ describe('toSafeInternalRedirectPath', () => {
     '/smartphones/iphone:15',
     '/%2f%2fevil.example/path',
     '/smartphones/iphone%3a15',
+    '/products/..',
+    '/products/.',
+    '/products/%2e%2e',
+    '/products/%2E',
+    '/products/%2e%2e/details',
+    '/products%3Fsort=price/..',
   ])('rejects unsafe redirect path %s', (value) => {
     expect(toSafeInternalRedirectPath(value)).toBeNull();
   });
