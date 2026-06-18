@@ -36,6 +36,7 @@ import {
 } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
+import { redactPaymentLogValue } from '@/lib/payments/redact-payment-log-value';
 import {
   calculatePlatformFee as calculatePaystackFee,
   initializeTransaction as initializePaystackPayment,
@@ -756,11 +757,13 @@ async function initializePaystack(
   // Debug log to confirm what we have after formatting
   console.log(
     '[PaymentInit] Paystack Phone Debug:',
-    sanitizeForLog({
-      original_phone: data.customer_phone,
-      formatted_phone: customerPhone,
-      type: typeof customerPhone,
-    })
+    sanitizeForLog(
+      redactPaymentLogValue({
+        original_phone: data.customer_phone,
+        formatted_phone: customerPhone,
+        type: typeof customerPhone,
+      })
+    )
   );
 
   if (!customerPhone || customerPhone.length < 5) {
@@ -887,7 +890,7 @@ export async function POST(request: NextRequest) {
     const body = await request.clone().json();
     console.log(
       '[PaymentInit] Raw Request Body:',
-      JSON.stringify(sanitizeForLog(structuredClone(body)), null, 2)
+      sanitizeForLog(redactPaymentLogValue(body))
     );
 
     const parseResult = PaymentInitRequestSchema.safeParse(body);
