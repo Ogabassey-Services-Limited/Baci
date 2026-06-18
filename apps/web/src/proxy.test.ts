@@ -525,6 +525,61 @@ describe('Middleware Proxy', () => {
     expect(getSlugForCustomDomain).not.toHaveBeenCalled();
   });
 
+  it('strips app credentials from PostHog relay requests', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/baci-relay/e/capture/`
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+    req.headers.set('user-agent', 'PostHog Test Agent');
+    req.headers.set('cookie', 'sb-auth-token=secret');
+    req.headers.set('authorization', 'Bearer secret');
+    req.headers.set('proxy-authorization', 'Bearer proxy-secret');
+    req.headers.set('x-csrf-token', 'csrf-secret');
+    req.headers.set('x-supabase-auth-token', 'supabase-secret');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-middleware-request-cookie')).toBeNull();
+    expect(res.headers.get('x-middleware-request-authorization')).toBeNull();
+    expect(
+      res.headers.get('x-middleware-request-proxy-authorization')
+    ).toBeNull();
+    expect(res.headers.get('x-middleware-request-x-csrf-token')).toBeNull();
+    expect(
+      res.headers.get('x-middleware-request-x-supabase-auth-token')
+    ).toBeNull();
+    expect(res.headers.get('x-middleware-request-user-agent')).toBe(
+      'PostHog Test Agent'
+    );
+  });
+
+  it('falls back to the default PostHog relay path for reserved route prefixes', async () => {
+    const originalRelayPath = process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
+    process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = '/api';
+
+    try {
+      vi.resetModules();
+      const { proxy: proxyWithReservedRelayPath } = await import('./proxy');
+
+      const req = new NextRequest(`https://${ROOT_DOMAIN}/api/products`);
+      req.headers.set('host', ROOT_DOMAIN);
+      req.headers.set('user-agent', 'Reserved Relay Test Agent');
+
+      const res = await proxyWithReservedRelayPath(req);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('x-middleware-request-user-agent')).toBeNull();
+    } finally {
+      if (originalRelayPath === undefined) {
+        delete process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
+      } else {
+        process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = originalRelayPath;
+      }
+      vi.resetModules();
+    }
+  });
+
   it('should rewrite storefront checkout routes on merchant subdomains', async () => {
     const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/checkout`);
     req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);

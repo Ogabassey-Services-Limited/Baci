@@ -69,6 +69,25 @@ const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
 const CANONICAL_STOREFRONT_TERMS_PATH = '/terms';
 const DEFAULT_POSTHOG_RELAY_PATH = '/baci-relay';
+const RESERVED_POSTHOG_RELAY_PATH_PREFIXES = [
+  '/api',
+  '/_next',
+  '/admin',
+  '/auth',
+  '/builder',
+  '/checkout',
+  '/dashboard',
+  '/login',
+  '/logout',
+  '/track',
+] as const;
+const POSTHOG_RELAY_CREDENTIAL_HEADERS = [
+  'authorization',
+  'cookie',
+  'proxy-authorization',
+  'x-csrf-token',
+  'x-supabase-auth-token',
+] as const;
 const POSTHOG_RELAY_PATH = normalizePostHogRelayPath(
   process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH
 );
@@ -111,6 +130,14 @@ function buildProxyRequestHeaders(request: NextRequest): Headers {
     STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
     getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
   );
+  return headers;
+}
+
+function buildPostHogRelayRequestHeaders(request: NextRequest): Headers {
+  const headers = buildProxyRequestHeaders(request);
+  for (const header of POSTHOG_RELAY_CREDENTIAL_HEADERS) {
+    headers.delete(header);
+  }
   return headers;
 }
 
@@ -176,7 +203,19 @@ function normalizePostHogRelayPath(value?: string): string {
   }
 
   const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLeadingSlash.replace(/\/+$/, '') || DEFAULT_POSTHOG_RELAY_PATH;
+  const normalized =
+    withLeadingSlash.replace(/\/+$/, '') || DEFAULT_POSTHOG_RELAY_PATH;
+
+  return isReservedPostHogRelayPath(normalized)
+    ? DEFAULT_POSTHOG_RELAY_PATH
+    : normalized;
+}
+
+function isReservedPostHogRelayPath(pathname: string): boolean {
+  const normalized = pathname.toLowerCase();
+  return RESERVED_POSTHOG_RELAY_PATH_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`)
+  );
 }
 
 function isPostHogRelayPath(pathname: string): boolean {
@@ -1310,7 +1349,7 @@ function buildPostHogRelayPassThroughResponse(
   userAgent: string,
   hostname: string
 ): NextResponse {
-  const requestHeaders = buildProxyRequestHeaders(request);
+  const requestHeaders = buildPostHogRelayRequestHeaders(request);
   const response = NextResponse.next({
     request: {
       headers: requestHeaders,

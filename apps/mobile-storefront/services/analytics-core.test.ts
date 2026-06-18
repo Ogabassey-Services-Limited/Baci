@@ -163,6 +163,13 @@ describe('analytics core', () => {
       expect.objectContaining({ email: 'buyer@example.com' })
     );
     expect(mockReset).toHaveBeenCalled();
+    expect(mockRegister).toHaveBeenCalledTimes(2);
+    expect(mockRegister).toHaveBeenNthCalledWith(2, {
+      app_surface: 'mobile-storefront',
+      merchant_id: 'merchant-1',
+      merchant_slug: 'ogabassey',
+      merchant_domain: 'ogabassey.com',
+    });
     expect(mockFlush).toHaveBeenCalled();
     expect(mockShutdown).toHaveBeenCalled();
   });

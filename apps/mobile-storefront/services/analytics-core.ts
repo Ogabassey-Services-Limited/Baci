@@ -13,6 +13,20 @@ const MERCHANT_DOMAIN = Constants.expoConfig?.extra?.merchantDomain;
 
 let posthogClient: PostHog | null = null;
 
+function getAnalyticsSuperProperties() {
+  return {
+    app_surface: 'mobile-storefront',
+    merchant_id: MERCHANT_ID,
+    merchant_slug: MERCHANT_SLUG,
+    merchant_domain: MERCHANT_DOMAIN,
+  };
+}
+
+function registerAnalyticsSuperProperties(): void {
+  if (!posthogClient) return;
+  void posthogClient.register(getAnalyticsSuperProperties());
+}
+
 export function initAnalytics(): void {
   if (!POSTHOG_API_KEY) {
     log.warn('PostHog API key not configured');
@@ -54,12 +68,7 @@ export function initAnalytics(): void {
       },
     });
 
-    void posthogClient.register({
-      app_surface: 'mobile-storefront',
-      merchant_id: MERCHANT_ID,
-      merchant_slug: MERCHANT_SLUG,
-      merchant_domain: MERCHANT_DOMAIN,
-    });
+    registerAnalyticsSuperProperties();
 
     log.info('PostHog initialized');
   } catch (error) {
@@ -96,6 +105,7 @@ export function identifyUser(
 export function resetUser(): void {
   if (!posthogClient) return;
   posthogClient.reset();
+  registerAnalyticsSuperProperties();
 }
 
 export function setUserProperties(

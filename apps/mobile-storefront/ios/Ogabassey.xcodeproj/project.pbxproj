@@ -147,11 +147,11 @@
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				B8419E8B4A2B4D79B9E7C001 /* Upload PostHog Debug Symbols */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				AB357DCF6D6445DAB16AC949 /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
 				C4A77AB9B9DEE531AA7DE64F /* [CP] Embed Pods Frameworks */,
 				A0B41FA3BB7AC50F6C3E3FD0 /* [CP-User] [RNFB] Core Configuration */,
+				B8419E8B4A2B4D79B9E7C001 /* Upload PostHog Debug Symbols */,
 			);
 			buildRules = (
 			);
@@ -237,6 +237,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${PRODUCT_NAME}",
 			);
 			name = "Upload PostHog Debug Symbols";
 			outputFileListPaths = (
