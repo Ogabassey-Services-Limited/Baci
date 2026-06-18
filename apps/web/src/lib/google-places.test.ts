@@ -13,21 +13,15 @@ vi.mock('@/lib/api-client', () => ({
 const mockApiGet = vi.mocked(apiGet);
 
 describe('google places client helpers', () => {
-  const originalGooglePlacesApiKey = process.env.GOOGLE_PLACES_API_KEY;
-  const originalGoogleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
-
   beforeEach(() => {
     mockApiGet.mockReset();
     vi.restoreAllMocks();
-    process.env.GOOGLE_PLACES_API_KEY = originalGooglePlacesApiKey;
-    process.env.GOOGLE_MAPS_API_KEY = originalGoogleMapsApiKey;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-    process.env.GOOGLE_PLACES_API_KEY = originalGooglePlacesApiKey;
-    process.env.GOOGLE_MAPS_API_KEY = originalGoogleMapsApiKey;
+    vi.unstubAllEnvs();
   });
 
   it('skips prediction lookups for empty or one-character input', async () => {
@@ -98,14 +92,14 @@ describe('google places client helpers', () => {
   });
 
   it('returns null for server details when no API key is configured', async () => {
-    process.env.GOOGLE_PLACES_API_KEY = '';
-    process.env.GOOGLE_MAPS_API_KEY = '';
+    vi.stubEnv('GOOGLE_PLACES_API_KEY', '');
+    vi.stubEnv('GOOGLE_MAPS_API_KEY', '');
 
     await expect(getPlaceDetailsServer('places/address-1')).resolves.toBeNull();
   });
 
   it('fetches server details with Google field masks', async () => {
-    process.env.GOOGLE_PLACES_API_KEY = 'server-key';
+    vi.stubEnv('GOOGLE_PLACES_API_KEY', 'server-key');
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({ rating: 4.8, userRatingCount: 120 }),
