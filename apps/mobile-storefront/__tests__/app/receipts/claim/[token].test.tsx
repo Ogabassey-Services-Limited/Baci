@@ -26,6 +26,9 @@ const mockRedirect = jest.fn(({ href }: { href: string }) => (
 const mockReplace = jest.fn();
 const mockUseLocalSearchParams = jest.fn();
 const mockUseRequireAuth = jest.fn();
+const mockInvalidateQueries =
+  jest.fn<(filters: { queryKey: readonly string[] }) => Promise<void>>();
+const mockQueryClient = { invalidateQueries: mockInvalidateQueries };
 const mockFetch =
   jest.fn<
     (input: RequestInfo | URL, init?: RequestInit) => Promise<MockFetchResponse>
@@ -55,6 +58,10 @@ jest.mock('@/lib/supabase', () => ({
   getSession: () => mockGetSession(),
 }));
 
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => mockQueryClient,
+}));
+
 jest.mock('@/env', () => ({
   EXPO_PUBLIC_API_URL: 'https://ogabassey.com',
 }));
@@ -80,6 +87,7 @@ describe('ReceiptClaimScreen', () => {
     mockGetSession.mockResolvedValue({
       access_token: 'access-token',
     });
+    mockInvalidateQueries.mockResolvedValue(undefined);
     mockFetch.mockResolvedValue({
       json: async () => ({ success: true, redirectPath: '/receipts' }),
       ok: true,
@@ -105,6 +113,12 @@ describe('ReceiptClaimScreen', () => {
   it('redeems the claim with the current bearer session and opens receipts', async () => {
     render(<ReceiptClaimScreen />);
 
+    expect(
+      screen.getByText(
+        'We are moving this receipt into the app so you can access it any time.'
+      )
+    ).toBeOnTheScreen();
+
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
         'https://ogabassey.com/api/storefront/receipts/claims/claim-token',
@@ -118,6 +132,9 @@ describe('ReceiptClaimScreen', () => {
     });
 
     await waitFor(() => {
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['receipts'],
+      });
       expect(mockReplace).toHaveBeenCalledWith('/receipts');
     });
   });

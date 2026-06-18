@@ -87,6 +87,16 @@ function createClaimOrdersQueryMock(response: { error?: Error | null } = {}) {
   return query;
 }
 
+function createClaimDeleteQueryMock(response: { error?: Error | null } = {}) {
+  const query = {
+    delete: vi.fn(),
+    eq: vi.fn(),
+  };
+  query.delete.mockReturnValue(query);
+  query.eq.mockResolvedValue({ error: response.error ?? null });
+  return query;
+}
+
 function createSupabaseMock(
   response: { data: unknown; error: Error | null },
   options: {
@@ -96,6 +106,7 @@ function createSupabaseMock(
     };
     claimResponse?: { data?: { id: string } | null; error?: Error | null };
     claimOrdersResponse?: { error?: Error | null };
+    claimDeleteResponse?: { error?: Error | null };
   } = {}
 ) {
   const ordersQuery = createOrdersQueryMock(response);
@@ -108,6 +119,9 @@ function createSupabaseMock(
   const claimOrdersQuery = createClaimOrdersQueryMock(
     options.claimOrdersResponse ?? {}
   );
+  const claimDeleteQuery = createClaimDeleteQueryMock(
+    options.claimDeleteResponse ?? {}
+  );
   let receiptClaimsCallCount = 0;
 
   return {
@@ -117,9 +131,13 @@ function createSupabaseMock(
       }
       if (table === 'receipt_claims') {
         receiptClaimsCallCount += 1;
-        return receiptClaimsCallCount === 1
-          ? existingClaimQuery
-          : claimInsertQuery;
+        if (receiptClaimsCallCount === 1) {
+          return existingClaimQuery;
+        }
+        if (receiptClaimsCallCount === 2) {
+          return claimInsertQuery;
+        }
+        return claimDeleteQuery;
       }
       if (table === 'receipt_claim_orders') {
         return claimOrdersQuery;
@@ -127,6 +145,7 @@ function createSupabaseMock(
       throw new Error(`Unexpected table ${table}`);
     }),
     testQueries: {
+      claimDeleteQuery,
       claimInsertQuery,
       claimOrdersQuery,
       existingClaimQuery,
@@ -312,7 +331,7 @@ describe('sendImportNotificationCampaign', () => {
     );
   });
 
-  it('uses the merchant custom domain for claim links', async () => {
+  it('uses site-mode receipt links without creating claim rows', async () => {
     const supabase = createSupabaseMock({
       data: [
         {
@@ -349,18 +368,31 @@ describe('sendImportNotificationCampaign', () => {
       customSettings: {
         migration_imports: {
           receipt_access_mode: 'site',
+          receipt_path: '/account/receipts',
         },
       },
     });
 
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        subject: 'Your Receipt Has Changed.',
+        subject: 'Future Merchant: your updated order history is ready',
         htmlContent: expect.stringContaining(
-          'https://futuremerchant.com/receipts/claim/claim-token'
+          'https://futuremerchant.com/account/receipts'
         ),
       })
     );
+    expect(createReceiptClaimToken).not.toHaveBeenCalled();
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            existingClaimQuery: {
+              select: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.existingClaimQuery.select
+    ).not.toHaveBeenCalled();
   });
 
   it('does not rotate token hashes for existing receipt claims', async () => {
@@ -397,7 +429,11 @@ describe('sendImportNotificationCampaign', () => {
         email_sender_name: null,
         email: 'hello@ogabassey.com',
       },
-      customSettings: null,
+      customSettings: {
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+        },
+      },
     });
 
     expect(result).toEqual({
@@ -554,7 +590,11 @@ describe('sendImportNotificationCampaign', () => {
         email_sender_name: null,
         email: 'hello@merchant-four.com',
       },
-      customSettings: null,
+      customSettings: {
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+        },
+      },
     });
 
     expect(result).toEqual({
@@ -563,6 +603,86 @@ describe('sendImportNotificationCampaign', () => {
       failedCount: 1,
     });
     expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimDeleteQuery: {
+              delete: ReturnType<typeof vi.fn>;
+              eq: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimDeleteQuery.delete
+    ).toHaveBeenCalled();
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimDeleteQuery: {
+              eq: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimDeleteQuery.eq
+    ).toHaveBeenCalledWith('id', 'claim-1');
+  });
+
+  it('deletes the just-created claim when attaching orders fails', async () => {
+    const supabase = createSupabaseMock(
+      {
+        data: [
+          {
+            id: 'order-1',
+            customer_id: 'customer-1',
+            customer_email: 'ada@example.com',
+            customer_name: 'Ada',
+            order_number: 'ORD-1',
+            payment_status: 'paid',
+            shipping_status: 'delivered',
+            order_items: [{ name: 'Pixel 9', quantity: 1 }],
+          },
+        ],
+        error: null,
+      },
+      {
+        claimOrdersResponse: { error: new Error('attach failed') },
+      }
+    );
+
+    await expect(
+      sendImportNotificationCampaign({
+        supabase,
+        importJobId: 'job-attach-failed',
+        merchant: {
+          id: 'merchant-attach-failed',
+          slug: 'merchant-four',
+          business_name: 'Merchant Four',
+          custom_domain: null,
+          support_email: null,
+          email_sender_name: null,
+          email: 'hello@merchant-four.com',
+        },
+        customSettings: {
+          migration_imports: {
+            receipt_access_mode: 'app_first',
+          },
+        },
+      })
+    ).rejects.toThrow('Failed to attach receipt claim orders: attach failed');
+
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimDeleteQuery: {
+              eq: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimDeleteQuery.eq
+    ).toHaveBeenCalledWith('id', 'claim-1');
   });
 
   it('returns zero counts when there are no eligible imported orders', async () => {

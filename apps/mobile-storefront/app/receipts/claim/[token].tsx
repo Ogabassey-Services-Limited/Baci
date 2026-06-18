@@ -1,4 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
+import { useQueryClient } from '@tanstack/react-query';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -40,6 +41,7 @@ async function readErrorMessage(response: Response) {
 export default function ReceiptClaimScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ token?: string | string[] }>();
   const token = readToken(params.token);
   const { isLoading: isAuthLoading, redirectTo } = useRequireAuth();
@@ -91,6 +93,13 @@ export default function ReceiptClaimScreen() {
           return;
         }
 
+        try {
+          await queryClient.invalidateQueries({ queryKey: ['receipts'] });
+        } catch {
+          // The claim succeeded; navigation should not be blocked by cache refresh.
+        }
+
+        if (!isActive) return;
         router.replace('/receipts');
       } catch {
         if (!isActive) return;
@@ -104,7 +113,7 @@ export default function ReceiptClaimScreen() {
     return () => {
       isActive = false;
     };
-  }, [attempt, isAuthLoading, redirectTo, token]);
+  }, [attempt, isAuthLoading, queryClient, redirectTo, token]);
 
   if (redirectTo) {
     return <Redirect href={redirectTo} />;
@@ -132,8 +141,7 @@ export default function ReceiptClaimScreen() {
           Your Receipt Has Changed.
         </Text>
         <Text style={[styles.body, { color: colors.textSecondary }]}>
-          We are moving this receipt into your Ogabassey app so you can access
-          it any time.
+          We are moving this receipt into the app so you can access it any time.
         </Text>
 
         <View style={styles.statusRow}>

@@ -1,0 +1,220 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import ReceiptClaimPageClient from './receipt-claim-page-client';
+
+const mockPush = vi.fn();
+const mockRouter = { push: mockPush };
+const mockFetchWithCsrf = vi.fn();
+const mockUseCustomerAuth = vi.fn();
+const mockUseMerchant = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => mockRouter,
+}));
+
+vi.mock('@/contexts/customer-auth-context', () => ({
+  useCustomerAuth: () => mockUseCustomerAuth(),
+}));
+
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchant: () => mockUseMerchant(),
+}));
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
+}));
+
+function createJsonResponse(body: unknown, init: ResponseInit = {}) {
+  return {
+    ok: init.status ? init.status < 400 : true,
+    status: init.status ?? 200,
+    json: async () => body,
+  } as Response;
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, reject, resolve };
+}
+
+const preview = {
+  claimed: false,
+  customerName: 'Bassey John',
+  devices: ['iPhone 16 Pro Max', '2 x AirPods Pro'],
+  merchantName: 'Ogabassey',
+};
+
+function renderClient(
+  props: Partial<Parameters<typeof ReceiptClaimPageClient>[0]> = {}
+) {
+  return render(
+    <ReceiptClaimPageClient
+      initialClaim={preview}
+      initialError={null}
+      token="claim-token"
+      {...props}
+    />
+  );
+}
+
+describe('ReceiptClaimPageClient', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseCustomerAuth.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    });
+    mockUseMerchant.mockReturnValue({
+      basePath: '',
+      loading: false,
+    });
+    mockFetchWithCsrf.mockResolvedValue(
+      createJsonResponse({ redirectPath: '/receipts', success: true })
+    );
+  });
+
+  it('shows the personalized preview and routes guests to login with a return URL', () => {
+    renderClient();
+
+    expect(screen.getByText('Welcome Bassey John')).toBeInTheDocument();
+    expect(screen.getByText('iPhone 16 Pro Max')).toBeInTheDocument();
+    expect(screen.getByText('2 x AirPods Pro')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Sign in to claim receipt' })
+    );
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token'
+    );
+  });
+
+  it('redeems the claim and sends authenticated customers to receipts', async () => {
+    mockUseCustomerAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+    mockUseMerchant.mockReturnValue({
+      basePath: '/ogabassey',
+      loading: false,
+    });
+
+    renderClient();
+
+    await waitFor(() => {
+      expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+        '/api/storefront/receipts/claims/claim-token',
+        { method: 'POST' }
+      );
+    });
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/ogabassey/receipts');
+    });
+  });
+
+  it('keeps the redemption request active after showing the claiming state', async () => {
+    mockUseCustomerAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+    mockUseMerchant.mockReturnValue({
+      basePath: '/ogabassey',
+      loading: false,
+    });
+    const redemption = createDeferred<Response>();
+    mockFetchWithCsrf.mockReturnValue(redemption.promise);
+
+    renderClient();
+
+    await waitFor(() => {
+      expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+        '/api/storefront/receipts/claims/claim-token',
+        { method: 'POST' }
+      );
+    });
+    expect(await screen.findByText('Claiming receipt...')).toBeInTheDocument();
+
+    redemption.resolve(
+      createJsonResponse({ redirectPath: '/receipts', success: true })
+    );
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/ogabassey/receipts');
+    });
+  });
+
+  it('does not redeem an already-claimed receipt link', () => {
+    mockUseCustomerAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    renderClient({
+      initialClaim: {
+        ...preview,
+        claimed: true,
+      },
+    });
+
+    expect(screen.getByText('Welcome Bassey John')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'This receipt link has already been claimed. You can view it from the receipts panel.'
+      )
+    ).toBeInTheDocument();
+    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'View receipts' }));
+
+    expect(mockPush).toHaveBeenCalledWith('/receipts');
+  });
+
+  it('shows an error and does not navigate when redemption fails', async () => {
+    mockUseCustomerAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+    mockFetchWithCsrf.mockResolvedValue(
+      createJsonResponse(
+        {
+          error:
+            'Sign in with the email address that received this receipt link',
+          success: false,
+        },
+        { status: 403 }
+      )
+    );
+
+    renderClient();
+
+    expect(
+      await screen.findByText(
+        'Sign in with the email address that received this receipt link'
+      )
+    ).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('shows initial server errors and does not redeem', () => {
+    mockUseCustomerAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    renderClient({
+      initialClaim: null,
+      initialError: 'Receipt claim link has expired',
+    });
+
+    expect(
+      screen.getByText('Receipt claim link has expired')
+    ).toBeInTheDocument();
+    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
+  });
+});

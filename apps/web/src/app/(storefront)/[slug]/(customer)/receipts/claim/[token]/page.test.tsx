@@ -1,173 +1,113 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceiptClaimPage from './page';
 
-const mockPush = vi.fn();
-const mockFetchWithCsrf = vi.fn();
-const mockUseCustomerAuth = vi.fn();
-const mockUseMerchant = vi.fn();
+const mockCreateClient = vi.fn();
+const mockLoadReceiptClaimPreview = vi.fn();
+const mockParseReceiptClaimToken = vi.fn();
 
-vi.mock('next/navigation', () => ({
-  useParams: () => ({ token: 'claim-token' }),
-  useRouter: () => ({ push: mockPush }),
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () => mockCreateClient(),
 }));
 
-vi.mock('@/contexts/customer-auth-context', () => ({
-  useCustomerAuth: () => mockUseCustomerAuth(),
+vi.mock('@/lib/import-notifications/receipt-claim-preview', () => ({
+  loadReceiptClaimPreview: (...args: unknown[]) =>
+    mockLoadReceiptClaimPreview(...args),
+  parseReceiptClaimToken: (...args: unknown[]) =>
+    mockParseReceiptClaimToken(...args),
 }));
 
-vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: () => mockUseMerchant(),
+vi.mock('./receipt-claim-page-client', () => ({
+  default: ({
+    initialClaim,
+    initialError,
+    token,
+  }: {
+    initialClaim: { customerName: string | null } | null;
+    initialError: string | null;
+    token: string;
+  }) => (
+    <div>
+      <span>token:{token}</span>
+      <span>error:{initialError || 'none'}</span>
+      <span>name:{initialClaim?.customerName || 'none'}</span>
+    </div>
+  ),
 }));
 
-vi.mock('@/lib/api-client', () => ({
-  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
-}));
-
-function createJsonResponse(body: unknown, init: ResponseInit = {}) {
-  return {
-    ok: init.status ? init.status < 400 : true,
-    status: init.status ?? 200,
-    json: async () => body,
-  } as Response;
+function pageParams(token: string) {
+  return { params: Promise.resolve({ token }) };
 }
 
-const previewBody = {
-  claim: {
-    claimed: false,
-    customerName: 'Bassey John',
-    devices: ['iPhone 16 Pro Max', '2 x AirPods Pro'],
-    merchantName: 'Ogabassey',
-  },
-};
-
-describe('ReceiptClaimPage', () => {
+describe('ReceiptClaimPage server wrapper', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(createJsonResponse(previewBody))
-    );
-    mockUseCustomerAuth.mockReturnValue({
-      isAuthenticated: false,
-      isLoading: false,
-    });
-    mockUseMerchant.mockReturnValue({
-      basePath: '',
-      loading: false,
-    });
-    mockFetchWithCsrf.mockResolvedValue(
-      createJsonResponse({ redirectPath: '/receipts', success: true })
-    );
-  });
-
-  it('shows the personalized preview and routes guests to login with a return URL', async () => {
-    render(<ReceiptClaimPage />);
-
-    expect(await screen.findByText('Welcome Bassey John')).toBeInTheDocument();
-    expect(screen.getByText('iPhone 16 Pro Max')).toBeInTheDocument();
-    expect(screen.getByText('2 x AirPods Pro')).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Sign in to claim receipt' })
-    );
-
-    expect(mockPush).toHaveBeenCalledWith(
-      '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token'
-    );
-  });
-
-  it('redeems the claim and sends authenticated customers to receipts', async () => {
-    mockUseCustomerAuth.mockReturnValue({
-      isAuthenticated: true,
-      isLoading: false,
-    });
-    mockUseMerchant.mockReturnValue({
-      basePath: '/ogabassey',
-      loading: false,
-    });
-
-    render(<ReceiptClaimPage />);
-
-    await waitFor(() => {
-      expect(mockFetchWithCsrf).toHaveBeenCalledWith(
-        '/api/storefront/receipts/claims/claim-token',
-        { method: 'POST' }
-      );
-    });
-    await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/ogabassey/receipts');
+    mockCreateClient.mockResolvedValue({ rpc: vi.fn() });
+    mockParseReceiptClaimToken.mockReturnValue('claim-token');
+    mockLoadReceiptClaimPreview.mockResolvedValue({
+      claim: {
+        claimed: false,
+        customerName: 'Bassey John',
+        devices: ['iPhone 16 Pro Max'],
+        merchantName: 'Ogabassey',
+      },
+      ok: true,
     });
   });
 
-  it('does not redeem an already-claimed receipt link', async () => {
-    mockUseCustomerAuth.mockReturnValue({
-      isAuthenticated: true,
-      isLoading: false,
+  it('loads the claim preview on the server and passes it to the client shell', async () => {
+    render(await ReceiptClaimPage(pageParams('claim-token')));
+
+    expect(mockCreateClient).toHaveBeenCalledTimes(1);
+    expect(mockLoadReceiptClaimPreview).toHaveBeenCalledWith({
+      supabase: { rpc: expect.any(Function) },
+      token: 'claim-token',
     });
-    vi.mocked(fetch).mockResolvedValue(
-      createJsonResponse({
-        claim: {
-          ...previewBody.claim,
-          claimed: true,
-        },
-      })
-    );
+    expect(screen.getByText('token:claim-token')).toBeInTheDocument();
+    expect(screen.getByText('error:none')).toBeInTheDocument();
+    expect(screen.getByText('name:Bassey John')).toBeInTheDocument();
+  });
 
-    render(<ReceiptClaimPage />);
+  it('renders an invalid-link error without creating a Supabase client', async () => {
+    mockParseReceiptClaimToken.mockReturnValue(null);
 
-    expect(await screen.findByText('Welcome Bassey John')).toBeInTheDocument();
+    render(await ReceiptClaimPage(pageParams('bad token')));
+
+    expect(mockCreateClient).not.toHaveBeenCalled();
+    expect(mockLoadReceiptClaimPreview).not.toHaveBeenCalled();
+    expect(screen.getByText('token:')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'This receipt link has already been claimed. You can view it from the receipts panel.'
-      )
+      screen.getByText('error:Invalid receipt claim link')
     ).toBeInTheDocument();
-    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'View receipts' }));
-
-    expect(mockPush).toHaveBeenCalledWith('/receipts');
   });
 
-  it('shows an error and does not navigate when redemption fails', async () => {
-    mockUseCustomerAuth.mockReturnValue({
-      isAuthenticated: true,
-      isLoading: false,
+  it('passes preview errors through to the client shell', async () => {
+    mockLoadReceiptClaimPreview.mockResolvedValue({
+      error: 'Receipt claim link has expired',
+      ok: false,
+      status: 410,
     });
-    mockFetchWithCsrf.mockResolvedValue(
-      createJsonResponse(
-        {
-          error:
-            'Sign in with the email address that received this receipt link',
-          success: false,
-        },
-        { status: 403 }
-      )
-    );
 
-    render(<ReceiptClaimPage />);
+    render(await ReceiptClaimPage(pageParams('claim-token')));
 
     expect(
-      await screen.findByText(
-        'Sign in with the email address that received this receipt link'
-      )
+      screen.getByText('error:Receipt claim link has expired')
     ).toBeInTheDocument();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(screen.getByText('name:none')).toBeInTheDocument();
   });
 
-  it('shows expired link errors from the preview endpoint', async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      createJsonResponse(
-        { error: 'Receipt claim link has expired' },
-        { status: 410 }
-      )
-    );
+  it('uses a generic error when the server preview load fails', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockLoadReceiptClaimPreview.mockRejectedValue(new Error('db failed'));
 
-    render(<ReceiptClaimPage />);
+    render(await ReceiptClaimPage(pageParams('claim-token')));
 
     expect(
-      await screen.findByText('Receipt claim link has expired')
+      screen.getByText('error:Failed to load receipt claim')
     ).toBeInTheDocument();
-    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });

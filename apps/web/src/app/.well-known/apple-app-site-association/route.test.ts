@@ -44,7 +44,7 @@ describe('GET /.well-known/apple-app-site-association', () => {
     const body = await res.json();
 
     expect(body.applinks.details).toHaveLength(1);
-    expect(body.applinks.details[0].appIDs[0]).toContain('com.ogabassey.store');
+    expect(body.applinks.details[0].appIDs[0]).toContain('com.ogabassey.app');
   });
 
   it('uses modern components format, not legacy paths', async () => {
