@@ -68,6 +68,31 @@ describe('shippingQuoteApiResponseSchema', () => {
     });
   });
 
+  it('keeps quotes with nullable optional database-backed fields', () => {
+    expect(
+      normalizeShippingQuoteResponsePayload({
+        quotes: {
+          all: [
+            {
+              ...shippingQuote,
+              deliveryRange: null,
+              minDays: null,
+              maxDays: null,
+              isStationPickup: null,
+              stationName: null,
+              stationAddress: null,
+              providerRateId: null,
+            },
+          ],
+        },
+      })
+    ).toEqual({
+      quotes: [shippingQuote],
+      sessionId: '',
+      warnings: [],
+    });
+  });
+
   it('returns defaults for non-object responses', () => {
     expect(normalizeShippingQuoteResponsePayload(null)).toEqual({
       quotes: [],

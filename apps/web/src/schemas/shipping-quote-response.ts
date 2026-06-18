@@ -8,6 +8,26 @@ interface NormalizedShippingQuoteResponse {
   warnings: string[];
 }
 
+const nullableOptionalNumberSchema = z
+  .number()
+  .int()
+  .nonnegative()
+  .nullable()
+  .optional()
+  .transform((value) => value ?? undefined);
+
+const nullableOptionalStringSchema = z
+  .string()
+  .nullable()
+  .optional()
+  .transform((value) => value ?? undefined);
+
+const nullableOptionalBooleanSchema = z
+  .boolean()
+  .nullable()
+  .optional()
+  .transform((value) => value ?? undefined);
+
 const shippingQuoteSchema = z
   .object({
     id: z.string().min(1),
@@ -16,19 +36,56 @@ const shippingQuoteSchema = z
     carrierName: z.string().min(1),
     displayName: z.string().min(1),
     estimatedDays: z.number().int().nonnegative(),
-    deliveryRange: z.string().optional(),
-    minDays: z.number().int().nonnegative().optional(),
-    maxDays: z.number().int().nonnegative().optional(),
+    deliveryRange: nullableOptionalStringSchema,
+    minDays: nullableOptionalNumberSchema,
+    maxDays: nullableOptionalNumberSchema,
     price: z.number().nonnegative(),
     currency: z.string().min(1),
     pickupIncluded: z.boolean(),
     insuranceIncluded: z.boolean(),
-    isStationPickup: z.boolean().optional(),
-    stationName: z.string().optional(),
-    stationAddress: z.string().optional(),
-    providerRateId: z.string().optional(),
+    isStationPickup: nullableOptionalBooleanSchema,
+    stationName: nullableOptionalStringSchema,
+    stationAddress: nullableOptionalStringSchema,
+    providerRateId: nullableOptionalStringSchema,
   })
-  .transform((quote): ShippingQuote => quote);
+  .transform((quote): ShippingQuote => {
+    const normalized: ShippingQuote = {
+      id: quote.id,
+      provider: quote.provider,
+      serviceTier: quote.serviceTier,
+      carrierName: quote.carrierName,
+      displayName: quote.displayName,
+      estimatedDays: quote.estimatedDays,
+      price: quote.price,
+      currency: quote.currency,
+      pickupIncluded: quote.pickupIncluded,
+      insuranceIncluded: quote.insuranceIncluded,
+    };
+
+    if (quote.deliveryRange !== undefined) {
+      normalized.deliveryRange = quote.deliveryRange;
+    }
+    if (quote.minDays !== undefined) {
+      normalized.minDays = quote.minDays;
+    }
+    if (quote.maxDays !== undefined) {
+      normalized.maxDays = quote.maxDays;
+    }
+    if (quote.isStationPickup !== undefined) {
+      normalized.isStationPickup = quote.isStationPickup;
+    }
+    if (quote.stationName !== undefined) {
+      normalized.stationName = quote.stationName;
+    }
+    if (quote.stationAddress !== undefined) {
+      normalized.stationAddress = quote.stationAddress;
+    }
+    if (quote.providerRateId !== undefined) {
+      normalized.providerRateId = quote.providerRateId;
+    }
+
+    return normalized;
+  });
 
 type ParsedShippingQuote = z.infer<typeof shippingQuoteSchema>;
 
