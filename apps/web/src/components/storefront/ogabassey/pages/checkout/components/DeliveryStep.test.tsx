@@ -167,9 +167,40 @@ describe('DeliveryStep', () => {
       fireEvent.change(stateSelect, { target: { value: 'Lagos' } });
       expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('Lagos');
 
+      vi.clearAllMocks();
       const cityInput = screen.getByLabelText(/city/i);
       fireEvent.change(cityInput, { target: { value: 'Ikeja' } });
       expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('Ikeja');
+      expect(defaultProps.setShippingQuotes).toHaveBeenCalledWith([]);
+      expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('');
+    });
+
+    it('keeps manually entered location when the street field is edited', () => {
+      render(<DeliveryStep {...defaultProps} />);
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /enter state.*city manually/i,
+        }),
+      );
+      fireEvent.change(screen.getByLabelText('State'), {
+        target: { value: 'Lagos' },
+      });
+      fireEvent.change(screen.getByLabelText(/city/i), {
+        target: { value: 'Ikeja' },
+      });
+
+      vi.clearAllMocks();
+      fireEvent.change(
+        screen.getByRole('textbox', { name: /delivery address/i }),
+        { target: { value: 'A' } },
+      );
+
+      expect(defaultProps.setNewAddressStreet).toHaveBeenCalledWith('A');
+      expect(defaultProps.setNewAddressState).not.toHaveBeenCalledWith('');
+      expect(defaultProps.setNewAddressCity).not.toHaveBeenCalledWith('');
+      expect(defaultProps.setShippingQuotes).not.toHaveBeenCalled();
+      expect(defaultProps.setSelectedQuoteId).not.toHaveBeenCalled();
     });
 
     it('reveals manual State/City entry when address suggestions fail', () => {

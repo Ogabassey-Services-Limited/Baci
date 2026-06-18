@@ -52,12 +52,16 @@ export function DeliveryAddressSection({
   // Manual State/City fallback so checkout can proceed even when Google Places
   // is unavailable (e.g. quota exhausted) or can't resolve the typed address.
   const [manualLocationOpen, setManualLocationOpen] = useState(false);
+  const [manualLocationLocked, setManualLocationLocked] = useState(false);
   const [placesFailed, setPlacesFailed] = useState(false);
 
   const hasDetectedLocation = Boolean(newAddressState && newAddressCity);
-  const manualLocationInUse = manualLocationOpen || placesFailed;
+  const manualLocationInUse =
+    manualLocationOpen || manualLocationLocked || placesFailed;
   const showManualLocation =
-    manualLocationOpen || (placesFailed && !hasDetectedLocation);
+    manualLocationOpen ||
+    manualLocationLocked ||
+    (placesFailed && !hasDetectedLocation);
   const showManualToggle = !showManualLocation && !hasDetectedLocation;
 
   return (
@@ -98,6 +102,7 @@ export function DeliveryAddressSection({
                     if (parts.length >= 2) {
                       setNewAddressState(parts[parts.length - 1] || '');
                       setNewAddressCity(parts[parts.length - 2] || '');
+                      setManualLocationLocked(false);
                     }
                   }}
                   className="mt-1 size-4 text-store-primary focus:ring-store-primary border-gray-300"
@@ -151,6 +156,7 @@ export function DeliveryAddressSection({
               if (inferred) {
                 setNewAddressState(inferred.state);
                 setNewAddressCity(inferred.city);
+                setManualLocationLocked(false);
               } else if (!manualLocationInUse) {
                 setNewAddressState('');
                 setNewAddressCity('');
@@ -163,6 +169,7 @@ export function DeliveryAddressSection({
               setNewAddressStreet(place.formattedAddress);
               setNewAddressState(place.state);
               setNewAddressCity(place.city);
+              setManualLocationLocked(false);
               setPlacesFailed(false);
               setManualLocationOpen(false);
             }}
@@ -180,7 +187,10 @@ export function DeliveryAddressSection({
           {isHydrated && showManualToggle && (
             <button
               type="button"
-              onClick={() => setManualLocationOpen(true)}
+              onClick={() => {
+                setManualLocationOpen(true);
+                setManualLocationLocked(true);
+              }}
               className="text-xs font-medium text-store-primary hover:underline text-left"
             >
               Can&apos;t find your address? Enter State &amp; City manually
@@ -209,6 +219,7 @@ export function DeliveryAddressSection({
                     disabled={isLoadingLocations}
                     onChange={(e) => {
                       setManualLocationOpen(true);
+                      setManualLocationLocked(true);
                       setNewAddressState(e.target.value);
                       setShippingQuotes([]);
                       setSelectedQuoteId('');
@@ -239,7 +250,10 @@ export function DeliveryAddressSection({
                     list="checkout-manual-city-options"
                     onChange={(e) => {
                       setManualLocationOpen(true);
+                      setManualLocationLocked(true);
                       setNewAddressCity(e.target.value);
+                      setShippingQuotes([]);
+                      setSelectedQuoteId('');
                     }}
                     placeholder="e.g. Lekki"
                     className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus:border-store-primary text-sm text-gray-900 placeholder:text-gray-400"
