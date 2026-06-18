@@ -184,11 +184,11 @@ export default function ReceiptClaimPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[#fff7f7] px-4 py-10 text-[#15161f]">
+    <main className="min-h-screen bg-store-background px-4 py-10 text-store-background-text">
       <section className="mx-auto flex min-h-[70vh] max-w-2xl items-center">
-        <Card className="w-full border-[#f0d7d7] bg-white shadow-sm">
+        <Card className="w-full border-store-border bg-store-background shadow-sm">
           <CardHeader className="space-y-4">
-            <div className="flex size-12 items-center justify-center rounded-full bg-[#e11d2e]/10 text-[#e11d2e]">
+            <div className="flex size-12 items-center justify-center rounded-full bg-store-primary/10 text-store-primary">
               {error ? (
                 <AlertTriangle aria-hidden="true" className="size-6" />
               ) : (
@@ -213,7 +213,7 @@ export default function ReceiptClaimPage() {
             {isLoadingPreview ? (
               <div
                 aria-live="polite"
-                className="flex items-center gap-3 rounded-md border border-[#f0d7d7] bg-[#fffafa] p-4 text-sm"
+                className="flex items-center gap-3 rounded-md border border-store-border bg-store-secondary/60 p-4 text-sm"
                 role="status"
               >
                 <Loader2 aria-hidden="true" className="size-4 animate-spin" />
@@ -222,15 +222,15 @@ export default function ReceiptClaimPage() {
             ) : error ? (
               <div
                 aria-live="polite"
-                className="rounded-md border border-[#ffd4d9] bg-[#fff1f3] p-4 text-sm font-medium text-[#9f1239]"
+                className="rounded-md border border-store-primary/30 bg-store-primary/10 p-4 text-sm font-medium text-store-background-text"
                 role="status"
               >
                 {error}
               </div>
             ) : preview ? (
               <>
-                <div className="rounded-md border border-[#f0d7d7] bg-[#fffafa] p-4">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-[#7f1d1d]">
+                <div className="rounded-md border border-store-border bg-store-secondary/60 p-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-store-primary">
                     <Smartphone aria-hidden="true" className="size-4" />
                     Device receipts
                   </div>
@@ -241,7 +241,7 @@ export default function ReceiptClaimPage() {
                   </ol>
                 </div>
 
-                <p className="text-sm text-[#5f6375]">
+                <p className="text-sm text-store-background-text/70">
                   {preview.claimed
                     ? 'This receipt link has already been claimed. You can view it from the receipts panel.'
                     : 'Sign in with the email address that received this link. Once verified, you will land in the receipts panel.'}
@@ -249,7 +249,7 @@ export default function ReceiptClaimPage() {
 
                 {preview.claimed ? (
                   <Button
-                    className="w-full bg-[#e11d2e] hover:bg-[#be123c]"
+                    className="w-full bg-store-primary text-store-primary-text hover:bg-store-primary/90"
                     type="button"
                     onClick={() => {
                       router.push(asRoute(joinBasePath(basePath, '/receipts')));
@@ -258,7 +258,7 @@ export default function ReceiptClaimPage() {
                     View receipts
                   </Button>
                 ) : isAuthenticated ? (
-                  <div className="flex items-center gap-3 text-sm font-medium text-[#5f6375]">
+                  <div className="flex items-center gap-3 text-sm font-medium text-store-background-text/70">
                     <Loader2
                       aria-hidden="true"
                       className="size-4 animate-spin"
@@ -271,7 +271,7 @@ export default function ReceiptClaimPage() {
                   </div>
                 ) : (
                   <Button
-                    className="w-full bg-[#e11d2e] hover:bg-[#be123c]"
+                    className="w-full bg-store-primary text-store-primary-text hover:bg-store-primary/90"
                     type="button"
                     onClick={() => {
                       router.push(asRoute(loginPath));

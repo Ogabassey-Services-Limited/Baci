@@ -174,6 +174,8 @@ async function createClaimLinkForRecipient({
   }
 
   if (existingClaim) {
+    // TODO: Existing rows do not store the raw token, so failed-send retries
+    // need explicit delivery state before they can safely resend claim links.
     return null;
   }
 
@@ -187,7 +189,6 @@ async function createClaimLinkForRecipient({
       customer_email: recipient.email,
       customer_name: recipient.customerName,
       token_hash: claimToken.tokenHash,
-      expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
       claimed_at: null,
       claimed_by_user_id: null,
     })

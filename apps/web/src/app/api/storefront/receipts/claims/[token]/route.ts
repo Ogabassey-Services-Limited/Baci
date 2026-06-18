@@ -1,22 +1,14 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   buildReceiptDeviceList,
   hashReceiptClaimToken,
-  normalizeClaimEmail,
   type ReceiptClaimOrderForDeviceList,
 } from '@/lib/import-notifications/receipt-claim-links';
-import { createAdminClient } from '@/lib/supabase/admin';
-
-const claimParamsSchema = z.object({
-  token: z
-    .string()
-    .min(8)
-    .max(256)
-    .regex(/^[A-Za-z0-9_-]+$/),
-});
+import { createClient } from '@/lib/supabase/server';
+import { receiptClaimRouteParamsSchema } from '@/schemas/receipt-claim-route-params';
 
 interface RouteContext {
   params: Promise<{ token: string }>;
@@ -24,8 +16,7 @@ interface RouteContext {
 
 interface ClaimMerchant {
   business_name: string | null;
-  custom_domain: string | null;
-  slug: string;
+  slug: string | null;
 }
 
 interface ClaimOrderItem {
@@ -39,10 +30,6 @@ interface ClaimOrder {
   order_number: string;
 }
 
-interface ClaimOrderJoin {
-  orders?: ClaimOrder | ClaimOrder[] | null;
-}
-
 interface ReceiptClaimRecord {
   claimed_at: string | null;
   claimed_by_user_id: string | null;
@@ -52,16 +39,20 @@ interface ReceiptClaimRecord {
   expires_at: string;
   id: string;
   merchant_id: string;
-  merchants?: ClaimMerchant | ClaimMerchant[] | null;
-  receipt_claim_orders?: ClaimOrderJoin[] | null;
+  merchant?: ClaimMerchant | null;
+  orders?: ClaimOrder[] | null;
 }
 
-function firstRelation<T>(value: T | T[] | null | undefined) {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value ?? null;
+interface RedeemReceiptClaimResult {
+  redirectPath?: string;
+  status?:
+    | 'already_used'
+    | 'customer_link_failed'
+    | 'email_mismatch'
+    | 'expired'
+    | 'not_found'
+    | 'ok'
+    | 'unauthorized';
 }
 
 function isExpired(expiresAt: string) {
@@ -69,15 +60,9 @@ function isExpired(expiresAt: string) {
   return Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now();
 }
 
-function extractClaimOrders(claim: ReceiptClaimRecord) {
-  return (claim.receipt_claim_orders ?? [])
-    .map((claimOrder) => firstRelation(claimOrder.orders))
-    .filter((order): order is ClaimOrder => Boolean(order));
-}
-
 async function parseToken(context: RouteContext) {
   const params = await context.params;
-  const parsed = claimParamsSchema.safeParse(params);
+  const parsed = receiptClaimRouteParamsSchema.safeParse(params);
 
   if (!parsed.success) {
     return null;
@@ -86,29 +71,20 @@ async function parseToken(context: RouteContext) {
   return parsed.data.token;
 }
 
-async function loadReceiptClaim(token: string) {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from('receipt_claims')
-    .select(
-      'id, merchant_id, customer_id, customer_email, customer_name, expires_at, claimed_at, claimed_by_user_id, merchants(business_name, slug, custom_domain), receipt_claim_orders(orders(id, order_number, order_items(name, quantity)))'
-    )
-    .eq('token_hash', hashReceiptClaimToken(token))
-    .maybeSingle();
+async function loadReceiptClaim(supabase: SupabaseClient, token: string) {
+  const { data, error } = await supabase.rpc('preview_receipt_claim', {
+    p_token_hash: hashReceiptClaimToken(token),
+  });
 
   if (error) {
     throw new Error(`Failed to load receipt claim: ${error.message}`);
   }
 
-  return {
-    claim: data as ReceiptClaimRecord | null,
-    supabase,
-  };
+  return (data || null) as ReceiptClaimRecord | null;
 }
 
 function buildClaimPreview(claim: ReceiptClaimRecord) {
-  const merchant = firstRelation(claim.merchants);
-  const orders = extractClaimOrders(claim);
+  const orders = claim.orders ?? [];
 
   return {
     claim: {
@@ -117,7 +93,8 @@ function buildClaimPreview(claim: ReceiptClaimRecord) {
       devices: buildReceiptDeviceList(
         orders as ReceiptClaimOrderForDeviceList[]
       ),
-      merchantName: merchant?.business_name ?? 'Ogabassey',
+      merchantName:
+        claim.merchant?.business_name ?? claim.merchant?.slug ?? 'Store',
     },
   };
 }
@@ -132,7 +109,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   }
 
   try {
-    const { claim } = await loadReceiptClaim(token);
+    const supabase = await createClient();
+    const claim = await loadReceiptClaim(supabase, token);
 
     if (!claim) {
       return NextResponse.json(
@@ -160,7 +138,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await authenticateApiRequest(request);
-  if (auth.error || !auth.user) {
+  if (auth.error || !auth.user || !auth.supabase) {
     return NextResponse.json(
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
@@ -184,26 +162,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   try {
-    const { claim, supabase } = await loadReceiptClaim(token);
+    const { data, error } = await auth.supabase.rpc('redeem_receipt_claim', {
+      p_token_hash: hashReceiptClaimToken(token),
+    });
 
-    if (!claim) {
+    if (error) {
+      throw new Error(`Failed to redeem receipt claim: ${error.message}`);
+    }
+
+    const result = (data || null) as RedeemReceiptClaimResult | null;
+
+    if (!result || result.status === 'not_found') {
       return NextResponse.json(
         { error: 'Receipt claim link not found' },
         { status: 404 }
       );
     }
 
-    if (isExpired(claim.expires_at)) {
+    if (result.status === 'expired') {
       return NextResponse.json(
         { error: 'Receipt claim link has expired' },
         { status: 410 }
       );
     }
 
-    if (
-      normalizeClaimEmail(auth.user.email) !==
-      normalizeClaimEmail(claim.customer_email)
-    ) {
+    if (result.status === 'email_mismatch') {
       return NextResponse.json(
         {
           error:
@@ -213,54 +196,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    if (claim.claimed_by_user_id && claim.claimed_by_user_id !== auth.user.id) {
+    if (result.status === 'already_used') {
       return NextResponse.json(
         { error: 'Receipt claim link has already been used' },
         { status: 409 }
       );
     }
 
-    const now = new Date().toISOString();
-    const { data: linkedCustomer, error: customerError } = await supabase
-      .from('customers')
-      .update({
-        last_login_at: now,
-        user_id: auth.user.id,
-      })
-      .eq('id', claim.customer_id)
-      .eq('merchant_id', claim.merchant_id)
-      .or(`user_id.is.null,user_id.eq.${auth.user.id}`)
-      .select('id')
-      .maybeSingle();
-
-    if (customerError) {
-      throw new Error(
-        `Failed to link customer receipt account: ${customerError.message}`
-      );
+    if (result.status === 'unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!linkedCustomer) {
-      throw new Error('Failed to link customer receipt account');
-    }
-
-    const { error: claimUpdateError } = await supabase
-      .from('receipt_claims')
-      .update({
-        claimed_at: claim.claimed_at || now,
-        claimed_by_user_id: auth.user.id,
-        last_viewed_at: now,
-        updated_at: now,
-      })
-      .eq('id', claim.id);
-
-    if (claimUpdateError) {
+    if (result.status !== 'ok') {
       throw new Error(
-        `Failed to mark receipt claim as redeemed: ${claimUpdateError.message}`
+        `Failed to redeem receipt claim: ${result.status || 'unknown_status'}`
       );
     }
 
     return NextResponse.json({
-      redirectPath: '/receipts',
+      redirectPath: result.redirectPath || '/receipts',
       success: true,
     });
   } catch (error) {

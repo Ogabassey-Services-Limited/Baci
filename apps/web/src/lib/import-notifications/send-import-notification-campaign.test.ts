@@ -255,6 +255,17 @@ describe('sendImportNotificationCampaign', () => {
       (
         supabase as unknown as {
           testQueries: {
+            claimInsertQuery: {
+              insert: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimInsertQuery.insert.mock.calls[0][0]
+    ).not.toHaveProperty('expires_at');
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
             claimOrdersQuery: {
               upsert: ReturnType<typeof vi.fn>;
             };

@@ -4,7 +4,7 @@ import { hashReceiptClaimToken } from '@/lib/import-notifications/receipt-claim-
 
 const mockAuthenticateApiRequest = vi.fn();
 const mockCheckCsrfProtection = vi.fn();
-const mockCreateAdminClient = vi.fn();
+const mockCreateClient = vi.fn();
 const mockConsoleError = vi
   .spyOn(console, 'error')
   .mockImplementation(() => undefined);
@@ -18,8 +18,8 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => mockCreateAdminClient(),
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () => mockCreateClient(),
 }));
 
 import { GET, POST } from './route';
@@ -33,101 +33,39 @@ const baseClaim = {
   expires_at: '2099-01-01T00:00:00.000Z',
   id: 'claim-1',
   merchant_id: 'merchant-1',
-  merchants: {
+  merchant: {
     business_name: 'Ogabassey',
-    custom_domain: 'ogabassey.com',
     slug: 'ogabassey',
   },
-  receipt_claim_orders: [
+  orders: [
     {
-      orders: {
-        id: 'order-1',
-        order_items: [{ name: 'iPhone 16 Pro Max', quantity: 1 }],
-        order_number: '06485',
-      },
+      id: 'order-1',
+      order_items: [{ name: 'iPhone 16 Pro Max', quantity: 1 }],
+      order_number: '06485',
     },
     {
-      orders: {
-        id: 'order-2',
-        order_items: [{ name: 'AirPods Pro', quantity: 2 }],
-        order_number: '06484',
-      },
+      id: 'order-2',
+      order_items: [{ name: 'AirPods Pro', quantity: 2 }],
+      order_number: '06484',
     },
   ],
 };
 
-function createReceiptClaimSelectQuery(claim: unknown, error: unknown = null) {
-  const query = {
-    eq: vi.fn(),
-    maybeSingle: vi.fn(),
-    select: vi.fn(),
-  };
-  query.select.mockReturnValue(query);
-  query.eq.mockReturnValue(query);
-  query.maybeSingle.mockResolvedValue({ data: claim, error });
-  return query;
-}
-
-function createCustomerUpdateQuery(result: unknown = { id: 'customer-1' }) {
-  const query = {
-    eq: vi.fn(),
-    maybeSingle: vi.fn(),
-    or: vi.fn(),
-    select: vi.fn(),
-    update: vi.fn(),
-  };
-  query.update.mockReturnValue(query);
-  query.eq.mockReturnValue(query);
-  query.or.mockReturnValue(query);
-  query.select.mockReturnValue(query);
-  query.maybeSingle.mockResolvedValue({ data: result, error: null });
-  return query;
-}
-
-function createClaimUpdateQuery(error: unknown = null) {
-  const query = {
-    eq: vi.fn(),
-    update: vi.fn(),
-  };
-  query.update.mockReturnValue(query);
-  query.eq.mockResolvedValue({ error });
-  return query;
-}
-
-function createAdminMock({
-  claim = baseClaim,
-  claimError = null,
-  customerUpdateResult = { id: 'customer-1' },
-  claimUpdateError = null,
-}: {
-  claim?: unknown;
-  claimError?: unknown;
-  customerUpdateResult?: unknown;
-  claimUpdateError?: unknown;
-} = {}) {
-  const claimQuery = createReceiptClaimSelectQuery(claim, claimError);
-  const customerQuery = createCustomerUpdateQuery(customerUpdateResult);
-  const claimUpdateQuery = createClaimUpdateQuery(claimUpdateError);
-
-  const from = vi.fn((table: string) => {
-    if (table === 'receipt_claims') {
-      return from.mock.calls.filter(([name]) => name === 'receipt_claims')
-        .length === 1
-        ? claimQuery
-        : claimUpdateQuery;
-    }
-    if (table === 'customers') {
-      return customerQuery;
-    }
-    throw new Error(`Unexpected table ${table}`);
-  });
-
+function createSupabaseRpcMock(response: { data: unknown; error: unknown }) {
   return {
-    admin: { from },
-    claimQuery,
-    claimUpdateQuery,
-    customerQuery,
+    rpc: vi.fn().mockResolvedValue(response),
   };
+}
+
+function mockAuthenticatedSupabase(
+  supabase: ReturnType<typeof createSupabaseRpcMock>,
+  email = 'basseybjohn@yahoo.co.uk'
+) {
+  mockAuthenticateApiRequest.mockResolvedValue({
+    error: null,
+    supabase,
+    user: { email, id: 'user-1' },
+  });
 }
 
 function getRequest() {
@@ -154,11 +92,13 @@ describe('/api/storefront/receipts/claims/[token]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConsoleError.mockClear();
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      supabase: { authScope: 'customer' },
-      user: { email: 'BasseyBJohn@Yahoo.co.uk', id: 'user-1' },
-    });
+    mockAuthenticatedSupabase(
+      createSupabaseRpcMock({
+        data: { redirectPath: '/receipts', status: 'ok' },
+        error: null,
+      }),
+      'BasseyBJohn@Yahoo.co.uk'
+    );
     mockCheckCsrfProtection.mockResolvedValue({ response: null, valid: true });
   });
 
@@ -168,21 +108,20 @@ describe('/api/storefront/receipts/claims/[token]', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: 'Invalid receipt claim link' });
-    expect(mockCreateAdminClient).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
   it('returns claim preview details for a valid token', async () => {
-    const { admin, claimQuery } = createAdminMock();
-    mockCreateAdminClient.mockReturnValue(admin);
+    const supabase = createSupabaseRpcMock({ data: baseClaim, error: null });
+    mockCreateClient.mockResolvedValue(supabase);
 
     const response = await GET(getRequest(), params);
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(claimQuery.eq).toHaveBeenCalledWith(
-      'token_hash',
-      hashReceiptClaimToken('claim-token')
-    );
+    expect(supabase.rpc).toHaveBeenCalledWith('preview_receipt_claim', {
+      p_token_hash: hashReceiptClaimToken('claim-token'),
+    });
     expect(body).toMatchObject({
       claim: {
         claimed: false,
@@ -193,9 +132,26 @@ describe('/api/storefront/receipts/claims/[token]', () => {
     });
   });
 
+  it('uses a generic merchant fallback when the claim merchant has no name', async () => {
+    const supabase = createSupabaseRpcMock({
+      data: {
+        ...baseClaim,
+        merchant: { business_name: null, slug: null },
+      },
+      error: null,
+    });
+    mockCreateClient.mockResolvedValue(supabase);
+
+    const response = await GET(getRequest(), params);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.claim.merchantName).toBe('Store');
+  });
+
   it('returns 404 when the receipt claim is not found', async () => {
-    const { admin } = createAdminMock({ claim: null });
-    mockCreateAdminClient.mockReturnValue(admin);
+    const supabase = createSupabaseRpcMock({ data: null, error: null });
+    mockCreateClient.mockResolvedValue(supabase);
 
     const response = await GET(getRequest(), params);
     const body = await response.json();
@@ -205,13 +161,14 @@ describe('/api/storefront/receipts/claims/[token]', () => {
   });
 
   it('returns 410 for expired claims', async () => {
-    const { admin } = createAdminMock({
-      claim: {
+    const supabase = createSupabaseRpcMock({
+      data: {
         ...baseClaim,
         expires_at: '2020-01-01T00:00:00.000Z',
       },
+      error: null,
     });
-    mockCreateAdminClient.mockReturnValue(admin);
+    mockCreateClient.mockResolvedValue(supabase);
 
     const response = await GET(getRequest(), params);
     const body = await response.json();
@@ -221,10 +178,11 @@ describe('/api/storefront/receipts/claims/[token]', () => {
   });
 
   it('returns a generic 500 when loading the receipt claim fails', async () => {
-    const { admin } = createAdminMock({
-      claimError: { message: 'relation receipt_claims_secret does not exist' },
+    const supabase = createSupabaseRpcMock({
+      data: null,
+      error: { message: 'relation receipt_claims_secret does not exist' },
     });
-    mockCreateAdminClient.mockReturnValue(admin);
+    mockCreateClient.mockResolvedValue(supabase);
 
     const response = await GET(getRequest(), params);
     const body = await response.json();
@@ -245,17 +203,15 @@ describe('/api/storefront/receipts/claims/[token]', () => {
     const response = await POST(postRequest(), params);
 
     expect(response.status).toBe(401);
-    expect(mockCreateAdminClient).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
   it('rejects redeem when the signed-in email does not match the claim', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
+    const supabase = createSupabaseRpcMock({
+      data: { status: 'email_mismatch' },
       error: null,
-      supabase: { authScope: 'customer' },
-      user: { email: 'someoneelse@example.com', id: 'user-1' },
     });
-    const { admin } = createAdminMock();
-    mockCreateAdminClient.mockReturnValue(admin);
+    mockAuthenticatedSupabase(supabase, 'someoneelse@example.com');
 
     const response = await POST(postRequest(), params);
     const body = await response.json();
@@ -264,16 +220,17 @@ describe('/api/storefront/receipts/claims/[token]', () => {
     expect(body).toEqual({
       error: 'Sign in with the email address that received this receipt link',
     });
+    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim', {
+      p_token_hash: hashReceiptClaimToken('claim-token'),
+    });
   });
 
   it('returns 409 when the claim was redeemed by a different user', async () => {
-    const { admin } = createAdminMock({
-      claim: {
-        ...baseClaim,
-        claimed_by_user_id: 'other-user',
-      },
+    const supabase = createSupabaseRpcMock({
+      data: { status: 'already_used' },
+      error: null,
     });
-    mockCreateAdminClient.mockReturnValue(admin);
+    mockAuthenticatedSupabase(supabase);
 
     const response = await POST(postRequest(), params);
     const body = await response.json();
@@ -284,9 +241,12 @@ describe('/api/storefront/receipts/claims/[token]', () => {
     });
   });
 
-  it('links the verified customer and marks the claim as redeemed', async () => {
-    const { admin, claimUpdateQuery, customerQuery } = createAdminMock();
-    mockCreateAdminClient.mockReturnValue(admin);
+  it('redeems a verified customer claim through the database RPC', async () => {
+    const supabase = createSupabaseRpcMock({
+      data: { redirectPath: '/receipts', status: 'ok' },
+      error: null,
+    });
+    mockAuthenticatedSupabase(supabase);
 
     const response = await POST(postRequest(), params);
     const body = await response.json();
@@ -296,30 +256,23 @@ describe('/api/storefront/receipts/claims/[token]', () => {
       redirectPath: '/receipts',
       success: true,
     });
-    expect(customerQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: 'user-1' })
-    );
-    expect(customerQuery.or).toHaveBeenCalledWith(
-      'user_id.is.null,user_id.eq.user-1'
-    );
-    expect(claimUpdateQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({ claimed_by_user_id: 'user-1' })
-    );
-    expect(claimUpdateQuery.eq).toHaveBeenCalledWith('id', 'claim-1');
+    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim', {
+      p_token_hash: hashReceiptClaimToken('claim-token'),
+    });
   });
 
   it('returns 500 when the customer record cannot be linked', async () => {
-    const { admin, claimUpdateQuery } = createAdminMock({
-      customerUpdateResult: null,
+    const supabase = createSupabaseRpcMock({
+      data: { status: 'customer_link_failed' },
+      error: null,
     });
-    mockCreateAdminClient.mockReturnValue(admin);
+    mockAuthenticatedSupabase(supabase);
 
     const response = await POST(postRequest(), params);
     const body = await response.json();
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Failed to redeem receipt claim' });
-    expect(claimUpdateQuery.update).not.toHaveBeenCalled();
     expect(mockConsoleError).toHaveBeenCalled();
   });
 
@@ -332,9 +285,15 @@ describe('/api/storefront/receipts/claims/[token]', () => {
       valid: false,
     });
 
+    const authSupabase = createSupabaseRpcMock({
+      data: { redirectPath: '/receipts', status: 'ok' },
+      error: null,
+    });
+    mockAuthenticatedSupabase(authSupabase);
+
     const response = await POST(postRequest(), params);
 
     expect(response.status).toBe(403);
-    expect(mockCreateAdminClient).not.toHaveBeenCalled();
+    expect(authSupabase.rpc).not.toHaveBeenCalled();
   });
 });
