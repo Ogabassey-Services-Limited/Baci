@@ -55,8 +55,10 @@ export function generateReceiptHtml(
   });
 
   const storeName =
-    merchant.legal_entity_name || merchant.business_name || merchant.email;
-  const contactEmail = merchant.support_email || merchant.email;
+    merchant.legal_entity_name || merchant.business_name || 'Store';
+  // Only the public support email belongs on a customer-facing receipt — never
+  // fall back to `merchant.email`, which is the merchant's private login address.
+  const contactEmail = merchant.support_email || null;
   const contactPhone = merchant.support_phone || merchant.phone;
 
   const addr = order.shipping_address;
