@@ -142,6 +142,33 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Resolve merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    // Admin routes require being the merchant owner, not staff
+    if (merchantContext.staffAccess.isStaff) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    // RBAC: Only platform admins can access statistics
+    const { data: adminCheck } = await supabase
+      .from('merchants')
+      .select('is_platform_admin')
+      .eq('id', merchantId)
+      .maybeSingle();
+
+    if (!adminCheck?.is_platform_admin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Get statistics per category
     const { data: stats, error: statsError } = await supabase
       .from('ai_hero_images')
