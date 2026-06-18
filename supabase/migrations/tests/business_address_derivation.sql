@@ -1,7 +1,7 @@
 -- =============================================
 -- REGRESSION TEST: business_address derivation from registered_address
 --   Validates
---   20260617000200_derive_business_address_from_registered_address.sql (PR-F).
+--   20260617000500_derive_business_address_from_registered_address.sql (PR-F).
 --
 -- USAGE:
 --   psql $DATABASE_URL -f supabase/migrations/tests/business_address_derivation.sql
