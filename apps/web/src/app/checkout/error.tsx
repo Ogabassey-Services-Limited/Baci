@@ -4,6 +4,7 @@ import { AlertTriangle, RefreshCw, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { captureClientException } from '@/lib/posthog/client-exceptions';
 
 export default function CheckoutError({
   error,
@@ -13,7 +14,10 @@ export default function CheckoutError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Log the error to an error reporting service
+    captureClientException(error, {
+      route_surface: 'checkout',
+      digest: error.digest,
+    });
     console.error('Checkout error:', error);
   }, [error]);
 

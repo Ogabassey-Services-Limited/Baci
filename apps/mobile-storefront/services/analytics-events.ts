@@ -1,3 +1,21 @@
+import {
+  ECOMMERCE_ANALYTICS_EVENTS,
+  buildCheckoutStartedProperties,
+  buildCheckoutStepCompletedProperties,
+  buildOrderCompletedProperties,
+  buildPaymentFailedProperties,
+  buildProductAddedProperties,
+  buildProductListViewedProperties,
+  buildProductRemovedProperties,
+  buildProductViewedProperties,
+  buildProductsSearchedProperties,
+  buildWishlistProductProperties,
+  compactAnalyticsProperties,
+  eventForWishlistAction,
+  type AnalyticsProperties,
+  type CheckoutStepName,
+  type WishlistAction,
+} from '@baci/shared/contracts';
 import { trackEvent } from './analytics-core';
 
 export function trackProductViewed(product: {
@@ -8,16 +26,14 @@ export function trackProductViewed(product: {
   category?: string;
   brand?: string;
   slug?: string;
+  sku?: string;
+  variant?: string;
+  imageUrl?: string;
 }): void {
-  trackEvent('Product Viewed', {
-    product_id: product.id,
-    product_name: product.name,
-    price: product.price,
-    currency: product.currency || 'NGN',
-    category: product.category,
-    brand: product.brand,
-    slug: product.slug,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.productViewed,
+    buildProductViewedProperties(product)
+  );
 }
 
 export function trackAddToCart(
@@ -28,18 +44,18 @@ export function trackAddToCart(
     quantity: number;
     currency?: string;
     category?: string;
+    brand?: string;
+    sku?: string;
+    variant?: string;
+    slug?: string;
+    imageUrl?: string;
   },
   cartValue?: number
 ): void {
-  trackEvent('Product Added', {
-    product_id: product.id,
-    product_name: product.name,
-    price: product.price,
-    quantity: product.quantity,
-    currency: product.currency || 'NGN',
-    category: product.category,
-    cart_value: cartValue,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.productAdded,
+    buildProductAddedProperties(product, cartValue)
+  );
 }
 
 export function trackRemoveFromCart(product: {
@@ -47,13 +63,16 @@ export function trackRemoveFromCart(product: {
   name: string;
   price: number;
   quantity: number;
+  currency?: string;
+  category?: string;
+  brand?: string;
+  sku?: string;
+  variant?: string;
 }): void {
-  trackEvent('Product Removed', {
-    product_id: product.id,
-    product_name: product.name,
-    price: product.price,
-    quantity: product.quantity,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.productRemoved,
+    buildProductRemovedProperties(product)
+  );
 }
 
 export function trackCheckoutStarted(checkout: {
@@ -62,22 +81,20 @@ export function trackCheckoutStarted(checkout: {
   subtotal: number;
   currency?: string;
 }): void {
-  trackEvent('Checkout Started', {
-    cart_id: checkout.cartId,
-    item_count: checkout.itemCount,
-    subtotal: checkout.subtotal,
-    currency: checkout.currency || 'NGN',
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.checkoutStarted,
+    buildCheckoutStartedProperties(checkout)
+  );
 }
 
 export function trackCheckoutStep(
-  step: 'shipping_info' | 'payment_method' | 'review',
-  properties?: Record<string, unknown>
+  step: CheckoutStepName,
+  properties?: AnalyticsProperties
 ): void {
-  trackEvent('Checkout Step Completed', {
-    step,
-    ...properties,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.checkoutStepCompleted,
+    buildCheckoutStepCompletedProperties(step, properties)
+  );
 }
 
 export function trackOrderCompleted(order: {
@@ -92,37 +109,28 @@ export function trackOrderCompleted(order: {
   paymentMethod?: string;
   couponCode?: string;
 }): void {
-  trackEvent('Order Completed', {
-    order_id: order.orderId,
-    order_number: order.orderNumber,
-    total: order.total,
-    subtotal: order.subtotal,
-    shipping: order.shipping,
-    tax: order.tax,
-    currency: order.currency || 'NGN',
-    item_count: order.itemCount,
-    payment_method: order.paymentMethod,
-    coupon_code: order.couponCode,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.orderCompleted,
+    buildOrderCompletedProperties(order)
+  );
 }
 
 export function trackPaymentFailed(reason: string, orderId?: string): void {
-  trackEvent('Payment Failed', {
-    reason,
-    order_id: orderId,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.paymentFailed,
+    buildPaymentFailedProperties(reason, orderId)
+  );
 }
 
 export function trackSearch(
   query: string,
   resultCount: number,
-  filters?: Record<string, unknown>
+  filters?: AnalyticsProperties
 ): void {
-  trackEvent('Products Searched', {
-    query,
-    result_count: resultCount,
-    filters,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.productsSearched,
+    buildProductsSearchedProperties(query, resultCount, filters)
+  );
 }
 
 export function trackCategoryViewed(
@@ -130,21 +138,24 @@ export function trackCategoryViewed(
   categorySlug: string,
   productCount?: number
 ): void {
-  trackEvent('Category Viewed', {
-    category_name: categoryName,
-    category_slug: categorySlug,
-    product_count: productCount,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.productListViewed,
+    buildProductListViewedProperties({
+      name: categoryName,
+      slug: categorySlug,
+      productCount,
+    })
+  );
 }
 
 export function trackWishlistAction(
-  action: 'added' | 'removed',
+  action: WishlistAction,
   product: { id: string; name: string }
 ): void {
-  trackEvent(`Wishlist Item ${action === 'added' ? 'Added' : 'Removed'}`, {
-    product_id: product.id,
-    product_name: product.name,
-  });
+  trackEvent(
+    eventForWishlistAction(action),
+    buildWishlistProductProperties(product)
+  );
 }
 
 export function trackShare(
@@ -152,11 +163,14 @@ export function trackShare(
   contentId: string,
   method?: string
 ): void {
-  trackEvent('Content Shared', {
-    content_type: contentType,
-    content_id: contentId,
-    share_method: method,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.contentShared,
+    compactAnalyticsProperties({
+      content_type: contentType,
+      content_id: contentId,
+      share_method: method,
+    })
+  );
 }
 
 export function trackNotificationInteraction(
@@ -164,17 +178,20 @@ export function trackNotificationInteraction(
   notificationType: string,
   notificationId?: string
 ): void {
-  trackEvent('Notification Interaction', {
-    action,
-    notification_type: notificationType,
-    notification_id: notificationId,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.notificationInteraction,
+    compactAnalyticsProperties({
+      action,
+      notification_type: notificationType,
+      notification_id: notificationId,
+    })
+  );
 }
 
 export function trackAppReviewPrompt(
   action: 'shown' | 'accepted' | 'declined' | 'later'
 ): void {
-  trackEvent('App Review Prompt', { action });
+  trackEvent(ECOMMERCE_ANALYTICS_EVENTS.appReviewPrompt, { action });
 }
 
 export function trackTiming(
@@ -183,22 +200,28 @@ export function trackTiming(
   durationMs: number,
   label?: string
 ): void {
-  trackEvent('Timing', {
-    timing_category: category,
-    timing_variable: variable,
-    timing_value: durationMs,
-    timing_label: label,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.timing,
+    compactAnalyticsProperties({
+      timing_category: category,
+      timing_variable: variable,
+      timing_value: durationMs,
+      timing_label: label,
+    })
+  );
 }
 
 export function trackError(
   errorType: string,
   errorMessage: string,
-  context?: Record<string, unknown>
+  context?: AnalyticsProperties
 ): void {
-  trackEvent('Error', {
-    error_type: errorType,
-    error_message: errorMessage,
-    ...context,
-  });
+  trackEvent(
+    ECOMMERCE_ANALYTICS_EVENTS.error,
+    compactAnalyticsProperties({
+      error_type: errorType,
+      error_message: errorMessage,
+      ...context,
+    })
+  );
 }
