@@ -1,6 +1,6 @@
 -- =============================================
 -- REGRESSION TEST: business_address legacy writers and back-fill
---   Validates 20260617000200_derive_business_address_from_registered_address.sql.
+--   Validates 20260617000500_derive_business_address_from_registered_address.sql.
 --   Run after business_address_derivation.sql. Mutates inside a transaction.
 -- =============================================
 BEGIN;
@@ -171,6 +171,47 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'OK: legacy direct business_address writes are preserved while registered_address is empty';
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4. A non-empty-but-unformattable structured address (e.g. {"country":"Nigeria"}
+--    from a partial tax save) is NOT a legacy free-text row. A direct
+--    business_address write must NOT repopulate it — business_address is DERIVED
+--    to NULL — or the mobile writer reintroduces drift while the structured
+--    address stays semantically empty.
+DO $$
+DECLARE
+  derived text;
+BEGIN
+  INSERT INTO public.merchants (id, email, business_name, slug, registered_address)
+  VALUES (
+    '8f0ed783-0000-4000-8000-0000000003f7',
+    'country-only-direct-write@example.com',
+    'Country Only Store',
+    'country-only-store',
+    jsonb_build_object('country', 'Nigeria')
+  )
+  ON CONFLICT (id) DO NOTHING;
+
+  -- The INSERT itself must derive business_address to NULL (no displayable parts).
+  SELECT business_address INTO derived
+  FROM public.merchants WHERE id = '8f0ed783-0000-4000-8000-0000000003f7';
+  IF derived IS NOT NULL THEN
+    RAISE EXCEPTION 'country-only insert left a non-null business_address: %', derived;
+  END IF;
+
+  -- A direct business_address write must be overwritten with the derived NULL.
+  UPDATE public.merchants
+  SET business_address = 'MOBILE 22 Repopulated Road, Lagos'
+  WHERE id = '8f0ed783-0000-4000-8000-0000000003f7';
+
+  SELECT business_address INTO derived
+  FROM public.merchants WHERE id = '8f0ed783-0000-4000-8000-0000000003f7';
+  IF derived IS NOT NULL THEN
+    RAISE EXCEPTION 'direct write repopulated business_address on a semantically empty structured row: %', derived;
+  END IF;
+
+  RAISE NOTICE 'OK: direct business_address writes cannot repopulate a non-empty-but-unformattable structured row';
 END;
 $$ LANGUAGE plpgsql;
 
