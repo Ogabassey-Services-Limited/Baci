@@ -97,7 +97,9 @@ describe('PostHog client config', () => {
       '/about',
       '/contact',
       '/features',
+      '/invite/invite_token_123',
       '/privacy',
+      '/staff/accept',
       '/terms',
     ]) {
       expect(
@@ -202,6 +204,48 @@ describe('PostHog client config', () => {
         first_seen_url: 'https://ogabassey.com/',
       },
     });
+  });
+
+  it('stamps capture payloads with tenant context from the current browser route', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/products/iphone',
+    });
+
+    const capture = sanitizePostHogCapture({
+      uuid: 'event-1',
+      event: '$web_vitals',
+      properties: {
+        merchant_domain: 'old-merchant.example',
+        merchant_slug: 'old-merchant',
+      },
+    });
+
+    expect(capture?.properties).toMatchObject({
+      merchant_slug: 'ogabassey',
+    });
+    expect(capture?.properties).not.toHaveProperty('merchant_domain');
+    vi.unstubAllGlobals();
+  });
+
+  it('removes stale tenant context from capture payloads on platform routes', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/staff/accept',
+    });
+
+    const capture = sanitizePostHogCapture({
+      uuid: 'event-1',
+      event: '$pageview',
+      properties: {
+        merchant_domain: 'ogabassey.com',
+        merchant_slug: 'ogabassey',
+      },
+    });
+
+    expect(capture?.properties).not.toHaveProperty('merchant_domain');
+    expect(capture?.properties).not.toHaveProperty('merchant_slug');
+    vi.unstubAllGlobals();
   });
 
   it('scrubs auto-captured exception payload values before sending', () => {

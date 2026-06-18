@@ -60,6 +60,7 @@ const PLATFORM_ROOT_ROUTE_SEGMENTS = new Set([
   'favicon.ico',
   'features',
   'feeds',
+  'invite',
   'login',
   'manifest.webmanifest',
   'onboarding',
@@ -70,11 +71,17 @@ const PLATFORM_ROOT_ROUTE_SEGMENTS = new Set([
   'robots.txt',
   'signup',
   'sitemap.xml',
+  'staff',
   'template-preview',
   'terms',
   'track',
 ]);
 const VALID_MERCHANT_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const TENANT_CONTEXT_PROPERTY_KEYS = [
+  'merchant_domain',
+  'merchant_id',
+  'merchant_slug',
+] as const;
 
 function isValidMerchantSlug(value: string): boolean {
   return (
@@ -257,9 +264,19 @@ export function sanitizePostHogCapture(
     return null;
   }
 
+  const properties = sanitizePostHogProperties(capture.properties) ?? {};
+
+  if (typeof globalThis.location !== 'undefined') {
+    for (const key of TENANT_CONTEXT_PROPERTY_KEYS) {
+      delete properties[key];
+    }
+
+    Object.assign(properties, resolvePostHogWebTenantContext());
+  }
+
   return {
     ...capture,
-    properties: sanitizePostHogProperties(capture.properties) ?? {},
+    properties,
     $set: sanitizePostHogProperties(capture.$set),
     $set_once: sanitizePostHogProperties(capture.$set_once),
   };
