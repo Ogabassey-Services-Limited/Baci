@@ -330,7 +330,10 @@ export async function submitOnboarding(
           ...(resolvedSlug ? { slug: resolvedSlug } : {}),
         })
         .eq('id', existing.id)
-        .select()
+        // Select the columns the starter generator reads downstream
+        // (brand_colors preserves the stored palette via
+        // resolveStarterBrandColors; hero_image_ids/logo_url feed the template).
+        .select('id, slug, brand_colors, hero_image_ids, logo_url')
         .single();
 
       if (updateError)
@@ -360,7 +363,10 @@ export async function submitOnboarding(
           template_id: 'puck', // Force Builder Engine for new merchants
           signup_source: 'web',
         })
-        .select()
+        // Select the columns the starter generator reads downstream
+        // (brand_colors preserves the stored palette via
+        // resolveStarterBrandColors; hero_image_ids/logo_url feed the template).
+        .select('id, slug, brand_colors, hero_image_ids, logo_url')
         .single();
 
       if (createError)
