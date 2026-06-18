@@ -41,6 +41,9 @@ export async function getPlacePredictions(
 ): Promise<PlacePrediction[]> {
   if (!input || input.length < 2) return [];
 
+  // Errors propagate to the caller (AddressAutocomplete) so it can surface a
+  // failure state — e.g. reveal a manual address fallback — instead of
+  // silently rendering an empty dropdown that looks identical to "no matches".
   const params = new URLSearchParams({ input });
   if (sessionToken) params.append('sessionToken', sessionToken);
   if (country) params.append('country', country);

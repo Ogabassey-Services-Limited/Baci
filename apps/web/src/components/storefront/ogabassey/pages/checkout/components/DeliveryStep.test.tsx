@@ -2,15 +2,25 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeliveryStep } from './DeliveryStep';
 
-// Mock AddressAutocomplete
+// Mock AddressAutocomplete. Exposes a button to simulate a Places failure so
+// the manual-fallback behaviour can be exercised without a real network call.
 vi.mock('@/components/address-autocomplete', () => ({
-  AddressAutocomplete: vi.fn(({ id, value, onChange, placeholder }) => (
-    <input
-      id={id}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-    />
+  AddressAutocomplete: vi.fn(({ id, value, onChange, placeholder, onError }) => (
+    <>
+      <input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+      <button
+        type="button"
+        data-testid="trigger-places-error"
+        onClick={() => onError?.(true)}
+      >
+        trigger places error
+      </button>
+    </>
   )),
 }));
 
@@ -105,6 +115,36 @@ describe('DeliveryStep', () => {
       expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith(
         'Lekki Phase 1',
       );
+    });
+
+    it('lets the shopper enter State and City manually as a Places fallback', () => {
+      render(<DeliveryStep {...defaultProps} />);
+
+      // Manual entry is offered when no location has been detected yet.
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /enter state.*city manually/i,
+        }),
+      );
+
+      const stateSelect = screen.getByLabelText('State');
+      fireEvent.change(stateSelect, { target: { value: 'Lagos' } });
+      expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('Lagos');
+
+      const cityInput = screen.getByLabelText(/city/i);
+      fireEvent.change(cityInput, { target: { value: 'Ikeja' } });
+      expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('Ikeja');
+    });
+
+    it('reveals manual State/City entry when address suggestions fail', () => {
+      render(<DeliveryStep {...defaultProps} />);
+
+      expect(screen.queryByLabelText('State')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('trigger-places-error'));
+
+      expect(screen.getByLabelText('State')).toBeInTheDocument();
+      expect(screen.getByLabelText(/city/i)).toBeInTheDocument();
     });
 
     it('clears inferred location and quotes when manual input no longer matches', () => {
