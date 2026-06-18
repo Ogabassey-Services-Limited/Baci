@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import type { Change } from '@/app/dashboard/products/actions';
+import { z } from 'zod';
 import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
@@ -11,6 +11,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import { ChangeSchema } from '@/schemas/dashboard-product-import-actions';
 
 export async function POST(request: NextRequest) {
   const { valid, response } = await checkCsrfProtection(request);
@@ -52,14 +53,21 @@ export async function POST(request: NextRequest) {
     const merchantCountry = merchantDetails?.country ?? null;
 
     const body = await request.json();
-    const changes: Change[] = body.changes;
 
-    if (!Array.isArray(changes)) {
+    const parseResult = z
+      .object({ changes: z.array(ChangeSchema) })
+      .safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'Invalid changes data' },
+        {
+          error: 'Invalid changes data',
+          details: parseResult.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
+
+    const changes = parseResult.data.changes;
 
     const results = {
       updated: 0,
