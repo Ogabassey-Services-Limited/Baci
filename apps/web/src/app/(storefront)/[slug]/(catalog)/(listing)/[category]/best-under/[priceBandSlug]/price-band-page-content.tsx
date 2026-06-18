@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
+import type { BreadcrumbList, ItemList } from 'schema-dts';
 import { ProductIndexCard } from '@/app/(storefront)/[slug]/(catalog)/(listing)/products/product-index-card';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import type { NormalizedProduct } from '@/lib/normalize-product';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { buildPriceBandPageSchemas } from '@/lib/storefront-compare/compare-schema';
 import { loadPriceBandPage } from '@/lib/storefront-compare/load-price-band-page';
 
@@ -79,12 +80,10 @@ export async function PriceBandPageContent({
 
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(schemas.breadcrumb)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(schemas.itemList)}
-      </script>
+      <JsonLd
+        data={schemas.breadcrumb as unknown as JsonLdData<BreadcrumbList>}
+      />
+      <JsonLd data={schemas.itemList as unknown as JsonLdData<ItemList>} />
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="space-y-3">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">

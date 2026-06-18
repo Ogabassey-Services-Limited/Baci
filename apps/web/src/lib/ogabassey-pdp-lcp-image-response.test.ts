@@ -67,6 +67,12 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     });
 
     expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockImageLoader).toHaveBeenCalledWith({
+      preferOgabasseyTransform: true,
+      quality: 30,
+      src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
+      width: 750,
+    });
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
       'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'

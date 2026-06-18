@@ -184,7 +184,7 @@ describe('ComparePageContent', () => {
     );
   });
 
-  it('renders breadcrumb and product ItemList JSON-LD scripts without FAQPage schema', async () => {
+  it('renders breadcrumb and product ItemList JSON-LD scripts while suppressing compare FAQPage markup', async () => {
     const { ComparePageContent } = await import('./compare-page-content');
 
     const { container } = render(
