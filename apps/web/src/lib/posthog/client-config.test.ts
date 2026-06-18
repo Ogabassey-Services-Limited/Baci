@@ -92,6 +92,36 @@ describe('PostHog client config', () => {
     ).toEqual({});
   });
 
+  it('does not stamp platform routes or reserved subdomains as merchants', () => {
+    for (const pathname of [
+      '/about',
+      '/contact',
+      '/features',
+      '/privacy',
+      '/terms',
+    ]) {
+      expect(
+        resolvePostHogWebTenantContext(
+          { NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com' },
+          { hostname: 'usebaci.com', pathname }
+        )
+      ).toEqual({});
+    }
+
+    for (const hostname of [
+      'app.usebaci.com',
+      'dashboard.usebaci.com',
+      'api.usebaci.com',
+    ]) {
+      expect(
+        resolvePostHogWebTenantContext(
+          { NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com' },
+          { hostname, pathname: '/checkout' }
+        )
+      ).toEqual({});
+    }
+  });
+
   it('redacts sensitive property names, emails, and URL query strings', () => {
     expect(
       sanitizePostHogProperties({

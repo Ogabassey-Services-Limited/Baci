@@ -16,6 +16,34 @@ function stripQueryAndHash(path: string): string {
   return markerIndex === -1 ? path : path.slice(0, markerIndex);
 }
 
+function getHeaderValue(
+  headers: NodeJS.Dict<string | string[]>,
+  name: string
+): string | undefined {
+  const lookupName = name.toLowerCase();
+  const value = Object.entries(headers).find(
+    ([headerName]) => headerName.toLowerCase() === lookupName
+  )?.[1];
+  const firstValue = Array.isArray(value) ? value[0] : value;
+  const normalizedValue = firstValue?.trim().toLowerCase();
+
+  return normalizedValue || undefined;
+}
+
+function getRequestTenantContext(
+  headers: NodeJS.Dict<string | string[]>
+): Record<string, string> {
+  const merchantSlug = getHeaderValue(headers, 'x-merchant-slug');
+  const merchantDomain = getHeaderValue(headers, 'x-merchant-domain');
+  const requestHost = getHeaderValue(headers, 'host');
+
+  return {
+    ...(merchantSlug ? { merchant_slug: merchantSlug } : {}),
+    ...(merchantDomain ? { merchant_domain: merchantDomain } : {}),
+    ...(requestHost ? { request_host: requestHost } : {}),
+  };
+}
+
 export async function register() {
   // Only register in server-side environments (Node.js runtime)
   if (process.env.NEXT_RUNTIME === 'nodejs') {
@@ -46,6 +74,7 @@ export const onRequestError: Instrumentation.onRequestError = async (
   await captureServerException(error, {
     request_path: stripQueryAndHash(request.path),
     request_method: request.method,
+    ...getRequestTenantContext(request.headers),
     router_kind: context.routerKind,
     route_path: context.routePath,
     route_type: context.routeType,

@@ -31,26 +31,58 @@ const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const REDACTED_VALUE = '[Filtered]';
 const QUERY_OR_HASH_PATTERN = /[?#]/;
 const EXCEPTION_LIST_PROPERTY_KEY = '$exception_list';
-const RESERVED_STORE_PATH_SEGMENTS = new Set([
+const RESERVED_WEB_TENANT_SUBDOMAINS = new Set([
+  'www',
+  'app',
+  'api',
+  'admin',
+  'dashboard',
+  'mail',
+  'smtp',
+]);
+const PLATFORM_ROOT_ROUTE_SEGMENTS = new Set([
   '',
   '_next',
+  'about',
   'admin',
   'api',
   'auth',
   'blog',
   'builder',
+  'cart',
   'checkout',
+  'contact',
   'dashboard',
+  'debug-auth',
+  'delete-account',
+  'demo',
   'developers',
   'favicon.ico',
+  'features',
+  'feeds',
   'login',
   'manifest.webmanifest',
   'onboarding',
   'pricing',
+  'privacy',
+  'products',
+  'reset-password',
   'robots.txt',
   'signup',
   'sitemap.xml',
+  'template-preview',
+  'terms',
+  'track',
 ]);
+const VALID_MERCHANT_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+
+function isValidMerchantSlug(value: string): boolean {
+  return (
+    VALID_MERCHANT_SUBDOMAIN_REGEX.test(value) &&
+    !RESERVED_WEB_TENANT_SUBDOMAINS.has(value) &&
+    !PLATFORM_ROOT_ROUTE_SEGMENTS.has(value)
+  );
+}
 
 interface BrowserLocationLike {
   hostname: string;
@@ -99,7 +131,7 @@ function isLocalOrPreviewHost(hostname: string): boolean {
 
 function getPathMerchantSlug(pathname: string): string | undefined {
   const slug = pathname.split('/').find(Boolean)?.toLowerCase();
-  if (!slug || RESERVED_STORE_PATH_SEGMENTS.has(slug)) {
+  if (!slug || !isValidMerchantSlug(slug)) {
     return undefined;
   }
 
@@ -136,7 +168,7 @@ export function resolvePostHogWebTenantContext(
 
   if (hostname.endsWith(`.${rootDomain}`)) {
     const merchantSlug = hostname.slice(0, -(rootDomain.length + 1));
-    if (merchantSlug && merchantSlug !== 'www') {
+    if (isValidMerchantSlug(merchantSlug)) {
       tenantContext.merchant_slug = merchantSlug;
       tenantContext.merchant_domain = hostname;
     }

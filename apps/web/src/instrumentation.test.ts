@@ -46,6 +46,11 @@ describe('onRequestError', () => {
     vi.stubEnv('NEXT_RUNTIME', 'nodejs');
     const error = new Error('render failed');
     const request = {
+      headers: {
+        host: 'Ogabassey.com',
+        'x-merchant-domain': 'Ogabassey.com',
+        'x-merchant-slug': 'Ogabassey',
+      },
       method: 'POST',
       path: '/checkout?email=buyer@example.com#payment',
     } as Parameters<typeof onRequestError>[1];
@@ -61,7 +66,10 @@ describe('onRequestError', () => {
 
     expect(captureServerExceptionMock).toHaveBeenCalledWith(error, {
       render_source: 'react-server-components',
+      merchant_domain: 'ogabassey.com',
+      merchant_slug: 'ogabassey',
       request_method: 'POST',
+      request_host: 'ogabassey.com',
       request_path: '/checkout',
       revalidate_reason: undefined,
       route_path: '/checkout',
@@ -75,7 +83,11 @@ describe('onRequestError', () => {
 
     await onRequestError(
       new Error('edge error'),
-      { method: 'GET', path: '/store' } as Parameters<typeof onRequestError>[1],
+      {
+        headers: {},
+        method: 'GET',
+        path: '/store',
+      } as Parameters<typeof onRequestError>[1],
       {} as Parameters<typeof onRequestError>[2]
     );
 
