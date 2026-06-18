@@ -251,9 +251,9 @@ describe('BNPLCheckoutScreen', () => {
     jest.clearAllMocks();
     jest.useRealTimers();
     mockRenderEvents = [];
-    mockRequestCameraPermissionsAsync.mockImplementation(async () => {
+    mockRequestCameraPermissionsAsync.mockImplementation(() => {
       mockRenderEvents.push('camera-permission');
-      return buildCameraPermissionResponse(true);
+      return Promise.resolve(buildCameraPermissionResponse(true));
     });
     mockSearchParams = {
       amount: '250000',
@@ -293,9 +293,7 @@ describe('BNPLCheckoutScreen', () => {
       'camera-permission',
       'webview',
     ]);
-    expect(
-      screen.getByText('media-capture:grant')
-    ).toBeTruthy();
+    expect(screen.getByText('media-capture:grant')).toBeTruthy();
   });
 
   it('skips camera permission checks for non-Credit Direct gateways', async () => {
@@ -323,13 +321,13 @@ describe('BNPLCheckoutScreen', () => {
 
   it('shows a retryable app error when Credit Direct camera permission is denied', async () => {
     mockRequestCameraPermissionsAsync
-      .mockImplementationOnce(async () => {
+      .mockImplementationOnce(() => {
         mockRenderEvents.push('camera-permission');
-        return buildCameraPermissionResponse(false);
+        return Promise.resolve(buildCameraPermissionResponse(false));
       })
-      .mockImplementationOnce(async () => {
+      .mockImplementationOnce(() => {
         mockRenderEvents.push('camera-permission');
-        return buildCameraPermissionResponse(true);
+        return Promise.resolve(buildCameraPermissionResponse(true));
       });
 
     render(<BNPLCheckoutScreen />);
@@ -346,13 +344,13 @@ describe('BNPLCheckoutScreen', () => {
     await waitFor(() =>
       expect(mockRequestCameraPermissionsAsync).toHaveBeenCalledTimes(2)
     );
-    expect(screen.getByText(/^webview:/)).toBeTruthy();
+    expect(await screen.findByText(/^webview:/)).toBeTruthy();
   });
 
   it('opens device settings when Credit Direct camera permission cannot be requested again', async () => {
-    mockRequestCameraPermissionsAsync.mockImplementationOnce(async () => {
+    mockRequestCameraPermissionsAsync.mockImplementationOnce(() => {
       mockRenderEvents.push('camera-permission');
-      return buildCameraPermissionResponse(false, false);
+      return Promise.resolve(buildCameraPermissionResponse(false, false));
     });
 
     render(<BNPLCheckoutScreen />);

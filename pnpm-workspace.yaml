@@ -57,6 +57,7 @@ packages:
 # (e.g. package matcher strings/globs as keys mapped to true/false values)
 allowBuilds:
   "@firebase/util": true
+  "@posthog/cli": true
   "@scarf/scarf": true
   core-js: true
   esbuild: true
