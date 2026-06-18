@@ -41,20 +41,15 @@ export async function getPlacePredictions(
 ): Promise<PlacePrediction[]> {
   if (!input || input.length < 2) return [];
 
-  try {
-    const params = new URLSearchParams({ input });
-    if (sessionToken) params.append('sessionToken', sessionToken);
-    if (country) params.append('country', country);
+  const params = new URLSearchParams({ input });
+  if (sessionToken) params.append('sessionToken', sessionToken);
+  if (country) params.append('country', country);
 
-    const data = await apiGet<{ predictions: PlacePrediction[] }>(
-      `/api/places/autocomplete?${params.toString()}`
-    );
+  const data = await apiGet<{ predictions: PlacePrediction[] }>(
+    `/api/places/autocomplete?${params.toString()}`
+  );
 
-    return data.predictions || [];
-  } catch (error) {
-    console.error('Failed to fetch place predictions:', error);
-    return [];
-  }
+  return data.predictions || [];
 }
 
 /**
