@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { MOBILE_APPS } from '@/config/platform';
-import { getRootDomain } from '@/env';
+import {
+  buildReceiptClaimUrl,
+  buildReceiptDeviceList,
+  createReceiptClaimToken,
+  normalizeClaimEmail,
+  type ReceiptClaimOrderForDeviceList,
+} from '@/lib/import-notifications/receipt-claim-links';
 import { escapeHtml, sanitizeUrl } from '@/lib/sanitize-core';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -14,172 +19,217 @@ interface MerchantNotificationContext {
   email: string | null;
 }
 
+interface NotificationOrderItem {
+  name: string | null;
+  quantity: number | null;
+}
 interface NotificationRecipientOrder {
+  id: string;
   customer_email: string | null;
   customer_name: string | null;
   customer_id: string | null;
   order_number: string;
   payment_status: string;
   shipping_status: string;
+  order_items?: NotificationOrderItem[] | null;
 }
-
+interface NotificationRecipient {
+  email: string;
+  customerId: string | null;
+  customerName: string | null;
+  orders: NotificationRecipientOrder[];
+}
 interface SendImportNotificationCampaignInput {
   supabase: SupabaseClient;
   importJobId: string;
   merchant: MerchantNotificationContext;
   customSettings: Record<string, unknown> | null;
 }
-
-interface DeliveryConfig {
-  accessMode: 'site' | 'app_first';
-  receiptsUrl: string;
-  playStoreUrl: string | null;
-  appStoreUrl: string | null;
-}
-
 interface SendImportNotificationCampaignResult {
   sentCount: number;
   skippedCount: number;
   failedCount: number;
 }
 
-const DEFAULT_NOTIFICATION_SOURCE: DeliveryConfig['accessMode'] = 'site';
+function groupOrdersByRecipient(orders: NotificationRecipientOrder[]) {
+  const recipientsByEmail = new Map<string, NotificationRecipient>();
 
-function buildStorefrontUrl(merchant: MerchantNotificationContext) {
-  if (merchant.custom_domain) {
-    return `https://${merchant.custom_domain.replace(/\/$/, '')}`;
+  for (const order of orders) {
+    const normalizedEmail = normalizeClaimEmail(order.customer_email);
+    if (!normalizedEmail) {
+      continue;
+    }
+
+    const existing = recipientsByEmail.get(normalizedEmail);
+    if (existing) {
+      existing.orders.push(order);
+      existing.customerId = existing.customerId || order.customer_id;
+      existing.customerName = existing.customerName || order.customer_name;
+      continue;
+    }
+
+    recipientsByEmail.set(normalizedEmail, {
+      email: normalizedEmail,
+      customerId: order.customer_id,
+      customerName: order.customer_name,
+      orders: [order],
+    });
   }
 
-  const rootDomain = getRootDomain() || 'usebaci.com';
-  return `https://${merchant.slug}.${rootDomain}`;
+  return recipientsByEmail;
 }
 
-function resolveDeliveryConfig(
-  merchant: MerchantNotificationContext,
-  customSettings: Record<string, unknown> | null
-): DeliveryConfig {
-  const migrationSettings = (customSettings?.migration_imports || {}) as Record<
-    string,
-    unknown
-  >;
-  const configuredAccessMode = migrationSettings.receipt_access_mode;
-  const accessMode =
-    configuredAccessMode === 'app_first' || configuredAccessMode === 'site'
-      ? configuredAccessMode
-      : DEFAULT_NOTIFICATION_SOURCE;
-
-  const receiptPath =
-    typeof migrationSettings.receipt_path === 'string' &&
-    migrationSettings.receipt_path.startsWith('/')
-      ? migrationSettings.receipt_path
-      : '/receipts';
-
-  const receiptsUrl = `${buildStorefrontUrl(merchant)}${receiptPath}`;
-  const appStoreUrl =
-    typeof migrationSettings.app_store_url === 'string'
-      ? migrationSettings.app_store_url
-      : MOBILE_APPS.storefront.appStoreUrl || null;
-  const playStoreUrl =
-    typeof migrationSettings.play_store_url === 'string'
-      ? migrationSettings.play_store_url
-      : MOBILE_APPS.storefront.playStoreUrl || null;
-
-  return {
-    accessMode,
-    receiptsUrl,
-    appStoreUrl,
-    playStoreUrl,
-  };
-}
-
-function buildEmailContent(
-  merchant: MerchantNotificationContext,
-  recipientName: string,
-  delivery: DeliveryConfig
-) {
+function buildEmailContent({
+  merchant,
+  recipientName,
+  claimUrl,
+  devices,
+}: {
+  merchant: MerchantNotificationContext;
+  recipientName: string;
+  claimUrl: string;
+  devices: string[];
+}) {
   const merchantName = merchant.business_name || 'Your store';
   const escapedMerchantName = escapeHtml(merchantName);
   const escapedRecipientName = escapeHtml(recipientName);
+  const escapedDevices = devices.map((device) => escapeHtml(device));
+  const sanitizedClaimUrl = sanitizeUrl(claimUrl);
   const supportContact = escapeHtml(
     merchant.support_email || merchant.email || 'the store team'
   );
-  const sanitizedReceiptsUrl = sanitizeUrl(delivery.receiptsUrl);
-  const sanitizedPlayStoreUrl = delivery.playStoreUrl
-    ? sanitizeUrl(delivery.playStoreUrl)
-    : '';
-  const sanitizedAppStoreUrl = delivery.appStoreUrl
-    ? sanitizeUrl(delivery.appStoreUrl)
-    : '';
-  const fromName =
-    merchant.email_sender_name || merchant.business_name || 'Orders';
-  const subject =
-    delivery.accessMode === 'app_first'
-      ? `${merchantName}: your updated receipt is ready`
-      : `${merchantName}: your updated order history is ready`;
-  const secondaryLinks = [
-    sanitizedPlayStoreUrl
-      ? `<a href="${sanitizedPlayStoreUrl}">Google Play</a>`
-      : '',
-    sanitizedAppStoreUrl
-      ? `<a href="${sanitizedAppStoreUrl}">App Store</a>`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
-
-  const actionCopy =
-    delivery.accessMode === 'app_first'
-      ? `Open the ${merchantName} app to view your updated receipt or invoice. If the app is not installed, this link will open the website.`
-      : 'Sign in to view your imported order history and download your updated receipt or invoice.';
-
-  const htmlContent = `
-    <div style="font-family: system-ui, -apple-system, sans-serif; color: #111827; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 24px;">
-      <p>Hello ${escapedRecipientName},</p>
-      <p>${escapedMerchantName} has moved your previous order history into a new account experience.</p>
-      <p>${escapeHtml(actionCopy)}</p>
-      <p style="margin: 24px 0;">
-        <a href="${sanitizedReceiptsUrl}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px;">
-          View My Orders
-        </a>
-      </p>
-      ${secondaryLinks ? `<p>Download options: ${secondaryLinks}</p>` : ''}
-      <p>If you need help, reply to this email or contact ${supportContact}.</p>
-    </div>
-  `;
-
-  const textContent = [
-    `Hello ${recipientName},`,
-    '',
-    `${merchantName} has moved your previous order history into a new account experience.`,
-    actionCopy,
-    '',
-    `View your orders: ${sanitizedReceiptsUrl || delivery.receiptsUrl}`,
-    secondaryLinks
-      ? `Download options: ${secondaryLinks.replace(/<[^>]+>/g, '')}`
-      : '',
-    `Need help? Contact ${merchant.support_email || merchant.email || 'the store team'}.`,
-  ]
-    .filter(Boolean)
+  const deviceItemsHtml = escapedDevices
+    .map((device) => `<li>${device}</li>`)
+    .join('');
+  const textDevices = devices
+    .map((device, index) => `${index + 1}. ${device}`)
     .join('\n');
 
   return {
-    fromName,
-    subject,
-    htmlContent,
-    textContent,
+    fromName: merchant.email_sender_name || merchant.business_name || 'Orders',
+    subject: 'Your Receipt Has Changed.',
+    htmlContent: `
+      <div style="font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #15161f; line-height: 1.6; max-width: 640px; margin: 0 auto; padding: 28px; background: #fff7f7;">
+        <div style="background: #ffffff; border: 1px solid #f0d7d7; border-radius: 14px; padding: 28px;">
+          <p style="margin: 0 0 16px;">Hello ${escapedRecipientName},</p>
+          <p style="margin: 0 0 16px;">${escapedMerchantName} has moved your receipt for the following device(s) to the mobile app.</p>
+          <ol style="margin: 0 0 20px; padding-left: 22px;">${deviceItemsHtml}</ol>
+          <p style="margin: 0 0 24px;">This is to ensure you can access your receipt at any time directly from the app.</p>
+          <p style="margin: 0 0 24px;">
+            <a href="${sanitizedClaimUrl}" style="display: inline-block; background: #e11d2e; color: #ffffff; font-weight: 700; text-decoration: none; padding: 13px 20px; border-radius: 10px;">
+              View your receipt
+            </a>
+          </p>
+          <p style="margin: 0; color: #5f6375; font-size: 14px;">If you are on mobile and have the app installed, this link opens the app. On desktop, it opens the secure web claim page.</p>
+          <p style="margin: 18px 0 0; color: #5f6375; font-size: 14px;">If you need help, reply to this email or contact ${supportContact}.</p>
+        </div>
+      </div>
+    `,
+    textContent: [
+      `Hello ${recipientName},`,
+      '',
+      `${merchantName} has moved your receipt for the following device(s) to the mobile app.`,
+      textDevices,
+      '',
+      'This is to ensure you can access your receipt at any time directly from the app.',
+      '',
+      `View your receipt: ${sanitizedClaimUrl}`,
+      '',
+      `Need help? Contact ${merchant.support_email || merchant.email || 'the store team'}.`,
+    ].join('\n'),
   };
+}
+
+async function createClaimLinkForRecipient({
+  supabase,
+  importJobId,
+  merchant,
+  recipient,
+}: {
+  supabase: SupabaseClient;
+  importJobId: string;
+  merchant: MerchantNotificationContext;
+  recipient: NotificationRecipient;
+}) {
+  if (!recipient.customerId) {
+    return null;
+  }
+
+  const normalizedEmail = normalizeClaimEmail(recipient.email);
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const { data: existingClaim, error: existingClaimError } = await supabase
+    .from('receipt_claims')
+    .select('id')
+    .eq('import_job_id', importJobId)
+    .eq('customer_email_normalized', normalizedEmail)
+    .maybeSingle();
+
+  if (existingClaimError) {
+    throw new Error(
+      `Failed to check existing receipt claim: ${existingClaimError.message}`
+    );
+  }
+
+  if (existingClaim) {
+    return null;
+  }
+
+  const claimToken = createReceiptClaimToken();
+  const { data: claim, error: claimError } = await supabase
+    .from('receipt_claims')
+    .insert({
+      merchant_id: merchant.id,
+      import_job_id: importJobId,
+      customer_id: recipient.customerId,
+      customer_email: recipient.email,
+      customer_name: recipient.customerName,
+      token_hash: claimToken.tokenHash,
+      expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      claimed_at: null,
+      claimed_by_user_id: null,
+    })
+    .select('id')
+    .single();
+
+  if (claimError || !claim) {
+    throw new Error(`Failed to create receipt claim: ${claimError?.message}`);
+  }
+
+  const claimOrderRows = recipient.orders.map((order) => ({
+    receipt_claim_id: claim.id,
+    order_id: order.id,
+  }));
+
+  if (claimOrderRows.length > 0) {
+    const { error: claimOrdersError } = await supabase
+      .from('receipt_claim_orders')
+      .upsert(claimOrderRows, { onConflict: 'receipt_claim_id,order_id' });
+
+    if (claimOrdersError) {
+      throw new Error(
+        `Failed to attach receipt claim orders: ${claimOrdersError.message}`
+      );
+    }
+  }
+
+  return buildReceiptClaimUrl({
+    merchant,
+    token: claimToken.token,
+  });
 }
 
 export async function sendImportNotificationCampaign({
   supabase,
   importJobId,
   merchant,
-  customSettings,
 }: SendImportNotificationCampaignInput): Promise<SendImportNotificationCampaignResult> {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'customer_id, customer_email, customer_name, order_number, payment_status, shipping_status'
+      'id, customer_id, customer_email, customer_name, order_number, payment_status, shipping_status, order_items(name, quantity)'
     )
     .eq('merchant_id', merchant.id)
     .eq('import_job_id', importJobId)
@@ -191,36 +241,40 @@ export async function sendImportNotificationCampaign({
     );
   }
 
-  const deliveryConfig = resolveDeliveryConfig(merchant, customSettings);
-  const recipientsByEmail = new Map<string, NotificationRecipientOrder>();
-
-  for (const order of (data || []) as NotificationRecipientOrder[]) {
-    if (!order.customer_email || recipientsByEmail.has(order.customer_email)) {
-      continue;
-    }
-
-    recipientsByEmail.set(order.customer_email, order);
-  }
+  const recipientsByEmail = groupOrdersByRecipient(
+    (data || []) as NotificationRecipientOrder[]
+  );
 
   let sentCount = 0;
   let skippedCount = 0;
   let failedCount = 0;
 
-  for (const [email, order] of recipientsByEmail.entries()) {
-    if (!order.customer_id) {
+  for (const recipient of recipientsByEmail.values()) {
+    const claimUrl = await createClaimLinkForRecipient({
+      supabase,
+      importJobId,
+      merchant,
+      recipient,
+    });
+
+    if (!claimUrl) {
       skippedCount += 1;
       continue;
     }
 
-    const content = buildEmailContent(
-      merchant,
-      order.customer_name || 'there',
-      deliveryConfig
+    const devices = buildReceiptDeviceList(
+      recipient.orders as ReceiptClaimOrderForDeviceList[]
     );
+    const content = buildEmailContent({
+      merchant,
+      recipientName: recipient.customerName || 'there',
+      claimUrl,
+      devices,
+    });
 
     const result = await sendEmail({
-      to: email,
-      toName: order.customer_name || undefined,
+      to: recipient.email,
+      toName: recipient.customerName || undefined,
       subject: content.subject,
       htmlContent: content.htmlContent,
       textContent: content.textContent,

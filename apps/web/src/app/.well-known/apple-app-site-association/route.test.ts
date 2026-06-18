@@ -56,6 +56,15 @@ describe('GET /.well-known/apple-app-site-association', () => {
     expect(detail).not.toHaveProperty('paths');
   });
 
+  it('advertises receipt claim universal links for the storefront app', async () => {
+    const res = GET(makeRequest('ogabassey.com'));
+    const body = await res.json();
+
+    expect(body.applinks.details[0].components).toContainEqual({
+      '/': '/receipts/claim/*',
+    });
+  });
+
   it('returns empty details for unknown merchant domain', async () => {
     const res = GET(makeRequest('somemerchant.com'));
     const body = await res.json();

@@ -62,6 +62,7 @@ export const MOBILE_APPS = {
       '/category/*',
       '/cart',
       '/receipts',
+      '/receipts/claim/*',
       '/account',
       '/account/*',
       '/',

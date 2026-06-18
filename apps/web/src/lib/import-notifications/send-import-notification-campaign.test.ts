@@ -9,6 +9,22 @@ vi.mock('@/lib/zeptomail', () => ({
   sendEmail: vi.fn(),
 }));
 
+vi.mock('@/lib/import-notifications/receipt-claim-links', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/import-notifications/receipt-claim-links')
+  >('@/lib/import-notifications/receipt-claim-links');
+
+  return {
+    ...actual,
+    createReceiptClaimToken: vi.fn(() => ({
+      token: 'claim-token',
+      tokenHash:
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    })),
+  };
+});
+
+import { createReceiptClaimToken } from '@/lib/import-notifications/receipt-claim-links';
 import { sendImportNotificationCampaign } from '@/lib/import-notifications/send-import-notification-campaign';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -27,9 +43,95 @@ function createOrdersQueryMock(response: {
   return query;
 }
 
-function createSupabaseMock(response: { data: unknown; error: Error | null }) {
+function createExistingClaimQueryMock(response: {
+  data?: { id: string } | null;
+  error?: Error | null;
+}) {
+  const query = {
+    eq: vi.fn(),
+    maybeSingle: vi.fn(),
+    select: vi.fn(),
+  };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.maybeSingle.mockResolvedValue({
+    data: response.data ?? null,
+    error: response.error ?? null,
+  });
+  return query;
+}
+
+function createClaimInsertQueryMock(response: {
+  data?: { id: string } | null;
+  error?: Error | null;
+}) {
+  const query = {
+    insert: vi.fn(),
+    select: vi.fn(),
+    single: vi.fn(),
+  };
+  query.insert.mockReturnValue(query);
+  query.select.mockReturnValue(query);
+  query.single.mockResolvedValue({
+    data: response.data ?? { id: 'claim-1' },
+    error: response.error ?? null,
+  });
+  return query;
+}
+
+function createClaimOrdersQueryMock(response: { error?: Error | null } = {}) {
+  const query = {
+    upsert: vi.fn(),
+  };
+  query.upsert.mockResolvedValue({ error: response.error ?? null });
+  return query;
+}
+
+function createSupabaseMock(
+  response: { data: unknown; error: Error | null },
+  options: {
+    existingClaimResponse?: {
+      data?: { id: string } | null;
+      error?: Error | null;
+    };
+    claimResponse?: { data?: { id: string } | null; error?: Error | null };
+    claimOrdersResponse?: { error?: Error | null };
+  } = {}
+) {
+  const ordersQuery = createOrdersQueryMock(response);
+  const existingClaimQuery = createExistingClaimQueryMock(
+    options.existingClaimResponse ?? {}
+  );
+  const claimInsertQuery = createClaimInsertQueryMock(
+    options.claimResponse ?? {}
+  );
+  const claimOrdersQuery = createClaimOrdersQueryMock(
+    options.claimOrdersResponse ?? {}
+  );
+  let receiptClaimsCallCount = 0;
+
   return {
-    from: vi.fn().mockReturnValue(createOrdersQueryMock(response)),
+    from: vi.fn((table: string) => {
+      if (table === 'orders') {
+        return ordersQuery;
+      }
+      if (table === 'receipt_claims') {
+        receiptClaimsCallCount += 1;
+        return receiptClaimsCallCount === 1
+          ? existingClaimQuery
+          : claimInsertQuery;
+      }
+      if (table === 'receipt_claim_orders') {
+        return claimOrdersQuery;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    }),
+    testQueries: {
+      claimInsertQuery,
+      claimOrdersQuery,
+      existingClaimQuery,
+      ordersQuery,
+    },
   } as unknown as SupabaseClient;
 }
 
@@ -38,32 +140,48 @@ describe('sendImportNotificationCampaign', () => {
     vi.clearAllMocks();
   });
 
-  it('deduplicates recipients by email, skips unclaimable customers, and uses configured app-first copy', async () => {
+  it('creates receipt claim links, groups devices by email, and sends receipt-changed copy', async () => {
     const supabase = createSupabaseMock({
       data: [
         {
+          id: 'order-1',
           customer_id: 'customer-1',
           customer_email: 'ada@example.com',
           customer_name: 'Ada',
           order_number: 'ORD-1',
           payment_status: 'paid',
           shipping_status: 'delivered',
+          order_items: [
+            {
+              name: 'iPhone 16 Pro Max',
+              quantity: 1,
+            },
+          ],
         },
         {
+          id: 'order-2',
           customer_id: 'customer-1',
           customer_email: 'ada@example.com',
           customer_name: 'Ada',
           order_number: 'ORD-2',
           payment_status: 'paid',
           shipping_status: 'delivered',
+          order_items: [
+            {
+              name: 'AirPods Pro',
+              quantity: 2,
+            },
+          ],
         },
         {
+          id: 'order-3',
           customer_id: null,
           customer_email: 'skip@example.com',
           customer_name: 'Skip',
           order_number: 'ORD-3',
           payment_status: 'paid',
           shipping_status: 'delivered',
+          order_items: [],
         },
       ],
       error: null,
@@ -98,32 +216,103 @@ describe('sendImportNotificationCampaign', () => {
       skippedCount: 1,
       failedCount: 0,
     });
+    expect(createReceiptClaimToken).toHaveBeenCalledTimes(1);
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimInsertQuery: {
+              insert: ReturnType<typeof vi.fn>;
+            };
+            existingClaimQuery: {
+              eq: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.existingClaimQuery.eq
+    ).toHaveBeenCalledWith('customer_email_normalized', 'ada@example.com');
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimInsertQuery: {
+              insert: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimInsertQuery.insert
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_email: 'ada@example.com',
+        customer_id: 'customer-1',
+        import_job_id: 'job-1',
+        merchant_id: 'merchant-1',
+        token_hash:
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      })
+    );
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimOrdersQuery: {
+              upsert: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimOrdersQuery.upsert
+    ).toHaveBeenCalledWith(
+      [
+        { order_id: 'order-1', receipt_claim_id: 'claim-1' },
+        { order_id: 'order-2', receipt_claim_id: 'claim-1' },
+      ],
+      { onConflict: 'receipt_claim_id,order_id' }
+    );
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        subject: 'Ogabassey: your updated receipt is ready',
-        htmlContent: expect.stringContaining('Open the Ogabassey app'),
+        subject: 'Your Receipt Has Changed.',
+        htmlContent: expect.stringContaining('Hello Ada,'),
       })
     );
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         htmlContent: expect.stringContaining(
-          'https://ogabassey.usebaci.com/receipts'
+          'Ogabassey has moved your receipt for the following device(s) to the mobile app'
+        ),
+      })
+    );
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        htmlContent: expect.stringContaining('iPhone 16 Pro Max'),
+      })
+    );
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        htmlContent: expect.stringContaining('2 x AirPods Pro'),
+      })
+    );
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        htmlContent: expect.stringContaining(
+          'https://ogabassey.usebaci.com/receipts/claim/claim-token'
         ),
       })
     );
   });
 
-  it('respects a site-first custom delivery override', async () => {
+  it('uses the merchant custom domain for claim links', async () => {
     const supabase = createSupabaseMock({
       data: [
         {
+          id: 'order-1',
           customer_id: 'customer-1',
           customer_email: 'ada@example.com',
           customer_name: 'Ada',
           order_number: 'ORD-1',
           payment_status: 'paid',
           shipping_status: 'delivered',
+          order_items: [{ name: 'Pixel 9', quantity: 1 }],
         },
       ],
       error: null,
@@ -155,24 +344,97 @@ describe('sendImportNotificationCampaign', () => {
 
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        subject: 'Future Merchant: your updated order history is ready',
+        subject: 'Your Receipt Has Changed.',
         htmlContent: expect.stringContaining(
-          'https://futuremerchant.com/receipts'
+          'https://futuremerchant.com/receipts/claim/claim-token'
         ),
       })
     );
+  });
+
+  it('does not rotate token hashes for existing receipt claims', async () => {
+    const supabase = createSupabaseMock(
+      {
+        data: [
+          {
+            id: 'order-1',
+            customer_id: 'customer-1',
+            customer_email: 'ada@example.com',
+            customer_name: 'Ada',
+            order_number: 'ORD-1',
+            payment_status: 'paid',
+            shipping_status: 'delivered',
+            order_items: [{ name: 'Pixel 9', quantity: 1 }],
+          },
+        ],
+        error: null,
+      },
+      {
+        existingClaimResponse: { data: { id: 'existing-claim' } },
+      }
+    );
+
+    const result = await sendImportNotificationCampaign({
+      supabase,
+      importJobId: 'job-existing',
+      merchant: {
+        id: 'merchant-existing',
+        slug: 'ogabassey',
+        business_name: 'Ogabassey',
+        custom_domain: null,
+        support_email: null,
+        email_sender_name: null,
+        email: 'hello@ogabassey.com',
+      },
+      customSettings: null,
+    });
+
+    expect(result).toEqual({
+      failedCount: 0,
+      sentCount: 0,
+      skippedCount: 1,
+    });
+    expect(createReceiptClaimToken).not.toHaveBeenCalled();
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimInsertQuery: {
+              insert: ReturnType<typeof vi.fn>;
+            };
+            claimOrdersQuery: {
+              upsert: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimInsertQuery.insert
+    ).not.toHaveBeenCalled();
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimOrdersQuery: {
+              upsert: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimOrdersQuery.upsert
+    ).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it('sanitizes merchant-provided content before building html email content', async () => {
     const supabase = createSupabaseMock({
       data: [
         {
+          id: 'order-1',
           customer_id: 'customer-1',
           customer_email: 'ada@example.com',
           customer_name: '<Ada>',
           order_number: 'ORD-1',
           payment_status: 'paid',
           shipping_status: 'delivered',
+          order_items: [{ name: '<Device>', quantity: 1 }],
         },
       ],
       error: null,
@@ -205,13 +467,13 @@ describe('sendImportNotificationCampaign', () => {
 
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        htmlContent: expect.not.stringContaining('javascript:alert(1)'),
+        htmlContent: expect.not.stringContaining('<Device>'),
       })
     );
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         htmlContent: expect.not.stringContaining(
-          '<Merchant Six> has moved your previous order history'
+          '<Merchant Six> has moved your receipt'
         ),
       })
     );
@@ -251,12 +513,14 @@ describe('sendImportNotificationCampaign', () => {
     const supabase = createSupabaseMock({
       data: [
         {
+          id: 'order-1',
           customer_id: 'customer-1',
           customer_email: 'ada@example.com',
           customer_name: 'Ada',
           order_number: 'ORD-1',
           payment_status: 'paid',
           shipping_status: 'delivered',
+          order_items: [{ name: 'Pixel 9', quantity: 1 }],
         },
       ],
       error: null,

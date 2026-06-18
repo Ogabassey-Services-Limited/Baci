@@ -1,0 +1,104 @@
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/env', () => ({
+  getRootDomain: vi.fn(() => 'usebaci.com'),
+}));
+
+import {
+  buildReceiptClaimUrl,
+  buildReceiptDeviceList,
+  createReceiptClaimToken,
+  hashReceiptClaimToken,
+  normalizeClaimEmail,
+} from './receipt-claim-links';
+
+describe('receipt claim links', () => {
+  it('creates a URL-safe token and stores only a deterministic hash', () => {
+    const bytes = new Uint8Array(32);
+    bytes.fill(7);
+
+    const claimToken = createReceiptClaimToken({ bytes });
+
+    expect(claimToken.token).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(claimToken.token).not.toBe(claimToken.tokenHash);
+    expect(claimToken.tokenHash).toBe(hashReceiptClaimToken(claimToken.token));
+    expect(claimToken.tokenHash).toHaveLength(64);
+  });
+
+  it('builds custom-domain and subdomain receipt claim links', () => {
+    expect(
+      buildReceiptClaimUrl({
+        merchant: {
+          slug: 'ogabassey',
+          custom_domain: 'ogabassey.com/',
+        },
+        token: 'token_123',
+      })
+    ).toBe('https://ogabassey.com/receipts/claim/token_123');
+
+    expect(
+      buildReceiptClaimUrl({
+        merchant: {
+          slug: 'future-merchant',
+          custom_domain: null,
+        },
+        token: 'token_abc',
+      })
+    ).toBe('https://future-merchant.usebaci.com/receipts/claim/token_abc');
+  });
+
+  it('normalizes claim emails for grouping and idempotency', () => {
+    expect(normalizeClaimEmail('  BasseyBJohn@Yahoo.CO.UK  ')).toBe(
+      'basseybjohn@yahoo.co.uk'
+    );
+    expect(normalizeClaimEmail(null)).toBeNull();
+    expect(normalizeClaimEmail(undefined)).toBeNull();
+    expect(normalizeClaimEmail('')).toBeNull();
+    expect(normalizeClaimEmail('   ')).toBeNull();
+  });
+
+  it('extracts readable device names from imported orders', () => {
+    expect(
+      buildReceiptDeviceList([
+        {
+          order_number: '06485',
+          order_items: [
+            { name: 'iPhone 16 Pro Max', quantity: 2 },
+            { name: 'USB-C Charger', quantity: 1 },
+          ],
+        },
+        {
+          order_number: '06484',
+          order_items: [{ name: 'iPhone 16 Pro Max', quantity: 1 }],
+        },
+        {
+          order_number: '06483',
+          order_items: [],
+        },
+      ])
+    ).toEqual([
+      '2 x iPhone 16 Pro Max',
+      'USB-C Charger',
+      'iPhone 16 Pro Max',
+      'Receipt 06483',
+    ]);
+  });
+
+  it('caps long device lists with an overflow summary', () => {
+    const devices = buildReceiptDeviceList(
+      Array.from({ length: 12 }, (_, index) => ({
+        order_number: `ORD-${index + 1}`,
+        order_items: [{ name: `Device ${index + 1}`, quantity: 1 }],
+      })),
+      4
+    );
+
+    expect(devices).toEqual([
+      'Device 1',
+      'Device 2',
+      'Device 3',
+      'Device 4',
+      'and 8 more receipts',
+    ]);
+  });
+});

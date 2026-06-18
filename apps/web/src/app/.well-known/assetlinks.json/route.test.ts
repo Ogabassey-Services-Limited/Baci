@@ -58,6 +58,17 @@ describe('GET /.well-known/assetlinks.json', () => {
     );
   });
 
+  it('advertises receipt claim app links for the storefront app', async () => {
+    const res = GET(makeRequest('ogabassey.com'));
+    const body = await res.json();
+
+    const components =
+      body[0].relation_extensions['delegate_permission/common.handle_all_urls']
+        .dynamic_app_link_components;
+
+    expect(components).toContainEqual({ '/': '/receipts/claim/*' });
+  });
+
   it('returns empty array for unknown merchant domain', async () => {
     const res = GET(makeRequest('somemerchant.com'));
     const body = await res.json();
