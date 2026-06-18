@@ -1,3 +1,5 @@
+'use client';
+
 import { initializePostHogBrowser } from '@/lib/posthog/browser';
 import type { PostHogEnv } from '@/lib/posthog/config';
 
@@ -11,4 +13,10 @@ const postHogBrowserEnv = {
   NODE_ENV: process.env.NODE_ENV,
 } satisfies PostHogEnv;
 
-initializePostHogBrowser(postHogBrowserEnv);
+if (typeof window !== 'undefined') {
+  initializePostHogBrowser(postHogBrowserEnv);
+}
+
+export function PostHogClientBootstrap() {
+  return null;
+}
