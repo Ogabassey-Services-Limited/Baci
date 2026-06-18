@@ -4,6 +4,7 @@ import {
   getPostHogUiHost,
   type PostHogEnv,
 } from '@/lib/posthog/config';
+import { sanitizePostHogExceptionText } from '@/lib/posthog/exception-text';
 
 const SENSITIVE_PROPERTY_TOKENS = new Set([
   'password',
@@ -29,6 +30,32 @@ const AUTOCAPTURE_TEXT_PROPERTY_PATTERN =
 const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const REDACTED_VALUE = '[Filtered]';
 const QUERY_OR_HASH_PATTERN = /[?#]/;
+const EXCEPTION_LIST_PROPERTY_KEY = '$exception_list';
+const RESERVED_STORE_PATH_SEGMENTS = new Set([
+  '',
+  '_next',
+  'admin',
+  'api',
+  'auth',
+  'blog',
+  'builder',
+  'checkout',
+  'dashboard',
+  'developers',
+  'favicon.ico',
+  'login',
+  'manifest.webmanifest',
+  'onboarding',
+  'pricing',
+  'robots.txt',
+  'signup',
+  'sitemap.xml',
+]);
+
+interface BrowserLocationLike {
+  hostname: string;
+  pathname: string;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -47,7 +74,108 @@ function isSensitivePropertyKey(key: string): boolean {
     .some((token) => SENSITIVE_PROPERTY_TOKENS.has(token));
 }
 
+function normalizeHostname(hostname: string): string {
+  return (
+    hostname
+      .trim()
+      .toLowerCase()
+      .replace(/^www\./, '')
+      .split(':')[0] ?? ''
+  );
+}
+
+function normalizeRootDomain(env: PostHogEnv): string {
+  return normalizeHostname(env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com');
+}
+
+function isLocalOrPreviewHost(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.vercel.app')
+  );
+}
+
+function getPathMerchantSlug(pathname: string): string | undefined {
+  const slug = pathname.split('/').find(Boolean)?.toLowerCase();
+  if (!slug || RESERVED_STORE_PATH_SEGMENTS.has(slug)) {
+    return undefined;
+  }
+
+  return slug;
+}
+
+export function resolvePostHogWebTenantContext(
+  env: PostHogEnv = process.env,
+  location: BrowserLocationLike | undefined = typeof globalThis.location ===
+  'undefined'
+    ? undefined
+    : globalThis.location
+): Properties {
+  if (!location) {
+    return {};
+  }
+
+  const hostname = normalizeHostname(location.hostname);
+  if (!hostname || isLocalOrPreviewHost(hostname)) {
+    return {};
+  }
+
+  const rootDomain = normalizeRootDomain(env);
+  const tenantContext: Properties = {};
+
+  if (hostname === rootDomain) {
+    const merchantSlug = getPathMerchantSlug(location.pathname);
+    if (merchantSlug) {
+      tenantContext.merchant_slug = merchantSlug;
+    }
+
+    return tenantContext;
+  }
+
+  if (hostname.endsWith(`.${rootDomain}`)) {
+    const merchantSlug = hostname.slice(0, -(rootDomain.length + 1));
+    if (merchantSlug && merchantSlug !== 'www') {
+      tenantContext.merchant_slug = merchantSlug;
+      tenantContext.merchant_domain = hostname;
+    }
+
+    return tenantContext;
+  }
+
+  tenantContext.merchant_domain = hostname;
+  return tenantContext;
+}
+
+function sanitizeExceptionListValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return sanitizePostHogExceptionText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeExceptionListValue(item));
+  }
+
+  if (isRecord(value)) {
+    const sanitized = Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => [
+        entryKey,
+        sanitizeExceptionListValue(entryValue),
+      ])
+    );
+
+    return sanitizePostHogProperties(sanitized);
+  }
+
+  return value;
+}
+
 function sanitizePropertyValue(key: string, value: unknown): unknown {
+  if (key === EXCEPTION_LIST_PROPERTY_KEY) {
+    return sanitizeExceptionListValue(value);
+  }
+
   if (AUTOCAPTURE_TEXT_PROPERTY_PATTERN.test(key)) {
     return REDACTED_VALUE;
   }
@@ -161,6 +289,7 @@ export function buildPostHogClientConfig(
         app_surface: 'web',
         deployment_environment:
           env.NEXT_PUBLIC_VERCEL_ENV || env.NODE_ENV || 'development',
+        ...resolvePostHogWebTenantContext(env),
       });
     },
   };

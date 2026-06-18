@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizePostHogException } from './exception-sanitizer';
+import { sanitizePostHogException } from '@/lib/posthog/exception-sanitizer';
 
 const REDACTED_VALUE = '[Filtered]';
 

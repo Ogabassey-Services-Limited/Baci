@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildPostHogClientConfig,
+  resolvePostHogWebTenantContext,
   sanitizePostHogCapture,
   sanitizePostHogProperties,
 } from './client-config';
@@ -44,11 +45,16 @@ describe('PostHog client config', () => {
     );
   });
 
-  it('registers stable app context after PostHog loads', () => {
+  it('registers stable app and tenant context after PostHog loads', () => {
     const config = buildPostHogClientConfig({
       NODE_ENV: 'production',
+      NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com',
     });
     const register = vi.fn();
+    vi.stubGlobal('location', {
+      hostname: 'ogabassey.usebaci.com',
+      pathname: '/products/iphone',
+    });
 
     config.loaded?.({
       register,
@@ -57,7 +63,33 @@ describe('PostHog client config', () => {
     expect(register).toHaveBeenCalledWith({
       app_surface: 'web',
       deployment_environment: 'production',
+      merchant_domain: 'ogabassey.usebaci.com',
+      merchant_slug: 'ogabassey',
     });
+    vi.unstubAllGlobals();
+  });
+
+  it('derives merchant context from storefront URL shapes', () => {
+    expect(
+      resolvePostHogWebTenantContext(
+        { NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com' },
+        { hostname: 'usebaci.com', pathname: '/ogabassey/products/iphone' }
+      )
+    ).toEqual({ merchant_slug: 'ogabassey' });
+
+    expect(
+      resolvePostHogWebTenantContext(
+        { NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com' },
+        { hostname: 'ogabassey.com', pathname: '/products/iphone' }
+      )
+    ).toEqual({ merchant_domain: 'ogabassey.com' });
+
+    expect(
+      resolvePostHogWebTenantContext(
+        { NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com' },
+        { hostname: 'usebaci.com', pathname: '/dashboard' }
+      )
+    ).toEqual({});
   });
 
   it('redacts sensitive property names, emails, and URL query strings', () => {
@@ -138,6 +170,50 @@ describe('PostHog client config', () => {
       },
       $set_once: {
         first_seen_url: 'https://ogabassey.com/',
+      },
+    });
+  });
+
+  it('scrubs auto-captured exception payload values before sending', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $exception_list: [
+            {
+              type: 'Error',
+              value:
+                'checkout failed at https://ogabassey.com/order-success?trackingToken=track_secret&reference=ref_1234567 for buyer@example.com',
+              stacktrace: {
+                frames: [
+                  {
+                    filename:
+                      'https://ogabassey.com/_next/static/chunk.js?token=raw_secret',
+                    context_line: 'reference=ref_1234567',
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      })
+    ).toMatchObject({
+      properties: {
+        $exception_list: [
+          {
+            value:
+              'checkout failed at https://ogabassey.com/order-success for [Filtered]',
+            stacktrace: {
+              frames: [
+                {
+                  filename: 'https://ogabassey.com/_next/static/chunk.js',
+                  context_line: 'reference=[Filtered]',
+                },
+              ],
+            },
+          },
+        ],
       },
     });
   });
