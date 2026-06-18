@@ -765,8 +765,8 @@ async function initializePaystack(
   console.log(
     '[PaymentInit] Paystack Phone Debug:',
     sanitizeForLog({
-      original: data.customer_phone,
-      formatted: customerPhone,
+      original_phone: data.customer_phone,
+      formatted_phone: customerPhone,
       type: typeof customerPhone,
     })
   );
@@ -897,7 +897,7 @@ export async function POST(request: NextRequest) {
     const body = await request.clone().json();
     console.log(
       '[PaymentInit] Raw Request Body:',
-      JSON.stringify(sanitizeForLog(body), null, 2)
+      JSON.stringify(sanitizeForLog(structuredClone(body)), null, 2)
     );
 
     const parseResult = PaymentInitRequestSchema.safeParse(body);
