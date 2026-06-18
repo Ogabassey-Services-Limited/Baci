@@ -155,6 +155,25 @@ describe('searchStorefrontProducts', () => {
     expect(result.didYouMean).toBe('iphone');
   });
 
+  it('degrades to no suggestion when the suggestion lookup fails', async () => {
+    mockSupabase.rpc
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'suggestion rpc exploded' },
+      });
+
+    const result = await searchStorefrontProducts({
+      supabase: mockSupabase as never,
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      query: 'iphon',
+      limit: 20,
+    });
+
+    expect(result.didYouMean).toBeNull();
+    expect(result.productIds).toEqual([]);
+  });
+
   it('passes optional filter and pagination arguments to search_products_v2', async () => {
     mockSupabase.rpc.mockResolvedValueOnce({
       data: [{ product_id: 'prod-1', total_count: 1 }],

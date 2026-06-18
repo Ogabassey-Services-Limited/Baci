@@ -262,16 +262,16 @@ export async function searchStorefrontProducts({
     );
 
     if (suggestionError) {
-      logger.error({
-        message: 'Search suggestion lookup failed',
+      // "Did you mean" is strictly additive — a failed suggestion lookup must
+      // not turn a (valid) zero-results search into a 500. Degrade to no
+      // suggestion instead of throwing.
+      logger.warn({
+        message: 'Search suggestion lookup failed; returning no suggestion',
         error: suggestionError.message,
         merchantId,
         query: sanitizedQuery,
       });
-      throw suggestionError;
-    }
-
-    if (Array.isArray(suggestion) && suggestion.length > 0) {
+    } else if (Array.isArray(suggestion) && suggestion.length > 0) {
       didYouMean =
         (suggestion[0] as { suggested_term?: string }).suggested_term ?? null;
     }

@@ -252,13 +252,6 @@ export async function SearchPageContent({
               </p>
             </div>
           )}
-
-          {searchResult.didYouMean && searchResult.products.length === 0 && (
-            <p className="mt-4 text-sm text-store-background-text/55">
-              Try searching for{' '}
-              <span className="font-medium">{searchResult.didYouMean}</span>.
-            </p>
-          )}
         </div>
       </div>
     </>

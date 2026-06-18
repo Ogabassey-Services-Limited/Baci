@@ -380,9 +380,10 @@ describe('SearchPageContent', () => {
     expect(
       screen.getByRole('heading', { name: /No products found/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Try searching for/i, { selector: 'p' })
-    ).toBeInTheDocument();
+    // Single did-you-mean affordance: the clickable suggestion link (no
+    // duplicate plain-text "Try searching for" paragraph).
+    expect(screen.getByRole('link', { name: /iphone/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Try searching for/i)).not.toBeInTheDocument();
     expect(
       screen.getByText(/We could not find any products matching “iphon”/i)
     ).toBeInTheDocument();

@@ -296,4 +296,60 @@ describe('getStorefrontAutocompleteProducts', () => {
       null,
     ]);
   });
+
+  it('resolves object-format image urls for suggestions', async () => {
+    searchStorefrontProducts.mockResolvedValueOnce({
+      count: 2,
+      didYouMean: null,
+      productIds: ['obj', 'str'],
+      query: 'iphone',
+    });
+    const imageQuery = {
+      select: vi.fn(() => imageQuery),
+      in: vi.fn(() => imageQuery),
+      eq: vi.fn(() => imageQuery),
+      // biome-ignore lint/suspicious/noThenProperty: thenable mock mirrors Supabase query builders
+      then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
+        Promise.resolve({
+          data: [
+            {
+              id: 'obj',
+              name: 'Object Image Phone',
+              category: 'Smartphones',
+              price: 500_000,
+              images: [
+                { url: 'https://cdn.example.com/obj.jpg', alt: '', order: 0 },
+              ],
+              slug: 'object-image-phone',
+            },
+            {
+              id: 'str',
+              name: 'String Image Phone',
+              category: 'Smartphones',
+              price: 400_000,
+              images: ['https://cdn.example.com/str.jpg'],
+              slug: 'string-image-phone',
+            },
+          ],
+          error: null,
+        }).then(resolve),
+    };
+    const imageSupabase = {
+      rpc: vi.fn(),
+      from: vi.fn(() => imageQuery),
+    };
+
+    const result = await getStorefrontAutocompleteProducts({
+      supabase: imageSupabase as never,
+      merchantId: VALID_MERCHANT_ID,
+      query: 'iphone',
+      limit: 10,
+    });
+
+    const imageById = new Map(
+      result.suggestions.map((product) => [product.id, product.image_small])
+    );
+    expect(imageById.get('obj')).toBe('https://cdn.example.com/obj.jpg');
+    expect(imageById.get('str')).toBe('https://cdn.example.com/str.jpg');
+  });
 });

@@ -1,3 +1,4 @@
+import { getPrimaryProductImage } from './product-image';
 import type { StorefrontSearchSupabase } from './storefront-search';
 import { searchStorefrontProducts } from './storefront-search';
 
@@ -46,12 +47,11 @@ export interface AutocompleteResponse {
 }
 
 function getImageSmall(images: unknown): string | null {
-  if (!Array.isArray(images)) {
-    return null;
-  }
-
-  const [firstImage] = images;
-  return typeof firstImage === 'string' ? firstImage : null;
+  // Catalog images may be plain string URLs or `{ url, alt, order }` objects;
+  // reuse the shared resolver so autocomplete thumbnails match the storefront.
+  return getPrimaryProductImage(
+    images as Array<string | { url?: string | null }> | null | undefined
+  );
 }
 
 export async function getStorefrontAutocompleteProducts({
