@@ -28,3 +28,6 @@
 ## 2025-06-12 - [Strict typing for dynamic Expo module imports]
 **Learning:** [When using dynamic imports for native Expo modules (like `expo-device` and `expo-notifications`) to prevent evaluation-time crashes in web or specific environments, variables storing the modules should not be typed as `any`. They can be strictly typed using `typeof import('module') | null`.]
 **Action:** [Use `typeof import('expo-module-name') | null` for dynamically loaded native modules, and ensure subsequent module method calls use `if (!Module) return;` to prevent runtime `TypeError` crashes.]
+## 2026-06-18 — [Replace any in storefront components]
+**Learning:** Hardcoded props and mismatched data property maps were causing incorrect type structures which led to runtime issues with 'any'. Using 'Partial<MerchantData>' resolves the 'any' while forcing correct internal structures.
+**Action:** Always verify property names in existing typings against data accessors before mapping them. Use Partial<T> where T is defined but data might be incomplete.

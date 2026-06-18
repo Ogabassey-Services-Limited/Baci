@@ -1,3 +1,4 @@
+import type { MerchantData } from "@/hooks/merchant/types";
 'use client';
 
 import {
@@ -48,7 +49,7 @@ const values = [
 
 // Define props interface if not imported (but we can use any for now or import)
 interface AboutProps {
-  merchant?: any;
+  merchant?: Partial<MerchantData>;
 }
 
 export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
@@ -66,7 +67,7 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
   // Use content from merchant data or fallback to defaults
   const headline = aboutPage.headline || `Making Tech Accessible & Affordable`;
   const story = aboutPage.story || legacyContent || `Your premier destination for high-quality new and pre-owned gadgets. Bridging the digital divide, one device at a time.`;
-  const location = merchant?.address || 'Lagos, Nigeria';
+  const location = merchant?.business_address || 'Lagos, Nigeria';
 
   return (
     <div className="min-h-screen bg-white pb-20">

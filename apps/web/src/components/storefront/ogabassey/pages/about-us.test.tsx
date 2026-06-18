@@ -40,7 +40,7 @@ describe('OgabasseyV2AboutUs', () => {
   describe('with full merchant data', () => {
     const merchant = {
       business_name: 'TechHub Africa',
-      address: 'Abuja, Nigeria',
+      business_address: 'Abuja, Nigeria',
       about_page: {
         headline: 'Empowering the Continent',
         story: '<p>We started in 2019 with a mission to make gadgets affordable.</p>',
@@ -68,7 +68,7 @@ describe('OgabasseyV2AboutUs', () => {
       );
     });
 
-    it('renders location from merchant address', () => {
+    it('renders location from merchant business_address', () => {
       render(<OgabasseyV2AboutUs merchant={merchant} />);
 
       expect(screen.getByText('Abuja, Nigeria')).toBeInTheDocument();
@@ -107,7 +107,7 @@ describe('OgabasseyV2AboutUs', () => {
       expect(safeHtmlNode.textContent).toContain('premier destination');
     });
 
-    it('uses the default location when no address is provided', () => {
+    it('uses the default location when no business_address is provided', () => {
       render(<OgabasseyV2AboutUs />);
 
       expect(screen.getByText('Lagos, Nigeria')).toBeInTheDocument();

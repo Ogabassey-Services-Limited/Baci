@@ -1,3 +1,4 @@
+import type { MerchantData } from "@/hooks/merchant/types";
 'use client';
 
 import {
@@ -14,13 +15,13 @@ import { SafeHtml } from '@/components/ui/safe-html';
 
 // Define props
 interface PrivacyProps {
-  merchant?: any;
+  merchant?: Partial<MerchantData>;
 }
 
 export const OgabasseyV2PrivacyPolicy: React.FC<PrivacyProps> = ({ merchant }) => {
   const businessName = merchant?.business_name || 'Ogabassey Limited';
   const email = merchant?.email || 'support@ogabassey.com';
-  const address = merchant?.address || 'Lagos, Nigeria';
+  const address = merchant?.business_address || 'Lagos, Nigeria';
   const customContent = merchant?.pages?.privacy;
 
   const sections = [
