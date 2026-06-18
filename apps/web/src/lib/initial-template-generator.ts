@@ -9,15 +9,12 @@ import {
 } from '@/lib/initial-template-profiles';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { ThemeConfiguration } from '@/lib/theme-config';
+import type { BrandColors } from '@/types';
 
 interface TemplateParams {
   businessName: string;
   businessType: string;
-  brandColors: {
-    primary: string;
-    background: string;
-    accent: string;
-  };
+  brandColors: BrandColors;
   merchant: Record<string, unknown>;
 }
 
@@ -190,11 +187,9 @@ export async function generateHeroSlides(
 /**
  * Derive a complete theme configuration from brand colors
  */
-export function deriveThemeFromColors(brandColors: {
-  primary: string;
-  background: string;
-  accent: string;
-}): ThemeConfiguration {
+export function deriveThemeFromColors(
+  brandColors: BrandColors
+): ThemeConfiguration {
   // Helper to get contrasting text color (simplified)
   const getContrastColor = (bgColor: string): string => {
     // Simple heuristic - in production, use proper color contrast calculation
@@ -222,7 +217,7 @@ export function deriveThemeFromColors(brandColors: {
     colors: {
       // Base colors
       primary: brandColors.primary,
-      secondary: darken(brandColors.primary, 20),
+      secondary: brandColors.secondary ?? darken(brandColors.primary, 20),
       accent: brandColors.accent,
       background: brandColors.background,
       foreground: '#000000',
