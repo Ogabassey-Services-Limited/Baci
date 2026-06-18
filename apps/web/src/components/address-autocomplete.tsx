@@ -223,6 +223,7 @@ export function AddressAutocomplete({
     setPredictions([]);
     setIsOpen(false);
     setIsLoading(false);
+    onError?.(false);
     if (onChange) {
       // Create a synthetic event to clear the parent form
       const event = {

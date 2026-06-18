@@ -257,7 +257,7 @@ export function DeliveryStep({
                       onError={(failed) => setPlacesFailed(failed)}
                       placeholder="Start typing your address..."
                       country="NG"
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus-visible:ring-0 focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus-visible:ring-0 focus:border-store-primary text-sm text-gray-900 placeholder:text-gray-400"
                     />
                     {isHydrated && hasDetectedLocation && (
                       <p className="text-xs text-green-600 flex items-center gap-1">
