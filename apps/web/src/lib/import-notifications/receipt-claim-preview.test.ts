@@ -135,4 +135,15 @@ describe('receipt claim preview', () => {
       loadReceiptClaimPreview({ supabase, token: 'claim-token' })
     ).rejects.toThrow('Failed to load receipt claim');
   });
+
+  it('throws when the preview RPC returns malformed claim data', async () => {
+    const supabase = createSupabaseRpcMock({
+      data: { id: 'claim-1' },
+      error: null,
+    });
+
+    await expect(
+      loadReceiptClaimPreview({ supabase, token: 'claim-token' })
+    ).rejects.toThrow('invalid response structure');
+  });
 });

@@ -43,8 +43,14 @@ function createOrdersQueryMock(response: {
   return query;
 }
 
+interface ExistingClaimTestRow {
+  claimed_at?: string | null;
+  id: string;
+  notification_sent_at?: string | null;
+}
+
 function createExistingClaimQueryMock(response: {
-  data?: { id: string } | null;
+  data?: ExistingClaimTestRow | null;
   error?: Error | null;
 }) {
   const query = {
@@ -97,16 +103,27 @@ function createClaimDeleteQueryMock(response: { error?: Error | null } = {}) {
   return query;
 }
 
+function createClaimUpdateQueryMock(response: { error?: Error | null } = {}) {
+  const query = {
+    eq: vi.fn(),
+    update: vi.fn(),
+  };
+  query.update.mockReturnValue(query);
+  query.eq.mockResolvedValue({ error: response.error ?? null });
+  return query;
+}
+
 function createSupabaseMock(
   response: { data: unknown; error: Error | null },
   options: {
     existingClaimResponse?: {
-      data?: { id: string } | null;
+      data?: ExistingClaimTestRow | null;
       error?: Error | null;
     };
     claimResponse?: { data?: { id: string } | null; error?: Error | null };
     claimOrdersResponse?: { error?: Error | null };
     claimDeleteResponse?: { error?: Error | null };
+    claimUpdateResponse?: { error?: Error | null };
   } = {}
 ) {
   const ordersQuery = createOrdersQueryMock(response);
@@ -122,7 +139,15 @@ function createSupabaseMock(
   const claimDeleteQuery = createClaimDeleteQueryMock(
     options.claimDeleteResponse ?? {}
   );
-  let receiptClaimsCallCount = 0;
+  const claimUpdateQuery = createClaimUpdateQueryMock(
+    options.claimUpdateResponse ?? {}
+  );
+  const receiptClaimsTable = {
+    delete: claimDeleteQuery.delete,
+    insert: claimInsertQuery.insert,
+    select: existingClaimQuery.select,
+    update: claimUpdateQuery.update,
+  };
 
   return {
     from: vi.fn((table: string) => {
@@ -130,14 +155,7 @@ function createSupabaseMock(
         return ordersQuery;
       }
       if (table === 'receipt_claims') {
-        receiptClaimsCallCount += 1;
-        if (receiptClaimsCallCount === 1) {
-          return existingClaimQuery;
-        }
-        if (receiptClaimsCallCount === 2) {
-          return claimInsertQuery;
-        }
-        return claimDeleteQuery;
+        return receiptClaimsTable;
       }
       if (table === 'receipt_claim_orders') {
         return claimOrdersQuery;
@@ -148,6 +166,7 @@ function createSupabaseMock(
       claimDeleteQuery,
       claimInsertQuery,
       claimOrdersQuery,
+      claimUpdateQuery,
       existingClaimQuery,
       ordersQuery,
     },
@@ -395,7 +414,7 @@ describe('sendImportNotificationCampaign', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('does not rotate token hashes for existing receipt claims', async () => {
+  it('skips existing receipt claims that were already notified', async () => {
     const supabase = createSupabaseMock(
       {
         data: [
@@ -413,7 +432,13 @@ describe('sendImportNotificationCampaign', () => {
         error: null,
       },
       {
-        existingClaimResponse: { data: { id: 'existing-claim' } },
+        existingClaimResponse: {
+          data: {
+            claimed_at: null,
+            id: 'existing-claim',
+            notification_sent_at: '2026-06-18T10:00:00.000Z',
+          },
+        },
       }
     );
 
@@ -468,6 +493,78 @@ describe('sendImportNotificationCampaign', () => {
       ).testQueries.claimOrdersQuery.upsert
     ).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('rotates unnotified existing receipt claims before sending a fresh link', async () => {
+    const supabase = createSupabaseMock(
+      {
+        data: [
+          {
+            id: 'order-1',
+            customer_id: 'customer-1',
+            customer_email: 'ada@example.com',
+            customer_name: 'Ada',
+            order_number: 'ORD-1',
+            payment_status: 'paid',
+            shipping_status: 'delivered',
+            order_items: [{ name: 'Pixel 9', quantity: 1 }],
+          },
+        ],
+        error: null,
+      },
+      {
+        existingClaimResponse: {
+          data: {
+            claimed_at: null,
+            id: 'existing-claim',
+            notification_sent_at: null,
+          },
+        },
+      }
+    );
+
+    vi.mocked(sendEmail).mockResolvedValue({
+      success: true,
+      messageId: 'msg-rotated',
+    });
+
+    const result = await sendImportNotificationCampaign({
+      supabase,
+      importJobId: 'job-existing',
+      merchant: {
+        id: 'merchant-existing',
+        slug: 'ogabassey',
+        business_name: 'Ogabassey',
+        custom_domain: null,
+        support_email: null,
+        email_sender_name: null,
+        email: 'hello@ogabassey.com',
+      },
+      customSettings: {
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+        },
+      },
+    });
+
+    expect(result).toEqual({
+      failedCount: 0,
+      sentCount: 1,
+      skippedCount: 0,
+    });
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimDeleteQuery: {
+              eq: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimDeleteQuery.eq
+    ).toHaveBeenCalledWith('id', 'existing-claim');
+    expect(createReceiptClaimToken).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 
   it('sanitizes merchant-provided content before building html email content', async () => {
@@ -626,6 +723,94 @@ describe('sendImportNotificationCampaign', () => {
         }
       ).testQueries.claimDeleteQuery.eq
     ).toHaveBeenCalledWith('id', 'claim-1');
+  });
+
+  it('continues sending later recipients when one send throws', async () => {
+    const supabase = createSupabaseMock({
+      data: [
+        {
+          id: 'order-1',
+          customer_id: 'customer-1',
+          customer_email: 'ada@example.com',
+          customer_name: 'Ada',
+          order_number: 'ORD-1',
+          payment_status: 'paid',
+          shipping_status: 'delivered',
+          order_items: [{ name: 'Pixel 9', quantity: 1 }],
+        },
+        {
+          id: 'order-2',
+          customer_id: 'customer-2',
+          customer_email: 'bola@example.com',
+          customer_name: 'Bola',
+          order_number: 'ORD-2',
+          payment_status: 'paid',
+          shipping_status: 'delivered',
+          order_items: [{ name: 'iPhone 16 Pro Max', quantity: 1 }],
+        },
+      ],
+      error: null,
+    });
+
+    vi.mocked(sendEmail)
+      .mockRejectedValueOnce(new Error('provider unavailable'))
+      .mockResolvedValueOnce({
+        success: true,
+        messageId: 'msg-2',
+      });
+
+    const result = await sendImportNotificationCampaign({
+      supabase,
+      importJobId: 'job-throw',
+      merchant: {
+        id: 'merchant-throw',
+        slug: 'ogabassey',
+        business_name: 'Ogabassey',
+        custom_domain: null,
+        support_email: null,
+        email_sender_name: null,
+        email: 'hello@ogabassey.com',
+      },
+      customSettings: {
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+        },
+      },
+    });
+
+    expect(result).toEqual({
+      failedCount: 1,
+      sentCount: 1,
+      skippedCount: 0,
+    });
+    expect(sendEmail).toHaveBeenCalledTimes(2);
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimDeleteQuery: {
+              delete: ReturnType<typeof vi.fn>;
+            };
+            claimUpdateQuery: {
+              update: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimDeleteQuery.delete
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimUpdateQuery: {
+              update: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimUpdateQuery.update
+    ).toHaveBeenCalledWith({
+      notification_sent_at: expect.any(String),
+    });
   });
 
   it('deletes the just-created claim when attaching orders fails', async () => {

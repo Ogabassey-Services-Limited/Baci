@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.receipt_claims (
   expires_at timestamp with time zone DEFAULT (now() + interval '90 days') NOT NULL,
   claimed_at timestamp with time zone,
   claimed_by_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  notification_sent_at timestamp with time zone,
   last_viewed_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -38,6 +39,9 @@ CREATE INDEX IF NOT EXISTS idx_receipt_claims_claimed_by_user_id
 
 CREATE INDEX IF NOT EXISTS idx_receipt_claims_merchant_job
   ON public.receipt_claims (merchant_id, import_job_id);
+
+CREATE INDEX IF NOT EXISTS idx_receipt_claims_import_job_id
+  ON public.receipt_claims (import_job_id);
 
 CREATE INDEX IF NOT EXISTS idx_receipt_claims_expires_at
   ON public.receipt_claims (expires_at)

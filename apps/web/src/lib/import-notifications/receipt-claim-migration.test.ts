@@ -16,6 +16,9 @@ describe('receipt claim migration', () => {
       /CREATE TABLE IF NOT EXISTS public\.receipt_claims/i
     );
     expect(migrationSql).toMatch(/token_hash text NOT NULL/i);
+    expect(migrationSql).toMatch(
+      /notification_sent_at timestamp with time zone/i
+    );
     expect(migrationSql).not.toMatch(/\btoken text\b/i);
     expect(migrationSql).toMatch(
       /CREATE TABLE IF NOT EXISTS public\.receipt_claim_orders/i
@@ -59,6 +62,9 @@ describe('receipt claim migration', () => {
     );
     expect(migrationSql).toMatch(
       /CREATE INDEX IF NOT EXISTS idx_receipt_claims_claimed_by_user_id[\s\S]*WHERE claimed_by_user_id IS NOT NULL/i
+    );
+    expect(migrationSql).toMatch(
+      /CREATE INDEX IF NOT EXISTS idx_receipt_claims_import_job_id[\s\S]*ON public\.receipt_claims \(import_job_id\)/i
     );
     expect(migrationSql).toMatch(
       /CREATE INDEX IF NOT EXISTS idx_receipt_claims_expires_at[\s\S]*WHERE claimed_at IS NULL/i

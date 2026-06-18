@@ -5,35 +5,10 @@ import {
   type ReceiptClaimOrderForDeviceList,
 } from '@/lib/import-notifications/receipt-claim-links';
 import { receiptClaimRouteParamsSchema } from '@/schemas/receipt-claim-route-params';
-
-interface ClaimMerchant {
-  business_name: string | null;
-  slug: string | null;
-}
-
-interface ClaimOrderItem {
-  name: string | null;
-  quantity: number | null;
-}
-
-interface ClaimOrder {
-  id: string;
-  order_items?: ClaimOrderItem[] | null;
-  order_number: string;
-}
-
-interface ReceiptClaimRecord {
-  claimed_at: string | null;
-  claimed_by_user_id: string | null;
-  customer_email: string;
-  customer_id: string;
-  customer_name: string | null;
-  expires_at: string;
-  id: string;
-  merchant_id: string;
-  merchant?: ClaimMerchant | null;
-  orders?: ClaimOrder[] | null;
-}
+import {
+  type ReceiptClaimRecord,
+  receiptClaimRecordSchema,
+} from '@/schemas/receipt-claim-rpc';
 
 export interface ReceiptClaimPreview {
   claimed: boolean;
@@ -83,11 +58,16 @@ export async function loadReceiptClaimPreview({
     throw new Error(`Failed to load receipt claim: ${error.message}`);
   }
 
-  const claim = (data || null) as ReceiptClaimRecord | null;
-
-  if (!claim) {
+  if (!data) {
     return { error: 'Receipt claim link not found', ok: false, status: 404 };
   }
+
+  const parsedClaim = receiptClaimRecordSchema.safeParse(data);
+  if (!parsedClaim.success) {
+    throw new Error('Failed to load receipt claim: invalid response structure');
+  }
+
+  const claim = parsedClaim.data;
 
   if (isExpired(claim.expires_at)) {
     return { error: 'Receipt claim link has expired', ok: false, status: 410 };

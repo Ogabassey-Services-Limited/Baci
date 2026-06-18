@@ -193,6 +193,21 @@ describe('/api/storefront/receipts/claims/[token]', () => {
     expect(mockConsoleError).toHaveBeenCalled();
   });
 
+  it('returns a generic 500 when preview RPC data is malformed', async () => {
+    const supabase = createSupabaseRpcMock({
+      data: { id: 'claim-1' },
+      error: null,
+    });
+    mockCreateClient.mockResolvedValue(supabase);
+
+    const response = await GET(getRequest(), params);
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to load receipt claim' });
+    expect(mockConsoleError).toHaveBeenCalled();
+  });
+
   it('requires authentication before redeeming a claim', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: 'Not authenticated',
@@ -264,6 +279,21 @@ describe('/api/storefront/receipts/claims/[token]', () => {
   it('returns 500 when the customer record cannot be linked', async () => {
     const supabase = createSupabaseRpcMock({
       data: { status: 'customer_link_failed' },
+      error: null,
+    });
+    mockAuthenticatedSupabase(supabase);
+
+    const response = await POST(postRequest(), params);
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to redeem receipt claim' });
+    expect(mockConsoleError).toHaveBeenCalled();
+  });
+
+  it('returns 500 when redemption RPC data is malformed', async () => {
+    const supabase = createSupabaseRpcMock({
+      data: { status: 'unknown_status' },
       error: null,
     });
     mockAuthenticatedSupabase(supabase);

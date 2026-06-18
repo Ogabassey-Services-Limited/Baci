@@ -15,6 +15,10 @@ describe('receipt claim page utils', () => {
 
   it('joins optional storefront base paths', () => {
     expect(joinBasePath('/ogabassey', '/receipts')).toBe('/ogabassey/receipts');
+    expect(joinBasePath('/ogabassey/', '/receipts')).toBe(
+      '/ogabassey/receipts'
+    );
+    expect(joinBasePath('/ogabassey', 'receipts')).toBe('/ogabassey/receipts');
     expect(joinBasePath(undefined, '/receipts')).toBe('/receipts');
   });
 

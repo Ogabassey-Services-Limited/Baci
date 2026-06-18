@@ -5,6 +5,10 @@ import {
   resolveReceiptNotificationDelivery,
 } from '@/lib/import-notifications/import-notification-email-content';
 import {
+  deleteReceiptClaim,
+  markReceiptClaimNotificationSent,
+} from '@/lib/import-notifications/receipt-claim-delivery-state';
+import {
   buildReceiptClaimUrl,
   buildReceiptDeviceList,
   createReceiptClaimToken,
@@ -47,6 +51,11 @@ interface SendImportNotificationCampaignResult {
 interface CreatedReceiptClaimLink {
   claimId: string;
   claimUrl: string;
+}
+interface ExistingReceiptClaim {
+  claimed_at: string | null;
+  id: string;
+  notification_sent_at: string | null;
 }
 
 function groupOrdersByRecipient(orders: NotificationRecipientOrder[]) {
@@ -99,7 +108,7 @@ async function createClaimLinkForRecipient({
 
   const { data: existingClaim, error: existingClaimError } = await supabase
     .from('receipt_claims')
-    .select('id')
+    .select('id, claimed_at, notification_sent_at')
     .eq('import_job_id', importJobId)
     .eq('customer_email_normalized', normalizedEmail)
     .maybeSingle();
@@ -111,9 +120,12 @@ async function createClaimLinkForRecipient({
   }
 
   if (existingClaim) {
-    // TODO: Existing rows do not store the raw token, so failed-send retries
-    // need explicit delivery state before they can safely resend claim links.
-    return null;
+    const claim = existingClaim as ExistingReceiptClaim;
+    if (claim.notification_sent_at || claim.claimed_at) {
+      return null;
+    }
+
+    await deleteReceiptClaim({ claimId: claim.id, supabase });
   }
 
   const claimToken = createReceiptClaimToken();
@@ -164,23 +176,6 @@ async function createClaimLinkForRecipient({
       token: claimToken.token,
     }),
   };
-}
-
-async function deleteReceiptClaim({
-  supabase,
-  claimId,
-}: {
-  supabase: SupabaseClient;
-  claimId: string;
-}) {
-  const { error } = await supabase
-    .from('receipt_claims')
-    .delete()
-    .eq('id', claimId);
-
-  if (error) {
-    throw new Error(`Failed to delete unsent receipt claim: ${error.message}`);
-  }
 }
 
 export async function sendImportNotificationCampaign({
@@ -247,24 +242,35 @@ export async function sendImportNotificationCampaign({
       devices,
     });
 
-    const result = await sendEmail({
-      to: recipient.email,
-      toName: recipient.customerName || undefined,
-      subject: content.subject,
-      htmlContent: content.htmlContent,
-      textContent: content.textContent,
-      replyTo: merchant.support_email || merchant.email || undefined,
-      emailType: 'orders',
-      fromName: content.fromName,
-    }).catch(async (error: unknown) => {
+    let result: Awaited<ReturnType<typeof sendEmail>>;
+    try {
+      result = await sendEmail({
+        to: recipient.email,
+        toName: recipient.customerName || undefined,
+        subject: content.subject,
+        htmlContent: content.htmlContent,
+        textContent: content.textContent,
+        replyTo: merchant.support_email || merchant.email || undefined,
+        emailType: 'orders',
+        fromName: content.fromName,
+      });
+    } catch {
       if (createdClaim) {
         await deleteReceiptClaim({ claimId: createdClaim.claimId, supabase });
       }
 
-      throw error;
-    });
+      failedCount += 1;
+      continue;
+    }
 
     if (result.success) {
+      if (createdClaim) {
+        await markReceiptClaimNotificationSent({
+          claimId: createdClaim.claimId,
+          supabase,
+        });
+      }
+
       sentCount += 1;
       continue;
     }

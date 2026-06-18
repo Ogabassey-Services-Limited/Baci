@@ -5,21 +5,10 @@ import { hashReceiptClaimToken } from '@/lib/import-notifications/receipt-claim-
 import { loadReceiptClaimPreview } from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
 import { receiptClaimRouteParamsSchema } from '@/schemas/receipt-claim-route-params';
+import { redeemReceiptClaimResultSchema } from '@/schemas/receipt-claim-rpc';
 
 interface RouteContext {
   params: Promise<{ token: string }>;
-}
-
-interface RedeemReceiptClaimResult {
-  redirectPath?: string;
-  status?:
-    | 'already_used'
-    | 'customer_link_failed'
-    | 'email_mismatch'
-    | 'expired'
-    | 'not_found'
-    | 'ok'
-    | 'unauthorized';
 }
 
 async function parseToken(context: RouteContext) {
@@ -97,9 +86,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw new Error(`Failed to redeem receipt claim: ${error.message}`);
     }
 
-    const result = (data || null) as RedeemReceiptClaimResult | null;
+    if (!data) {
+      return NextResponse.json(
+        { error: 'Receipt claim link not found' },
+        { status: 404 }
+      );
+    }
 
-    if (!result || result.status === 'not_found') {
+    const parsedResult = redeemReceiptClaimResultSchema.safeParse(data);
+    if (!parsedResult.success) {
+      throw new Error(
+        'Failed to redeem receipt claim: invalid response structure'
+      );
+    }
+
+    const result = parsedResult.data;
+
+    if (result.status === 'not_found') {
       return NextResponse.json(
         { error: 'Receipt claim link not found' },
         { status: 404 }

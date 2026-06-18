@@ -90,6 +90,45 @@ describe('import notification email content', () => {
     expect(content.htmlContent).not.toContain('Pixel 9');
   });
 
+  it('falls back to storefront receipts when custom settings are missing', () => {
+    expect(resolveReceiptNotificationDelivery(merchant, null)).toEqual(
+      expect.objectContaining({
+        accessMode: 'site',
+        receiptsUrl: 'https://ogabassey.usebaci.com/receipts',
+      })
+    );
+  });
+
+  it('falls back for invalid access mode and receipt path settings', () => {
+    expect(
+      resolveReceiptNotificationDelivery(merchant, {
+        migration_imports: {
+          receipt_access_mode: 'native_only',
+          receipt_path: 'javascript:alert(1)',
+        },
+      })
+    ).toEqual(
+      expect.objectContaining({
+        accessMode: 'site',
+        receiptsUrl: 'https://ogabassey.usebaci.com/receipts',
+      })
+    );
+  });
+
+  it('uses default app links when configured app links are missing', () => {
+    const delivery = resolveReceiptNotificationDelivery(merchant, {
+      migration_imports: {
+        app_store_url: 42,
+        play_store_url: false,
+        receipt_access_mode: 'app_first',
+      },
+    });
+
+    expect(delivery.accessMode).toBe('app_first');
+    expect(delivery.appStoreUrl).not.toBe('42');
+    expect(delivery.playStoreUrl).not.toBe('false');
+  });
+
   it('sanitizes unsafe merchant, recipient, device, and URL content', () => {
     const delivery = resolveReceiptNotificationDelivery(
       {

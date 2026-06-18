@@ -25,7 +25,10 @@ export function getParamValue(value: string | string[] | undefined) {
 }
 
 export function joinBasePath(basePath: string | undefined, path: string) {
-  return `${basePath || ''}${path}`;
+  const normalizedBasePath = (basePath || '').replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  return `${normalizedBasePath}${normalizedPath}`;
 }
 
 export function createDeviceListItems(devices: string[]) {
