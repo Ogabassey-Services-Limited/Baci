@@ -25,13 +25,22 @@ export interface PlaceDetails {
 }
 
 interface AddressAutocompleteProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onSelect'> {
+  extends Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    'onSelect' | 'onError'
+  > {
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement> | string) => void;
   onSelect?: (place: PlaceDetails) => void;
   useThemedInput?: boolean;
   showIcon?: boolean;
   country?: string;
+  /**
+   * Called with `true` when a prediction request fails (network/API error,
+   * e.g. Google Places quota exhausted) and `false` once a request succeeds.
+   * Lets callers offer a manual fallback instead of a silently empty dropdown.
+   */
+  onError?: (failed: boolean) => void;
 }
 
 function initSession(
@@ -48,15 +57,19 @@ async function loadPredictions(
   country: string | undefined,
   setPredictions: (predictions: PlacePrediction[]) => void,
   setIsLoading: (loading: boolean) => void,
-  shouldApplyResult: () => boolean
+  shouldApplyResult: () => boolean,
+  onError?: (failed: boolean) => void
 ): Promise<void> {
   try {
     const results = await getPlacePredictions(query, sessionToken, country);
     if (!shouldApplyResult()) return;
     setPredictions(results);
+    onError?.(false);
   } catch (error) {
     if (!shouldApplyResult()) return;
     console.error('Error fetching predictions:', error);
+    setPredictions([]);
+    onError?.(true);
   } finally {
     if (shouldApplyResult()) {
       setIsLoading(false);
@@ -111,6 +124,7 @@ export function AddressAutocomplete({
   useThemedInput = false,
   showIcon = false,
   country,
+  onError,
   className,
   ...props
 }: AddressAutocompleteProps) {
@@ -182,6 +196,7 @@ export function AddressAutocomplete({
       predictionRequestId.current += 1;
       setPredictions([]);
       setIsLoading(false);
+      onError?.(false);
       return;
     }
 
@@ -195,7 +210,8 @@ export function AddressAutocomplete({
         country,
         setPredictions,
         setIsLoading,
-        () => predictionRequestId.current === currentRequestId
+        () => predictionRequestId.current === currentRequestId,
+        onError
       );
     }, 300);
   };

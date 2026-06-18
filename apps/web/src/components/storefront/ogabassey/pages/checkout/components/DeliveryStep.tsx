@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Check, ChevronRight, Plane, Truck, Building2 } from 'lucide-react';
 import {
   isAirportDeliveryEligible,
@@ -104,6 +105,17 @@ export function DeliveryStep({
   lastName,
   customerEmail,
 }: DeliveryStepProps) {
+  // Manual State/City fallback so checkout can proceed even when Google Places
+  // is unavailable (e.g. quota exhausted) or can't resolve the typed address.
+  const [manualLocationOpen, setManualLocationOpen] = useState(false);
+  const [placesFailed, setPlacesFailed] = useState(false);
+
+  const hasDetectedLocation = Boolean(newAddressState && newAddressCity);
+  const manualLocationInUse = manualLocationOpen || placesFailed;
+  const showManualLocation =
+    manualLocationOpen || (placesFailed && !hasDetectedLocation);
+  const showManualToggle = !showManualLocation && !hasDetectedLocation;
+
   return (
     <>
       {/* Step 2: Delivery Method */}
@@ -200,13 +212,18 @@ export function DeliveryStep({
                         const newVal = typeof val === 'string' ? val : val.target.value;
                         setNewAddressStreet(newVal);
 
-                        // Reset state/city if address is cleared or changed significantly
+                        // Reset state/city if address is cleared or changed
+                        // significantly — but never clobber a location the
+                        // shopper is entering manually.
                         if (!newVal || newVal.length < 10) {
-                          setNewAddressState('');
-                          setNewAddressCity('');
-                          setShippingQuotes([]);
-                          setSelectedQuoteId('');
-                          setDeliveryMethod('door'); // Reset to default
+                          if (!manualLocationInUse) {
+                            setNewAddressState('');
+                            setNewAddressCity('');
+                            setShippingQuotes([]);
+                            setSelectedQuoteId('');
+                            setDeliveryMethod('door'); // Reset to default
+                          }
+                          if (!newVal) setManualLocationOpen(false);
                           return;
                         }
 
@@ -217,7 +234,7 @@ export function DeliveryStep({
                         if (inferred) {
                           setNewAddressState(inferred.state);
                           setNewAddressCity(inferred.city);
-                        } else {
+                        } else if (!manualLocationInUse) {
                           setNewAddressState('');
                           setNewAddressCity('');
                           setShippingQuotes([]);
@@ -233,15 +250,100 @@ export function DeliveryStep({
                         if (place.city) {
                           setNewAddressCity(place.city);
                         }
+                        // Places resolved the address — no fallback needed.
+                        setPlacesFailed(false);
+                        setManualLocationOpen(false);
                       }}
+                      onError={(failed) => setPlacesFailed(failed)}
                       placeholder="Start typing your address..."
                       country="NG"
                       className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus-visible:ring-0 focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
                     />
-                    {isHydrated && newAddressState && newAddressCity && (
+                    {isHydrated && hasDetectedLocation && (
                       <p className="text-xs text-green-600 flex items-center gap-1">
                         <Check size={12} /> Detected: {newAddressCity}, {newAddressState}
                       </p>
+                    )}
+
+                    {isHydrated && showManualToggle && (
+                      <button
+                        type="button"
+                        onClick={() => setManualLocationOpen(true)}
+                        className="text-xs font-medium text-store-primary hover:underline text-left"
+                      >
+                        Can&apos;t find your address? Enter State &amp; City manually
+                      </button>
+                    )}
+
+                    {isHydrated && showManualLocation && (
+                      <div className="space-y-3">
+                        {placesFailed && (
+                          <p className="text-xs text-amber-600">
+                            Address suggestions are unavailable right now — enter
+                            your State and City to continue.
+                          </p>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label
+                              htmlFor="checkout-manual-state"
+                              className="block text-xs font-bold text-gray-700 uppercase tracking-wide"
+                            >
+                              State
+                            </label>
+                            <select
+                              id="checkout-manual-state"
+                              value={newAddressState}
+                              disabled={isLoadingLocations}
+                              onChange={(e) => {
+                                setManualLocationOpen(true);
+                                setNewAddressState(e.target.value);
+                                setShippingQuotes([]);
+                                setSelectedQuoteId('');
+                              }}
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus:border-store-primary text-sm text-gray-900 disabled:opacity-50"
+                            >
+                              <option value="">
+                                {isLoadingLocations
+                                  ? 'Loading states…'
+                                  : 'Select state'}
+                              </option>
+                              {shippingStates.map((stateOption) => (
+                                <option key={stateOption} value={stateOption}>
+                                  {stateOption}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label
+                              htmlFor="checkout-manual-city"
+                              className="block text-xs font-bold text-gray-700 uppercase tracking-wide"
+                            >
+                              City / Area
+                            </label>
+                            <input
+                              id="checkout-manual-city"
+                              type="text"
+                              value={newAddressCity}
+                              list="checkout-manual-city-options"
+                              onChange={(e) => {
+                                setManualLocationOpen(true);
+                                setNewAddressCity(e.target.value);
+                              }}
+                              placeholder="e.g. Lekki"
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus:border-store-primary text-sm text-gray-900 placeholder:text-gray-400"
+                            />
+                            {shippingCities.length > 0 && (
+                              <datalist id="checkout-manual-city-options">
+                                {shippingCities.map((cityOption) => (
+                                  <option key={cityOption} value={cityOption} />
+                                ))}
+                              </datalist>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
