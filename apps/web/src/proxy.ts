@@ -2877,10 +2877,10 @@ export const config = {
     // stripping just because they end in .js/.css/.json.
     '/baci-relay/:path*',
     // Custom relay paths are runtime-configurable, while matcher values are
-    // statically analyzed. This catches custom `/relay/static/*.js` and
-    // `/relay/array/*.js` asset rewrites so credentials are stripped before the
-    // external PostHog rewrite. Non-relay static assets return early above.
-    '/((?:.+/)?(?:static|array)/.*)',
+    // statically analyzed. Catch custom `/relay/static/*.js` and
+    // `/relay/array/*.js` assets, but keep Next's own static chunks out of
+    // middleware so critical JS/CSS does not pay proxy overhead on every page.
+    '/((?!_next/static(?:/|$))(?:.+/)?(?:static|array)/.*)',
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)

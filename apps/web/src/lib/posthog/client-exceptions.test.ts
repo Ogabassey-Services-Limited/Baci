@@ -50,12 +50,37 @@ describe('PostHog client exceptions', () => {
       })
     ).toBe(true);
 
-    expect(postHogMocks.captureException).toHaveBeenCalledWith(error, {
-      app_surface: 'web',
-      runtime: 'browser',
-      route: 'checkout',
-      email: '[Filtered]',
-    });
+    expect(postHogMocks.captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      {
+        app_surface: 'web',
+        runtime: 'browser',
+        route: 'checkout',
+        email: '[Filtered]',
+      }
+    );
+    expect(postHogMocks.captureException.mock.calls[0]?.[0]).not.toBe(error);
+  });
+
+  it('sanitizes handled browser errors before capture', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureClientException } = await import(
+      '@/lib/posthog/client-exceptions'
+    );
+    const error = new Error(
+      'checkout failed for buyer@example.com at https://ogabassey.com/checkout?token=raw_secret&reference=ref_1234567'
+    );
+
+    expect(captureClientException(error)).toBe(true);
+
+    const capturedError = postHogMocks.captureException.mock.calls[0]?.[0] as
+      | Error
+      | undefined;
+    expect(capturedError).toBeInstanceOf(Error);
+    expect(capturedError).not.toBe(error);
+    expect(capturedError?.message).not.toContain('buyer@example.com');
+    expect(capturedError?.message).not.toContain('raw_secret');
+    expect(capturedError?.message).not.toContain('ref_1234567');
   });
 
   it('does not allow reserved metadata keys to be overridden', async () => {
@@ -72,9 +97,12 @@ describe('PostHog client exceptions', () => {
       })
     ).toBe(true);
 
-    expect(postHogMocks.captureException).toHaveBeenCalledWith(error, {
-      app_surface: 'web',
-      runtime: 'browser',
-    });
+    expect(postHogMocks.captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      {
+        app_surface: 'web',
+        runtime: 'browser',
+      }
+    );
   });
 });

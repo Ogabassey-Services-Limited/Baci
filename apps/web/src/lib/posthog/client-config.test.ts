@@ -81,7 +81,7 @@ describe('PostHog client config', () => {
         shipping: 2500,
         shipping_fee: 2500,
         shippingPin: '1234',
-        card_number: '4111111111111111',
+        card_number: 'test_card_number',
         nested: {
           phone: '+2348000000000',
           path: '/checkout',

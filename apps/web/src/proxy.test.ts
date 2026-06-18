@@ -592,6 +592,20 @@ describe('Middleware Proxy', () => {
     expect(config.matcher).toContain('/baci-relay/:path*');
   });
 
+  it('does not match every static chunk for custom relay assets', () => {
+    expect(config.matcher).not.toContain('/((?:.+/)?(?:static|array)/.*)');
+    const customRelayStaticMatcher = config.matcher.find((matcher) =>
+      matcher?.includes('(?:static|array)')
+    );
+    if (!customRelayStaticMatcher) {
+      throw new Error('Custom relay static matcher is missing');
+    }
+
+    const regex = new RegExp(`^${customRelayStaticMatcher}`);
+    expect(regex.test('/_next/static/chunks/app.js')).toBe(false);
+    expect(regex.test('/baci-observe/static/recorder.js')).toBe(true);
+  });
+
   it('strips app credentials from custom PostHog relay static asset paths', async () => {
     const originalRelayPath = process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
     process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = '/baci-observe';
@@ -602,7 +616,7 @@ describe('Middleware Proxy', () => {
         await import('./proxy');
 
       expect(configWithCustomRelay.matcher).toContain(
-        '/((?:.+/)?(?:static|array)/.*)'
+        '/((?!_next/static(?:/|$))(?:.+/)?(?:static|array)/.*)'
       );
 
       const req = new NextRequest(

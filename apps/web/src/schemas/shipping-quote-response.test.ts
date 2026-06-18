@@ -56,6 +56,18 @@ describe('shippingQuoteApiResponseSchema', () => {
     });
   });
 
+  it('drops quotes that only provide id without required shipping fields', () => {
+    expect(
+      normalizeShippingQuoteResponsePayload({
+        quotes: { all: [{ id: 'incomplete-quote' }, shippingQuote] },
+      })
+    ).toEqual({
+      quotes: [shippingQuote],
+      sessionId: '',
+      warnings: [],
+    });
+  });
+
   it('returns defaults for non-object responses', () => {
     expect(normalizeShippingQuoteResponsePayload(null)).toEqual({
       quotes: [],

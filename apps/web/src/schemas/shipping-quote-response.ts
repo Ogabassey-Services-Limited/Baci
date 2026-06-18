@@ -1,4 +1,5 @@
 import z from 'zod';
+import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
 import type { ShippingQuote } from '@/types/shipping-quote';
 
 interface NormalizedShippingQuoteResponse {
@@ -10,9 +11,24 @@ interface NormalizedShippingQuoteResponse {
 const shippingQuoteSchema = z
   .object({
     id: z.string().min(1),
+    provider: z.enum(SHIPPING_PROVIDER_CODES),
+    serviceTier: z.string().min(1),
+    carrierName: z.string().min(1),
+    displayName: z.string().min(1),
+    estimatedDays: z.number().int().nonnegative(),
+    deliveryRange: z.string().optional(),
+    minDays: z.number().int().nonnegative().optional(),
+    maxDays: z.number().int().nonnegative().optional(),
+    price: z.number().nonnegative(),
+    currency: z.string().min(1),
+    pickupIncluded: z.boolean(),
+    insuranceIncluded: z.boolean(),
+    isStationPickup: z.boolean().optional(),
+    stationName: z.string().optional(),
+    stationAddress: z.string().optional(),
+    providerRateId: z.string().optional(),
   })
-  .passthrough()
-  .transform((quote) => quote as unknown as ShippingQuote);
+  .transform((quote): ShippingQuote => quote);
 
 type ParsedShippingQuote = z.infer<typeof shippingQuoteSchema>;
 

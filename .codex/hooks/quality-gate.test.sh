@@ -275,7 +275,7 @@ output=$(
 )
 [ -z "$output" ] || fail "head review with explicit no-issues verdict should not block"
 
-pr_no_review_content_json=$(jq -n --arg head "$head_sha" '{
+pr_no_review_content_only_json=$(jq -n --arg head "$head_sha" '{
   number: 1003,
   url: "https://example.com/pr/1003",
   state: "OPEN",
@@ -286,14 +286,33 @@ pr_no_review_content_json=$(jq -n --arg head "$head_sha" '{
       state: "COMMENTED",
       submittedAt: "2026-05-18T00:00:00Z",
       commit: { oid: $head },
-      body: "## Verdict\n\nGemini did not return a review (step outcome: `failure`).\n\n## Findings\n\n- low: No review content was produced.\n\n## Suggested next steps\n\nRe-run with `@gemini-cli /review`, or inspect the workflow logs."
+      body: "## Findings\n\n- low: No review content was produced."
     }
   ]
 }')
-output=$(
-  make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_no_review_content_json" GH_STUB_EXPECT_BRANCH="$current_branch" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
-)
-[ -z "$output" ] || fail "head review with no generated review content should not block"
+
+pr_did_not_return_review_json=$(jq -n --arg head "$head_sha" '{
+  number: 1004,
+  url: "https://example.com/pr/1004",
+  state: "OPEN",
+  headRefOid: $head,
+  reviews: [
+    {
+      author: { login: "github-actions[bot]" },
+      state: "COMMENTED",
+      submittedAt: "2026-05-18T00:00:00Z",
+      commit: { oid: $head },
+      body: "## Verdict\n\nGemini did not return a review (step outcome: `failure`)."
+    }
+  ]
+}')
+
+for pr_json in "$pr_no_review_content_only_json" "$pr_did_not_return_review_json"; do
+  output=$(
+    make_input "$TMPDIR" "Implemented the change." false |
+      PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_json" GH_STUB_EXPECT_BRANCH="$current_branch" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
+  )
+  [ -z "$output" ] || fail "head review with no generated review content should not block"
+done
 
 printf 'quality-gate self-test passed\n'

@@ -108,7 +108,7 @@ describe('SecurityForm', () => {
     const { container } = render(<SecurityForm />);
 
     // Should show spinner, not the form
-    expect(container.querySelector('.animate-spin')).toBeDefined();
+    expect(container.querySelector('.animate-spin')).not.toBeNull();
     expect(screen.queryByLabelText('Password')).toBeNull();
   });
 

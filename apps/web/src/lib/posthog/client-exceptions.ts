@@ -2,6 +2,7 @@
 
 import posthog from 'posthog-js';
 import { sanitizePostHogProperties } from '@/lib/posthog/client-config';
+import { sanitizePostHogException } from '@/lib/posthog/exception-sanitizer';
 
 export function captureClientException(
   error: unknown,
@@ -12,7 +13,7 @@ export function captureClientException(
   }
 
   posthog.captureException(
-    error,
+    sanitizePostHogException(error),
     sanitizePostHogProperties({
       ...properties,
       app_surface: 'web',
