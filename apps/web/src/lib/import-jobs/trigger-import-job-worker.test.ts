@@ -38,6 +38,20 @@ describe('triggerImportJobWorker', () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
+  it('skips the trigger when the secret is not configured', async () => {
+    const fetchFn = vi.fn();
+    mocks.getImportJobWorkerTriggerSecret.mockReturnValue(undefined);
+
+    const result = await triggerImportJobWorker({
+      fetchFn,
+      jobId: '11111111-1111-4111-8111-111111111111',
+      source: 'api',
+    });
+
+    expect(result).toEqual({ triggered: false, reason: 'not_configured' });
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
   it('posts a signed import trigger payload to the VPS', async () => {
     const fetchFn = vi
       .fn()
@@ -82,7 +96,23 @@ describe('triggerImportJobWorker', () => {
         source: 'api',
       })
     ).rejects.toThrow(
-      'Import job worker trigger failed with HTTP 401 Unauthorized: bad token'
+      'Import job worker trigger failed with HTTP 401 Unauthorized: bad token; expected 202 Accepted'
+    );
+  });
+
+  it('throws when the VPS trigger returns a non-accepted 2xx status', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(new Response('ok', { status: 200, statusText: 'OK' }));
+
+    await expect(
+      triggerImportJobWorker({
+        fetchFn,
+        jobId: '11111111-1111-4111-8111-111111111111',
+        source: 'api',
+      })
+    ).rejects.toThrow(
+      'Import job worker trigger failed with HTTP 200 OK: ok; expected 202 Accepted'
     );
   });
 

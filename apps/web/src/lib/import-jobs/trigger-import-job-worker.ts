@@ -50,14 +50,14 @@ export async function triggerImportJobWorker({
     signal: AbortSignal.timeout(getImportJobWorkerTriggerTimeoutMs()),
   });
 
-  if (!response.ok) {
+  if (response.status !== 202) {
     const statusText = response.statusText ? ` ${response.statusText}` : '';
     const bodyPreview = await readResponsePreview(response);
     const bodyText = bodyPreview ? `: ${bodyPreview}` : '';
     throw new Error(
-      `Import job worker trigger failed with HTTP ${response.status}${statusText}${bodyText}`
+      `Import job worker trigger failed with HTTP ${response.status}${statusText}${bodyText}; expected 202 Accepted`
     );
   }
 
-  return { triggered: true, status: response.status };
+  return { triggered: true, status: 202 };
 }

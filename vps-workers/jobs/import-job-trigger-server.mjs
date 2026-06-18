@@ -1,8 +1,3 @@
-/**
- * VPS worker: import job trigger server
- * Accepts signed web triggers and starts the existing import worker under lock.
- */
-
 import { spawn } from 'node:child_process';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
@@ -18,9 +13,11 @@ const MAX_BODY_BYTES = 4096;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function readPositiveInteger(value, fallback) {
+function readPort(value, fallback) {
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+  return Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= 65535
+    ? parsed
+    : fallback;
 }
 
 function constantTimeEqual(left, right) {
@@ -34,9 +31,8 @@ function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
 }
 
-function isPayloadTooLargeError(error) {
-  return error instanceof Error && error.message === 'payload_too_large';
-}
+const isPayloadTooLargeError = (error) =>
+  error instanceof Error && error.message === 'payload_too_large';
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -72,13 +68,11 @@ async function parseTriggerPayload(request) {
   };
 }
 
-function buildTriggerMetadataEnv(payload) {
-  return Object.fromEntries(
-    Object.entries({
-      IMPORT_JOB_TRIGGER_JOB_ID: payload.jobId,
-      IMPORT_JOB_TRIGGER_SOURCE: payload.source,
-    }).filter(([, value]) => typeof value === 'string' && value.length > 0)
-  );
+function buildTriggerMetadataEnv({ jobId, source }) {
+  return {
+    IMPORT_JOB_TRIGGER_JOB_ID: jobId,
+    ...(source ? { IMPORT_JOB_TRIGGER_SOURCE: source } : {}),
+  };
 }
 
 export function spawnImportJobWorker({
@@ -248,7 +242,7 @@ export function startImportJobTriggerServer({
 } = {}) {
   const handler = createImportJobTriggerHandler({ env, logger });
   const host = env.IMPORT_JOB_TRIGGER_HOST ?? DEFAULT_HOST;
-  const port = readPositiveInteger(env.IMPORT_JOB_TRIGGER_PORT, DEFAULT_PORT);
+  const port = readPort(env.IMPORT_JOB_TRIGGER_PORT, DEFAULT_PORT);
   const server = createServer(async (request, response) => {
     try {
       const body = await readNodeRequestBody(request);
@@ -274,11 +268,11 @@ export function startImportJobTriggerServer({
     }
   });
 
-  server.listen(port, host, () => {
+  server.listen(port, host, () =>
     logger.info?.(
       `[import-job-trigger] listening on http://${host}:${port}/import-jobs/trigger`
-    );
-  });
+    )
+  );
 
   const shutdown = (signal) => {
     logger.info?.(`[import-job-trigger] received ${signal}, shutting down`);

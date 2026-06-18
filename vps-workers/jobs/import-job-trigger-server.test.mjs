@@ -143,6 +143,7 @@ describe('import job trigger server', () => {
       await once(server, 'listening');
       const address = server.address();
       const port = typeof address === 'object' && address ? address.port : 0;
+      assert.notEqual(port, 3918);
 
       const response = await sendNodeRequest({
         body: 'x'.repeat(4097),
@@ -213,9 +214,7 @@ describe('import job trigger server', () => {
     const handler = createImportJobTriggerHandler({
       env: { IMPORT_JOB_TRIGGER_SECRET: 'secret' },
       logger: noopLogger,
-      spawnWorker: async () => {
-        throw new Error('spawn failed');
-      },
+      spawnWorker: () => Promise.reject(new Error('spawn failed')),
     });
 
     const response = await handler(
