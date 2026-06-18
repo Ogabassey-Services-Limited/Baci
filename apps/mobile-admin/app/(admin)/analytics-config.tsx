@@ -206,6 +206,15 @@ export default function AnalyticsConfigScreen() {
   const [seededSnapshot, setSeededSnapshot] = useState<AnalyticsState | null>(
     null
   );
+  // Recovery guard: background refetches are suppressed ONLY once the buffer has
+  // been seeded AND the user has edited it. If the initial query errors and the
+  // user starts typing before reconnect, `isDirty` is true while `seededSnapshot`
+  // is still null — gating on `!isDirty` alone would disable the reconnect
+  // refetch and leave Save stuck on "still loading" forever. Keeping recovery
+  // enabled until the first successful seed lets a reconnect refetch seed the
+  // buffer so Save can succeed.
+  const hasSeeded = seededSnapshot !== null;
+  const shouldBackgroundRefetch = !(hasSeeded && isDirty);
 
   // Fetch merchant data with all analytics fields. Background revalidation stays
   // enabled until the merchant edits the form, so cached query data can be
@@ -234,8 +243,8 @@ export default function AnalyticsConfigScreen() {
     },
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: !isDirty,
-    refetchOnReconnect: !isDirty,
+    refetchOnWindowFocus: shouldBackgroundRefetch,
+    refetchOnReconnect: shouldBackgroundRefetch,
   });
 
   // Seed/reseed the editable buffer from fetched merchant data until the user
