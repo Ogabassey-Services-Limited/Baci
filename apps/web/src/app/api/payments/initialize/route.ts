@@ -43,9 +43,7 @@ import {
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-// =============================================================================
 // Types & Constants
-// =============================================================================
 
 const PAYMENT_GATEWAYS = [
   'paystack',
@@ -81,9 +79,7 @@ const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
     defaultFeatureSettings.preferred_international_gateway,
 };
 
-// =============================================================================
 // Zod Validation Schema
-// =============================================================================
 
 const BillingAddressSchema = z
   .object({
@@ -122,9 +118,7 @@ const PaymentInitRequestSchema = z.object({
 type PaymentInitRequest = z.infer<typeof PaymentInitRequestSchema>;
 type AuthorizedPaymentInitRequest = PaymentInitRequest & { amount: number };
 
-// =============================================================================
 // Helper Functions
-// =============================================================================
 
 function createErrorResponse(
   error: string,
@@ -313,9 +307,7 @@ function parseCustomerName(fullName: string): {
   };
 }
 
-// =============================================================================
 // Gateway-Specific Payment Handlers
-// =============================================================================
 
 interface PaymentResult {
   authorization_url: string;
@@ -883,9 +875,7 @@ async function initializeKorapay(
   };
 }
 
-// =============================================================================
 // Main Route Handler
-// =============================================================================
 
 export async function POST(request: NextRequest) {
   try {
