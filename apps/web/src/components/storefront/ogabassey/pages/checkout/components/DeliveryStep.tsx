@@ -242,7 +242,7 @@ export function DeliveryStep({
                           setDeliveryMethod('door');
                         }
                       }}
-                      onSelect={(place: any) => {
+                      onSelect={(place) => {
                         setNewAddressStreet(place.formattedAddress);
                         if (place.state) {
                           setNewAddressState(place.state);
