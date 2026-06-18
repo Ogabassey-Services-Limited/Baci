@@ -29,10 +29,12 @@ describe('PostHog client config', () => {
         web_vitals: true,
         web_vitals_allowed_metrics: ['LCP', 'CLS', 'FCP', 'INP'],
         web_vitals_attribution: true,
-        network_timing: true,
+        network_timing: false,
       },
+      mask_all_text: true,
       session_recording: expect.objectContaining({
         maskAllInputs: true,
+        maskTextSelector: 'body',
       }),
     });
   });
@@ -57,8 +59,9 @@ describe('PostHog client config', () => {
     expect(
       sanitizePostHogProperties({
         email: 'buyer@example.com',
-        note: 'Contact buyer@example.com before delivery',
+        note: 'Contact buyer@example.com and support@example.com before delivery',
         $current_url: 'https://ogabassey.com/cart?token=secret#checkout',
+        request_path: '/checkout/success?email=buyer@example.com',
         $session_id: '018f-session',
         nested: {
           phone: '+2348000000000',
@@ -67,8 +70,9 @@ describe('PostHog client config', () => {
       })
     ).toEqual({
       email: '[Filtered]',
-      note: 'Contact [Filtered] before delivery',
+      note: 'Contact [Filtered] and [Filtered] before delivery',
       $current_url: 'https://ogabassey.com/cart',
+      request_path: '/checkout/success',
       $session_id: '018f-session',
       nested: {
         phone: '[Filtered]',

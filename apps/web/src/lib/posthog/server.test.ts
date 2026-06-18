@@ -60,12 +60,14 @@ describe('PostHog server exceptions', () => {
 
   it('captures server exceptions immediately with sanitized properties', async () => {
     process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
-    process.env.POSTHOG_HOST = 'https://eu.i.posthog.com';
+    process.env.POSTHOG_HOST = 'https://eu.i.posthog.com/';
     const { captureServerException } = await import('./server');
     const error = new Error('boom');
 
     await expect(
       captureServerException(error, {
+        app_surface: 'mobile',
+        runtime: 'browser',
         route_path: '/checkout',
         email: 'buyer@example.com',
       })
@@ -85,6 +87,54 @@ describe('PostHog server exceptions', () => {
         route_path: '/checkout',
         email: '[Filtered]',
       })
+    );
+  });
+
+  it('creates a new server client when token or host changes', async () => {
+    const { getPostHogServerClient } = await import('./server');
+
+    expect(
+      getPostHogServerClient({
+        POSTHOG_PROJECT_TOKEN: 'ph_one',
+        POSTHOG_HOST: 'https://one.example.com',
+      })
+    ).not.toBeNull();
+    expect(
+      getPostHogServerClient({
+        POSTHOG_PROJECT_TOKEN: 'ph_two',
+        POSTHOG_HOST: 'https://two.example.com/',
+      })
+    ).not.toBeNull();
+
+    expect(postHogMocks.postHogConstructor).toHaveBeenNthCalledWith(
+      1,
+      'ph_one',
+      {
+        host: 'https://one.example.com',
+        flushAt: 1,
+        flushInterval: 0,
+      }
+    );
+    expect(postHogMocks.postHogConstructor).toHaveBeenNthCalledWith(
+      2,
+      'ph_two',
+      {
+        host: 'https://two.example.com',
+        flushAt: 1,
+        flushInterval: 0,
+      }
+    );
+  });
+
+  it('returns false when the PostHog send fails', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    postHogMocks.captureExceptionImmediate.mockRejectedValueOnce(
+      new Error('network down') as never
+    );
+    const { captureServerException } = await import('./server');
+
+    await expect(captureServerException(new Error('boom'))).resolves.toBe(
+      false
     );
   });
 });

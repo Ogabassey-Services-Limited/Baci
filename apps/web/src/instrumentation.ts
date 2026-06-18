@@ -37,7 +37,7 @@ export const onRequestError: Instrumentation.onRequestError = async (
   const { captureServerException } = await import('@/lib/posthog/server');
 
   await captureServerException(error, {
-    request_path: request.path,
+    request_path: request.path.split('?')[0],
     request_method: request.method,
     router_kind: context.routerKind,
     route_path: context.routePath,

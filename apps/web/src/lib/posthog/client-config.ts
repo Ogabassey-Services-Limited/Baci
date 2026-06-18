@@ -3,12 +3,13 @@ import {
   getPostHogProxyPath,
   getPostHogUiHost,
   type PostHogEnv,
-} from './config';
+} from '@/lib/posthog/config';
 
 const SENSITIVE_PROPERTY_PATTERN =
   /(?:password|passcode|token|secret|authorization|cookie|otp|pin|cvv|card|bvn|nin|email|phone|address)/i;
-const URL_PROPERTY_PATTERN = /(?:url|href|referrer|current_url|pathname)/i;
-const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+const URL_PROPERTY_PATTERN =
+  /(?:url|href|referrer|current_url|pathname|request_path)/i;
+const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const REDACTED_VALUE = '[Filtered]';
 const QUERY_OR_HASH_PATTERN = /[?#]/;
 
@@ -31,11 +32,7 @@ function sanitizePropertyValue(key: string, value: unknown): unknown {
       return redactUrlQuery(value);
     }
 
-    if (EMAIL_VALUE_PATTERN.test(value)) {
-      return value.replace(EMAIL_VALUE_PATTERN, REDACTED_VALUE);
-    }
-
-    return value;
+    return value.replace(EMAIL_VALUE_PATTERN, REDACTED_VALUE);
   }
 
   if (Array.isArray(value)) {
@@ -102,13 +99,13 @@ export function buildPostHogClientConfig(
       web_vitals_allowed_metrics: ['LCP', 'CLS', 'FCP', 'INP'],
       web_vitals_delayed_flush_ms: 5000,
       web_vitals_attribution: true,
-      network_timing: true,
+      network_timing: false,
     },
+    mask_all_text: true,
     disable_session_recording: false,
     session_recording: {
       maskAllInputs: true,
-      maskTextSelector:
-        '[data-ph-mask], [data-private], [data-sensitive], input, textarea, [contenteditable="true"]',
+      maskTextSelector: 'body',
       blockSelector: '[data-ph-block], [data-session-replay-block]',
     },
     property_blacklist: [

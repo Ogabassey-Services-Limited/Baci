@@ -16,18 +16,29 @@ export function normalizePostHogProxyPath(value?: string | null): string {
   return withLeadingSlash.replace(/\/+$/, '') || DEFAULT_POSTHOG_PROXY_PATH;
 }
 
+export function normalizePostHogHost(value: string | undefined): string {
+  return value?.trim().replace(/\/+$/, '') ?? '';
+}
+
 export function getPostHogIngestHost(env: PostHogEnv = process.env): string {
-  return env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || DEFAULT_POSTHOG_INGEST_HOST;
+  return (
+    normalizePostHogHost(env.NEXT_PUBLIC_POSTHOG_HOST) ||
+    DEFAULT_POSTHOG_INGEST_HOST
+  );
 }
 
 export function getPostHogAssetsHost(env: PostHogEnv = process.env): string {
   return (
-    env.NEXT_PUBLIC_POSTHOG_ASSETS_HOST?.trim() || DEFAULT_POSTHOG_ASSETS_HOST
+    normalizePostHogHost(env.NEXT_PUBLIC_POSTHOG_ASSETS_HOST) ||
+    DEFAULT_POSTHOG_ASSETS_HOST
   );
 }
 
 export function getPostHogUiHost(env: PostHogEnv = process.env): string {
-  return env.NEXT_PUBLIC_POSTHOG_UI_HOST?.trim() || DEFAULT_POSTHOG_UI_HOST;
+  return (
+    normalizePostHogHost(env.NEXT_PUBLIC_POSTHOG_UI_HOST) ||
+    DEFAULT_POSTHOG_UI_HOST
+  );
 }
 
 export function getPostHogProxyPath(env: PostHogEnv = process.env): string {

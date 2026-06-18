@@ -22,6 +22,7 @@ function importInstrumentationClient() {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.clearAllMocks();
   vi.resetModules();
   vi.unstubAllEnvs();

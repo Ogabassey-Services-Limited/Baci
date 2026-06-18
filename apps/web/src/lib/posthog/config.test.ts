@@ -10,6 +10,7 @@ import {
   getPostHogReleaseVersion,
   getPostHogUiHost,
   isPostHogSourceMapUploadEnabled,
+  normalizePostHogHost,
   normalizePostHogProxyPath,
 } from './config';
 
@@ -29,9 +30,9 @@ describe('PostHog config helpers', () => {
 
   it('allows host and proxy overrides', () => {
     const env = {
-      NEXT_PUBLIC_POSTHOG_HOST: ' https://custom-ingest.example.com ',
-      NEXT_PUBLIC_POSTHOG_ASSETS_HOST: ' https://custom-assets.example.com ',
-      NEXT_PUBLIC_POSTHOG_UI_HOST: ' https://custom-ui.example.com ',
+      NEXT_PUBLIC_POSTHOG_HOST: ' https://custom-ingest.example.com/ ',
+      NEXT_PUBLIC_POSTHOG_ASSETS_HOST: ' https://custom-assets.example.com// ',
+      NEXT_PUBLIC_POSTHOG_UI_HOST: ' https://custom-ui.example.com/ ',
       NEXT_PUBLIC_POSTHOG_PROXY_PATH: ' baci-observe ',
     };
 
@@ -39,6 +40,14 @@ describe('PostHog config helpers', () => {
     expect(getPostHogAssetsHost(env)).toBe('https://custom-assets.example.com');
     expect(getPostHogUiHost(env)).toBe('https://custom-ui.example.com');
     expect(getPostHogProxyPath(env)).toBe('/baci-observe');
+  });
+
+  it('normalizes host overrides without changing empty fallback behavior', () => {
+    expect(normalizePostHogHost(' https://posthog.example.com/// ')).toBe(
+      'https://posthog.example.com'
+    );
+    expect(normalizePostHogHost('   ')).toBe('');
+    expect(normalizePostHogHost(undefined)).toBe('');
   });
 
   it('enables source-map uploads only when secret and project id exist', () => {

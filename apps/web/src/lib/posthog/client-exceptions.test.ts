@@ -28,7 +28,9 @@ describe('PostHog client exceptions', () => {
 
   it('does not capture when the project token is missing', async () => {
     delete process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
-    const { captureClientException } = await import('./client-exceptions');
+    const { captureClientException } = await import(
+      '@/lib/posthog/client-exceptions'
+    );
 
     expect(captureClientException(new Error('missing token'))).toBe(false);
     expect(postHogMocks.captureException).not.toHaveBeenCalled();
@@ -36,7 +38,9 @@ describe('PostHog client exceptions', () => {
 
   it('captures handled browser errors with sanitized route context', async () => {
     process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = 'ph_test';
-    const { captureClientException } = await import('./client-exceptions');
+    const { captureClientException } = await import(
+      '@/lib/posthog/client-exceptions'
+    );
     const error = new Error('checkout failed');
 
     expect(
@@ -51,6 +55,26 @@ describe('PostHog client exceptions', () => {
       runtime: 'browser',
       route: 'checkout',
       email: '[Filtered]',
+    });
+  });
+
+  it('does not allow reserved metadata keys to be overridden', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureClientException } = await import(
+      '@/lib/posthog/client-exceptions'
+    );
+    const error = new Error('reserved keys');
+
+    expect(
+      captureClientException(error, {
+        app_surface: 'mobile',
+        runtime: 'server',
+      })
+    ).toBe(true);
+
+    expect(postHogMocks.captureException).toHaveBeenCalledWith(error, {
+      app_surface: 'web',
+      runtime: 'browser',
     });
   });
 });

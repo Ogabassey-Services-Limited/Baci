@@ -29,7 +29,7 @@ export function initAnalytics(): void {
         maskAllImages: true,
         maskAllSandboxedViews: true,
         captureLog: false,
-        captureNetworkTelemetry: true,
+        captureNetworkTelemetry: false,
         throttleDelayMs: 1000,
       },
       flushAt: 20,

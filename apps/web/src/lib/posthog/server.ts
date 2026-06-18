@@ -1,14 +1,16 @@
 import { PostHog } from 'posthog-node';
-import { sanitizePostHogProperties } from './client-config';
+import { sanitizePostHogProperties } from '@/lib/posthog/client-config';
 import {
   DEFAULT_POSTHOG_INGEST_HOST,
   getPostHogIngestHost,
+  normalizePostHogHost,
   type PostHogEnv,
-} from './config';
+} from '@/lib/posthog/config';
 
 const SERVER_DISTINCT_ID = 'baci-web-server';
 
 let postHogServerClient: PostHog | null = null;
+let postHogServerClientKey: string | null = null;
 
 function getServerToken(env: PostHogEnv): string | undefined {
   return (
@@ -19,7 +21,7 @@ function getServerToken(env: PostHogEnv): string | undefined {
 }
 
 function getServerHost(env: PostHogEnv): string {
-  return env.POSTHOG_HOST?.trim() || getPostHogIngestHost(env);
+  return normalizePostHogHost(env.POSTHOG_HOST) || getPostHogIngestHost(env);
 }
 
 export function isPostHogServerConfigured(
@@ -37,12 +39,16 @@ export function getPostHogServerClient(
     return null;
   }
 
-  if (!postHogServerClient) {
+  const host = getServerHost(env) || DEFAULT_POSTHOG_INGEST_HOST;
+  const clientKey = `${token}:${host}`;
+
+  if (!postHogServerClient || postHogServerClientKey !== clientKey) {
     postHogServerClient = new PostHog(token, {
-      host: getServerHost(env) || DEFAULT_POSTHOG_INGEST_HOST,
+      host,
       flushAt: 1,
       flushInterval: 0,
     });
+    postHogServerClientKey = clientKey;
   }
 
   return postHogServerClient;
@@ -59,17 +65,21 @@ export async function captureServerException(
     return false;
   }
 
-  await client.captureExceptionImmediate(
-    error,
-    distinctId,
-    sanitizePostHogProperties({
-      app_surface: 'web',
-      runtime: 'nodejs',
-      deployment_environment:
-        process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
-      ...properties,
-    })
-  );
+  try {
+    await client.captureExceptionImmediate(
+      error,
+      distinctId,
+      sanitizePostHogProperties({
+        ...properties,
+        app_surface: 'web',
+        runtime: 'nodejs',
+        deployment_environment:
+          process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
+      })
+    );
 
-  return true;
+    return true;
+  } catch {
+    return false;
+  }
 }

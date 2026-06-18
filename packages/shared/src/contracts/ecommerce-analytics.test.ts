@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildCheckoutStartedProperties,
   buildCheckoutStepCompletedProperties,
   buildOrderCompletedProperties,
+  buildPaymentFailedProperties,
   buildProductAddedProperties,
   buildProductListViewedProperties,
+  buildProductRemovedProperties,
+  buildProductsSearchedProperties,
   buildProductViewedProperties,
+  buildWishlistProductProperties,
   compactAnalyticsProperties,
   ECOMMERCE_ANALYTICS_EVENTS,
   eventForWishlistAction,
@@ -81,6 +86,37 @@ describe('ecommerce analytics contract', () => {
     });
   });
 
+  it('omits absent optional product fields and still defaults currency', () => {
+    expect(
+      buildProductRemovedProperties({
+        id: 'product-1',
+        name: 'Redmi Note 14',
+        price: 220000,
+      })
+    ).toEqual({
+      product_id: 'product-1',
+      name: 'Redmi Note 14',
+      product_name: 'Redmi Note 14',
+      price: 220000,
+      currency: 'NGN',
+      value: 220000,
+    });
+  });
+
+  it('builds checkout started properties with default currency', () => {
+    expect(
+      buildCheckoutStartedProperties({
+        itemCount: 2,
+        subtotal: 440000,
+      })
+    ).toEqual({
+      item_count: 2,
+      subtotal: 440000,
+      currency: 'NGN',
+      value: 440000,
+    });
+  });
+
   it('uses numeric and named checkout step fields', () => {
     expect(
       buildCheckoutStepCompletedProperties('payment_method', {
@@ -120,6 +156,27 @@ describe('ecommerce analytics contract', () => {
     });
   });
 
+  it('builds payment failure properties without undefined order ids', () => {
+    expect(buildPaymentFailedProperties('gateway_timeout')).toEqual({
+      reason: 'gateway_timeout',
+    });
+  });
+
+  it('builds searched product properties with and without filters', () => {
+    expect(buildProductsSearchedProperties('redmi', 3)).toEqual({
+      query: 'redmi',
+      result_count: 3,
+    });
+
+    expect(
+      buildProductsSearchedProperties('redmi', 3, { brand: 'Xiaomi' })
+    ).toEqual({
+      query: 'redmi',
+      result_count: 3,
+      filters: { brand: 'Xiaomi' },
+    });
+  });
+
   it('maps category views to PostHog product list viewed semantics', () => {
     expect(
       buildProductListViewedProperties({
@@ -137,6 +194,13 @@ describe('ecommerce analytics contract', () => {
   });
 
   it('uses canonical wishlist event names', () => {
+    expect(buildWishlistProductProperties({ id: 'p1', name: 'Phone' })).toEqual(
+      {
+        product_id: 'p1',
+        name: 'Phone',
+        product_name: 'Phone',
+      }
+    );
     expect(eventForWishlistAction('added')).toBe(
       ECOMMERCE_ANALYTICS_EVENTS.productAddedToWishlist
     );

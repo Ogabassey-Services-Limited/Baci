@@ -47,7 +47,7 @@ describe('onRequestError', () => {
     const error = new Error('render failed');
     const request = {
       method: 'POST',
-      path: '/checkout',
+      path: '/checkout?email=buyer@example.com',
     } as Parameters<typeof onRequestError>[1];
     const context = {
       renderSource: 'react-server-components',

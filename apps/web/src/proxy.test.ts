@@ -499,6 +499,32 @@ describe('Middleware Proxy', () => {
     expect(res.status).not.toBe(308);
   });
 
+  it('passes PostHog relay requests through on merchant subdomains', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/baci-relay/e/capture/`
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  it('passes PostHog relay requests through on custom domains', async () => {
+    const req = new NextRequest('https://ogabassey.com/baci-relay/e/capture/');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(getSlugForCustomDomain).not.toHaveBeenCalled();
+  });
+
   it('should rewrite storefront checkout routes on merchant subdomains', async () => {
     const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/checkout`);
     req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);

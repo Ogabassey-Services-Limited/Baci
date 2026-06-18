@@ -98,7 +98,7 @@ describe('analytics core', () => {
           maskAllImages: true,
           maskAllSandboxedViews: true,
           captureLog: false,
-          captureNetworkTelemetry: true,
+          captureNetworkTelemetry: false,
         }),
       })
     );

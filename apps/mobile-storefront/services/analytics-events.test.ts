@@ -1,13 +1,15 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { trackEvent } from './analytics-core';
 import {
   trackAddToCart,
   trackCategoryViewed,
   trackError,
   trackOrderCompleted,
+  trackPaymentFailed,
   trackProductViewed,
   trackSearch,
   trackWishlistAction,
 } from './analytics-events';
-import { trackEvent } from './analytics-core';
 
 jest.mock('./analytics-core', () => ({
   trackEvent: jest.fn(),
@@ -116,6 +118,32 @@ describe('analytics event wrappers', () => {
       product_id: 'product-1',
       name: 'Redmi Note 14',
       product_name: 'Redmi Note 14',
+    });
+  });
+
+  it('tracks wishlist removal with the canonical ecommerce name', () => {
+    trackWishlistAction('removed', {
+      id: 'product-1',
+      name: 'Redmi Note 14',
+    });
+
+    expect(trackEvent).toHaveBeenCalledWith('Product Removed from Wishlist', {
+      product_id: 'product-1',
+      name: 'Redmi Note 14',
+      product_name: 'Redmi Note 14',
+    });
+  });
+
+  it('compacts optional fields before forwarding analytics properties', () => {
+    trackPaymentFailed('gateway_timeout');
+    trackSearch('iphone', 0);
+
+    expect(trackEvent).toHaveBeenNthCalledWith(1, 'Payment Failed', {
+      reason: 'gateway_timeout',
+    });
+    expect(trackEvent).toHaveBeenNthCalledWith(2, 'Products Searched', {
+      query: 'iphone',
+      result_count: 0,
     });
   });
 });
