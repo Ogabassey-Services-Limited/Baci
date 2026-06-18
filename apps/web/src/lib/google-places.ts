@@ -48,7 +48,7 @@ export async function getPlacePredictions(
   if (sessionToken) params.append('sessionToken', sessionToken);
   if (country) params.append('country', country);
 
-  const data = await apiGet<{ predictions: PlacePrediction[] }>(
+  const data = await apiGet<{ predictions?: PlacePrediction[] }>(
     `/api/places/autocomplete?${params.toString()}`
   );
 

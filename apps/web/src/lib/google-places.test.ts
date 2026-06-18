@@ -51,6 +51,12 @@ describe('google places client helpers', () => {
     );
   });
 
+  it('returns an empty prediction list when the API omits predictions', async () => {
+    mockApiGet.mockResolvedValueOnce({ predictions: undefined });
+
+    await expect(getPlacePredictions('Baci Street')).resolves.toEqual([]);
+  });
+
   it('propagates prediction lookup failures to the caller', async () => {
     const failure = new Error('places unavailable');
     mockApiGet.mockRejectedValueOnce(failure);
