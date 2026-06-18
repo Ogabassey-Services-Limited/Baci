@@ -79,7 +79,7 @@ describe('PostHog server exceptions', () => {
       flushInterval: 0,
     });
     expect(postHogMocks.captureExceptionImmediate).toHaveBeenCalledWith(
-      error,
+      expect.any(Error),
       'baci-web-server',
       expect.objectContaining({
         app_surface: 'web',
@@ -88,6 +88,41 @@ describe('PostHog server exceptions', () => {
         email: '[Filtered]',
       })
     );
+    expect(postHogMocks.captureExceptionImmediate.mock.calls[0]?.[0]).not.toBe(
+      error
+    );
+  });
+
+  it('sanitizes exception messages, stacks, and causes before upload', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureServerException } = await import('./server');
+    const error = new Error(
+      'Paystack failed for buyer@example.com at https://pay.example/callback?token=raw_secret&reference=ref_1234567 phone=08012345678'
+    );
+    error.stack =
+      'Error: token=raw_secret reference=ref_1234567 buyer@example.com phone=08012345678';
+    Object.defineProperty(error, 'cause', {
+      configurable: true,
+      value: new Error('provider api_key=sk_test_secret phone=08012345678'),
+    });
+
+    await expect(captureServerException(error)).resolves.toBe(true);
+
+    const capturedError = postHogMocks.captureExceptionImmediate.mock
+      .calls[0]?.[0] as (Error & { cause?: Error }) | undefined;
+
+    expect(capturedError).toBeInstanceOf(Error);
+    expect(capturedError).not.toBe(error);
+    expect(capturedError?.message).toContain(REDACTED_VALUE);
+    expect(capturedError?.message).not.toContain('buyer@example.com');
+    expect(capturedError?.message).not.toContain('raw_secret');
+    expect(capturedError?.message).not.toContain('ref_1234567');
+    expect(capturedError?.message).not.toContain('08012345678');
+    expect(capturedError?.stack).not.toContain('buyer@example.com');
+    expect(capturedError?.stack).not.toContain('raw_secret');
+    expect(capturedError?.stack).not.toContain('ref_1234567');
+    expect(capturedError?.cause?.message).not.toContain('sk_test_secret');
+    expect(capturedError?.cause?.message).not.toContain('08012345678');
   });
 
   it('creates a new server client when token or host changes', async () => {
@@ -138,6 +173,8 @@ describe('PostHog server exceptions', () => {
     );
   });
 });
+
+const REDACTED_VALUE = '[Filtered]';
 
 function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {

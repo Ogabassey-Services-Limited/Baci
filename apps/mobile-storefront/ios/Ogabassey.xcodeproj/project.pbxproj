@@ -246,7 +246,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Upload iOS dSYMs to PostHog so native crashes can be symbolicated.\n# upload-symbols.sh ships inside the posthog-ios dependency.\nPODS_SCRIPT=\"${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh\"\nSPM_SCRIPT=\"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh\"\nif [ -f \"$PODS_SCRIPT\" ]; then\n  /bin/sh \"$PODS_SCRIPT\"\nelif [ -f \"$SPM_SCRIPT\" ]; then\n  /bin/sh \"$SPM_SCRIPT\"\nelse\n  echo \"warning: PostHog upload-symbols.sh not found in Pods or SwiftPM checkouts; skipping dSYM upload.\"\nfi";
+			shellScript = "# Upload iOS dSYMs to PostHog so native crashes can be symbolicated.\n# upload-symbols.sh ships inside the posthog-ios dependency.\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\nexport PATH=\"$PROJECT_ROOT/node_modules/.bin:$PROJECT_ROOT/../../node_modules/.bin:$PATH\"\nPODS_SCRIPT=\"${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh\"\nSPM_SCRIPT=\"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh\"\nif [ -f \"$PODS_SCRIPT\" ]; then\n  /bin/sh \"$PODS_SCRIPT\"\nelif [ -f \"$SPM_SCRIPT\" ]; then\n  /bin/sh \"$SPM_SCRIPT\"\nelse\n  echo \"warning: PostHog upload-symbols.sh not found in Pods or SwiftPM checkouts; skipping dSYM upload.\"\nfi";
 		};
 		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;

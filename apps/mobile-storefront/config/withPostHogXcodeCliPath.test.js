@@ -10,24 +10,44 @@ jest.mock('@expo/config-plugins', () => ({
 
 const withPostHogXcodeCliPath = require('./withPostHogXcodeCliPath');
 
-const PHASE_NAME = 'Bundle React Native code and images';
+const BUNDLE_PHASE_NAME = 'Bundle React Native code and images';
+const DSYM_UPLOAD_PHASE_NAME = 'Upload PostHog Debug Symbols';
 const PHASE_TYPE = 'PBXShellScriptBuildPhase';
 const EXPECTED_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PROJECT_ROOT/../../node_modules/.bin:$PATH"';
+const EXPECTED_DSYM_INPUT_PATH = `"\${DWARF_DSYM_FOLDER_PATH}/\${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/\${PRODUCT_NAME}"`;
 
-function runPluginWithShellScript(shellScript) {
-  const phase = {
-    shellScript: JSON.stringify(shellScript),
+function runPluginWithPhases({
+  bundleShellScript = '',
+  dsymShellScript = '',
+  dsymInputPaths = [],
+} = {}) {
+  const bundlePhase = {
+    shellScript: JSON.stringify(bundleShellScript),
+  };
+  const dsymUploadPhase = {
+    inputPaths: dsymInputPaths,
+    shellScript: JSON.stringify(dsymShellScript),
   };
   mockProject = {
-    pbxItemByComment: jest.fn().mockReturnValue(phase),
+    pbxItemByComment: jest.fn((phaseName) => {
+      if (phaseName === BUNDLE_PHASE_NAME) {
+        return bundlePhase;
+      }
+      if (phaseName === DSYM_UPLOAD_PHASE_NAME) {
+        return dsymUploadPhase;
+      }
+      return undefined;
+    }),
   };
 
   withPostHogXcodeCliPath({ name: 'Ogabassey', slug: 'ogabassey' });
 
   return {
-    phase,
-    script: JSON.parse(phase.shellScript),
+    bundlePhase,
+    bundleScript: JSON.parse(bundlePhase.shellScript),
+    dsymUploadPhase,
+    dsymScript: JSON.parse(dsymUploadPhase.shellScript),
   };
 }
 
@@ -37,46 +57,92 @@ describe('withPostHogXcodeCliPath', () => {
   });
 
   it('prepends app and workspace node bins before the PostHog Xcode wrapper runs', () => {
-    const { script } =
-      runPluginWithShellScript(`export PROJECT_ROOT="$PROJECT_DIR"/..
+    const { bundleScript } = runPluginWithPhases({
+      bundleShellScript: `export PROJECT_ROOT="$PROJECT_DIR"/..
 
 /bin/sh "$PROJECT_ROOT/node_modules/posthog-react-native/tooling/posthog-xcode.sh"
-`);
+`,
+    });
 
-    expect(script).toContain(`export PROJECT_ROOT="$PROJECT_DIR"/..
+    expect(bundleScript).toContain(`export PROJECT_ROOT="$PROJECT_DIR"/..
 ${EXPECTED_PATH_EXPORT}
 `);
-    expect(script).toContain('posthog-xcode.sh');
+    expect(bundleScript).toContain('posthog-xcode.sh');
   });
 
   it('upgrades the older app-only PATH patch without duplicating it', () => {
-    const { script } =
-      runPluginWithShellScript(`export PROJECT_ROOT="$PROJECT_DIR"/..
+    const { bundleScript } = runPluginWithPhases({
+      bundleShellScript: `export PROJECT_ROOT="$PROJECT_DIR"/..
 export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"
 
 /bin/sh "$PROJECT_ROOT/node_modules/posthog-react-native/tooling/posthog-xcode.sh"
-`);
+`,
+    });
 
-    expect(script).toContain(EXPECTED_PATH_EXPORT);
-    expect(script.match(/PROJECT_ROOT\/node_modules\/\.bin/g)).toHaveLength(1);
+    expect(bundleScript).toContain(EXPECTED_PATH_EXPORT);
+    expect(
+      bundleScript.match(/PROJECT_ROOT\/node_modules\/\.bin/g)
+    ).toHaveLength(1);
   });
 
   it('leaves unrelated Xcode phases unchanged', () => {
-    const { script } =
-      runPluginWithShellScript(`export PROJECT_ROOT="$PROJECT_DIR"/..
+    const { bundleScript } = runPluginWithPhases({
+      bundleShellScript: `export PROJECT_ROOT="$PROJECT_DIR"/..
 /bin/sh "$PROJECT_ROOT/node_modules/react-native/scripts/react-native-xcode.sh"
-`);
+`,
+    });
 
-    expect(script).not.toContain(EXPECTED_PATH_EXPORT);
+    expect(bundleScript).not.toContain(EXPECTED_PATH_EXPORT);
   });
 
   it('looks up the generated bundle phase by Xcode comment and type', () => {
-    runPluginWithShellScript(`export PROJECT_ROOT="$PROJECT_DIR"/..
+    runPluginWithPhases({
+      bundleShellScript: `export PROJECT_ROOT="$PROJECT_DIR"/..
 /bin/sh "$PROJECT_ROOT/node_modules/posthog-react-native/tooling/posthog-xcode.sh"
-`);
+`,
+    });
 
     expect(mockProject.pbxItemByComment).toHaveBeenCalledWith(
-      PHASE_NAME,
+      BUNDLE_PHASE_NAME,
+      PHASE_TYPE
+    );
+  });
+
+  it('patches the generated PostHog dSYM upload phase for pnpm CLI lookup and dSYM readiness', () => {
+    const { dsymScript, dsymUploadPhase } = runPluginWithPhases({
+      dsymShellScript: `# Upload iOS dSYMs to PostHog so native crashes can be symbolicated.
+PODS_SCRIPT="\${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+/bin/sh "$PODS_SCRIPT"
+`,
+    });
+
+    expect(dsymScript).toContain('export PROJECT_ROOT="$PROJECT_DIR"/..');
+    expect(dsymScript).toContain(EXPECTED_PATH_EXPORT);
+    expect(dsymUploadPhase.inputPaths).toContain(EXPECTED_DSYM_INPUT_PATH);
+  });
+
+  it('does not duplicate the generated dSYM upload PATH or input path', () => {
+    const { dsymScript, dsymUploadPhase } = runPluginWithPhases({
+      dsymInputPaths: [EXPECTED_DSYM_INPUT_PATH],
+      dsymShellScript: `# Upload iOS dSYMs to PostHog so native crashes can be symbolicated.
+${EXPECTED_PATH_EXPORT}
+PODS_SCRIPT="\${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+/bin/sh "$PODS_SCRIPT"
+`,
+    });
+
+    expect(dsymScript.match(/PROJECT_ROOT\/node_modules\/\.bin/g)).toHaveLength(
+      1
+    );
+    expect(dsymScript).toContain('export PROJECT_ROOT="$PROJECT_DIR"/..');
+    expect(dsymUploadPhase.inputPaths).toEqual([EXPECTED_DSYM_INPUT_PATH]);
+  });
+
+  it('looks up the generated dSYM upload phase by Xcode comment and type', () => {
+    runPluginWithPhases();
+
+    expect(mockProject.pbxItemByComment).toHaveBeenCalledWith(
+      DSYM_UPLOAD_PHASE_NAME,
       PHASE_TYPE
     );
   });
