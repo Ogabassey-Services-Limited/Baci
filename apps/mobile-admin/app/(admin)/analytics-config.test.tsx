@@ -398,6 +398,43 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     expect(supabaseMocks.update).not.toHaveBeenCalled();
   });
 
+  it('keeps reconnect and focus refetching enabled after a query error even once the user types, so recovery can seed the buffer', () => {
+    // Initial query errors: no data, so the buffer never seeds.
+    queryMocks.useQuery.mockReturnValue({
+      data: null,
+      isError: true,
+      isLoading: false,
+    });
+
+    const { rerender } = render(<AnalyticsConfigScreen />);
+
+    let options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(true);
+    expect(options.refetchOnReconnect).toBe(true);
+
+    // The user types before reconnect succeeds: the buffer becomes dirty while
+    // it is still unseeded (seededSnapshot === null).
+    fireEvent.click(
+      screen.getByText('Meta (Facebook/Instagram)').closest('button') as Element
+    );
+    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
+      target: { value: 'EDITED-BEFORE-RECONNECT' },
+    });
+    rerender(<AnalyticsConfigScreen />);
+
+    // Recovery must stay enabled until the first successful seed, otherwise a
+    // reconnect refetch can never seed the snapshot and Save throws forever.
+    options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+    };
+    expect(options.refetchOnWindowFocus).toBe(true);
+    expect(options.refetchOnReconnect).toBe(true);
+  });
+
   it('keeps reconnect and focus refetching enabled until the form becomes dirty', () => {
     queryMocks.useQuery.mockReturnValue({
       data: { ...merchantAnalytics },
