@@ -69,7 +69,12 @@ BEGIN
     jsonb_build_object('street', '2 Olaide Tomori Street', 'city', 'Ikeja')
   );
 
-  -- The seeded dummy business address must be rejected.
+  -- The seeded dummy business address must be rejected when there is no
+  -- formatted structured address for the PR-F derivation trigger to restore.
+  UPDATE public.merchants
+     SET registered_address = '{}'::jsonb
+   WHERE id = v_mid;
+
   BEGIN
     UPDATE public.merchants SET business_address = '456 Oak Avenue, New City, State, 12345' WHERE id = v_mid;
     RAISE EXCEPTION 'placeholder business_address was accepted';
