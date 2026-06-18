@@ -9,6 +9,13 @@
  */
 import type { Instrumentation } from 'next';
 
+const QUERY_OR_HASH_PATTERN = /[?#]/;
+
+function stripQueryAndHash(path: string): string {
+  const markerIndex = path.search(QUERY_OR_HASH_PATTERN);
+  return markerIndex === -1 ? path : path.slice(0, markerIndex);
+}
+
 export async function register() {
   // Only register in server-side environments (Node.js runtime)
   if (process.env.NEXT_RUNTIME === 'nodejs') {
@@ -37,7 +44,7 @@ export const onRequestError: Instrumentation.onRequestError = async (
   const { captureServerException } = await import('@/lib/posthog/server');
 
   await captureServerException(error, {
-    request_path: request.path.split('?')[0],
+    request_path: stripQueryAndHash(request.path),
     request_method: request.method,
     router_kind: context.routerKind,
     route_path: context.routePath,

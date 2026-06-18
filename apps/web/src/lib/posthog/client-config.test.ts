@@ -34,9 +34,13 @@ describe('PostHog client config', () => {
       mask_all_text: true,
       session_recording: expect.objectContaining({
         maskAllInputs: true,
+        maskTextFn: expect.any(Function),
         maskTextSelector: 'body',
       }),
     });
+    expect(config.session_recording?.maskTextFn?.('private note')).toBe(
+      '[Filtered]'
+    );
   });
 
   it('registers stable app context after PostHog loads', () => {

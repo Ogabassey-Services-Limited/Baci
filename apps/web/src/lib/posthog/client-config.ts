@@ -105,6 +105,7 @@ export function buildPostHogClientConfig(
     disable_session_recording: false,
     session_recording: {
       maskAllInputs: true,
+      maskTextFn: () => REDACTED_VALUE,
       maskTextSelector: 'body',
       blockSelector: '[data-ph-block], [data-session-replay-block]',
     },
