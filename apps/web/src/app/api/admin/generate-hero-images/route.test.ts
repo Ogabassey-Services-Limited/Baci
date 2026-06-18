@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mocks = vi.hoisted(() => ({
+  checkCsrfProtection: vi.fn(),
+  createClient: vi.fn(),
+  generateHeroImageBatch: vi.fn(),
+  getPlatformAdminAuth: vi.fn(),
+  select: vi.fn(),
+  eq: vi.fn(),
+}));
+
 vi.mock('@/lib/platform-admin-auth', () => {
   return {
-    getPlatformAdminAuth: vi
-      .fn()
-      .mockResolvedValue({ status: 'unauthenticated' }),
+    getPlatformAdminAuth: mocks.getPlatformAdminAuth,
   };
 });
 
 vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
+  checkCsrfProtection: mocks.checkCsrfProtection,
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -21,17 +28,11 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('@/services/hero-image-generator', () => ({
-  generateHeroImageBatch: vi.fn(),
+  generateHeroImageBatch: mocks.generateHeroImageBatch,
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn().mockReturnValue({
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
-      }),
-    }),
-  }),
+  createClient: mocks.createClient,
 }));
 
 vi.mock('next/headers', () => ({
@@ -44,6 +45,19 @@ import { GET, POST } from './route';
 describe('/api/admin/generate-hero-images', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
+    mocks.getPlatformAdminAuth.mockResolvedValue({ status: 'unauthenticated' });
+    mocks.eq.mockResolvedValue({ data: [], error: null });
+    mocks.select.mockReturnValue({ eq: mocks.eq });
+    mocks.createClient.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        select: mocks.select,
+      }),
+    });
+    mocks.generateHeroImageBatch.mockResolvedValue({
+      success: true,
+      imageIds: ['hero-1', 'hero-2'],
+    });
   });
 
   it('GET should return 401 when unauthenticated', async () => {
@@ -51,12 +65,130 @@ describe('/api/admin/generate-hero-images', () => {
     expect(res.status).toBe(401);
   });
 
+  it('GET should return 403 when user is not a platform admin', async () => {
+    mocks.getPlatformAdminAuth.mockResolvedValueOnce({ status: 'forbidden' });
+
+    const res = await GET();
+
+    expect(res.status).toBe(403);
+  });
+
+  it('GET should return hero image statistics for platform admins', async () => {
+    mocks.getPlatformAdminAuth.mockResolvedValueOnce({
+      status: 'authenticated',
+    });
+    mocks.eq.mockResolvedValueOnce({
+      data: [
+        { category: 'electronics', usage_count: 2 },
+        { category: 'electronics', usage_count: 6 },
+        { category: 'fashion', usage_count: 1 },
+      ],
+      error: null,
+    });
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      statistics: {
+        electronics: { total: 2, avgUsage: 4, totalUsage: 8 },
+        fashion: { total: 1, avgUsage: 1, totalUsage: 1 },
+      },
+      totalImages: 3,
+    });
+  });
+
   it('POST should return 401 when unauthenticated', async () => {
     const req = new NextRequest(
       'http://localhost:3000/api/admin/generate-hero-images',
-      { method: 'POST' }
+      {
+        method: 'POST',
+        body: JSON.stringify({ category: 'electronics' }),
+      }
     );
     const res = await POST(req);
     expect(res.status).toBe(401);
+  });
+
+  it('POST should return 403 when user is not a platform admin', async () => {
+    mocks.getPlatformAdminAuth.mockResolvedValueOnce({ status: 'forbidden' });
+    const req = new NextRequest(
+      'http://localhost:3000/api/admin/generate-hero-images',
+      {
+        method: 'POST',
+        body: JSON.stringify({ category: 'electronics' }),
+      }
+    );
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('POST should reject invalid request payloads before generation', async () => {
+    mocks.getPlatformAdminAuth.mockResolvedValueOnce({
+      status: 'authenticated',
+    });
+    const req = new NextRequest(
+      'http://localhost:3000/api/admin/generate-hero-images',
+      {
+        method: 'POST',
+        body: JSON.stringify({ category: 'phones', count: 50 }),
+      }
+    );
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe('Invalid request payload');
+    expect(mocks.generateHeroImageBatch).not.toHaveBeenCalled();
+  });
+
+  it('POST should reject non-object JSON payloads without throwing', async () => {
+    mocks.getPlatformAdminAuth.mockResolvedValueOnce({
+      status: 'authenticated',
+    });
+    const req = new NextRequest(
+      'http://localhost:3000/api/admin/generate-hero-images',
+      {
+        method: 'POST',
+        body: 'null',
+      }
+    );
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe('Invalid request payload');
+    expect(mocks.generateHeroImageBatch).not.toHaveBeenCalled();
+  });
+
+  it('POST should generate hero images for platform admins', async () => {
+    mocks.getPlatformAdminAuth.mockResolvedValueOnce({
+      status: 'authenticated',
+    });
+    const req = new NextRequest(
+      'http://localhost:3000/api/admin/generate-hero-images',
+      {
+        method: 'POST',
+        body: JSON.stringify({ category: 'electronics', count: 2 }),
+      }
+    );
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mocks.generateHeroImageBatch).toHaveBeenCalledWith('electronics', 2);
+    expect(body).toEqual({
+      success: true,
+      imageIds: ['hero-1', 'hero-2'],
+      count: 2,
+      message: 'Successfully generated 2 hero images for electronics',
+    });
   });
 });

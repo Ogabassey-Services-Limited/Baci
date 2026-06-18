@@ -4,6 +4,7 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createClient } from '@/lib/supabase/server';
+import { adminGenerateHeroImagesRequestSchema } from '@/schemas/admin-generate-hero-images';
 import { generateHeroImageBatch } from '@/services/hero-image-generator';
 
 function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
@@ -31,42 +32,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
-    const { category, count = 10 } = body;
-
-    if (!category) {
-      return NextResponse.json(
-        { error: 'Category is required' },
-        { status: 400 }
-      );
-    }
-
-    const validCategories = [
-      'fashion',
-      'electronics',
-      'hair-extensions',
-      'home-goods',
-      'health-beauty',
-      'handmade',
-      'food-beverage',
-      'other',
-    ];
-
-    if (!validCategories.includes(category)) {
+    const body: unknown = await request.json();
+    const parseResult = adminGenerateHeroImagesRequestSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
         {
-          error: `Invalid category. Must be one of: ${validCategories.join(', ')}`,
+          error: 'Invalid request payload',
+          details: parseResult.error.flatten(),
         },
         { status: 400 }
       );
     }
-
-    if (count < 1 || count > 20) {
-      return NextResponse.json(
-        { error: 'Count must be between 1 and 20' },
-        { status: 400 }
-      );
-    }
+    const { category, count } = parseResult.data;
 
     logger.info({ message: 'Generating hero images batch', category, count });
 
