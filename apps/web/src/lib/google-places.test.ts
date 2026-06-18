@@ -25,6 +25,7 @@ describe('google places client helpers', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     process.env.GOOGLE_PLACES_API_KEY = originalGooglePlacesApiKey;
     process.env.GOOGLE_MAPS_API_KEY = originalGoogleMapsApiKey;
   });
