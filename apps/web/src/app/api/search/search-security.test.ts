@@ -253,7 +253,7 @@ describe('Search API Security', () => {
       expect(data.error).toMatch(/Invalid merchant_id/);
     });
 
-    it('returns 500 when spelling suggestion lookup fails', async () => {
+    it('degrades to no suggestion when the spelling suggestion lookup fails', async () => {
       mockSupabase.rpc
         .mockResolvedValueOnce({ data: [], error: null })
         .mockResolvedValueOnce({
@@ -267,9 +267,12 @@ describe('Search API Security', () => {
 
       const response = await searchGET(request);
 
-      expect(response.status).toBe(500);
+      // The "did you mean" lookup is additive — its failure must not turn a
+      // valid zero-results search into a 500.
+      expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data.error).toBe('Failed to perform search');
+      expect(data.didYouMean).toBeNull();
+      expect(data.productIds).toEqual([]);
     });
   });
 
@@ -435,7 +438,7 @@ describe('Search API Security', () => {
       expect(sharedChainableMock.limit).not.toHaveBeenCalled();
     });
 
-    it('normalizes unsupported product image payloads to null image_small', async () => {
+    it('resolves object image urls and normalizes empty payloads to null image_small', async () => {
       mockSupabase.rpc.mockResolvedValueOnce({
         data: [
           { product_id: 'product-null-image', total_count: 3 },
@@ -509,7 +512,7 @@ describe('Search API Security', () => {
           name: 'Object Image Product',
           category: 'Smartphones',
           price: 120000,
-          image_small: null,
+          image_small: 'https://example.com/object-image.jpg',
           slug: 'object-image-product',
           relevance: 1,
         },
