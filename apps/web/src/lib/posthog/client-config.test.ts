@@ -78,6 +78,10 @@ describe('PostHog client config', () => {
         ],
         request_path: '/checkout/success?email=buyer@example.com',
         $session_id: '018f-session',
+        shipping: 2500,
+        shipping_fee: 2500,
+        shippingPin: '1234',
+        card_number: '4111111111111111',
         nested: {
           phone: '+2348000000000',
           path: '/checkout',
@@ -99,6 +103,10 @@ describe('PostHog client config', () => {
       ],
       request_path: '/checkout/success',
       $session_id: '018f-session',
+      shipping: 2500,
+      shipping_fee: 2500,
+      shippingPin: '[Filtered]',
+      card_number: '[Filtered]',
       nested: {
         phone: '[Filtered]',
         path: '/checkout',

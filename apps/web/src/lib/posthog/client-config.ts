@@ -5,8 +5,23 @@ import {
   type PostHogEnv,
 } from '@/lib/posthog/config';
 
-const SENSITIVE_PROPERTY_PATTERN =
-  /(?:password|passcode|token|secret|authorization|cookie|otp|pin|cvv|card|bvn|nin|email|phone|address)/i;
+const SENSITIVE_PROPERTY_TOKENS = new Set([
+  'password',
+  'passcode',
+  'token',
+  'secret',
+  'authorization',
+  'cookie',
+  'otp',
+  'pin',
+  'cvv',
+  'card',
+  'bvn',
+  'nin',
+  'email',
+  'phone',
+  'address',
+]);
 const URL_PROPERTY_PATTERN =
   /(?:url|href|referrer|current_url|pathname|request_path)/i;
 const AUTOCAPTURE_TEXT_PROPERTY_PATTERN =
@@ -24,12 +39,20 @@ function redactUrlQuery(value: string): string {
   return markerIndex === -1 ? value : value.slice(0, markerIndex);
 }
 
+function isSensitivePropertyKey(key: string): boolean {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .some((token) => SENSITIVE_PROPERTY_TOKENS.has(token));
+}
+
 function sanitizePropertyValue(key: string, value: unknown): unknown {
   if (AUTOCAPTURE_TEXT_PROPERTY_PATTERN.test(key)) {
     return REDACTED_VALUE;
   }
 
-  if (SENSITIVE_PROPERTY_PATTERN.test(key)) {
+  if (isSensitivePropertyKey(key)) {
     return REDACTED_VALUE;
   }
 
