@@ -93,7 +93,7 @@ describe('next.config OgaBassey resource headers', () => {
     ).toBe('streaming');
   });
 
-  it('preconnects the OgaBassey CDN on the production custom domain', async () => {
+  it('keeps CDN connection hints out of generic OgaBassey Link headers', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
 
@@ -106,8 +106,11 @@ describe('next.config OgaBassey resource headers', () => {
       )
       ?.headers.find((header) => header.key === 'Link')?.value;
 
-    expect(ogabasseyLinkHeader).toContain(
+    expect(ogabasseyLinkHeader).not.toContain(
       '<https://cdn.ogabassey.com>; rel=preconnect'
+    );
+    expect(ogabasseyLinkHeader).toContain(
+      '</.well-known/api-catalog>; rel="api-catalog"'
     );
   });
 
@@ -198,7 +201,9 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
-    expect(linkHeader).toContain('<https://cdn.ogabassey.com>; rel=preconnect');
+    expect(linkHeader).not.toContain(
+      '<https://cdn.ogabassey.com>; rel=preconnect'
+    );
     expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
     expect(linkHeader).not.toContain('/profile/mobile-header/');
     expect(linkHeader).not.toContain('/profile/mobile/');

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
-import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import {
   getCachedLegacyProductRedirectTarget,
   getCachedProductWithDetails,
@@ -88,7 +87,7 @@ export default async function LegacyProductPage({ params }: PageProps) {
   const redirectPath = await resolveLegacyProductPath(slug, productSlug);
 
   if (!redirectPath) {
-    return <StorefrontRouteNotFound />;
+    notFound();
   }
 
   permanentRedirect(buildProductRedirectPath(slug, redirectPath));

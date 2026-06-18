@@ -1,4 +1,4 @@
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { ensureGoogleAdManagerBoot, ensureGoogleTag } = vi.hoisted(() => ({
@@ -97,6 +97,12 @@ describe('AdUnit', () => {
   it('waits for the slot to approach the viewport before bootstrapping GPT', async () => {
     const { container } = render(<AdUnit placementKey="HOMEPAGE_STRIP" />);
 
+    expect(screen.getByText('Sponsored')).toHaveClass(
+      'ogabassey-ad-placeholder-text'
+    );
+    expect(screen.getByText('Ad Space')).toHaveClass(
+      'ogabassey-ad-placeholder-text'
+    );
     expect(ensureGoogleAdManagerBoot).not.toHaveBeenCalled();
     expect(intersectionCallback).toBeTypeOf('function');
     expect(intersectionOptions?.rootMargin).toBe('400px 0px');

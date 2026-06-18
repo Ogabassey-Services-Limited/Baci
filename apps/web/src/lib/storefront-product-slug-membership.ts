@@ -1,3 +1,5 @@
+import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+
 interface SlugMissingOptions {
   /**
    * Public request origin, e.g. `https://ogabassey.com` — used as the fallback
@@ -17,6 +19,11 @@ interface SlugMissingOptions {
   /** Tight budget — a slow internal hop must not delay navigations. */
   timeoutMs?: number;
 }
+
+export type StorefrontProductSlugResolution =
+  | { kind: 'missing' }
+  | { kind: 'present-or-unknown' }
+  | { kind: 'redirect'; redirectPath: string };
 
 function isLoopbackOrigin(origin: string): boolean {
   try {
@@ -53,29 +60,31 @@ function resolveInternalBaseUrl(origin: string): string | null {
 }
 
 /**
- * Returns TRUE only when we POSITIVELY confirm the product slug exists for no
- * product of this merchant (a true typo → the proxy may hard-404 it).
+ * Resolves a storefront PDP slug for the proxy: missing slugs become real hard
+ * 404s, archived aliases become real 308s, and every uncertain/live case falls
+ * through to the App Router.
  *
  * Delegates the membership decision to the internal route (which can legally
  * call the `'use cache'` slug-set builder the proxy cannot) and reads back only
- * `{ hasError, present }` — never the full slug list — so a large catalog adds
- * no slug-list transfer/parse to the navigation.
+ * `{ hasError, present, redirectPath? }` — never the full slug list — so a
+ * large catalog adds no slug-list transfer/parse to the navigation.
  *
  * Fail-open by construction: a missing secret, non-2xx, transport error,
- * timeout, `hasError`, or a non-`false` `present` all return FALSE so the proxy
- * never hard-404s a live product on a stale/unavailable set.
+ * timeout, `hasError`, malformed body, or unsafe redirect all return
+ * `present-or-unknown` so the proxy never hard-404s or open-redirects a live
+ * product on a stale/unavailable set.
  */
-export async function isStorefrontProductSlugMissing(
+export async function resolveStorefrontProductSlugResolution(
   opts: SlugMissingOptions
-): Promise<boolean> {
+): Promise<StorefrontProductSlugResolution> {
   if (!opts.secret) {
-    return false;
+    return { kind: 'present-or-unknown' };
   }
 
   // No trusted base → fail open WITHOUT sending the secret to an untrusted host.
   const baseUrl = resolveInternalBaseUrl(opts.origin);
   if (!baseUrl) {
-    return false;
+    return { kind: 'present-or-unknown' };
   }
 
   try {
@@ -91,18 +100,42 @@ export async function isStorefrontProductSlugMissing(
     });
 
     if (!response.ok) {
-      return false;
+      return { kind: 'present-or-unknown' };
     }
 
     const body = (await response.json()) as {
       hasError?: boolean;
       present?: boolean;
+      redirectPath?: unknown;
     };
 
+    if (body?.hasError !== false) {
+      return { kind: 'present-or-unknown' };
+    }
+
+    const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+    if (body.present === true && redirectPath) {
+      return { kind: 'redirect', redirectPath };
+    }
+
     // Hard-404 ONLY on an explicit, error-free "absent" verdict. Any other
-    // shape (hasError, present true/undefined, malformed) falls through.
-    return body?.hasError === false && body?.present === false;
+    // shape (present true/undefined, malformed) falls through.
+    if (body.present === false) {
+      return { kind: 'missing' };
+    }
+
+    return { kind: 'present-or-unknown' };
   } catch {
-    return false;
+    return { kind: 'present-or-unknown' };
   }
+}
+
+/**
+ * Compatibility wrapper for callers/tests that only need the hard-404 verdict.
+ */
+export async function isStorefrontProductSlugMissing(
+  opts: SlugMissingOptions
+): Promise<boolean> {
+  const resolution = await resolveStorefrontProductSlugResolution(opts);
+  return resolution.kind === 'missing';
 }

@@ -4,12 +4,14 @@ interface ImageLoaderParams {
   src: string;
   width: number;
   quality?: number;
+  preferOgabasseyTransform?: boolean;
 }
 
 const OGABASSEY_CDN_HOSTNAME = new URL(DEFAULT_MEDIA_CDN_ORIGIN).hostname;
 const DEFAULT_IMAGE_QUALITY = 75;
 const MIN_TRANSFORM_WIDTH = 16;
 const MAX_TRANSFORM_WIDTH = 3840;
+const OGABASSEY_PRODUCT_IMAGE_PATH_PREFIX = '/core-assets/products/';
 const TRANSFORMABLE_IMAGE_EXTENSION_PATTERN = /\.(avif|jpe?g|png|webp)$/i;
 
 /**
@@ -29,6 +31,7 @@ export default function imageLoader({
   src,
   width,
   quality,
+  preferOgabasseyTransform = false,
 }: ImageLoaderParams): string {
   if (typeof src !== 'string') {
     return '';
@@ -38,24 +41,18 @@ export default function imageLoader({
     return src;
   }
 
-  // External URLs — serve directly from their CDN
+  // External URLs — serve directly from their CDN unless the OgaBassey product
+  // image transformer is needed to preserve next/image width-aware srcsets.
   if (src.startsWith('https://') || src.startsWith('http://')) {
-    const resizedTransformedCdnUrl = buildResizedOgabasseyTransformedCdnUrl({
-      quality,
-      src,
-      width,
-    });
-    if (resizedTransformedCdnUrl) {
-      return resizedTransformedCdnUrl;
-    }
-
-    const cdnTransformUrl = buildOgabasseyCdnTransformUrl({
-      quality,
-      src,
-      width,
-    });
-    if (cdnTransformUrl) {
-      return cdnTransformUrl;
+    if (isOgabasseyCdnUrl(src)) {
+      return (
+        buildOgabasseyCdnTransformUrl({
+          preferOgabasseyTransform,
+          quality,
+          src,
+          width,
+        }) ?? src
+      );
     }
 
     return appendLoaderParams(src, width, quality);
@@ -78,50 +75,16 @@ function appendLoaderParams(src: string, width: number, quality?: number) {
   return `${base}${separator}w=${transformWidth}&q=${transformQuality}${hash}`;
 }
 
-function buildResizedOgabasseyTransformedCdnUrl({
-  src,
-  width,
-  quality,
-}: ImageLoaderParams): string | null {
-  let url: URL;
+function isOgabasseyCdnUrl(src: string): boolean {
   try {
-    url = new URL(src);
+    return new URL(src).hostname === OGABASSEY_CDN_HOSTNAME;
   } catch {
-    return null;
+    return false;
   }
-
-  if (
-    url.hostname !== OGABASSEY_CDN_HOSTNAME ||
-    !url.pathname.startsWith('/image/')
-  ) {
-    return null;
-  }
-
-  const transformPath = url.pathname.slice('/image/'.length);
-  const sourcePathIndex = transformPath.indexOf('/');
-  if (sourcePathIndex <= 0) {
-    return null;
-  }
-
-  const operations = transformPath
-    .slice(0, sourcePathIndex)
-    .split(',')
-    .filter(Boolean);
-  if (operations.some((operation) => operation.startsWith('width='))) {
-    return src;
-  }
-
-  const nextOperations = [`width=${clampDimension(width)}`];
-  if (!operations.some((operation) => operation.startsWith('quality='))) {
-    nextOperations.push(`quality=${clampQuality(quality)}`);
-  }
-  nextOperations.push(...operations);
-
-  const sourcePath = transformPath.slice(sourcePathIndex + 1);
-  return `${url.origin}/image/${nextOperations.join(',')}/${sourcePath}${url.search}${url.hash}`;
 }
 
 function buildOgabasseyCdnTransformUrl({
+  preferOgabasseyTransform = false,
   src,
   width,
   quality,
@@ -136,6 +99,8 @@ function buildOgabasseyCdnTransformUrl({
   if (
     url.hostname !== OGABASSEY_CDN_HOSTNAME ||
     url.pathname.startsWith('/image/') ||
+    (!preferOgabasseyTransform &&
+      !url.pathname.startsWith(OGABASSEY_PRODUCT_IMAGE_PATH_PREFIX)) ||
     !TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(url.pathname)
   ) {
     return null;

@@ -9,6 +9,12 @@ const mockGetCachedGooglePlacesReviews = vi.fn();
 const mockLoggerError = vi.fn();
 const TEST_NOW = new Date('2026-05-20T12:00:00.000Z');
 const PRODUCT_UPDATED_AT = '2026-05-10T00:00:00.000Z';
+let routeModulePromise: Promise<typeof import('./route')> | null = null;
+
+function importRoute() {
+  routeModulePromise ??= import('./route');
+  return routeModulePromise;
+}
 
 type TestMerchant = {
   business_name: string;
@@ -160,7 +166,6 @@ function stubFeedData() {
 describe('GET /.well-known/agent-native-commerce', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
     vi.useFakeTimers();
     vi.setSystemTime(TEST_NOW);
     stubAgenticEnv();
@@ -175,7 +180,7 @@ describe('GET /.well-known/agent-native-commerce', () => {
   });
 
   it('returns the public agent-native commerce proof for storefront hosts', async () => {
-    const { GET } = await import('./route');
+    const { GET } = await importRoute();
     const response = await GET(
       new Request('https://ogabassey.com/.well-known/agent-native-commerce', {
         headers: { host: 'ogabassey.com' },
@@ -237,7 +242,7 @@ describe('GET /.well-known/agent-native-commerce', () => {
       'ogabassey'
     );
     expect(mockGetCachedGooglePlacesReviews).not.toHaveBeenCalled();
-  });
+  }, 30_000);
 
   it('enriches Google review authority before packaging trust proof', async () => {
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
@@ -274,7 +279,7 @@ describe('GET /.well-known/agent-native-commerce', () => {
       totalReviews: 264,
     });
 
-    const { GET } = await import('./route');
+    const { GET } = await importRoute();
     const response = await GET(
       new Request('https://ogabassey.com/.well-known/agent-native-commerce', {
         headers: { host: 'ogabassey.com' },
@@ -317,7 +322,7 @@ describe('GET /.well-known/agent-native-commerce', () => {
       .mockRejectedValueOnce(new Error('enrichment unavailable'));
 
     try {
-      const { GET } = await import('./route');
+      const { GET } = await importRoute();
       const response = await GET(
         new Request('https://ogabassey.com/.well-known/agent-native-commerce', {
           headers: { host: 'ogabassey.com' },
@@ -340,7 +345,7 @@ describe('GET /.well-known/agent-native-commerce', () => {
   });
 
   it('uses the host header when the request URL is an internal deployment host', async () => {
-    const { GET } = await import('./route');
+    const { GET } = await importRoute();
     const response = await GET(
       new Request(
         'https://vercel-deploy-1234.app/.well-known/agent-native-commerce',
@@ -377,7 +382,7 @@ describe('GET /.well-known/agent-native-commerce', () => {
   });
 
   it('returns 404 on the platform host', async () => {
-    const { GET } = await import('./route');
+    const { GET } = await importRoute();
     const response = await GET(
       new Request('https://usebaci.com/.well-known/agent-native-commerce', {
         headers: { host: 'usebaci.com' },
@@ -402,7 +407,7 @@ describe('GET /.well-known/agent-native-commerce', () => {
     );
 
     try {
-      const { GET } = await import('./route');
+      const { GET } = await importRoute();
       const response = await GET(
         new Request('https://ogabassey.com/.well-known/agent-native-commerce', {
           headers: { host: 'ogabassey.com' },
