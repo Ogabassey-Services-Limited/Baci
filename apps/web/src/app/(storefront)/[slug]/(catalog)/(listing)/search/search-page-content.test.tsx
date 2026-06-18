@@ -50,11 +50,60 @@ vi.mock('../products/product-index-card', () => ({
 }));
 
 const { SearchPageContent } = await import('./search-page-content');
+const mockGetStorefrontSearchProducts = vi.mocked(getStorefrontSearchProducts);
+
+function createSearchPageProps(
+  searchParams: {
+    brand?: string;
+    condition?: string;
+    max_price?: string;
+    min_price?: string;
+    page?: string;
+    q?: string;
+    sort?: string;
+  } = {}
+) {
+  return {
+    params: Promise.resolve({ slug: 'ogabassey' }),
+    searchParams: Promise.resolve({
+      page: '1',
+      ...searchParams,
+    }),
+  };
+}
+
+function createSearchProducts(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `product-${index + 1}`,
+    name: index === 0 ? 'iPhone 16' : `iPhone ${index + 17}`,
+    price: 1_200_000 + index * 1000,
+    slug: index === 0 ? 'iphone-16' : `iphone-${index + 17}`,
+    category: 'Phones',
+    category_slug: 'phones',
+  }));
+}
+
+function mockStorefrontContext() {
+  mockHeaders.mockResolvedValue(
+    new Headers([
+      ['host', 'proxy.internal'],
+      ['x-pathname', '/ogabassey/search'],
+    ])
+  );
+
+  vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+    id: 'merchant-1',
+    slug: 'ogabassey',
+    custom_domain: null,
+    business_name: 'Ogabassey',
+    payout_currency: 'NGN',
+  } as never);
+}
 
 describe('SearchPageContent', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
-    vi.mocked(getStorefrontSearchProducts).mockReset();
+    mockGetStorefrontSearchProducts.mockReset();
     mockHeaders.mockReset();
   });
 
@@ -78,14 +127,7 @@ describe('SearchPageContent', () => {
     vi.mocked(getStorefrontSearchProducts).mockResolvedValue({
       count: 200,
       didYouMean: 'iphone',
-      products: Array.from({ length: 20 }, (_, index) => ({
-        id: `product-${index + 1}`,
-        name: index === 0 ? 'iPhone 16' : `iPhone ${index + 17}`,
-        price: 1200000 + index * 1000,
-        slug: index === 0 ? 'iphone-16' : `iphone-${index + 17}`,
-        category: 'Phones',
-        category_slug: 'phones',
-      })),
+      products: createSearchProducts(20),
       query: 'iphone',
     } as never);
 
@@ -344,5 +386,54 @@ describe('SearchPageContent', () => {
     expect(
       screen.getByText(/We could not find any products matching “iphon”/i)
     ).toBeInTheDocument();
+  });
+
+  it('renders did-you-mean as a search link', async () => {
+    mockStorefrontContext();
+    mockGetStorefrontSearchProducts.mockResolvedValueOnce({
+      count: 0,
+      didYouMean: 'iphone',
+      products: [],
+      productIds: [],
+      query: 'iphnoe',
+    });
+
+    render(
+      (await SearchPageContent(
+        createSearchPageProps({ q: 'iphnoe' })
+      )) as React.ReactElement
+    );
+
+    expect(screen.getByRole('link', { name: /iphone/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/search?q=iphone'
+    );
+  });
+
+  it('shows recovery actions when a search has no results', async () => {
+    mockStorefrontContext();
+    mockGetStorefrontSearchProducts.mockResolvedValueOnce({
+      count: 0,
+      didYouMean: null,
+      products: [],
+      productIds: [],
+      query: 'nonexistent quantum gadget',
+    });
+
+    render(
+      (await SearchPageContent(
+        createSearchPageProps({ q: 'nonexistent quantum gadget' })
+      )) as React.ReactElement
+    );
+
+    expect(
+      screen.getByRole('heading', { name: /no products found/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /view all products/i })
+    ).toHaveAttribute('href', '/ogabassey/products');
+    expect(
+      screen.getByRole('link', { name: /contact support/i })
+    ).toHaveAttribute('href', '/ogabassey/contact');
   });
 });

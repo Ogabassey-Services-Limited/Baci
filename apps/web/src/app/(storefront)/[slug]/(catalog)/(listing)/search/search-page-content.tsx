@@ -105,6 +105,11 @@ export async function SearchPageContent({
 
   const headersList = await headers();
   const pathPrefix = getStorefrontPathPrefix(headersList, merchant.slug);
+  const allProductsHref = `${pathPrefix}/products` || '/products';
+  const contactHref = `${pathPrefix}/contact` || '/contact';
+  const didYouMeanHref = searchResult.didYouMean
+    ? `${pathPrefix}/search?q=${encodeURIComponent(searchResult.didYouMean)}`
+    : null;
   const storeUrl = buildRequestScopedStoreUrl(merchant, headersList);
   const pageUrl = searchQuery
     ? `${storeUrl}/search?q=${encodeURIComponent(searchQuery)}`
@@ -185,10 +190,16 @@ export async function SearchPageContent({
             </p>
           </div>
 
-          {searchResult.didYouMean && (
+          {searchResult.didYouMean && didYouMeanHref && (
             <p className="mt-4 text-sm text-store-background-text/55">
               Did you mean{' '}
-              <span className="font-medium">{searchResult.didYouMean}</span>?
+              <Link
+                href={asRoute(didYouMeanHref)}
+                className="font-medium text-store-primary underline-offset-4 hover:underline"
+              >
+                {searchResult.didYouMean}
+              </Link>
+              ?
             </p>
           )}
 
@@ -212,6 +223,22 @@ export async function SearchPageContent({
                 <p className="mt-2 text-sm text-store-background-text/55">
                   We could not find any products matching “{searchQuery}”.
                 </p>
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <Link
+                    href={asRoute(allProductsHref)}
+                    prefetch={false}
+                    className="rounded-md bg-store-primary px-4 py-2 text-sm font-semibold text-store-primary-text transition hover:opacity-90"
+                  >
+                    View all products
+                  </Link>
+                  <Link
+                    href={asRoute(contactHref)}
+                    prefetch={false}
+                    className="rounded-md border border-store-background-text/15 px-4 py-2 text-sm font-semibold text-store-background-text transition hover:border-store-primary hover:text-store-primary"
+                  >
+                    Contact support
+                  </Link>
+                </div>
               </div>
             )
           ) : (
