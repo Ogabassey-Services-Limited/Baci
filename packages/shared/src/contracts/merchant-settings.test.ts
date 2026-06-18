@@ -11,7 +11,7 @@ import {
 /**
  * Reference re-implementation of the SQL `public.format_merchant_address(jsonb)`
  * defined in
- * `supabase/migrations/20260617000200_derive_business_address_from_registered_address.sql`.
+ * `supabase/migrations/20260617000500_derive_business_address_from_registered_address.sql`.
  *
  * It mirrors the SQL semantics exactly:
  *   - reads ONLY street, city, state, postal_code/postalCode (in that order),
