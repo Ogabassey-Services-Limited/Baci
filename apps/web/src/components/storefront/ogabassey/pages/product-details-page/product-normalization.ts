@@ -1,5 +1,4 @@
 import { resolveProductVariantMedia } from '@baci/shared/lib';
-import { z } from 'zod';
 import { getVariantAttributeOptions } from '@/components/storefront/ogabassey/variant-attributes';
 import type {
   Product,
@@ -85,47 +84,47 @@ function getColorHex(name: string) {
   return '#cccccc';
 }
 
-const ImageUrlSchema = z.string()
-  .nullish()
-  .transform((val) => {
-    if (!val) return '/placeholder.svg';
-    // Strip literal double quotes and whitespace
-    const cleaned = val.trim().replace(/^"|"$/g, '');
-    return cleaned || '/placeholder.svg';
-  })
-  .pipe(z.string());
+const PLACEHOLDER_IMAGE = '/placeholder.svg';
 
-const ColorImagesSchema = z
-  .record(z.string(), z.array(ImageUrlSchema).nullish())
-  .nullish()
-  .transform((val) => {
-    if (!val) return {};
-    const result: Record<string, string[]> = {};
-    for (const [color, images] of Object.entries(val)) {
-      result[color] = (images || []).filter(
-        (url) => url !== '/placeholder.svg'
-      );
-    }
-    return result;
-  });
+// Storefront product props are already-trusted Server Component data (built in
+// page.tsx), not an API boundary — so these normalize/clean image URLs rather
+// than validate them. Kept as plain helpers to keep zod out of the client bundle.
+function cleanImageUrl(value?: string | null): string {
+  if (!value) return PLACEHOLDER_IMAGE;
+  // Strip wrapping literal double quotes and surrounding whitespace.
+  const cleaned = value.trim().replace(/^"|"$/g, '');
+  return cleaned || PLACEHOLDER_IMAGE;
+}
+
+function normalizeColorImages(
+  value?: Record<string, Array<string | null | undefined> | null> | null
+): Record<string, string[]> {
+  if (!value) return {};
+  const result: Record<string, string[]> = {};
+  for (const [color, images] of Object.entries(value)) {
+    result[color] = (images ?? [])
+      .map(cleanImageUrl)
+      .filter((url) => url !== PLACEHOLDER_IMAGE);
+  }
+  return result;
+}
 
 export function normalizeProductDetails(
   serverProduct: Product
 ): NormalizedProductDetails {
   const product = serverProduct as ProductWithDynamicFields;
 
-  const mainImages = z
-    .array(ImageUrlSchema)
-    .parse(product.images || [])
-    .filter((url) => url !== '/placeholder.svg');
+  const mainImages = (product.images ?? [])
+    .map(cleanImageUrl)
+    .filter((url) => url !== PLACEHOLDER_IMAGE);
 
-  const singleImage = ImageUrlSchema.parse(product.image);
+  const singleImage = cleanImageUrl(product.image);
   const resolvedVariantMedia = resolveProductVariantMedia({
-    colorImages: ColorImagesSchema.parse(product.color_images),
+    colorImages: normalizeColorImages(product.color_images),
     productColors: product.colors,
     productImages: [
       ...mainImages,
-      ...(singleImage !== '/placeholder.svg' ? [singleImage] : []),
+      ...(singleImage !== PLACEHOLDER_IMAGE ? [singleImage] : []),
     ],
     variants: product.variants,
   });
@@ -144,7 +143,7 @@ export function normalizeProductDetails(
   const images =
     resolvedVariantMedia.galleryImages.length > 0
       ? [...resolvedVariantMedia.galleryImages]
-      : ['/placeholder.svg'];
+      : [PLACEHOLDER_IMAGE];
 
   const platforms = (() => {
     const platformOptions = getVariantAttributeOptions(

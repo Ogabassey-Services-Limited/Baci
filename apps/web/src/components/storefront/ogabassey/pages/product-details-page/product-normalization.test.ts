@@ -81,6 +81,23 @@ describe('normalizeProductDetails', () => {
     expect(count).toBe(1);
   });
 
+  it('drops images and color entries that normalize to the placeholder', () => {
+    const productWithBlanks = {
+      ...baseProduct,
+      images: ['https://example.com/keep.jpg', '', '   '],
+      color_images: {
+        Silver: ['https://example.com/silver1.jpg', '  "" '],
+      },
+    } as unknown as Product;
+    const normalized = normalizeProductDetails(productWithBlanks);
+
+    expect(normalized.images).toContain('https://example.com/keep.jpg');
+    expect(normalized.images).not.toContain('/placeholder.svg');
+    expect(normalized.colorImages.Silver).toEqual([
+      'https://example.com/silver1.jpg',
+    ]);
+  });
+
   it('treats variant media as the canonical image-driven color mapping', () => {
     const variantMediaProduct = {
       ...baseProduct,
