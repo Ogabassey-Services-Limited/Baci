@@ -100,13 +100,18 @@ describe('OgabasseyPdpProductResourceHints', () => {
         as: 'image',
         fetchPriority: 'high',
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        imageSrcSet: expect.stringContaining(productImage),
+        imageSrcSet: expect.stringContaining(
+          'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif 750w'
+        ),
       })
     );
     const { options } = getPreloadCall(0);
     expect(options).not.toHaveProperty('media');
-    expect(desktopPreloadHref).toBe(productImage);
-    expect(options.imageSrcSet).not.toContain('/image/width=');
+    expect(desktopPreloadHref).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif'
+    );
+    expect(options.imageSrcSet).toContain('/image/width=');
+    expect(options.imageSrcSet).toContain('quality=35');
     expect(options.imageSrcSet).not.toContain('quality=30');
   });
 
@@ -123,9 +128,12 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(options).toEqual(
       expect.objectContaining({
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        imageSrcSet: expect.stringContaining(productImage),
+        imageSrcSet: expect.stringContaining(
+          'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/z-fold-7-jet-black.avif 750w'
+        ),
       })
     );
+    expect(options.imageSrcSet).not.toContain(`${productImage} 750w`);
     expect(options).not.toHaveProperty('media');
   });
 

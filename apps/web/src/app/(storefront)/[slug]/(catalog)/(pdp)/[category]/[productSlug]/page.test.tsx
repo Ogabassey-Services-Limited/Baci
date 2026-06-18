@@ -1595,8 +1595,9 @@ describe('[category]/[productSlug] page render', () => {
     });
     const productImageSrc = productImageElement.getAttribute('src');
 
-    expect(productImageSrc).toBe(productImage);
-    expect(productImageSrc).not.toContain('/image/width=');
+    expect(productImageSrc).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=35,format=auto/core-assets/products/hp-laptop.avif'
+    );
     expect(productImageSrc).not.toContain('/api/ogabassey/pdp-lcp-image');
     expect(productImageElement).toHaveAttribute('data-loader-prop', 'false');
     expect(productImageElement).toHaveAttribute('data-fetch-priority', 'high');

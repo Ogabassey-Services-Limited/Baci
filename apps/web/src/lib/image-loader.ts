@@ -11,6 +11,7 @@ const OGABASSEY_CDN_HOSTNAME = new URL(DEFAULT_MEDIA_CDN_ORIGIN).hostname;
 const DEFAULT_IMAGE_QUALITY = 75;
 const MIN_TRANSFORM_WIDTH = 16;
 const MAX_TRANSFORM_WIDTH = 3840;
+const OGABASSEY_PRODUCT_IMAGE_PATH_PREFIX = '/core-assets/products/';
 const TRANSFORMABLE_IMAGE_EXTENSION_PATTERN = /\.(avif|jpe?g|png|webp)$/i;
 
 /**
@@ -40,17 +41,18 @@ export default function imageLoader({
     return src;
   }
 
-  // External URLs — serve directly from their CDN. The /image/* transformer
-  // is reserved for feed/offline derivative workflows and explicit callers;
-  // storefront rendering should not synthesize transform URLs on the critical
-  // path for already-optimized OgaBassey CDN assets.
+  // External URLs — serve directly from their CDN unless the OgaBassey product
+  // image transformer is needed to preserve next/image width-aware srcsets.
   if (src.startsWith('https://') || src.startsWith('http://')) {
     if (isOgabasseyCdnUrl(src)) {
-      if (preferOgabasseyTransform) {
-        return buildOgabasseyCdnTransformUrl({ quality, src, width }) ?? src;
-      }
-
-      return src;
+      return (
+        buildOgabasseyCdnTransformUrl({
+          preferOgabasseyTransform,
+          quality,
+          src,
+          width,
+        }) ?? src
+      );
     }
 
     return appendLoaderParams(src, width, quality);
@@ -82,6 +84,7 @@ function isOgabasseyCdnUrl(src: string): boolean {
 }
 
 function buildOgabasseyCdnTransformUrl({
+  preferOgabasseyTransform = false,
   src,
   width,
   quality,
@@ -96,6 +99,8 @@ function buildOgabasseyCdnTransformUrl({
   if (
     url.hostname !== OGABASSEY_CDN_HOSTNAME ||
     url.pathname.startsWith('/image/') ||
+    (!preferOgabasseyTransform &&
+      !url.pathname.startsWith(OGABASSEY_PRODUCT_IMAGE_PATH_PREFIX)) ||
     !TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(url.pathname)
   ) {
     return null;

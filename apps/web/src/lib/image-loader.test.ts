@@ -6,30 +6,41 @@ describe('imageLoader', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves OgaBassey CDN image URLs directly without storefront transforms', () => {
+  it('builds width-aware transforms for OgaBassey product CDN images', () => {
     const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
-    expect(imageLoader({ src: url, width: 800 })).toBe(url);
+    expect(imageLoader({ src: url, width: 800 })).toBe(
+      'https://cdn.ogabassey.com/image/width=800,quality=75,format=auto/core-assets/products/iphone.avif'
+    );
   });
 
-  it('does not negotiate transformed formats for raw OgaBassey image URLs', () => {
-    for (const url of [
-      'https://cdn.ogabassey.com/core-assets/products/image.avif',
-      'https://cdn.ogabassey.com/core-assets/products/image.jpg',
-      'https://cdn.ogabassey.com/core-assets/products/image.png',
-      'https://cdn.ogabassey.com/core-assets/products/image.webp',
+  it('negotiates transformed formats for product image file types', () => {
+    for (const [url, expectedExtension] of [
+      [
+        'https://cdn.ogabassey.com/core-assets/products/image.avif',
+        'image.avif',
+      ],
+      ['https://cdn.ogabassey.com/core-assets/products/image.jpg', 'image.jpg'],
+      ['https://cdn.ogabassey.com/core-assets/products/image.png', 'image.png'],
+      [
+        'https://cdn.ogabassey.com/core-assets/products/image.webp',
+        'image.webp',
+      ],
     ]) {
-      expect(imageLoader({ src: url, width: 800 })).toBe(url);
-      expect(imageLoader({ src: url, width: 800 })).not.toContain('/image/');
+      expect(imageLoader({ src: url, width: 800 })).toBe(
+        `https://cdn.ogabassey.com/image/width=800,quality=75,format=auto/core-assets/products/${expectedExtension}`
+      );
     }
   });
 
-  it('preserves OgaBassey CDN URLs with query strings and hash fragments', () => {
+  it('preserves query strings and hash fragments in transformed product URLs', () => {
     const url =
       'https://cdn.ogabassey.com/core-assets/products/iphone.avif?v=1#main';
-    expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(url);
+    expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(
+      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=auto/core-assets/products/iphone.avif?v=1#main'
+    );
   });
 
-  it('builds transformed OgaBassey CDN URLs only for explicit preload callers', () => {
+  it('builds transformed OgaBassey CDN URLs for explicit preload callers', () => {
     const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
     expect(
       imageLoader({
@@ -89,6 +100,20 @@ describe('imageLoader', () => {
   it('serves OgaBassey CDN URLs with query strings directly', () => {
     const url = 'https://cdn.ogabassey.com/img.avif?v=1';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(url);
+  });
+
+  it('allows explicit OgaBassey transforms outside product assets', () => {
+    const url = 'https://cdn.ogabassey.com/img.avif?v=1';
+    expect(
+      imageLoader({
+        preferOgabasseyTransform: true,
+        quality: 90,
+        src: url,
+        width: 1200,
+      })
+    ).toBe(
+      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=auto/img.avif?v=1'
+    );
   });
 
   it('preserves hash fragments when adding loader params', () => {
