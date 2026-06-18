@@ -87,4 +87,18 @@ describe('deploy crontab', () => {
       />> \$REMOTE_DIR\/logs\/cleanup-agentic-request-records\.log 2>&1/
     );
   });
+
+  it('keeps import job processing as an hourly fallback sweep', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /17\s+\*\s+\*\s+\*\s+\* flock -n \$REMOTE_DIR\/locks\/process-import-jobs\.lock/
+    );
+    assert.match(deployScript, /\$REMOTE_DIR\/bin\/process-import-jobs\.sh/);
+    assert.doesNotMatch(
+      deployScript,
+      /2-59\/5 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/process-import-jobs\.lock/
+    );
+  });
 });
