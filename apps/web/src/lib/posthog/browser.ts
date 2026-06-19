@@ -7,6 +7,10 @@ const MISSING_TOKEN_WARNING =
 const POSTHOG_NODE_ENV = process.env.NODE_ENV;
 const POSTHOG_PAGEVIEW_CAPTURE_OPTIONS = { send_instantly: true } as const;
 
+type PostHogClientWithLoadedState = {
+  __loaded?: boolean;
+};
+
 let hasInitializedPostHogBrowser = false;
 let isPostHogReadyForCapture = false;
 let isPostHogBrowserDisabled = false;
@@ -46,8 +50,6 @@ export function initializePostHogBrowser(
     posthog.init(projectToken, {
       ...clientConfig,
       loaded(posthogInstance) {
-        isPostHogReadyForCapture = true;
-
         try {
           clientLoaded?.(posthogInstance);
         } catch (error) {
@@ -56,10 +58,11 @@ export function initializePostHogBrowser(
           }
         }
 
-        flushPendingPostHogPageviews();
+        markPostHogReadyAndFlush();
       },
     });
     hasInitializedPostHogBrowser = true;
+    flushPendingPostHogPageviewsIfClientLoaded();
   } catch (error) {
     isPostHogReadyForCapture = false;
     throw error;
@@ -83,6 +86,25 @@ function queuePostHogPageview(resolvedUrl: string) {
   ) {
     pendingPostHogPageviewUrls.push(resolvedUrl);
   }
+
+  flushPendingPostHogPageviewsIfClientLoaded();
+}
+
+function isPostHogClientLoaded() {
+  return (posthog as PostHogClientWithLoadedState).__loaded === true;
+}
+
+function markPostHogReadyAndFlush() {
+  isPostHogReadyForCapture = true;
+  flushPendingPostHogPageviews();
+}
+
+function flushPendingPostHogPageviewsIfClientLoaded() {
+  if (isPostHogReadyForCapture || !isPostHogClientLoaded()) {
+    return;
+  }
+
+  markPostHogReadyAndFlush();
 }
 
 function flushPendingPostHogPageviews() {
