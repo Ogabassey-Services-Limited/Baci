@@ -42,8 +42,8 @@ export function DeliveryMethodSelector({
   return (
     <fieldset className="m-0 min-w-0 border-0 p-0">
       <legend className="sr-only">How would you like to receive your order?</legend>
-      <div className="mt-6 border-t border-gray-100 pt-4">
-        <p className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+      <div className="mt-6 border-t border-store-background-text/10 pt-4">
+        <p className="mb-3 block text-xs font-bold uppercase tracking-wide text-store-background-text/70">
           How would you like to receive your order?
         </p>
         <div className="flex gap-3 overflow-x-auto pb-1">
@@ -66,7 +66,7 @@ export function DeliveryMethodSelector({
                 className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] cursor-pointer focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${
                   deliveryMethod === method
                     ? 'border-store-primary bg-store-primary/5 text-store-primary'
-                    : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
+                    : 'border-store-background-text/10 bg-store-background text-store-background-text/55 hover:border-store-background-text/20 hover:bg-store-primary/5'
                 }`}
               >
                 <input
@@ -81,11 +81,13 @@ export function DeliveryMethodSelector({
                   className={`w-6 h-6 ${
                     deliveryMethod === method
                       ? 'text-store-primary'
-                      : 'text-gray-400'
+                      : 'text-store-background-text/40'
                   }`}
                 />
                 <span className="text-xs sm:text-sm font-bold">{label}</span>
-                <span className="text-[10px] text-gray-400">{subtitle}</span>
+                <span className="text-[10px] text-store-background-text/45">
+                  {subtitle}
+                </span>
               </label>
             );
           })}

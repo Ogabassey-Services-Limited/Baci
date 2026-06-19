@@ -85,4 +85,44 @@ describe('DeliveryStep delivery method eligibility', () => {
 
     expect(defaultProps.setDeliveryMethod).toHaveBeenCalledWith('door');
   });
+
+
+  it('retains pickup when the address remains in Lagos', () => {
+    render(
+      <DeliveryStep
+        {...defaultProps}
+        deliveryMethod="pickup"
+        newAddressState="Lagos"
+        newAddressCity="Ikeja"
+      />,
+    );
+
+    expect(defaultProps.setDeliveryMethod).not.toHaveBeenCalled();
+  });
+
+  it('retains airport when the address is in an eligible non-Lagos state', () => {
+    render(
+      <DeliveryStep
+        {...defaultProps}
+        deliveryMethod="airport"
+        newAddressState="Abuja"
+        newAddressCity="Garki"
+      />,
+    );
+
+    expect(defaultProps.setDeliveryMethod).not.toHaveBeenCalled();
+  });
+
+  it('never resets door delivery regardless of the address', () => {
+    render(
+      <DeliveryStep
+        {...defaultProps}
+        deliveryMethod="door"
+        newAddressState="Abuja"
+        newAddressCity="Garki"
+      />,
+    );
+
+    expect(defaultProps.setDeliveryMethod).not.toHaveBeenCalled();
+  });
 });

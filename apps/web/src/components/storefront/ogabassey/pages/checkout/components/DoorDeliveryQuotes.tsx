@@ -1,4 +1,7 @@
+'use client';
+
 import { Truck } from 'lucide-react';
+import { getCarrierBadge } from '@/config/shipping-carriers';
 import { SmartQuoteLoader } from '../../../components/SmartQuoteLoader';
 import type { ShippingQuote } from '../types';
 
@@ -42,8 +45,8 @@ export function DoorDeliveryQuotes({
   return (
     <fieldset className="m-0 min-w-0 border-0 p-0">
       <legend className="sr-only">Select Delivery Option</legend>
-      <div className="mt-6 border-t border-gray-100 pt-4">
-        <p className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+      <div className="mt-6 border-t border-store-background-text/10 pt-4">
+        <p className="mb-3 block text-xs font-bold uppercase tracking-wide text-store-background-text/70">
           Select Delivery Option
         </p>
 
@@ -51,50 +54,51 @@ export function DoorDeliveryQuotes({
           <SmartQuoteLoader />
         ) : shippingQuotes.length > 0 ? (
           <div className="space-y-3">
-            {shippingQuotes.map((quote) => (
-              <label
-                key={quote.id}
-                className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all ${
-                  selectedQuoteId === quote.id
-                    ? 'border-store-primary bg-store-primary/5 ring-1 ring-store-primary'
-                    : 'border-gray-100 bg-white'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="shipping_quote"
-                    checked={selectedQuoteId === quote.id}
-                    onChange={() => setSelectedQuoteId(quote.id)}
-                    className="size-4 text-store-primary focus:ring-store-primary border-gray-300"
-                  />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-gray-900">
-                        {quote.displayName}
-                      </span>
-                      {quote.carrierName.includes('GIG') && (
-                        <span className="text-[10px] bg-black text-white px-1.5 py-0.5 rounded font-bold">
-                          GIGL
+            {shippingQuotes.map((quote) => {
+              const carrierBadge = getCarrierBadge(quote.carrierName);
+
+              return (
+                <label
+                  key={quote.id}
+                  className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all ${
+                    selectedQuoteId === quote.id
+                      ? 'border-store-primary bg-store-primary/5 ring-1 ring-store-primary'
+                      : 'border-store-background-text/10 bg-store-background'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="shipping_quote"
+                      checked={selectedQuoteId === quote.id}
+                      onChange={() => setSelectedQuoteId(quote.id)}
+                      className="size-4 border-store-background-text/25 text-store-primary focus:ring-store-primary"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-store-background-text">
+                          {quote.displayName}
                         </span>
-                      )}
-                      {quote.carrierName.includes('Topship') && (
-                        <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">
-                          Best Value
-                        </span>
-                      )}
+                        {carrierBadge && (
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${carrierBadge.className}`}
+                          >
+                            {carrierBadge.label}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-store-background-text/55">
+                        Est. Delivery:{' '}
+                        {quote.deliveryRange || `${quote.estimatedDays} days`}
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Est. Delivery:{' '}
-                      {quote.deliveryRange || `${quote.estimatedDays} days`}
-                    </p>
                   </div>
-                </div>
-                <span className="font-bold text-sm text-gray-900">
-                  ₦{quote.price.toLocaleString()}
-                </span>
-              </label>
-            ))}
+                  <span className="text-sm font-bold text-store-background-text">
+                    ₦{quote.price.toLocaleString()}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         ) : (
           <button
@@ -112,20 +116,20 @@ export function DoorDeliveryQuotes({
                 );
               }
             }}
-            className="w-full bg-linear-to-r from-amber-50 to-orange-50 border-2 border-dashed border-amber-300 rounded-xl p-5 flex flex-col items-center gap-3 hover:border-amber-400 hover:shadow-md transition-all group cursor-pointer"
+            className="group flex w-full cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-store-primary/25 bg-store-primary/5 p-5 transition-all hover:border-store-primary/50 hover:shadow-md"
           >
-            <div className="size-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+            <div className="flex size-12 items-center justify-center rounded-full bg-store-primary/10 text-store-primary transition-transform group-hover:scale-110">
               <Truck size={24} />
             </div>
             <div className="text-center">
-              <h4 className="text-sm font-bold text-gray-900">
+              <h4 className="text-sm font-bold text-store-background-text">
                 Oops! Rates took a detour
               </h4>
-              <p className="text-xs text-amber-700 mt-1">
+              <p className="mt-1 text-xs text-store-background-text/65">
                 Our delivery partners are a bit slow today. Tap here to try again!
               </p>
             </div>
-            <span className="text-xs font-bold text-amber-600 bg-amber-100 px-3 py-1 rounded-full group-hover:bg-amber-200 transition-colors">
+            <span className="rounded-full bg-store-primary/10 px-3 py-1 text-xs font-bold text-store-primary transition-colors group-hover:bg-store-primary/15">
               Refresh Rates
             </span>
           </button>

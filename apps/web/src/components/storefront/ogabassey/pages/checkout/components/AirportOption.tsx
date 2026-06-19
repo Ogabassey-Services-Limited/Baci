@@ -1,3 +1,5 @@
+'use client';
+
 interface AirportOptionProps {
   type: 'delivery' | 'pickup';
   label: string;

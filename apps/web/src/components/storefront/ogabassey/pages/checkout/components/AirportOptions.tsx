@@ -1,4 +1,7 @@
+'use client';
+
 import { Plane } from 'lucide-react';
+import { AIRPORT_DELIVERY_CONFIG } from '@/config/airport-delivery';
 import { AirportOption } from './AirportOption';
 
 interface AirportOptionsProps {
@@ -22,7 +25,7 @@ export function AirportOptions({ airportType, setAirportType }: AirportOptionsPr
           type="delivery"
           label="Airport Delivery"
           description="Delivered to your address"
-          price="₦25,000"
+          price={AIRPORT_DELIVERY_CONFIG.delivery.priceLabel}
           airportType={airportType}
           setAirportType={setAirportType}
         />
@@ -30,7 +33,7 @@ export function AirportOptions({ airportType, setAirportType }: AirportOptionsPr
           type="pickup"
           label="Airport Pickup"
           description="Collect at the airport"
-          price="₦20,000"
+          price={AIRPORT_DELIVERY_CONFIG.pickup.priceLabel}
           airportType={airportType}
           setAirportType={setAirportType}
         />

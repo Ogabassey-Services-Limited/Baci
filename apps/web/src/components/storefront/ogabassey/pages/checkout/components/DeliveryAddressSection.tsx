@@ -67,7 +67,7 @@ export function DeliveryAddressSection({
         <fieldset className="m-0 min-w-0 space-y-3 border-0 p-0">
           <legend className="sr-only">Where should we deliver?</legend>
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+            <p className="text-xs font-bold uppercase tracking-wide text-store-background-text/70">
               Where should we deliver?
             </p>
             <button
@@ -85,7 +85,7 @@ export function DeliveryAddressSection({
                 className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${
                   selectedAddressId === addr.id
                     ? 'border-store-primary bg-store-primary/5'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-store-background-text/10 hover:border-store-background-text/20'
                 }`}
               >
                 <input
@@ -109,14 +109,18 @@ export function DeliveryAddressSection({
                       setManualLocationLocked(true);
                     }
                   }}
-                  className="mt-1 size-4 text-store-primary focus:ring-store-primary border-gray-300"
+                  className="mt-1 size-4 border-store-background-text/25 text-store-primary focus:ring-store-primary"
                 />
                 <div className="ml-3">
-                  <p className="font-bold text-gray-900 text-sm">
+                  <p className="text-sm font-bold text-store-background-text">
                     {addr.label || 'Saved Address'}
                   </p>
-                  <p className="text-gray-600 text-sm mt-0.5">{addr.address}</p>
-                  <p className="text-gray-500 text-xs mt-1">{addr.phone}</p>
+                  <p className="mt-0.5 text-sm text-store-background-text/60">
+                    {addr.address}
+                  </p>
+                  <p className="mt-1 text-xs text-store-background-text/50">
+                    {addr.phone}
+                  </p>
                 </div>
               </label>
             ))}
@@ -127,7 +131,7 @@ export function DeliveryAddressSection({
         <div className="space-y-4" style={{ overflow: 'visible' }}>
           <label
             htmlFor="checkout-street-address"
-            className="block text-xs font-bold text-gray-700 uppercase tracking-wide"
+            className="block text-xs font-bold uppercase tracking-wide text-store-background-text/70"
           >
             {user && addresses.length > 0
               ? 'Enter New Address'
@@ -180,10 +184,10 @@ export function DeliveryAddressSection({
             onError={(failed) => setPlacesFailed(failed)}
             placeholder="Start typing your address..."
             country="NG"
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus-visible:ring-0 focus:border-store-primary text-sm text-gray-900 placeholder:text-gray-400"
+            className="w-full rounded-xl border border-store-background-text/10 bg-store-background px-4 py-3 text-sm text-store-background-text placeholder:text-store-background-text/40 focus:border-store-primary focus:outline-hidden focus-visible:ring-0"
           />
           {isHydrated && hasDetectedLocation && (
-            <p className="text-xs text-green-600 flex items-center gap-1">
+            <p className="flex items-center gap-1 text-xs text-store-primary">
               <Check size={12} /> Detected: {newAddressCity}, {newAddressState}
             </p>
           )}
@@ -204,7 +208,7 @@ export function DeliveryAddressSection({
           {isHydrated && showManualLocation && (
             <div className="space-y-3">
               {placesFailed && (
-                <p className="text-xs text-amber-600">
+                <p className="text-xs text-store-primary">
                   Address suggestions are unavailable right now — enter your State
                   and City to continue.
                 </p>
@@ -213,7 +217,7 @@ export function DeliveryAddressSection({
                 <div className="space-y-1">
                   <label
                     htmlFor="checkout-manual-state"
-                    className="block text-xs font-bold text-gray-700 uppercase tracking-wide"
+                    className="block text-xs font-bold uppercase tracking-wide text-store-background-text/70"
                   >
                     State
                   </label>
@@ -228,7 +232,7 @@ export function DeliveryAddressSection({
                       setShippingQuotes([]);
                       setSelectedQuoteId('');
                     }}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus:border-store-primary text-sm text-gray-900 disabled:opacity-50"
+                    className="w-full rounded-xl border border-store-background-text/10 bg-store-background px-4 py-3 text-sm text-store-background-text focus:border-store-primary focus:outline-hidden disabled:opacity-50"
                   >
                     <option value="">
                       {isLoadingLocations ? 'Loading states…' : 'Select state'}
@@ -243,7 +247,7 @@ export function DeliveryAddressSection({
                 <div className="space-y-1">
                   <label
                     htmlFor="checkout-manual-city"
-                    className="block text-xs font-bold text-gray-700 uppercase tracking-wide"
+                    className="block text-xs font-bold uppercase tracking-wide text-store-background-text/70"
                   >
                     City / Area
                   </label>
@@ -260,7 +264,7 @@ export function DeliveryAddressSection({
                       setSelectedQuoteId('');
                     }}
                     placeholder="e.g. Lekki"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus:border-store-primary text-sm text-gray-900 placeholder:text-gray-400"
+                    className="w-full rounded-xl border border-store-background-text/10 bg-store-background px-4 py-3 text-sm text-store-background-text placeholder:text-store-background-text/40 focus:border-store-primary focus:outline-hidden"
                   />
                   {shippingCities.length > 0 && (
                     <datalist id="checkout-manual-city-options">
