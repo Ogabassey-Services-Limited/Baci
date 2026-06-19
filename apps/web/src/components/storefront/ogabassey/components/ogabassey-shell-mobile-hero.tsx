@@ -30,7 +30,7 @@ export function OgabasseyShellMobileHero() {
   const usesContainedMedia = slide.imageFit === 'contain';
 
   return (
-    <div className="md:hidden mb-4">
+    <div className="mb-4">
       <div className="relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-black/5 bg-gray-100">
         <div className={`absolute inset-0 ${slide.bgClass ?? ''}`}>
           <div className="relative h-full flex items-center px-6 py-5 z-10">
