@@ -1,3 +1,11 @@
+import { Suspense } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   loadReceiptClaimPreview,
   parseReceiptClaimToken,
@@ -9,22 +17,41 @@ interface ReceiptClaimPageProps {
   params: Promise<{ token: string }>;
 }
 
-export default async function ReceiptClaimPage({
-  params,
-}: ReceiptClaimPageProps) {
-  const { token: rawToken } = await params;
-  const token = parseReceiptClaimToken(rawToken);
+function ReceiptClaimLoadingShell() {
+  return (
+    <main className="min-h-screen bg-store-background px-4 py-10 text-store-background-text">
+      <section className="mx-auto flex min-h-[70vh] max-w-2xl items-center">
+        <Card className="w-full border-store-border bg-store-background shadow-sm">
+          <CardHeader className="space-y-4">
+            <div className="flex size-12 items-center justify-center rounded-full bg-store-primary/10 text-store-primary">
+              <div
+                aria-hidden="true"
+                className="size-5 animate-spin rounded-full border-2 border-store-primary/30 border-t-store-primary"
+              />
+            </div>
+            <div>
+              <CardTitle className="text-2xl">Receipt claim</CardTitle>
+              <CardDescription className="mt-2 text-base">
+                Loading your receipt claim.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div
+              aria-live="polite"
+              className="rounded-md border border-store-border bg-store-secondary/60 p-4 text-sm font-medium text-store-background-text/70"
+              role="status"
+            >
+              Preparing your receipt details...
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+    </main>
+  );
+}
 
-  if (!token) {
-    return (
-      <ReceiptClaimPageClient
-        initialClaim={null}
-        initialError="Invalid receipt claim link"
-        token=""
-      />
-    );
-  }
-
+export async function ReceiptClaimPreviewSection({ token }: { token: string }) {
   try {
     const supabase = await createClient();
     const preview = await loadReceiptClaimPreview({ supabase, token });
@@ -47,4 +74,27 @@ export default async function ReceiptClaimPage({
       />
     );
   }
+}
+
+export default async function ReceiptClaimPage({
+  params,
+}: ReceiptClaimPageProps) {
+  const { token: rawToken } = await params;
+  const token = parseReceiptClaimToken(rawToken);
+
+  if (!token) {
+    return (
+      <ReceiptClaimPageClient
+        initialClaim={null}
+        initialError="Invalid receipt claim link"
+        token=""
+      />
+    );
+  }
+
+  return (
+    <Suspense fallback={<ReceiptClaimLoadingShell />}>
+      <ReceiptClaimPreviewSection token={token} />
+    </Suspense>
+  );
 }

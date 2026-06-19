@@ -22,6 +22,18 @@ async function parseToken(context: RouteContext) {
   return parsed.data.token;
 }
 
+function hasBearerAuthorization(request: NextRequest) {
+  return request.headers.get('Authorization')?.startsWith('Bearer ') ?? false;
+}
+
+async function validateReceiptClaimCsrf(request: NextRequest) {
+  if (hasBearerAuthorization(request)) {
+    return { response: null, valid: true };
+  }
+
+  return await checkCsrfProtection(request);
+}
+
 export async function GET(_request: NextRequest, context: RouteContext) {
   const token = await parseToken(context);
   if (!token) {
@@ -61,7 +73,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const csrf = await checkCsrfProtection(request);
+  const csrf = await validateReceiptClaimCsrf(request);
   if (!csrf.valid) {
     return (
       csrf.response ??

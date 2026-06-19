@@ -74,12 +74,19 @@ function getRequest() {
   );
 }
 
-function postRequest() {
+function postRequest(headers?: HeadersInit) {
+  const requestHeaders = new Headers({ 'Content-Type': 'application/json' });
+  if (headers) {
+    new Headers(headers).forEach((value, key) => {
+      requestHeaders.set(key, value);
+    });
+  }
+
   return new NextRequest(
     'http://localhost:3000/api/storefront/receipts/claims/claim-token',
     {
       body: JSON.stringify({}),
-      headers: { 'Content-Type': 'application/json' },
+      headers: requestHeaders,
       method: 'POST',
     }
   );
@@ -271,6 +278,30 @@ describe('/api/storefront/receipts/claims/[token]', () => {
       redirectPath: '/receipts',
       success: true,
     });
+    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim', {
+      p_token_hash: hashReceiptClaimToken('claim-token'),
+    });
+  });
+
+  it('skips CSRF validation for bearer-authenticated mobile redemptions', async () => {
+    const supabase = createSupabaseRpcMock({
+      data: { redirectPath: '/receipts', status: 'ok' },
+      error: null,
+    });
+    mockAuthenticatedSupabase(supabase);
+
+    const response = await POST(
+      postRequest({ Authorization: 'Bearer mobile-session-token' }),
+      params
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      redirectPath: '/receipts',
+      success: true,
+    });
+    expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
     expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim', {
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });

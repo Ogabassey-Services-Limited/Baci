@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import ReceiptClaimPage from './page';
+import ReceiptClaimPage, { ReceiptClaimPreviewSection } from './page';
 
 const mockCreateClient = vi.fn();
 const mockLoadReceiptClaimPreview = vi.fn();
@@ -55,8 +55,8 @@ describe('ReceiptClaimPage server wrapper', () => {
     });
   });
 
-  it('loads the claim preview on the server and passes it to the client shell', async () => {
-    render(await ReceiptClaimPage(pageParams('claim-token')));
+  it('loads the claim preview in the async section and passes it to the client shell', async () => {
+    render(await ReceiptClaimPreviewSection({ token: 'claim-token' }));
 
     expect(mockCreateClient).toHaveBeenCalledTimes(1);
     expect(mockLoadReceiptClaimPreview).toHaveBeenCalledWith({
@@ -88,7 +88,7 @@ describe('ReceiptClaimPage server wrapper', () => {
       status: 410,
     });
 
-    render(await ReceiptClaimPage(pageParams('claim-token')));
+    render(await ReceiptClaimPreviewSection({ token: 'claim-token' }));
 
     expect(
       screen.getByText('error:Receipt claim link has expired')
@@ -102,7 +102,7 @@ describe('ReceiptClaimPage server wrapper', () => {
       .mockImplementation(() => undefined);
     mockLoadReceiptClaimPreview.mockRejectedValue(new Error('db failed'));
 
-    render(await ReceiptClaimPage(pageParams('claim-token')));
+    render(await ReceiptClaimPreviewSection({ token: 'claim-token' }));
 
     expect(
       screen.getByText('error:Failed to load receipt claim')
