@@ -1,18 +1,29 @@
 import { render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  capturePostHogPageview: vi.fn(),
   initializePostHogBrowser: vi.fn(),
 }));
 
 vi.mock('@/lib/posthog/browser', () => ({
+  capturePostHogPageview: mocks.capturePostHogPageview,
   initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
 
-import { PostHogClientBootstrap } from './posthog-client-bootstrap';
+function importPostHogClientBootstrap() {
+  return import('./posthog-client-bootstrap');
+}
+
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.resetModules();
+});
 
 describe('PostHogClientBootstrap', () => {
-  it('initializes PostHog when the browser module loads', () => {
+  it('initializes PostHog when the browser module loads', async () => {
+    const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
+
     render(<PostHogClientBootstrap />);
 
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
@@ -21,5 +32,6 @@ describe('PostHogClientBootstrap', () => {
         NODE_ENV: expect.any(String),
       })
     );
+    expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
   });
 });
