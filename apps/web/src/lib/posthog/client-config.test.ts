@@ -42,6 +42,7 @@ describe('PostHog client config', () => {
         maskTextSelector: 'body',
       }),
     });
+    expect(config.property_blacklist).not.toContain('token');
     expect(config.session_recording?.maskTextFn?.('private note')).toBe(
       '[Filtered]'
     );
@@ -204,6 +205,30 @@ describe('PostHog client config', () => {
       },
       $set_once: {
         first_seen_url: 'https://ogabassey.com/',
+      },
+    });
+  });
+
+  it('preserves PostHog project credentials required for ingestion', () => {
+    const capture = sanitizePostHogCapture(
+      {
+        uuid: 'event-1',
+        event: '$pageview',
+        properties: {
+          token: 'raw-user-token',
+          nested: {
+            token: 'raw-nested-token',
+          },
+        },
+      },
+      'phc_public_project_token'
+    );
+
+    expect(capture?.properties).toMatchObject({
+      token: 'phc_public_project_token',
+      api_key: 'phc_public_project_token',
+      nested: {
+        token: '[Filtered]',
       },
     });
   });
