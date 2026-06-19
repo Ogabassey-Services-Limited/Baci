@@ -1,4 +1,9 @@
-const { withXcodeProject } = require('@expo/config-plugins');
+const fs = require('node:fs');
+const {
+  IOSConfig,
+  withFinalizedMod,
+  withXcodeProject,
+} = require('@expo/config-plugins');
 
 const BUNDLE_PHASE_NAME = 'Bundle React Native code and images';
 const DSYM_UPLOAD_PHASE_NAME = 'Upload PostHog Debug Symbols';
@@ -128,22 +133,48 @@ function patchDsymUploadInputPath(phase) {
   phase.inputPaths = [...inputPaths, QUOTED_POSTHOG_DSYM_INPUT_PATH];
 }
 
-const withPostHogXcodeCliPath = (config) =>
-  withXcodeProject(config, (config) => {
-    const bundlePhase = config.modResults.pbxItemByComment(
-      BUNDLE_PHASE_NAME,
-      XCODE_PHASE_TYPE
-    );
-    const dsymUploadPhase = config.modResults.pbxItemByComment(
-      DSYM_UPLOAD_PHASE_NAME,
-      XCODE_PHASE_TYPE
-    );
+function patchPostHogXcodeProject(project) {
+  const bundlePhase = project.pbxItemByComment(
+    BUNDLE_PHASE_NAME,
+    XCODE_PHASE_TYPE
+  );
+  const dsymUploadPhase = project.pbxItemByComment(
+    DSYM_UPLOAD_PHASE_NAME,
+    XCODE_PHASE_TYPE
+  );
 
+  if (bundlePhase) {
     patchShellPhaseCliPath(bundlePhase, POSTHOG_XCODE_SCRIPT);
+  }
+
+  if (dsymUploadPhase) {
     patchDsymUploadPhaseScript(dsymUploadPhase);
     patchDsymUploadInputPath(dsymUploadPhase);
+  }
+}
 
+const withPostHogXcodeCliPath = (config) => {
+  const configWithXcodePatch = withXcodeProject(config, (config) => {
+    patchPostHogXcodeProject(config.modResults);
     return config;
   });
+
+  return withFinalizedMod(configWithXcodePatch, [
+    'ios',
+    (config) => {
+      const projectRoot = config.modRequest.projectRoot;
+      const projectPath = IOSConfig.Paths.getPBXProjectPath(projectRoot);
+      const project = IOSConfig.XcodeUtils.getPbxproj(projectRoot);
+
+      if (typeof project.parseSync === 'function') {
+        project.parseSync();
+      }
+      patchPostHogXcodeProject(project);
+      fs.writeFileSync(projectPath, project.writeSync());
+
+      return config;
+    },
+  ]);
+};
 
 module.exports = withPostHogXcodeCliPath;
