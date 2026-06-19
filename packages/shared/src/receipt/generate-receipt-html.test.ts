@@ -185,4 +185,30 @@ describe('generateReceiptHtml', () => {
       'src="data:image/png;base64,abc&quot; onerror=&quot;alert(1)"'
     );
   });
+
+  it('renders the support email as the receipt contact email', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({ support_email: 'support@shop.example' })
+    );
+
+    expect(html).toContain('mailto:support@shop.example');
+  });
+
+  it('never leaks the private account email onto the receipt', () => {
+    // With no support email and no business name, the receipt must not fall
+    // back to `merchant.email` (the private login address) for either the
+    // contact line or the store-name header.
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        business_name: '',
+        legal_entity_name: null,
+        email: 'owner-private@gmail.com',
+        support_email: null,
+      })
+    );
+
+    expect(html).not.toContain('owner-private@gmail.com');
+  });
 });
