@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => {
 });
 
 interface PostHogInitConfigWithLoaded {
-  loaded?: (posthogInstance: unknown) => void;
+  loaded: (posthogInstance: unknown) => void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -52,7 +52,7 @@ function loadPostHogClient() {
     throw new Error('PostHog init config did not include a loaded callback.');
   }
 
-  initConfig.loaded?.({});
+  initConfig.loaded({});
 }
 
 afterEach(() => {
@@ -92,15 +92,77 @@ describe('initializePostHogBrowser', () => {
     capturePostHogPageview('https://usebaci.com/before-init');
     initializePostHogBrowser(env);
     capturePostHogPageview('https://usebaci.com/pricing?plan=starter');
+    capturePostHogPageview('https://usebaci.com/dashboard');
 
     expect(mocks.posthogCapture).not.toHaveBeenCalled();
 
     loadPostHogClient();
 
     expect(mocks.clientConfigLoaded).toHaveBeenCalledOnce();
+    expect(mocks.posthogCapture).toHaveBeenCalledTimes(3);
+    expect(mocks.posthogCapture).toHaveBeenNthCalledWith(1, '$pageview', {
+      $current_url: 'https://usebaci.com/before-init',
+      app_surface: 'web',
+    });
+    expect(mocks.posthogCapture).toHaveBeenNthCalledWith(2, '$pageview', {
+      $current_url: 'https://usebaci.com/pricing?plan=starter',
+      app_surface: 'web',
+    });
+    expect(mocks.posthogCapture).toHaveBeenNthCalledWith(3, '$pageview', {
+      $current_url: 'https://usebaci.com/dashboard',
+      app_surface: 'web',
+    });
+  });
+
+  it('keeps queued pageviews when PostHog init throws so a retry can flush them', async () => {
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    };
+    const initFailure = new Error('temporary init failure');
+    mocks.posthogInit.mockImplementationOnce(() => {
+      throw initFailure;
+    });
+    const { capturePostHogPageview, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    capturePostHogPageview('https://usebaci.com/retry-me');
+    expect(() => initializePostHogBrowser(env)).toThrow(initFailure);
+
+    initializePostHogBrowser(env);
+    loadPostHogClient();
+
     expect(mocks.posthogCapture).toHaveBeenCalledOnce();
     expect(mocks.posthogCapture).toHaveBeenCalledWith('$pageview', {
-      $current_url: 'https://usebaci.com/pricing?plan=starter',
+      $current_url: 'https://usebaci.com/retry-me',
+      app_surface: 'web',
+    });
+  });
+
+  it('swallows client loaded callback errors and still flushes queued pageviews', async () => {
+    const warn = vi.fn();
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+      NODE_ENV: 'development',
+    };
+    const loadedFailure = new Error('loaded failed');
+    mocks.clientConfigLoaded.mockImplementationOnce(() => {
+      throw loadedFailure;
+    });
+    const { capturePostHogPageview, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    initializePostHogBrowser(env, { warn });
+    capturePostHogPageview('https://usebaci.com/dashboard');
+
+    loadPostHogClient();
+
+    expect(warn).toHaveBeenCalledWith(
+      '[PostHog] client loaded callback failed.',
+      loadedFailure
+    );
+    expect(mocks.posthogCapture).toHaveBeenCalledOnce();
+    expect(mocks.posthogCapture).toHaveBeenCalledWith('$pageview', {
+      $current_url: 'https://usebaci.com/dashboard',
       app_surface: 'web',
     });
   });

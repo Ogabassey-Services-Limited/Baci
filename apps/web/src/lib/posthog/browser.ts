@@ -8,7 +8,7 @@ const MISSING_TOKEN_WARNING =
 let hasInitializedPostHogBrowser = false;
 let isPostHogReadyForCapture = false;
 let lastCapturedPostHogPageviewUrl: string | undefined;
-let pendingPostHogPageviewUrl: string | undefined;
+const pendingPostHogPageviewUrls: string[] = [];
 
 export function initializePostHogBrowser(
   env: PostHogEnv = process.env,
@@ -44,18 +44,12 @@ export function initializePostHogBrowser(
           }
         }
 
-        const pendingUrl = pendingPostHogPageviewUrl;
-        pendingPostHogPageviewUrl = undefined;
-
-        if (pendingUrl) {
-          sendPostHogPageview(pendingUrl);
-        }
+        flushPendingPostHogPageviews();
       },
     });
     hasInitializedPostHogBrowser = true;
   } catch (error) {
     isPostHogReadyForCapture = false;
-    pendingPostHogPageviewUrl = undefined;
     throw error;
   }
 }
@@ -68,6 +62,18 @@ function resolvePostHogPageviewUrl(currentUrl?: string) {
       : globalThis.location.href);
 
   return resolvedUrl;
+}
+
+function queuePostHogPageview(resolvedUrl: string) {
+  pendingPostHogPageviewUrls.push(resolvedUrl);
+}
+
+function flushPendingPostHogPageviews() {
+  const pendingUrls = pendingPostHogPageviewUrls.splice(0);
+
+  for (const pendingUrl of pendingUrls) {
+    sendPostHogPageview(pendingUrl);
+  }
 }
 
 function sendPostHogPageview(resolvedUrl: string) {
@@ -83,18 +89,14 @@ function sendPostHogPageview(resolvedUrl: string) {
 }
 
 export function capturePostHogPageview(currentUrl?: string) {
-  if (!hasInitializedPostHogBrowser) {
-    return;
-  }
-
   const resolvedUrl = resolvePostHogPageviewUrl(currentUrl);
 
   if (!resolvedUrl) {
     return;
   }
 
-  if (!isPostHogReadyForCapture) {
-    pendingPostHogPageviewUrl = resolvedUrl;
+  if (!hasInitializedPostHogBrowser || !isPostHogReadyForCapture) {
+    queuePostHogPageview(resolvedUrl);
     return;
   }
 
