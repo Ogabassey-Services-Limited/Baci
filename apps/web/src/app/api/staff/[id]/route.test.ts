@@ -5,40 +5,31 @@ const mockCheckCsrfProtection = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 
+type EqCall = [field: string, value: unknown];
+
+const lookupEqCalls: EqCall[] = [];
+const updateEqCalls: EqCall[] = [];
+
 const lookupSingle = vi.fn();
-const lookupEqSecond = vi.fn(() => ({ single: lookupSingle }));
-const lookupEqFirst = vi.fn(() => ({ eq: lookupEqSecond }));
-const lookupSelect = vi.fn(() => ({ eq: lookupEqFirst }));
+const lookupEq = vi.fn((field: string, value: unknown) => {
+  lookupEqCalls.push([field, value]);
+  return { eq: lookupEq, single: lookupSingle };
+});
+const lookupSelect = vi.fn(() => ({ eq: lookupEq }));
 
 const updateSingle = vi.fn();
 const updateSelect = vi.fn(() => ({ single: updateSingle }));
-const updateEqSecond = vi.fn(() => ({ select: updateSelect }));
-const updateEqFirst = vi.fn(() => ({
-  eq: updateEqSecond,
-  select: updateSelect,
-}));
-const update = vi.fn(() => ({ eq: updateEqFirst }));
+const updateEq = vi.fn((field: string, value: unknown) => {
+  updateEqCalls.push([field, value]);
+  return { eq: updateEq, select: updateSelect };
+});
+const update = vi.fn(() => ({ eq: updateEq }));
 
 const mockFrom = vi.fn((table: string) => {
   if (table === 'staff_members') {
     return {
       select: lookupSelect,
-      update: vi.fn(() => {
-        const updateEqChain = {
-          eq: vi.fn((field1: unknown, value1: unknown) => {
-            // we ignore the type mismatch by casting to any in order to record the calls
-            (updateEqFirst as any)(field1, value1);
-            return {
-              eq: vi.fn((field2: unknown, value2: unknown) => {
-                (updateEqSecond as any)(field2, value2);
-                return { select: updateSelect };
-              }),
-              select: updateSelect,
-            };
-          }),
-        };
-        return updateEqChain;
-      }),
+      update,
     };
   }
   return { select: lookupSelect, update };
@@ -105,6 +96,8 @@ function createRequest(
 describe('PATCH /api/staff/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    lookupEqCalls.length = 0;
+    updateEqCalls.length = 0;
 
     mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
     mockGetMerchantForApiRequest.mockResolvedValue({
@@ -133,10 +126,12 @@ describe('PATCH /api/staff/[id]', () => {
     });
 
     expect(response.status).toBe(200);
-    // Since order does not matter in Supabase .eq chains as long as they are all called,
-    // we assert that updateEqFirst and updateEqSecond are both called properly
-    expect(updateEqFirst).toHaveBeenCalledWith('id', 'staff-1');
-    expect(updateEqSecond).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    expect(updateEqCalls).toEqual(
+      expect.arrayContaining([
+        ['id', 'staff-1'],
+        ['merchant_id', MERCHANT_ID],
+      ])
+    );
   });
 
   it('returns 400 when there are no valid fields to update', async () => {
