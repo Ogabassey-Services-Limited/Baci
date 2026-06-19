@@ -10,14 +10,14 @@ import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
 // to the streamed carousel image (single LCP candidate, zero extra fetch, no swap).
 const FIRST_SLIDE = MOBILE_SLIDES[0];
 
-const STORE_PRIMARY_FALLBACK = 'var(--store-primary, #d62027)';
-const STORE_BORDER_FALLBACK = 'var(--store-border, rgba(214, 32, 39, 0.24))';
-const STORE_ON_PRIMARY_FALLBACK = 'var(--store-on-primary, #ffffff)';
+const STORE_PRIMARY_COLOR = 'var(--store-primary)';
+const STORE_BORDER_COLOR = 'var(--store-border)';
+const STORE_ON_PRIMARY_COLOR = 'var(--store-on-primary)';
 
 const HERO_CTA_STYLE = {
-  backgroundColor: STORE_PRIMARY_FALLBACK,
-  borderColor: STORE_BORDER_FALLBACK,
-  color: STORE_ON_PRIMARY_FALLBACK,
+  backgroundColor: STORE_PRIMARY_COLOR,
+  borderColor: STORE_BORDER_COLOR,
+  color: STORE_ON_PRIMARY_COLOR,
 } satisfies CSSProperties;
 
 export function OgabasseyShellMobileHero() {
