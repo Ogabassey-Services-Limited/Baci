@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       .eq('id', merchantId)
       .maybeSingle();
 
-    if (merchantError || !merchantDetails) {
+    if (merchantError) {
       return NextResponse.json(
         { error: 'Failed to fetch merchant details' },
         { status: 500 }
@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
     }
 
     const merchantBusinessName =
-      merchantDetails.business_name ?? merchantContext.businessName ?? '';
-    const merchantCountry = merchantDetails.country ?? null;
+      merchantDetails?.business_name ?? merchantContext.businessName ?? '';
+    const merchantCountry = merchantDetails?.country ?? null;
 
     const body = await request.json();
 
