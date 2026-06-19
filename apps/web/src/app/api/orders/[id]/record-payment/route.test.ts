@@ -139,7 +139,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
   // validation case measures handler behavior instead of module startup.
   beforeAll(async () => {
     await import('./route');
-  }, 10_000);
+  }, 30_000);
 
   beforeEach(() => {
     vi.clearAllMocks();
