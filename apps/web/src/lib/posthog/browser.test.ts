@@ -1,12 +1,32 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  buildPostHogClientConfig: vi.fn(() => ({
-    api_host: '/baci-relay',
-  })),
-  posthogCapture: vi.fn(),
-  posthogInit: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  const clientConfigLoaded = vi.fn();
+
+  return {
+    buildPostHogClientConfig: vi.fn(() => ({
+      api_host: '/baci-relay',
+      loaded: clientConfigLoaded,
+    })),
+    clientConfigLoaded,
+    posthogCapture: vi.fn(),
+    posthogInit: vi.fn(),
+  };
+});
+
+interface PostHogInitConfigWithLoaded {
+  loaded?: (posthogInstance: unknown) => void;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasPostHogLoadedCallback(
+  value: unknown
+): value is PostHogInitConfigWithLoaded {
+  return isRecord(value) && typeof value.loaded === 'function';
+}
 
 vi.mock('posthog-js', () => ({
   default: {
@@ -21,6 +41,18 @@ vi.mock('@/lib/posthog/client-config', () => ({
 
 function importBrowserInitializer() {
   return import('./browser');
+}
+
+function loadPostHogClient() {
+  const initConfig = mocks.posthogInit.mock.calls[0]?.[1];
+
+  expect(hasPostHogLoadedCallback(initConfig)).toBe(true);
+
+  if (!hasPostHogLoadedCallback(initConfig)) {
+    throw new Error('PostHog init config did not include a loaded callback.');
+  }
+
+  initConfig.loaded?.({});
 }
 
 afterEach(() => {
@@ -41,12 +73,16 @@ describe('initializePostHogBrowser', () => {
     expect(mocks.buildPostHogClientConfig).toHaveBeenCalledOnce();
     expect(mocks.buildPostHogClientConfig).toHaveBeenCalledWith(env);
     expect(mocks.posthogInit).toHaveBeenCalledOnce();
-    expect(mocks.posthogInit).toHaveBeenCalledWith('ph_project_token', {
-      api_host: '/baci-relay',
-    });
+    expect(mocks.posthogInit).toHaveBeenCalledWith(
+      'ph_project_token',
+      expect.objectContaining({
+        api_host: '/baci-relay',
+        loaded: expect.any(Function),
+      })
+    );
   });
 
-  it('captures pageviews after PostHog initializes', async () => {
+  it('queues pageviews until PostHog finishes loading', async () => {
     const env = {
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
     };
@@ -57,6 +93,11 @@ describe('initializePostHogBrowser', () => {
     initializePostHogBrowser(env);
     capturePostHogPageview('https://usebaci.com/pricing?plan=starter');
 
+    expect(mocks.posthogCapture).not.toHaveBeenCalled();
+
+    loadPostHogClient();
+
+    expect(mocks.clientConfigLoaded).toHaveBeenCalledOnce();
     expect(mocks.posthogCapture).toHaveBeenCalledOnce();
     expect(mocks.posthogCapture).toHaveBeenCalledWith('$pageview', {
       $current_url: 'https://usebaci.com/pricing?plan=starter',
@@ -73,6 +114,7 @@ describe('initializePostHogBrowser', () => {
 
     initializePostHogBrowser(env);
     capturePostHogPageview('https://usebaci.com/pricing');
+    loadPostHogClient();
     capturePostHogPageview('https://usebaci.com/pricing');
     capturePostHogPageview('https://usebaci.com/login');
     capturePostHogPageview('https://usebaci.com/pricing');
