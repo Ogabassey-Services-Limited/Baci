@@ -18,6 +18,7 @@ import {
   getCachedBillerProducts,
   getCachedBillers,
   purchaseBill,
+  sanitizeMonnifyErrorDetail,
   verifyBillCustomer,
 } from './monnify-bills';
 
@@ -32,6 +33,37 @@ vi.mock('@/env', () => ({
 describe('Monnify Bills Client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe('sanitizeMonnifyErrorDetail', () => {
+    it('preserves six digit sequences and redacts seven digit sequences', () => {
+      expect(sanitizeMonnifyErrorDetail('provider code 123456')).toBe(
+        'provider code 123456'
+      );
+      expect(sanitizeMonnifyErrorDetail('provider code 1234567')).toBe(
+        'provider code [redacted]'
+      );
+    });
+
+    it('redacts digit sequences adjacent to letters and underscores', () => {
+      expect(
+        sanitizeMonnifyErrorDetail('customer_08012345678 id12345678')
+      ).toBe('customer_[redacted] id[redacted]');
+    });
+
+    it('truncates long messages to the configured detail cap', () => {
+      expect(sanitizeMonnifyErrorDetail('x'.repeat(260))).toHaveLength(240);
+    });
+
+    it('drops digit sequences cut by the lookahead bound after redaction', () => {
+      const result = sanitizeMonnifyErrorDetail(
+        `${'1'.repeat(100)} ${'x'.repeat(198)} 9876543210`
+      );
+
+      expect(result.length).toBeLessThanOrEqual(240);
+      expect(result).toContain('[redacted]');
+      expect(result).not.toContain('9876');
+    });
   });
 
   describe('Discovery Helpers', () => {
@@ -405,6 +437,26 @@ describe('Monnify Bills Client', () => {
         'Monnify server error'
       );
     });
+
+    it('keeps HTTP 5xx response body details out of discovery helper messages', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            responseMessage: 'Gateway failed for request 1234567',
+          })
+        ),
+      });
+
+      await expect(getBillerCategories()).rejects.toThrow(
+        'Monnify server error: 500 Internal Server Error'
+      );
+      await expect(getBillerCategories()).rejects.not.toThrow(
+        'Gateway failed for request'
+      );
+    });
   });
 
   describe('verifyBillCustomer', () => {
@@ -436,6 +488,35 @@ describe('Monnify Bills Client', () => {
         validationReference: 'VAL-123',
         requireValidationRef: true,
         message: 'success',
+      });
+    });
+
+    it('sends only documented Monnify validate-customer fields', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: {
+          customerName: 'JANE DOE',
+          requireValidationRef: false,
+        },
+      };
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+      global.fetch = fetchSpy;
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+
+      expect(result.verified).toBe(true);
+      expect(JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string)).toEqual({
+        productCode: 'IKEDC-PREPAID',
+        customerId: '12345678',
       });
     });
 
@@ -530,6 +611,33 @@ describe('Monnify Bills Client', () => {
       );
       expect(result.verified).toBe(false);
       expect(result.message).toContain('Network disconnected');
+    });
+
+    it('does not expose Monnify HTTP body diagnostics in verification responses', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            responseMessage:
+              'Provider wallet 1234567890 cannot validate customer 08012345678',
+          })
+        ),
+      });
+
+      const result = await verifyBillCustomer(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678'
+      );
+
+      expect(result.verified).toBe(false);
+      expect(result.message).toBe(
+        'Verification could not be completed with Monnify. Please check the details and try again.'
+      );
+      expect(result.message).not.toContain('1234567890');
+      expect(result.message).not.toContain('08012345678');
     });
   });
 
@@ -635,6 +743,12 @@ describe('Monnify Bills Client', () => {
         ok: false,
         status: 400,
         statusText: 'Bad Request',
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            responseMessage:
+              'Insufficient wallet balance for customer 08012345678',
+          })
+        ),
       });
 
       const result = await purchaseBill(
@@ -647,7 +761,135 @@ describe('Monnify Bills Client', () => {
       );
       expect(result.status).toBe('failed');
       expect(result.success).toBe(false);
-      expect(result.message).toContain('Monnify API error: 400');
+      expect(result.message).toBe(
+        'Monnify rejected the bill payment request. Please verify the details and try again.'
+      );
+      expect(result.providerErrorDetail).toContain(
+        'Monnify API error: 400 Bad Request - Insufficient wallet balance'
+      );
+      expect(result.providerErrorDetail).toContain('[redacted]');
+      expect(result.providerErrorDetail).not.toContain('08012345678');
+    });
+
+    it('falls back to sanitized raw JSON when Monnify omits message fields', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            errors: [{ field: 'customerId', value: '08012345678' }],
+          })
+        ),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.message).toBe(
+        'Monnify rejected the bill payment request. Please verify the details and try again.'
+      );
+      expect(result.providerErrorDetail).toContain(
+        'Monnify API error: 400 Bad Request -'
+      );
+      expect(result.providerErrorDetail).toContain('customerId');
+      expect(result.providerErrorDetail).toContain('[redacted]');
+      expect(result.providerErrorDetail).not.toContain('08012345678');
+    });
+
+    it('sanitizes plain-text HTTP error bodies before returning terminal 4xx failures', async () => {
+      const longTail = 'x'.repeat(260);
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: vi
+          .fn()
+          .mockResolvedValue(
+            `Plain error code 123456 customer 1234567 ${longTail} not-visible`
+          ),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.message).toBe(
+        'Monnify rejected the bill payment request. Please verify the details and try again.'
+      );
+      expect(result.providerErrorDetail).toContain(
+        'Plain error code 123456 customer'
+      );
+      expect(result.providerErrorDetail).toContain('[redacted]');
+      expect(result.providerErrorDetail).not.toContain('1234567');
+      expect(result.providerErrorDetail).not.toContain('not-visible');
+    });
+
+    it('redacts sensitive digit sequences that cross the error detail boundary', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: vi.fn().mockResolvedValue(`${'x'.repeat(235)} 9876543 tail`),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.message).not.toContain('9876');
+      expect(result.providerErrorDetail).not.toContain('9876');
+      expect(result.providerErrorDetail).toContain('[red');
+    });
+
+    it('redacts sensitive digit sequences embedded next to letters and underscores', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: vi
+          .fn()
+          .mockResolvedValue(
+            'Lookup failed for customer_08012345678 and id123456789'
+          ),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.message).toBe(
+        'Monnify rejected the bill payment request. Please verify the details and try again.'
+      );
+      expect(result.providerErrorDetail).toContain('customer_[redacted]');
+      expect(result.providerErrorDetail).toContain('id[redacted]');
+      expect(result.providerErrorDetail).not.toContain('08012345678');
+      expect(result.providerErrorDetail).not.toContain('123456789');
     });
 
     it('throws a retryable transient error for timeouts, network issues, and HTTP 5xx before transactionReference is known', async () => {
