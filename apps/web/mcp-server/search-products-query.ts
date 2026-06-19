@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   buildSearchProductsV2RpcArgs,
+  MAX_POST_FILTER_RESULT_PAGES,
   orderRowsByRankedProductIds,
   POST_FILTER_RESULT_PAGE_SIZE,
 } from './search-products-ranking';
@@ -68,8 +69,10 @@ async function loadRankedMcpProducts({
   let pageOffset = 0;
   let totalRankedMatches = Number.POSITIVE_INFINITY;
   let sawRankedRows = false;
+  let pagesRead = 0;
 
   while (
+    pagesRead < MAX_POST_FILTER_RESULT_PAGES &&
     pageOffset < totalRankedMatches &&
     (!hasPostHydrationFilters || products.length < limit)
   ) {
@@ -92,6 +95,7 @@ async function loadRankedMcpProducts({
     );
 
     if (ranked.error) throw ranked.error;
+    pagesRead += 1;
 
     const rankedRows = toRankedSearchProductRows(ranked.data);
     const rankedProductIds = extractRankedProductIds(rankedRows);
@@ -212,10 +216,15 @@ async function loadCatalogMcpProducts({
 
   let pageOffset = 0;
   const products: McpSearchProductRow[] = [];
+  let pagesRead = 0;
 
-  while (products.length < limit) {
+  while (
+    pagesRead < MAX_POST_FILTER_RESULT_PAGES &&
+    products.length < limit
+  ) {
     const { data: productRows, error } = await buildCatalogQuery(pageOffset);
     if (error) throw error;
+    pagesRead += 1;
 
     const pageRows = productRows || [];
     if (pageRows.length === 0) {

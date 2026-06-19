@@ -200,6 +200,44 @@ describe('POST /api/agentic/catalog/search', () => {
     ]);
   });
 
+  it('hydrates only the ranked page before returning ranked catalog products', async () => {
+    mockRankedProductRows(
+      [
+        {
+          id: 'product-1',
+          name: 'iPhone X',
+          price: 240_000,
+          slug: 'iphone-x',
+          status: 'active',
+        },
+        {
+          id: 'product-2',
+          name: 'iPhone 16 Pro',
+          price: 1_200_000,
+          slug: 'iphone-16-pro',
+          status: 'active',
+        },
+      ],
+      ['product-2', 'product-1', 'product-3']
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'iphnoe', pagination: { limit: 2 } }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(query.in).toHaveBeenCalledWith('id', ['product-2', 'product-1']);
+    expect(query.limit).toHaveBeenCalledWith(2);
+    expect(query.order).not.toHaveBeenCalled();
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-2',
+      'product-1',
+    ]);
+  });
+
   it('returns 500 when ranked catalog search fails', async () => {
     mockProductRows([]);
     mockRpc.mockRejectedValueOnce(new Error('RPC down'));

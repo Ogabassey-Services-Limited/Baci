@@ -74,8 +74,10 @@ export async function POST(request: NextRequest) {
     .eq('merchant_id', context.merchant.id)
     .eq('status', 'active');
 
+  const rankedProductIds = ranked?.productIds.slice(0, limit) ?? [];
+
   if (ranked) {
-    if (ranked.productIds.length === 0) {
+    if (rankedProductIds.length === 0) {
       return NextResponse.json(
         buildUcpCatalogProductsResponse({
           capability: UCP_CATALOG_SEARCH_CAPABILITY,
@@ -83,12 +85,12 @@ export async function POST(request: NextRequest) {
         })
       );
     }
-    query = query.in('id', ranked.productIds);
+    query = query.in('id', rankedProductIds);
   }
 
-  const { data, error } = await query
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  const { data, error } = await (ranked
+    ? query.limit(rankedProductIds.length)
+    : query.order('created_at', { ascending: false }).limit(limit));
   if (error) {
     return NextResponse.json(
       { error: 'Catalog search failed' },
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
 
   const baseUrl = buildRequestScopedStoreUrl(context.merchant, request.headers);
   const order = new Map(
-    (ranked?.productIds ?? []).map((id, index) => [id, index] as const)
+    rankedProductIds.map((id, index) => [id, index] as const)
   );
   const products = filterActiveUcpCatalogProductRows(
     (data ?? []) as UcpCatalogProductRow[]

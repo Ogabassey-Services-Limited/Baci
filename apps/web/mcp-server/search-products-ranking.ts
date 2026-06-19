@@ -1,6 +1,7 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 
 export const POST_FILTER_RESULT_PAGE_SIZE = 100;
+export const MAX_POST_FILTER_RESULT_PAGES = 5;
 
 interface McpSearchProductsArgs {
   brand?: string;
