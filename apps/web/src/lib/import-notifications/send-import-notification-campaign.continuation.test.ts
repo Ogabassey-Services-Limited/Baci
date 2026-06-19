@@ -81,6 +81,7 @@ describe('sendImportNotificationCampaign recipient continuation', () => {
       customSettings: {
         migration_imports: {
           receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
         },
       },
     });
@@ -178,6 +179,7 @@ describe('sendImportNotificationCampaign recipient continuation', () => {
       customSettings: {
         migration_imports: {
           receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
         },
       },
     });
