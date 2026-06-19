@@ -3,10 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
-import { OGABASSEY_HERO_DESKTOP_LCP_SRC } from '@/config/ogabassey-hero-assets';
 
 describe('OgabasseyStaticResourceHints', () => {
-  it('emits desktop hero image hints and skips the inlined mobile LCP preload', () => {
+  it('keeps static hints connection-only so viewport image preloads stay owned by markup', () => {
     const html = renderToString(<OgabasseyStaticResourceHints />);
     const template = document.createElement('template');
     template.innerHTML = html;
@@ -24,27 +23,10 @@ describe('OgabasseyStaticResourceHints', () => {
         link.getAttribute('rel') === 'preconnect' &&
         link.getAttribute('href') === OGABASSEY_CDN_ORIGIN
     );
-    const desktopPreload = findLink(
-      (link) =>
-        link.getAttribute('rel') === 'preload' &&
-        link.getAttribute('href') === OGABASSEY_HERO_DESKTOP_LCP_SRC
-    );
-    const mobilePreload = findLink(
-      (link) =>
-        link.getAttribute('rel') === 'preload' &&
-        link.getAttribute('media') === '(max-width: 767px)'
-    );
-
     expect(dnsPrefetch).toBeDefined();
     expect(preconnect).toBeDefined();
-    expect(desktopPreload).toBeDefined();
-    expect(desktopPreload?.getAttribute('as')).toBe('image');
-    expect(desktopPreload?.getAttribute('type')).toBe('image/avif');
-    expect(desktopPreload?.getAttribute('fetchpriority')).toBe('high');
-    expect(desktopPreload?.getAttribute('media')).toBe('(min-width: 768px)');
-    expect(mobilePreload).toBeUndefined();
     expect(
       links.filter((link) => link.getAttribute('rel') === 'preload')
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 });

@@ -2,7 +2,10 @@
 
 import { useEffect } from 'react';
 import { captureClientException } from '@/lib/posthog/client-exceptions';
-import styles from './system-error.module.css';
+import {
+  systemErrorClassNames,
+  systemErrorStyleSheet,
+} from './system-error-styles';
 
 // Global Error must include its own html and body tags
 export default function GlobalError({
@@ -21,22 +24,29 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body>
-        <main className={styles.page}>
-          <section aria-labelledby="global-error-title" className={styles.card}>
-            <div aria-hidden="true" className={styles.icon}>
+        <style>{systemErrorStyleSheet}</style>
+        <main className={systemErrorClassNames.page}>
+          <section
+            aria-labelledby="global-error-title"
+            className={systemErrorClassNames.card}
+          >
+            <div aria-hidden="true" className={systemErrorClassNames.icon}>
               !
             </div>
 
-            <h2 className={styles.title} id="global-error-title">
+            <h2
+              className={systemErrorClassNames.cardTitle}
+              id="global-error-title"
+            >
               Critical Error
             </h2>
-            <p className={styles.copy}>
+            <p className={systemErrorClassNames.copy}>
               A critical system error occurred. Please try refreshing the page.
             </p>
 
-            <div className={styles.actions}>
+            <div className={systemErrorClassNames.actions}>
               <button
-                className={styles.button}
+                className={systemErrorClassNames.button}
                 onClick={() => window.location.reload()}
                 type="button"
               >
@@ -45,7 +55,7 @@ export default function GlobalError({
             </div>
 
             {process.env.NODE_ENV === 'development' && (
-              <pre className={styles.debug}>
+              <pre className={systemErrorClassNames.debug}>
                 {error.name}: {error.message}
               </pre>
             )}

@@ -169,24 +169,6 @@ describe('HomeProductGrid', () => {
     expect(grid).not.toHaveClass('grid-cols-2');
   });
 
-  it('uses accessible foreground colors for inline ad fallback copy', () => {
-    render(
-      <HomeProductGrid
-        storeSlug="test-store"
-        products={Array.from({ length: 9 }, (_, index) =>
-          createTestProduct(index + 1)
-        )}
-      />
-    );
-
-    expect(screen.getByText('Sponsored')).toHaveClass(
-      'ogabassey-ad-placeholder-text'
-    );
-    expect(screen.getByText('Ad Space')).toHaveClass(
-      'ogabassey-ad-placeholder-text'
-    );
-  });
-
   it('links the view-all CTA to the storefront products route', () => {
     render(
       <HomeProductGrid
@@ -259,7 +241,7 @@ describe('HomeProductGrid', () => {
     );
   });
 
-  it('reserves inline ad slot space before the deferred grid ad mounts', () => {
+  it('mounts the inline grid ad slot and delegates space reservation to it', () => {
     render(
       <HomeProductGrid
         storeSlug="test-store"
@@ -269,19 +251,20 @@ describe('HomeProductGrid', () => {
       />
     );
 
+    // The grid mounts a deferred MPU slot at the breakpoint. The height-locked
+    // reservation is now owned by DeferredAdUnit's default AdSlotShell (see
+    // deferred-ad-unit + ad-slot-shell tests), so the grid no longer hand-rolls
+    // a mismatched `min-height` fallback.
     expect(mockDeferredAdUnit).toHaveBeenCalledWith(
       expect.objectContaining({
-        fallback: expect.anything(),
         placementKey: 'PRODUCT_GRID_MPU',
         timeoutMs: 1,
       })
     );
-    expect(screen.getByText('Sponsored')).toBeInTheDocument();
-    expect(screen.getByText('Ad Space')).toBeInTheDocument();
-    expect(screen.getByText('in_feed_mpu').closest('[style]')).toHaveStyle({
-      minHeight: '250px',
-      minWidth: '300px',
-    });
+    expect(mockDeferredAdUnit.mock.calls[0]?.[0]?.fallback).toBeUndefined();
+    expect(
+      screen.getByTestId('deferred-ad-PRODUCT_GRID_MPU')
+    ).toBeInTheDocument();
   });
 
   it('defers the interactive bindings import until activation', async () => {

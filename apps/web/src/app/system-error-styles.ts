@@ -1,4 +1,21 @@
-.page {
+export const systemErrorClassNames = {
+  actions: 'baci-system-error-actions',
+  brand: 'baci-system-error-brand',
+  button: 'baci-system-error-button',
+  buttonSecondary: 'baci-system-error-button-secondary',
+  card: 'baci-system-error-card',
+  cardTitle: 'baci-system-error-card-title',
+  copy: 'baci-system-error-copy',
+  debug: 'baci-system-error-debug',
+  icon: 'baci-system-error-icon',
+  page: 'baci-system-error-page',
+  shell: 'baci-system-error-shell',
+  statusCode: 'baci-system-error-status-code',
+  title: 'baci-system-error-title',
+} as const;
+
+export const systemErrorStyleSheet = `
+.baci-system-error-page {
   --error-bg: #f8fafc;
   --error-card: #ffffff;
   --error-border: #e2e8f0;
@@ -16,8 +33,11 @@
     var(--error-bg);
   color: var(--error-text);
   display: flex;
-  justify-content: center;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
   inset: 0;
+  justify-content: center;
   min-height: 100vh;
   overflow-x: hidden;
   overflow-y: auto;
@@ -25,23 +45,23 @@
   position: fixed;
 }
 
-.page,
-.page::before,
-.page::after,
-.page *,
-.page *::before,
-.page *::after {
+.baci-system-error-page,
+.baci-system-error-page::before,
+.baci-system-error-page::after,
+.baci-system-error-page *,
+.baci-system-error-page *::before,
+.baci-system-error-page *::after {
   box-sizing: border-box;
 }
 
-.shell {
+.baci-system-error-shell {
   margin: 0 auto;
   max-width: 42rem;
   text-align: center;
   width: 100%;
 }
 
-.card {
+.baci-system-error-card {
   background: var(--error-card);
   border: 1px solid var(--error-border);
   border-radius: 1.25rem;
@@ -49,9 +69,11 @@
   margin: 0 auto;
   max-width: 30rem;
   padding: 2rem;
+  text-align: center;
+  width: 100%;
 }
 
-.brand {
+.baci-system-error-brand {
   color: var(--error-primary);
   display: inline-block;
   font-size: 0.875rem;
@@ -62,7 +84,7 @@
   text-transform: uppercase;
 }
 
-.statusCode {
+.baci-system-error-status-code {
   color: rgba(79, 70, 229, 0.12);
   font-size: clamp(5rem, 18vw, 10rem);
   font-weight: 900;
@@ -70,7 +92,7 @@
   margin: 0 0 0.75rem;
 }
 
-.icon {
+.baci-system-error-icon {
   align-items: center;
   background: var(--error-danger-bg);
   border-radius: 999px;
@@ -84,19 +106,23 @@
   width: 4rem;
 }
 
-.title {
+.baci-system-error-title,
+.baci-system-error-card-title {
   color: var(--error-text);
-  font-size: clamp(1.875rem, 5vw, 3rem);
   font-weight: 800;
   line-height: 1.08;
   margin: 0;
 }
 
-.card .title {
+.baci-system-error-title {
+  font-size: clamp(1.875rem, 5vw, 3rem);
+}
+
+.baci-system-error-card-title {
   font-size: clamp(1.5rem, 4vw, 2rem);
 }
 
-.copy {
+.baci-system-error-copy {
   color: var(--error-muted);
   font-size: 1rem;
   line-height: 1.7;
@@ -104,7 +130,7 @@
   max-width: 34rem;
 }
 
-.actions {
+.baci-system-error-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
@@ -112,7 +138,7 @@
   margin-top: 1.75rem;
 }
 
-.button {
+.baci-system-error-button {
   align-items: center;
   background: var(--error-primary);
   border: 1px solid var(--error-primary);
@@ -135,34 +161,34 @@
     transform 150ms ease;
 }
 
-.button:hover {
+.baci-system-error-button:hover {
   background: var(--error-primary-hover);
   border-color: var(--error-primary-hover);
   transform: translateY(-1px);
 }
 
-.button:focus-visible {
+.baci-system-error-button:focus-visible {
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18);
   outline: 3px solid var(--error-focus);
   outline-offset: 3px;
 }
 
-.buttonSecondary {
+.baci-system-error-button-secondary {
   background: transparent;
   color: var(--error-primary);
 }
 
-.buttonSecondary:hover {
+.baci-system-error-button-secondary:hover {
   background: rgba(79, 70, 229, 0.08);
   border-color: rgba(79, 70, 229, 0.32);
   color: var(--error-primary-hover);
 }
 
-.buttonSecondary:focus-visible {
+.baci-system-error-button-secondary:focus-visible {
   border-color: var(--error-focus);
 }
 
-.debug {
+.baci-system-error-debug {
   background: rgba(15, 23, 42, 0.06);
   border-radius: 0.75rem;
   color: var(--error-muted);
@@ -179,7 +205,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .page {
+  .baci-system-error-page {
     --error-bg: #020617;
     --error-card: #0f172a;
     --error-border: #1e293b;
@@ -192,25 +218,26 @@
 }
 
 @media (max-width: 520px) {
-  .card {
+  .baci-system-error-card {
     padding: 1.5rem;
   }
 
-  .actions {
+  .baci-system-error-actions {
     flex-direction: column;
   }
 
-  .button {
+  .baci-system-error-button {
     width: 100%;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .button {
+  .baci-system-error-button {
     transition: none;
   }
 
-  .button:hover {
+  .baci-system-error-button:hover {
     transform: none;
   }
 }
+`;
