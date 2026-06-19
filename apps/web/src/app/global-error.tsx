@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { captureClientException } from '@/lib/posthog/client-exceptions';
-import styles from './system-error.module.css';
+import { systemErrorStyles } from './system-error-styles';
 
 // Global Error must include its own html and body tags
 export default function GlobalError({
@@ -21,22 +21,25 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body>
-        <main className={styles.page}>
-          <section aria-labelledby="global-error-title" className={styles.card}>
-            <div aria-hidden="true" className={styles.icon}>
+        <main style={systemErrorStyles.page}>
+          <section
+            aria-labelledby="global-error-title"
+            style={systemErrorStyles.card}
+          >
+            <div aria-hidden="true" style={systemErrorStyles.icon}>
               !
             </div>
 
-            <h2 className={styles.title} id="global-error-title">
+            <h2 style={systemErrorStyles.cardTitle} id="global-error-title">
               Critical Error
             </h2>
-            <p className={styles.copy}>
+            <p style={systemErrorStyles.copy}>
               A critical system error occurred. Please try refreshing the page.
             </p>
 
-            <div className={styles.actions}>
+            <div style={systemErrorStyles.actions}>
               <button
-                className={styles.button}
+                style={systemErrorStyles.button}
                 onClick={() => window.location.reload()}
                 type="button"
               >
@@ -45,7 +48,7 @@ export default function GlobalError({
             </div>
 
             {process.env.NODE_ENV === 'development' && (
-              <pre className={styles.debug}>
+              <pre style={systemErrorStyles.debug}>
                 {error.name}: {error.message}
               </pre>
             )}

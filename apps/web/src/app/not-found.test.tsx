@@ -30,6 +30,15 @@ describe('NotFound', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps the root not-found shell styled without relying on a CSS module chunk', () => {
+    render(<NotFound />);
+
+    expect(screen.getByRole('main')).toHaveStyle({
+      position: 'fixed',
+      minHeight: '100vh',
+    });
+  });
+
   it('renders the Baci logo', () => {
     render(<NotFound />);
 
