@@ -47,6 +47,7 @@ import { registerAgenticUcpTools } from './agentic-ucp-tools';
 import {
   buildSearchProductsV2RpcArgs,
   orderRowsByRankedProductIds,
+  POST_FILTER_RESULT_PAGE_SIZE,
 } from './search-products-ranking';
 
 // =============================================================================
@@ -361,6 +362,96 @@ function matchesConditionFamily(
     },
     condition
   );
+}
+
+
+type McpSearchProductRow = {
+  id: string;
+  available_conditions?: unknown;
+  brand?: string | null;
+  category?: string | null;
+  compare_at_price?: number | null;
+  condition?: string | null;
+  condition_detail?: string | null;
+  created_at?: string | null;
+  has_condition_offers?: boolean | null;
+  has_variants?: boolean | null;
+  images?: unknown;
+  name?: string | null;
+  price?: number | null;
+  slug?: string | null;
+  stock_quantity?: number | null;
+  updated_at?: string | null;
+};
+
+type RankedSearchProductRow = {
+  product_id?: unknown;
+  total_count?: unknown;
+};
+
+function extractRankedProductIds(rows: RankedSearchProductRow[]) {
+  return rows
+    .map((row) =>
+      typeof row.product_id === 'string' ? row.product_id : null
+    )
+    .filter((id): id is string => Boolean(id));
+}
+
+function getRankedProductTotal(rows: RankedSearchProductRow[]) {
+  const rawCount = rows[0]?.total_count;
+
+  if (typeof rawCount === 'number') {
+    return rawCount;
+  }
+
+  if (typeof rawCount === 'string') {
+    return Number.parseInt(rawCount, 10) || 0;
+  }
+
+  return rows.length;
+}
+
+function toMcpSearchProductRows(data: unknown): McpSearchProductRow[] {
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data.filter(
+    (row): row is McpSearchProductRow =>
+      Boolean(row) &&
+      typeof row === 'object' &&
+      'id' in row &&
+      typeof row.id === 'string'
+  );
+}
+
+function matchesMcpPostHydrationFilters(
+  product: McpSearchProductRow,
+  filters: {
+    brand?: string;
+    category?: string;
+    condition?: string;
+  }
+) {
+  if (
+    filters.category &&
+    !String(product.category ?? '')
+      .toLowerCase()
+      .includes(filters.category.toLowerCase())
+  ) {
+    return false;
+  }
+
+  if (
+    filters.brand &&
+    !String(product.brand ?? '')
+      .toLowerCase()
+      .includes(filters.brand.toLowerCase())
+  ) {
+    return false;
+  }
+
+  return matchesConditionFamily(product, filters.condition);
 }
 
 // Validate and sanitize price input
@@ -1299,68 +1390,119 @@ function createOgabasseyServer() {
           : undefined;
         const limit = Math.min(Math.max(args.limit || 10, 1), 20);
 
-        const ranked = sanitizedQuery
-          ? await supabase.rpc(
+        const productSelect =
+          'id, name, slug, price, compare_at_price, images, condition, condition_detail, available_conditions, has_condition_offers, brand, category, stock_quantity, has_variants, updated_at, created_at';
+        const sanitizedCondition = args.condition
+          ? sanitizeString(args.condition, 50)
+          : undefined;
+        const hasPostHydrationFilters = Boolean(
+          sanitizedBrand || sanitizedCategory || sanitizedCondition
+        );
+        let products: McpSearchProductRow[] = [];
+
+        if (sanitizedQuery) {
+          let pageOffset = 0;
+          let totalRankedMatches = Number.POSITIVE_INFINITY;
+          let sawRankedRows = false;
+
+          while (
+            pageOffset < totalRankedMatches &&
+            (!hasPostHydrationFilters || products.length < limit)
+          ) {
+            const ranked = await supabase.rpc(
               'search_products_v2',
               buildSearchProductsV2RpcArgs({
                 args: {
                   brand: sanitizedBrand,
                   category: sanitizedCategory,
-                  condition: args.condition
-                    ? sanitizeString(args.condition, 50)
-                    : undefined,
+                  condition: sanitizedCondition,
                   max_price: args.max_price,
                   min_price: args.min_price,
                   sort: args.sort,
                 },
                 limit,
                 merchantId,
+                offset: pageOffset,
                 sanitizedQuery,
               })
-            )
-          : null;
+            );
 
-        if (ranked?.error) throw ranked.error;
+            if (ranked.error) throw ranked.error;
 
-        const rankedProductIds = Array.isArray(ranked?.data)
-          ? ranked.data
-              .map((row) =>
-                row && typeof row === 'object' && 'product_id' in row
-                  ? String(row.product_id)
-                  : null
-              )
-              .filter((id): id is string => Boolean(id))
-          : [];
+            const rankedRows = Array.isArray(ranked.data)
+              ? (ranked.data as RankedSearchProductRow[])
+              : [];
+            const rankedProductIds = extractRankedProductIds(rankedRows);
 
-        if (sanitizedQuery && rankedProductIds.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `No specific products found for "${sanitizedQuery}". Try broader terms.`,
-              },
-            ],
-            structuredContent: { products: [], status: 'empty' },
-          };
-        }
+            if (rankedProductIds.length === 0) {
+              break;
+            }
 
-        const productSelect =
-          'id, name, slug, price, compare_at_price, images, condition, condition_detail, available_conditions, has_condition_offers, brand, category, stock_quantity, has_variants, updated_at, created_at';
-        let query = supabase
-          .from('products')
-          .select(productSelect)
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active');
+            sawRankedRows = true;
+            const reportedTotal = getRankedProductTotal(rankedRows);
+            totalRankedMatches =
+              reportedTotal > 0
+                ? reportedTotal
+                : pageOffset + rankedProductIds.length;
 
-        if (sanitizedQuery) {
-          query = query.in('id', rankedProductIds);
+            const { data: productRows, error } = await supabase
+              .from('products')
+              .select(productSelect)
+              .eq('merchant_id', merchantId)
+              .eq('status', 'active')
+              .in('id', rankedProductIds);
+
+            if (error) throw error;
+
+            let pageProducts = orderRowsByRankedProductIds(
+              toMcpSearchProductRows(productRows),
+              rankedProductIds
+            );
+
+            if (hasPostHydrationFilters) {
+              pageProducts = pageProducts.filter((product) =>
+                matchesMcpPostHydrationFilters(product, {
+                  brand: sanitizedBrand,
+                  category: sanitizedCategory,
+                  condition: sanitizedCondition,
+                })
+              );
+            }
+
+            products.push(...pageProducts);
+
+            if (!hasPostHydrationFilters) {
+              break;
+            }
+
+            pageOffset += POST_FILTER_RESULT_PAGE_SIZE;
+          }
+
+          if (!sawRankedRows) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `No specific products found for "${sanitizedQuery}". Try broader terms.`,
+                },
+              ],
+              structuredContent: { products: [], status: 'empty' },
+            };
+          }
+
+          products = products.slice(0, limit);
         } else {
-          query = query.limit(limit);
+          let query = supabase
+            .from('products')
+            .select(productSelect)
+            .eq('merchant_id', merchantId)
+            .eq('status', 'active')
+            .limit(limit);
 
           // Filters
-          if (args.condition) {
+          if (sanitizedCondition) {
             const conditionClauses = getConditionPrefilterClauses(
-              args.condition
+              sanitizedCondition
             );
             if (conditionClauses.length > 0) {
               query = query.or(conditionClauses.join(','));
@@ -1381,42 +1523,18 @@ function createOgabasseyServer() {
           else if (args.sort === 'newest')
             query = query.order('created_at', { ascending: false });
           else query = query.order('stock_quantity', { ascending: false }); // Relevance proxy: push in-stock items up
-        }
 
-        const { data: productRows, error } = await query;
+          const { data: productRows, error } = await query;
 
-        if (error) throw error;
+          if (error) throw error;
 
-        let products = productRows || [];
+          products = toMcpSearchProductRows(productRows);
 
-        if (sanitizedQuery) {
-          if (sanitizedCategory) {
-            const categoryFilter = sanitizedCategory.toLowerCase();
+          if (sanitizedCondition) {
             products = products.filter((product) =>
-              String(product.category ?? '')
-                .toLowerCase()
-                .includes(categoryFilter)
+              matchesConditionFamily(product, sanitizedCondition)
             );
           }
-          if (sanitizedBrand) {
-            const brandFilter = sanitizedBrand.toLowerCase();
-            products = products.filter((product) =>
-              String(product.brand ?? '').toLowerCase().includes(brandFilter)
-            );
-          }
-          if (args.condition) {
-            products = products.filter((product) =>
-              matchesConditionFamily(product, args.condition)
-            );
-          }
-          products = orderRowsByRankedProductIds(
-            products,
-            rankedProductIds
-          ).slice(0, limit);
-        } else if (args.condition) {
-          products = products.filter((product) =>
-            matchesConditionFamily(product, args.condition)
-          );
         }
 
         // Graceful fallback for empty results

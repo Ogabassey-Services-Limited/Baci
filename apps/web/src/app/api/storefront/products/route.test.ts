@@ -755,6 +755,73 @@ describe('GET /api/storefront/products', () => {
     );
   });
 
+  it('continues ranked paging until post-filtered storefront matches beyond 500 candidates are found', async () => {
+    const rankedIds = Array.from(
+      { length: 600 },
+      (_, index) => `product-${String(index + 1).padStart(3, '0')}`
+    );
+
+    for (let offset = 0; offset < rankedIds.length; offset += 100) {
+      storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
+        {
+          data: rankedIds.slice(offset, offset + 100).map((productId) => ({
+            product_id: productId,
+            total_count: rankedIds.length,
+          })),
+          error: null,
+        }
+      );
+    }
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResults.current =
+      rankedIds.reduce<Array<{ data: Record<string, unknown>[]; error: null }>>(
+        (pages, _id, index) => {
+          if (index % 100 !== 0) {
+            return pages;
+          }
+
+          const chunk = rankedIds.slice(index, index + 100);
+          pages.push({
+            data: chunk.map((id) =>
+              storefrontProductsRouteTestHarness.createRawProduct({
+                id,
+                category: id === 'product-550' ? 'Phones' : 'Accessories',
+                categories:
+                  id === 'product-550'
+                    ? { id: 'cat-2', name: 'Phones', slug: 'phones' }
+                    : { id: 'cat-1', name: 'Accessories', slug: 'accessories' },
+                name: id,
+                slug: id,
+              })
+            ),
+            error: null,
+          });
+          return pages;
+        },
+        []
+      );
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=iphone&category=phones&limit=20'))
+    );
+
+    const body = await response.json();
+    expect(
+      storefrontProductsRouteTestHarness.mockSearchRpc.current
+    ).toHaveBeenCalledTimes(6);
+    expect(
+      storefrontProductsRouteTestHarness.mockSearchRpc.current
+    ).toHaveBeenNthCalledWith(
+      6,
+      'search_products_v2',
+      expect.objectContaining({ result_offset: 500, result_limit: 100 })
+    );
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-550',
+    ]);
+    expect(body.count).toBe(1);
+  });
+
   it('preserves slug-form brand filtering when q is present', async () => {
     storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
       {

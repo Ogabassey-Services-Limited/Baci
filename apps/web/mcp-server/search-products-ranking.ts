@@ -1,6 +1,6 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 
-const POST_FILTER_RESULT_BUFFER = 100;
+export const POST_FILTER_RESULT_PAGE_SIZE = 100;
 
 interface McpSearchProductsArgs {
   brand?: string;
@@ -16,11 +16,13 @@ export function buildSearchProductsV2RpcArgs({
   limit,
   merchantId,
   sanitizedQuery,
+  offset = 0,
 }: {
   args: McpSearchProductsArgs;
   limit: number;
   merchantId: string;
   sanitizedQuery: string;
+  offset?: number;
 }) {
   const hasConditionFamilyFilter = Boolean(
     normalizeCanonicalProductCondition(args.condition)
@@ -41,9 +43,9 @@ export function buildSearchProductsV2RpcArgs({
     parent_only: false,
     result_limit:
       args.brand || args.category || hasConditionFamilyFilter
-        ? POST_FILTER_RESULT_BUFFER
+        ? POST_FILTER_RESULT_PAGE_SIZE
         : limit,
-    result_offset: 0,
+    result_offset: offset,
     search_query: sanitizedQuery,
     sort_by: args.sort ?? 'relevance',
     status_filter: 'active',

@@ -3,7 +3,6 @@ import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
-import { logger } from '@/lib/logger';
 import { getPrimaryProductImage } from '@/lib/product-image';
 import { storefrontProductFilters } from '@/lib/storefront-product-filters';
 import {
@@ -358,11 +357,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (q) {
-      // Cap for accumulating ranked candidates when family filters run in
-      // memory (search_products_v2 only matches conditions exactly and caps each
-      // page at 100). Covers realistic single-merchant catalogs; beyond this the
-      // count is reported as a logged lower bound rather than silently dropped.
-      const MAX_FILTER_CANDIDATES = 500;
+      // Page ranked candidates when filters run in memory. search_products_v2
+      // caps each page at 100, so filtered storefront responses must not stop at
+      // a fixed pre-filter candidate window.
       const cookieStore = await cookies();
       const supabase = createClient(cookieStore);
       const requestedLimit = limit ?? 20;
@@ -392,20 +389,10 @@ export async function GET(request: NextRequest) {
           query: q,
           filters: searchFilters,
           sort: searchSort,
-          maxCandidates: MAX_FILTER_CANDIDATES,
         });
         rankedProductIds = candidates.productIds;
         didYouMean = candidates.didYouMean;
         dbCount = null;
-        if (candidates.truncated) {
-          logger.warn({
-            message:
-              'Storefront products search filter candidate set truncated; count is a lower bound',
-            merchantId,
-            query: q,
-            maxCandidates: MAX_FILTER_CANDIDATES,
-          });
-        }
       } else {
         const ranked = await searchStorefrontProducts({
           supabase,

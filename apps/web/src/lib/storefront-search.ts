@@ -82,12 +82,10 @@ export interface StorefrontSearchProductsPage extends StorefrontSearchResult {
 
 const MAX_SEARCH_LIMIT = 100;
 // search_products_v2 clamps result_limit to 100 and only matches conditions
-// exactly. When a storefront "family" filter must be applied in memory we page
-// through the ranked results and accumulate candidates up to this bound, so the
-// post-filter count and pagination stay accurate for realistic catalogs instead
-// of silently truncating at a single 100-row page.
+// exactly. When a storefront "family" filter must be applied in memory, page
+// through the full ranked result set before post-filtering so filtered products
+// beyond the first RPC page are not silently omitted.
 const RANKED_FILTER_PAGE_SIZE = MAX_SEARCH_LIMIT;
-const RANKED_FILTER_MAX_CANDIDATES = 500;
 
 function isAfterOutsideRequestScopeError(error: unknown) {
   return (
@@ -289,16 +287,17 @@ export interface RankedSearchCandidates {
   productIds: string[];
   query: string;
   didYouMean: string | null;
-  /** True when more matches exist than `maxCandidates` could collect. */
+  /** True only when an explicit maxCandidates cap stopped collection early. */
   truncated: boolean;
 }
 
 /**
- * Pages through `search_products_v2` and accumulates ranked product IDs up to
- * `maxCandidates`. Used when a storefront family filter (condition/brand/
- * category) must be applied in memory: the RPC only matches conditions exactly
- * and caps each page at 100 rows, so a single page would silently drop matches
- * ranked past row 100. Analytics is recorded once (first page) per search.
+ * Pages through `search_products_v2` and accumulates ranked product IDs. Used
+ * when storefront family filters must be applied in memory: the RPC caps each
+ * page at 100 rows, so a single page would silently drop matches ranked past row
+ * 100. Analytics is recorded once (first page) per search. Callers may pass
+ * maxCandidates for explicit best-effort prefetches; omit it when post-filtered
+ * counts must be exact.
  */
 export async function collectRankedSearchProductIds(args: {
   supabase: StorefrontSearchSupabase;
@@ -307,7 +306,7 @@ export async function collectRankedSearchProductIds(args: {
   query: string;
   filters?: StorefrontSearchFilters;
   sort?: StorefrontSearchSort;
-  maxCandidates: number;
+  maxCandidates?: number;
 }): Promise<RankedSearchCandidates> {
   const productIds: string[] = [];
   let query = '';
@@ -315,7 +314,12 @@ export async function collectRankedSearchProductIds(args: {
   let total = Number.POSITIVE_INFINITY;
   let pageOffset = 0;
 
-  while (productIds.length < args.maxCandidates && pageOffset < total) {
+  const candidateLimit = args.maxCandidates;
+
+  while (
+    (candidateLimit === undefined || productIds.length < candidateLimit) &&
+    pageOffset < total
+  ) {
     const page = await searchStorefrontProducts({
       supabase: args.supabase,
       analyticsSupabase: args.analyticsSupabase,
@@ -342,11 +346,19 @@ export async function collectRankedSearchProductIds(args: {
     pageOffset += RANKED_FILTER_PAGE_SIZE;
   }
 
+  const cappedProductIds =
+    candidateLimit === undefined
+      ? productIds
+      : productIds.slice(0, candidateLimit);
+
   return {
-    productIds: productIds.slice(0, args.maxCandidates),
+    productIds: cappedProductIds,
     query,
     didYouMean,
-    truncated: Number.isFinite(total) && total > args.maxCandidates,
+    truncated:
+      candidateLimit !== undefined &&
+      Number.isFinite(total) &&
+      total > candidateLimit,
   };
 }
 
@@ -427,7 +439,6 @@ export async function getStorefrontSearchProducts(args: {
     query: args.query,
     filters: { ...args.filters, condition: null },
     sort: args.sort,
-    maxCandidates: RANKED_FILTER_MAX_CANDIDATES,
   });
 
   if (candidates.productIds.length === 0) {
@@ -438,16 +449,6 @@ export async function getStorefrontSearchProducts(args: {
       products: [],
       query: candidates.query,
     };
-  }
-
-  if (candidates.truncated) {
-    logger.warn({
-      message:
-        'Storefront search condition-family candidate set truncated; count is a lower bound',
-      merchantId: args.merchantId,
-      query: candidates.query,
-      maxCandidates: RANKED_FILTER_MAX_CANDIDATES,
-    });
   }
 
   const hydrated = await hydrateRankedStorefrontProducts({

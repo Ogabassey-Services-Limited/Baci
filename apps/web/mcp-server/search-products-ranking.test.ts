@@ -103,6 +103,23 @@ describe('MCP search_products ranking helpers', () => {
     });
   });
 
+  it('applies the ranked search page offset for post-filter paging', () => {
+    expect(
+      buildSearchProductsV2RpcArgs({
+        args: {
+          brand: 'Apple',
+        },
+        limit: 20,
+        merchantId: '123e4567-e89b-12d3-a456-426614174000',
+        offset: 100,
+        sanitizedQuery: 'iphone',
+      })
+    ).toMatchObject({
+      result_limit: 100,
+      result_offset: 100,
+    });
+  });
+
   it('preserves ranked product order after product hydration', () => {
     expect(
       orderRowsByRankedProductIds(
