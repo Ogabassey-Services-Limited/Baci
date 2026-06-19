@@ -1989,6 +1989,7 @@ describe('fulfillPendingVtuTransaction', () => {
       amount: 1000,
       status: 'successful',
     });
+    const updatePayloads: unknown[] = [];
 
     const supabase = createPendingTransactionSupabaseMock({
       transactionRow: {
@@ -2006,6 +2007,7 @@ describe('fulfillPendingVtuTransaction', () => {
           provider: 'monnify',
           billerCode: 'biller1',
           productCode: 'product1',
+          providerErrorDetail: 'stale Monnify failure detail',
         },
         error_message: null,
         merchant_commission: 0,
@@ -2014,6 +2016,7 @@ describe('fulfillPendingVtuTransaction', () => {
         biller_item_code: null,
         customer_identifier: '43901766923',
       },
+      updatePayloads,
     });
 
     const result = await fulfillPendingVtuTransaction({
@@ -2037,6 +2040,14 @@ describe('fulfillPendingVtuTransaction', () => {
       reference: 'VTU-123',
       status: 'successful',
     });
+    expect(updatePayloads).toContainEqual(
+      expect.objectContaining({
+        metadata: expect.not.objectContaining({
+          providerErrorDetail: expect.anything(),
+        }),
+        status: 'successful',
+      })
+    );
   });
 
   it('routes to Monnify status requery and reconciles status successfully when metadata.provider is monnify', async () => {
@@ -2233,11 +2244,13 @@ describe('fulfillPendingVtuTransaction', () => {
       success: false,
       status: 'failed',
       message: 'Explicit user failure',
+      providerErrorDetail: 'Monnify API error: 400 Bad Request - [redacted]',
       transactionId: 'monnify-bill-3',
       amount: 1000,
     });
 
     const rpcImpl = vi.fn().mockResolvedValue({ data: null, error: null });
+    const updatePayloads: unknown[] = [];
 
     const supabase = createPendingTransactionSupabaseMock({
       transactionRow: {
@@ -2265,6 +2278,7 @@ describe('fulfillPendingVtuTransaction', () => {
         customer_identifier: '43901766923',
       },
       rpcImpl,
+      updatePayloads,
     });
 
     const result = await fulfillPendingVtuTransaction({
@@ -2278,6 +2292,16 @@ describe('fulfillPendingVtuTransaction', () => {
     expect(rpcImpl).toHaveBeenCalledWith(
       'refund_customer_wallet_for_vtu',
       expect.any(Object)
+    );
+    expect(updatePayloads).toContainEqual(
+      expect.objectContaining({
+        error_message: 'Explicit user failure',
+        metadata: expect.objectContaining({
+          providerErrorDetail:
+            'Monnify API error: 400 Bad Request - [redacted]',
+        }),
+        status: 'failed',
+      })
     );
   });
 
