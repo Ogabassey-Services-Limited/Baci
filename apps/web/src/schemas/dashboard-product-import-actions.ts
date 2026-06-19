@@ -109,10 +109,6 @@ export const ChangeSchema = z.object({
     .describe('Reasoning for the change, especially for removals'),
 });
 
-export const BulkUpdateChangesSchema = z.object({
-  changes: z.array(ChangeSchema),
-});
-
 const ClarificationRequestSchema = z
   .object({
     question: z.string(),

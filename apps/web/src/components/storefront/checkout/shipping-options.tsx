@@ -5,9 +5,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCurrency } from '@/hooks/use-currency';
 import { apiPost } from '@/lib/api-client';
-import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
 import { cn } from '@/lib/utils';
 import type { ShippingQuote } from '@/types/shipping-quote';
+
+interface QuotesResponse {
+  quotes: {
+    featured: ShippingQuote[];
+    all: ShippingQuote[];
+  };
+  sessionId: string;
+  expiresAt: string;
+  warnings?: string[];
+}
 
 interface QuoteItemPayload {
   name: string;
@@ -97,7 +106,7 @@ export function ShippingOptions({
       setError(null);
       lastFetchKey.current = fetchKey;
 
-      apiPost<unknown>('/api/shipping/quotes', {
+      apiPost<QuotesResponse>('/api/shipping/quotes', {
         receiver: {
           name: receiverName || 'Customer',
           phone: receiverPhone || '',
@@ -111,20 +120,19 @@ export function ShippingOptions({
         shipmentType: 'domestic',
       })
         .then((response) => {
-          const normalized = normalizeShippingQuoteResponse(response);
-          setQuotes(normalized.quotes);
-          setSessionId(normalized.sessionId);
+          setQuotes(response.quotes.all);
+          setSessionId(response.sessionId);
 
-          if (normalized.warnings.length > 0) {
-            console.warn('Shipping quote warnings:', normalized.warnings);
+          if (response.warnings && response.warnings.length > 0) {
+            console.warn('Shipping quote warnings:', response.warnings);
           }
 
           // Auto-select cheapest only on first load
-          if (!hasAutoSelected.current && normalized.quotes.length > 0) {
-            const cheapest = normalized.quotes.reduce((min, q) =>
+          if (!hasAutoSelected.current && response.quotes.all.length > 0) {
+            const cheapest = response.quotes.all.reduce((min, q) =>
               q.price < min.price ? q : min
             );
-            onSelectRef.current(cheapest, normalized.sessionId);
+            onSelectRef.current(cheapest, response.sessionId);
             hasAutoSelected.current = true;
           }
         })

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -345,10 +345,6 @@ describe('Step2_Branding', () => {
         'data:image/png;base64,test'
       );
     });
-
-    await waitFor(() => {
-      expect(input).not.toBeDisabled();
-    });
   });
 
   it('shows color customization UI when logo is uploaded', () => {
@@ -469,12 +465,12 @@ describe('Step2_Branding', () => {
   it('disables buttons during loading state', async () => {
     const user = userEvent.setup();
 
-    let resolveUpload!: (value: string) => void;
-    const uploadPromise = new Promise<string>((resolve) => {
-      resolveUpload = resolve;
-    });
-
-    mockUploadImage.mockReturnValue(uploadPromise);
+    mockUploadImage.mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => resolve('https://example.com/logo.png'), 1000)
+        )
+    );
 
     render(
       <TestWrapper>
@@ -492,18 +488,6 @@ describe('Step2_Branding', () => {
       const inputs = screen.getAllByTestId('file-input');
       inputs.forEach((input) => {
         expect(input).toBeDisabled();
-      });
-    });
-
-    await act(async () => {
-      resolveUpload('https://example.com/logo.png');
-      await uploadPromise;
-    });
-
-    await waitFor(() => {
-      const inputs = screen.getAllByTestId('file-input');
-      inputs.forEach((input) => {
-        expect(input).not.toBeDisabled();
       });
     });
   });

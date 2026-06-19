@@ -89,12 +89,6 @@ describe('checkout success client page', () => {
     expect(
       screen.getByText(/Thank you for your purchase, Ada/i)
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Thank you for your purchase, Ada/i)
-    ).toHaveAttribute('data-ph-block');
-    expect(screen.getByText('Shipping To').closest('[data-ph-block]')).not.toBe(
-      null
-    );
     expect(screen.getByText(/ada@example.com/i)).toBeInTheDocument();
     expect(screen.getByText('Wireless Charger')).toBeInTheDocument();
     expect(screen.getByText('₦0.00')).toBeInTheDocument();

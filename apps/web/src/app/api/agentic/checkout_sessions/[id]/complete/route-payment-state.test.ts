@@ -76,8 +76,6 @@ const {
   makeReadySession,
 } = paymentStateTestHelpers;
 
-const { POST } = await import('./route');
-
 const storedCheckoutSnapshot = {
   line_items: [
     {
@@ -124,6 +122,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
   });
 
   it('returns 400 when the session id route param is invalid', async () => {
+    const { POST } = await import('./route');
     const response = await POST(buildCompleteRequest(), {
       params: Promise.resolve({ id: '../bad' }),
     });
@@ -140,6 +139,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     mockCalculatedSession();
 
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
+    const { POST } = await import('./route');
     const response = await POST(
       buildCompleteRequest({ includeAuthorization: false }),
       params
@@ -181,6 +181,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     });
 
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
+    const { POST } = await import('./route');
     const response = await POST(buildCompleteRequest(), params);
     const body = await response.json();
 
@@ -224,6 +225,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     });
 
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
+    const { POST } = await import('./route');
     const response = await POST(
       buildCompleteRequest({ includeAuthorization: false }),
       params
@@ -255,6 +257,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     mockCalculatedSession();
 
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
+    const { POST } = await import('./route');
     const response = await POST(buildCompleteRequest(), params);
     const body = await response.json();
 
@@ -273,6 +276,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     mockCalculatedSession({ total: 0 });
 
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
+    const { POST } = await import('./route');
     const response = await POST(
       buildCompleteRequest({ confirmationAmount: 1 }),
       params

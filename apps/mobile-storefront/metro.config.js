@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const path = require('node:path');
 const { getDefaultConfig } = require('expo/metro-config');
-const { getPostHogExpoConfig } = require('posthog-react-native/metro');
 
 /**
  * Metro Configuration for Expo SDK 54+ Monorepo (2026 Elite Standard)
@@ -17,7 +16,7 @@ const { getPostHogExpoConfig } = require('posthog-react-native/metro');
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, '../..');
 
-const config = getPostHogExpoConfig(projectRoot, { getDefaultConfig });
+const config = getDefaultConfig(projectRoot);
 
 const { resolver } = config;
 

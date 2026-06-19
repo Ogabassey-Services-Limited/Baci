@@ -68,32 +68,6 @@ const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
 const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
 const CANONICAL_STOREFRONT_TERMS_PATH = '/terms';
-const DEFAULT_POSTHOG_RELAY_PATH = '/baci-relay';
-const RESERVED_POSTHOG_RELAY_PATH_PREFIXES = [
-  '/api',
-  '/_next',
-  '/admin',
-  '/auth',
-  '/builder',
-  '/checkout',
-  '/dashboard',
-  '/login',
-  '/logout',
-  '/track',
-] as const;
-const POSTHOG_RELAY_CREDENTIAL_HEADERS = [
-  'authorization',
-  'cookie',
-  'proxy-authorization',
-  'referer',
-  'x-csrf-token',
-  'x-supabase-auth-token',
-] as const;
-const STATIC_ASSET_EXTENSION_REGEX =
-  /\.(?:svg|png|jpg|jpeg|gif|webp|avif|woff|woff2|ttf|eot|css|js|json)$/i;
-const POSTHOG_RELAY_PATH = normalizePostHogRelayPath(
-  process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH
-);
 const LEGACY_STOREFRONT_TERMS_ALIAS_PATHS = new Set([
   '/terms-and-conditions',
   '/terms-of-service',
@@ -133,14 +107,6 @@ function buildProxyRequestHeaders(request: NextRequest): Headers {
     STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
     getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
   );
-  return headers;
-}
-
-function buildPostHogRelayRequestHeaders(request: NextRequest): Headers {
-  const headers = buildProxyRequestHeaders(request);
-  for (const header of POSTHOG_RELAY_CREDENTIAL_HEADERS) {
-    headers.delete(header);
-  }
   return headers;
 }
 
@@ -196,44 +162,6 @@ function buildLegacyTermsAliasRedirectResponse(
 
 function isPublicMachineReadablePath(pathname: string): boolean {
   return PUBLIC_MACHINE_READABLE_PATHS.has(pathname);
-}
-
-function normalizePostHogRelayPath(value?: string): string {
-  const trimmed = value?.trim();
-
-  if (!trimmed) {
-    return DEFAULT_POSTHOG_RELAY_PATH;
-  }
-
-  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  const normalized =
-    withLeadingSlash.replace(/\/+$/, '') || DEFAULT_POSTHOG_RELAY_PATH;
-
-  return isReservedPostHogRelayPath(normalized)
-    ? DEFAULT_POSTHOG_RELAY_PATH
-    : normalized;
-}
-
-function isReservedPostHogRelayPath(pathname: string): boolean {
-  const normalized = pathname.toLowerCase();
-  return RESERVED_POSTHOG_RELAY_PATH_PREFIXES.some(
-    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`)
-  );
-}
-
-function isPostHogRelayPath(pathname: string): boolean {
-  return (
-    pathname === POSTHOG_RELAY_PATH ||
-    pathname.startsWith(`${POSTHOG_RELAY_PATH}/`)
-  );
-}
-
-function isStaticAssetOutsidePostHogRelay(pathname: string): boolean {
-  return (
-    /\/(?:static|array)\//.test(pathname) &&
-    STATIC_ASSET_EXTENSION_REGEX.test(pathname) &&
-    !isPostHogRelayPath(pathname)
-  );
 }
 
 function isPlatformHost(hostname: string): boolean {
@@ -500,7 +428,6 @@ const MAIN_APP_ROUTES = [
   '/onboarding',
   '/builder',
   '/reset-password',
-  POSTHOG_RELAY_PATH,
   '/_next',
   '/robots.txt',
   '/manifest.webmanifest',
@@ -525,7 +452,6 @@ const CASE_PRESERVING_PREFIXES = [
   '/onboarding',
   '/builder',
   '/reset-password',
-  POSTHOG_RELAY_PATH,
   '/favicon.ico',
   '/robots.txt',
   '/sitemap.xml',
@@ -1364,31 +1290,6 @@ function buildStrictCspResponse(
   };
 }
 
-function buildPostHogRelayPassThroughResponse(
-  request: NextRequest,
-  pathname: string,
-  userAgent: string,
-  hostname: string
-): NextResponse {
-  const requestHeaders = buildPostHogRelayRequestHeaders(request);
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
-
-  return applySecurityHeaders(
-    response,
-    pathname,
-    userAgent,
-    'api',
-    isLocalhost(hostname),
-    undefined,
-    request,
-    hostname
-  );
-}
-
 /**
  * Convert a `.md` pathname into the corresponding `/api/llm/` path.
  *
@@ -1423,22 +1324,6 @@ export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const userAgent = request.headers.get('user-agent') || '';
   const pathname = request.nextUrl.pathname;
-
-  if (isStaticAssetOutsidePostHogRelay(pathname)) {
-    return NextResponse.next();
-  }
-
-  // ==== POSTHOG RELAY PASSTHROUGH ====
-  // Let Next.js beforeFiles rewrites proxy PostHog ingest/assets on the same
-  // merchant origin before URL canonicalization can redirect relay calls.
-  if (isPostHogRelayPath(pathname)) {
-    return buildPostHogRelayPassThroughResponse(
-      request,
-      pathname,
-      userAgent,
-      hostname
-    );
-  }
 
   // ==== URL NORMALIZATION: STATIC PREFIXES FIRST ====
   // Lowercase only prefixes that are EXCLUSIVELY non-storefront and/or have
@@ -2872,15 +2757,6 @@ export const config = {
   matcher: [
     '/agent-commerce.json',
     '/agent-trust.json',
-    // Next statically analyzes matcher values. Keep this literal in sync with
-    // DEFAULT_POSTHOG_RELAY_PATH so relay static assets do not bypass header
-    // stripping just because they end in .js/.css/.json.
-    '/baci-relay/:path*',
-    // Custom relay paths are runtime-configurable, while matcher values are
-    // statically analyzed. Catch custom `/relay/static/*.js` and
-    // `/relay/array/*.js` assets, but keep Next's own static chunks out of
-    // middleware so critical JS/CSS does not pay proxy overhead on every page.
-    '/((?!_next/static(?:/|$))(?:.+/)?(?:static|array)/.*)',
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)

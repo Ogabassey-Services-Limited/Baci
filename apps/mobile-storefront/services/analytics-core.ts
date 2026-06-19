@@ -7,25 +7,8 @@ const log = createLogger('Analytics');
 const POSTHOG_API_KEY = Constants.expoConfig?.extra?.posthogApiKey || '';
 const POSTHOG_HOST =
   Constants.expoConfig?.extra?.posthogHost || 'https://eu.i.posthog.com';
-const MERCHANT_ID = Constants.expoConfig?.extra?.merchantId;
-const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug;
-const MERCHANT_DOMAIN = Constants.expoConfig?.extra?.merchantDomain;
 
 let posthogClient: PostHog | null = null;
-
-function getAnalyticsSuperProperties() {
-  return {
-    app_surface: 'mobile-storefront',
-    merchant_id: MERCHANT_ID,
-    merchant_slug: MERCHANT_SLUG,
-    merchant_domain: MERCHANT_DOMAIN,
-  };
-}
-
-function registerAnalyticsSuperProperties(): void {
-  if (!posthogClient) return;
-  void posthogClient.register(getAnalyticsSuperProperties());
-}
 
 export function initAnalytics(): void {
   if (!POSTHOG_API_KEY) {
@@ -37,18 +20,11 @@ export function initAnalytics(): void {
     posthogClient = new PostHog(POSTHOG_API_KEY, {
       host: POSTHOG_HOST,
       captureAppLifecycleEvents: true,
-      customAppProperties: (properties) => ({
-        ...properties,
-        ...getAnalyticsSuperProperties(),
-      }),
       enableSessionReplay: true,
       sessionReplayConfig: {
         maskAllTextInputs: true,
-        maskAllImages: true,
-        maskAllSandboxedViews: true,
-        captureLog: false,
-        captureNetworkTelemetry: false,
-        throttleDelayMs: 1000,
+        maskAllImages: false,
+        captureNetworkTelemetry: true,
       },
       flushAt: 20,
       flushInterval: 30000,
@@ -56,13 +32,13 @@ export function initAnalytics(): void {
       // attributed automatically to the user set via identifyUser(), so each
       // crash is tied to the merchant who hit it. Capture also requires the
       // "Enable exception autocapture" toggle in the PostHog project settings.
-      // Native iOS/Android crash capture needs @posthog/react-native-plugin,
-      // the Expo config plugin, and the PostHog project setting enabled.
+      // Native iOS/Android crash capture (nativeCrashes) needs
+      // posthog-react-native >= 4.47.0 + @posthog/react-native-plugin and is
+      // intentionally not enabled here.
       errorTracking: {
         autocapture: {
           uncaughtExceptions: true,
           unhandledRejections: true,
-          nativeCrashes: true,
           // Console capture stays off: it would turn third-party/React
           // console.error output into noise (this app's logger is dev-only,
           // so handled errors are not logged in production). To also capture
@@ -71,8 +47,6 @@ export function initAnalytics(): void {
         },
       },
     });
-
-    registerAnalyticsSuperProperties();
 
     log.info('PostHog initialized');
   } catch (error) {
@@ -109,7 +83,6 @@ export function identifyUser(
 export function resetUser(): void {
   if (!posthogClient) return;
   posthogClient.reset();
-  registerAnalyticsSuperProperties();
 }
 
 export function setUserProperties(

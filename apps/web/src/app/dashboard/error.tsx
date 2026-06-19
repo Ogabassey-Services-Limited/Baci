@@ -4,7 +4,6 @@ import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { captureClientException } from '@/lib/posthog/client-exceptions';
 
 export default function DashboardError({
   error,
@@ -14,10 +13,7 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    captureClientException(error, {
-      route_surface: 'dashboard',
-      digest: error.digest,
-    });
+    // Log the error to an error reporting service
     console.error('Dashboard error:', error);
   }, [error]);
 

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
@@ -10,7 +11,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
-import { BulkUpdateChangesSchema } from '@/schemas/dashboard-product-import-actions';
+import { ChangeSchema } from '@/schemas/dashboard-product-import-actions';
 
 export async function POST(request: NextRequest) {
   const { valid, response } = await checkCsrfProtection(request);
@@ -53,12 +54,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const parseResult = BulkUpdateChangesSchema.safeParse(body);
+    const parseResult = z
+      .object({ changes: z.array(ChangeSchema) })
+      .safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
         {
           error: 'Invalid changes data',
-          details: parseResult.error.flatten().fieldErrors,
+          details: parseResult.error.flatten(),
         },
         { status: 400 }
       );

@@ -7,7 +7,6 @@ on:
     paths:
       - 'apps/mobile-storefront/**'
       - 'packages/shared/**'
-      - '.github/workflows/ios-storefront-release.yml'
       - 'pnpm-lock.yaml'
     tags:
       - 'v*-storefront-ios'
@@ -76,23 +75,6 @@ jobs:
           PUPPETEER_CHROME_HEADLESS_SHELL_SKIP_DOWNLOAD: 'true'
           PUPPETEER_SKIP_CHROME_HEADLESS_SHELL_DOWNLOAD: 'true'
         run: pnpm install --frozen-lockfile
-
-      - name: Expose PostHog CLI to Xcode
-        working-directory: ${{ env.WORKING_DIR }}
-        run: |
-          POSTHOG_CLI_PATH="$GITHUB_WORKSPACE/node_modules/.bin/posthog-cli"
-          if [ ! -x "$POSTHOG_CLI_PATH" ]; then
-            POSTHOG_CLI_PATH="$GITHUB_WORKSPACE/${{ env.WORKING_DIR }}/node_modules/.bin/posthog-cli"
-          fi
-
-          if [ ! -x "$POSTHOG_CLI_PATH" ]; then
-            echo "::error::posthog-cli is not available after pnpm install"
-            exit 1
-          fi
-
-          mkdir -p "$HOME/.posthog"
-          ln -sf "$POSTHOG_CLI_PATH" "$HOME/.posthog/posthog-cli"
-          "$HOME/.posthog/posthog-cli" --version
 
       - name: Resolve build number
         id: version
@@ -233,9 +215,6 @@ jobs:
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
           EXPO_PUBLIC_POSTHOG_API_KEY: ${{ secrets.EXPO_PUBLIC_POSTHOG_API_KEY }}
           EXPO_PUBLIC_POSTHOG_HOST: ${{ secrets.EXPO_PUBLIC_POSTHOG_HOST }}
-          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
-          POSTHOG_CLI_PROJECT_ID: ${{ secrets.POSTHOG_CLI_PROJECT_ID }}
-          POSTHOG_CLI_HOST: ${{ secrets.POSTHOG_CLI_HOST != '' && secrets.POSTHOG_CLI_HOST || 'https://eu.posthog.com' }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}

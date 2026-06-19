@@ -1,20 +1,13 @@
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import type { NextConfig } from 'next';
-import { PHASE_PRODUCTION_BUILD } from 'next/constants';
-import { beforeAll, describe, expect, it } from 'vitest';
-import rawNextConfig from './next.config';
+import { describe, expect, it } from 'vitest';
+import nextConfig from './next.config';
 import {
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
 } from './src/config/storefront-metadata-cache-bots';
-import {
-  DEFAULT_POSTHOG_ASSETS_HOST,
-  DEFAULT_POSTHOG_INGEST_HOST,
-  DEFAULT_POSTHOG_PROXY_PATH,
-} from './src/lib/posthog/config';
 
 const require = createRequire(import.meta.url);
 const { pathToRegexp } = require('next/dist/compiled/path-to-regexp') as {
@@ -25,13 +18,6 @@ const { compileNonPath } =
     compileNonPath: (value: string, params: Record<string, string>) => string;
   };
 
-type NextConfigFunction = (
-  phase: string,
-  context: { defaultConfig: NextConfig }
-) => NextConfig | Promise<NextConfig>;
-
-type ResolvableNextConfig = NextConfig | NextConfigFunction;
-
 function expectStructuredRewrites(
   rewrites: unknown
 ): asserts rewrites is { beforeFiles?: unknown[]; afterFiles?: unknown[] } {
@@ -40,23 +26,7 @@ function expectStructuredRewrites(
   expect(rewrites).not.toBeNull();
 }
 
-function resolveNextConfig(config: ResolvableNextConfig): Promise<NextConfig> {
-  if (typeof config === 'function') {
-    return Promise.resolve(
-      config(PHASE_PRODUCTION_BUILD, { defaultConfig: {} })
-    );
-  }
-
-  return Promise.resolve(config);
-}
-
 describe('next.config OgaBassey resource headers', () => {
-  let nextConfig: NextConfig;
-
-  beforeAll(async () => {
-    nextConfig = await resolveNextConfig(rawNextConfig as ResolvableNextConfig);
-  });
-
   it('lets proxy handle legacy Klump webhook trailing slash compatibility', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
@@ -357,18 +327,6 @@ describe('next.config OgaBassey resource headers', () => {
 
     expect(beforeFiles).toEqual(
       expect.arrayContaining([
-        {
-          source: `${DEFAULT_POSTHOG_PROXY_PATH}/static/:path*`,
-          destination: `${DEFAULT_POSTHOG_ASSETS_HOST}/static/:path*`,
-        },
-        {
-          source: `${DEFAULT_POSTHOG_PROXY_PATH}/array/:path*`,
-          destination: `${DEFAULT_POSTHOG_ASSETS_HOST}/array/:path*`,
-        },
-        {
-          source: `${DEFAULT_POSTHOG_PROXY_PATH}/:path*`,
-          destination: `${DEFAULT_POSTHOG_INGEST_HOST}/:path*`,
-        },
         {
           source: '/',
           has: [

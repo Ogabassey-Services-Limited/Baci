@@ -230,19 +230,14 @@ describe('POST /api/products/bulk-update', () => {
     expect(res.status).toBe(403);
   });
 
-  it('returns 400 with flattened validation details for invalid changes data', async () => {
+  it('returns 400 for invalid changes data', async () => {
     const { POST } = await import('./route');
 
     const res = await POST(makeRequest({ changes: 'not-an-array' }));
     const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect(json).toEqual({
-      error: 'Invalid changes data',
-      details: {
-        changes: [expect.stringContaining('expected array')],
-      },
-    });
+    expect(json.error).toBe('Invalid changes data');
   });
 
   it('processes update changes and calls revalidateProducts', async () => {

@@ -1,20 +1,11 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
-import { withPostHogConfig } from '@posthog/nextjs-config';
 import type { NextConfig } from 'next';
 import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-discovery-link-header';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
 } from './src/config/storefront-metadata-cache-bots';
-import {
-  getPostHogAssetsHost,
-  getPostHogIngestHost,
-  getPostHogProxyPath,
-  getPostHogReleaseVersion,
-  getPostHogUiHost,
-  isPostHogSourceMapUploadEnabled,
-} from './src/lib/posthog/config';
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -69,31 +60,6 @@ const OGABASSEY_GENERIC_DOCUMENT_ROUTE_SOURCE = `/:path((?!(?:(?!(?:${OGABASSEY_
 // header preloads cannot carry responsive image selection safely and previously
 // triggered an unused mobile-header image fetch that competed with the real LCP.
 const OGABASSEY_PDP_LINK_HEADER_VALUE = OGABASSEY_AGENT_DISCOVERY_LINK_HEADER;
-const POSTHOG_SOURCE_MAP_API_KEY = process.env.POSTHOG_API_KEY?.trim();
-const POSTHOG_SOURCE_MAP_PROJECT_ID = process.env.POSTHOG_PROJECT_ID?.trim();
-const POSTHOG_SOURCE_MAP_UPLOAD_ENABLED = isPostHogSourceMapUploadEnabled();
-
-function getPostHogRewriteRules() {
-  const proxyPath = getPostHogProxyPath();
-  const assetsHost = getPostHogAssetsHost();
-  const ingestHost = getPostHogIngestHost();
-
-  return [
-    {
-      source: `${proxyPath}/static/:path*`,
-      destination: `${assetsHost}/static/:path*`,
-    },
-    {
-      source: `${proxyPath}/array/:path*`,
-      destination: `${assetsHost}/array/:path*`,
-    },
-    {
-      source: `${proxyPath}/:path*`,
-      destination: `${ingestHost}/:path*`,
-    },
-  ];
-}
-
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // jsPDF stays external here so server PDF generators can use the package
@@ -507,7 +473,6 @@ const nextConfig: NextConfig = {
   rewrites() {
     const mcpServerUrl = process.env.MCP_SERVER_URL;
     const beforeFiles = [
-      ...getPostHogRewriteRules(),
       {
         source: '/',
         has: [
@@ -629,27 +594,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-function applyPostHogConfig(config: NextConfig): NextConfig {
-  if (
-    !POSTHOG_SOURCE_MAP_UPLOAD_ENABLED ||
-    !POSTHOG_SOURCE_MAP_API_KEY ||
-    !POSTHOG_SOURCE_MAP_PROJECT_ID
-  ) {
-    return config;
-  }
-
-  return withPostHogConfig(config, {
-    personalApiKey: POSTHOG_SOURCE_MAP_API_KEY,
-    projectId: POSTHOG_SOURCE_MAP_PROJECT_ID,
-    host: getPostHogUiHost(),
-    sourcemaps: {
-      enabled: true,
-      releaseName: 'baci-web',
-      releaseVersion: getPostHogReleaseVersion(),
-      deleteAfterUpload: true,
-    },
-  });
-}
-
-export default applyPostHogConfig(withBundleAnalyzer(nextConfig));
+export default withBundleAnalyzer(nextConfig);
 // Force rebuild: ${new Date().toISOString()}

@@ -56,7 +56,6 @@ import { getCredPalKey, openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
 import type { ShippingQuote } from '@/types/shipping-quote';
-import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
 import { toast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
@@ -115,6 +114,14 @@ interface SavedAddress {
 interface ShippingLocation {
   city: string;
   state: string;
+}
+
+interface QuoteResponse {
+  quotes: {
+    featured: ShippingQuote[];
+    all: ShippingQuote[];
+  };
+  sessionId: string;
 }
 
 interface InferredCheckoutAddressLocation {
@@ -330,13 +337,12 @@ async function loadShippingQuotes({
     });
 
     if (res.ok) {
-      const data: unknown = await res.json();
-      const { quotes } = normalizeShippingQuoteResponse(data);
-      setShippingQuotes(quotes);
+      const data: QuoteResponse = await res.json();
+      setShippingQuotes(data.quotes.all);
 
       // Auto-select the first (cheapest) quote if available
-      if (quotes.length > 0) {
-        setSelectedQuoteId(quotes[0].id);
+      if (data.quotes.all.length > 0) {
+        setSelectedQuoteId(data.quotes.all[0].id);
       }
     } else {
       console.warn('Failed to fetch quotes:', await res.text());
