@@ -46,8 +46,6 @@ export function initializePostHogBrowser(
     posthog.init(projectToken, {
       ...clientConfig,
       loaded(posthogInstance) {
-        isPostHogReadyForCapture = true;
-
         try {
           clientLoaded?.(posthogInstance);
         } catch (error) {
@@ -56,10 +54,11 @@ export function initializePostHogBrowser(
           }
         }
 
-        flushPendingPostHogPageviews();
+        markPostHogReadyAndFlush();
       },
     });
     hasInitializedPostHogBrowser = true;
+    flushPendingPostHogPageviewsIfClientLoaded();
   } catch (error) {
     isPostHogReadyForCapture = false;
     throw error;
@@ -83,6 +82,32 @@ function queuePostHogPageview(resolvedUrl: string) {
   ) {
     pendingPostHogPageviewUrls.push(resolvedUrl);
   }
+
+  flushPendingPostHogPageviewsIfClientLoaded();
+}
+
+function isPostHogClientLoaded() {
+  // The public PostHog path is the `loaded` callback above. `posthog-js@1.387.0`
+  // also exposes `__loaded` in its bundled TypeScript definitions; use it only as
+  // a fallback for missed callback races, and re-check this line during SDK bumps.
+  return posthog.__loaded === true;
+}
+
+function markPostHogReadyAndFlush() {
+  if (isPostHogReadyForCapture) {
+    return;
+  }
+
+  isPostHogReadyForCapture = true;
+  flushPendingPostHogPageviews();
+}
+
+function flushPendingPostHogPageviewsIfClientLoaded() {
+  if (isPostHogReadyForCapture || !isPostHogClientLoaded()) {
+    return;
+  }
+
+  markPostHogReadyAndFlush();
 }
 
 function flushPendingPostHogPageviews() {
