@@ -44,6 +44,7 @@ vi.mock('react-native', () => ({
     <button
       aria-disabled={accessibilityState?.disabled ?? disabled}
       aria-label={accessibilityLabel}
+      disabled={disabled}
       aria-pressed={accessibilityState?.selected}
       onClick={onPress}
       role={accessibilityRole}

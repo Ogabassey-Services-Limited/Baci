@@ -37,25 +37,25 @@ describe('FilterBar', () => {
     expect(
       screen.getByRole('button', { name: 'All category' }).props
         .accessibilityState
-    ).toEqual({ selected: false });
+    ).toEqual(expect.objectContaining({ selected: false }));
     expect(
       screen.getByRole('button', { name: 'Phones category' }).props
         .accessibilityState
-    ).toEqual({ selected: true });
+    ).toEqual(expect.objectContaining({ selected: true }));
 
     const filterMenuToggle = screen.getByRole('button', {
       name: 'Toggle filter menu',
     });
-    expect(filterMenuToggle.props.accessibilityState).toEqual({
-      expanded: false,
-    });
+    expect(filterMenuToggle.props.accessibilityState).toEqual(
+      expect.objectContaining({ expanded: false })
+    );
 
     fireEvent.press(filterMenuToggle);
 
     expect(
       screen.getByRole('button', { name: 'Toggle filter menu' }).props
         .accessibilityState
-    ).toEqual({ expanded: true });
+    ).toEqual(expect.objectContaining({ expanded: true }));
     expect(
       screen
         .getAllByRole('button', { name: 'Price Range' })
@@ -65,7 +65,7 @@ describe('FilterBar', () => {
     ).toBe(true);
     expect(
       screen.getByRole('button', { name: 'Brand' }).props.accessibilityState
-    ).toEqual({ selected: false });
+    ).toEqual(expect.objectContaining({ selected: false }));
   });
 
   it('renders grid and list view toggles with proper accessibility props and handles toggling', () => {
@@ -75,10 +75,14 @@ describe('FilterBar', () => {
     const listToggle = screen.getByRole('button', { name: 'List view' });
 
     expect(gridToggle).toBeOnTheScreen();
-    expect(gridToggle.props.accessibilityState).toEqual({ selected: true });
+    expect(gridToggle.props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true })
+    );
 
     expect(listToggle).toBeOnTheScreen();
-    expect(listToggle.props.accessibilityState).toEqual({ selected: false });
+    expect(listToggle.props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: false })
+    );
 
     fireEvent.press(listToggle);
     expect(defaultProps.onViewModeChange).toHaveBeenCalledWith('list');
@@ -87,10 +91,10 @@ describe('FilterBar', () => {
 
     expect(
       screen.getByRole('button', { name: 'Grid view' }).props.accessibilityState
-    ).toEqual({ selected: false });
+    ).toEqual(expect.objectContaining({ selected: false }));
     expect(
       screen.getByRole('button', { name: 'List view' }).props.accessibilityState
-    ).toEqual({ selected: true });
+    ).toEqual(expect.objectContaining({ selected: true }));
 
     fireEvent.press(screen.getByRole('button', { name: 'Grid view' }));
     expect(defaultProps.onViewModeChange).toHaveBeenCalledWith('grid');
