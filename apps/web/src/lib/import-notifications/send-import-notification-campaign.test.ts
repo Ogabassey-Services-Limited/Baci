@@ -43,56 +43,6 @@ function createOrdersQueryMock(response: {
   return query;
 }
 
-interface ExistingClaimTestRow {
-  claimed_at?: string | null;
-  id: string;
-  notification_sent_at?: string | null;
-}
-
-function createExistingClaimQueryMock(response: {
-  data?: ExistingClaimTestRow | null;
-  error?: Error | null;
-}) {
-  const query = {
-    eq: vi.fn(),
-    maybeSingle: vi.fn(),
-    select: vi.fn(),
-  };
-  query.select.mockReturnValue(query);
-  query.eq.mockReturnValue(query);
-  query.maybeSingle.mockResolvedValue({
-    data: response.data ?? null,
-    error: response.error ?? null,
-  });
-  return query;
-}
-
-function createClaimInsertQueryMock(response: {
-  data?: { id: string } | null;
-  error?: Error | null;
-}) {
-  const query = {
-    insert: vi.fn(),
-    select: vi.fn(),
-    single: vi.fn(),
-  };
-  query.insert.mockReturnValue(query);
-  query.select.mockReturnValue(query);
-  query.single.mockResolvedValue({
-    data: response.data ?? { id: 'claim-1' },
-    error: response.error ?? null,
-  });
-  return query;
-}
-
-function createClaimOrdersQueryMock(response: { error?: Error | null } = {}) {
-  const query = {
-    upsert: vi.fn(),
-  };
-  query.upsert.mockResolvedValue({ error: response.error ?? null });
-  return query;
-}
-
 function createClaimDeleteQueryMock(response: { error?: Error | null } = {}) {
   const query = {
     delete: vi.fn(),
@@ -116,26 +66,15 @@ function createClaimUpdateQueryMock(response: { error?: Error | null } = {}) {
 function createSupabaseMock(
   response: { data: unknown; error: Error | null },
   options: {
-    existingClaimResponse?: {
-      data?: ExistingClaimTestRow | null;
-      error?: Error | null;
-    };
-    claimResponse?: { data?: { id: string } | null; error?: Error | null };
-    claimOrdersResponse?: { error?: Error | null };
     claimDeleteResponse?: { error?: Error | null };
+    claimRpcResponses?: Array<{
+      data?: { claim_id?: string | null; status: 'created' | 'skipped' } | null;
+      error?: Error | null;
+    }>;
     claimUpdateResponse?: { error?: Error | null };
   } = {}
 ) {
   const ordersQuery = createOrdersQueryMock(response);
-  const existingClaimQuery = createExistingClaimQueryMock(
-    options.existingClaimResponse ?? {}
-  );
-  const claimInsertQuery = createClaimInsertQueryMock(
-    options.claimResponse ?? {}
-  );
-  const claimOrdersQuery = createClaimOrdersQueryMock(
-    options.claimOrdersResponse ?? {}
-  );
   const claimDeleteQuery = createClaimDeleteQueryMock(
     options.claimDeleteResponse ?? {}
   );
@@ -144,10 +83,23 @@ function createSupabaseMock(
   );
   const receiptClaimsTable = {
     delete: claimDeleteQuery.delete,
-    insert: claimInsertQuery.insert,
-    select: existingClaimQuery.select,
     update: claimUpdateQuery.update,
   };
+  const claimRpcResponses = options.claimRpcResponses ?? [
+    { data: { claim_id: 'claim-1', status: 'created' }, error: null },
+  ];
+  const rpc = vi.fn((name: string) => {
+    if (name !== 'create_receipt_claim_for_import_notification') {
+      throw new Error(`Unexpected rpc ${name}`);
+    }
+
+    return Promise.resolve(
+      claimRpcResponses.shift() ?? {
+        data: { claim_id: 'claim-1', status: 'created' },
+        error: null,
+      }
+    );
+  });
 
   return {
     from: vi.fn((table: string) => {
@@ -157,18 +109,14 @@ function createSupabaseMock(
       if (table === 'receipt_claims') {
         return receiptClaimsTable;
       }
-      if (table === 'receipt_claim_orders') {
-        return claimOrdersQuery;
-      }
       throw new Error(`Unexpected table ${table}`);
     }),
+    rpc,
     testQueries: {
       claimDeleteQuery,
-      claimInsertQuery,
-      claimOrdersQuery,
       claimUpdateQuery,
-      existingClaimQuery,
       ordersQuery,
+      rpc,
     },
   } as unknown as SupabaseClient;
 }
@@ -255,68 +203,26 @@ describe('sendImportNotificationCampaign', () => {
       failedCount: 0,
     });
     expect(createReceiptClaimToken).toHaveBeenCalledTimes(1);
-    expect(
-      (
-        supabase as unknown as {
-          testQueries: {
-            claimInsertQuery: {
-              insert: ReturnType<typeof vi.fn>;
-            };
-            existingClaimQuery: {
-              eq: ReturnType<typeof vi.fn>;
-            };
-          };
-        }
-      ).testQueries.existingClaimQuery.eq
-    ).toHaveBeenCalledWith('customer_email_normalized', 'ada@example.com');
-    expect(
-      (
-        supabase as unknown as {
-          testQueries: {
-            claimInsertQuery: {
-              insert: ReturnType<typeof vi.fn>;
-            };
-          };
-        }
-      ).testQueries.claimInsertQuery.insert
-    ).toHaveBeenCalledWith(
+    const rpc = (
+      supabase as unknown as {
+        testQueries: {
+          rpc: ReturnType<typeof vi.fn>;
+        };
+      }
+    ).testQueries.rpc;
+    expect(rpc).toHaveBeenCalledWith(
+      'create_receipt_claim_for_import_notification',
       expect.objectContaining({
-        customer_email: 'ada@example.com',
-        customer_id: 'customer-1',
-        import_job_id: 'job-1',
-        merchant_id: 'merchant-1',
-        token_hash:
+        p_customer_email: 'ada@example.com',
+        p_customer_id: 'customer-1',
+        p_import_job_id: 'job-1',
+        p_merchant_id: 'merchant-1',
+        p_order_ids: ['order-1', 'order-2'],
+        p_token_hash:
           'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       })
     );
-    expect(
-      (
-        supabase as unknown as {
-          testQueries: {
-            claimInsertQuery: {
-              insert: ReturnType<typeof vi.fn>;
-            };
-          };
-        }
-      ).testQueries.claimInsertQuery.insert.mock.calls[0][0]
-    ).not.toHaveProperty('expires_at');
-    expect(
-      (
-        supabase as unknown as {
-          testQueries: {
-            claimOrdersQuery: {
-              upsert: ReturnType<typeof vi.fn>;
-            };
-          };
-        }
-      ).testQueries.claimOrdersQuery.upsert
-    ).toHaveBeenCalledWith(
-      [
-        { order_id: 'order-1', receipt_claim_id: 'claim-1' },
-        { order_id: 'order-2', receipt_claim_id: 'claim-1' },
-      ],
-      { onConflict: 'receipt_claim_id,order_id' }
-    );
+    expect(rpc.mock.calls[0][1]).not.toHaveProperty('p_expires_at');
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -405,12 +311,10 @@ describe('sendImportNotificationCampaign', () => {
       (
         supabase as unknown as {
           testQueries: {
-            existingClaimQuery: {
-              select: ReturnType<typeof vi.fn>;
-            };
+            rpc: ReturnType<typeof vi.fn>;
           };
         }
-      ).testQueries.existingClaimQuery.select
+      ).testQueries.rpc
     ).not.toHaveBeenCalled();
   });
 
@@ -432,13 +336,7 @@ describe('sendImportNotificationCampaign', () => {
         error: null,
       },
       {
-        existingClaimResponse: {
-          data: {
-            claimed_at: null,
-            id: 'existing-claim',
-            notification_sent_at: '2026-06-18T10:00:00.000Z',
-          },
-        },
+        claimRpcResponses: [{ data: { status: 'skipped' }, error: null }],
       }
     );
 
@@ -466,36 +364,40 @@ describe('sendImportNotificationCampaign', () => {
       sentCount: 0,
       skippedCount: 1,
     });
-    expect(createReceiptClaimToken).not.toHaveBeenCalled();
+    expect(createReceiptClaimToken).toHaveBeenCalledTimes(1);
     expect(
       (
         supabase as unknown as {
           testQueries: {
-            claimInsertQuery: {
-              insert: ReturnType<typeof vi.fn>;
-            };
-            claimOrdersQuery: {
-              upsert: ReturnType<typeof vi.fn>;
+            rpc: ReturnType<typeof vi.fn>;
+            claimDeleteQuery: {
+              delete: ReturnType<typeof vi.fn>;
             };
           };
         }
-      ).testQueries.claimInsertQuery.insert
-    ).not.toHaveBeenCalled();
+      ).testQueries.rpc
+    ).toHaveBeenCalledWith(
+      'create_receipt_claim_for_import_notification',
+      expect.objectContaining({
+        p_customer_email: 'ada@example.com',
+        p_import_job_id: 'job-existing',
+      })
+    );
     expect(
       (
         supabase as unknown as {
           testQueries: {
-            claimOrdersQuery: {
-              upsert: ReturnType<typeof vi.fn>;
+            claimDeleteQuery: {
+              delete: ReturnType<typeof vi.fn>;
             };
           };
         }
-      ).testQueries.claimOrdersQuery.upsert
+      ).testQueries.claimDeleteQuery.delete
     ).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
-  it('rotates unnotified existing receipt claims before sending a fresh link', async () => {
+  it('uses the atomic claim RPC to rotate unnotified existing claims', async () => {
     const supabase = createSupabaseMock(
       {
         data: [
@@ -513,13 +415,12 @@ describe('sendImportNotificationCampaign', () => {
         error: null,
       },
       {
-        existingClaimResponse: {
-          data: {
-            claimed_at: null,
-            id: 'existing-claim',
-            notification_sent_at: null,
+        claimRpcResponses: [
+          {
+            data: { claim_id: 'existing-claim', status: 'created' },
+            error: null,
           },
-        },
+        ],
       }
     );
 
@@ -557,12 +458,30 @@ describe('sendImportNotificationCampaign', () => {
         supabase as unknown as {
           testQueries: {
             claimDeleteQuery: {
-              eq: ReturnType<typeof vi.fn>;
+              delete: ReturnType<typeof vi.fn>;
+            };
+            rpc: ReturnType<typeof vi.fn>;
+          };
+        }
+      ).testQueries.rpc
+    ).toHaveBeenCalledWith(
+      'create_receipt_claim_for_import_notification',
+      expect.objectContaining({
+        p_import_job_id: 'job-existing',
+        p_order_ids: ['order-1'],
+      })
+    );
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimDeleteQuery: {
+              delete: ReturnType<typeof vi.fn>;
             };
           };
         }
-      ).testQueries.claimDeleteQuery.eq
-    ).toHaveBeenCalledWith('id', 'existing-claim');
+      ).testQueries.claimDeleteQuery.delete
+    ).not.toHaveBeenCalled();
     expect(createReceiptClaimToken).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledTimes(1);
   });
@@ -813,7 +732,104 @@ describe('sendImportNotificationCampaign', () => {
     });
   });
 
-  it('deletes the just-created claim when attaching orders fails', async () => {
+  it('continues sending later recipients when cleanup after a send throw fails', async () => {
+    const supabase = createSupabaseMock(
+      {
+        data: [
+          {
+            id: 'order-1',
+            customer_id: 'customer-1',
+            customer_email: 'ada@example.com',
+            customer_name: 'Ada',
+            order_number: 'ORD-1',
+            payment_status: 'paid',
+            shipping_status: 'delivered',
+            order_items: [{ name: 'Pixel 9', quantity: 1 }],
+          },
+          {
+            id: 'order-2',
+            customer_id: 'customer-2',
+            customer_email: 'bola@example.com',
+            customer_name: 'Bola',
+            order_number: 'ORD-2',
+            payment_status: 'paid',
+            shipping_status: 'delivered',
+            order_items: [{ name: 'iPhone 16 Pro Max', quantity: 1 }],
+          },
+        ],
+        error: null,
+      },
+      {
+        claimDeleteResponse: { error: new Error('cleanup failed') },
+        claimRpcResponses: [
+          { data: { claim_id: 'claim-1', status: 'created' }, error: null },
+          { data: { claim_id: 'claim-2', status: 'created' }, error: null },
+        ],
+      }
+    );
+
+    vi.mocked(sendEmail)
+      .mockRejectedValueOnce(new Error('provider unavailable'))
+      .mockResolvedValueOnce({
+        success: true,
+        messageId: 'msg-2',
+      });
+
+    const result = await sendImportNotificationCampaign({
+      supabase,
+      importJobId: 'job-cleanup-throw',
+      merchant: {
+        id: 'merchant-cleanup-throw',
+        slug: 'ogabassey',
+        business_name: 'Ogabassey',
+        custom_domain: null,
+        support_email: null,
+        email_sender_name: null,
+        email: 'hello@ogabassey.com',
+      },
+      customSettings: {
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+        },
+      },
+    });
+
+    expect(result).toEqual({
+      failedCount: 1,
+      sentCount: 1,
+      skippedCount: 0,
+    });
+    expect(sendEmail).toHaveBeenCalledTimes(2);
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimDeleteQuery: {
+              delete: ReturnType<typeof vi.fn>;
+            };
+            claimUpdateQuery: {
+              update: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimDeleteQuery.delete
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimUpdateQuery: {
+              update: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimUpdateQuery.update
+    ).toHaveBeenCalledWith({
+      notification_sent_at: expect.any(String),
+    });
+  });
+
+  it('throws when the claim creation RPC fails', async () => {
     const supabase = createSupabaseMock(
       {
         data: [
@@ -831,7 +847,9 @@ describe('sendImportNotificationCampaign', () => {
         error: null,
       },
       {
-        claimOrdersResponse: { error: new Error('attach failed') },
+        claimRpcResponses: [
+          { data: null, error: new Error('claim rpc failed') },
+        ],
       }
     );
 
@@ -854,7 +872,7 @@ describe('sendImportNotificationCampaign', () => {
           },
         },
       })
-    ).rejects.toThrow('Failed to attach receipt claim orders: attach failed');
+    ).rejects.toThrow('Failed to create receipt claim: claim rpc failed');
 
     expect(sendEmail).not.toHaveBeenCalled();
     expect(
@@ -862,12 +880,12 @@ describe('sendImportNotificationCampaign', () => {
         supabase as unknown as {
           testQueries: {
             claimDeleteQuery: {
-              eq: ReturnType<typeof vi.fn>;
+              delete: ReturnType<typeof vi.fn>;
             };
           };
         }
-      ).testQueries.claimDeleteQuery.eq
-    ).toHaveBeenCalledWith('id', 'claim-1');
+      ).testQueries.claimDeleteQuery.delete
+    ).not.toHaveBeenCalled();
   });
 
   it('returns zero counts when there are no eligible imported orders', async () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, Loader2, ReceiptText, Smartphone } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -184,13 +185,12 @@ export default function ReceiptClaimPageClient({
 
                 {preview.claimed ? (
                   <Button
+                    asChild
                     className="w-full bg-store-primary text-store-primary-text hover:bg-store-primary/90"
-                    type="button"
-                    onClick={() => {
-                      router.push(asRoute(joinBasePath(basePath, '/receipts')));
-                    }}
                   >
-                    View receipts
+                    <Link href={asRoute(joinBasePath(basePath, '/receipts'))}>
+                      View receipts
+                    </Link>
                   </Button>
                 ) : isAuthenticated ? (
                   <div className="flex items-center gap-3 text-sm font-medium text-store-background-text/70">
@@ -206,13 +206,12 @@ export default function ReceiptClaimPageClient({
                   </div>
                 ) : (
                   <Button
+                    asChild
                     className="w-full bg-store-primary text-store-primary-text hover:bg-store-primary/90"
-                    type="button"
-                    onClick={() => {
-                      router.push(asRoute(loginPath));
-                    }}
                   >
-                    Sign in to claim receipt
+                    <Link href={asRoute(loginPath)}>
+                      Sign in to claim receipt
+                    </Link>
                   </Button>
                 )}
               </>

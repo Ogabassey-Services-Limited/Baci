@@ -97,11 +97,6 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  UPDATE public.receipt_claims
-  SET last_viewed_at = now(),
-      updated_at = now()
-  WHERE id = v_claim.id;
-
   SELECT jsonb_build_object(
     'business_name', m.business_name,
     'slug', m.slug
@@ -174,6 +169,137 @@ REVOKE ALL ON FUNCTION public.preview_receipt_claim(text)
   FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.preview_receipt_claim(text)
   TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION private.create_receipt_claim_for_import_notification(
+  p_merchant_id uuid,
+  p_import_job_id uuid,
+  p_customer_id uuid,
+  p_customer_email text,
+  p_customer_name text,
+  p_token_hash text,
+  p_order_ids uuid[]
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_claim_id uuid;
+BEGIN
+  IF p_customer_id IS NULL
+    OR p_customer_email IS NULL
+    OR btrim(p_customer_email) = '' THEN
+    RETURN jsonb_build_object('status', 'skipped');
+  END IF;
+
+  WITH upserted AS (
+    INSERT INTO public.receipt_claims (
+      merchant_id,
+      import_job_id,
+      customer_id,
+      customer_email,
+      customer_name,
+      token_hash,
+      claimed_at,
+      claimed_by_user_id,
+      notification_sent_at,
+      last_viewed_at
+    )
+    VALUES (
+      p_merchant_id,
+      p_import_job_id,
+      p_customer_id,
+      p_customer_email,
+      p_customer_name,
+      p_token_hash,
+      NULL,
+      NULL,
+      NULL,
+      NULL
+    )
+    ON CONFLICT (import_job_id, customer_email_normalized)
+    DO UPDATE SET
+      customer_id = EXCLUDED.customer_id,
+      customer_email = EXCLUDED.customer_email,
+      customer_name = EXCLUDED.customer_name,
+      token_hash = EXCLUDED.token_hash,
+      claimed_at = NULL,
+      claimed_by_user_id = NULL,
+      notification_sent_at = NULL,
+      last_viewed_at = NULL,
+      updated_at = now()
+    WHERE public.receipt_claims.claimed_at IS NULL
+      AND public.receipt_claims.notification_sent_at IS NULL
+    RETURNING id
+  )
+  SELECT id INTO v_claim_id
+  FROM upserted;
+
+  IF v_claim_id IS NULL THEN
+    RETURN jsonb_build_object('status', 'skipped');
+  END IF;
+
+  DELETE FROM public.receipt_claim_orders
+  WHERE receipt_claim_id = v_claim_id
+    AND NOT (order_id = ANY(COALESCE(p_order_ids, ARRAY[]::uuid[])));
+
+  INSERT INTO public.receipt_claim_orders (receipt_claim_id, order_id)
+  SELECT v_claim_id, order_id
+  FROM unnest(COALESCE(p_order_ids, ARRAY[]::uuid[])) AS order_ids(order_id)
+  ON CONFLICT (receipt_claim_id, order_id) DO NOTHING;
+
+  RETURN jsonb_build_object(
+    'status', 'created',
+    'claim_id', v_claim_id
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION private.create_receipt_claim_for_import_notification(
+  uuid, uuid, uuid, text, text, text, uuid[]
+)
+  FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION private.create_receipt_claim_for_import_notification(
+  uuid, uuid, uuid, text, text, text, uuid[]
+)
+  TO service_role;
+
+CREATE OR REPLACE FUNCTION public.create_receipt_claim_for_import_notification(
+  p_merchant_id uuid,
+  p_import_job_id uuid,
+  p_customer_id uuid,
+  p_customer_email text,
+  p_customer_name text,
+  p_token_hash text,
+  p_order_ids uuid[]
+)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT private.create_receipt_claim_for_import_notification(
+    p_merchant_id,
+    p_import_job_id,
+    p_customer_id,
+    p_customer_email,
+    p_customer_name,
+    p_token_hash,
+    p_order_ids
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.create_receipt_claim_for_import_notification(
+  uuid, uuid, uuid, text, text, text, uuid[]
+)
+  FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.create_receipt_claim_for_import_notification(
+  uuid, uuid, uuid, text, text, text, uuid[]
+)
+  TO service_role;
 
 CREATE OR REPLACE FUNCTION private.redeem_receipt_claim(p_token_hash text)
 RETURNS jsonb

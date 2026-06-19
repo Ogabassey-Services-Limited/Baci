@@ -31,20 +31,26 @@ export const receiptClaimRecordSchema = z.object({
 
 export const redeemReceiptClaimResultSchema = z.object({
   redirectPath: z.string().optional(),
-  status: z
-    .enum([
-      'already_used',
-      'customer_link_failed',
-      'email_mismatch',
-      'expired',
-      'not_found',
-      'ok',
-      'unauthorized',
-    ])
-    .optional(),
+  status: z.enum([
+    'already_used',
+    'customer_link_failed',
+    'email_mismatch',
+    'expired',
+    'not_found',
+    'ok',
+    'unauthorized',
+  ]),
+});
+
+export const createReceiptClaimResultSchema = z.object({
+  claim_id: z.string().nullable().optional(),
+  status: z.enum(['created', 'skipped']),
 });
 
 export type ReceiptClaimRecord = z.infer<typeof receiptClaimRecordSchema>;
+export type CreateReceiptClaimResult = z.infer<
+  typeof createReceiptClaimResultSchema
+>;
 export type RedeemReceiptClaimResult = z.infer<
   typeof redeemReceiptClaimResultSchema
 >;

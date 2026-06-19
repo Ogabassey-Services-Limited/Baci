@@ -16,6 +16,7 @@ import {
   type ReceiptClaimOrderForDeviceList,
 } from '@/lib/import-notifications/receipt-claim-links';
 import { sendEmail } from '@/lib/zeptomail';
+import { createReceiptClaimResultSchema } from '@/schemas/receipt-claim-rpc';
 
 interface NotificationOrderItem {
   name: string | null;
@@ -51,11 +52,6 @@ interface SendImportNotificationCampaignResult {
 interface CreatedReceiptClaimLink {
   claimId: string;
   claimUrl: string;
-}
-interface ExistingReceiptClaim {
-  claimed_at: string | null;
-  id: string;
-  notification_sent_at: string | null;
 }
 
 function groupOrdersByRecipient(orders: NotificationRecipientOrder[]) {
@@ -106,76 +102,60 @@ async function createClaimLinkForRecipient({
     return null;
   }
 
-  const { data: existingClaim, error: existingClaimError } = await supabase
-    .from('receipt_claims')
-    .select('id, claimed_at, notification_sent_at')
-    .eq('import_job_id', importJobId)
-    .eq('customer_email_normalized', normalizedEmail)
-    .maybeSingle();
+  const claimToken = createReceiptClaimToken();
+  const { data, error } = await supabase.rpc(
+    'create_receipt_claim_for_import_notification',
+    {
+      p_customer_email: recipient.email,
+      p_customer_id: recipient.customerId,
+      p_customer_name: recipient.customerName,
+      p_import_job_id: importJobId,
+      p_merchant_id: merchant.id,
+      p_order_ids: recipient.orders.map((order) => order.id),
+      p_token_hash: claimToken.tokenHash,
+    }
+  );
 
-  if (existingClaimError) {
+  if (error) {
+    throw new Error(`Failed to create receipt claim: ${error.message}`);
+  }
+
+  const parsedResult = createReceiptClaimResultSchema.safeParse(data);
+  if (!parsedResult.success) {
     throw new Error(
-      `Failed to check existing receipt claim: ${existingClaimError.message}`
+      'Failed to create receipt claim: invalid response structure'
     );
   }
 
-  if (existingClaim) {
-    const claim = existingClaim as ExistingReceiptClaim;
-    if (claim.notification_sent_at || claim.claimed_at) {
-      return null;
-    }
-
-    await deleteReceiptClaim({ claimId: claim.id, supabase });
-  }
-
-  const claimToken = createReceiptClaimToken();
-  const { data: claim, error: claimError } = await supabase
-    .from('receipt_claims')
-    .insert({
-      merchant_id: merchant.id,
-      import_job_id: importJobId,
-      customer_id: recipient.customerId,
-      customer_email: recipient.email,
-      customer_name: recipient.customerName,
-      token_hash: claimToken.tokenHash,
-      claimed_at: null,
-      claimed_by_user_id: null,
-    })
-    .select('id')
-    .single();
-
-  if (claimError || !claim) {
-    throw new Error(`Failed to create receipt claim: ${claimError?.message}`);
-  }
-
-  const claimOrderRows = recipient.orders.map((order) => ({
-    receipt_claim_id: claim.id,
-    order_id: order.id,
-  }));
-
-  if (claimOrderRows.length > 0) {
-    const { error: claimOrdersError } = await supabase
-      .from('receipt_claim_orders')
-      .upsert(claimOrderRows, { onConflict: 'receipt_claim_id,order_id' });
-
-    if (claimOrdersError) {
-      await deleteReceiptClaim({
-        claimId: claim.id,
-        supabase,
-      });
-      throw new Error(
-        `Failed to attach receipt claim orders: ${claimOrdersError.message}`
-      );
-    }
+  if (parsedResult.data.status !== 'created' || !parsedResult.data.claim_id) {
+    return null;
   }
 
   return {
-    claimId: claim.id,
+    claimId: parsedResult.data.claim_id,
     claimUrl: buildReceiptClaimUrl({
       merchant,
       token: claimToken.token,
     }),
   };
+}
+
+async function cleanUpUnsentClaim({
+  claim,
+  supabase,
+}: {
+  claim: CreatedReceiptClaimLink | null;
+  supabase: SupabaseClient;
+}) {
+  if (!claim) {
+    return;
+  }
+
+  try {
+    await deleteReceiptClaim({ claimId: claim.claimId, supabase });
+  } catch (error) {
+    console.error('Failed to clean up unsent receipt claim', error);
+  }
 }
 
 export async function sendImportNotificationCampaign({
@@ -255,10 +235,7 @@ export async function sendImportNotificationCampaign({
         fromName: content.fromName,
       });
     } catch {
-      if (createdClaim) {
-        await deleteReceiptClaim({ claimId: createdClaim.claimId, supabase });
-      }
-
+      await cleanUpUnsentClaim({ claim: createdClaim, supabase });
       failedCount += 1;
       continue;
     }
@@ -275,9 +252,7 @@ export async function sendImportNotificationCampaign({
       continue;
     }
 
-    if (createdClaim) {
-      await deleteReceiptClaim({ claimId: createdClaim.claimId, supabase });
-    }
+    await cleanUpUnsentClaim({ claim: createdClaim, supabase });
 
     failedCount += 1;
   }

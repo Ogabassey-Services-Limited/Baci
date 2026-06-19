@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceiptClaimPageClient from './receipt-claim-page-client';
 
@@ -10,6 +11,21 @@ const mockUseMerchant = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => mockRouter,
+}));
+
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: ReactNode;
+    href: string;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock('@/contexts/customer-auth-context', () => ({
@@ -86,13 +102,13 @@ describe('ReceiptClaimPageClient', () => {
     expect(screen.getByText('iPhone 16 Pro Max')).toBeInTheDocument();
     expect(screen.getByText('2 x AirPods Pro')).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Sign in to claim receipt' })
-    );
-
-    expect(mockPush).toHaveBeenCalledWith(
+    expect(
+      screen.getByRole('link', { name: 'Sign in to claim receipt' })
+    ).toHaveAttribute(
+      'href',
       '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token'
     );
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('redeems the claim and sends authenticated customers to receipts', async () => {
@@ -170,9 +186,11 @@ describe('ReceiptClaimPageClient', () => {
     ).toBeInTheDocument();
     expect(mockFetchWithCsrf).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'View receipts' }));
-
-    expect(mockPush).toHaveBeenCalledWith('/receipts');
+    expect(screen.getByRole('link', { name: 'View receipts' })).toHaveAttribute(
+      'href',
+      '/receipts'
+    );
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('shows an error and does not navigate when redemption fails', async () => {

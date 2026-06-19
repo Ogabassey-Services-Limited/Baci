@@ -86,6 +86,12 @@ describe('receipt claim migration', () => {
       /GRANT EXECUTE ON FUNCTION public\.preview_receipt_claim\(text\)[\s\S]*TO anon, authenticated/i
     );
     expect(migrationSql).toMatch(
+      /CREATE OR REPLACE FUNCTION private\.create_receipt_claim_for_import_notification\([\s\S]*ON CONFLICT \(import_job_id, customer_email_normalized\)[\s\S]*DO UPDATE/i
+    );
+    expect(migrationSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.create_receipt_claim_for_import_notification\([\s\S]*TO service_role/i
+    );
+    expect(migrationSql).toMatch(
       /CREATE OR REPLACE FUNCTION private\.redeem_receipt_claim\(p_token_hash text\)[\s\S]*SECURITY DEFINER[\s\S]*auth\.uid\(\)/i
     );
     expect(migrationSql).toMatch(
@@ -94,5 +100,14 @@ describe('receipt claim migration', () => {
     expect(migrationSql).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.redeem_receipt_claim\(text\)[\s\S]*TO authenticated/i
     );
+  });
+
+  it('keeps receipt claim preview read-only for GET and server rendering', () => {
+    const previewFunction = migrationSql.match(
+      /CREATE OR REPLACE FUNCTION private\.preview_receipt_claim\(p_token_hash text\)[\s\S]*?\n\$\$;/i
+    );
+
+    expect(previewFunction?.[0]).toBeDefined();
+    expect(previewFunction?.[0]).not.toMatch(/UPDATE public\.receipt_claims/i);
   });
 });

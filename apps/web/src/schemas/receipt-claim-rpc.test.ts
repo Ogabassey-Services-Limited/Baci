@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createReceiptClaimResultSchema,
   receiptClaimRecordSchema,
   redeemReceiptClaimResultSchema,
 } from '@/schemas/receipt-claim-rpc';
@@ -48,6 +49,26 @@ describe('receipt claim RPC schemas', () => {
     expect(
       redeemReceiptClaimResultSchema.safeParse({
         status: 'needs_manual_review',
+      }).success
+    ).toBe(false);
+    expect(redeemReceiptClaimResultSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('accepts known create-claim statuses and rejects unknown statuses', () => {
+    expect(
+      createReceiptClaimResultSchema.safeParse({
+        claim_id: 'claim-1',
+        status: 'created',
+      }).success
+    ).toBe(true);
+    expect(
+      createReceiptClaimResultSchema.safeParse({
+        status: 'skipped',
+      }).success
+    ).toBe(true);
+    expect(
+      createReceiptClaimResultSchema.safeParse({
+        status: 'queued',
       }).success
     ).toBe(false);
   });
