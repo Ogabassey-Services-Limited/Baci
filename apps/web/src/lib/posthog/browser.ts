@@ -4,11 +4,16 @@ import type { PostHogEnv } from '@/lib/posthog/config';
 
 const MISSING_TOKEN_WARNING =
   '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.';
+const POSTHOG_NODE_ENV = process.env.NODE_ENV;
 
 let hasInitializedPostHogBrowser = false;
 let isPostHogReadyForCapture = false;
 let lastCapturedPostHogPageviewUrl: string | undefined;
 const pendingPostHogPageviewUrls: string[] = [];
+
+function isPostHogDevelopmentMode(env: PostHogEnv): boolean {
+  return (env.NODE_ENV ?? POSTHOG_NODE_ENV) === 'development';
+}
 
 export function initializePostHogBrowser(
   env: PostHogEnv = process.env,
@@ -21,7 +26,7 @@ export function initializePostHogBrowser(
   const projectToken = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
 
   if (!projectToken) {
-    if (env.NODE_ENV === 'development') {
+    if (isPostHogDevelopmentMode(env)) {
       logger.warn(MISSING_TOKEN_WARNING);
     }
     return;
@@ -39,7 +44,7 @@ export function initializePostHogBrowser(
         try {
           clientLoaded?.(posthogInstance);
         } catch (error) {
-          if (env.NODE_ENV === 'development') {
+          if (isPostHogDevelopmentMode(env)) {
             logger.warn('[PostHog] client loaded callback failed.', error);
           }
         }
@@ -65,7 +70,12 @@ function resolvePostHogPageviewUrl(currentUrl?: string) {
 }
 
 function queuePostHogPageview(resolvedUrl: string) {
-  pendingPostHogPageviewUrls.push(resolvedUrl);
+  if (
+    pendingPostHogPageviewUrls[pendingPostHogPageviewUrls.length - 1] !==
+    resolvedUrl
+  ) {
+    pendingPostHogPageviewUrls.push(resolvedUrl);
+  }
 }
 
 function flushPendingPostHogPageviews() {

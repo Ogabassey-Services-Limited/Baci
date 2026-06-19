@@ -93,13 +93,15 @@ describe('initializePostHogBrowser', () => {
     initializePostHogBrowser(env);
     capturePostHogPageview('https://usebaci.com/pricing?plan=starter');
     capturePostHogPageview('https://usebaci.com/dashboard');
+    capturePostHogPageview('https://usebaci.com/dashboard');
+    capturePostHogPageview('https://usebaci.com/pricing?plan=starter');
 
     expect(mocks.posthogCapture).not.toHaveBeenCalled();
 
     loadPostHogClient();
 
     expect(mocks.clientConfigLoaded).toHaveBeenCalledOnce();
-    expect(mocks.posthogCapture).toHaveBeenCalledTimes(3);
+    expect(mocks.posthogCapture).toHaveBeenCalledTimes(4);
     expect(mocks.posthogCapture).toHaveBeenNthCalledWith(1, '$pageview', {
       $current_url: 'https://usebaci.com/before-init',
       app_surface: 'web',
@@ -110,6 +112,10 @@ describe('initializePostHogBrowser', () => {
     });
     expect(mocks.posthogCapture).toHaveBeenNthCalledWith(3, '$pageview', {
       $current_url: 'https://usebaci.com/dashboard',
+      app_surface: 'web',
+    });
+    expect(mocks.posthogCapture).toHaveBeenNthCalledWith(4, '$pageview', {
+      $current_url: 'https://usebaci.com/pricing?plan=starter',
       app_surface: 'web',
     });
   });
