@@ -32,6 +32,13 @@ const mockProductsByIdsResult = {
   },
 };
 
+const mockProductsByIdsResults = {
+  current: [] as Array<{
+    data: Record<string, unknown>[];
+    error: { message: string } | null;
+  }>,
+};
+
 const mockSearchRpc = {
   current: vi.fn(),
 };
@@ -42,6 +49,10 @@ const mockProductsQuery = {
 
 const mockProductsByIdsQuery = {
   current: null as MockProductsByIdsQuery | null,
+};
+
+const mockProductsByIdsQueries = {
+  current: [] as MockProductsByIdsQuery[],
 };
 
 function createProductsQuery() {
@@ -66,10 +77,16 @@ function createProductsByIdsQuery() {
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
-    in: vi.fn(() => Promise.resolve(mockProductsByIdsResult.current)),
+    in: vi.fn(() =>
+      Promise.resolve(
+        mockProductsByIdsResults.current.shift() ??
+          mockProductsByIdsResult.current
+      )
+    ),
   };
 
   mockProductsByIdsQuery.current = query;
+  mockProductsByIdsQueries.current.push(query);
 
   return query;
 }
@@ -127,6 +144,7 @@ function reset() {
   vi.clearAllMocks();
   mockProductsQuery.current = null;
   mockProductsByIdsQuery.current = null;
+  mockProductsByIdsQueries.current = [];
   mockProductsResult.current = {
     data: [],
     error: null,
@@ -135,14 +153,17 @@ function reset() {
     data: [],
     error: null,
   };
+  mockProductsByIdsResults.current = [];
   mockSearchRpc.current = vi.fn();
 }
 
 export const storefrontProductsRouteTestHarness = {
   mockCreateStaticClient,
   mockCreateServerClient,
+  mockProductsByIdsQueries,
   mockProductsByIdsQuery,
   mockProductsByIdsResult,
+  mockProductsByIdsResults,
   mockProductsQuery,
   mockProductsResult,
   mockSearchRpc,

@@ -25,6 +25,8 @@ import {
 
 type ProductFilters = StorefrontProductsQuery;
 
+const PRODUCT_ID_FETCH_CHUNK_SIZE = 100;
+
 function hasInMemoryStorefrontFilters(filters: ProductFilters): boolean {
   return Boolean(
     (filters.category &&
@@ -192,6 +194,10 @@ async function fetchProductRowsByIds(
   ids: string[],
   options: { compact?: boolean } = {}
 ) {
+  if (ids.length === 0) {
+    return [];
+  }
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const selectColumns: string =
@@ -199,18 +205,34 @@ async function fetchProductRowsByIds(
       ? storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT
       : storefrontProductsRouteData.STOREFRONT_PRODUCTS_COMPACT_SELECT;
 
-  const { data: products, error } = (await supabase
-    .from('products')
-    .select(selectColumns)
-    .eq('merchant_id', merchantId)
-    .in('id', ids)) as {
-    data: RawStorefrontProductRow[] | null;
-    error: unknown;
-  };
+  const queries = [];
+  for (
+    let index = 0;
+    index < ids.length;
+    index += PRODUCT_ID_FETCH_CHUNK_SIZE
+  ) {
+    const idChunk = ids.slice(index, index + PRODUCT_ID_FETCH_CHUNK_SIZE);
+    queries.push(
+      (async () =>
+        (await supabase
+          .from('products')
+          .select(selectColumns)
+          .eq('merchant_id', merchantId)
+          .in('id', idChunk)) as {
+          data: RawStorefrontProductRow[] | null;
+          error: unknown;
+        })()
+    );
+  }
 
-  if (error) throw error;
+  const results = await Promise.all(queries);
+  const products: RawStorefrontProductRow[] = [];
+  for (const result of results) {
+    if (result.error) throw result.error;
+    products.push(...(result.data || []));
+  }
 
-  return products || [];
+  return products;
 }
 
 function hasActiveStorefrontFilter(value: string | undefined) {

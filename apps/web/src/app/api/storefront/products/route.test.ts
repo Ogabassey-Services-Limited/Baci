@@ -497,6 +497,81 @@ describe('GET /api/storefront/products', () => {
     expect(body.count).toBe(2);
   });
 
+  it('chunks ranked search hydration IDs to avoid oversized PostgREST URLs', async () => {
+    const rankedIds = Array.from(
+      { length: 150 },
+      (_, index) => `product-${String(index + 1).padStart(3, '0')}`
+    );
+    storefrontProductsRouteTestHarness.mockSearchRpc.current
+      .mockResolvedValueOnce({
+        data: rankedIds.slice(0, 100).map((productId) => ({
+          product_id: productId,
+          total_count: rankedIds.length,
+        })),
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: rankedIds.slice(100).map((productId) => ({
+          product_id: productId,
+          total_count: rankedIds.length,
+        })),
+        error: null,
+      });
+
+    storefrontProductsRouteTestHarness.mockProductsByIdsResults.current = [
+      {
+        data: rankedIds.slice(0, 100).map((id) =>
+          storefrontProductsRouteTestHarness.createRawProduct({
+            id,
+            category: 'Televisions',
+            categories: {
+              id: 'cat-1',
+              name: 'Smart TVs',
+              slug: 'smart-tvs',
+            },
+            name: id,
+            slug: id,
+          })
+        ),
+        error: null,
+      },
+      {
+        data: rankedIds.slice(100).map((id) =>
+          storefrontProductsRouteTestHarness.createRawProduct({
+            id,
+            category: 'Televisions',
+            categories: {
+              id: 'cat-1',
+              name: 'Smart TVs',
+              slug: 'smart-tvs',
+            },
+            name: id,
+            slug: id,
+          })
+        ),
+        error: null,
+      },
+    ];
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=iphone&category=smart-tvs&limit=20'))
+    );
+
+    const body = await response.json();
+    const idQueries =
+      storefrontProductsRouteTestHarness.mockProductsByIdsQueries.current;
+    expect(idQueries).toHaveLength(2);
+    expect(idQueries[0]?.in).toHaveBeenCalledWith(
+      'id',
+      rankedIds.slice(0, 100)
+    );
+    expect(idQueries[1]?.in).toHaveBeenCalledWith('id', rankedIds.slice(100));
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual(
+      rankedIds.slice(0, 20)
+    );
+    expect(body.count).toBe(150);
+  });
+
   it('applies the image-presence filter when q and has_images=true are present', async () => {
     storefrontProductsRouteTestHarness.mockSearchRpc.current.mockResolvedValueOnce(
       {
