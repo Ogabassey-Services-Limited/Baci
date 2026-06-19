@@ -27,3 +27,23 @@ export function initializePostHogBrowser(
   posthog.init(projectToken, buildPostHogClientConfig(env));
   hasInitializedPostHogBrowser = true;
 }
+
+export function capturePostHogPageview(currentUrl?: string) {
+  if (!hasInitializedPostHogBrowser) {
+    return;
+  }
+
+  const resolvedUrl =
+    currentUrl ||
+    (typeof globalThis.location === 'undefined'
+      ? undefined
+      : globalThis.location.href);
+
+  if (!resolvedUrl) {
+    return;
+  }
+
+  posthog.capture('$pageview', {
+    $current_url: resolvedUrl,
+  });
+}
