@@ -3,6 +3,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 let mockPlatformProjectRoot;
+const mockFinalizedModCalls = [];
 
 jest.mock('@expo/config-plugins', () => ({
   withDangerousMod: (config, [, action]) =>
@@ -13,6 +14,10 @@ jest.mock('@expo/config-plugins', () => ({
         platformProjectRoot: mockPlatformProjectRoot,
       },
     }),
+  withFinalizedMod: (config, [platform, action]) => {
+    mockFinalizedModCalls.push({ action, platform });
+    return config;
+  },
 }));
 
 const withAndroidGradleFixes = require('./withAndroidGradleFixes');
@@ -33,6 +38,7 @@ describe('withAndroidGradleFixes', () => {
       fs.rmSync(mockPlatformProjectRoot, { force: true, recursive: true });
     }
     mockPlatformProjectRoot = undefined;
+    mockFinalizedModCalls.length = 0;
   });
 
   it('applies Gradle fixes while retaining the Kotlin Android plugin', () => {
@@ -60,6 +66,8 @@ allprojects {
       mockPlatformProjectRoot,
       'app/build.gradle',
       `apply plugin: "org.jetbrains.kotlin.android"
+
+apply from: new File(["node", "--print", "require('path').join(require('path').dirname(require.resolve('posthog-react-native')), '..', 'tooling', 'posthog.gradle')"].execute().text.trim())
 
 android {
     defaultConfig {
@@ -139,6 +147,12 @@ android {
     expect(appBuildGradle).toContain('ANDROID_KEYSTORE_FILE');
     expect(appBuildGradle).toContain('signingConfig signingConfigs.release');
     expect(appBuildGradle).toContain('proguard-android-optimize.txt');
+    expect(appBuildGradle).toContain(
+      'PostHog Android source-map upload is best-effort'
+    );
+    expect(appBuildGradle).toContain('task.name.contains("_PostHogUpload_")');
+    expect(appBuildGradle).toContain('task.enabled = false');
+    expect(appBuildGradle).toContain('task.onlyIf { false }');
 
     // Assert dynamic Facebook resValue injection
     expect(appBuildGradle).toContain(
@@ -169,5 +183,147 @@ android {
     expect(gradleProperties).toContain('android.builtInKotlin=false');
     expect(wrapperProperties).toContain('gradle-9.3.1-bin.zip');
     expect(wrapperProperties).toContain('distributionSha256Sum=');
+  });
+
+  it('does not duplicate the PostHog Android upload guard', () => {
+    mockPlatformProjectRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'baci-gradle-')
+    );
+    writeProjectFile(
+      mockPlatformProjectRoot,
+      'build.gradle',
+      `allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+`
+    );
+    writeProjectFile(
+      mockPlatformProjectRoot,
+      'app/build.gradle',
+      `apply from: new File(["node", "--print", "require('path').join(require('path').dirname(require.resolve('posthog-react-native')), '..', 'tooling', 'posthog.gradle')"].execute().text.trim())
+
+// PostHog source-map uploads run after bundling via finalizedBy.
+// Upload failures must not block Play Store release artifacts.
+tasks.configureEach { task ->
+    if (task.name.contains("_PostHogUpload_")) {
+        logger.warn("WARNING: Disabling \${task.name}; PostHog Android source-map upload is best-effort and will not block release builds.")
+        task.enabled = false
+    }
+}
+
+android {
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            signingConfig signingConfigs.debug
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+`
+    );
+
+    withAndroidGradleFixes({ name: 'Ogabassey', slug: 'ogabassey' });
+
+    const appBuildGradle = readProjectFile(
+      mockPlatformProjectRoot,
+      'app/build.gradle'
+    );
+
+    expect(
+      appBuildGradle.match(/PostHog Android source-map upload is best-effort/g)
+    ).toHaveLength(1);
+    expect(appBuildGradle).toContain('task.onlyIf { false }');
+  });
+
+  it('patches PostHog uploads in the finalized mod after PostHog injects Gradle', async () => {
+    mockPlatformProjectRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'baci-gradle-')
+    );
+    writeProjectFile(
+      mockPlatformProjectRoot,
+      'build.gradle',
+      `allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+`
+    );
+    writeProjectFile(
+      mockPlatformProjectRoot,
+      'app/build.gradle',
+      `apply plugin: "org.jetbrains.kotlin.android"
+
+android {
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            signingConfig signingConfigs.debug
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+`
+    );
+
+    withAndroidGradleFixes({ name: 'Ogabassey', slug: 'ogabassey' });
+
+    expect(mockFinalizedModCalls).toHaveLength(1);
+    expect(mockFinalizedModCalls[0].platform).toBe('android');
+    expect(
+      readProjectFile(mockPlatformProjectRoot, 'app/build.gradle')
+    ).not.toContain('PostHog Android source-map upload is best-effort');
+
+    fs.appendFileSync(
+      path.join(mockPlatformProjectRoot, 'app', 'build.gradle'),
+      `
+apply from: new File(["node", "--print", "require('path').join(require('path').dirname(require.resolve('posthog-react-native')), '..', 'tooling', 'posthog.gradle')"].execute().text.trim())
+`
+    );
+
+    await mockFinalizedModCalls[0].action({
+      modRequest: {
+        platformProjectRoot: mockPlatformProjectRoot,
+      },
+    });
+
+    const appBuildGradle = readProjectFile(
+      mockPlatformProjectRoot,
+      'app/build.gradle'
+    );
+
+    expect(appBuildGradle).toContain(
+      'PostHog Android source-map upload is best-effort'
+    );
+    expect(appBuildGradle).toContain('task.name.contains("_PostHogUpload_")');
+    expect(appBuildGradle).toContain('task.enabled = false');
+    expect(appBuildGradle).toContain('task.onlyIf { false }');
   });
 });
