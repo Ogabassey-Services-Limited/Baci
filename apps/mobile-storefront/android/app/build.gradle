@@ -86,12 +86,22 @@ apply from: new File(["node", "--print", "require('path').join(require('path').d
 
 // PostHog source-map uploads run after bundling via finalizedBy.
 // Upload failures must not block Play Store release artifacts.
-tasks.configureEach { task ->
+def disablePostHogAndroidUploadTask = { task ->
     if (task.name.contains("_PostHogUpload_")) {
         logger.warn("WARNING: Disabling ${task.name}; PostHog Android source-map upload is best-effort and will not block release builds.")
         task.enabled = false
         // PostHog sets enabled true during registration; onlyIf keeps execution skipped.
         task.onlyIf { false }
+    }
+}
+
+tasks.configureEach { task ->
+    disablePostHogAndroidUploadTask(task)
+}
+
+gradle.projectsEvaluated {
+    tasks.matching { task -> task.name.contains("_PostHogUpload_") }.configureEach { task ->
+        disablePostHogAndroidUploadTask(task)
     }
 }
 
