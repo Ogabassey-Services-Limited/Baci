@@ -36,6 +36,16 @@ interface BuildReceiptNotificationEmailContentInput {
   devices: string[];
 }
 
+type BuildReceiptEmailContentBaseInput = Pick<
+  BuildReceiptNotificationEmailContentInput,
+  'merchant' | 'recipientName' | 'claimUrl' | 'devices'
+>;
+
+type BuildReceiptEmailContentWithDeliveryInput =
+  BuildReceiptEmailContentBaseInput & {
+    delivery: ReceiptNotificationDeliveryConfig;
+  };
+
 const DEFAULT_NOTIFICATION_SOURCE = 'site';
 const RECEIPT_CHANGED_SUBJECT = 'Your Receipt has Changed.';
 const APP_FIRST_RECEIPT_THEME =
@@ -184,10 +194,7 @@ function buildAppFirstReceiptEmailContent({
   delivery,
   claimUrl,
   devices,
-}: Pick<
-  BuildReceiptNotificationEmailContentInput,
-  'merchant' | 'recipientName' | 'claimUrl' | 'devices' | 'delivery'
->) {
+}: BuildReceiptEmailContentWithDeliveryInput) {
   const merchantName = merchant.business_name || 'Your store';
   const brandColor = getReceiptBrandColor(merchant);
   const escapedBrandColor = escapeHtml(brandColor);
@@ -317,10 +324,7 @@ function buildSiteReceiptEmailContent({
   delivery,
   claimUrl,
   devices,
-}: Pick<
-  BuildReceiptNotificationEmailContentInput,
-  'merchant' | 'recipientName' | 'delivery' | 'devices' | 'claimUrl'
->) {
+}: BuildReceiptEmailContentWithDeliveryInput) {
   const merchantName = merchant.business_name || 'Your store';
   const escapedMerchantName = escapeHtml(merchantName);
   const escapedRecipientName = escapeHtml(recipientName);
