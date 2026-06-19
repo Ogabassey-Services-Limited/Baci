@@ -31,6 +31,43 @@ describe('FilterBar', () => {
     jest.clearAllMocks();
   });
 
+  it('announces selected categories and filter menu expansion state', () => {
+    render(<FilterBar {...defaultProps} selectedCategory="Phones" />);
+
+    expect(
+      screen.getByRole('button', { name: 'All category' }).props
+        .accessibilityState
+    ).toEqual({ selected: false });
+    expect(
+      screen.getByRole('button', { name: 'Phones category' }).props
+        .accessibilityState
+    ).toEqual({ selected: true });
+
+    const filterMenuToggle = screen.getByRole('button', {
+      name: 'Toggle filter menu',
+    });
+    expect(filterMenuToggle.props.accessibilityState).toEqual({
+      expanded: false,
+    });
+
+    fireEvent.press(filterMenuToggle);
+
+    expect(
+      screen.getByRole('button', { name: 'Toggle filter menu' }).props
+        .accessibilityState
+    ).toEqual({ expanded: true });
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Price Range' })
+        .some((button) =>
+          Object.is(button.props.accessibilityState?.selected, true)
+        )
+    ).toBe(true);
+    expect(
+      screen.getByRole('button', { name: 'Brand' }).props.accessibilityState
+    ).toEqual({ selected: false });
+  });
+
   it('renders grid and list view toggles with proper accessibility props and handles toggling', () => {
     const { rerender } = render(<FilterBar {...defaultProps} />);
 

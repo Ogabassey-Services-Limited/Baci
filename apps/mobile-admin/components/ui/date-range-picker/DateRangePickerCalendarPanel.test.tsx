@@ -28,14 +28,27 @@ vi.mock('react-native', () => ({
   StatusBar: () => null,
   Pressable: ({
     accessibilityLabel,
+    accessibilityRole,
+    accessibilityState,
     children,
+    disabled,
     onPress,
   }: {
     accessibilityLabel?: string;
+    accessibilityRole?: string;
+    accessibilityState?: { disabled?: boolean; selected?: boolean };
     children?: ReactNode;
+    disabled?: boolean;
     onPress?: () => void;
   }) => (
-    <button aria-label={accessibilityLabel} onClick={onPress} type="button">
+    <button
+      aria-disabled={accessibilityState?.disabled ?? disabled}
+      aria-label={accessibilityLabel}
+      aria-pressed={accessibilityState?.selected}
+      onClick={onPress}
+      role={accessibilityRole}
+      type="button"
+    >
       {children}
     </button>
   ),
@@ -70,6 +83,43 @@ describe('DateRangePickerCalendarPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply Range' }));
 
     expect(onApply).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces the apply button as disabled until a full range is selected', () => {
+    const { rerender } = render(
+      <DateRangePickerCalendarPanel
+        onApply={vi.fn()}
+        onSelectDay={vi.fn()}
+        onViewNextMonth={vi.fn()}
+        onViewPreviousMonth={vi.fn()}
+        selection={{ end: null, start: new Date('2026-05-12T00:00:00.000Z') }}
+        viewDate={new Date('2026-05-12T00:00:00.000Z')}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Apply Range' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+
+    rerender(
+      <DateRangePickerCalendarPanel
+        onApply={vi.fn()}
+        onSelectDay={vi.fn()}
+        onViewNextMonth={vi.fn()}
+        onViewPreviousMonth={vi.fn()}
+        selection={{
+          end: new Date('2026-05-14T00:00:00.000Z'),
+          start: new Date('2026-05-12T00:00:00.000Z'),
+        }}
+        viewDate={new Date('2026-05-12T00:00:00.000Z')}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Apply Range' })).toHaveAttribute(
+      'aria-disabled',
+      'false'
+    );
   });
 
   it('routes month navigation and day selection', () => {
