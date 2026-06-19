@@ -28,15 +28,15 @@ Baci is an AI-native platform that allows merchants to create complete e-commerc
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 20+
-- npm
+- Node.js 24.x
+- pnpm 11.x
 - Supabase CLI (for local backend)
 
 ### Installation
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Setup environment variables
 cp .env.example .env.local
@@ -47,7 +47,7 @@ cp .env.example .env.local
 
 ```bash
 # Run the development server
-npm run dev
+pnpm turbo dev
 
 # Run the AI Worker (if needed for background tasks)
 # See docs/ai/AI_WORKER_ENV.md
@@ -59,12 +59,12 @@ We use **TypeDoc** to generate "dynamic" API documentation from the source code.
 
 ```bash
 # Generate/Update API docs in docs/api/
-npm run docs
+pnpm --filter @baci/web docs
 ```
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 15 (App Router), Tailwind CSS, shadcn/ui
+- **Frontend**: Next.js 16.2.9 (App Router), Tailwind CSS, shadcn/ui
 - **Backend**: Supabase (Auth, Postgres, Storage)
 - **AI**: Google Genkit + Gemini 2.0 Flash/Vision
 - **Language**: TypeScript
