@@ -2158,6 +2158,8 @@ async function executeVtuPurchase(
         fulfillmentProvider: 'kuda',
         monnifyFallbackError:
           monnifyResult.providerErrorDetail ?? monnifyResult.message,
+        originalProvider: 'monnify',
+        provider: 'kuda',
         providerFallback: 'monnify_airtime_to_kuda',
       },
     };
