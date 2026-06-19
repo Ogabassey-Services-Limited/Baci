@@ -1,6 +1,3 @@
-const fs = require('node:fs');
-const path = require('node:path');
-
 const POSTHOG_ANDROID_UPLOAD_BEST_EFFORT_MARKER =
   'PostHog Android source-map upload is best-effort';
 const POSTHOG_ANDROID_UPLOAD_BEST_EFFORT_GRADLE_ENABLED_LEGACY = `// PostHog source-map uploads run after bundling via finalizedBy.
@@ -93,40 +90,4 @@ function ensurePostHogAndroidUploadBestEffort(content) {
   return lines.join('\n');
 }
 
-function getAndroidProjectRoot(modRequest) {
-  if (modRequest?.platformProjectRoot) {
-    return modRequest.platformProjectRoot;
-  }
-
-  if (modRequest?.projectRoot) {
-    return path.join(modRequest.projectRoot, 'android');
-  }
-
-  return null;
-}
-
-function ensureFinalizedPostHogAndroidUploadBestEffort(modRequest) {
-  const androidProjectRoot = getAndroidProjectRoot(modRequest);
-
-  if (!androidProjectRoot) {
-    return;
-  }
-
-  const appBuildGradle = path.join(androidProjectRoot, 'app', 'build.gradle');
-
-  if (!fs.existsSync(appBuildGradle)) {
-    return;
-  }
-
-  const content = fs.readFileSync(appBuildGradle, 'utf-8');
-  const updatedContent = ensurePostHogAndroidUploadBestEffort(content);
-
-  if (updatedContent !== content) {
-    fs.writeFileSync(appBuildGradle, updatedContent);
-  }
-}
-
-module.exports = {
-  ensureFinalizedPostHogAndroidUploadBestEffort,
-  ensurePostHogAndroidUploadBestEffort,
-};
+module.exports = ensurePostHogAndroidUploadBestEffort;

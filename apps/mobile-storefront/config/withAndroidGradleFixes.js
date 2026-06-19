@@ -21,10 +21,41 @@ const {
   removeKotlinGradlePlugin,
 } = require('../../../.github/scripts/expoAndroidGradleFixes');
 
-const {
-  ensureFinalizedPostHogAndroidUploadBestEffort,
-  ensurePostHogAndroidUploadBestEffort,
-} = require('./withAndroidGradleFixes.posthog');
+const ensurePostHogAndroidUploadBestEffort = require('./withAndroidGradleFixes.posthog');
+
+function getAndroidProjectRoot(modRequest) {
+  if (modRequest?.platformProjectRoot) {
+    return modRequest.platformProjectRoot;
+  }
+
+  if (modRequest?.projectRoot) {
+    return path.join(modRequest.projectRoot, 'android');
+  }
+
+  return null;
+}
+
+function ensureFinalizedPostHogAndroidUploadBestEffort(modRequest) {
+  const androidProjectRoot = getAndroidProjectRoot(modRequest);
+
+  if (!androidProjectRoot) {
+    return;
+  }
+
+  const appBuildGradle = path.join(androidProjectRoot, 'app', 'build.gradle');
+
+  if (!fs.existsSync(appBuildGradle)) {
+    return;
+  }
+
+  const content = fs.readFileSync(appBuildGradle, 'utf-8');
+  const updatedContent = ensurePostHogAndroidUploadBestEffort(content);
+
+  if (updatedContent !== content) {
+    fs.writeFileSync(appBuildGradle, updatedContent);
+  }
+}
+
 function withAndroidGradleFixes(config) {
   // Fix root build.gradle
   const updatedConfig = withDangerousMod(config, [
