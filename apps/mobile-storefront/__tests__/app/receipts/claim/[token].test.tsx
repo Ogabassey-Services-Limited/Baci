@@ -110,7 +110,7 @@ describe('ReceiptClaimScreen', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('redeems the claim with the current bearer session and opens receipts', async () => {
+  it('redeems the claim with the current bearer session and opens the API redirect path', async () => {
     render(<ReceiptClaimScreen />);
 
     expect(
@@ -135,6 +135,35 @@ describe('ReceiptClaimScreen', () => {
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ['receipts'],
       });
+      expect(mockReplace).toHaveBeenCalledWith('/receipts');
+      expect(mockInvalidateQueries.mock.invocationCallOrder[0]).toBeLessThan(
+        mockReplace.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+      );
+    });
+  });
+
+  it('honors an internal API redirect path after a successful claim', async () => {
+    mockFetch.mockResolvedValue({
+      json: async () => ({ success: true, redirectPath: '/receipts?claimed=1' }),
+      ok: true,
+    });
+
+    render(<ReceiptClaimScreen />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/receipts?claimed=1');
+    });
+  });
+
+  it('falls back to receipts when the API redirect path is missing or unsafe', async () => {
+    mockFetch.mockResolvedValue({
+      json: async () => ({ success: true, redirectPath: 'https://evil.test' }),
+      ok: true,
+    });
+
+    render(<ReceiptClaimScreen />);
+
+    await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/receipts');
     });
   });

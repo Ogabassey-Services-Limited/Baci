@@ -211,7 +211,9 @@ function buildSiteReceiptEmailContent({
       `${merchantName} has moved your previous order history into a new account experience.`,
       actionCopy,
       '',
-      `View your orders: ${sanitizedReceiptsUrl || delivery.receiptsUrl}`,
+      sanitizedReceiptsUrl
+        ? `View your orders: ${sanitizedReceiptsUrl}`
+        : 'View your orders: unavailable (invalid link configuration).',
       secondaryLinks
         ? `Download options: ${secondaryLinks.replace(/<[^>]+>/g, '')}`
         : '',

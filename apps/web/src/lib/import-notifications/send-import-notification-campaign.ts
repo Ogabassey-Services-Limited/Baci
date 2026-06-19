@@ -22,7 +22,7 @@ interface NotificationOrderItem {
   name: string | null;
   quantity: number | null;
 }
-interface NotificationRecipientOrder {
+interface NotificationRecipientOrder extends ReceiptClaimOrderForDeviceList {
   id: string;
   customer_email: string | null;
   customer_name: string | null;
@@ -55,7 +55,7 @@ interface CreatedReceiptClaimLink {
 }
 
 function groupOrdersByRecipient(orders: NotificationRecipientOrder[]) {
-  const recipientsByEmail = new Map<string, NotificationRecipient>();
+  const recipientsByIdentity = new Map<string, NotificationRecipient>();
 
   for (const order of orders) {
     const normalizedEmail = normalizeClaimEmail(order.customer_email);
@@ -63,7 +63,8 @@ function groupOrdersByRecipient(orders: NotificationRecipientOrder[]) {
       continue;
     }
 
-    const existing = recipientsByEmail.get(normalizedEmail);
+    const recipientKey = `${normalizedEmail}:${order.customer_id ?? 'guest'}`;
+    const existing = recipientsByIdentity.get(recipientKey);
     if (existing) {
       existing.orders.push(order);
       existing.customerId = existing.customerId || order.customer_id;
@@ -71,7 +72,7 @@ function groupOrdersByRecipient(orders: NotificationRecipientOrder[]) {
       continue;
     }
 
-    recipientsByEmail.set(normalizedEmail, {
+    recipientsByIdentity.set(recipientKey, {
       email: normalizedEmail,
       customerId: order.customer_id,
       customerName: order.customer_name,
@@ -79,7 +80,7 @@ function groupOrdersByRecipient(orders: NotificationRecipientOrder[]) {
     });
   }
 
-  return recipientsByEmail;
+  return recipientsByIdentity;
 }
 
 async function createClaimLinkForRecipient({
@@ -211,9 +212,7 @@ export async function sendImportNotificationCampaign({
       continue;
     }
 
-    const devices = buildReceiptDeviceList(
-      recipient.orders as ReceiptClaimOrderForDeviceList[]
-    );
+    const devices = buildReceiptDeviceList(recipient.orders);
     const content = buildReceiptNotificationEmailContent({
       delivery,
       merchant,

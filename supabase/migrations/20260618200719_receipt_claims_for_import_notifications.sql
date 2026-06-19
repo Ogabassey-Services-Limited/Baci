@@ -152,7 +152,7 @@ $$;
 
 REVOKE ALL ON FUNCTION private.preview_receipt_claim(text)
   FROM PUBLIC, anon, authenticated;
-GRANT USAGE ON SCHEMA private TO anon, authenticated;
+GRANT USAGE ON SCHEMA private TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION private.preview_receipt_claim(text)
   TO anon, authenticated;
 
@@ -224,6 +224,7 @@ BEGIN
       customer_email = EXCLUDED.customer_email,
       customer_name = EXCLUDED.customer_name,
       token_hash = EXCLUDED.token_hash,
+      expires_at = now() + interval '90 days',
       claimed_at = NULL,
       claimed_by_user_id = NULL,
       notification_sent_at = NULL,

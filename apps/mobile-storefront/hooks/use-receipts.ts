@@ -26,13 +26,13 @@ const log = createLogger('Receipts');
 const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG || 'ogabassey';
 
 /**
- * Fetch all orders for the current customer (receipt list view)
+ * Fetch all orders for the current authenticated customer's linked profile
  */
-export function useReceipts(customerId: string | undefined) {
+export function useReceipts(userId: string | undefined) {
   return useQuery<ReceiptListItem[]>({
-    queryKey: ['receipts', customerId],
+    queryKey: ['receipts', userId],
     queryFn: async () => {
-      if (!customerId) return [];
+      if (!userId) return [];
 
       const { data, error } = await withSupabaseRetry(
         async () =>
@@ -52,10 +52,13 @@ export function useReceipts(customerId: string | undefined) {
                 name,
                 quantity,
                 price
+              ),
+              customers!inner (
+                user_id
               )
             `
             )
-            .eq('customer_id', customerId)
+            .eq('customers.user_id', userId)
             .order('created_at', { ascending: false }),
         { maxRetries: 3 }
       );
@@ -79,7 +82,7 @@ export function useReceipts(customerId: string | undefined) {
       return mapped as ReceiptListItem[];
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
-    enabled: !!customerId,
+    enabled: !!userId,
     // Override global offlineFirst — withSupabaseRetry already handles retries.
     // offlineFirst can cause infinite retry-pause loops when NetworkError
     // is thrown inside queryFn and react-query pauses then re-triggers.

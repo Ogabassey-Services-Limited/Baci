@@ -38,6 +38,18 @@ async function readErrorMessage(response: Response) {
   }
 }
 
+async function readRedirectPath(response: Response) {
+  try {
+    const body = (await response.json()) as { redirectPath?: unknown };
+    return typeof body.redirectPath === 'string' &&
+      body.redirectPath.startsWith('/')
+      ? body.redirectPath
+      : '/receipts';
+  } catch {
+    return '/receipts';
+  }
+}
+
 export default function ReceiptClaimScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -93,6 +105,8 @@ export default function ReceiptClaimScreen() {
           return;
         }
 
+        const redirectPath = await readRedirectPath(response);
+
         try {
           await queryClient.invalidateQueries({ queryKey: ['receipts'] });
         } catch {
@@ -100,7 +114,7 @@ export default function ReceiptClaimScreen() {
         }
 
         if (!isActive) return;
-        router.replace('/receipts');
+        router.replace(redirectPath);
       } catch {
         if (!isActive) return;
         setStatus('error');

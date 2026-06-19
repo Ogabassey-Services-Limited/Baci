@@ -102,6 +102,23 @@ describe('receipt claim migration', () => {
     );
   });
 
+  it('grants service-role schema usage for private claim functions', () => {
+    expect(migrationSql).toMatch(
+      /GRANT USAGE ON SCHEMA private TO anon, authenticated, service_role/i
+    );
+  });
+
+  it('resets token expiry when rotating an unsent existing claim', () => {
+    const createClaimFunction = migrationSql.match(
+      /CREATE OR REPLACE FUNCTION private\.create_receipt_claim_for_import_notification\([\s\S]*?\n\$\$;/i
+    );
+
+    expect(createClaimFunction?.[0]).toBeDefined();
+    expect(createClaimFunction?.[0]).toMatch(
+      /expires_at = now\(\) \+ interval '90 days'/i
+    );
+  });
+
   it('scopes notification order attachments to the claim merchant and customer', () => {
     const createClaimFunction = migrationSql.match(
       /CREATE OR REPLACE FUNCTION private\.create_receipt_claim_for_import_notification\([\s\S]*?\n\$\$;/i
