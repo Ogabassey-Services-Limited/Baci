@@ -1,3 +1,5 @@
+'use client';
+
 import {
   capturePostHogPageview,
   initializePostHogBrowser,
@@ -9,4 +11,8 @@ const postHogBrowserEnv = getPostHogBrowserEnv();
 if (typeof window !== 'undefined') {
   initializePostHogBrowser(postHogBrowserEnv);
   capturePostHogPageview();
+}
+
+export function PostHogClientBootstrap() {
+  return null;
 }

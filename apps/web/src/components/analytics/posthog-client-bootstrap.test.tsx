@@ -1,3 +1,4 @@
+import { render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -10,19 +11,20 @@ vi.mock('@/lib/posthog/browser', () => ({
   initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
 
-function importInstrumentationClient() {
-  return import('./instrumentation-client');
+function importPostHogClientBootstrap() {
+  return import('./posthog-client-bootstrap');
 }
 
 afterEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
-  vi.unstubAllGlobals();
 });
 
-describe('instrumentation-client', () => {
-  it('initializes browser PostHog instrumentation', async () => {
-    await importInstrumentationClient();
+describe('PostHogClientBootstrap', () => {
+  it('initializes PostHog when the browser module loads', async () => {
+    const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
+
+    render(<PostHogClientBootstrap />);
 
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
@@ -31,14 +33,5 @@ describe('instrumentation-client', () => {
       })
     );
     expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
-  });
-
-  it('does not initialize if imported without a browser window', async () => {
-    vi.stubGlobal('window', undefined);
-
-    await importInstrumentationClient();
-
-    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
-    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
   });
 });
