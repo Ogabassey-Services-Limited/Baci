@@ -130,6 +130,8 @@ export function DateRangePickerCalendarPanel({
           </Text>
         </View>
         <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !selection.start || !selection.end }}
           disabled={!selection.start || !selection.end}
           onPress={onApply}
           style={[
