@@ -7,10 +7,6 @@ const MISSING_TOKEN_WARNING =
 const POSTHOG_NODE_ENV = process.env.NODE_ENV;
 const POSTHOG_PAGEVIEW_CAPTURE_OPTIONS = { send_instantly: true } as const;
 
-type PostHogClientWithLoadedState = {
-  __loaded?: boolean;
-};
-
 let hasInitializedPostHogBrowser = false;
 let isPostHogReadyForCapture = false;
 let isPostHogBrowserDisabled = false;
@@ -91,10 +87,17 @@ function queuePostHogPageview(resolvedUrl: string) {
 }
 
 function isPostHogClientLoaded() {
-  return (posthog as PostHogClientWithLoadedState).__loaded === true;
+  // The public PostHog path is the `loaded` callback above. `posthog-js@1.387.0`
+  // also exposes `__loaded` in its bundled TypeScript definitions; use it only as
+  // a fallback for missed callback races, and re-check this line during SDK bumps.
+  return posthog.__loaded === true;
 }
 
 function markPostHogReadyAndFlush() {
+  if (isPostHogReadyForCapture) {
+    return;
+  }
+
   isPostHogReadyForCapture = true;
   flushPendingPostHogPageviews();
 }

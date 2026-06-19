@@ -173,6 +173,29 @@ describe('initializePostHogBrowser', () => {
     );
   });
 
+  it('flushes a pageview queued after init when PostHog loads without firing the loaded callback', async () => {
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    };
+    const { capturePostHogPageview, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    initializePostHogBrowser(env);
+    mocks.posthogClient.__loaded = true;
+    capturePostHogPageview('https://usebaci.com/async-loaded');
+
+    expect(mocks.clientConfigLoaded).not.toHaveBeenCalled();
+    expect(mocks.posthogCapture).toHaveBeenCalledOnce();
+    expect(mocks.posthogCapture).toHaveBeenCalledWith(
+      '$pageview',
+      {
+        $current_url: 'https://usebaci.com/async-loaded',
+        app_surface: 'web',
+      },
+      PAGEVIEW_CAPTURE_OPTIONS
+    );
+  });
+
   it('keeps queued pageviews when PostHog init throws so a retry can flush them', async () => {
     const env = {
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
