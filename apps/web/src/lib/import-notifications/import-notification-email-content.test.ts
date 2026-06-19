@@ -139,7 +139,7 @@ describe('import notification email content', () => {
         appStoreUrl: null,
         playStoreUrl: null,
         receiptsUrl: 'https://futuremerchant.com/receipts',
-        requiresReceiptClaim: false,
+        requiresReceiptClaim: true,
       })
     );
     expect(content.htmlContent).not.toContain('Download options');

@@ -152,7 +152,7 @@ describe('sendImportNotificationCampaign claim modes', () => {
       },
     });
 
-    expect(createReceiptClaimToken).not.toHaveBeenCalled();
+    expect(createReceiptClaimToken).toHaveBeenCalledTimes(1);
     expect(
       (
         supabase as unknown as {
@@ -161,18 +161,25 @@ describe('sendImportNotificationCampaign claim modes', () => {
           };
         }
       ).testQueries.rpc
-    ).not.toHaveBeenCalled();
+    ).toHaveBeenCalledWith(
+      'create_receipt_claim_for_import_notification',
+      expect.objectContaining({
+        p_customer_email: 'ada@example.com',
+        p_customer_id: 'customer-1',
+        p_import_job_id: 'job-3',
+      })
+    );
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         replyTo: 'support@futuremerchant.com',
         htmlContent: expect.stringContaining(
-          'https://futuremerchant.com/receipts'
+          'https://futuremerchant.com/receipts/claim/claim-token'
         ),
       })
     );
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        htmlContent: expect.not.stringContaining('/receipts/claim/'),
+        htmlContent: expect.stringContaining('/receipts/claim/'),
       })
     );
     expect(sendEmail).toHaveBeenCalledWith(

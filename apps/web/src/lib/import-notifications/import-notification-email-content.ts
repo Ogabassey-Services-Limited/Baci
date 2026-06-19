@@ -53,6 +53,7 @@ export function resolveReceiptNotificationDelivery(
   const appLinksEnabled = migrationSettings.receipt_app_links_enabled === true;
   const configuredAppFirst = configuredAccessMode === 'app_first';
   const shouldUseAppFirstCopy = appLinksEnabled && configuredAppFirst;
+  const shouldUseWebClaimLink = configuredAppFirst && !appLinksEnabled;
   const accessMode = shouldUseAppFirstCopy
     ? configuredAccessMode
     : configuredAccessMode === 'site' || configuredAppFirst
@@ -85,7 +86,7 @@ export function resolveReceiptNotificationDelivery(
     receiptsUrl: `${buildStorefrontUrl(merchant)}${receiptPath}`,
     appStoreUrl,
     playStoreUrl,
-    requiresReceiptClaim: shouldUseAppFirstCopy,
+    requiresReceiptClaim: shouldUseAppFirstCopy || shouldUseWebClaimLink,
   };
 }
 
