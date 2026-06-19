@@ -30,7 +30,10 @@ export const receiptClaimRecordSchema = z.object({
 });
 
 export const redeemReceiptClaimResultSchema = z.object({
-  redirectPath: z.string().optional(),
+  redirectPath: z
+    .string()
+    .regex(/^\/(?!\/)/, 'Invalid redirect path')
+    .optional(),
   status: z.enum([
     'already_used',
     'customer_link_failed',

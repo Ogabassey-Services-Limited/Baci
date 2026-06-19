@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import {
   fireEvent,
   render,
@@ -77,6 +84,8 @@ jest.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 describe('ReceiptClaimScreen', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseLocalSearchParams.mockReturnValue({ token: 'claim-token' });
@@ -93,6 +102,10 @@ describe('ReceiptClaimScreen', () => {
       ok: true,
     });
     global.fetch = mockFetch as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   it('preserves the claim route when unauthenticated customers are sent to login', () => {
@@ -144,7 +157,10 @@ describe('ReceiptClaimScreen', () => {
 
   it('honors an internal API redirect path after a successful claim', async () => {
     mockFetch.mockResolvedValue({
-      json: async () => ({ success: true, redirectPath: '/receipts?claimed=1' }),
+      json: async () => ({
+        success: true,
+        redirectPath: '/receipts?claimed=1',
+      }),
       ok: true,
     });
 

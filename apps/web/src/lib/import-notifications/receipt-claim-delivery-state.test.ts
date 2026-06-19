@@ -7,13 +7,24 @@ import {
 
 function createReceiptClaimsTableMock(response: { error: Error | null }) {
   const query = {
+    deleteMode: false,
     delete: vi.fn(),
     eq: vi.fn(),
+    is: vi.fn(),
     update: vi.fn(),
   };
-  query.delete.mockReturnValue(query);
-  query.update.mockReturnValue(query);
-  query.eq.mockResolvedValue(response);
+  query.delete.mockImplementation(() => {
+    query.deleteMode = true;
+    return query;
+  });
+  query.update.mockImplementation(() => {
+    query.deleteMode = false;
+    return query;
+  });
+  query.eq.mockImplementation(() =>
+    query.deleteMode ? query : Promise.resolve(response)
+  );
+  query.is.mockResolvedValue(response);
 
   return {
     from: vi.fn(() => query),
@@ -30,6 +41,10 @@ describe('receipt claim delivery state', () => {
     expect(supabase.from).toHaveBeenCalledWith('receipt_claims');
     expect(supabase.query.delete).toHaveBeenCalled();
     expect(supabase.query.eq).toHaveBeenCalledWith('id', 'claim-1');
+    expect(supabase.query.is).toHaveBeenCalledWith(
+      'notification_sent_at',
+      null
+    );
   });
 
   it('marks receipt claims as notification sent', async () => {

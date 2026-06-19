@@ -11,6 +11,11 @@ type MockAuthState = {
   user: { id: string } | null;
 };
 
+type SupabaseResponse<T> = {
+  data: T;
+  error: Error | null;
+};
+
 const mockUseQuery = jest.fn((options: unknown) => options);
 const mockWithSupabaseRetry = jest.fn(
   async (callback: () => Promise<unknown>) => callback()
@@ -19,9 +24,9 @@ const mockAuthState: MockAuthState = {
   merchantId: 'merchant-1',
   user: { id: 'auth-user-1' },
 };
-const mockOrder = jest.fn<() => Promise<{ data: unknown[]; error: null }>>();
-const mockSingle = jest.fn<() => Promise<{ data: unknown; error: null }>>();
-const mockLimit = jest.fn<() => Promise<{ data: unknown[]; error: null }>>();
+const mockOrder = jest.fn<() => Promise<SupabaseResponse<unknown[]>>>();
+const mockSingle = jest.fn<() => Promise<SupabaseResponse<unknown>>>();
+const mockLimit = jest.fn<() => Promise<SupabaseResponse<unknown[]>>>();
 const mockQueryBuilder = {
   eq: jest.fn((_field: string, _value: string) => mockQueryBuilder),
   limit: mockLimit,
@@ -101,6 +106,43 @@ describe('useReceipts', () => {
     expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
   });
 
+  it('does not query receipts when the authenticated user scope is missing', async () => {
+    const { useReceipts } = await import('@/hooks/use-receipts');
+
+    function Probe() {
+      useReceipts(undefined);
+      return <View testID="probe" />;
+    }
+
+    render(<Probe />);
+    const options = mockUseQuery.mock.calls[0]?.[0] as QueryOptions & {
+      enabled: boolean;
+    };
+
+    await expect(options.queryFn()).resolves.toEqual([]);
+
+    expect(options.enabled).toBe(false);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('propagates receipt list Supabase errors', async () => {
+    const { useReceipts } = await import('@/hooks/use-receipts');
+    mockOrder.mockResolvedValue({
+      data: [],
+      error: new Error('orders unavailable'),
+    });
+
+    function Probe() {
+      useReceipts('auth-user-1');
+      return <View testID="probe" />;
+    }
+
+    render(<Probe />);
+    const options = mockUseQuery.mock.calls[0]?.[0] as QueryOptions;
+
+    await expect(options.queryFn()).rejects.toThrow('orders unavailable');
+  });
+
   it('scopes receipt detail prefetches to the current authenticated user and merchant', async () => {
     const { receiptDetailQueryOptions } = await import('@/hooks/use-receipts');
     mockSingle.mockResolvedValue({
@@ -148,5 +190,31 @@ describe('useReceipts', () => {
       'customers.user_id',
       'auth-user-1'
     );
+  });
+
+  it('requires authenticated user and merchant scope for receipt detail prefetches', async () => {
+    const { receiptDetailQueryOptions } = await import('@/hooks/use-receipts');
+
+    const options = receiptDetailQueryOptions('order-1', {
+      merchantId: null,
+      userId: 'auth-user-1',
+    }) as QueryOptions;
+
+    await expect(options.queryFn()).rejects.toThrow(
+      'Authentication required to load receipt'
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('propagates receipt detail order lookup errors', async () => {
+    const { receiptDetailQueryOptions } = await import('@/hooks/use-receipts');
+    mockSingle.mockResolvedValue({
+      data: null,
+      error: new Error('detail unavailable'),
+    });
+
+    const options = receiptDetailQueryOptions('order-1') as QueryOptions;
+
+    await expect(options.queryFn()).rejects.toThrow('detail unavailable');
   });
 });

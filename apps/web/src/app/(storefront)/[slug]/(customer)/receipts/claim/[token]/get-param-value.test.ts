@@ -5,6 +5,7 @@ describe('getParamValue', () => {
   it('reads route params safely', () => {
     expect(getParamValue('claim-token')).toBe('claim-token');
     expect(getParamValue(['claim-token', 'ignored'])).toBe('claim-token');
+    expect(getParamValue([])).toBe('');
     expect(getParamValue(undefined)).toBe('');
   });
 });
