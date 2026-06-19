@@ -87,7 +87,7 @@ describe('OgabasseyV2LegalDispute', () => {
       );
     });
 
-    it('renders the default address', () => {
+    it('renders the default business_address', () => {
       render(<OgabasseyV2LegalDispute />);
 
       expect(
@@ -100,7 +100,7 @@ describe('OgabasseyV2LegalDispute', () => {
     const merchantWithCustomTerms = {
       business_name: 'GadgetWorld',
       email: 'legal@gadgetworld.com',
-      address: 'Plot 5, Victoria Island, Lagos',
+      business_address: 'Plot 5, Victoria Island, Lagos',
       pages: {
         terms: '<p>Custom terms and conditions for GadgetWorld customers.</p>',
       },
@@ -136,7 +136,7 @@ describe('OgabasseyV2LegalDispute', () => {
       expect(emailLinks.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('renders merchant address in the legal contact section', () => {
+    it('renders merchant business_address in the legal contact section', () => {
       render(<OgabasseyV2LegalDispute merchant={merchantWithCustomTerms} />);
 
       expect(
