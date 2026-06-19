@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { captureClientException } from '@/lib/posthog/client-exceptions';
-import styles from './system-error.module.css';
+import { systemErrorStyles } from './system-error-styles';
 
 export default function AppError({
   error,
@@ -20,26 +20,33 @@ export default function AppError({
   }, [error]);
 
   return (
-    <main className={styles.page}>
-      <section aria-labelledby="app-error-title" className={styles.card}>
-        <div aria-hidden="true" className={styles.icon}>
+    <main style={systemErrorStyles.page}>
+      <section aria-labelledby="app-error-title" style={systemErrorStyles.card}>
+        <div aria-hidden="true" style={systemErrorStyles.icon}>
           !
         </div>
 
-        <h2 className={styles.title} id="app-error-title">
+        <h2 style={systemErrorStyles.cardTitle} id="app-error-title">
           Something went wrong
         </h2>
-        <p className={styles.copy}>
+        <p style={systemErrorStyles.copy}>
           We encountered an unexpected error while loading this page. Our team
           has been notified.
         </p>
 
-        <div className={styles.actions}>
-          <button className={styles.button} onClick={reset} type="button">
+        <div style={systemErrorStyles.actions}>
+          <button
+            style={systemErrorStyles.button}
+            onClick={reset}
+            type="button"
+          >
             Try again
           </button>
           <button
-            className={`${styles.button} ${styles.buttonSecondary}`}
+            style={{
+              ...systemErrorStyles.button,
+              ...systemErrorStyles.buttonSecondary,
+            }}
             onClick={() => {
               window.location.href = '/';
             }}
@@ -50,7 +57,7 @@ export default function AppError({
         </div>
 
         {process.env.NODE_ENV === 'development' && (
-          <pre className={styles.debug}>
+          <pre style={systemErrorStyles.debug}>
             {error.name}: {error.message}
             {'\n'}
             {error.stack}

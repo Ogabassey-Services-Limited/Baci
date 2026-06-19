@@ -89,7 +89,6 @@ import OgabasseyLayout, {
 } from '@/app/(storefront)/ogabassey/layout';
 import { hasRenderedResourceHintLink } from '@/app/(storefront)/ogabassey/resource-hint-test-utils';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
-import { OGABASSEY_HERO_DESKTOP_LCP_SRC } from '@/config/ogabassey-hero-assets';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 describe('OgabasseyLayout', () => {
@@ -103,7 +102,7 @@ describe('OgabasseyLayout', () => {
     mockGetRequestScopedMerchant.mockClear();
   });
 
-  it('emits desktop LCP resource hints and leaves mobile LCP inline', () => {
+  it('keeps static resource hints connection-only and leaves mobile LCP inline', () => {
     const html = renderToString(
       <OgabasseyLayout>
         <p>Home content</p>
@@ -121,16 +120,7 @@ describe('OgabasseyLayout', () => {
         rel: 'preconnect',
       })
     ).toBe(true);
-    expect(
-      hasRenderedResourceHintLink(html, {
-        as: 'image',
-        fetchpriority: 'high',
-        href: OGABASSEY_HERO_DESKTOP_LCP_SRC,
-        media: '(min-width: 768px)',
-        rel: 'preload',
-        type: 'image/avif',
-      })
-    ).toBe(true);
+    expect(html.includes('rel="preload"')).toBe(false);
     expect(
       hasRenderedResourceHintLink(html, {
         as: 'image',
