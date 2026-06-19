@@ -230,6 +230,7 @@ export interface PurchaseResult {
   amount: number;
   phoneNumber?: string;
   provider?: string;
+  providerErrorDetail?: string;
 }
 
 // Kuda API Response
