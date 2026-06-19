@@ -2050,6 +2050,100 @@ describe('fulfillPendingVtuTransaction', () => {
     );
   });
 
+  it('falls back to Kuda airtime when Monnify rejects an airtime vend after payment', async () => {
+    mockMonnifyPurchaseBill.mockResolvedValue({
+      success: false,
+      reference: 'VTU-123',
+      message:
+        'Monnify rejected the bill payment request. Please verify the details and try again.',
+      providerErrorDetail:
+        'Monnify API error: 400 Bad Request - Amount must be greater than zero',
+      amount: 100,
+      status: 'failed',
+    });
+    mockPurchaseAirtime.mockResolvedValue({
+      success: true,
+      reference: 'VTU-123',
+      message: 'Request successful',
+      transactionId: 'kuda-airtime-1',
+      amount: 100,
+      phoneNumber: '08012345678',
+      provider: 'MTN',
+      status: 'successful',
+    });
+    const updatePayloads: unknown[] = [];
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 100,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {
+          provider: 'monnify',
+          billerCode: 'MTN',
+          productCode: '13',
+          requireValidationRef: false,
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: '08012345678',
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockMonnifyPurchaseBill).toHaveBeenCalledWith(
+      'MTN',
+      '13',
+      '08012345678',
+      100,
+      'OgaBassey',
+      'VTU-123',
+      '08012345678',
+      undefined
+    );
+    expect(mockPurchaseAirtime).toHaveBeenCalledWith(
+      '08012345678',
+      100,
+      'MTN',
+      'OgaBassey',
+      'VTU-123'
+    );
+    expect(result).toMatchObject({
+      amount: 100,
+      reference: 'VTU-123',
+      status: 'successful',
+    });
+    expect(updatePayloads).toContainEqual(
+      expect.objectContaining({
+        error_message: null,
+        metadata: expect.objectContaining({
+          fulfillmentProvider: 'kuda',
+          monnifyFallbackError:
+            'Monnify API error: 400 Bad Request - Amount must be greater than zero',
+          provider: 'monnify',
+          providerFallback: 'monnify_airtime_to_kuda',
+        }),
+        status: 'successful',
+        transaction_id: 'kuda-airtime-1',
+      })
+    );
+  });
+
   it('routes to Monnify status requery and reconciles status successfully when metadata.provider is monnify', async () => {
     mockMonnifyCheckTransactionStatus.mockResolvedValue({
       status: 'successful',

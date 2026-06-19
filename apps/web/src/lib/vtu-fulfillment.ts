@@ -2029,6 +2029,10 @@ type ProviderNormalizationResult =
   | { provider: NormalizedProvider }
   | { failure: PurchaseResult };
 
+type VtuPurchaseResult = PurchaseResult & {
+  metadataPatch?: Record<string, unknown>;
+};
+
 function normalizeVtuProviderOrError(
   row: VtuTransactionRow
 ): ProviderNormalizationResult {
@@ -2049,10 +2053,10 @@ function normalizeVtuProviderOrError(
   return { provider };
 }
 
-function executeVtuPurchase(
+async function executeVtuPurchase(
   row: VtuTransactionRow,
   merchantName: string
-): Promise<PurchaseResult> {
+): Promise<VtuPurchaseResult> {
   const customerFirstName = getCustomerFirstName(row, merchantName);
 
   if (row.metadata?.provider === 'monnify') {
@@ -2092,7 +2096,7 @@ function executeVtuPurchase(
       });
     }
 
-    return monnifyPurchaseBill(
+    const monnifyResult = await monnifyPurchaseBill(
       billerCode,
       productCode,
       row.customer_identifier,
@@ -2102,6 +2106,37 @@ function executeVtuPurchase(
       getCustomerPhoneForBill(row),
       validationReference
     );
+
+    if (monnifyResult.success || row.type !== 'airtime') {
+      return monnifyResult;
+    }
+
+    const normalized = normalizeVtuProviderOrError(row);
+    if ('failure' in normalized) {
+      return monnifyResult;
+    }
+
+    const kudaFallbackResult = await purchaseAirtime(
+      row.phone_number,
+      row.amount,
+      normalized.provider,
+      customerFirstName,
+      row.request_reference
+    );
+
+    if (!kudaFallbackResult.success) {
+      return monnifyResult;
+    }
+
+    return {
+      ...kudaFallbackResult,
+      metadataPatch: {
+        fulfillmentProvider: 'kuda',
+        monnifyFallbackError:
+          monnifyResult.providerErrorDetail ?? monnifyResult.message,
+        providerFallback: 'monnify_airtime_to_kuda',
+      },
+    };
   }
 
   if (row.type === 'airtime') {
@@ -2475,7 +2510,7 @@ export async function fulfillPendingVtuTransaction({
     row.metadata = debitedMetadata;
   }
 
-  let result: PurchaseResult;
+  let result: VtuPurchaseResult;
   try {
     result = await executeVtuPurchase(
       row,
@@ -2541,6 +2576,7 @@ export async function fulfillPendingVtuTransaction({
     : result.providerErrorDetail?.trim();
   const updatedMetadata: Record<string, unknown> = {
     ...(row.metadata ?? {}),
+    ...(result.metadataPatch ?? {}),
     ...(voucherPin && { voucherPin }),
   };
   if (providerErrorDetail) {
