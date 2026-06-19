@@ -7,8 +7,8 @@ export interface AdSlotShellProps {
   width: number;
   height: number;
   /** Mobile creative dimensions (applied at < 768px). */
-  mobileWidth: number;
-  mobileHeight: number;
+  mobileWidth?: number;
+  mobileHeight?: number;
   /** Render the "Ad Space" placeholder pattern (hide once a real ad paints). */
   showPlaceholder?: boolean;
   /** Hide the whole shell from the a11y tree (used for the reserved fallback). */
@@ -43,9 +43,11 @@ export function AdSlotShell({
   boxRef,
   children,
 }: AdSlotShellProps) {
+  const effectiveMobileWidth = mobileWidth ?? width;
+  const effectiveMobileHeight = mobileHeight ?? height;
   const slotStyle = {
-    '--ad-slot-w': `${mobileWidth}px`,
-    '--ad-slot-h': `${mobileHeight}px`,
+    '--ad-slot-w': `${effectiveMobileWidth}px`,
+    '--ad-slot-h': `${effectiveMobileHeight}px`,
     '--ad-slot-w-lg': `${width}px`,
     '--ad-slot-h-lg': `${height}px`,
   } as CSSProperties;

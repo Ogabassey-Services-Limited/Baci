@@ -45,8 +45,9 @@ export function DeferredAdUnit({
   // CLS). Callers may still override with an explicit `fallback`.
   const placementConfig = AD_CONFIG[adUnitProps.placementKey];
   const resolvedFallback =
-    fallback ??
-    (placementConfig ? (
+    fallback !== undefined ? (
+      fallback
+    ) : placementConfig ? (
       <AdSlotShell
         ariaHidden
         height={placementConfig.height}
@@ -56,7 +57,7 @@ export function DeferredAdUnit({
         outerClassName={adUnitProps.className ?? ''}
         width={placementConfig.width}
       />
-    ) : null);
+    ) : null;
 
   useEffect(() => {
     if (!isActivated || AdUnitComponent) {

@@ -25,6 +25,20 @@ describe('AdSlotShell', () => {
     expect(box.style.getPropertyValue('--ad-slot-w-lg')).toBe('970px');
   });
 
+
+
+  it('falls back to desktop dimensions when mobile dimensions are omitted', () => {
+    const { container } = render(
+      <AdSlotShell height={90} name="legacy_slot" width={970} />
+    );
+    const box = container.querySelector('.ogabassey-ad-slot') as HTMLElement;
+
+    expect(box.style.getPropertyValue('--ad-slot-h')).toBe('90px');
+    expect(box.style.getPropertyValue('--ad-slot-w')).toBe('970px');
+    expect(box.style.getPropertyValue('--ad-slot-h-lg')).toBe('90px');
+    expect(box.style.getPropertyValue('--ad-slot-w-lg')).toBe('970px');
+  });
+
   it('renders the reserved placeholder with accessible foreground copy', () => {
     render(<AdSlotShell {...dims} />);
 

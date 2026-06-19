@@ -75,6 +75,26 @@ describe('DeferredAdUnit', () => {
     expect(loadAdUnitModule).not.toHaveBeenCalled();
   });
 
+
+
+  it('respects an explicit null fallback by rendering no reserved shell', () => {
+    const loadAdUnitModule = vi.fn(() =>
+      Promise.resolve({ AdUnit: () => <div data-testid="ad-unit" /> })
+    );
+
+    const { container } = render(
+      <DeferredAdUnit
+        fallback={null}
+        loadAdUnitModule={loadAdUnitModule}
+        placementKey="PRODUCT_GRID_MPU"
+        timeoutMs={1000}
+      />
+    );
+
+    expect(container.querySelector('.ogabassey-ad-slot')).toBeNull();
+    expect(loadAdUnitModule).not.toHaveBeenCalled();
+  });
+
   it('keeps the fallback visible and logs when the AdUnit import fails', async () => {
     const importError = new Error('ad chunk failed');
     const loadAdUnitModule = vi.fn(() => Promise.reject(importError));
