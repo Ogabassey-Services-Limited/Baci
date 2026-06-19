@@ -15,6 +15,27 @@ import { applyOrderListVisibilityFilter } from './order-list-visibility';
 import type { OrdersPage, OrderWithCount } from './order-types';
 
 const PAGE_SIZE = 20;
+const ORDER_SEARCH_FIELDS = [
+  'order_number',
+  'customer_name',
+  'customer_email',
+  'customer_phone',
+  'payment_method',
+  'tracking_number',
+  'tracking_token',
+] as const;
+
+function escapePostgrestIlikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
+function buildAdminOrderSearchFilter(searchTerm: string): string {
+  const escapedTerm = escapePostgrestIlikePattern(searchTerm);
+  return ORDER_SEARCH_FIELDS.map(
+    (field) => `${field}.ilike.%${escapedTerm}%`
+  ).join(',');
+}
+
 function parseOrderListRows(rows: unknown[]) {
   const normalizedRows: OrderListRow[] = [];
 
@@ -66,9 +87,7 @@ export async function fetchOrders(
   if (filters?.search) {
     const term = sanitizeSearchQuery(filters.search);
     if (term) {
-      query = query.or(
-        `order_number.ilike.%${term}%,customer_name.ilike.%${term}%,customer_email.ilike.%${term}%`
-      );
+      query = query.or(buildAdminOrderSearchFilter(term));
     }
   }
 
