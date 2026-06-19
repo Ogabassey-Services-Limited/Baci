@@ -99,6 +99,7 @@ let merchant: {
   business_name: 'Test Store',
   country: 'NG',
 };
+let merchantError: unknown = null;
 let updateError: unknown = null;
 let insertError: unknown = null;
 
@@ -138,7 +139,7 @@ vi.mock('@/lib/supabase/server', () => ({
               maybeSingle: vi.fn(() =>
                 Promise.resolve({
                   data: merchant,
-                  error: null,
+                  error: merchantError,
                 })
               ),
               single: vi.fn(() =>
@@ -194,9 +195,33 @@ describe('POST /api/products/bulk-update', () => {
         permissions: { full_access: { all: true } },
       },
     };
+    merchantError = null;
     updateError = null;
     insertError = null;
     csrfValid = true;
+  });
+
+  it('returns 500 when merchant details query fails', async () => {
+    const { POST } = await import('./route');
+    merchantError = { message: 'merchant lookup unavailable' };
+
+    const response = await POST(makeRequest({ changes: [] }));
+    expect(response.status).toBe(500);
+    const data = await response.json();
+    expect(data.error).toBe('Failed to fetch merchant details');
+    expect(mockRevalidateProducts).not.toHaveBeenCalled();
+  });
+
+  it('uses merchant context fallback when merchant details are absent', async () => {
+    const { POST } = await import('./route');
+    merchant = null;
+
+    const response = await POST(makeRequest({ changes: [] }));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
   it('returns 401 when not authenticated', async () => {
