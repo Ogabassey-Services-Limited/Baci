@@ -221,7 +221,7 @@ describe('PostHog client config', () => {
           },
         },
       },
-      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'phc_public_project_token' }
+      'phc_public_project_token'
     );
 
     expect(capture?.properties).toMatchObject({

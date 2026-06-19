@@ -243,24 +243,24 @@ function sanitizePropertyValue(key: string, value: unknown): unknown {
   return value;
 }
 
-function getPublicPostHogProjectToken(env: PostHogEnv): string | undefined {
-  return env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() || undefined;
+function getPublicPostHogProjectToken(): string | undefined {
+  return process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() || undefined;
 }
 
 function restorePostHogProjectCredentialProperties(
   properties: Properties,
-  env: PostHogEnv
+  projectToken: string | undefined
 ): Properties {
-  const projectToken = getPublicPostHogProjectToken(env);
   if (!projectToken) {
     return properties;
   }
 
-  for (const key of POSTHOG_PROJECT_CREDENTIAL_PROPERTY_KEYS) {
-    properties[key] = projectToken;
-  }
-
-  return properties;
+  return {
+    ...properties,
+    ...Object.fromEntries(
+      POSTHOG_PROJECT_CREDENTIAL_PROPERTY_KEYS.map((key) => [key, projectToken])
+    ),
+  } as Properties;
 }
 
 export function sanitizePostHogProperties(
@@ -280,7 +280,7 @@ export function sanitizePostHogProperties(
 
 export function sanitizePostHogCapture(
   capture: CaptureResult | null,
-  env: PostHogEnv = process.env
+  projectToken: string | undefined = getPublicPostHogProjectToken()
 ): CaptureResult | null {
   if (!capture) {
     return null;
@@ -288,7 +288,7 @@ export function sanitizePostHogCapture(
 
   const properties = restorePostHogProjectCredentialProperties(
     sanitizePostHogProperties(capture.properties) ?? {},
-    env
+    projectToken
   );
 
   if (typeof globalThis.location !== 'undefined') {
@@ -308,7 +308,8 @@ export function sanitizePostHogCapture(
 }
 
 export function buildPostHogClientConfig(
-  env: PostHogEnv = process.env
+  env: PostHogEnv = process.env,
+  projectToken: string | undefined = getPublicPostHogProjectToken()
 ): Partial<PostHogConfig> {
   return {
     api_host: getPostHogProxyPath(env),
@@ -356,7 +357,7 @@ export function buildPostHogClientConfig(
       'phone',
       'address',
     ],
-    before_send: (capture) => sanitizePostHogCapture(capture, env),
+    before_send: (capture) => sanitizePostHogCapture(capture, projectToken),
     loaded(posthog) {
       posthog.register({
         app_surface: 'web',

@@ -80,7 +80,10 @@ describe('initializePostHogBrowser', () => {
     initializePostHogBrowser(env);
 
     expect(mocks.buildPostHogClientConfig).toHaveBeenCalledOnce();
-    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledWith(env);
+    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledWith(
+      env,
+      'ph_project_token'
+    );
     expect(mocks.posthogInit).toHaveBeenCalledOnce();
     expect(mocks.posthogInit).toHaveBeenCalledWith(
       'ph_project_token',
