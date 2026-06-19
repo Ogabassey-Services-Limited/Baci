@@ -77,7 +77,7 @@ describe('OgabasseyV2PrivacyPolicy', () => {
       ).toHaveAttribute('href', 'mailto:support@ogabassey.com');
     });
 
-    it('renders the default address in the contact section', () => {
+    it('renders the default business_address in the contact section', () => {
       render(<OgabasseyV2PrivacyPolicy />);
 
       expect(screen.getByText('Lagos, Nigeria')).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe('OgabasseyV2PrivacyPolicy', () => {
     const merchantWithCustomPrivacy = {
       business_name: 'DataSafe Co.',
       email: 'privacy@datasafe.com',
-      address: 'Tower 3, Eko Atlantic, Lagos',
+      business_address: 'Tower 3, Eko Atlantic, Lagos',
       pages: {
         privacy: '<p>Our custom privacy policy for DataSafe Co. customers.</p>',
       },
@@ -123,7 +123,7 @@ describe('OgabasseyV2PrivacyPolicy', () => {
       ).toHaveAttribute('href', 'mailto:privacy@datasafe.com');
     });
 
-    it('renders merchant address in the contact section', () => {
+    it('renders merchant business_address in the contact section', () => {
       render(<OgabasseyV2PrivacyPolicy merchant={merchantWithCustomPrivacy} />);
 
       expect(
