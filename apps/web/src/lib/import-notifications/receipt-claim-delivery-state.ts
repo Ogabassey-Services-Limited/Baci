@@ -10,7 +10,8 @@ export async function deleteReceiptClaim({
   const { error } = await supabase
     .from('receipt_claims')
     .delete()
-    .eq('id', claimId);
+    .eq('id', claimId)
+    .is('notification_sent_at', null);
 
   if (error) {
     throw new Error(`Failed to delete unsent receipt claim: ${error.message}`);

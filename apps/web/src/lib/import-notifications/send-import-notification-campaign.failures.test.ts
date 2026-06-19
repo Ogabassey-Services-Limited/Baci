@@ -122,11 +122,23 @@ describe('sendImportNotificationCampaign failure handling', () => {
           testQueries: {
             claimDeleteQuery: {
               eq: ReturnType<typeof vi.fn>;
+              is: ReturnType<typeof vi.fn>;
             };
           };
         }
       ).testQueries.claimDeleteQuery.eq
     ).toHaveBeenCalledWith('id', 'claim-1');
+    expect(
+      (
+        supabase as unknown as {
+          testQueries: {
+            claimDeleteQuery: {
+              is: ReturnType<typeof vi.fn>;
+            };
+          };
+        }
+      ).testQueries.claimDeleteQuery.is
+    ).toHaveBeenCalledWith('notification_sent_at', null);
   });
 
   it('throws when the claim creation RPC fails', async () => {

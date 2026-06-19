@@ -96,8 +96,8 @@ describe('sendImportNotificationCampaign notification state', () => {
     });
 
     expect(result).toEqual({
-      failedCount: 0,
-      sentCount: 2,
+      failedCount: 2,
+      sentCount: 0,
       skippedCount: 0,
     });
     expect(sendEmail).toHaveBeenCalledTimes(2);

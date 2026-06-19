@@ -162,6 +162,11 @@ describe('import notification email content', () => {
     expect(content.htmlContent).not.toContain('<Device>');
     expect(content.htmlContent).not.toContain('javascript:alert(1)');
     expect(content.textContent).not.toContain('javascript:alert(1)');
+    expect(content.htmlContent).not.toContain('href=""');
+    expect(content.htmlContent).toContain('Receipt link unavailable');
+    expect(content.textContent).toContain(
+      'View your receipt: unavailable (invalid link configuration).'
+    );
     expect(content.htmlContent).toContain('\\u003cAda\\u003e');
     expect(content.htmlContent).toContain('\\u003cMerchant\\u003e');
     expect(content.htmlContent).toContain('\\u003cDevice\\u003e');

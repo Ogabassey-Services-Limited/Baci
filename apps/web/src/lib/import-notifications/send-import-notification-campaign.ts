@@ -252,6 +252,8 @@ export async function sendImportNotificationCampaign({
             error,
             importJobId,
           });
+          failedCount += 1;
+          continue;
         }
       }
 

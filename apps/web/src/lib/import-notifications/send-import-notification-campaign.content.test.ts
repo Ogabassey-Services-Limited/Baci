@@ -91,5 +91,10 @@ describe('sendImportNotificationCampaign content safety', () => {
         htmlContent: expect.stringContaining('\\u003cMerchant Six\\u003e'),
       })
     );
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        htmlContent: expect.not.stringContaining('javascript:alert(1)'),
+      })
+    );
   });
 });

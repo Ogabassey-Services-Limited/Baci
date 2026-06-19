@@ -106,6 +106,24 @@ describe('receipt claim migration', () => {
     expect(migrationSql).toMatch(
       /GRANT USAGE ON SCHEMA private TO anon, authenticated, service_role/i
     );
+    expect(migrationSql).toMatch(
+      /REVOKE ALL ON FUNCTION private\.preview_receipt_claim\(text\)[\s\S]*FROM PUBLIC, anon, authenticated/i
+    );
+    expect(migrationSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION private\.preview_receipt_claim\(text\)[\s\S]*TO anon, authenticated/i
+    );
+    expect(migrationSql).toMatch(
+      /REVOKE ALL ON FUNCTION private\.create_receipt_claim_for_import_notification\(\s*uuid, uuid, uuid, text, text, text, uuid\[\]\s*\)[\s\S]*FROM PUBLIC, anon, authenticated/i
+    );
+    expect(migrationSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION private\.create_receipt_claim_for_import_notification\(\s*uuid, uuid, uuid, text, text, text, uuid\[\]\s*\)[\s\S]*TO service_role/i
+    );
+    expect(migrationSql).toMatch(
+      /REVOKE ALL ON FUNCTION private\.redeem_receipt_claim\(text\)[\s\S]*FROM PUBLIC, anon, authenticated/i
+    );
+    expect(migrationSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION private\.redeem_receipt_claim\(text\)[\s\S]*TO authenticated/i
+    );
   });
 
   it('resets token expiry when rotating an unsent existing claim', () => {

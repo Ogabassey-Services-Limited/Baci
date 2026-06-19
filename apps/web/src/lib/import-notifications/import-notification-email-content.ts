@@ -118,6 +118,13 @@ function buildAppFirstReceiptEmailContent({
   const textDevices = devices
     .map((device, index) => `${index + 1}. ${device}`)
     .join('\n');
+  const claimActionHtml = sanitizedClaimUrl
+    ? `<p style="margin: 0 0 24px;">
+            <a href="${sanitizedClaimUrl}" style="display: inline-block; background: #111827; color: #ffffff; font-weight: 700; text-decoration: none; padding: 13px 20px; border-radius: 10px;">
+              View your receipt
+            </a>
+          </p>`
+    : '<p style="margin: 0 0 24px; color: #5f6375; font-size: 14px;">Receipt link unavailable (invalid link configuration).</p>';
 
   return {
     fromName: merchant.email_sender_name || merchant.business_name || 'Orders',
@@ -129,11 +136,7 @@ function buildAppFirstReceiptEmailContent({
           <p style="margin: 0 0 16px;">${escapedMerchantName} has moved your receipt for the following device(s) to the mobile app.</p>
           <ol style="margin: 0 0 20px; padding-left: 22px;">${deviceItemsHtml}</ol>
           <p style="margin: 0 0 24px;">This is to ensure you can access your receipt at any time directly from the app.</p>
-          <p style="margin: 0 0 24px;">
-            <a href="${sanitizedClaimUrl}" style="display: inline-block; background: #111827; color: #ffffff; font-weight: 700; text-decoration: none; padding: 13px 20px; border-radius: 10px;">
-              View your receipt
-            </a>
-          </p>
+          ${claimActionHtml}
           <p style="margin: 0; color: #5f6375; font-size: 14px;">If you are on mobile and have the app installed, this link opens the app. On desktop, it opens the secure web claim page.</p>
           <p style="margin: 18px 0 0; color: #5f6375; font-size: 14px;">If you need help, reply to this email or contact ${supportContact}.</p>
         </div>
@@ -147,7 +150,9 @@ function buildAppFirstReceiptEmailContent({
       '',
       'This is to ensure you can access your receipt at any time directly from the app.',
       '',
-      `View your receipt: ${sanitizedClaimUrl}`,
+      sanitizedClaimUrl
+        ? `View your receipt: ${sanitizedClaimUrl}`
+        : 'View your receipt: unavailable (invalid link configuration).',
       '',
       `Need help? Contact ${merchant.support_email || merchant.email || 'the store team'}.`,
     ].join('\n'),

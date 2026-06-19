@@ -51,6 +51,30 @@ describe('receipt claim RPC schemas', () => {
         status: 'needs_manual_review',
       }).success
     ).toBe(false);
+    expect(
+      redeemReceiptClaimResultSchema.safeParse({
+        redirectPath: 'https://evil.example/receipts',
+        status: 'ok',
+      }).success
+    ).toBe(false);
+    expect(
+      redeemReceiptClaimResultSchema.safeParse({
+        redirectPath: '//evil.example/receipts',
+        status: 'ok',
+      }).success
+    ).toBe(false);
+    expect(
+      redeemReceiptClaimResultSchema.safeParse({
+        redirectPath: '/%2f%2fevil.example/receipts',
+        status: 'ok',
+      }).success
+    ).toBe(false);
+    expect(
+      redeemReceiptClaimResultSchema.safeParse({
+        redirectPath: '/receipts/..',
+        status: 'ok',
+      }).success
+    ).toBe(false);
     expect(redeemReceiptClaimResultSchema.safeParse({}).success).toBe(false);
   });
 

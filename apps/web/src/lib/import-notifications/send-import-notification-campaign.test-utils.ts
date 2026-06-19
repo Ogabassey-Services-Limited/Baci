@@ -20,9 +20,11 @@ function createClaimDeleteQueryMock(response: { error?: Error | null } = {}) {
   const query = {
     delete: vi.fn(),
     eq: vi.fn(),
+    is: vi.fn(),
   };
   query.delete.mockReturnValue(query);
-  query.eq.mockResolvedValue({ error: response.error ?? null });
+  query.eq.mockReturnValue(query);
+  query.is.mockResolvedValue({ error: response.error ?? null });
   return query;
 }
 

@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+
+const internalRedirectPathSchema = z
+  .string()
+  .refine(
+    (value) => toSafeInternalRedirectPath(value) === value,
+    'Invalid redirect path'
+  );
 
 const receiptClaimOrderItemSchema = z.object({
   name: z.string().nullable(),
@@ -30,7 +38,7 @@ export const receiptClaimRecordSchema = z.object({
 });
 
 export const redeemReceiptClaimResultSchema = z.object({
-  redirectPath: z.string().optional(),
+  redirectPath: internalRedirectPathSchema.optional(),
   status: z.enum([
     'already_used',
     'customer_link_failed',
