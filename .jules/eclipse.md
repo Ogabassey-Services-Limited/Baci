@@ -6,3 +6,7 @@
 **Learning:** Hardcoded white text (`#FFFFFF`) on primary-colored buttons should use the `colors.textOnPrimary` token, which is explicitly defined in `theme.ts` alongside `colors.primary`.
 **Action:** Always check the theme file (`theme.ts`) for specific contrast tokens like `textOnPrimary` before falling back to general text tokens or hardcoding values.
 **Source:** `apps/mobile-admin/constants/theme.ts`
+## 2025-02-25 — [Removed hardcoded '#eee' background from Blog Manager thumbnail]
+**Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
+**Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
+**Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
