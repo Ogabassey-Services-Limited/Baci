@@ -183,8 +183,23 @@ describe('ConnectDomainScreen', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Domain already exists');
     });
+  });
 
-    expect(mocks.alert).toHaveBeenCalledWith('Error', 'Domain already exists');
+  it('shows a fallback error alert when the network request throws', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Network request failed'));
+
+    render(<ConnectDomainScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('example.com'), {
+      target: { value: 'example.com' },
+    });
+    fireEvent.click(screen.getByText('Connect Domain'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network request failed');
+    });
   });
 });
