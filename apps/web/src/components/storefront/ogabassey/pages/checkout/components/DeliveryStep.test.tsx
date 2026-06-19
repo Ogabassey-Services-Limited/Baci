@@ -2,16 +2,62 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeliveryStep } from './DeliveryStep';
 
-// Mock AddressAutocomplete
+// Mock AddressAutocomplete. Exposes a button to simulate a Places failure so
+// the manual-fallback behaviour can be exercised without a real network call.
 vi.mock('@/components/address-autocomplete', () => ({
-  AddressAutocomplete: vi.fn(({ id, value, onChange, placeholder }) => (
-    <input
-      id={id}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-    />
-  )),
+  AddressAutocomplete: vi.fn(
+    ({
+      id,
+      value,
+      onChange,
+      onSelect,
+      placeholder,
+      onError,
+    }: {
+      id?: string;
+      value?: string;
+      onChange: (value: string) => void;
+      onSelect?: (place: {
+        streetNumber: string;
+        route: string;
+        city: string;
+        state: string;
+        zip: string;
+        country: string;
+        formattedAddress: string;
+      }) => void;
+      placeholder?: string;
+      onError?: (failed: boolean) => void;
+    }) => (
+      <>
+        <input
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+        />
+        <button type="button" onClick={() => onError?.(true)}>
+          trigger places error
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onSelect?.({
+              streetNumber: '',
+              route: '',
+              city: '',
+              state: '',
+              zip: '',
+              country: 'Nigeria',
+              formattedAddress: '7 Unknown Road',
+            })
+          }
+        >
+          select place without city or state
+        </button>
+      </>
+    ),
+  ),
 }));
 
 // Mock SmartQuoteLoader
@@ -105,6 +151,91 @@ describe('DeliveryStep', () => {
       expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith(
         'Lekki Phase 1',
       );
+    });
+
+    it('lets the shopper enter State and City manually as a Places fallback', () => {
+      render(<DeliveryStep {...defaultProps} />);
+
+      // Manual entry is offered when no location has been detected yet.
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /enter state.*city manually/i,
+        }),
+      );
+
+      const stateSelect = screen.getByLabelText('State');
+      fireEvent.change(stateSelect, { target: { value: 'Lagos' } });
+      expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('Lagos');
+
+      vi.clearAllMocks();
+      const cityInput = screen.getByLabelText(/city/i);
+      fireEvent.change(cityInput, { target: { value: 'Ikeja' } });
+      expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('Ikeja');
+      expect(defaultProps.setShippingQuotes).toHaveBeenCalledWith([]);
+      expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('');
+    });
+
+    it('keeps manually entered location when the street field is edited', () => {
+      render(<DeliveryStep {...defaultProps} />);
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /enter state.*city manually/i,
+        }),
+      );
+      fireEvent.change(screen.getByLabelText('State'), {
+        target: { value: 'Lagos' },
+      });
+      fireEvent.change(screen.getByLabelText(/city/i), {
+        target: { value: 'Ikeja' },
+      });
+
+      vi.clearAllMocks();
+      fireEvent.change(
+        screen.getByRole('textbox', { name: /delivery address/i }),
+        { target: { value: 'A' } },
+      );
+
+      expect(defaultProps.setNewAddressStreet).toHaveBeenCalledWith('A');
+      expect(defaultProps.setNewAddressState).not.toHaveBeenCalledWith('');
+      expect(defaultProps.setNewAddressCity).not.toHaveBeenCalledWith('');
+      expect(defaultProps.setShippingQuotes).not.toHaveBeenCalled();
+      expect(defaultProps.setSelectedQuoteId).not.toHaveBeenCalled();
+    });
+
+    it('reveals manual State/City entry when address suggestions fail', () => {
+      render(<DeliveryStep {...defaultProps} />);
+
+      expect(screen.queryByLabelText('State')).not.toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /trigger places error/i }),
+      );
+
+      expect(screen.getByLabelText('State')).toBeInTheDocument();
+      expect(screen.getByLabelText(/city/i)).toBeInTheDocument();
+    });
+
+    it('clears stale location values when a selected place has no city or state', () => {
+      render(
+        <DeliveryStep
+          {...defaultProps}
+          newAddressState="Lagos"
+          newAddressCity="Ikeja"
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /select place without city or state/i,
+        }),
+      );
+
+      expect(defaultProps.setNewAddressStreet).toHaveBeenCalledWith(
+        '7 Unknown Road',
+      );
+      expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('');
+      expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('');
     });
 
     it('clears inferred location and quotes when manual input no longer matches', () => {
