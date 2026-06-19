@@ -70,8 +70,6 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(),
 }));
 
-const { POST } = await import('./route');
-
 describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -113,6 +111,7 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
       }
     );
 
+    const { POST } = await import('./route');
     const response = await POST(request, {
       params: Promise.resolve({ id: 'agentic_session_1' }),
     });
@@ -199,6 +198,7 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
     );
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
 
+    const { POST } = await import('./route');
     const response = await POST(request, params);
     const body = await response.json();
 
@@ -315,6 +315,7 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
       }
     );
 
+    const { POST } = await import('./route');
     const response = await POST(request, {
       params: Promise.resolve({ id: 'agentic_session_1' }),
     });

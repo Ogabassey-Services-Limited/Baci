@@ -4,7 +4,6 @@ import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { captureClientException } from '@/lib/posthog/client-exceptions';
 
 export default function AdminError({
   error,
@@ -14,10 +13,7 @@ export default function AdminError({
   reset: () => void;
 }) {
   useEffect(() => {
-    captureClientException(error, {
-      route_surface: 'admin',
-      digest: error.digest,
-    });
+    // Log the error to an error reporting service
     console.error('Admin error:', error);
   }, [error]);
 

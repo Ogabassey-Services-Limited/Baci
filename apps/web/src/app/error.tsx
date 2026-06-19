@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { captureClientException } from '@/lib/posthog/client-exceptions';
 import styles from './system-error.module.css';
 
 export default function AppError({
@@ -12,10 +11,7 @@ export default function AppError({
   reset: () => void;
 }) {
   useEffect(() => {
-    captureClientException(error, {
-      route_surface: 'app',
-      digest: error.digest,
-    });
+    // Log the error to an error reporting service
     console.error('Client-side application error:', error);
   }, [error]);
 

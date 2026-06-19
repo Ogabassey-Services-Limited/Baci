@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
-import type { ShippingLocation, ShippingQuote, SavedAddress } from '../types';
+import type { ShippingLocation, ShippingQuote, QuoteResponse, SavedAddress } from '../types';
 
 interface CartItem {
   name: string;
@@ -117,12 +116,11 @@ async function loadShippingQuotes(
     });
 
     if (res.ok) {
-      const data: unknown = await res.json();
-      const { quotes } = normalizeShippingQuoteResponse(data);
-      setShippingQuotes(quotes);
+      const data: QuoteResponse = await res.json();
+      setShippingQuotes(data.quotes.all);
 
-      if (quotes.length > 0) {
-        setSelectedQuoteId(quotes[0].id);
+      if (data.quotes.all.length > 0) {
+        setSelectedQuoteId(data.quotes.all[0].id);
       }
     } else {
       console.warn('Failed to fetch quotes:', await res.text());

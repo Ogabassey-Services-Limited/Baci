@@ -262,7 +262,7 @@ if [ "$should_run_pr_review_check" -eq 1 ] && command -v gh >/dev/null 2>&1; the
               | (($review.body // "") | ascii_downcase) as $body
               | select(
                   ($body | test("actionable comments posted:|\\bp[0-3]\\b|\\*\\*(critical|high|medium|low)\\*\\*|\\n-\\s*(critical|high|medium|low)\\b"))
-                  and ($body | test("no meaningful issues|found no meaningful issues|no actionable findings|no actionable issues|0 findings|no review content was produced|did not return a review") | not)
+                  and ($body | test("no meaningful issues|found no meaningful issues|no actionable findings|no actionable issues|0 findings") | not)
                 )
               | "  - @" + (.author.login // "unknown") + " at " + (.submittedAt // "unknown-time") + " (" + (.state // "COMMENTED") + ")"
             )

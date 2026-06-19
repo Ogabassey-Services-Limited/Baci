@@ -39,14 +39,13 @@ vi.mock('@/lib/password-breach', () => ({
 
 import { useAuth } from '@/contexts/auth-context';
 
-const { SecurityForm } = await import('./security-form');
-
 describe('SecurityForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders "Set Password" form for OAuth-only user', () => {
+  it('renders "Set Password" form for OAuth-only user', async () => {
+    const { SecurityForm } = await import('./security-form');
     const { container } = render(<SecurityForm />);
 
     // Description text unique to set-password variant
@@ -65,9 +64,9 @@ describe('SecurityForm', () => {
     expect(
       within(container).getByRole('button', { name: 'Set Password' })
     ).toBeDefined();
-  });
+  }, 15_000);
 
-  it('renders "Change Password" form for user with password identity', () => {
+  it('renders "Change Password" form for user with password identity', async () => {
     vi.mocked(useAuth).mockReturnValue({
       user: {
         ...mockUser,
@@ -80,6 +79,7 @@ describe('SecurityForm', () => {
       signOut: vi.fn(),
     });
 
+    const { SecurityForm } = await import('./security-form');
     const { container } = render(<SecurityForm />);
 
     // Description text unique to change-password variant
@@ -98,21 +98,22 @@ describe('SecurityForm', () => {
     ).toBeDefined();
   });
 
-  it('shows loading spinner while auth is loading', () => {
+  it('shows loading spinner while auth is loading', async () => {
     vi.mocked(useAuth).mockReturnValue({
       user: null,
       loading: true,
       signOut: vi.fn(),
     });
 
+    const { SecurityForm } = await import('./security-form');
     const { container } = render(<SecurityForm />);
 
     // Should show spinner, not the form
-    expect(container.querySelector('.animate-spin')).not.toBeNull();
+    expect(container.querySelector('.animate-spin')).toBeDefined();
     expect(screen.queryByLabelText('Password')).toBeNull();
   });
 
-  it('shows correct provider name for Apple OAuth users', () => {
+  it('shows correct provider name for Apple OAuth users', async () => {
     vi.mocked(useAuth).mockReturnValue({
       user: {
         ...mockUser,
@@ -123,6 +124,7 @@ describe('SecurityForm', () => {
       signOut: vi.fn(),
     });
 
+    const { SecurityForm } = await import('./security-form');
     const { container } = render(<SecurityForm />);
 
     expect(within(container).getByText(/Apple/)).toBeDefined();

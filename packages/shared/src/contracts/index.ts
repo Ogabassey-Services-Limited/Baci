@@ -1,5 +1,4 @@
 export * from './customers';
-export * from './ecommerce-analytics';
 export * from './jumia-oauth';
 export * from './merchant-settings';
 export * from './merchant-trust-profile';

@@ -3,7 +3,6 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createClient } from '@/lib/supabase/server';
-import { adminGenerateHeroImagesRequestSchema } from '@/schemas/admin-generate-hero-images';
 import { generateHeroImageBatch } from '@/services/hero-image-generator';
 
 function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
@@ -17,11 +16,6 @@ function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
  * POST /api/admin/generate-hero-images
  */
 export async function POST(request: NextRequest) {
-  const auth = await getPlatformAdminAuth();
-  if (auth.status !== 'authenticated') {
-    return toAuthErrorResponse(auth.status);
-  }
-
   try {
     const { valid, response } = await checkCsrfProtection(request);
     if (!valid) {
@@ -31,31 +25,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch (error) {
-      logger.warn({
-        message: 'Invalid hero image generation JSON payload',
-        error,
-      });
+    const auth = await getPlatformAdminAuth();
+    if (auth.status !== 'authenticated') {
+      return toAuthErrorResponse(auth.status);
+    }
+
+    const body = await request.json();
+    const { category, count = 10 } = body;
+
+    if (!category) {
       return NextResponse.json(
-        { error: 'Invalid request payload' },
+        { error: 'Category is required' },
         { status: 400 }
       );
     }
 
-    const parseResult = adminGenerateHeroImagesRequestSchema.safeParse(body);
-    if (!parseResult.success) {
+    const validCategories = [
+      'fashion',
+      'electronics',
+      'hair-extensions',
+      'home-goods',
+      'health-beauty',
+      'handmade',
+      'food-beverage',
+      'other',
+    ];
+
+    if (!validCategories.includes(category)) {
       return NextResponse.json(
         {
-          error: 'Invalid request payload',
-          details: parseResult.error.flatten(),
+          error: `Invalid category. Must be one of: ${validCategories.join(', ')}`,
         },
         { status: 400 }
       );
     }
-    const { category, count } = parseResult.data;
+
+    if (count < 1 || count > 20) {
+      return NextResponse.json(
+        { error: 'Count must be between 1 and 20' },
+        { status: 400 }
+      );
+    }
 
     logger.info({ message: 'Generating hero images batch', category, count });
 
@@ -88,12 +98,12 @@ export async function POST(request: NextRequest) {
  * GET /api/admin/generate-hero-images
  */
 export async function GET() {
-  const auth = await getPlatformAdminAuth();
-  if (auth.status !== 'authenticated') {
-    return toAuthErrorResponse(auth.status);
-  }
-
   try {
+    const auth = await getPlatformAdminAuth();
+    if (auth.status !== 'authenticated') {
+      return toAuthErrorResponse(auth.status);
+    }
+
     const supabase = await createClient();
 
     // Get statistics per category
@@ -103,14 +113,7 @@ export async function GET() {
       .eq('is_active', true);
 
     if (statsError) {
-      logger.error({
-        message: 'Hero image stats query failed',
-        error: statsError,
-      });
-      return NextResponse.json(
-        { error: 'Failed to retrieve hero image statistics' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: statsError.message }, { status: 500 });
     }
 
     // Aggregate statistics

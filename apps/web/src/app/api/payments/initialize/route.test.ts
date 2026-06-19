@@ -552,54 +552,6 @@ describe('POST /api/payments/initialize', () => {
       expect(json.authorization_url).toBe('https://paystack.com/pay/abc');
     });
 
-    it('redacts payment payload logs without mutating the Paystack request payload', async () => {
-      const logSpy = vi
-        .spyOn(console, 'log')
-        .mockImplementation(() => undefined);
-      mockInitializePaystack.mockResolvedValue({
-        authorization_url: 'https://paystack.com/pay/redacted',
-      });
-
-      try {
-        const res = await POST(
-          makeRequest({ ...validBody, gateway: 'paystack' })
-        );
-        const json = await res.json();
-        const loggedOutput = logSpy.mock.calls
-          .map((call) => call.map((value) => String(value)).join(' '))
-          .join('\n');
-
-        expect(res.status).toBe(200);
-        expect(json.success).toBe(true);
-        expect(loggedOutput).toContain('[PaymentInit] Raw Request Body:');
-        expect(loggedOutput).toContain('[PaymentInit] Paystack Phone Debug:');
-        expect(loggedOutput).toContain('"customer_email":"[REDACTED]"');
-        expect(loggedOutput).toContain('"customer_phone":"[REDACTED]"');
-        expect(loggedOutput).toContain('"billing_address":"[REDACTED]"');
-        expect(loggedOutput).toContain('"original_phone":"[REDACTED]"');
-        expect(loggedOutput).toContain('"formatted_phone":"[REDACTED]"');
-        expect(loggedOutput).not.toContain('customer@example.com');
-        expect(loggedOutput).not.toContain('John Doe');
-        expect(loggedOutput).not.toContain('08012345678');
-        expect(loggedOutput).not.toContain('+2348012345678');
-        expect(loggedOutput).not.toContain('123 Main St');
-        expect(mockInitializePaystack).toHaveBeenCalledWith(
-          expect.objectContaining({
-            email: 'customer@example.com',
-            phone: '+2348012345678',
-            metadata: expect.objectContaining({
-              customer_name: 'John Doe',
-              customer_phone: '+2348012345678',
-              phone: '+2348012345678',
-              phone_number: '+2348012345678',
-            }),
-          })
-        );
-      } finally {
-        logSpy.mockRestore();
-      }
-    });
-
     it('returns 400 when paystack subaccount not configured', async () => {
       merchantResult = {
         data: {

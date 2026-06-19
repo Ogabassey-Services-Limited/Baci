@@ -36,15 +36,15 @@ import {
 } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
-import { redactPaymentLogValue } from '@/lib/payments/redact-payment-log-value';
 import {
   calculatePlatformFee as calculatePaystackFee,
   initializeTransaction as initializePaystackPayment,
 } from '@/lib/paystack';
-import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// =============================================================================
 // Types & Constants
+// =============================================================================
 
 const PAYMENT_GATEWAYS = [
   'paystack',
@@ -80,7 +80,9 @@ const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
     defaultFeatureSettings.preferred_international_gateway,
 };
 
+// =============================================================================
 // Zod Validation Schema
+// =============================================================================
 
 const BillingAddressSchema = z
   .object({
@@ -119,7 +121,9 @@ const PaymentInitRequestSchema = z.object({
 type PaymentInitRequest = z.infer<typeof PaymentInitRequestSchema>;
 type AuthorizedPaymentInitRequest = PaymentInitRequest & { amount: number };
 
+// =============================================================================
 // Helper Functions
+// =============================================================================
 
 function createErrorResponse(
   error: string,
@@ -308,7 +312,9 @@ function parseCustomerName(fullName: string): {
   };
 }
 
+// =============================================================================
 // Gateway-Specific Payment Handlers
+// =============================================================================
 
 interface PaymentResult {
   authorization_url: string;
@@ -755,16 +761,11 @@ async function initializePaystack(
     : undefined;
 
   // Debug log to confirm what we have after formatting
-  console.log(
-    '[PaymentInit] Paystack Phone Debug:',
-    sanitizeForLog(
-      redactPaymentLogValue({
-        original_phone: data.customer_phone,
-        formatted_phone: customerPhone,
-        type: typeof customerPhone,
-      })
-    )
-  );
+  console.log('[PaymentInit] Paystack Phone Debug:', {
+    original: data.customer_phone,
+    formatted: customerPhone,
+    type: typeof customerPhone,
+  });
 
   if (!customerPhone || customerPhone.length < 5) {
     throw new Error(
@@ -878,7 +879,9 @@ async function initializeKorapay(
   };
 }
 
+// =============================================================================
 // Main Route Handler
+// =============================================================================
 
 export async function POST(request: NextRequest) {
   try {
@@ -890,7 +893,7 @@ export async function POST(request: NextRequest) {
     const body = await request.clone().json();
     console.log(
       '[PaymentInit] Raw Request Body:',
-      sanitizeForLog(redactPaymentLogValue(body))
+      JSON.stringify(body, null, 2)
     );
 
     const parseResult = PaymentInitRequestSchema.safeParse(body);

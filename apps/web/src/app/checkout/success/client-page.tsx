@@ -68,7 +68,7 @@ export function SuccessPageContent() {
             </p>
           )}
           {order?.shipping ? (
-            <p className="text-muted-foreground" data-ph-block>
+            <p className="text-muted-foreground">
               Thank you for your purchase, {order.shipping.firstName}! A
               confirmation has been sent to {order.shipping.email}.
             </p>
@@ -77,7 +77,7 @@ export function SuccessPageContent() {
         <CardContent>
           {order && (
             <div className="space-y-6">
-              <div data-ph-block>
+              <div>
                 <h3 className="font-semibold mb-2">Shipping To</h3>
                 <p className="text-sm text-muted-foreground">
                   {order.shipping.firstName} {order.shipping.lastName}
