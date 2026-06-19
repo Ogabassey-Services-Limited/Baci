@@ -242,10 +242,18 @@ export async function sendImportNotificationCampaign({
 
     if (result.success) {
       if (createdClaim) {
-        await markReceiptClaimNotificationSent({
-          claimId: createdClaim.claimId,
-          supabase,
-        });
+        try {
+          await markReceiptClaimNotificationSent({
+            claimId: createdClaim.claimId,
+            supabase,
+          });
+        } catch (error) {
+          console.error('Failed to mark receipt claim notification sent', {
+            claimId: createdClaim.claimId,
+            error,
+            importJobId,
+          });
+        }
       }
 
       sentCount += 1;

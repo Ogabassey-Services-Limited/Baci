@@ -228,6 +228,21 @@ describe('/api/storefront/receipts/claims/[token]', () => {
     expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
+  it('returns 400 for invalid redeem tokens before calling the redemption RPC', async () => {
+    const supabase = createSupabaseRpcMock({
+      data: { redirectPath: '/receipts', status: 'ok' },
+      error: null,
+    });
+    mockAuthenticatedSupabase(supabase);
+
+    const response = await POST(postRequest(), invalidParams);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid receipt claim link' });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it('rejects redeem when the signed-in email does not match the claim', async () => {
     const supabase = createSupabaseRpcMock({
       data: { status: 'email_mismatch' },

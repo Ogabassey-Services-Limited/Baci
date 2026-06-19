@@ -55,4 +55,17 @@ describe('receipt claim delivery state', () => {
       deleteReceiptClaim({ claimId: 'claim-1', supabase })
     ).rejects.toThrow('Failed to delete unsent receipt claim');
   });
+
+  it('surfaces notification-sent update failures', async () => {
+    const supabase = createReceiptClaimsTableMock({
+      error: new Error('permission denied'),
+    });
+
+    await expect(
+      markReceiptClaimNotificationSent({
+        claimId: 'claim-1',
+        supabase,
+      })
+    ).rejects.toThrow('Failed to mark receipt claim notification sent');
+  });
 });

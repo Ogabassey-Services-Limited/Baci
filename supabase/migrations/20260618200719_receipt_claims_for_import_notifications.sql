@@ -245,8 +245,18 @@ BEGIN
     AND NOT (order_id = ANY(COALESCE(p_order_ids, ARRAY[]::uuid[])));
 
   INSERT INTO public.receipt_claim_orders (receipt_claim_id, order_id)
-  SELECT v_claim_id, order_id
-  FROM unnest(COALESCE(p_order_ids, ARRAY[]::uuid[])) AS order_ids(order_id)
+  SELECT v_claim_id, requested_orders.order_id
+  FROM public.receipt_claims AS rc
+  JOIN (
+    SELECT DISTINCT order_id
+    FROM unnest(COALESCE(p_order_ids, ARRAY[]::uuid[])) AS order_ids(order_id)
+  ) AS requested_orders
+    ON true
+  JOIN public.orders AS o
+    ON o.id = requested_orders.order_id
+  WHERE rc.id = v_claim_id
+    AND o.merchant_id = rc.merchant_id
+    AND o.customer_id = rc.customer_id
   ON CONFLICT (receipt_claim_id, order_id) DO NOTHING;
 
   RETURN jsonb_build_object(

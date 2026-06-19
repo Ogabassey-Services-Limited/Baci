@@ -102,6 +102,23 @@ describe('receipt claim migration', () => {
     );
   });
 
+  it('scopes notification order attachments to the claim merchant and customer', () => {
+    const createClaimFunction = migrationSql.match(
+      /CREATE OR REPLACE FUNCTION private\.create_receipt_claim_for_import_notification\([\s\S]*?\n\$\$;/i
+    );
+
+    expect(createClaimFunction?.[0]).toBeDefined();
+    expect(createClaimFunction?.[0]).toMatch(
+      /FROM public\.receipt_claims AS rc[\s\S]*JOIN public\.orders AS o[\s\S]*ON o\.id = requested_orders\.order_id/i
+    );
+    expect(createClaimFunction?.[0]).toMatch(
+      /AND o\.merchant_id = rc\.merchant_id/i
+    );
+    expect(createClaimFunction?.[0]).toMatch(
+      /AND o\.customer_id = rc\.customer_id/i
+    );
+  });
+
   it('keeps receipt claim preview read-only for GET and server rendering', () => {
     const previewFunction = migrationSql.match(
       /CREATE OR REPLACE FUNCTION private\.preview_receipt_claim\(p_token_hash text\)[\s\S]*?\n\$\$;/i

@@ -84,6 +84,46 @@ describe('receipt claim links', () => {
     ]);
   });
 
+  it('falls back to receipt labels when order items are null', () => {
+    expect(
+      buildReceiptDeviceList([
+        {
+          order_number: '06485',
+          order_items: null,
+        },
+      ])
+    ).toEqual(['Receipt 06485']);
+  });
+
+  it('handles nullable item names and quantities without throwing', () => {
+    expect(
+      buildReceiptDeviceList([
+        {
+          order_number: '06485',
+          order_items: [
+            { name: null, quantity: null },
+            { name: '   ', quantity: 3 },
+          ],
+        },
+      ])
+    ).toEqual(['Receipt 06485', '3 x Receipt 06485']);
+  });
+
+  it('omits quantity prefixes for non-positive and single quantities', () => {
+    expect(
+      buildReceiptDeviceList([
+        {
+          order_number: '06485',
+          order_items: [
+            { name: 'iPhone 16 Pro Max', quantity: 0 },
+            { name: 'AirPods Pro', quantity: -2 },
+            { name: 'USB-C Charger', quantity: 1 },
+          ],
+        },
+      ])
+    ).toEqual(['iPhone 16 Pro Max', 'AirPods Pro', 'USB-C Charger']);
+  });
+
   it('caps long device lists with an overflow summary', () => {
     const devices = buildReceiptDeviceList(
       Array.from({ length: 12 }, (_, index) => ({
