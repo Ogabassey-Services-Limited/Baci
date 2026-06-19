@@ -214,7 +214,11 @@ jobs:
             pkg:npm/unicode-match-property-value-ecmascript,
             pkg:npm/unicode-property-aliases-ecmascript,
             pkg:npm/katex,
-            pkg:npm/robust-predicates
+            pkg:npm/robust-predicates,
+            pkg:npm/@posthog/react-native-plugin,
+            pkg:npm/@posthog/nextjs-config,
+            pkg:npm/posthog-js,
+            pkg:npm/posthog-node
 
   secrets-scan:
     name: Secret Scanning

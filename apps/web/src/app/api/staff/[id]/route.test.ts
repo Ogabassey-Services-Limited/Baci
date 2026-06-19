@@ -1,0 +1,226 @@
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockCheckCsrfProtection = vi.fn();
+const mockAuthenticateApiRequest = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
+
+type EqCall = [field: string, value: unknown];
+
+const lookupEqCalls: EqCall[] = [];
+const updateEqCalls: EqCall[] = [];
+
+const lookupSingle = vi.fn();
+const lookupEq = vi.fn((field: string, value: unknown) => {
+  lookupEqCalls.push([field, value]);
+  return { eq: lookupEq, single: lookupSingle };
+});
+const lookupSelect = vi.fn(() => ({ eq: lookupEq }));
+
+const updateSingle = vi.fn();
+const updateSelect = vi.fn(() => ({ single: updateSingle }));
+const updateEq = vi.fn((field: string, value: unknown) => {
+  updateEqCalls.push([field, value]);
+  return { eq: updateEq, select: updateSelect };
+});
+const update = vi.fn(() => ({ eq: updateEq }));
+
+const mockFrom = vi.fn((table: string) => {
+  if (table === 'staff_members') {
+    return {
+      select: lookupSelect,
+      update,
+    };
+  }
+  return { select: lookupSelect, update };
+});
+
+const MERCHANT_ID = '550e8400-e29b-41d4-a716-446655440000';
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => ({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+    },
+    from: mockFrom,
+    rpc: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  })),
+}));
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: (...args: unknown[]) =>
+    mockAuthenticateApiRequest(...args),
+  hasPermission: vi.fn(() => true),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
+  toUserAccess: vi.fn(() => ({
+    merchantId: MERCHANT_ID,
+    role: 'owner',
+    isOwner: true,
+    isStaff: false,
+    permissions: { '*': { '*': true } },
+  })),
+  parseRequestedMerchantId: vi.fn(() => ({
+    error: null,
+    merchantId: MERCHANT_ID,
+  })),
+}));
+
+function createRequest(
+  body: unknown = {
+    name: 'Updated Name',
+  },
+  headers: Record<string, string> = {}
+) {
+  return new NextRequest('https://usebaci.com/api/staff/staff-1', {
+    method: 'PATCH',
+    headers: {
+      'content-type': 'application/json',
+      ...headers,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function createRawRequest(body: string) {
+  return new NextRequest('https://usebaci.com/api/staff/staff-1', {
+    method: 'PATCH',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body,
+  });
+}
+
+describe('PATCH /api/staff/[id]', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    lookupEqCalls.length = 0;
+    updateEqCalls.length = 0;
+
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      businessName: 'TGW Enterprise',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: null,
+        permissions: { full_access: { all: true } },
+      },
+    });
+    lookupSingle.mockResolvedValue({ data: { id: 'staff-1' }, error: null });
+    updateSingle.mockResolvedValue({
+      data: { id: 'staff-1', name: 'Updated Name' },
+      error: null,
+    });
+  });
+
+  it('scopes the update mutation to the merchant after ownership lookup', async () => {
+    const { PATCH } = await import('./route');
+    const request = createRequest({ name: 'Updated Name' });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(updateEqCalls).toEqual(
+      expect.arrayContaining([
+        ['id', 'staff-1'],
+        ['merchant_id', MERCHANT_ID],
+      ])
+    );
+  });
+
+  it('returns 400 when there are no valid fields to update', async () => {
+    const { PATCH } = await import('./route');
+    const request = createRequest({ invalidField: 'value' });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'No valid fields to update',
+    });
+  });
+
+  it('returns 400 for malformed JSON request bodies', async () => {
+    const { PATCH } = await import('./route');
+    const request = createRawRequest('{');
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid JSON body',
+    });
+  });
+
+  it('returns 400 for invalid staff update payloads', async () => {
+    const { PATCH } = await import('./route');
+    const request = createRequest({ role: 'owner' });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error).toBe('Invalid staff update payload');
+    expect(payload.details.fieldErrors.role).toBeDefined();
+  });
+
+  it('returns 404 when staff member does not belong to the merchant', async () => {
+    lookupSingle.mockResolvedValueOnce({ data: null, error: null });
+    const { PATCH } = await import('./route');
+    const request = createRequest({ name: 'Updated Name' });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Staff member not found',
+    });
+  });
+
+  it('returns 401 when the user is not authenticated', async () => {
+    vi.resetModules();
+    vi.doMock('@/lib/supabase/server', () => ({
+      createClient: vi.fn(() => ({
+        auth: {
+          getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+        },
+        from: mockFrom,
+        rpc: vi.fn().mockResolvedValue({ data: {}, error: null }),
+      })),
+    }));
+
+    const { PATCH } = await import('./route');
+    const request = createRequest({ name: 'Updated Name' });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
+  });
+});
