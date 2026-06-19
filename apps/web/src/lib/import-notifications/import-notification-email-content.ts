@@ -123,14 +123,14 @@ function buildAppFirstReceiptEmailContent({
     fromName: merchant.email_sender_name || merchant.business_name || 'Orders',
     subject: 'Your Receipt Has Changed.',
     htmlContent: `
-      <div style="font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #15161f; line-height: 1.6; max-width: 640px; margin: 0 auto; padding: 28px; background: #fff7f7;">
-        <div style="background: #ffffff; border: 1px solid #f0d7d7; border-radius: 14px; padding: 28px;">
+      <div style="font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111827; line-height: 1.6; max-width: 640px; margin: 0 auto; padding: 28px; background: #f8fafc;">
+        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 28px;">
           <p style="margin: 0 0 16px;">Hello ${escapedRecipientName},</p>
           <p style="margin: 0 0 16px;">${escapedMerchantName} has moved your receipt for the following device(s) to the mobile app.</p>
           <ol style="margin: 0 0 20px; padding-left: 22px;">${deviceItemsHtml}</ol>
           <p style="margin: 0 0 24px;">This is to ensure you can access your receipt at any time directly from the app.</p>
           <p style="margin: 0 0 24px;">
-            <a href="${sanitizedClaimUrl}" style="display: inline-block; background: #e11d2e; color: #ffffff; font-weight: 700; text-decoration: none; padding: 13px 20px; border-radius: 10px;">
+            <a href="${sanitizedClaimUrl}" style="display: inline-block; background: #111827; color: #ffffff; font-weight: 700; text-decoration: none; padding: 13px 20px; border-radius: 10px;">
               View your receipt
             </a>
           </p>

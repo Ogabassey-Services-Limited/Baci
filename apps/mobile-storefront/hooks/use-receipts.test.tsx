@@ -6,16 +6,38 @@ type QueryOptions = {
   queryFn: () => Promise<unknown>;
 };
 
+type MockAuthState = {
+  merchantId: string | null;
+  user: { id: string } | null;
+};
+
 const mockUseQuery = jest.fn((options: unknown) => options);
-const mockWithSupabaseRetry = jest.fn(async (callback: () => Promise<unknown>) =>
-  callback()
+const mockWithSupabaseRetry = jest.fn(
+  async (callback: () => Promise<unknown>) => callback()
 );
+const mockAuthState: MockAuthState = {
+  merchantId: 'merchant-1',
+  user: { id: 'auth-user-1' },
+};
 const mockOrder = jest.fn<() => Promise<{ data: unknown[]; error: null }>>();
-const mockEq = jest.fn((_field: string, _value: string) => ({
+const mockSingle = jest.fn<() => Promise<{ data: unknown; error: null }>>();
+const mockLimit = jest.fn<() => Promise<{ data: unknown[]; error: null }>>();
+const mockQueryBuilder = {
+  eq: jest.fn((_field: string, _value: string) => mockQueryBuilder),
+  limit: mockLimit,
   order: mockOrder,
-}));
-const mockSelect = jest.fn((_columns: string) => ({ eq: mockEq }));
-const mockFrom = jest.fn((_table: string) => ({ select: mockSelect }));
+  select: jest.fn((_columns: string) => mockQueryBuilder),
+  single: mockSingle,
+};
+const mockFrom = jest.fn((_table: string) => mockQueryBuilder);
+const mockUseAuthStore = Object.assign(
+  jest.fn((selector: (state: MockAuthState) => unknown) =>
+    selector(mockAuthState)
+  ),
+  {
+    getState: jest.fn(() => mockAuthState),
+  }
+);
 
 jest.mock('@tanstack/react-query', () => ({
   useQuery: (options: unknown) => mockUseQuery(options),
@@ -27,7 +49,7 @@ jest.mock('@/lib/api', () => ({
 }));
 
 jest.mock('@/lib/config', () => ({
-  CONFIG: { MERCHANT_SLUG: 'ogabassey' },
+  CONFIG: { MERCHANT_ID: 'merchant-1', MERCHANT_SLUG: 'ogabassey' },
 }));
 
 jest.mock('@/lib/logger', () => ({
@@ -38,13 +60,21 @@ jest.mock('@/lib/supabase', () => ({
   supabase: { from: mockFrom },
 }));
 
+jest.mock('@/stores/auth-store', () => ({
+  useAuthStore: mockUseAuthStore,
+}));
+
 describe('useReceipts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthState.merchantId = 'merchant-1';
+    mockAuthState.user = { id: 'auth-user-1' };
     mockOrder.mockResolvedValue({ data: [], error: null });
+    mockSingle.mockResolvedValue({ data: null, error: null });
+    mockLimit.mockResolvedValue({ data: [], error: null });
   });
 
-  it('loads receipts through the customer linked to the authenticated user', async () => {
+  it('loads receipts through the customer linked to the authenticated user and merchant', async () => {
     const { useReceipts } = await import('@/hooks/use-receipts');
 
     function Probe() {
@@ -57,10 +87,66 @@ describe('useReceipts', () => {
     await options.queryFn();
 
     expect(mockFrom).toHaveBeenCalledWith('orders');
-    expect(mockSelect).toHaveBeenCalledWith(
+    expect(mockQueryBuilder.select).toHaveBeenCalledWith(
       expect.stringContaining('customers!inner')
     );
-    expect(mockEq).toHaveBeenCalledWith('customers.user_id', 'auth-user-1');
+    expect(mockQueryBuilder.eq).toHaveBeenCalledWith(
+      'customers.user_id',
+      'auth-user-1'
+    );
+    expect(mockQueryBuilder.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
     expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
+  });
+
+  it('scopes receipt detail prefetches to the current authenticated user and merchant', async () => {
+    const { receiptDetailQueryOptions } = await import('@/hooks/use-receipts');
+    mockSingle.mockResolvedValue({
+      data: {
+        amount_paid: 95000,
+        created_at: '2026-05-24T10:00:00.000Z',
+        currency: 'NGN',
+        customer_email: 'ada@example.com',
+        customer_name: 'Ada',
+        customer_phone: null,
+        discount_amount: 0,
+        id: 'order-1',
+        is_credit_order: false,
+        notes: null,
+        order_items: [],
+        order_number: 'OG-1001',
+        payment_method: null,
+        payment_status: 'paid',
+        shipping_address: null,
+        shipping_fee: 0,
+        subtotal: 95000,
+        tax_amount: 0,
+        total: 95000,
+      },
+      error: null,
+    });
+
+    const options = receiptDetailQueryOptions('order-1') as QueryOptions;
+    await options.queryFn();
+
+    expect(options).toEqual(
+      expect.objectContaining({
+        queryKey: ['receipt-detail', 'order-1', 'auth-user-1', 'merchant-1'],
+      })
+    );
+    expect(mockQueryBuilder.select).toHaveBeenCalledWith(
+      expect.stringContaining('customers!inner')
+    );
+    expect(mockQueryBuilder.eq).toHaveBeenCalledWith('id', 'order-1');
+    expect(mockQueryBuilder.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(mockQueryBuilder.eq).toHaveBeenCalledWith(
+      'customers.user_id',
+      'auth-user-1'
+    );
   });
 });

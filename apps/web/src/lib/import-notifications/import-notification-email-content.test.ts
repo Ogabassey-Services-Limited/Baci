@@ -46,6 +46,9 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain(
       'https://ogabassey.com/receipts/claim/claim-token'
     );
+    expect(content.htmlContent).not.toContain('#e11d2e');
+    expect(content.htmlContent).not.toContain('#fff7f7');
+    expect(content.htmlContent).not.toContain('#f0d7d7');
   });
 
   it('defaults to site-mode receipt links and honors a custom receipt path', () => {
