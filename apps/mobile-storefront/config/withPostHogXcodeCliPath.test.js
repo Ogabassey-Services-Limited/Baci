@@ -118,6 +118,10 @@ PODS_SCRIPT="\${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 
     expect(dsymScript).toContain('export PROJECT_ROOT="$PROJECT_DIR"/..');
     expect(dsymScript).toContain(EXPECTED_PATH_EXPORT);
+    expect(dsymScript).toContain('if ! /bin/sh "$PODS_SCRIPT"; then');
+    expect(dsymScript).toContain(
+      'warning: PostHog dSYM upload failed; continuing archive.'
+    );
     expect(dsymUploadPhase.inputPaths).toContain(EXPECTED_DSYM_INPUT_PATH);
   });
 
@@ -136,6 +140,23 @@ PODS_SCRIPT="\${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
     );
     expect(dsymScript).toContain('export PROJECT_ROOT="$PROJECT_DIR"/..');
     expect(dsymUploadPhase.inputPaths).toEqual([EXPECTED_DSYM_INPUT_PATH]);
+  });
+
+  it('does not duplicate the dSYM upload failure warning wrapper', () => {
+    const { dsymScript } = runPluginWithPhases({
+      dsymShellScript: `# Upload iOS dSYMs to PostHog so native crashes can be symbolicated.
+export PROJECT_ROOT="$PROJECT_DIR"/..
+${EXPECTED_PATH_EXPORT}
+PODS_SCRIPT="\${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+if ! /bin/sh "$PODS_SCRIPT"; then
+  echo "warning: PostHog dSYM upload failed; continuing archive. Native crash symbolication may be incomplete."
+fi
+`,
+    });
+
+    expect(
+      dsymScript.match(/PostHog dSYM upload failed/g)
+    ).toHaveLength(1);
   });
 
   it('looks up the generated dSYM upload phase by Xcode comment and type', () => {

@@ -10,6 +10,8 @@ const POSTHOG_CLI_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PROJECT_ROOT/../../node_modules/.bin:$PATH"';
 const LEGACY_APP_ONLY_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"';
+const POSTHOG_DSYM_UPLOAD_WARNING =
+  'PostHog dSYM upload failed; continuing archive. Native crash symbolication may be incomplete.';
 const POSTHOG_DSYM_INPUT_PATH = `\${DWARF_DSYM_FOLDER_PATH}/\${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/\${PRODUCT_NAME}`;
 const QUOTED_POSTHOG_DSYM_INPUT_PATH = `"${POSTHOG_DSYM_INPUT_PATH}"`;
 
@@ -67,6 +69,45 @@ function patchShellPhaseCliPath(phase, marker) {
   }
 }
 
+function patchPostHogDsymUploadBestEffort(script) {
+  if (
+    !script.includes(POSTHOG_DSYM_UPLOAD_SCRIPT) ||
+    script.includes(POSTHOG_DSYM_UPLOAD_WARNING)
+  ) {
+    return script;
+  }
+
+  return script
+    .replace(
+      '/bin/sh "$PODS_SCRIPT"',
+      `if ! /bin/sh "$PODS_SCRIPT"; then
+  echo "warning: ${POSTHOG_DSYM_UPLOAD_WARNING}"
+fi`
+    )
+    .replace(
+      '/bin/sh "$SPM_SCRIPT"',
+      `if ! /bin/sh "$SPM_SCRIPT"; then
+  echo "warning: ${POSTHOG_DSYM_UPLOAD_WARNING}"
+fi`
+    );
+}
+
+function patchDsymUploadPhaseScript(phase) {
+  const shellScript = parseShellScript(phase?.shellScript);
+  if (!shellScript) {
+    return;
+  }
+
+  const withCliPath = patchPostHogCliPath(
+    shellScript,
+    POSTHOG_DSYM_UPLOAD_SCRIPT
+  );
+  const patchedScript = patchPostHogDsymUploadBestEffort(withCliPath);
+  if (patchedScript !== shellScript) {
+    phase.shellScript = JSON.stringify(patchedScript);
+  }
+}
+
 function patchDsymUploadInputPath(phase) {
   if (!phase) {
     return;
@@ -95,7 +136,7 @@ const withPostHogXcodeCliPath = (config) =>
     );
 
     patchShellPhaseCliPath(bundlePhase, POSTHOG_XCODE_SCRIPT);
-    patchShellPhaseCliPath(dsymUploadPhase, POSTHOG_DSYM_UPLOAD_SCRIPT);
+    patchDsymUploadPhaseScript(dsymUploadPhase);
     patchDsymUploadInputPath(dsymUploadPhase);
 
     return config;
