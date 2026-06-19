@@ -41,6 +41,10 @@ const mockIsSavedVtuCardChargeProcessing = jest.fn();
 const mockRequiresSavedVtuCardAuthorization = jest.fn();
 // Exposed by the mocked keyboard hook so future interaction tests can assert dismissal.
 const mockDismissKeyboard = jest.fn();
+const mockKeyboardState = {
+  isKeyboardVisible: false,
+  keyboardHeight: 0,
+};
 const mockWaitForVtuConfirmation =
   jest.fn<
     (...args: unknown[]) => Promise<{
@@ -91,8 +95,7 @@ jest.mock('@/components/useColorScheme', () => ({
 jest.mock('@/hooks/use-keyboard', () => ({
   useKeyboard: () => ({
     dismissKeyboard: mockDismissKeyboard,
-    isKeyboardVisible: false,
-    keyboardHeight: 0,
+    ...mockKeyboardState,
   }),
 }));
 
@@ -137,6 +140,8 @@ jest.mock('./UtilityPaymentOptions', () => {
 describe('AirtimeForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockKeyboardState.isKeyboardVisible = false;
+    mockKeyboardState.keyboardHeight = 0;
     mockUseUtilityPayment.mockReturnValue({
       cards: [],
       isLoadingCards: false,
@@ -293,6 +298,15 @@ describe('AirtimeForm', () => {
     expect(screen.getByText('₦1,000')).toHaveStyle({
       color: BRAND.onPrimary,
     });
+  });
+
+  it('hides the payment footer while the keyboard is visible', () => {
+    mockKeyboardState.isKeyboardVisible = true;
+    mockKeyboardState.keyboardHeight = 320;
+
+    render(<AirtimeForm onSuccess={jest.fn()} />);
+
+    expect(screen.queryByText('Continue to Payment')).toBeNull();
   });
 
   it('surfaces saved-card airtime purchases that are still processing', async () => {

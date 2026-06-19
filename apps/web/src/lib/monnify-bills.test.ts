@@ -472,10 +472,11 @@ describe('Monnify Bills Client', () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
+      const fetchSpy = vi.fn().mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue(mockResponse),
       });
+      global.fetch = fetchSpy;
 
       const result = await verifyBillCustomer(
         'IKEDC',
@@ -655,10 +656,11 @@ describe('Monnify Bills Client', () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
+      const fetchSpy = vi.fn().mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue(mockResponse),
       });
+      global.fetch = fetchSpy;
 
       const result = await purchaseBill(
         'IKEDC',
@@ -679,6 +681,16 @@ describe('Monnify Bills Client', () => {
         message: 'Transaction Completed Successfully',
         status: 'successful',
         amount: 2000,
+      });
+      expect(
+        JSON.parse(String((fetchSpy.mock.calls[0][1] as RequestInit).body))
+      ).toMatchObject({
+        amount: 2000,
+        vendAmount: 2000,
+        productCode: 'IKEDC-PREPAID',
+        customerId: '12345678',
+        vendReference: 'BACI-REF-123',
+        validationReference: 'VAL-123',
       });
     });
 

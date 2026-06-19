@@ -427,6 +427,9 @@ export async function purchaseBill(
   try {
     const payload = vendRequestSchema.parse({
       productCode,
+      // Monnify docs name this vendAmount, but the live VAS vend API rejects
+      // airtime without amount. Send both with the same validated value.
+      amount,
       vendAmount: amount,
       customerId: customerIdentifier,
       vendReference: requestReference,
