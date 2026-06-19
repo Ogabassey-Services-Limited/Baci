@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import ReceiptClaimPage, { ReceiptClaimPreviewSection } from './page';
+import ReceiptClaimPage, {
+  generateMetadata,
+  ReceiptClaimPreviewSection,
+} from './page';
 
 const mockCreateClient = vi.fn();
 const mockLoadReceiptClaimPreview = vi.fn();
@@ -66,6 +69,15 @@ describe('ReceiptClaimPage server wrapper', () => {
     expect(screen.getByText('token:claim-token')).toBeInTheDocument();
     expect(screen.getByText('error:none')).toBeInTheDocument();
     expect(screen.getByText('name:Bassey John')).toBeInTheDocument();
+  });
+
+  it('prevents tokenized receipt claim pages from being indexed', () => {
+    expect(generateMetadata()).toMatchObject({
+      robots: {
+        follow: false,
+        index: false,
+      },
+    });
   });
 
   it('renders an invalid-link error without creating a Supabase client', async () => {

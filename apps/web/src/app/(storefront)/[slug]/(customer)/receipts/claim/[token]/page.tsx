@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import {
   Card,
@@ -15,6 +16,15 @@ import ReceiptClaimPageClient from './receipt-claim-page-client';
 
 interface ReceiptClaimPageProps {
   params: Promise<{ token: string }>;
+}
+
+export function generateMetadata(): Metadata {
+  return {
+    robots: {
+      follow: false,
+      index: false,
+    },
+  };
 }
 
 function ReceiptClaimLoadingShell() {
