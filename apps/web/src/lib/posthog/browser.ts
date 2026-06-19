@@ -46,7 +46,7 @@ export function initializePostHogBrowser(
 
   isPostHogBrowserDisabled = false;
 
-  const clientConfig = buildPostHogClientConfig(env);
+  const clientConfig = buildPostHogClientConfig(env, projectToken);
   const clientLoaded = clientConfig.loaded;
 
   try {
