@@ -455,7 +455,9 @@ export function generateReceiptPDF(
     lines: [
       getMerchantAddressLine(merchant, documentKind),
       merchant.support_phone || merchant.phone,
-      merchant.support_email || merchant.email,
+      // Public support email only — never leak `merchant.email` (the private
+      // login address) onto a customer-facing receipt.
+      merchant.support_email || null,
       merchant.tax_identification_number
         ? `TIN: ${merchant.tax_identification_number}`
         : null,
