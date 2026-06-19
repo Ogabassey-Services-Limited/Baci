@@ -15,6 +15,7 @@ import {
   purchaseBill as monnifyPurchaseBill,
 } from '@/lib/monnify-bills';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
+import { getProviderVtuCommissionRate } from '@/lib/vtu-commission-rates';
 import { awardVtuAirtimeLoyaltyPoints } from '@/lib/vtu-loyalty-points-award';
 import { VTU_TYPE_LABELS } from '@/lib/vtu-pending-transaction';
 
@@ -105,6 +106,12 @@ interface VtuTransactionRow {
   status: 'pending' | 'processing' | 'successful' | 'failed';
   transaction_id: string | null;
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
+}
+
+interface VtuFallbackCreditCorrection {
+  customerCashback: number;
+  merchantCommission: number;
+  originalMerchantCommission: number;
 }
 
 interface CreditWalletResult {
@@ -800,6 +807,106 @@ function isMonnifyTransientVendError(error: unknown) {
 
 function waitForRetryBackoff(delayMs: number) {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function getFiniteMetadataNumber(
+  metadata: Record<string, unknown>,
+  key: string
+) {
+  const value = metadata[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function calculateProviderMerchantEarning({
+  amount,
+  merchantSplit,
+  provider,
+  providerSource,
+}: {
+  amount: number;
+  merchantSplit: number;
+  provider: string;
+  providerSource: 'kuda' | 'monnify';
+}) {
+  const { cap, rate } = getProviderVtuCommissionRate(
+    provider,
+    'AIRTIME',
+    providerSource
+  );
+  const totalCommission = cap ? Math.min(amount * rate, cap) : amount * rate;
+
+  return roundMoney(totalCommission * (merchantSplit / 100));
+}
+
+function resolveKudaFallbackCreditCorrection({
+  metadata,
+  row,
+}: {
+  metadata: Record<string, unknown>;
+  row: VtuTransactionRow;
+}): VtuFallbackCreditCorrection | null {
+  if (
+    row.type !== 'airtime' ||
+    metadata.providerFallback !== 'monnify_airtime_to_kuda'
+  ) {
+    return null;
+  }
+
+  const amount = Number(row.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  const originalMerchantCommission =
+    getFiniteMetadataNumber(metadata, 'originalMerchantCommission') ??
+    roundMoney(
+      Number(row.merchant_commission ?? 0) + Number(row.customer_cashback ?? 0)
+    );
+  const monnifyMerchantEarning = calculateProviderMerchantEarning({
+    amount,
+    merchantSplit: 100,
+    provider: row.network_provider,
+    providerSource: 'monnify',
+  });
+  const inferredMerchantSplit =
+    monnifyMerchantEarning > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            (originalMerchantCommission / monnifyMerchantEarning) * 100
+          )
+        )
+      : 50;
+  const kudaMerchantEarning = calculateProviderMerchantEarning({
+    amount,
+    merchantSplit: inferredMerchantSplit,
+    provider: row.network_provider,
+    providerSource: 'kuda',
+  });
+  const fallbackCashbackRate =
+    getFiniteMetadataNumber(metadata, 'customerCashbackRate') ??
+    (originalMerchantCommission > 0
+      ? (Number(row.customer_cashback ?? 0) / originalMerchantCommission) * 100
+      : 0);
+  const cashbackEnabled =
+    metadata.customerCashbackEnabled === true ||
+    (metadata.customerCashbackEnabled !== false &&
+      Number(row.customer_cashback ?? 0) > 0);
+  const customerCashback =
+    cashbackEnabled && row.customer_id
+      ? roundMoney(kudaMerchantEarning * (fallbackCashbackRate / 100))
+      : 0;
+
+  return {
+    customerCashback,
+    merchantCommission: roundMoney(kudaMerchantEarning - customerCashback),
+    originalMerchantCommission: kudaMerchantEarning,
+  };
 }
 
 async function updateVtuPurchaseResultWithRetry({
@@ -2029,6 +2136,34 @@ type ProviderNormalizationResult =
   | { provider: NormalizedProvider }
   | { failure: PurchaseResult };
 
+type VtuPurchaseResult = PurchaseResult & {
+  metadataPatch?: Record<string, unknown>;
+};
+
+function isMonnifyAirtimeKudaFallbackEligible(
+  row: VtuTransactionRow,
+  monnifyResult: PurchaseResult
+) {
+  if (
+    row.type !== 'airtime' ||
+    monnifyResult.success ||
+    monnifyResult.status !== 'failed' ||
+    row.amount <= 0
+  ) {
+    return false;
+  }
+
+  const providerErrorDetail = monnifyResult.providerErrorDetail?.trim();
+  if (!providerErrorDetail) {
+    return false;
+  }
+
+  return (
+    /\b400\b/i.test(providerErrorDetail) &&
+    /(?:vend\s*)?amount must be greater than zero/i.test(providerErrorDetail)
+  );
+}
+
 function normalizeVtuProviderOrError(
   row: VtuTransactionRow
 ): ProviderNormalizationResult {
@@ -2049,10 +2184,10 @@ function normalizeVtuProviderOrError(
   return { provider };
 }
 
-function executeVtuPurchase(
+async function executeVtuPurchase(
   row: VtuTransactionRow,
   merchantName: string
-): Promise<PurchaseResult> {
+): Promise<VtuPurchaseResult> {
   const customerFirstName = getCustomerFirstName(row, merchantName);
 
   if (row.metadata?.provider === 'monnify') {
@@ -2092,7 +2227,7 @@ function executeVtuPurchase(
       });
     }
 
-    return monnifyPurchaseBill(
+    const monnifyResult = await monnifyPurchaseBill(
       billerCode,
       productCode,
       row.customer_identifier,
@@ -2102,6 +2237,35 @@ function executeVtuPurchase(
       getCustomerPhoneForBill(row),
       validationReference
     );
+
+    if (!isMonnifyAirtimeKudaFallbackEligible(row, monnifyResult)) {
+      return monnifyResult;
+    }
+
+    const normalized = normalizeVtuProviderOrError(row);
+    if ('failure' in normalized) {
+      return monnifyResult;
+    }
+
+    const kudaFallbackResult = await purchaseAirtime(
+      row.phone_number,
+      row.amount,
+      normalized.provider,
+      customerFirstName,
+      row.request_reference
+    );
+
+    return {
+      ...kudaFallbackResult,
+      metadataPatch: {
+        fulfillmentProvider: 'kuda',
+        monnifyFallbackError:
+          monnifyResult.providerErrorDetail ?? monnifyResult.message,
+        originalProvider: 'monnify',
+        provider: 'kuda',
+        providerFallback: 'monnify_airtime_to_kuda',
+      },
+    };
   }
 
   if (row.type === 'airtime') {
@@ -2475,7 +2639,7 @@ export async function fulfillPendingVtuTransaction({
     row.metadata = debitedMetadata;
   }
 
-  let result: PurchaseResult;
+  let result: VtuPurchaseResult;
   try {
     result = await executeVtuPurchase(
       row,
@@ -2541,6 +2705,7 @@ export async function fulfillPendingVtuTransaction({
     : result.providerErrorDetail?.trim();
   const updatedMetadata: Record<string, unknown> = {
     ...(row.metadata ?? {}),
+    ...(result.metadataPatch ?? {}),
     ...(voucherPin && { voucherPin }),
   };
   if (providerErrorDetail) {
@@ -2592,7 +2757,9 @@ export async function fulfillPendingVtuTransaction({
   }
 
   const purchaseUpdatePayload: {
+    customer_cashback?: number;
     error_message: string | null;
+    merchant_commission?: number;
     metadata: Record<string, unknown>;
     status: 'successful' | 'failed';
     transaction_id: string | null;
@@ -2602,6 +2769,20 @@ export async function fulfillPendingVtuTransaction({
     status: result.success ? 'successful' : 'failed',
     transaction_id: result.transactionId ?? row.transaction_id,
   };
+  const fallbackCreditCorrection = result.success
+    ? resolveKudaFallbackCreditCorrection({ metadata: updatedMetadata, row })
+    : null;
+  if (fallbackCreditCorrection) {
+    updatedMetadata.originalMerchantCommission =
+      fallbackCreditCorrection.originalMerchantCommission;
+    updatedMetadata.commissionProvider = 'kuda';
+    purchaseUpdatePayload.customer_cashback =
+      fallbackCreditCorrection.customerCashback;
+    purchaseUpdatePayload.merchant_commission =
+      fallbackCreditCorrection.merchantCommission;
+    row.customer_cashback = fallbackCreditCorrection.customerCashback;
+    row.merchant_commission = fallbackCreditCorrection.merchantCommission;
+  }
   const purchaseUpdateError = await updateVtuPurchaseResultWithRetry({
     payload: purchaseUpdatePayload,
     expectedStatus: 'processing',
