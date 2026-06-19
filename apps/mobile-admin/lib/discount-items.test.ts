@@ -21,7 +21,7 @@ function createSelectableItemQuery(result?: {
     id: string;
     name: string;
     description?: string;
-    images?: string[] | null;
+    images?: Array<string | { url?: string | null } | null> | null;
   }>;
   error?: Error | null;
 }) {
@@ -126,6 +126,44 @@ describe('fetchSelectableItems', () => {
     ]);
   });
 
+  it('normalizes object product images to string URLs for ranked product selectors', async () => {
+    mockFetchAdminProductSearchRows.mockResolvedValue({
+      nextCursor: null,
+      rows: [
+        {
+          id: 'product-1',
+          name: 'iPhone 15 Pro',
+          description: 'Apple phone',
+          images: [
+            { url: ' https://cdn.usebaci.com/product-1.jpg ' },
+            null,
+            { url: null },
+            ' https://cdn.usebaci.com/product-1-alt.jpg ',
+          ],
+        },
+      ],
+      totalCount: 1,
+    });
+
+    await expect(
+      fetchSelectableItems({
+        merchantId: 'merchant-1',
+        type: 'product',
+        search: 'iphone',
+      })
+    ).resolves.toEqual([
+      {
+        id: 'product-1',
+        name: 'iPhone 15 Pro',
+        description: 'Apple phone',
+        images: [
+          'https://cdn.usebaci.com/product-1.jpg',
+          'https://cdn.usebaci.com/product-1-alt.jpg',
+        ],
+      },
+    ]);
+  });
+
   it('uses the direct product query fallback for empty product search', async () => {
     const query = createSelectableItemQuery({
       data: [
@@ -133,7 +171,7 @@ describe('fetchSelectableItems', () => {
           id: 'product-1',
           name: 'First Product',
           description: 'Default product',
-          images: null,
+          images: [{ url: 'https://cdn.usebaci.com/default.jpg' }],
         },
       ],
     });
@@ -150,7 +188,7 @@ describe('fetchSelectableItems', () => {
         id: 'product-1',
         name: 'First Product',
         description: 'Default product',
-        images: [],
+        images: ['https://cdn.usebaci.com/default.jpg'],
       },
     ]);
 

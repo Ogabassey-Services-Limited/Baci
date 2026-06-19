@@ -29,10 +29,16 @@ function escapePostgrestIlikePattern(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');
 }
 
+function quotePostgrestFilterValue(value: string): string {
+  return `"${value.replace(/[\\"]/g, '\\$&')}"`;
+}
+
 function buildAdminOrderSearchFilter(searchTerm: string): string {
   const escapedTerm = escapePostgrestIlikePattern(searchTerm);
+  const quotedPattern = quotePostgrestFilterValue(`%${escapedTerm}%`);
+
   return ORDER_SEARCH_FIELDS.map(
-    (field) => `${field}.ilike.%${escapedTerm}%`
+    (field) => `${field}.ilike.${quotedPattern}`
   ).join(',');
 }
 

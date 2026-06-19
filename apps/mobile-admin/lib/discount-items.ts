@@ -10,13 +10,46 @@ export interface SelectableItem {
   images: string[];
 }
 
+type SelectableProductImage =
+  | string
+  | { url?: string | null }
+  | null
+  | undefined;
+
 interface SelectableProductRow extends Omit<SelectableItem, 'images'> {
-  images: string[] | null;
+  images: SelectableProductImage[] | null;
 }
 
 const SELECTABLE_PRODUCT_COLUMNS = 'id, name, description, images';
 const SELECTABLE_CATEGORY_COLUMNS = 'id, name, description';
 const SELECTABLE_ITEM_LIMIT = 50;
+
+function normalizeSelectableProductImages(
+  images: SelectableProductRow['images']
+): string[] {
+  if (!images) {
+    return [];
+  }
+
+  return images.flatMap((image) => {
+    if (typeof image === 'string') {
+      const trimmedImage = image.trim();
+      return trimmedImage ? [trimmedImage] : [];
+    }
+
+    const imageUrl = image?.url?.trim();
+    return imageUrl ? [imageUrl] : [];
+  });
+}
+
+function toSelectableProductItem(item: SelectableProductRow): SelectableItem {
+  return {
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    images: normalizeSelectableProductImages(item.images),
+  };
+}
 
 export async function fetchSelectableItems(params: {
   merchantId: string;
@@ -38,12 +71,7 @@ export async function fetchSelectableItems(params: {
         selectColumns: SELECTABLE_PRODUCT_COLUMNS,
       });
 
-      return page.rows.map((item) => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        images: item.images || [],
-      }));
+      return page.rows.map(toSelectableProductItem);
     }
 
     const { data, error } = await supabase
@@ -55,12 +83,9 @@ export async function fetchSelectableItems(params: {
 
     if (error) throw error;
 
-    return ((data as SelectableItem[] | null) ?? []).map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      images: item.images || [],
-    }));
+    return ((data as SelectableProductRow[] | null) ?? []).map(
+      toSelectableProductItem
+    );
   }
 
   const { data, error } = await supabase
