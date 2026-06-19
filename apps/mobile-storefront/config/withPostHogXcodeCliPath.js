@@ -17,6 +17,8 @@ const LEGACY_APP_ONLY_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"';
 const POSTHOG_DSYM_UPLOAD_WARNING =
   'PostHog dSYM upload failed; continuing archive. Native crash symbolication may be incomplete.';
+const POSTHOG_DSYM_BEST_EFFORT_MARKER =
+  'PostHog dSYM upload is best-effort; never fail the app archive.';
 const POSTHOG_DSYM_INPUT_PATH = `\${DWARF_DSYM_FOLDER_PATH}/\${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/\${PRODUCT_NAME}`;
 const QUOTED_POSTHOG_DSYM_INPUT_PATH = `"${POSTHOG_DSYM_INPUT_PATH}"`;
 
@@ -79,6 +81,14 @@ function patchPostHogDsymUploadBestEffort(script) {
     return script;
   }
 
+  let bestEffortScript = script;
+  if (!bestEffortScript.includes(POSTHOG_DSYM_BEST_EFFORT_MARKER)) {
+    const bestEffortHeader = `# ${POSTHOG_DSYM_BEST_EFFORT_MARKER}\nset +e`;
+    bestEffortScript = bestEffortScript.startsWith('#!')
+      ? bestEffortScript.replace(/\n/, `\n${bestEffortHeader}\n`)
+      : `${bestEffortHeader}\n${bestEffortScript}`;
+  }
+
   const wrapCommand = (line, command) => {
     if (line.trim() !== command) {
       return line;
@@ -90,15 +100,19 @@ ${indent}  echo "warning: ${POSTHOG_DSYM_UPLOAD_WARNING}"
 ${indent}fi`;
   };
 
-  return ['/bin/sh "$PODS_SCRIPT"', '/bin/sh "$SPM_SCRIPT"'].reduce(
+  const wrappedScript = ['/bin/sh "$PODS_SCRIPT"', '/bin/sh "$SPM_SCRIPT"'].reduce(
     (patchedScript, command) => {
       return patchedScript
         .split('\n')
         .map((line) => wrapCommand(line, command))
         .join('\n');
     },
-    script
+    bestEffortScript
   );
+
+  return /^\s*exit 0\s*$/m.test(wrappedScript)
+    ? wrappedScript
+    : `${wrappedScript.trimEnd()}\nexit 0\n`;
 }
 
 function patchDsymUploadPhaseScript(phase) {

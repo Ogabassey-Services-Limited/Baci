@@ -150,11 +150,16 @@ SPM_SCRIPT="\${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-to
 
     expect(dsymScript).toContain('export PROJECT_ROOT="$PROJECT_DIR"/..');
     expect(dsymScript).toContain(EXPECTED_PATH_EXPORT);
+    expect(dsymScript).toContain(
+      'PostHog dSYM upload is best-effort; never fail the app archive.'
+    );
+    expect(dsymScript).toContain('set +e');
     expect(dsymScript).toContain('if ! /bin/sh "$PODS_SCRIPT"; then');
     expect(dsymScript).toContain('if ! /bin/sh "$SPM_SCRIPT"; then');
     expect(dsymScript).toContain(
       'warning: PostHog dSYM upload failed; continuing archive.'
     );
+    expect(dsymScript.trimEnd().endsWith('exit 0')).toBe(true);
     expect(dsymUploadPhase.inputPaths).toContain(EXPECTED_DSYM_INPUT_PATH);
   });
 
