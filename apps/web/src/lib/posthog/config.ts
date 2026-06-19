@@ -17,6 +17,18 @@ const RESERVED_POSTHOG_PROXY_PATH_PREFIXES = [
 
 export type PostHogEnv = Record<string, string | undefined>;
 
+export function getPostHogBrowserEnv(): PostHogEnv {
+  return {
+    NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:
+      process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+    NEXT_PUBLIC_POSTHOG_PROXY_PATH: process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH,
+    NEXT_PUBLIC_POSTHOG_UI_HOST: process.env.NEXT_PUBLIC_POSTHOG_UI_HOST,
+    NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+    NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV,
+    NODE_ENV: process.env.NODE_ENV,
+  };
+}
+
 export function normalizePostHogProxyPath(value?: string | null): string {
   const trimmed = value?.trim();
 

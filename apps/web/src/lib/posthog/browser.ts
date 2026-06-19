@@ -6,6 +6,7 @@ const MISSING_TOKEN_WARNING =
   '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.';
 
 let hasInitializedPostHogBrowser = false;
+let lastCapturedPostHogPageviewUrl: string | undefined;
 
 export function initializePostHogBrowser(
   env: PostHogEnv = process.env,
@@ -43,7 +44,13 @@ export function capturePostHogPageview(currentUrl?: string) {
     return;
   }
 
+  if (lastCapturedPostHogPageviewUrl === resolvedUrl) {
+    return;
+  }
+
+  lastCapturedPostHogPageviewUrl = resolvedUrl;
   posthog.capture('$pageview', {
     $current_url: resolvedUrl,
+    app_surface: 'web',
   });
 }

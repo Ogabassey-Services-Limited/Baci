@@ -60,6 +60,35 @@ describe('initializePostHogBrowser', () => {
     expect(mocks.posthogCapture).toHaveBeenCalledOnce();
     expect(mocks.posthogCapture).toHaveBeenCalledWith('$pageview', {
       $current_url: 'https://usebaci.com/pricing?plan=starter',
+      app_surface: 'web',
+    });
+  });
+
+  it('dedupes only consecutive pageview captures for the same URL', async () => {
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    };
+    const { capturePostHogPageview, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    initializePostHogBrowser(env);
+    capturePostHogPageview('https://usebaci.com/pricing');
+    capturePostHogPageview('https://usebaci.com/pricing');
+    capturePostHogPageview('https://usebaci.com/login');
+    capturePostHogPageview('https://usebaci.com/pricing');
+
+    expect(mocks.posthogCapture).toHaveBeenCalledTimes(3);
+    expect(mocks.posthogCapture).toHaveBeenNthCalledWith(1, '$pageview', {
+      $current_url: 'https://usebaci.com/pricing',
+      app_surface: 'web',
+    });
+    expect(mocks.posthogCapture).toHaveBeenNthCalledWith(2, '$pageview', {
+      $current_url: 'https://usebaci.com/login',
+      app_surface: 'web',
+    });
+    expect(mocks.posthogCapture).toHaveBeenNthCalledWith(3, '$pageview', {
+      $current_url: 'https://usebaci.com/pricing',
+      app_surface: 'web',
     });
   });
 

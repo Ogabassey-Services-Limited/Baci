@@ -1,0 +1,88 @@
+import { describe, expect, it } from 'vitest';
+
+import { redactPaymentLogValue } from './redact-payment-log-value';
+
+describe('redactPaymentLogValue', () => {
+  it('redacts payment customer and billing PII without mutating the source value', () => {
+    const source = {
+      merchant_id: 'merchant-123',
+      order_id: 'order-123',
+      amount: 5000,
+      customer_email: 'customer@example.com',
+      customer_name: 'John Doe',
+      customer_phone: '08012345678',
+      billing_address: {
+        line1: '123 Main St',
+        city: 'Lagos',
+        zip_code: '100001',
+      },
+    };
+
+    const redacted = redactPaymentLogValue(source);
+
+    expect(redacted).toEqual({
+      merchant_id: 'merchant-123',
+      order_id: 'order-123',
+      amount: 5000,
+      customer_email: '[REDACTED]',
+      customer_name: '[REDACTED]',
+      customer_phone: '[REDACTED]',
+      billing_address: '[REDACTED]',
+    });
+    expect(source.customer_email).toBe('customer@example.com');
+    expect(source.billing_address.line1).toBe('123 Main St');
+  });
+
+  it('redacts Paystack phone debug aliases', () => {
+    expect(
+      redactPaymentLogValue({
+        original_phone: '08012345678',
+        formatted_phone: '+2348012345678',
+        type: 'string',
+      })
+    ).toEqual({
+      original_phone: '[REDACTED]',
+      formatted_phone: '[REDACTED]',
+      type: 'string',
+    });
+  });
+
+  it('redacts camelCase payment PII keys', () => {
+    expect(
+      redactPaymentLogValue({
+        customerEmail: 'customer@example.com',
+        customerName: 'John Doe',
+        customerPhone: '08012345678',
+        mobileNumber: '08012345678',
+        safeMetadata: 'keep-me',
+      })
+    ).toEqual({
+      customerEmail: '[REDACTED]',
+      customerName: '[REDACTED]',
+      customerPhone: '[REDACTED]',
+      mobileNumber: '[REDACTED]',
+      safeMetadata: 'keep-me',
+    });
+  });
+
+  it('handles circular arrays without infinite recursion', () => {
+    const circular: unknown[] = [];
+    circular.push(circular);
+
+    expect(redactPaymentLogValue(circular)).toEqual([{ circular: true }]);
+  });
+
+  it('does not treat shared non-circular objects as circular', () => {
+    const sharedAddress = { line1: '123 Main St', city: 'Lagos' };
+
+    expect(
+      redactPaymentLogValue({
+        shipping: sharedAddress,
+        billing: sharedAddress,
+      })
+    ).toEqual({
+      shipping: { line1: '[REDACTED]', city: '[REDACTED]' },
+      billing: { line1: '[REDACTED]', city: '[REDACTED]' },
+    });
+  });
+});
