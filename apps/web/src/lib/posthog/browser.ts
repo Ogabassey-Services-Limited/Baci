@@ -5,6 +5,7 @@ import type { PostHogEnv } from '@/lib/posthog/config';
 const MISSING_TOKEN_WARNING =
   '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.';
 const POSTHOG_NODE_ENV = process.env.NODE_ENV;
+const POSTHOG_PAGEVIEW_CAPTURE_OPTIONS = { send_instantly: true } as const;
 
 let hasInitializedPostHogBrowser = false;
 let isPostHogReadyForCapture = false;
@@ -98,10 +99,14 @@ function sendPostHogPageview(resolvedUrl: string) {
   }
 
   lastCapturedPostHogPageviewUrl = resolvedUrl;
-  posthog.capture('$pageview', {
-    $current_url: resolvedUrl,
-    app_surface: 'web',
-  });
+  posthog.capture(
+    '$pageview',
+    {
+      $current_url: resolvedUrl,
+      app_surface: 'web',
+    },
+    POSTHOG_PAGEVIEW_CAPTURE_OPTIONS
+  );
 }
 
 export function capturePostHogPageview(currentUrl?: string) {
