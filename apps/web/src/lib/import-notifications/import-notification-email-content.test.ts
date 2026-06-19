@@ -43,11 +43,17 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain(
       'Ogabassey has moved your receipt for the following device(s) to the mobile app'
     );
+    expect(content.htmlContent).toContain('Ogabassey Receipt Vault');
+    expect(content.htmlContent).toContain('Receipt moved to app');
+    expect(content.htmlContent).toContain('Device receipts');
+    expect(content.htmlContent).toContain('box-shadow');
     expect(content.htmlContent).toContain('iPhone 16 Pro Max');
     expect(content.htmlContent).toContain('2 x AirPods Pro');
     expect(content.htmlContent).toContain(
       'https://ogabassey.com/receipts/claim/claim-token'
     );
+    expect(content.htmlContent).toContain('background: #111827');
+    expect(content.htmlContent).toContain('background: #dc2626');
     expect(content.htmlContent).not.toContain('#e11d2e');
     expect(content.htmlContent).not.toContain('#fff7f7');
     expect(content.htmlContent).not.toContain('#f0d7d7');
