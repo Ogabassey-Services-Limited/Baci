@@ -301,7 +301,7 @@ export default function BlogListScreen() {
         {item.featured_image_url ? (
           <SafeImage
             source={{ uri: item.featured_image_url }}
-            style={styles.thumbnail}
+            style={[styles.thumbnail, { backgroundColor: colors.border }]}
           />
         ) : (
           <View
@@ -543,7 +543,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: RADIUS.md,
-    backgroundColor: '#eee',
   },
   thumbnailPlaceholder: {
     width: 60,
