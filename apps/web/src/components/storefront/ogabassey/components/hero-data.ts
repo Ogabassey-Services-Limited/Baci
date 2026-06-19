@@ -66,22 +66,6 @@ export const MOBILE_SLIDES: HeroSlideData[] = [
     textColor: 'text-gray-900',
     imageFit: 'contain',
   },
-  {
-    id: 2,
-    type: 'video',
-    title: 'Cinematic Mode',
-    subtitle: 'Shoot like a pro. Auto-focus changes dynamically.',
-    bgClass: 'bg-black',
-    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-    poster: '/placeholder.png',
-    textColor: 'text-white',
-    imageFit: 'cover',
-  },
-  {
-    id: 3,
-    type: 'ad',
-    bgClass: 'bg-gray-50',
-  },
 ];
 
 export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
