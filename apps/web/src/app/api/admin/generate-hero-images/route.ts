@@ -1,101 +1,61 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
+import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createClient } from '@/lib/supabase/server';
+import { adminGenerateHeroImagesRequestSchema } from '@/schemas/admin-generate-hero-images';
 import { generateHeroImageBatch } from '@/services/hero-image-generator';
+
+function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
+  return status === 'unauthenticated'
+    ? NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    : NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+}
 
 /**
  * API endpoint to generate hero images for a specific category
  * POST /api/admin/generate-hero-images
  */
 export async function POST(request: NextRequest) {
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
-    );
+  const auth = await getPlatformAdminAuth();
+  if (auth.status !== 'authenticated') {
+    return toAuthErrorResponse(auth.status);
   }
 
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Check if user is authenticated and has admin role
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Resolve merchant (supports both owners and staff)
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
-    if (!merchantContext) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
       );
     }
 
-    // Admin routes require being the merchant owner, not staff
-    if (merchantContext.staffAccess.isStaff) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    const merchantId = merchantContext.merchantId;
-
-    // RBAC: Only platform admins can trigger AI image generation
-    const { data: adminCheck } = await supabase
-      .from('merchants')
-      .select('is_platform_admin')
-      .eq('id', merchantId)
-      .maybeSingle();
-
-    if (!adminCheck?.is_platform_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const body = await request.json();
-    const { category, count = 10 } = body;
-
-    if (!category) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch (error) {
+      logger.warn({
+        message: 'Invalid hero image generation JSON payload',
+        error,
+      });
       return NextResponse.json(
-        { error: 'Category is required' },
+        { error: 'Invalid request payload' },
         { status: 400 }
       );
     }
 
-    const validCategories = [
-      'fashion',
-      'electronics',
-      'hair-extensions',
-      'home-goods',
-      'health-beauty',
-      'handmade',
-      'food-beverage',
-      'other',
-    ];
-
-    if (!validCategories.includes(category)) {
+    const parseResult = adminGenerateHeroImagesRequestSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
         {
-          error: `Invalid category. Must be one of: ${validCategories.join(', ')}`,
+          error: 'Invalid request payload',
+          details: parseResult.error.flatten(),
         },
         { status: 400 }
       );
     }
-
-    if (count < 1 || count > 20) {
-      return NextResponse.json(
-        { error: 'Count must be between 1 and 20' },
-        { status: 400 }
-      );
-    }
+    const { category, count } = parseResult.data;
 
     logger.info({ message: 'Generating hero images batch', category, count });
 
@@ -128,19 +88,13 @@ export async function POST(request: NextRequest) {
  * GET /api/admin/generate-hero-images
  */
 export async function GET() {
+  const auth = await getPlatformAdminAuth();
+  if (auth.status !== 'authenticated') {
+    return toAuthErrorResponse(auth.status);
+  }
+
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Check if user is authenticated
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const supabase = await createClient();
 
     // Get statistics per category
     const { data: stats, error: statsError } = await supabase
@@ -149,7 +103,14 @@ export async function GET() {
       .eq('is_active', true);
 
     if (statsError) {
-      return NextResponse.json({ error: statsError.message }, { status: 500 });
+      logger.error({
+        message: 'Hero image stats query failed',
+        error: statsError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to retrieve hero image statistics' },
+        { status: 500 }
+      );
     }
 
     // Aggregate statistics
