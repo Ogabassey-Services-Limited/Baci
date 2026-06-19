@@ -28,3 +28,14 @@
 ## 2025-06-12 - [Strict typing for dynamic Expo module imports]
 **Learning:** [When using dynamic imports for native Expo modules (like `expo-device` and `expo-notifications`) to prevent evaluation-time crashes in web or specific environments, variables storing the modules should not be typed as `any`. They can be strictly typed using `typeof import('module') | null`.]
 **Action:** [Use `typeof import('expo-module-name') | null` for dynamically loaded native modules, and ensure subsequent module method calls use `if (!Module) return;` to prevent runtime `TypeError` crashes.]
+## 2026-06-18 — [Replace any in storefront components]
+**Learning:** Hardcoded props and mismatched data property maps were causing incorrect type structures which led to runtime issues with 'any'. Using 'Partial<MerchantData>' resolves the 'any' while forcing correct internal structures.
+**Action:** Always verify property names in existing typings against data accessors before mapping them. Use Partial<T> where T is defined but data might be incomplete.
+
+## 2026-06-18 — [Fix 'use client' invalidation]
+**Learning:** Adding imports *above* the `'use client'` directive invalidates the directive, causing CI to fail with 'Misplaced "use client" directive' error. In React/Next.js, `'use client'` must be at the absolute top of the file, before any imports.
+**Action:** When adding imports programmatically via `sed`, always ensure `'use client'` (if present) remains the very first line of the file. Insert imports on the line *after* it (e.g., using `sed '1a ...'`).
+
+## 2026-06-18 — [Clean up orphaned/outdated comments]
+**Learning:** Outdated or contradictory comments left behind after applying a fix can trigger code review warnings. Even though the types are correct, comments explicitly mentioning the usage of `any` violate the spirit of type safety improvements.
+**Action:** When updating a property or removing `any`, always ensure related comments that document the old state are deleted or updated to reflect the new implementation.
