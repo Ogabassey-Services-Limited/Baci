@@ -108,7 +108,7 @@ describe('sendImportNotificationCampaign claim modes', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('does not create app claim links for non-Ogabassey merchants misconfigured as app-first', async () => {
+  it('uses web-only claim links for merchants configured app-first without app links', async () => {
     const supabase = createSupabaseMock({
       data: [
         {
@@ -224,6 +224,7 @@ describe('sendImportNotificationCampaign claim modes', () => {
       customSettings: {
         migration_imports: {
           receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
         },
       },
     });
@@ -313,6 +314,7 @@ describe('sendImportNotificationCampaign claim modes', () => {
       customSettings: {
         migration_imports: {
           receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
         },
       },
     });

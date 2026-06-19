@@ -24,6 +24,7 @@ describe('import notification email content', () => {
     const delivery = resolveReceiptNotificationDelivery(merchant, {
       migration_imports: {
         receipt_access_mode: 'app_first',
+        receipt_app_links_enabled: true,
       },
     });
 
@@ -36,6 +37,7 @@ describe('import notification email content', () => {
     });
 
     expect(delivery.accessMode).toBe('app_first');
+    expect(delivery.requiresReceiptClaim).toBe(true);
     expect(content.subject).toBe('Your Receipt has Changed.');
     expect(content.htmlContent).toContain('Hello Ada,');
     expect(content.htmlContent).toContain(
@@ -82,6 +84,7 @@ describe('import notification email content', () => {
       expect.objectContaining({
         accessMode: 'site',
         receiptsUrl: 'https://futuremerchant.com/account/receipts',
+        requiresReceiptClaim: false,
       })
     );
     expect(content.subject).toBe('Your Receipt has Changed.');
@@ -98,9 +101,14 @@ describe('import notification email content', () => {
     expect(content.htmlContent).not.toContain('Download options');
     expect(content.htmlContent).not.toContain('mobile app');
     expect(content.textContent).toContain('1. Pixel 9');
+    expect(content.textContent).toContain('Hello Ada,\n\nFuture Merchant');
+    expect(content.textContent).toContain('1. Pixel 9\n\nThis is to ensure');
+    expect(content.textContent).toContain(
+      'View your receipt: https://futuremerchant.com/account/receipts\n\nNeed help?'
+    );
   });
 
-  it('keeps non-Ogabassey merchants on web-only receipt links even when app-first is configured', () => {
+  it('keeps merchants on web-only receipt links when app-first is configured without the app-links flag', () => {
     const futureMerchant: MerchantNotificationContext = {
       ...merchant,
       slug: 'future-merchant',
@@ -131,6 +139,7 @@ describe('import notification email content', () => {
         appStoreUrl: null,
         playStoreUrl: null,
         receiptsUrl: 'https://futuremerchant.com/receipts',
+        requiresReceiptClaim: false,
       })
     );
     expect(content.htmlContent).not.toContain('Download options');
@@ -144,6 +153,7 @@ describe('import notification email content', () => {
       expect.objectContaining({
         accessMode: 'site',
         receiptsUrl: 'https://ogabassey.usebaci.com/receipts',
+        requiresReceiptClaim: false,
       })
     );
   });
@@ -170,15 +180,17 @@ describe('import notification email content', () => {
         app_store_url: 42,
         play_store_url: false,
         receipt_access_mode: 'app_first',
+        receipt_app_links_enabled: true,
       },
     });
 
     expect(delivery.accessMode).toBe('app_first');
+    expect(delivery.requiresReceiptClaim).toBe(true);
     expect(delivery.appStoreUrl).not.toBe('42');
     expect(delivery.playStoreUrl).not.toBe('false');
   });
 
-  it('allows Ogabassey app-first receipt claim links on the custom domain', () => {
+  it('allows app-first receipt claim links when the merchant explicitly enables app links', () => {
     const delivery = resolveReceiptNotificationDelivery(
       {
         ...merchant,
@@ -187,6 +199,7 @@ describe('import notification email content', () => {
       {
         migration_imports: {
           receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
         },
       }
     );
@@ -195,9 +208,33 @@ describe('import notification email content', () => {
       expect.objectContaining({
         accessMode: 'app_first',
         receiptsUrl: 'https://ogabassey.com/receipts',
+        requiresReceiptClaim: true,
         playStoreUrl:
           'https://play.google.com/store/apps/details?id=com.ogabassey.store',
       })
+    );
+  });
+
+  it('renders a fallback instead of an empty site receipt CTA when the URL is unsafe', () => {
+    const content = buildReceiptNotificationEmailContent({
+      merchant,
+      recipientName: 'Ada',
+      delivery: {
+        accessMode: 'site',
+        appStoreUrl: null,
+        playStoreUrl: null,
+        receiptsUrl: 'javascript:alert(1)',
+        requiresReceiptClaim: false,
+      },
+      claimUrl: 'javascript:alert(1)',
+      devices: ['Pixel 9'],
+    });
+
+    expect(content.htmlContent).not.toContain('href=""');
+    expect(content.htmlContent).not.toContain('javascript:alert(1)');
+    expect(content.htmlContent).toContain('Receipt link unavailable');
+    expect(content.textContent).toContain(
+      'View your receipt: unavailable (invalid link configuration).'
     );
   });
 
@@ -210,6 +247,7 @@ describe('import notification email content', () => {
       {
         migration_imports: {
           receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
           app_store_url: 'javascript:alert(1)',
         },
       }

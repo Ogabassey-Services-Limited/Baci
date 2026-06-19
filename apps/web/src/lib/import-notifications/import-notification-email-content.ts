@@ -17,6 +17,7 @@ export interface ReceiptNotificationDeliveryConfig {
   receiptsUrl: string;
   playStoreUrl: string | null;
   appStoreUrl: string | null;
+  requiresReceiptClaim: boolean;
 }
 
 interface BuildReceiptNotificationEmailContentInput {
@@ -30,17 +31,6 @@ interface BuildReceiptNotificationEmailContentInput {
 const DEFAULT_NOTIFICATION_SOURCE: ReceiptNotificationDeliveryConfig['accessMode'] =
   'site';
 const RECEIPT_CHANGED_SUBJECT = 'Your Receipt has Changed.';
-
-function isOgabasseyMerchant(merchant: MerchantNotificationContext) {
-  const slug = merchant.slug.trim().toLowerCase();
-  const domain = merchant.custom_domain?.trim().toLowerCase() || '';
-
-  return (
-    slug === 'ogabassey' ||
-    domain === 'ogabassey.com' ||
-    domain === 'www.ogabassey.com'
-  );
-}
 
 function buildStorefrontUrl(merchant: MerchantNotificationContext) {
   if (merchant.custom_domain) {
@@ -59,14 +49,15 @@ export function resolveReceiptNotificationDelivery(
     string,
     unknown
   >;
-  const isOgabassey = isOgabasseyMerchant(merchant);
   const configuredAccessMode = migrationSettings.receipt_access_mode;
-  const accessMode =
-    isOgabassey && configuredAccessMode === 'app_first'
-      ? configuredAccessMode
-      : configuredAccessMode === 'site'
-        ? configuredAccessMode
-        : DEFAULT_NOTIFICATION_SOURCE;
+  const appLinksEnabled = migrationSettings.receipt_app_links_enabled === true;
+  const configuredAppFirst = configuredAccessMode === 'app_first';
+  const shouldUseAppFirstCopy = appLinksEnabled && configuredAppFirst;
+  const accessMode = shouldUseAppFirstCopy
+    ? configuredAccessMode
+    : configuredAccessMode === 'site' || configuredAppFirst
+      ? 'site'
+      : DEFAULT_NOTIFICATION_SOURCE;
 
   const receiptPath =
     typeof migrationSettings.receipt_path === 'string' &&
@@ -94,6 +85,7 @@ export function resolveReceiptNotificationDelivery(
     receiptsUrl: `${buildStorefrontUrl(merchant)}${receiptPath}`,
     appStoreUrl,
     playStoreUrl,
+    requiresReceiptClaim: shouldUseAppFirstCopy,
   };
 }
 
@@ -106,6 +98,7 @@ export function buildReceiptNotificationEmailContent({
 }: BuildReceiptNotificationEmailContentInput) {
   if (delivery.accessMode === 'site') {
     return buildSiteReceiptEmailContent({
+      claimUrl,
       delivery,
       devices,
       merchant,
@@ -189,10 +182,11 @@ function buildSiteReceiptEmailContent({
   merchant,
   recipientName,
   delivery,
+  claimUrl,
   devices,
 }: Pick<
   BuildReceiptNotificationEmailContentInput,
-  'merchant' | 'recipientName' | 'delivery' | 'devices'
+  'merchant' | 'recipientName' | 'delivery' | 'devices' | 'claimUrl'
 >) {
   const merchantName = merchant.business_name || 'Your store';
   const escapedMerchantName = escapeHtml(merchantName);
@@ -201,13 +195,20 @@ function buildSiteReceiptEmailContent({
   const supportContact = escapeHtml(
     merchant.support_email || merchant.email || 'the store team'
   );
-  const sanitizedReceiptsUrl = sanitizeUrl(delivery.receiptsUrl);
+  const sanitizedReceiptsUrl = sanitizeUrl(claimUrl || delivery.receiptsUrl);
   const deviceItemsHtml = escapedDevices
     .map((device) => `<li>${device}</li>`)
     .join('');
   const textDevices = devices
     .map((device, index) => `${index + 1}. ${device}`)
     .join('\n');
+  const receiptActionHtml = sanitizedReceiptsUrl
+    ? `<p style="margin: 24px 0;">
+          <a href="${sanitizedReceiptsUrl}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px;">
+            View your receipt
+          </a>
+        </p>`
+    : '<p style="margin: 24px 0; color: #5f6375; font-size: 14px;">Receipt link unavailable (invalid link configuration).</p>';
 
   return {
     fromName: merchant.email_sender_name || merchant.business_name || 'Orders',
@@ -218,11 +219,7 @@ function buildSiteReceiptEmailContent({
         <p>${escapedMerchantName} has moved your receipt for the following item(s) to your online account.</p>
         <ol style="margin: 12px 0 20px; padding-left: 22px;">${deviceItemsHtml}</ol>
         <p>This is to ensure you can access your receipt at any time from the website.</p>
-        <p style="margin: 24px 0;">
-          <a href="${sanitizedReceiptsUrl}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px;">
-            View your receipt
-          </a>
-        </p>
+        ${receiptActionHtml}
         <p>If you need help, reply to this email or contact ${supportContact}.</p>
       </div>
     `,
@@ -237,9 +234,8 @@ function buildSiteReceiptEmailContent({
       sanitizedReceiptsUrl
         ? `View your receipt: ${sanitizedReceiptsUrl}`
         : 'View your receipt: unavailable (invalid link configuration).',
+      '',
       `Need help? Contact ${merchant.support_email || merchant.email || 'the store team'}.`,
-    ]
-      .filter(Boolean)
-      .join('\n'),
+    ].join('\n'),
   };
 }
