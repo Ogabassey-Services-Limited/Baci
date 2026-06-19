@@ -1,3 +1,8 @@
+## 2025-02-12 — Missing `accessibilityRole="button"` and `accessibilityState` on Apply Range `Pressable`
+**Learning:** The `Pressable` for applying a date range in the custom calendar panel (`DateRangePickerCalendarPanel.tsx`) lacked `accessibilityRole="button"`. It also lacked `accessibilityState={{ disabled: ... }}` to announce its disabled state accurately. While `disabled` handles interactivity, `accessibilityState` ensures proper screen reader feedback.
+**Action:** When adding or verifying interactive `Pressable` components, especially those that act as buttons with conditional `disabled` states, ensure `accessibilityRole="button"` and the corresponding `accessibilityState={{ disabled: ... }}` are explicitly set so assistive technologies announce their nature and current interactability correctly.
+**Source:** WCAG 4.1.2 Name, Role, Value / React Native Accessibility API
+
 ## 2026-05-12 - Missing ARIA Labels on Interactive Icon Buttons
 **Learning:** Icon-only buttons (like Plus/Minus for quantity, heart for favorites, X for close) in interactive product components often miss `aria-label` attributes, making them inaccessible to screen readers.
 **Action:** Always ensure `lucide-react` icons used as primary interaction points are wrapped in `<button>` tags with explicit, descriptive `aria-label` attributes.
@@ -103,3 +108,7 @@
 **Learning:** Icon-only toggle buttons in React Native (such as Grid vs List view switchers using Pressable) must explicitly include `accessibilityRole="button"`, a descriptive `accessibilityLabel`, and `accessibilityState={{ selected: <boolean> }}` to be fully accessible to screen readers, as Biome's a11y linting does not catch this automatically for RN.
 **Action:** When adding or updating icon-only interactive elements in React Native, explicitly add `accessibilityRole`, `accessibilityLabel`, and relevant `accessibilityState`.
 **Source:** Memory and React Native Accessibility API docs
+## 2024-06-17 — State-aware semantics in React Native
+**Learning:** Icon-only toggle buttons and popover menus in React Native components (like `FilterBar`) often lack `accessibilityState` semantics and `accessibilityRole`. While visual cues like color changes are present, screen readers don't announce whether a toggle is expanded or which popover item is currently selected.
+**Action:** Always verify that interactive elements reflecting state changes use `accessibilityState={{ expanded: boolean }}` for toggles and `accessibilityState={{ selected: boolean }}` for lists/tabs, along with `accessibilityRole="button"` and a descriptive `accessibilityLabel`.
+**Source:** WCAG SC 4.1.2 Name, Role, Value

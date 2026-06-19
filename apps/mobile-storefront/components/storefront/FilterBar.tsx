@@ -129,6 +129,9 @@ export function FilterBar({
               onPress={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
               style={styles.filterToggle}
               hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle filter menu"
+              accessibilityState={{ expanded: isFilterMenuOpen }}
             >
               <Feather name="sliders" size={16} color={BRAND.primary} />
               <Text style={styles.filterLabel}>{getActiveFilterLabel()}</Text>
@@ -169,6 +172,9 @@ export function FilterBar({
                       styles.popoverItem,
                       activeFilterType === item.id && styles.popoverItemActive,
                     ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.label}
+                    accessibilityState={{ selected: activeFilterType === item.id }}
                   >
                     <Feather
                       name={item.icon as FeatherIconName}
