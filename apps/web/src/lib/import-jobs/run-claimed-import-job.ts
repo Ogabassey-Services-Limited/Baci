@@ -305,7 +305,9 @@ async function processNotifyingJob(
 
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
-    .select('id, slug, business_name, support_email, email_sender_name, email')
+    .select(
+      'id, slug, business_name, support_email, email_sender_name, email, brand_colors'
+    )
     .eq('id', job.merchant_id)
     .single();
 

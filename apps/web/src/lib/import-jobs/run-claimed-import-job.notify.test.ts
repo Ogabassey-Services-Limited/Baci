@@ -86,6 +86,7 @@ describe('runClaimedImportJob notification and failure flows', () => {
         support_email: 'support@ogabassey.com',
         email_sender_name: 'Ogabassey',
         email: 'hello@ogabassey.com',
+        brand_colors: { primary: '#d71920' },
       },
       error: null,
     });
@@ -150,7 +151,7 @@ describe('runClaimedImportJob notification and failure flows', () => {
       })
     );
     expect(merchantQuery.select).toHaveBeenCalledWith(
-      'id, slug, business_name, support_email, email_sender_name, email'
+      'id, slug, business_name, support_email, email_sender_name, email, brand_colors'
     );
   });
 

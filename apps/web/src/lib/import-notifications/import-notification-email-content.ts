@@ -2,6 +2,12 @@ import { MOBILE_APPS } from '@/config/platform';
 import { getRootDomain } from '@/env';
 import { escapeHtml, sanitizeUrl } from '@/lib/sanitize-core';
 
+export interface MerchantBrandColors {
+  primary?: string | null;
+  accent?: string | null;
+  background?: string | null;
+}
+
 export interface MerchantNotificationContext {
   id: string;
   slug: string;
@@ -10,6 +16,7 @@ export interface MerchantNotificationContext {
   support_email: string | null;
   email_sender_name: string | null;
   email: string | null;
+  brand_colors?: MerchantBrandColors | null;
 }
 
 export interface ReceiptNotificationDeliveryConfig {
@@ -18,6 +25,7 @@ export interface ReceiptNotificationDeliveryConfig {
   playStoreUrl: string | null;
   appStoreUrl: string | null;
   requiresReceiptClaim: boolean;
+  receiptTagline: string | null;
 }
 
 interface BuildReceiptNotificationEmailContentInput {
@@ -32,6 +40,8 @@ const DEFAULT_NOTIFICATION_SOURCE = 'site';
 const RECEIPT_CHANGED_SUBJECT = 'Your Receipt has Changed.';
 const APP_FIRST_RECEIPT_THEME =
   '<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>:root{color-scheme:light dark;supported-color-schemes:light dark}@media (prefers-color-scheme:dark){.receipt-bg{background:#120d0b!important}.receipt-card{background:#181310!important;border-color:#3d2d25!important}.receipt-panel{background:#211915!important;border-color:#4a372d!important}.receipt-text{color:#fff7ed!important}.receipt-muted{color:#d9c8bc!important}.receipt-rule{border-color:#4a372d!important}.receipt-pill{color:#ffd8cf!important;border-color:#4a372d!important}.receipt-link{color:#ff9b92!important}}</style>';
+const DEFAULT_RECEIPT_BRAND_COLOR = '#b91c1c';
+const RECEIPT_TAGLINE_MAX_LENGTH = 120;
 
 function buildStorefrontUrl(merchant: MerchantNotificationContext) {
   if (merchant.custom_domain) {
@@ -40,6 +50,56 @@ function buildStorefrontUrl(merchant: MerchantNotificationContext) {
 
   const rootDomain = getRootDomain() || 'usebaci.com';
   return `https://${merchant.slug}.${rootDomain}`;
+}
+
+function normalizeEmailHexColor(value: string | null | undefined) {
+  if (!value || !/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(value)) {
+    return DEFAULT_RECEIPT_BRAND_COLOR;
+  }
+
+  return value;
+}
+
+function getReceiptBrandColor(merchant: MerchantNotificationContext) {
+  return normalizeEmailHexColor(
+    merchant.brand_colors?.primary ?? merchant.brand_colors?.accent
+  );
+}
+
+function getMerchantInitials(merchantName: string) {
+  const words = merchantName
+    .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return 'YS';
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase();
+}
+
+function readReceiptTagline(migrationSettings: Record<string, unknown>) {
+  const configuredTagline = migrationSettings.receipt_tagline;
+
+  if (typeof configuredTagline !== 'string') {
+    return null;
+  }
+
+  const trimmedTagline = configuredTagline.trim();
+
+  return trimmedTagline
+    ? trimmedTagline.slice(0, RECEIPT_TAGLINE_MAX_LENGTH)
+    : null;
 }
 
 export function resolveReceiptNotificationDelivery(
@@ -88,6 +148,7 @@ export function resolveReceiptNotificationDelivery(
     appStoreUrl,
     playStoreUrl,
     requiresReceiptClaim: shouldUseAppFirstCopy || shouldUseWebClaimLink,
+    receiptTagline: readReceiptTagline(migrationSettings),
   };
 }
 
@@ -110,6 +171,7 @@ export function buildReceiptNotificationEmailContent({
 
   return buildAppFirstReceiptEmailContent({
     claimUrl,
+    delivery,
     devices,
     merchant,
     recipientName,
@@ -119,13 +181,17 @@ export function buildReceiptNotificationEmailContent({
 function buildAppFirstReceiptEmailContent({
   merchant,
   recipientName,
+  delivery,
   claimUrl,
   devices,
 }: Pick<
   BuildReceiptNotificationEmailContentInput,
-  'merchant' | 'recipientName' | 'claimUrl' | 'devices'
+  'merchant' | 'recipientName' | 'claimUrl' | 'devices' | 'delivery'
 >) {
   const merchantName = merchant.business_name || 'Your store';
+  const brandColor = getReceiptBrandColor(merchant);
+  const escapedBrandColor = escapeHtml(brandColor);
+  const escapedMerchantInitials = escapeHtml(getMerchantInitials(merchantName));
   const escapedMerchantName = escapeHtml(merchantName);
   const escapedRecipientName = escapeHtml(recipientName);
   const escapedDevices = devices.map((device) => escapeHtml(device));
@@ -134,7 +200,7 @@ function buildAppFirstReceiptEmailContent({
     `${buildStorefrontUrl(merchant)}/contact`
   );
   const contactUsHtml = sanitizedContactUrl
-    ? `<a class="receipt-link" href="${sanitizedContactUrl}" style="color: #b91c1c; font-weight: 800; text-decoration: underline;">contact us</a>`
+    ? `<a class="receipt-link" href="${sanitizedContactUrl}" style="color: ${escapedBrandColor}; font-weight: 800; text-decoration: underline;">contact us</a>`
     : 'contact us';
   const contactUsText = `contact us${sanitizedContactUrl ? `: ${sanitizedContactUrl}` : ''}`;
   const receiptAccessCopy =
@@ -146,7 +212,7 @@ function buildAppFirstReceiptEmailContent({
           <td class="receipt-rule" style="padding: ${index === 0 ? '4px' : '16px'} 28px 16px; border-bottom: 1px dashed #e5d5c8;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
               <tr>
-                <td valign="top" width="40" style="color: #b91c1c; font-size: 13px; font-weight: 800; line-height: 1.45;">${index + 1}.</td>
+                <td valign="top" width="40" style="color: ${escapedBrandColor}; font-size: 13px; font-weight: 800; line-height: 1.45;">${index + 1}.</td>
                 <td class="receipt-text" style="color: #111827; font-size: 15px; font-weight: 800; line-height: 1.45;">${device}</td>
               </tr>
             </table>
@@ -158,11 +224,20 @@ function buildAppFirstReceiptEmailContent({
     .map((device, index) => `${index + 1}. ${device}`)
     .join('\n');
   const claimActionHtml = sanitizedClaimUrl
-    ? `<a href="${sanitizedClaimUrl}" style="display: inline-block; background: #d71920; color: #ffffff; font-size: 15px; font-weight: 800; line-height: 1; text-decoration: none; padding: 16px 24px; border-radius: 999px;">View Receipt</a>`
+    ? `<a href="${sanitizedClaimUrl}" style="display: inline-block; background: ${escapedBrandColor}; color: #ffffff; font-size: 15px; font-weight: 800; line-height: 1; text-decoration: none; padding: 16px 24px; border-radius: 999px;">View Receipt</a>`
     : '<span style="color: #7f1d1d; font-size: 14px; font-weight: 700;">Receipt link unavailable (invalid link configuration).</span>';
   const claimActionText = sanitizedClaimUrl
     ? `View Receipt: ${sanitizedClaimUrl}`
     : 'View Receipt: unavailable (invalid link configuration).';
+  const escapedReceiptTagline = delivery.receiptTagline
+    ? escapeHtml(delivery.receiptTagline)
+    : null;
+  const receiptTaglineHtml = escapedReceiptTagline
+    ? `<p style="margin: 6px 0 0; color: ${escapedBrandColor}; font-size: 15px; font-weight: 900; line-height: 1.5; text-align: center;">${escapedReceiptTagline}</p>`
+    : '';
+  const receiptTaglineText = delivery.receiptTagline
+    ? ['', delivery.receiptTagline]
+    : [];
 
   return {
     fromName: merchant.email_sender_name || merchant.business_name || 'Orders',
@@ -175,18 +250,18 @@ function buildAppFirstReceiptEmailContent({
             <td align="center" style="padding: 32px 16px;">
               <table class="receipt-card" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 620px; border-collapse: separate; border-spacing: 0; overflow: hidden; background: #fffdf8; border: 1px solid #eadfd4; border-radius: 18px;">
                 <tr>
-                  <td style="height: 6px; background: #d71920; line-height: 6px; font-size: 0;">&nbsp;</td>
+                  <td style="height: 6px; background: ${escapedBrandColor}; line-height: 6px; font-size: 0;">&nbsp;</td>
                 </tr>
                 <tr>
                   <td style="padding: 30px 30px 18px;">
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse; margin: 0 0 24px;">
                       <tr>
                         <td width="54" valign="top">
-                          <div style="width: 42px; height: 42px; border-radius: 12px; background: #d71920; color: #ffffff; font-size: 13px; font-weight: 900; letter-spacing: 0.08em; line-height: 42px; text-align: center;">OG</div>
+                          <div style="width: 42px; height: 42px; border-radius: 12px; background: ${escapedBrandColor}; color: #ffffff; font-size: 13px; font-weight: 900; letter-spacing: 0.08em; line-height: 42px; text-align: center;">${escapedMerchantInitials}</div>
                         </td>
                         <td valign="middle">
                           <p class="receipt-text" style="margin: 0; color: #111827; font-size: 15px; font-weight: 900;">${escapedMerchantName}</p>
-                          <p style="margin: 3px 0 0; color: #991b1b; font-size: 11px; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase;">Digital receipt update</p>
+                          <p style="margin: 3px 0 0; color: ${escapedBrandColor}; font-size: 11px; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase;">Digital receipt update</p>
                         </td>
                         <td align="right" valign="middle">
                           <span class="receipt-pill" style="display: inline-block; border: 1px solid #eadfd4; border-radius: 999px; color: #6b4f3f; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; padding: 7px 10px; text-transform: uppercase;">Moved to app</span>
@@ -208,7 +283,7 @@ function buildAppFirstReceiptEmailContent({
                       ${claimActionHtml}
                     </div>
                     <p class="receipt-text" style="margin: 20px 0 0; color: #1f2937; font-size: 14px; line-height: 1.6; text-align: center;">Thank you for choosing ${escapedMerchantName}.</p>
-                    <p style="margin: 6px 0 0; color: #991b1b; font-size: 15px; font-weight: 900; line-height: 1.5; text-align: center;">${escapedMerchantName} Never Disappoints!</p>
+                    ${receiptTaglineHtml}
                     <p class="receipt-muted receipt-rule" style="margin: 18px 0 0; padding-top: 16px; border-top: 1px solid #eadfd4; color: #6b7280; font-size: 13px; line-height: 1.55;">Need help? Reply to this email or ${contactUsHtml}.</p>
                   </td>
                 </tr>
@@ -230,8 +305,7 @@ function buildAppFirstReceiptEmailContent({
       claimActionText,
       '',
       `Thank you for choosing ${merchantName}.`,
-      '',
-      `${merchantName} Never Disappoints!`,
+      ...receiptTaglineText,
       '',
       `Need help? Reply to this email or ${contactUsText}.`,
     ].join('\n'),
