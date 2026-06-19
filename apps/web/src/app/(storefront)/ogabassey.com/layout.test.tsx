@@ -24,29 +24,6 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
 const mockCriticalHomeCssImport = vi.hoisted(() => vi.fn());
 const mockFullHomeCssImport = vi.hoisted(() => vi.fn());
 
-const mockGetImageProps = vi.hoisted(() =>
-  vi.fn(
-    (props: Record<string, unknown>): { props: Record<string, unknown> } => ({
-      props: {
-        alt: props.alt,
-        decoding: props.decoding,
-        fetchPriority: props.fetchPriority,
-        height: props.height,
-        loading: props.loading,
-        sizes: props.sizes,
-        src: props.src,
-        srcSet: `${String(props.src)} 640w, ${String(props.src)} 960w`,
-        width: props.width,
-      },
-    })
-  )
-);
-
-vi.mock('next/image', () => ({
-  default: () => null,
-  getImageProps: mockGetImageProps,
-}));
-
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/app/(storefront)/storefront-home-critical.css', () => {
@@ -145,11 +122,14 @@ describe('OgabasseyDomainLayout', () => {
       '.storefront-shell-loading__mobile-hero'
     );
     expect(fallbackHero).toBeTruthy();
-    // The static shell now paints the full first-slide banner (inline LCP image
-    // + copy) so the real hero appears in the first flush, not a lone photo.
-    expect(fallbackHero?.querySelector('picture')).toBeTruthy();
-    expect(fallbackHero?.querySelector('img')).toBeTruthy();
-    expect(fallbackHero?.textContent).toContain('iPhone 17 Pro Max');
+    // The static shell paints a full-width baked inline-AVIF banner so the hero
+    // is a large, first-flush LCP candidate (not a lone photo, not the navbar).
+    const fallbackHeroImg = fallbackHero?.querySelector('img');
+    expect(fallbackHeroImg).toBeTruthy();
+    expect(fallbackHeroImg?.getAttribute('src')).toMatch(
+      /^data:image\/avif;base64,/
+    );
+    expect(fallbackHeroImg?.getAttribute('fetchpriority')).toBe('high');
     fallbackRender.unmount();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
   });
