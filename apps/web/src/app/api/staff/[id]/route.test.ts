@@ -93,6 +93,16 @@ function createRequest(
   });
 }
 
+function createRawRequest(body: string) {
+  return new NextRequest('https://usebaci.com/api/staff/staff-1', {
+    method: 'PATCH',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body,
+  });
+}
+
 describe('PATCH /api/staff/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -146,6 +156,34 @@ describe('PATCH /api/staff/[id]', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'No valid fields to update',
     });
+  });
+
+  it('returns 400 for malformed JSON request bodies', async () => {
+    const { PATCH } = await import('./route');
+    const request = createRawRequest('{');
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid JSON body',
+    });
+  });
+
+  it('returns 400 for invalid staff update payloads', async () => {
+    const { PATCH } = await import('./route');
+    const request = createRequest({ role: 'owner' });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error).toBe('Invalid staff update payload');
+    expect(payload.details.fieldErrors.role).toBeDefined();
   });
 
   it('returns 404 when staff member does not belong to the merchant', async () => {
