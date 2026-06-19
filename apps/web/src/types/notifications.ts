@@ -16,42 +16,6 @@ export type TargetType = 'all' | 'specific' | 'segment';
 export type NotificationChannel = 'in_app' | 'banner' | 'push';
 export type TargetSegment = 'new' | 'active' | 'at_risk';
 
-export const NOTIFICATION_TYPES: NotificationType[] = [
-  'info',
-  'success',
-  'warning',
-  'error',
-];
-export const NOTIFICATION_PRIORITIES: NotificationPriority[] = [
-  'low',
-  'normal',
-  'high',
-  'urgent',
-];
-export const TARGET_TYPES: TargetType[] = ['all', 'specific', 'segment'];
-export const NOTIFICATION_CHANNELS: NotificationChannel[] = [
-  'in_app',
-  'banner',
-  'push',
-];
-export const TARGET_SEGMENTS: TargetSegment[] = ['new', 'active', 'at_risk'];
-
-// Priority labels for display
-export const PRIORITY_LABELS: Record<NotificationPriority, string> = {
-  low: 'Low',
-  normal: 'Normal',
-  high: 'High',
-  urgent: 'Urgent',
-};
-
-// Type labels for display
-export const TYPE_LABELS: Record<NotificationType, string> = {
-  info: 'Information',
-  success: 'Success',
-  warning: 'Warning',
-  error: 'Error',
-};
-
 // ============================================================================
 // DATABASE MODELS
 // ============================================================================
@@ -258,17 +222,3 @@ export interface MerchantNotificationFilters {
   unread_only?: boolean;
   type?: NotificationType;
 }
-
-// ============================================================================
-// USAGE MONITORING TYPES
-// ============================================================================
-
-/**
- * Usage warning thresholds
- */
-export const USAGE_THRESHOLDS = {
-  WARNING_PERCENT: 80,
-  CRITICAL_PERCENT: 95,
-  FREE_TIER_MAX_CONNECTIONS: 200,
-  FREE_TIER_MAX_MESSAGES: 2_000_000,
-} as const;
