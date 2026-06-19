@@ -2148,10 +2148,6 @@ async function executeVtuPurchase(
       row.request_reference
     );
 
-    if (!kudaFallbackResult.success) {
-      return monnifyResult;
-    }
-
     return {
       ...kudaFallbackResult,
       metadataPatch: {
