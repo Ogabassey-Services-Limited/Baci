@@ -84,16 +84,17 @@ describe('sendImportNotificationCampaign failure handling', () => {
       importJobId: 'job-4',
       merchant: {
         id: 'merchant-4',
-        slug: 'merchant-four',
-        business_name: 'Merchant Four',
+        slug: 'ogabassey',
+        business_name: 'Ogabassey',
         custom_domain: null,
         support_email: null,
         email_sender_name: null,
-        email: 'hello@merchant-four.com',
+        email: 'hello@ogabassey.com',
       },
       customSettings: {
         migration_imports: {
           receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
         },
       },
     });
@@ -171,16 +172,17 @@ describe('sendImportNotificationCampaign failure handling', () => {
         importJobId: 'job-attach-failed',
         merchant: {
           id: 'merchant-attach-failed',
-          slug: 'merchant-four',
-          business_name: 'Merchant Four',
+          slug: 'ogabassey',
+          business_name: 'Ogabassey',
           custom_domain: null,
           support_email: null,
           email_sender_name: null,
-          email: 'hello@merchant-four.com',
+          email: 'hello@ogabassey.com',
         },
         customSettings: {
           migration_imports: {
             receipt_access_mode: 'app_first',
+            receipt_app_links_enabled: true,
           },
         },
       })

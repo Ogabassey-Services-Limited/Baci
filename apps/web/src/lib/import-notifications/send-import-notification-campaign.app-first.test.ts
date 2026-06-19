@@ -87,7 +87,10 @@ describe('sendImportNotificationCampaign app-first claim links', () => {
         email: 'hello@ogabassey.com',
       },
       customSettings: {
-        migration_imports: { receipt_access_mode: 'app_first' },
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
+        },
       },
     });
 
@@ -114,7 +117,8 @@ describe('sendImportNotificationCampaign app-first claim links', () => {
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        subject: 'Your Receipt Has Changed.',
+        subject: 'Your Receipt has Changed.',
+        replyTo: 'support@ogabassey.com',
         htmlContent: expect.stringContaining('Hello Ada,'),
       })
     );

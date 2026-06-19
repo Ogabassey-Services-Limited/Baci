@@ -193,7 +193,7 @@ export async function sendImportNotificationCampaign({
     let createdClaim: CreatedReceiptClaimLink | null = null;
     let receiptUrl = delivery.receiptsUrl;
 
-    if (delivery.accessMode === 'app_first') {
+    if (delivery.requiresReceiptClaim) {
       createdClaim = await createClaimLinkForRecipient({
         supabase,
         importJobId,

@@ -91,6 +91,7 @@ describe('sendImportNotificationCampaign notification state', () => {
       customSettings: {
         migration_imports: {
           receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
         },
       },
     });
