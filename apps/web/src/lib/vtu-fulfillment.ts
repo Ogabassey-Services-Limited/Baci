@@ -2033,6 +2033,30 @@ type VtuPurchaseResult = PurchaseResult & {
   metadataPatch?: Record<string, unknown>;
 };
 
+function isMonnifyAirtimeKudaFallbackEligible(
+  row: VtuTransactionRow,
+  monnifyResult: PurchaseResult
+) {
+  if (
+    row.type !== 'airtime' ||
+    monnifyResult.success ||
+    monnifyResult.status !== 'failed' ||
+    row.amount <= 0
+  ) {
+    return false;
+  }
+
+  const providerErrorDetail = monnifyResult.providerErrorDetail?.trim();
+  if (!providerErrorDetail) {
+    return false;
+  }
+
+  return (
+    /\b400\b/i.test(providerErrorDetail) &&
+    /(?:vend\s*)?amount must be greater than zero/i.test(providerErrorDetail)
+  );
+}
+
 function normalizeVtuProviderOrError(
   row: VtuTransactionRow
 ): ProviderNormalizationResult {
@@ -2107,7 +2131,7 @@ async function executeVtuPurchase(
       validationReference
     );
 
-    if (monnifyResult.success || row.type !== 'airtime') {
+    if (!isMonnifyAirtimeKudaFallbackEligible(row, monnifyResult)) {
       return monnifyResult;
     }
 
