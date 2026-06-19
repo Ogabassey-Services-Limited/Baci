@@ -78,6 +78,21 @@ describe('receipt claim RPC schemas', () => {
     expect(redeemReceiptClaimResultSchema.safeParse({}).success).toBe(false);
   });
 
+  it('rejects external and protocol-relative redirect paths', () => {
+    expect(
+      redeemReceiptClaimResultSchema.safeParse({
+        redirectPath: 'https://evil.test',
+        status: 'ok',
+      }).success
+    ).toBe(false);
+    expect(
+      redeemReceiptClaimResultSchema.safeParse({
+        redirectPath: '//evil.test',
+        status: 'ok',
+      }).success
+    ).toBe(false);
+  });
+
   it('accepts known create-claim statuses and rejects unknown statuses', () => {
     expect(
       createReceiptClaimResultSchema.safeParse({
