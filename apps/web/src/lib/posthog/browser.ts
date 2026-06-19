@@ -6,11 +6,17 @@ const MISSING_TOKEN_WARNING =
   '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.';
 const POSTHOG_NODE_ENV = process.env.NODE_ENV;
 const POSTHOG_PAGEVIEW_CAPTURE_OPTIONS = { send_instantly: true } as const;
+const POSTHOG_LOADED_STATE_CHECK_INTERVAL_MS = 250;
+const POSTHOG_LOADED_STATE_CHECK_ATTEMPTS = 40;
 
 let hasInitializedPostHogBrowser = false;
 let isPostHogReadyForCapture = false;
 let isPostHogBrowserDisabled = false;
 let lastCapturedPostHogPageviewUrl: string | undefined;
+let postHogLoadedStateCheckAttempts = 0;
+let postHogLoadedStateCheckTimer:
+  | ReturnType<typeof globalThis.setTimeout>
+  | undefined;
 const pendingPostHogPageviewUrls: string[] = [];
 
 function isPostHogDevelopmentMode(env: PostHogEnv): boolean {
@@ -29,6 +35,7 @@ export function initializePostHogBrowser(
 
   if (!projectToken) {
     isPostHogBrowserDisabled = true;
+    clearPostHogLoadedStateCheck();
     pendingPostHogPageviewUrls.length = 0;
 
     if (isPostHogDevelopmentMode(env)) {
@@ -58,7 +65,9 @@ export function initializePostHogBrowser(
       },
     });
     hasInitializedPostHogBrowser = true;
+    postHogLoadedStateCheckAttempts = 0;
     flushPendingPostHogPageviewsIfClientLoaded();
+    schedulePostHogLoadedStateCheck();
   } catch (error) {
     isPostHogReadyForCapture = false;
     throw error;
@@ -84,6 +93,7 @@ function queuePostHogPageview(resolvedUrl: string) {
   }
 
   flushPendingPostHogPageviewsIfClientLoaded();
+  schedulePostHogLoadedStateCheck();
 }
 
 function isPostHogClientLoaded() {
@@ -99,7 +109,41 @@ function markPostHogReadyAndFlush() {
   }
 
   isPostHogReadyForCapture = true;
+  clearPostHogLoadedStateCheck();
   flushPendingPostHogPageviews();
+}
+
+function clearPostHogLoadedStateCheck() {
+  if (postHogLoadedStateCheckTimer === undefined) {
+    return;
+  }
+
+  globalThis.clearTimeout(postHogLoadedStateCheckTimer);
+  postHogLoadedStateCheckTimer = undefined;
+}
+
+function schedulePostHogLoadedStateCheck() {
+  if (
+    postHogLoadedStateCheckTimer !== undefined ||
+    isPostHogReadyForCapture ||
+    !hasInitializedPostHogBrowser ||
+    pendingPostHogPageviewUrls.length === 0 ||
+    postHogLoadedStateCheckAttempts >= POSTHOG_LOADED_STATE_CHECK_ATTEMPTS
+  ) {
+    return;
+  }
+
+  postHogLoadedStateCheckTimer = globalThis.setTimeout(() => {
+    postHogLoadedStateCheckTimer = undefined;
+    flushPendingPostHogPageviewsIfClientLoaded();
+
+    if (isPostHogReadyForCapture || pendingPostHogPageviewUrls.length === 0) {
+      return;
+    }
+
+    postHogLoadedStateCheckAttempts += 1;
+    schedulePostHogLoadedStateCheck();
+  }, POSTHOG_LOADED_STATE_CHECK_INTERVAL_MS);
 }
 
 function flushPendingPostHogPageviewsIfClientLoaded() {
