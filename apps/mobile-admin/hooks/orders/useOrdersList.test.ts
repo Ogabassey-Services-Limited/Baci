@@ -104,7 +104,7 @@ vi.mock('@/lib/orders', () => ({
 }));
 
 vi.mock('@/lib/sanitize', () => ({
-  sanitizeSearchQuery: (value: string) => value.trim(),
+  sanitizeText: (value: string) => value.trim(),
 }));
 
 vi.mock('@/schemas/branch', () => ({

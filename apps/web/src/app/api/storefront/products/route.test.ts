@@ -561,10 +561,12 @@ describe('GET /api/storefront/products', () => {
     const idQueries =
       storefrontProductsRouteTestHarness.mockProductsByIdsQueries.current;
     expect(idQueries).toHaveLength(2);
+    expect(idQueries[0]?.eq).toHaveBeenCalledWith('status', 'active');
     expect(idQueries[0]?.in).toHaveBeenCalledWith(
       'id',
       rankedIds.slice(0, 100)
     );
+    expect(idQueries[1]?.eq).toHaveBeenCalledWith('status', 'active');
     expect(idQueries[1]?.in).toHaveBeenCalledWith('id', rankedIds.slice(100));
     expect(body.products.map((product: { id: string }) => product.id)).toEqual(
       rankedIds.slice(0, 20)

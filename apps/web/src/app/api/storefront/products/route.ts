@@ -205,29 +205,23 @@ async function fetchProductRowsByIds(
       ? storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT
       : storefrontProductsRouteData.STOREFRONT_PRODUCTS_COMPACT_SELECT;
 
-  const queries = [];
+  const products: RawStorefrontProductRow[] = [];
   for (
     let index = 0;
     index < ids.length;
     index += PRODUCT_ID_FETCH_CHUNK_SIZE
   ) {
     const idChunk = ids.slice(index, index + PRODUCT_ID_FETCH_CHUNK_SIZE);
-    queries.push(
-      (async () =>
-        (await supabase
-          .from('products')
-          .select(selectColumns)
-          .eq('merchant_id', merchantId)
-          .in('id', idChunk)) as {
-          data: RawStorefrontProductRow[] | null;
-          error: unknown;
-        })()
-    );
-  }
+    const result = (await supabase
+      .from('products')
+      .select(selectColumns)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .in('id', idChunk)) as {
+      data: RawStorefrontProductRow[] | null;
+      error: unknown;
+    };
 
-  const results = await Promise.all(queries);
-  const products: RawStorefrontProductRow[] = [];
-  for (const result of results) {
     if (result.error) throw result.error;
     products.push(...(result.data || []));
   }

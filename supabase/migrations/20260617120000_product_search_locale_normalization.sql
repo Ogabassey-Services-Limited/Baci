@@ -135,6 +135,9 @@ AS $$
     );
 $$;
 
+-- pg_trgm is installed in the 20260418000000 baseline migration under the
+-- extensions schema; keep these expression indexes schema-qualified so restore
+-- order and blank search_path functions do not depend on public opclass lookup.
 DROP INDEX IF EXISTS public.products_search_name_compact_trgm;
 DROP INDEX IF EXISTS public.products_search_name_normalized_trgm;
 DROP INDEX IF EXISTS public.products_search_vector_v2_gin;

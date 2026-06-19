@@ -1,6 +1,6 @@
-import { getPrimaryProductImage } from './product-image';
-import type { StorefrontSearchSupabase } from './storefront-search';
-import { searchStorefrontProducts } from './storefront-search';
+import { getPrimaryProductImage } from '@/lib/product-image';
+import type { StorefrontSearchSupabase } from '@/lib/storefront-search';
+import { searchStorefrontProducts } from '@/lib/storefront-search';
 
 const AUTOCOMPLETE_PRODUCT_SELECT = 'id, name, category, price, images, slug';
 const MAX_AUTOCOMPLETE_LIMIT = 100;

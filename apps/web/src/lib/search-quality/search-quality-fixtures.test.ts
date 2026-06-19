@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { SEARCH_QUALITY_FIXTURES } from './search-quality-fixtures';
+import {
+  parseSearchQualityFixtures,
+  SEARCH_QUALITY_FIXTURES,
+} from './search-quality-fixtures';
 
 describe('SEARCH_QUALITY_FIXTURES', () => {
   it('covers the required search quality classes', () => {
@@ -55,5 +58,28 @@ describe('SEARCH_QUALITY_FIXTURES', () => {
           fixture.expectedParsedFilters?.condition === 'open_box'
       )
     ).toBe(true);
+  });
+
+  it('rejects invalid fixture metadata instead of silently accepting drift', () => {
+    expect(() =>
+      parseSearchQualityFixtures([
+        {
+          query: 'bad fixture',
+          kind: 'unexpected-kind',
+          expectedTopProductNames: [],
+        },
+      ])
+    ).toThrow();
+
+    expect(() =>
+      parseSearchQualityFixtures([
+        {
+          query: 'bad condition',
+          kind: 'condition',
+          expectedTopProductNames: ['iPhone'],
+          expectedParsedFilters: { condition: 'refurbished' },
+        },
+      ])
+    ).toThrow();
   });
 });

@@ -2,7 +2,7 @@ import type { Order, OrderItem, ShippingStatus } from '@baci/shared';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { ORDER_COLUMNS } from '@/lib/orders';
-import { sanitizeSearchQuery } from '@/lib/sanitize';
+import { sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
 import {
@@ -91,7 +91,7 @@ export async function fetchOrders(
   }
 
   if (filters?.search) {
-    const term = sanitizeSearchQuery(filters.search);
+    const term = sanitizeText(filters.search, 200);
     if (term) {
       query = query.or(buildAdminOrderSearchFilter(term));
     }

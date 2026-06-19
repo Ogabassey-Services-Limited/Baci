@@ -1492,48 +1492,91 @@ function createOgabasseyServer() {
 
           products = products.slice(0, limit);
         } else {
-          let query = supabase
-            .from('products')
-            .select(productSelect)
-            .eq('merchant_id', merchantId)
-            .eq('status', 'active')
-            .limit(limit);
+          const buildCatalogQuery = (pageOffset?: number) => {
+            let query = supabase
+              .from('products')
+              .select(productSelect)
+              .eq('merchant_id', merchantId)
+              .eq('status', 'active');
 
-          // Filters
-          if (sanitizedCondition) {
-            const conditionClauses = getConditionPrefilterClauses(
-              sanitizedCondition
-            );
-            if (conditionClauses.length > 0) {
-              query = query.or(conditionClauses.join(','));
+            // Filters
+            if (sanitizedCondition) {
+              const conditionClauses = getConditionPrefilterClauses(
+                sanitizedCondition
+              );
+              if (conditionClauses.length > 0) {
+                query = query.or(conditionClauses.join(','));
+              }
             }
-          }
-          if (sanitizedCategory)
-            query = query.ilike('category', `%${sanitizedCategory}%`);
-          if (sanitizedBrand)
-            query = query.ilike('brand', `%${sanitizedBrand}%`);
-          if (args.min_price) query = query.gte('price', args.min_price);
-          if (args.max_price) query = query.lte('price', args.max_price);
+            if (sanitizedCategory)
+              query = query.ilike('category', `%${sanitizedCategory}%`);
+            if (sanitizedBrand)
+              query = query.ilike('brand', `%${sanitizedBrand}%`);
+            if (args.min_price !== undefined)
+              query = query.gte('price', args.min_price);
+            if (args.max_price !== undefined)
+              query = query.lte('price', args.max_price);
 
-          // Sorting
-          if (args.sort === 'price_asc')
-            query = query.order('price', { ascending: true });
-          else if (args.sort === 'price_desc')
-            query = query.order('price', { ascending: false });
-          else if (args.sort === 'newest')
-            query = query.order('created_at', { ascending: false });
-          else query = query.order('stock_quantity', { ascending: false }); // Relevance proxy: push in-stock items up
+            // Sorting
+            if (args.sort === 'price_asc')
+              query = query.order('price', { ascending: true });
+            else if (args.sort === 'price_desc')
+              query = query.order('price', { ascending: false });
+            else if (args.sort === 'newest')
+              query = query.order('created_at', { ascending: false });
+            else query = query.order('stock_quantity', { ascending: false }); // Relevance proxy: push in-stock items up
 
-          const { data: productRows, error } = await query;
+            if (pageOffset !== undefined) {
+              return query.range(
+                pageOffset,
+                pageOffset + POST_FILTER_RESULT_PAGE_SIZE - 1
+              );
+            }
 
-          if (error) throw error;
-
-          products = toMcpSearchProductRows(productRows);
+            return query.limit(limit);
+          };
 
           if (sanitizedCondition) {
-            products = products.filter((product) =>
-              matchesConditionFamily(product, sanitizedCondition)
-            );
+            let pageOffset = 0;
+            let sawSourceRows = false;
+
+            while (products.length < limit) {
+              const { data: productRows, error } = await buildCatalogQuery(
+                pageOffset
+              );
+
+              if (error) throw error;
+
+              const pageRows = productRows || [];
+              if (pageRows.length === 0) {
+                break;
+              }
+
+              sawSourceRows = true;
+              products.push(
+                ...toMcpSearchProductRows(pageRows).filter((product) =>
+                  matchesConditionFamily(product, sanitizedCondition)
+                )
+              );
+
+              if (pageRows.length < POST_FILTER_RESULT_PAGE_SIZE) {
+                break;
+              }
+
+              pageOffset += POST_FILTER_RESULT_PAGE_SIZE;
+            }
+
+            if (!sawSourceRows) {
+              products = [];
+            } else {
+              products = products.slice(0, limit);
+            }
+          } else {
+            const { data: productRows, error } = await buildCatalogQuery();
+
+            if (error) throw error;
+
+            products = toMcpSearchProductRows(productRows);
           }
         }
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getStorefrontAutocompleteProducts } from './storefront-search-autocomplete';
+import { getStorefrontAutocompleteProducts } from '@/lib/storefront-search-autocomplete';
 
 const searchStorefrontProducts = vi.fn();
 const productQuery = {
@@ -37,7 +37,7 @@ const supabase = {
 };
 const VALID_MERCHANT_ID = '123e4567-e89b-12d3-a456-426614174000';
 
-vi.mock('./storefront-search', () => ({
+vi.mock('@/lib/storefront-search', () => ({
   searchStorefrontProducts: (...args: unknown[]) =>
     searchStorefrontProducts(...args),
 }));
