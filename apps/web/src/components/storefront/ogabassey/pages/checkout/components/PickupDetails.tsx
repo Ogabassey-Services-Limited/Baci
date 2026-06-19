@@ -1,5 +1,5 @@
 import { Building2 } from 'lucide-react';
-import { PICKUP_CONFIG } from '@/config/pickup-locations';
+import { PICKUP_CONFIG } from '@/components/storefront/ogabassey/config/checkout/pickup-locations';
 
 export function PickupDetails() {
   const { closingTime, location, name, readinessTime } = PICKUP_CONFIG.mainOffice;

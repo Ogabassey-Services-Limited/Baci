@@ -1,7 +1,7 @@
 'use client';
 
 import { Plane } from 'lucide-react';
-import { AIRPORT_DELIVERY_CONFIG } from '@/config/airport-delivery';
+import { AIRPORT_DELIVERY_CONFIG } from '@/components/storefront/ogabassey/config/checkout/airport-delivery';
 import { AirportOption } from './AirportOption';
 
 interface AirportOptionsProps {

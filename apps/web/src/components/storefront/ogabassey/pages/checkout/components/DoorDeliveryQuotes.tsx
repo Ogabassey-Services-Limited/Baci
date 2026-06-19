@@ -1,7 +1,7 @@
 'use client';
 
 import { Truck } from 'lucide-react';
-import { getCarrierBadge } from '@/config/shipping-carriers';
+import { getCarrierBadge } from '@/components/storefront/ogabassey/config/checkout/shipping-carriers';
 import { SmartQuoteLoader } from '../../../components/SmartQuoteLoader';
 import type { ShippingQuote } from '../types';
 
