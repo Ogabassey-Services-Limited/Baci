@@ -93,6 +93,31 @@ export function getRankedProductTotal(rows: RankedSearchProductRow[]) {
   return rows.length;
 }
 
+export function toRankedSearchProductRows(
+  data: unknown
+): RankedSearchProductRow[] {
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data.filter((row): row is RankedSearchProductRow => {
+    if (!row || typeof row !== 'object' || !('product_id' in row)) {
+      return false;
+    }
+
+    const { product_id: productId, total_count: totalCount } =
+      row as RankedSearchProductRow;
+
+    return (
+      typeof productId === 'string' &&
+      (totalCount === undefined ||
+        totalCount === null ||
+        typeof totalCount === 'number' ||
+        typeof totalCount === 'string')
+    );
+  });
+}
+
 export function toMcpSearchProductRows(data: unknown): McpSearchProductRow[] {
   if (!Array.isArray(data)) {
     return [];

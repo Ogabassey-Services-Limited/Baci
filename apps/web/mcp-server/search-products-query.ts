@@ -11,8 +11,8 @@ import {
   matchesConditionFamily,
   matchesMcpPostHydrationFilters,
   type McpSearchProductRow,
-  type RankedSearchProductRow,
   toMcpSearchProductRows,
+  toRankedSearchProductRows,
 } from './search-products-query-helpers';
 
 type SearchProductsArgs = {
@@ -93,9 +93,7 @@ async function loadRankedMcpProducts({
 
     if (ranked.error) throw ranked.error;
 
-    const rankedRows = Array.isArray(ranked.data)
-      ? (ranked.data as RankedSearchProductRow[])
-      : [];
+    const rankedRows = toRankedSearchProductRows(ranked.data);
     const rankedProductIds = extractRankedProductIds(rankedRows);
 
     if (rankedProductIds.length === 0) {

@@ -3,6 +3,7 @@ import {
   buildSearchProductsV2RpcArgs,
   orderRowsByRankedProductIds,
 } from './search-products-ranking';
+import { toRankedSearchProductRows } from './search-products-query-helpers';
 
 describe('MCP search_products ranking helpers', () => {
   it('builds search_products_v2 arguments for ranked MCP catalog search', () => {
@@ -156,5 +157,20 @@ describe('MCP search_products ranking helpers', () => {
 
   it('handles empty row arrays', () => {
     expect(orderRowsByRankedProductIds([], ['product-1'])).toEqual([]);
+  });
+
+  it('keeps only valid ranked RPC rows before hydration', () => {
+    expect(
+      toRankedSearchProductRows([
+        { product_id: 'product-1', total_count: '2' },
+        { product_id: 'product-2', total_count: 2 },
+        { product_id: 123, total_count: 2 },
+        { total_count: 2 },
+        null,
+      ])
+    ).toEqual([
+      { product_id: 'product-1', total_count: '2' },
+      { product_id: 'product-2', total_count: 2 },
+    ]);
   });
 });
