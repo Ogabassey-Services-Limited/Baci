@@ -19,18 +19,20 @@ describe('AppError', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders a recoverable application error with inline shell styles', () => {
+  it('renders a recoverable application error with a self-contained stylesheet', () => {
     const reset = vi.fn();
 
-    render(<AppError error={new Error('boom')} reset={reset} />);
+    const { container } = render(
+      <AppError error={new Error('boom')} reset={reset} />
+    );
 
     expect(
       screen.getByRole('heading', { name: /something went wrong/i })
     ).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveStyle({
-      position: 'fixed',
-      minHeight: '100vh',
-    });
+    expect(screen.getByRole('main')).toHaveClass('baci-system-error-page');
+    expect(container.querySelector('style')?.textContent).toContain(
+      '.baci-system-error-button:focus-visible'
+    );
     expect(screen.getByRole('button', { name: /try again/i })).toBeEnabled();
   });
 

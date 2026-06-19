@@ -2,7 +2,10 @@
 
 import { useEffect } from 'react';
 import { captureClientException } from '@/lib/posthog/client-exceptions';
-import { systemErrorStyles } from './system-error-styles';
+import {
+  systemErrorClassNames,
+  systemErrorStyleSheet,
+} from './system-error-styles';
 
 export default function AppError({
   error,
@@ -20,50 +23,53 @@ export default function AppError({
   }, [error]);
 
   return (
-    <main style={systemErrorStyles.page}>
-      <section aria-labelledby="app-error-title" style={systemErrorStyles.card}>
-        <div aria-hidden="true" style={systemErrorStyles.icon}>
-          !
-        </div>
+    <>
+      <style>{systemErrorStyleSheet}</style>
+      <main className={systemErrorClassNames.page}>
+        <section
+          aria-labelledby="app-error-title"
+          className={systemErrorClassNames.card}
+        >
+          <div aria-hidden="true" className={systemErrorClassNames.icon}>
+            !
+          </div>
 
-        <h2 style={systemErrorStyles.cardTitle} id="app-error-title">
-          Something went wrong
-        </h2>
-        <p style={systemErrorStyles.copy}>
-          We encountered an unexpected error while loading this page. Our team
-          has been notified.
-        </p>
+          <h2 className={systemErrorClassNames.cardTitle} id="app-error-title">
+            Something went wrong
+          </h2>
+          <p className={systemErrorClassNames.copy}>
+            We encountered an unexpected error while loading this page. Our team
+            has been notified.
+          </p>
 
-        <div style={systemErrorStyles.actions}>
-          <button
-            style={systemErrorStyles.button}
-            onClick={reset}
-            type="button"
-          >
-            Try again
-          </button>
-          <button
-            style={{
-              ...systemErrorStyles.button,
-              ...systemErrorStyles.buttonSecondary,
-            }}
-            onClick={() => {
-              window.location.href = '/';
-            }}
-            type="button"
-          >
-            Go home
-          </button>
-        </div>
+          <div className={systemErrorClassNames.actions}>
+            <button
+              className={systemErrorClassNames.button}
+              onClick={reset}
+              type="button"
+            >
+              Try again
+            </button>
+            <button
+              className={`${systemErrorClassNames.button} ${systemErrorClassNames.buttonSecondary}`}
+              onClick={() => {
+                window.location.href = '/';
+              }}
+              type="button"
+            >
+              Go home
+            </button>
+          </div>
 
-        {process.env.NODE_ENV === 'development' && (
-          <pre style={systemErrorStyles.debug}>
-            {error.name}: {error.message}
-            {'\n'}
-            {error.stack}
-          </pre>
-        )}
-      </section>
-    </main>
+          {process.env.NODE_ENV === 'development' && (
+            <pre className={systemErrorClassNames.debug}>
+              {error.name}: {error.message}
+              {'\n'}
+              {error.stack}
+            </pre>
+          )}
+        </section>
+      </main>
+    </>
   );
 }
