@@ -24,10 +24,8 @@ import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createClient } from '@supabase/supabase-js';
-import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { z } from 'zod';
 import 'dotenv/config';
-import { storefrontProductFilters } from '../src/lib/storefront-product-filters';
 import {
   AGENTIC_CHECKOUT_AGENT_ID,
   type AgenticCheckoutClientConfig,
@@ -44,11 +42,7 @@ import {
   updateAgenticCheckoutSessionMcpInputSchema,
 } from './agentic-checkout-client';
 import { registerAgenticUcpTools } from './agentic-ucp-tools';
-import {
-  buildSearchProductsV2RpcArgs,
-  orderRowsByRankedProductIds,
-  POST_FILTER_RESULT_PAGE_SIZE,
-} from './search-products-ranking';
+import { loadMcpSearchProducts } from './search-products-query';
 
 // =============================================================================
 // CONFIGURATION
@@ -316,142 +310,6 @@ function sanitizeString(input: string, maxLength = 200): string {
     .replace(/[\x00-\x1f]/g, '') // Remove null bytes and control characters
     .replace(/[<>"'`\\;]/g, '') // Remove potentially dangerous chars including semicolons and backslashes
     .trim();
-}
-
-function getConditionPrefilterClauses(condition: string) {
-  const normalized = normalizeCanonicalProductCondition(condition);
-
-  if (!normalized) {
-    return [];
-  }
-
-  const rawConditions =
-    normalized === 'open_box'
-      ? ['open_box', 'refurbished']
-      : normalized === 'used'
-        ? ['used', 'uk_used']
-        : ['new'];
-  const clauses = new Set<string>();
-
-  for (const rawCondition of rawConditions) {
-    clauses.add(`condition.eq.${rawCondition}`);
-    clauses.add(`available_conditions.cs.{${rawCondition}}`);
-  }
-
-  if (normalized === 'new' || normalized === 'used') {
-    clauses.add('has_condition_offers.eq.true');
-  }
-
-  return Array.from(clauses);
-}
-
-function matchesConditionFamily(
-  product: Record<string, unknown>,
-  condition: string | undefined
-) {
-  if (!condition) {
-    return true;
-  }
-
-  return storefrontProductFilters.matchesStorefrontConditionFilter(
-    {
-      available_conditions: product.available_conditions,
-      condition:
-        typeof product.condition === 'string' ? product.condition : null,
-      has_condition_offers: product.has_condition_offers === true,
-    },
-    condition
-  );
-}
-
-
-type McpSearchProductRow = {
-  id: string;
-  available_conditions?: unknown;
-  brand?: string | null;
-  category?: string | null;
-  compare_at_price?: number | null;
-  condition?: string | null;
-  condition_detail?: string | null;
-  created_at?: string | null;
-  has_condition_offers?: boolean | null;
-  has_variants?: boolean | null;
-  images?: unknown;
-  name?: string | null;
-  price?: number | null;
-  slug?: string | null;
-  stock_quantity?: number | null;
-  updated_at?: string | null;
-};
-
-type RankedSearchProductRow = {
-  product_id?: unknown;
-  total_count?: unknown;
-};
-
-function extractRankedProductIds(rows: RankedSearchProductRow[]) {
-  return rows
-    .map((row) =>
-      typeof row.product_id === 'string' ? row.product_id : null
-    )
-    .filter((id): id is string => Boolean(id));
-}
-
-function getRankedProductTotal(rows: RankedSearchProductRow[]) {
-  const rawCount = rows[0]?.total_count;
-
-  if (typeof rawCount === 'number') {
-    return rawCount;
-  }
-
-  if (typeof rawCount === 'string') {
-    return Number.parseInt(rawCount, 10) || 0;
-  }
-
-  return rows.length;
-}
-
-function toMcpSearchProductRows(data: unknown): McpSearchProductRow[] {
-  if (!Array.isArray(data)) {
-    return [];
-  }
-
-  return data.filter(
-    (row): row is McpSearchProductRow =>
-      Boolean(row) &&
-      typeof row === 'object' &&
-      'id' in row &&
-      typeof row.id === 'string'
-  );
-}
-
-function matchesMcpPostHydrationFilters(
-  product: McpSearchProductRow,
-  filters: {
-    brand?: string;
-    category?: string;
-    condition?: string;
-  }
-) {
-  if (
-    filters.category &&
-    !String(product.category ?? '')
-      .toLowerCase()
-      .includes(filters.category.toLowerCase())
-  ) {
-    return false;
-  }
-
-  if (
-    filters.brand &&
-    !String(product.brand ?? '')
-      .toLowerCase()
-      .includes(filters.brand.toLowerCase())
-  ) {
-    return false;
-  }
-
-  return matchesConditionFamily(product, filters.condition);
 }
 
 // Validate and sanitize price input
@@ -1379,205 +1237,24 @@ function createOgabasseyServer() {
         const merchantId = await getMerchantId();
         if (!merchantId) throw new Error('Merchant ID unavailable');
 
-        const sanitizedQuery = args.query
-          ? sanitizeString(args.query, 100)
-          : undefined;
-        const sanitizedBrand = args.brand
-          ? sanitizeString(args.brand, 50)
-          : undefined;
-        const sanitizedCategory = args.category
-          ? sanitizeString(args.category, 50)
-          : undefined;
-        const limit = Math.min(Math.max(args.limit || 10, 1), 20);
+        const { products, sanitizedQuery, sawRankedRows } =
+          await loadMcpSearchProducts({
+            args,
+            merchantId,
+            sanitizeString,
+            supabase,
+          });
 
-        const productSelect =
-          'id, name, slug, price, compare_at_price, images, condition, condition_detail, available_conditions, has_condition_offers, brand, category, stock_quantity, has_variants, updated_at, created_at';
-        const sanitizedCondition = args.condition
-          ? sanitizeString(args.condition, 50)
-          : undefined;
-        const hasPostHydrationFilters = Boolean(
-          sanitizedBrand || sanitizedCategory || sanitizedCondition
-        );
-        let products: McpSearchProductRow[] = [];
-
-        if (sanitizedQuery) {
-          let pageOffset = 0;
-          let totalRankedMatches = Number.POSITIVE_INFINITY;
-          let sawRankedRows = false;
-
-          while (
-            pageOffset < totalRankedMatches &&
-            (!hasPostHydrationFilters || products.length < limit)
-          ) {
-            const ranked = await supabase.rpc(
-              'search_products_v2',
-              buildSearchProductsV2RpcArgs({
-                args: {
-                  brand: sanitizedBrand,
-                  category: sanitizedCategory,
-                  condition: sanitizedCondition,
-                  max_price: args.max_price,
-                  min_price: args.min_price,
-                  sort: args.sort,
-                },
-                limit,
-                merchantId,
-                offset: pageOffset,
-                sanitizedQuery,
-              })
-            );
-
-            if (ranked.error) throw ranked.error;
-
-            const rankedRows = Array.isArray(ranked.data)
-              ? (ranked.data as RankedSearchProductRow[])
-              : [];
-            const rankedProductIds = extractRankedProductIds(rankedRows);
-
-            if (rankedProductIds.length === 0) {
-              break;
-            }
-
-            sawRankedRows = true;
-            const reportedTotal = getRankedProductTotal(rankedRows);
-            totalRankedMatches =
-              reportedTotal > 0
-                ? reportedTotal
-                : pageOffset + rankedProductIds.length;
-
-            const { data: productRows, error } = await supabase
-              .from('products')
-              .select(productSelect)
-              .eq('merchant_id', merchantId)
-              .eq('status', 'active')
-              .in('id', rankedProductIds);
-
-            if (error) throw error;
-
-            let pageProducts = orderRowsByRankedProductIds(
-              toMcpSearchProductRows(productRows),
-              rankedProductIds
-            );
-
-            if (hasPostHydrationFilters) {
-              pageProducts = pageProducts.filter((product) =>
-                matchesMcpPostHydrationFilters(product, {
-                  brand: sanitizedBrand,
-                  category: sanitizedCategory,
-                  condition: sanitizedCondition,
-                })
-              );
-            }
-
-            products.push(...pageProducts);
-
-            if (!hasPostHydrationFilters) {
-              break;
-            }
-
-            pageOffset += POST_FILTER_RESULT_PAGE_SIZE;
-          }
-
-          if (!sawRankedRows) {
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `No specific products found for "${sanitizedQuery}". Try broader terms.`,
-                },
-              ],
-              structuredContent: { products: [], status: 'empty' },
-            };
-          }
-
-          products = products.slice(0, limit);
-        } else {
-          const buildCatalogQuery = (pageOffset?: number) => {
-            let query = supabase
-              .from('products')
-              .select(productSelect)
-              .eq('merchant_id', merchantId)
-              .eq('status', 'active');
-
-            // Filters
-            if (sanitizedCondition) {
-              const conditionClauses = getConditionPrefilterClauses(
-                sanitizedCondition
-              );
-              if (conditionClauses.length > 0) {
-                query = query.or(conditionClauses.join(','));
-              }
-            }
-            if (sanitizedCategory)
-              query = query.ilike('category', `%${sanitizedCategory}%`);
-            if (sanitizedBrand)
-              query = query.ilike('brand', `%${sanitizedBrand}%`);
-            if (args.min_price !== undefined)
-              query = query.gte('price', args.min_price);
-            if (args.max_price !== undefined)
-              query = query.lte('price', args.max_price);
-
-            // Sorting
-            if (args.sort === 'price_asc')
-              query = query.order('price', { ascending: true });
-            else if (args.sort === 'price_desc')
-              query = query.order('price', { ascending: false });
-            else if (args.sort === 'newest')
-              query = query.order('created_at', { ascending: false });
-            else query = query.order('stock_quantity', { ascending: false }); // Relevance proxy: push in-stock items up
-
-            if (pageOffset !== undefined) {
-              return query.range(
-                pageOffset,
-                pageOffset + POST_FILTER_RESULT_PAGE_SIZE - 1
-              );
-            }
-
-            return query.limit(limit);
+        if (sanitizedQuery && !sawRankedRows) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No specific products found for "${sanitizedQuery}". Try broader terms.`,
+              },
+            ],
+            structuredContent: { products: [], status: 'empty' },
           };
-
-          if (sanitizedCondition) {
-            let pageOffset = 0;
-            let sawSourceRows = false;
-
-            while (products.length < limit) {
-              const { data: productRows, error } = await buildCatalogQuery(
-                pageOffset
-              );
-
-              if (error) throw error;
-
-              const pageRows = productRows || [];
-              if (pageRows.length === 0) {
-                break;
-              }
-
-              sawSourceRows = true;
-              products.push(
-                ...toMcpSearchProductRows(pageRows).filter((product) =>
-                  matchesConditionFamily(product, sanitizedCondition)
-                )
-              );
-
-              if (pageRows.length < POST_FILTER_RESULT_PAGE_SIZE) {
-                break;
-              }
-
-              pageOffset += POST_FILTER_RESULT_PAGE_SIZE;
-            }
-
-            if (!sawSourceRows) {
-              products = [];
-            } else {
-              products = products.slice(0, limit);
-            }
-          } else {
-            const { data: productRows, error } = await buildCatalogQuery();
-
-            if (error) throw error;
-
-            products = toMcpSearchProductRows(productRows);
-          }
         }
 
         // Graceful fallback for empty results
