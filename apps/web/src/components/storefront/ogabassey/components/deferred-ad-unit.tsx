@@ -2,6 +2,8 @@
 
 import type { ComponentType, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
+import { AD_CONFIG } from '../config/ads';
+import { AdSlotShell } from './ad-slot-shell';
 import type { AdUnitProps } from './AdUnit';
 import { useDeferredActivation } from './deferred-shell-feature';
 
@@ -24,7 +26,7 @@ export function DeferredAdUnit({
   activateOnIdle = false,
   activateOnInteraction = false,
   enabled = true,
-  fallback = null,
+  fallback,
   loadAdUnitModule = loadDefaultAdUnitModule,
   timeoutMs = 1,
   ...adUnitProps
@@ -37,6 +39,25 @@ export function DeferredAdUnit({
     enabled,
     timeoutMs,
   });
+
+  // Reserve the slot with the SAME shell the loaded AdUnit uses, sized from the
+  // placement config, so the activation swap never changes the box height (no
+  // CLS). Callers may still override with an explicit `fallback`.
+  const placementConfig = AD_CONFIG[adUnitProps.placementKey];
+  const resolvedFallback =
+    fallback !== undefined ? (
+      fallback
+    ) : placementConfig ? (
+      <AdSlotShell
+        ariaHidden
+        height={placementConfig.height}
+        mobileHeight={placementConfig.mobileHeight}
+        mobileWidth={placementConfig.mobileWidth}
+        name={placementConfig.name}
+        outerClassName={adUnitProps.className ?? ''}
+        width={placementConfig.width}
+      />
+    ) : null;
 
   useEffect(() => {
     if (!isActivated || AdUnitComponent) {
@@ -64,7 +85,7 @@ export function DeferredAdUnit({
   }, [AdUnitComponent, isActivated, loadAdUnitModule]);
 
   if (!isActivated || !AdUnitComponent) {
-    return fallback;
+    return resolvedFallback;
   }
 
   return <AdUnitComponent {...adUnitProps} />;
