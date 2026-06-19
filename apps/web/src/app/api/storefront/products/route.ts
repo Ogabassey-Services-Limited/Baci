@@ -1,3 +1,4 @@
+import { formatSupabaseErrorLog } from '@baci/shared/lib';
 import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -11,7 +12,6 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import type { StorefrontProductsQuery } from '@/schemas/storefront-products-query.types';
-import { getStorefrontProductsRouteErrorLog } from './route-error-log';
 import {
   type RawStorefrontProductRow,
   storefrontProductsRouteData,
@@ -288,10 +288,10 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error) {
-    console.error(
-      'Unexpected error in GET /api/storefront/products:',
-      getStorefrontProductsRouteErrorLog(error, searchParams.get('merchant_id'))
-    );
+    console.error('Unexpected error in GET /api/storefront/products:', {
+      ...formatSupabaseErrorLog(error),
+      merchantId: searchParams.get('merchant_id'),
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

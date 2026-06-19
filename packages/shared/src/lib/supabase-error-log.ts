@@ -1,6 +1,5 @@
-interface StorefrontProductsRouteErrorLog {
+export interface SupabaseErrorLog {
   message: string;
-  merchantId: string | null;
   code?: string;
   details?: string;
   hint?: string;
@@ -32,16 +31,12 @@ function getThrownValueType(error: unknown) {
   return error.constructor?.name || 'Object';
 }
 
-export function getStorefrontProductsRouteErrorLog(
-  error: unknown,
-  merchantId: string | null
-): StorefrontProductsRouteErrorLog {
+export function formatSupabaseErrorLog(error: unknown): SupabaseErrorLog {
   if (error instanceof Error) {
     return {
       message: error.message,
       stack: error.stack,
       name: error.name,
-      merchantId,
     };
   }
 
@@ -49,7 +44,6 @@ export function getStorefrontProductsRouteErrorLog(
     return {
       message: error,
       thrownValueType: 'string',
-      merchantId,
     };
   }
 
@@ -59,6 +53,5 @@ export function getStorefrontProductsRouteErrorLog(
     details: getStringProperty(error, 'details'),
     hint: getStringProperty(error, 'hint'),
     thrownValueType: getThrownValueType(error),
-    merchantId,
   };
 }
