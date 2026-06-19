@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
@@ -18,20 +17,20 @@ function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
  * POST /api/admin/generate-hero-images
  */
 export async function POST(request: NextRequest) {
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
-    );
-  }
-
   const auth = await getPlatformAdminAuth();
   if (auth.status !== 'authenticated') {
     return toAuthErrorResponse(auth.status);
   }
 
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+      );
+    }
+
     let body: unknown;
     try {
       body = await request.json();
@@ -95,8 +94,7 @@ export async function GET() {
   }
 
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
 
     // Get statistics per category
     const { data: stats, error: statsError } = await supabase
