@@ -90,21 +90,28 @@ const PLACEHOLDER_IMAGE = '/placeholder.svg';
 // page.tsx), not an API boundary — so these normalize/clean image URLs rather
 // than validate them. Kept as plain helpers to keep zod out of the client bundle.
 function cleanImageUrl(value?: string | null): string {
-  if (!value) return PLACEHOLDER_IMAGE;
+  if (typeof value !== 'string' || !value) return PLACEHOLDER_IMAGE;
   // Strip wrapping literal double quotes and surrounding whitespace.
   const cleaned = value.trim().replace(/^"|"$/g, '');
   return cleaned || PLACEHOLDER_IMAGE;
 }
 
-function normalizeColorImages(
-  value?: Record<string, Array<string | null | undefined> | null> | null
-): Record<string, string[]> {
-  if (!value) return {};
+function normalizeImageList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(cleanImageUrl)
+    .filter((url) => url !== PLACEHOLDER_IMAGE);
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeColorImages(value?: unknown): Record<string, string[]> {
+  if (!isPlainRecord(value)) return {};
   const result: Record<string, string[]> = {};
   for (const [color, images] of Object.entries(value)) {
-    result[color] = (images ?? [])
-      .map(cleanImageUrl)
-      .filter((url) => url !== PLACEHOLDER_IMAGE);
+    result[color] = normalizeImageList(images);
   }
   return result;
 }
@@ -114,9 +121,7 @@ export function normalizeProductDetails(
 ): NormalizedProductDetails {
   const product = serverProduct as ProductWithDynamicFields;
 
-  const mainImages = (product.images ?? [])
-    .map(cleanImageUrl)
-    .filter((url) => url !== PLACEHOLDER_IMAGE);
+  const mainImages = normalizeImageList(product.images);
 
   const singleImage = cleanImageUrl(product.image);
   const resolvedVariantMedia = resolveProductVariantMedia({
