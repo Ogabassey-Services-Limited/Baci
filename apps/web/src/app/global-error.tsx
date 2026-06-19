@@ -2,7 +2,10 @@
 
 import { useEffect } from 'react';
 import { captureClientException } from '@/lib/posthog/client-exceptions';
-import { systemErrorStyles } from './system-error-styles';
+import {
+  systemErrorClassNames,
+  systemErrorStyleSheet,
+} from './system-error-styles';
 
 // Global Error must include its own html and body tags
 export default function GlobalError({
@@ -21,25 +24,29 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body>
-        <main style={systemErrorStyles.page}>
+        <style>{systemErrorStyleSheet}</style>
+        <main className={systemErrorClassNames.page}>
           <section
             aria-labelledby="global-error-title"
-            style={systemErrorStyles.card}
+            className={systemErrorClassNames.card}
           >
-            <div aria-hidden="true" style={systemErrorStyles.icon}>
+            <div aria-hidden="true" className={systemErrorClassNames.icon}>
               !
             </div>
 
-            <h2 style={systemErrorStyles.cardTitle} id="global-error-title">
+            <h2
+              className={systemErrorClassNames.cardTitle}
+              id="global-error-title"
+            >
               Critical Error
             </h2>
-            <p style={systemErrorStyles.copy}>
+            <p className={systemErrorClassNames.copy}>
               A critical system error occurred. Please try refreshing the page.
             </p>
 
-            <div style={systemErrorStyles.actions}>
+            <div className={systemErrorClassNames.actions}>
               <button
-                style={systemErrorStyles.button}
+                className={systemErrorClassNames.button}
                 onClick={() => window.location.reload()}
                 type="button"
               >
@@ -48,7 +55,7 @@ export default function GlobalError({
             </div>
 
             {process.env.NODE_ENV === 'development' && (
-              <pre style={systemErrorStyles.debug}>
+              <pre className={systemErrorClassNames.debug}>
                 {error.name}: {error.message}
               </pre>
             )}

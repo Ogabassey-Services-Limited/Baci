@@ -19,16 +19,16 @@ describe('GlobalError', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders a critical error document with inline shell styles', () => {
-    render(<GlobalError error={new Error('critical')} />);
+  it('renders a critical error document with a self-contained stylesheet', () => {
+    const { container } = render(<GlobalError error={new Error('critical')} />);
 
     expect(
       screen.getByRole('heading', { name: /critical error/i })
     ).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveStyle({
-      position: 'fixed',
-      minHeight: '100vh',
-    });
+    expect(screen.getByRole('main')).toHaveClass('baci-system-error-page');
+    expect(container.querySelector('style')?.textContent).toContain(
+      '@media (prefers-color-scheme: dark)'
+    );
     expect(
       screen.getByRole('button', { name: /refresh application/i })
     ).toBeEnabled();

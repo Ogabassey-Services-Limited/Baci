@@ -31,12 +31,12 @@ describe('NotFound', () => {
   });
 
   it('keeps the root not-found shell styled without relying on a CSS module chunk', () => {
-    render(<NotFound />);
+    const { container } = render(<NotFound />);
 
-    expect(screen.getByRole('main')).toHaveStyle({
-      position: 'fixed',
-      minHeight: '100vh',
-    });
+    expect(screen.getByRole('main')).toHaveClass('baci-system-error-page');
+    const stylesheet = container.querySelector('style')?.textContent ?? '';
+    expect(stylesheet).toContain('@media (max-width: 520px)');
+    expect(stylesheet).toContain('.baci-system-error-button:hover');
   });
 
   it('renders the Baci logo', () => {
