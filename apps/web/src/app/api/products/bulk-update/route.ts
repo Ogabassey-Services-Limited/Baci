@@ -42,11 +42,19 @@ export async function POST(request: NextRequest) {
     const merchantId = merchantContext.merchantId;
 
     // Fetch business_name and country for product creation
-    const { data: merchantDetails } = await supabase
+    const { data: merchantDetails, error: merchantError } = await supabase
       .from('merchants')
       .select('business_name, country')
       .eq('id', merchantId)
-      .single();
+      .maybeSingle();
+
+    if (merchantError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch merchant details' },
+        { status: 500 }
+      );
+    }
+
     const merchantBusinessName =
       merchantDetails?.business_name ?? merchantContext.businessName ?? '';
     const merchantCountry = merchantDetails?.country ?? null;
