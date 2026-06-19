@@ -8,7 +8,7 @@
  * 4. Bumps Gradle wrapper to 9.3.1 (minimum for AGP 9.x)
  * 5. Adds async-storage local maven repo
  */
-const { withDangerousMod } = require('@expo/config-plugins');
+const { withDangerousMod, withFinalizedMod } = require('@expo/config-plugins');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
@@ -20,6 +20,41 @@ const {
   fixProguardOptimize,
   removeKotlinGradlePlugin,
 } = require('../../../.github/scripts/expoAndroidGradleFixes');
+
+const ensurePostHogAndroidUploadBestEffort = require('./withAndroidGradleFixes.posthog');
+
+function getAndroidProjectRoot(modRequest) {
+  if (modRequest?.platformProjectRoot) {
+    return modRequest.platformProjectRoot;
+  }
+
+  if (modRequest?.projectRoot) {
+    return path.join(modRequest.projectRoot, 'android');
+  }
+
+  return null;
+}
+
+function ensureFinalizedPostHogAndroidUploadBestEffort(modRequest) {
+  const androidProjectRoot = getAndroidProjectRoot(modRequest);
+
+  if (!androidProjectRoot) {
+    return;
+  }
+
+  const appBuildGradle = path.join(androidProjectRoot, 'app', 'build.gradle');
+
+  if (!fs.existsSync(appBuildGradle)) {
+    return;
+  }
+
+  const content = fs.readFileSync(appBuildGradle, 'utf-8');
+  const updatedContent = ensurePostHogAndroidUploadBestEffort(content);
+
+  if (updatedContent !== content) {
+    fs.writeFileSync(appBuildGradle, updatedContent);
+  }
+}
 
 function withAndroidGradleFixes(config) {
   // Fix root build.gradle
@@ -72,6 +107,7 @@ function withAndroidGradleFixes(config) {
         );
 
         content = ensureReleaseSigning(content);
+        content = ensurePostHogAndroidUploadBestEffort(content);
 
         // Dynamically inject Facebook SDK resource entries to avoid hardcoding secrets in VCS
         if (!content.includes('resValue "string", "facebook_app_id"')) {
@@ -166,7 +202,14 @@ function withAndroidGradleFixes(config) {
     },
   ]);
 
-  return updatedConfig;
+  return withFinalizedMod(updatedConfig, [
+    'android',
+    (cfg) => {
+      ensureFinalizedPostHogAndroidUploadBestEffort(cfg.modRequest);
+
+      return cfg;
+    },
+  ]);
 }
 
 module.exports = withAndroidGradleFixes;

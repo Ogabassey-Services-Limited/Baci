@@ -1,6 +1,22 @@
 let mockProject;
+let mockFinalizedModCalls = [];
+
+const fs = require('node:fs');
+const { IOSConfig } = require('@expo/config-plugins');
 
 jest.mock('@expo/config-plugins', () => ({
+  IOSConfig: {
+    Paths: {
+      getPBXProjectPath: jest.fn(),
+    },
+    XcodeUtils: {
+      getPbxproj: jest.fn(),
+    },
+  },
+  withFinalizedMod: (config, [platform, action]) => {
+    mockFinalizedModCalls.push({ action, platform });
+    return config;
+  },
   withXcodeProject: (config, action) =>
     action({
       ...config,
@@ -53,7 +69,11 @@ function runPluginWithPhases({
 
 describe('withPostHogXcodeCliPath', () => {
   afterEach(() => {
+    jest.restoreAllMocks();
+    IOSConfig.Paths.getPBXProjectPath.mockReset();
+    IOSConfig.XcodeUtils.getPbxproj.mockReset();
     mockProject = undefined;
+    mockFinalizedModCalls = [];
   });
 
   it('prepends app and workspace node bins before the PostHog Xcode wrapper runs', () => {
@@ -93,6 +113,16 @@ export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"
     });
 
     expect(bundleScript).not.toContain(EXPECTED_PATH_EXPORT);
+  });
+
+  it('does not throw when the PostHog phases have not been created yet', () => {
+    mockProject = {
+      pbxItemByComment: jest.fn(() => undefined),
+    };
+
+    expect(() =>
+      withPostHogXcodeCliPath({ name: 'Ogabassey', slug: 'ogabassey' })
+    ).not.toThrow();
   });
 
   it('looks up the generated bundle phase by Xcode comment and type', () => {
@@ -217,6 +247,44 @@ fi
     expect(mockProject.pbxItemByComment).toHaveBeenCalledWith(
       DSYM_UPLOAD_PHASE_NAME,
       PHASE_TYPE
+    );
+  });
+
+  it('registers a finalized iOS patch for prebuild-created PostHog phases', () => {
+    runPluginWithPhases();
+
+    expect(mockFinalizedModCalls).toHaveLength(1);
+    expect(mockFinalizedModCalls[0].platform).toBe('ios');
+    expect(mockFinalizedModCalls[0].action).toEqual(expect.any(Function));
+  });
+
+  it('executes the finalized iOS patch against the generated Xcode project', () => {
+    const generatedProject = {
+      parseSync: jest.fn(),
+      pbxItemByComment: jest.fn(() => undefined),
+      writeSync: jest.fn(() => 'patched project'),
+    };
+    const writeFileSyncSpy = jest
+      .spyOn(fs, 'writeFileSync')
+      .mockImplementation(() => undefined);
+
+    IOSConfig.Paths.getPBXProjectPath.mockReturnValue(
+      '/repo/ios/Ogabassey.xcodeproj/project.pbxproj'
+    );
+    IOSConfig.XcodeUtils.getPbxproj.mockReturnValue(generatedProject);
+
+    runPluginWithPhases();
+
+    expect(() =>
+      mockFinalizedModCalls[0].action({
+        modRequest: { projectRoot: '/repo' },
+      })
+    ).not.toThrow();
+    expect(generatedProject.parseSync).toHaveBeenCalled();
+    expect(generatedProject.writeSync).toHaveBeenCalled();
+    expect(writeFileSyncSpy).toHaveBeenCalledWith(
+      '/repo/ios/Ogabassey.xcodeproj/project.pbxproj',
+      'patched project'
     );
   });
 });
