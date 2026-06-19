@@ -92,7 +92,7 @@ const ChangeDetailsSchema = z.object({
     .describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
 });
 
-const ChangeSchema = z.object({
+export const ChangeSchema = z.object({
   type: z.enum(['update', 'new', 'remove']),
   productId: z
     .string()
@@ -107,6 +107,10 @@ const ChangeSchema = z.object({
     .string()
     .optional()
     .describe('Reasoning for the change, especially for removals'),
+});
+
+export const BulkUpdateChangesSchema = z.object({
+  changes: z.array(ChangeSchema),
 });
 
 const ClarificationRequestSchema = z
