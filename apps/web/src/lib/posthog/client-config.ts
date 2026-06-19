@@ -293,8 +293,8 @@ export function buildPostHogClientConfig(
     rageclick: true,
     capture_dead_clicks: true,
     capture_heatmaps: true,
-    capture_pageview: true,
-    capture_pageleave: 'if_capture_pageview',
+    capture_pageview: false,
+    capture_pageleave: false,
     mask_all_text: true,
     mask_all_element_attributes: true,
     capture_exceptions: {
