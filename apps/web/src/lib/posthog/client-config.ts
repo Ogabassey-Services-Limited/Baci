@@ -82,6 +82,7 @@ const TENANT_CONTEXT_PROPERTY_KEYS = [
   'merchant_id',
   'merchant_slug',
 ] as const;
+const POSTHOG_PROJECT_CREDENTIAL_PROPERTY_KEYS = ['token', 'api_key'] as const;
 
 function isValidMerchantSlug(value: string): boolean {
   return (
@@ -242,6 +243,26 @@ function sanitizePropertyValue(key: string, value: unknown): unknown {
   return value;
 }
 
+function getPublicPostHogProjectToken(): string | undefined {
+  return process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() || undefined;
+}
+
+function restorePostHogProjectCredentialProperties(
+  properties: Properties,
+  projectToken: string | undefined
+): Properties {
+  if (!projectToken) {
+    return properties;
+  }
+
+  return {
+    ...properties,
+    ...Object.fromEntries(
+      POSTHOG_PROJECT_CREDENTIAL_PROPERTY_KEYS.map((key) => [key, projectToken])
+    ),
+  } as Properties;
+}
+
 export function sanitizePostHogProperties(
   properties: Record<string, unknown> | undefined
 ): Properties | undefined {
@@ -258,13 +279,17 @@ export function sanitizePostHogProperties(
 }
 
 export function sanitizePostHogCapture(
-  capture: CaptureResult | null
+  capture: CaptureResult | null,
+  projectToken: string | undefined = getPublicPostHogProjectToken()
 ): CaptureResult | null {
   if (!capture) {
     return null;
   }
 
-  const properties = sanitizePostHogProperties(capture.properties) ?? {};
+  const properties = restorePostHogProjectCredentialProperties(
+    sanitizePostHogProperties(capture.properties) ?? {},
+    projectToken
+  );
 
   if (typeof globalThis.location !== 'undefined') {
     for (const key of TENANT_CONTEXT_PROPERTY_KEYS) {
@@ -283,7 +308,8 @@ export function sanitizePostHogCapture(
 }
 
 export function buildPostHogClientConfig(
-  env: PostHogEnv = process.env
+  env: PostHogEnv = process.env,
+  projectToken: string | undefined = getPublicPostHogProjectToken()
 ): Partial<PostHogConfig> {
   return {
     api_host: getPostHogProxyPath(env),
@@ -318,7 +344,6 @@ export function buildPostHogClientConfig(
     },
     property_blacklist: [
       'password',
-      'token',
       'secret',
       'authorization',
       'cookie',
@@ -332,7 +357,7 @@ export function buildPostHogClientConfig(
       'phone',
       'address',
     ],
-    before_send: sanitizePostHogCapture,
+    before_send: (capture) => sanitizePostHogCapture(capture, projectToken),
     loaded(posthog) {
       posthog.register({
         app_surface: 'web',
