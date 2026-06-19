@@ -34,23 +34,27 @@ Baci is an AI-native platform that allows merchants to create complete e-commerc
 
 ### Installation
 
+Run these commands from the repository root.
+
 ```bash
 # Install dependencies
 pnpm install
 
 # Setup environment variables
-cp .env.example .env.local
-# (Fill in your Supabase and Google AI keys)
+# Create or update apps/web/.env.local with your Supabase and Google AI keys.
+# See apps/web/docs/ai/GOOGLE_AI_SETUP.md and apps/web/docs/ai/AI_WORKER_ENV.md.
 ```
 
 ### Development
+
+Run this command from the repository root.
 
 ```bash
 # Run the development server
 pnpm turbo dev
 
 # Run the AI Worker (if needed for background tasks)
-# See docs/ai/AI_WORKER_ENV.md
+# See apps/web/docs/ai/AI_WORKER_ENV.md
 ```
 
 ### Generating Documentation
