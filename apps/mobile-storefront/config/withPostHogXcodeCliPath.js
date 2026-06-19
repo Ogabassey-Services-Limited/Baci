@@ -70,26 +70,21 @@ function patchShellPhaseCliPath(phase, marker) {
 }
 
 function patchPostHogDsymUploadBestEffort(script) {
-  if (
-    !script.includes(POSTHOG_DSYM_UPLOAD_SCRIPT) ||
-    script.includes(POSTHOG_DSYM_UPLOAD_WARNING)
-  ) {
+  if (!script.includes(POSTHOG_DSYM_UPLOAD_SCRIPT)) {
     return script;
   }
 
-  return script
-    .replace(
-      '/bin/sh "$PODS_SCRIPT"',
-      `if ! /bin/sh "$PODS_SCRIPT"; then
+  return ['/bin/sh "$PODS_SCRIPT"', '/bin/sh "$SPM_SCRIPT"'].reduce(
+    (patchedScript, command) => {
+      const guardedCommand = `if ! ${command}; then
   echo "warning: ${POSTHOG_DSYM_UPLOAD_WARNING}"
-fi`
-    )
-    .replace(
-      '/bin/sh "$SPM_SCRIPT"',
-      `if ! /bin/sh "$SPM_SCRIPT"; then
-  echo "warning: ${POSTHOG_DSYM_UPLOAD_WARNING}"
-fi`
-    );
+fi`;
+      return patchedScript.includes(guardedCommand)
+        ? patchedScript
+        : patchedScript.replace(command, guardedCommand);
+    },
+    script
+  );
 }
 
 function patchDsymUploadPhaseScript(phase) {
