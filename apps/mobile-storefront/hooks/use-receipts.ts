@@ -1,10 +1,3 @@
-/**
- * Receipts Hooks
- *
- * Data-fetching hooks for the receipts/invoices feature.
- * Follows the same patterns as use-products.ts with @tanstack/react-query.
- */
-
 import { useQuery } from '@tanstack/react-query';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
@@ -15,6 +8,7 @@ import {
   ReceiptDetailSchema,
   ReceiptListItemSchema,
 } from '@/schemas/receipt';
+import { useAuthStore } from '@/stores/auth-store';
 import type {
   MerchantReceiptInfo,
   ReceiptDetail,
@@ -25,14 +19,33 @@ const log = createLogger('Receipts');
 
 const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG || 'ogabassey';
 
-/**
- * Fetch all orders for the current customer (receipt list view)
- */
-export function useReceipts(customerId: string | undefined) {
+interface ReceiptDetailScope {
+  merchantId: string | null;
+  userId: string | null;
+}
+
+function resolveReceiptMerchantId(merchantId?: string | null) {
+  return merchantId || CONFIG.MERCHANT_ID || null;
+}
+
+function getReceiptDetailScope(): ReceiptDetailScope {
+  const state = useAuthStore.getState();
+
+  return {
+    merchantId: resolveReceiptMerchantId(state.merchantId),
+    userId: state.user?.id ?? null,
+  };
+}
+
+export function useReceipts(userId: string | undefined) {
+  const activeMerchantId = useAuthStore((state) =>
+    resolveReceiptMerchantId(state.merchantId)
+  );
+
   return useQuery<ReceiptListItem[]>({
-    queryKey: ['receipts', customerId],
+    queryKey: ['receipts', userId, activeMerchantId],
     queryFn: async () => {
-      if (!customerId) return [];
+      if (!userId || !activeMerchantId) return [];
 
       const { data, error } = await withSupabaseRetry(
         async () =>
@@ -52,10 +65,14 @@ export function useReceipts(customerId: string | undefined) {
                 name,
                 quantity,
                 price
+              ),
+              customers!inner (
+                user_id
               )
             `
             )
-            .eq('customer_id', customerId)
+            .eq('customers.user_id', userId)
+            .eq('merchant_id', activeMerchantId)
             .order('created_at', { ascending: false }),
         { maxRetries: 3 }
       );
@@ -70,7 +87,6 @@ export function useReceipts(customerId: string | undefined) {
         })),
       }));
 
-      // Validate shape — warn on mismatch but don't block (data is from our own DB)
       const result = ReceiptListItemSchema.array().safeParse(mapped);
       if (!result.success) {
         log.warn('Receipt list validation warning:', result.error.message);
@@ -78,19 +94,21 @@ export function useReceipts(customerId: string | undefined) {
 
       return mapped as ReceiptListItem[];
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    enabled: !!customerId,
-    // Override global offlineFirst — withSupabaseRetry already handles retries.
-    // offlineFirst can cause infinite retry-pause loops when NetworkError
-    // is thrown inside queryFn and react-query pauses then re-triggers.
+    staleTime: 1000 * 60 * 2,
+    enabled: !!userId && !!activeMerchantId,
     networkMode: 'always',
     retry: false,
   });
 }
 
-/** Standalone fetch for receipt detail — shared by hook and prefetch */
-async function fetchReceiptDetail(orderId: string): Promise<ReceiptDetail> {
-  // Fetch order + items
+async function fetchReceiptDetail(
+  orderId: string,
+  scope: ReceiptDetailScope
+): Promise<ReceiptDetail> {
+  if (!scope.userId || !scope.merchantId) {
+    throw new Error('Authentication required to load receipt');
+  }
+
   const { data: order, error: orderError } = await withSupabaseRetry(
     async () =>
       await supabase
@@ -120,10 +138,15 @@ async function fetchReceiptDetail(orderId: string): Promise<ReceiptDetail> {
             name,
             quantity,
             price
+          ),
+          customers!inner (
+            user_id
           )
         `
         )
         .eq('id', orderId)
+        .eq('merchant_id', scope.merchantId)
+        .eq('customers.user_id', scope.userId)
         .single(),
     { maxRetries: 3 }
   );
@@ -131,7 +154,6 @@ async function fetchReceiptDetail(orderId: string): Promise<ReceiptDetail> {
   if (orderError) throw orderError;
   if (!order) throw new Error('Order not found');
 
-  // Fetch virtual account (if any)
   const { data: virtualAccounts, error: vaError } = await withSupabaseRetry(
     async () =>
       await supabase
@@ -143,7 +165,6 @@ async function fetchReceiptDetail(orderId: string): Promise<ReceiptDetail> {
   );
   if (vaError) log.warn('Failed to fetch virtual account:', vaError.message);
 
-  // Fetch transactions (table is `transactions`, not `order_transactions`)
   const { data: transactions, error: txError } = await withSupabaseRetry(
     async () =>
       await supabase
@@ -157,7 +178,6 @@ async function fetchReceiptDetail(orderId: string): Promise<ReceiptDetail> {
 
   const detail = {
     ...order,
-    // Compute balance from total and amount_paid (column doesn't exist in DB)
     balance: (order.total ?? 0) - (order.amount_paid ?? 0),
     items: (order.order_items ?? []).map((item) => ({
       ...item,
@@ -167,7 +187,6 @@ async function fetchReceiptDetail(orderId: string): Promise<ReceiptDetail> {
     transactions: transactions ?? [],
   };
 
-  // Validate shape — warn on mismatch but don't block
   const result = ReceiptDetailSchema.safeParse(detail);
   if (!result.success) {
     log.warn('Receipt detail validation warning:', result.error.message);
@@ -176,38 +195,46 @@ async function fetchReceiptDetail(orderId: string): Promise<ReceiptDetail> {
   return detail as ReceiptDetail;
 }
 
-/** Query options for receipt detail — used by hook and prefetch */
-export function receiptDetailQueryOptions(orderId: string) {
+export function receiptDetailQueryOptions(
+  orderId: string,
+  scope: ReceiptDetailScope = getReceiptDetailScope()
+) {
   return {
-    queryKey: ['receipt-detail', orderId] as const,
-    queryFn: () => fetchReceiptDetail(orderId),
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    queryKey: [
+      'receipt-detail',
+      orderId,
+      scope.userId,
+      scope.merchantId,
+    ] as const,
+    queryFn: () => fetchReceiptDetail(orderId, scope),
+    staleTime: 1000 * 60 * 5,
     networkMode: 'always' as const,
     retry: false,
   };
 }
 
-/**
- * Fetch full order detail for receipt HTML generation
- */
 export function useReceiptDetail(orderId: string | null) {
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const activeMerchantId = useAuthStore((state) =>
+    resolveReceiptMerchantId(state.merchantId)
+  );
+
   return useQuery<ReceiptDetail | null>({
-    queryKey: ['receipt-detail', orderId],
-    queryFn: async () => {
-      if (!orderId) return null;
-      return fetchReceiptDetail(orderId);
+    queryKey: ['receipt-detail', orderId, userId, activeMerchantId],
+    queryFn: () => {
+      if (!orderId || !userId || !activeMerchantId) return null;
+      return fetchReceiptDetail(orderId, {
+        merchantId: activeMerchantId,
+        userId,
+      });
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    enabled: !!orderId,
+    staleTime: 1000 * 60 * 5,
+    enabled: !!orderId && !!userId && !!activeMerchantId,
     networkMode: 'always',
     retry: false,
   });
 }
 
-/**
- * Fetch merchant data needed for receipt branding
- * Extends the basic useMerchant() with bank details, VAT, social media, etc.
- */
 export function useMerchantReceiptInfo() {
   return useQuery<MerchantReceiptInfo>({
     queryKey: ['merchant_receipt_info', MERCHANT_SLUG],
@@ -250,7 +277,6 @@ export function useMerchantReceiptInfo() {
       if (error) throw error;
       if (!data) throw new Error('Merchant not found');
 
-      // Validate shape — warn on mismatch but don't block
       const result = MerchantReceiptInfoSchema.safeParse(data);
       if (!result.success) {
         log.warn(
@@ -261,7 +287,7 @@ export function useMerchantReceiptInfo() {
 
       return data as MerchantReceiptInfo;
     },
-    staleTime: 1000 * 60 * 60, // 1 hour
+    staleTime: 1000 * 60 * 60,
     networkMode: 'always',
     retry: false,
   });

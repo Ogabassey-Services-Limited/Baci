@@ -44,7 +44,7 @@ describe('GET /.well-known/apple-app-site-association', () => {
     const body = await res.json();
 
     expect(body.applinks.details).toHaveLength(1);
-    expect(body.applinks.details[0].appIDs[0]).toContain('com.ogabassey.store');
+    expect(body.applinks.details[0].appIDs[0]).toContain('com.ogabassey.app');
   });
 
   it('uses modern components format, not legacy paths', async () => {
@@ -54,6 +54,15 @@ describe('GET /.well-known/apple-app-site-association', () => {
     const detail = body.applinks.details[0];
     expect(detail).toHaveProperty('components');
     expect(detail).not.toHaveProperty('paths');
+  });
+
+  it('advertises receipt claim universal links for the storefront app', async () => {
+    const res = GET(makeRequest('ogabassey.com'));
+    const body = await res.json();
+
+    expect(body.applinks.details[0].components).toContainEqual({
+      '/': '/receipts/claim/*',
+    });
   });
 
   it('returns empty details for unknown merchant domain', async () => {
