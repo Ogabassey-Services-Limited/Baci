@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useState } from 'react';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+import type { MerchantData } from '@/hooks/merchant/types';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { Product } from '@/lib/products';
 import { getTemplate, type TemplateComponents } from '@/templates/registry';
@@ -9,8 +10,7 @@ import { getTemplate, type TemplateComponents } from '@/templates/registry';
 interface StorefrontPageWrapperProps {
   pageName: keyof TemplateComponents;
   fallback?: ReactNode;
-  // biome-ignore lint/suspicious/noExplicitAny: Merchant data structure varies
-  merchant?: any; // We accept merchant prop for initial data
+  merchant?: Partial<MerchantData>; // We accept merchant prop for initial data
   products?: Product[]; // Added optional products prop
 }
 

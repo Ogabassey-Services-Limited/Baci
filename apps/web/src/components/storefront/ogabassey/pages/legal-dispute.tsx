@@ -1,4 +1,5 @@
 'use client';
+import type { MerchantData } from "@/hooks/merchant/types";
 
 import {
   AlertTriangle,
@@ -14,13 +15,13 @@ import { SafeHtml } from '@/components/ui/safe-html';
 
 // Define props
 interface LegalProps {
-  merchant?: any;
+  merchant?: Partial<MerchantData>;
 }
 
 export const OgabasseyV2LegalDispute: React.FC<LegalProps> = ({ merchant }) => {
   const businessName = merchant?.business_name || 'Ogabassey Limited';
   const email = merchant?.email || 'support@ogabassey.com';
-  const address = merchant?.address || '2 Olaide Tomori St, Ikeja, Lagos, Nigeria';
+  const address = merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos, Nigeria';
   const customContent = merchant?.pages?.terms;
 
   const sections = [
