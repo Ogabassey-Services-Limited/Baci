@@ -12,6 +12,7 @@ import { buildStaffInviteEmail } from '@/lib/staff-invite-email';
 import { STAFF_COLUMNS } from '@/lib/staff-queries';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
+import { staffUpdateSchema } from '@/schemas/staff-update';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -179,16 +180,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Parse request body
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
-    // Allowlist of updatable fields
-    const allowedFields = ['name', 'role', 'permissions', 'status'];
+    const parsedBody = staffUpdateSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid staff update payload',
+          details: parsedBody.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
     const updateData: Record<string, unknown> = {};
-
-    for (const field of allowedFields) {
-      if (field in body && body[field] !== undefined) {
-        updateData[field] = body[field];
+    for (const [field, value] of Object.entries(parsedBody.data)) {
+      if (value !== undefined) {
+        updateData[field] = value;
       }
     }
 
@@ -204,6 +217,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('staff_members')
       .update(updateData)
       .eq('id', id)
+      .eq('merchant_id', merchantId)
       .select(STAFF_COLUMNS)
       .single();
 
