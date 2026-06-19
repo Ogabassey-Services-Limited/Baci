@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   generateHeroImageBatch: vi.fn(),
   getPlatformAdminAuth: vi.fn(),
+  loggerError: vi.fn(),
+  loggerWarn: vi.fn(),
   select: vi.fn(),
   eq: vi.fn(),
 }));
@@ -22,8 +24,8 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/logger', () => ({
   logger: {
     info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
+    error: mocks.loggerError,
+    warn: mocks.loggerWarn,
   },
 }));
 
@@ -100,6 +102,31 @@ describe('/api/admin/generate-hero-images', () => {
     });
   });
 
+  it('GET should log stats query failures without exposing raw database errors', async () => {
+    mocks.getPlatformAdminAuth.mockResolvedValueOnce({
+      status: 'authenticated',
+    });
+    mocks.eq.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'relation ai_hero_images does not exist' },
+    });
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body).toEqual({
+      error: 'Failed to retrieve hero image statistics',
+    });
+    expect(body.error).not.toContain('relation');
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Hero image stats query failed',
+        error: { message: 'relation ai_hero_images does not exist' },
+      })
+    );
+  });
+
   it('POST should return 401 when unauthenticated', async () => {
     const req = new NextRequest(
       'http://localhost:3000/api/admin/generate-hero-images',
@@ -165,6 +192,31 @@ describe('/api/admin/generate-hero-images', () => {
     expect(res.status).toBe(400);
     expect(body.error).toBe('Invalid request payload');
     expect(mocks.generateHeroImageBatch).not.toHaveBeenCalled();
+  });
+
+  it('POST should reject malformed JSON payloads without throwing', async () => {
+    mocks.getPlatformAdminAuth.mockResolvedValueOnce({
+      status: 'authenticated',
+    });
+    const req = new NextRequest(
+      'http://localhost:3000/api/admin/generate-hero-images',
+      {
+        method: 'POST',
+        body: '{"category":',
+      }
+    );
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe('Invalid request payload');
+    expect(mocks.generateHeroImageBatch).not.toHaveBeenCalled();
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Invalid hero image generation JSON payload',
+      })
+    );
   });
 
   it('POST should generate hero images for platform admins', async () => {

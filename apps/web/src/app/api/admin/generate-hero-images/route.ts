@@ -32,7 +32,20 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: unknown = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch (error) {
+      logger.warn({
+        message: 'Invalid hero image generation JSON payload',
+        error,
+      });
+      return NextResponse.json(
+        { error: 'Invalid request payload' },
+        { status: 400 }
+      );
+    }
+
     const parseResult = adminGenerateHeroImagesRequestSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -92,7 +105,14 @@ export async function GET() {
       .eq('is_active', true);
 
     if (statsError) {
-      return NextResponse.json({ error: statsError.message }, { status: 500 });
+      logger.error({
+        message: 'Hero image stats query failed',
+        error: statsError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to retrieve hero image statistics' },
+        { status: 500 }
+      );
     }
 
     // Aggregate statistics
