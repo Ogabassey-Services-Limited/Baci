@@ -206,4 +206,22 @@ describe('CSRF Protection', () => {
       expect(cookieGetSpy).toHaveBeenCalledWith('csrf-token');
     });
   });
+
+  describe('checkCsrfProtection', () => {
+    it('skips csrf validation for bearer-authenticated state-changing requests', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      const csrf = await import('./csrf');
+
+      const request = new NextRequest('https://example.com/api/example', {
+        headers: { Authorization: 'Bearer mobile-session-token' },
+        method: 'POST',
+      });
+      const cookieGetSpy = vi.spyOn(request.cookies, 'get');
+
+      const result = await csrf.checkCsrfProtection(request);
+
+      expect(result).toEqual({ valid: true });
+      expect(cookieGetSpy).not.toHaveBeenCalled();
+    });
+  });
 });
