@@ -199,6 +199,18 @@ describe('POST /api/products/bulk-update', () => {
     csrfValid = true;
   });
 
+  it('returns 500 when merchant query fails', async () => {
+    const { POST } = await import('./route');
+    merchant = null; // simulate no rows
+
+    const request = makeRequest({ changes: [] });
+
+    const response = await POST(request);
+    expect(response.status).toBe(500);
+    const data = await response.json();
+    expect(data.error).toBe('Failed to fetch merchant details');
+  });
+
   it('returns 401 when not authenticated', async () => {
     const { POST } = await import('./route');
     authUser = null;
