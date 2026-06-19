@@ -291,7 +291,10 @@ describe('generateGoogleMerchantFeed — feed structure', () => {
       imageManifest
     );
 
-    expect(xml).toContain('A fast flagship phone. Key details:');
+    expect(xml).toContain('Key details: Colour: Black');
+    expect(xml.indexOf('Key details:')).toBeLessThan(
+      xml.indexOf('A fast flagship phone.')
+    );
     expect(xml).toContain('Colour: Black');
     expect(xml).toContain('Screen size: 6.7 inches');
     expect(xml).toContain('Screen resolution: 1290 x 2796');
