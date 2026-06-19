@@ -19,6 +19,36 @@ function normalizeText(value: unknown) {
     .trim();
 }
 
+function normalizeDescriptionText(value: unknown) {
+  return stripHtmlTags(typeof value === 'string' ? value : '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function removeFeedOnlyBoilerplate(value: string) {
+  return (
+    value
+      .replace(
+        /\bCurrent listed price is\s+[A-Z]{3}\s*[\d,]+(?:\.\d+)?(?:\.)?[ \t]*/gi,
+        ''
+      )
+      .replace(
+        /\bConfirm selected variant price,[ \t]*colou?r,[ \t]*storage,[ \t]*device condition,[ \t]*and live availability before checkout(?:\.)?[ \t]*/gi,
+        ''
+      )
+      // Removing full sentences can leave doubled horizontal spacing; keep
+      // line breaks because Google allows formatting in descriptions.
+      .replace(/[ \t]+/g, ' ')
+      .replace(/ *\n */g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
+}
+
 function buildWeightLabel(input: FeedDescriptionInput) {
   const keySpecWeight = input.product_key_specs?.weight_g;
   if (typeof keySpecWeight === 'number' && Number.isFinite(keySpecWeight)) {
@@ -121,7 +151,9 @@ function trimDescription(value: string) {
 }
 
 export function buildFeedDescription(input: FeedDescriptionInput) {
-  const baseDescription = normalizeText(input.description);
+  const baseDescription = removeFeedOnlyBoilerplate(
+    normalizeDescriptionText(input.description)
+  );
   const specDetails = buildSpecDetails(input);
 
   if (specDetails.length === 0) {
@@ -141,9 +173,9 @@ export function buildFeedDescription(input: FeedDescriptionInput) {
   if (!baseDescription) {
     const nameNormalized = normalizeText(input.name);
     return trimDescription(
-      nameNormalized ? `${nameNormalized}. ${specSentence}` : specSentence
+      nameNormalized ? `${specSentence} ${nameNormalized}.` : specSentence
     );
   }
 
-  return trimDescription(`${baseDescription} ${specSentence}`);
+  return trimDescription(`${specSentence} ${baseDescription}`);
 }
