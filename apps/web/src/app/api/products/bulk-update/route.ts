@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
     }
 
     const merchantBusinessName =
-      merchantDetails?.business_name ?? merchantContext.businessName ?? '';
-    const merchantCountry = merchantDetails?.country ?? null;
+      merchantDetails.business_name ?? merchantContext.businessName ?? '';
+    const merchantCountry = merchantDetails.country ?? null;
 
     const body = await request.json();
 
