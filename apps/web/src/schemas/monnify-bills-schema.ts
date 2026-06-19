@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 export const validateCustomerRequestSchema = z.object({
-  billerCode: z.string().min(1, 'Biller code is required'),
   productCode: z.string().min(1, 'Product code is required'),
   customerId: z.string().min(1, 'Customer identifier is required'),
 });
