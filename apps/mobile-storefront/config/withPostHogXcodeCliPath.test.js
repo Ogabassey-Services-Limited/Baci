@@ -186,6 +186,31 @@ fi
     ).toHaveLength(2);
   });
 
+  it('does not double-wrap indented Xcode dSYM upload guards', () => {
+    const { dsymScript } = runPluginWithPhases({
+      dsymShellScript: `# Upload iOS dSYMs to PostHog so native crashes can be symbolicated.
+export PROJECT_ROOT="$PROJECT_DIR"/..
+${EXPECTED_PATH_EXPORT}
+PODS_SCRIPT="\${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+SPM_SCRIPT="\${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
+if [ -f "$PODS_SCRIPT" ]; then
+  if ! /bin/sh "$PODS_SCRIPT"; then
+    echo "warning: PostHog dSYM upload failed; continuing archive. Native crash symbolication may be incomplete."
+  fi
+elif [ -f "$SPM_SCRIPT" ]; then
+  if ! /bin/sh "$SPM_SCRIPT"; then
+    echo "warning: PostHog dSYM upload failed; continuing archive. Native crash symbolication may be incomplete."
+  fi
+fi
+`,
+    });
+
+    expect(dsymScript).not.toContain('if ! if !');
+    expect(
+      dsymScript.match(/PostHog dSYM upload failed/g)
+    ).toHaveLength(2);
+  });
+
   it('looks up the generated dSYM upload phase by Xcode comment and type', () => {
     runPluginWithPhases();
 

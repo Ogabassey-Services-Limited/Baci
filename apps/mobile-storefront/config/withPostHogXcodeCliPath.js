@@ -74,14 +74,23 @@ function patchPostHogDsymUploadBestEffort(script) {
     return script;
   }
 
+  const wrapCommand = (line, command) => {
+    if (line.trim() !== command) {
+      return line;
+    }
+
+    const indent = line.match(/^\s*/)?.[0] ?? '';
+    return `${indent}if ! ${command}; then
+${indent}  echo "warning: ${POSTHOG_DSYM_UPLOAD_WARNING}"
+${indent}fi`;
+  };
+
   return ['/bin/sh "$PODS_SCRIPT"', '/bin/sh "$SPM_SCRIPT"'].reduce(
     (patchedScript, command) => {
-      const guardedCommand = `if ! ${command}; then
-  echo "warning: ${POSTHOG_DSYM_UPLOAD_WARNING}"
-fi`;
-      return patchedScript.includes(guardedCommand)
-        ? patchedScript
-        : patchedScript.replace(command, guardedCommand);
+      return patchedScript
+        .split('\n')
+        .map((line) => wrapCommand(line, command))
+        .join('\n');
     },
     script
   );
