@@ -258,41 +258,41 @@ export function AirtimeForm(props: AirtimeFormProps) {
         </View>
       </ScrollView>
 
-      <View
-        style={[
-          styles.footer,
-          {
-            borderTopColor: colors.border,
-            backgroundColor: colors.muted,
-            bottom: footerBottomOffset,
-            paddingBottom: isKeyboardVisible
-              ? SPACING.sm
-              : Math.max(insets.bottom, SPACING.md),
-          },
-        ]}
-      >
-        <Pressable
+      {isKeyboardVisible ? null : (
+        <View
           style={[
-            styles.payButton,
+            styles.footer,
             {
-              backgroundColor: BRAND.primary,
-              opacity: isSubmitting ? 0.7 : 1,
+              borderTopColor: colors.border,
+              backgroundColor: colors.muted,
+              bottom: footerBottomOffset,
+              paddingBottom: Math.max(insets.bottom, SPACING.md),
             },
           ]}
-          onPress={handlePurchase}
-          disabled={isSubmitting}
         >
-          {isSubmitting ? (
-            <ActivityIndicator color={BRAND.onPrimary} />
-          ) : (
-            <Text style={styles.payButtonText}>
-              {payment.selectedSavedCardId
-                ? `Pay ₦${numericAmount ? numericAmount.toLocaleString() : '0'}`
-                : 'Continue to Payment'}
-            </Text>
-          )}
-        </Pressable>
-      </View>
+          <Pressable
+            style={[
+              styles.payButton,
+              {
+                backgroundColor: BRAND.primary,
+                opacity: isSubmitting ? 0.7 : 1,
+              },
+            ]}
+            onPress={handlePurchase}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color={BRAND.onPrimary} />
+            ) : (
+              <Text style={styles.payButtonText}>
+                {payment.selectedSavedCardId
+                  ? `Pay ₦${numericAmount ? numericAmount.toLocaleString() : '0'}`
+                  : 'Continue to Payment'}
+              </Text>
+            )}
+          </Pressable>
+        </View>
+      )}
     </>
   );
 }
