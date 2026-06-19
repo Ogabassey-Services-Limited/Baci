@@ -82,6 +82,7 @@ const TENANT_CONTEXT_PROPERTY_KEYS = [
   'merchant_id',
   'merchant_slug',
 ] as const;
+const POSTHOG_PROJECT_CREDENTIAL_PROPERTY_KEYS = ['token', 'api_key'] as const;
 
 function isValidMerchantSlug(value: string): boolean {
   return (
@@ -242,6 +243,26 @@ function sanitizePropertyValue(key: string, value: unknown): unknown {
   return value;
 }
 
+function getPublicPostHogProjectToken(env: PostHogEnv): string | undefined {
+  return env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() || undefined;
+}
+
+function restorePostHogProjectCredentialProperties(
+  properties: Properties,
+  env: PostHogEnv
+): Properties {
+  const projectToken = getPublicPostHogProjectToken(env);
+  if (!projectToken) {
+    return properties;
+  }
+
+  for (const key of POSTHOG_PROJECT_CREDENTIAL_PROPERTY_KEYS) {
+    properties[key] = projectToken;
+  }
+
+  return properties;
+}
+
 export function sanitizePostHogProperties(
   properties: Record<string, unknown> | undefined
 ): Properties | undefined {
@@ -258,13 +279,17 @@ export function sanitizePostHogProperties(
 }
 
 export function sanitizePostHogCapture(
-  capture: CaptureResult | null
+  capture: CaptureResult | null,
+  env: PostHogEnv = process.env
 ): CaptureResult | null {
   if (!capture) {
     return null;
   }
 
-  const properties = sanitizePostHogProperties(capture.properties) ?? {};
+  const properties = restorePostHogProjectCredentialProperties(
+    sanitizePostHogProperties(capture.properties) ?? {},
+    env
+  );
 
   if (typeof globalThis.location !== 'undefined') {
     for (const key of TENANT_CONTEXT_PROPERTY_KEYS) {
@@ -318,7 +343,6 @@ export function buildPostHogClientConfig(
     },
     property_blacklist: [
       'password',
-      'token',
       'secret',
       'authorization',
       'cookie',
@@ -332,7 +356,7 @@ export function buildPostHogClientConfig(
       'phone',
       'address',
     ],
-    before_send: sanitizePostHogCapture,
+    before_send: (capture) => sanitizePostHogCapture(capture, env),
     loaded(posthog) {
       posthog.register({
         app_surface: 'web',
