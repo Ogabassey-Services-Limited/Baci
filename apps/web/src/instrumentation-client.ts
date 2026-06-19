@@ -1,12 +1,12 @@
-import posthog from 'posthog-js';
-import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
+import {
+  capturePostHogPageview,
+  initializePostHogBrowser,
+} from '@/lib/posthog/browser';
+import { getPostHogBrowserEnv } from '@/lib/posthog/config';
 
-const postHogProjectToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+const postHogBrowserEnv = getPostHogBrowserEnv();
 
-if (postHogProjectToken) {
-  posthog.init(postHogProjectToken, buildPostHogClientConfig());
-} else if (process.env.NODE_ENV === 'development') {
-  console.warn(
-    '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.'
-  );
+if (typeof window !== 'undefined') {
+  initializePostHogBrowser(postHogBrowserEnv);
+  capturePostHogPageview();
 }

@@ -1,20 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  buildPostHogClientConfig: vi.fn(() => ({
-    api_host: '/ingest/static',
-  })),
-  posthogInit: vi.fn(),
+  capturePostHogPageview: vi.fn(),
+  initializePostHogBrowser: vi.fn(),
 }));
 
-vi.mock('posthog-js', () => ({
-  default: {
-    init: mocks.posthogInit,
-  },
-}));
-
-vi.mock('@/lib/posthog/client-config', () => ({
-  buildPostHogClientConfig: mocks.buildPostHogClientConfig,
+vi.mock('@/lib/posthog/browser', () => ({
+  capturePostHogPageview: mocks.capturePostHogPageview,
+  initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
 
 function importInstrumentationClient() {
@@ -22,49 +15,30 @@ function importInstrumentationClient() {
 }
 
 afterEach(() => {
-  vi.restoreAllMocks();
   vi.clearAllMocks();
   vi.resetModules();
-  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe('instrumentation-client', () => {
-  it('initializes PostHog when a public project token is configured', async () => {
-    vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', 'ph_project_token');
-
+  it('initializes browser PostHog instrumentation', async () => {
     await importInstrumentationClient();
 
-    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledOnce();
-    expect(mocks.posthogInit).toHaveBeenCalledWith('ph_project_token', {
-      api_host: '/ingest/static',
-    });
-  });
-
-  it('warns in development when PostHog is not configured', async () => {
-    vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', '');
-    vi.stubEnv('NODE_ENV', 'development');
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-
-    await importInstrumentationClient();
-
-    expect(mocks.posthogInit).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.'
+    expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        NODE_ENV: expect.any(String),
+      })
     );
+    expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
   });
 
-  it('stays quiet outside development when PostHog is not configured', async () => {
-    vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', '');
-    vi.stubEnv('NODE_ENV', 'production');
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
+  it('does not initialize if imported without a browser window', async () => {
+    vi.stubGlobal('window', undefined);
 
     await importInstrumentationClient();
 
-    expect(mocks.posthogInit).not.toHaveBeenCalled();
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
   });
 });

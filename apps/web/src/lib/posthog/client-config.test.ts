@@ -19,6 +19,8 @@ describe('PostHog client config', () => {
       ui_host: 'https://eu.posthog.com',
       defaults: '2026-05-30',
       autocapture: true,
+      capture_pageview: false,
+      capture_pageleave: false,
       capture_dead_clicks: true,
       capture_heatmaps: true,
       capture_exceptions: {
