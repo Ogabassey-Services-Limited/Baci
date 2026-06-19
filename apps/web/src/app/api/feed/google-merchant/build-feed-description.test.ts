@@ -69,7 +69,7 @@ describe('buildFeedDescription', () => {
       },
     });
 
-    expect(description).toBe('Galaxy S26. Key details: RAM: 8GB.');
+    expect(description).toBe('Key details: RAM: 8GB. Galaxy S26.');
   });
 
   it('removes feed-only price and checkout boilerplate before enrichment', () => {
@@ -90,6 +90,24 @@ describe('buildFeedDescription', () => {
       'iPhone 13 is a smartphone listed by Ogabassey'
     );
     expect(description).toContain('RAM: 4GB');
+  });
+
+  it('preserves Merchant Center-supported paragraph breaks while removing feed boilerplate', () => {
+    const description = buildFeedDescription({
+      name: 'iPhone 13',
+      description:
+        'First paragraph with product details.\n\nCurrent listed price is NGN 460,000\nSecond paragraph stays separate. Confirm selected variant price, color, storage, device condition, and live availability before checkout',
+      product_key_specs: {
+        ram_gb: 4,
+      },
+    });
+
+    expect(description).toContain(
+      'First paragraph with product details.\n\nSecond paragraph stays separate.'
+    );
+    expect(description).not.toContain('Current listed price');
+    expect(description).not.toContain('Confirm selected variant price');
+    expect(description).toMatch(/^Key details: RAM: 4GB\. /);
   });
 
   it('does not append duplicate detail strings already present in the base description', () => {

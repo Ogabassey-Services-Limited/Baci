@@ -19,19 +19,32 @@ function normalizeText(value: unknown) {
     .trim();
 }
 
+function normalizeDescriptionText(value: unknown) {
+  return stripHtmlTags(typeof value === 'string' ? value : '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function removeFeedOnlyBoilerplate(value: string) {
   return (
     value
       .replace(
-        /\bCurrent listed price is\s+[A-Z]{3}\s*[\d,]+(?:\.\d+)?\.\s*/gi,
+        /\bCurrent listed price is\s+[A-Z]{3}\s*[\d,]+(?:\.\d+)?(?:\.)?[ \t]*/gi,
         ''
       )
       .replace(
-        /\bConfirm selected variant price,\s*colou?r,\s*storage,\s*device condition,\s*and live availability before checkout\.\s*/gi,
+        /\bConfirm selected variant price,[ \t]*colou?r,[ \t]*storage,[ \t]*device condition,[ \t]*and live availability before checkout(?:\.)?[ \t]*/gi,
         ''
       )
-      // Removing full sentences can leave fresh doubled or trailing spaces.
-      .replace(/\s+/g, ' ')
+      // Removing full sentences can leave doubled horizontal spacing; keep
+      // line breaks because Google allows formatting in descriptions.
+      .replace(/[ \t]+/g, ' ')
+      .replace(/ *\n */g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
       .trim()
   );
 }
@@ -139,7 +152,7 @@ function trimDescription(value: string) {
 
 export function buildFeedDescription(input: FeedDescriptionInput) {
   const baseDescription = removeFeedOnlyBoilerplate(
-    normalizeText(input.description)
+    normalizeDescriptionText(input.description)
   );
   const specDetails = buildSpecDetails(input);
 
@@ -160,7 +173,7 @@ export function buildFeedDescription(input: FeedDescriptionInput) {
   if (!baseDescription) {
     const nameNormalized = normalizeText(input.name);
     return trimDescription(
-      nameNormalized ? `${nameNormalized}. ${specSentence}` : specSentence
+      nameNormalized ? `${specSentence} ${nameNormalized}.` : specSentence
     );
   }
 
