@@ -28,3 +28,11 @@
 Learning: When using `.single()` in Supabase on a query that might return 0 rows (like looking up an existing push token for a new device), Supabase returns `{ data: null, error: { code: 'PGRST116' } }`. If the code ignores the `error` object and only checks `if (data)`, it proceeds correctly for 0 rows, BUT it also silently proceeds if there's a genuine database failure (like a connection timeout), hiding the real error.
 Action: Use `.maybeSingle()` when 0 or 1 rows are expected, and explicitly check `if (error)` to catch genuine database failures.
 Source: Supabase v2 Docs - Select Data
+YYYY-MM-DD — [Validation of API Route Bodies]
+Learning: Blindly type-casting the request body in an API route bypasses runtime safety and creates a data-integrity risk.
+Action: Always use Zod `safeParse` to validate the incoming API payload against a defined schema and return a 400 error if it fails, instead of type casting.
+Source: Zod 4 documentation, Warden persona rules
+YYYY-MM-DD — [Validation of API Route Bodies]
+Learning: Blindly type-casting the request body in an API route bypasses runtime safety and creates a data-integrity risk.
+Action: Always use Zod `safeParse` to validate the incoming API payload against a defined schema and return a 400 error if it fails, instead of type casting.
+Source: Zod 4 documentation, Warden persona rules
