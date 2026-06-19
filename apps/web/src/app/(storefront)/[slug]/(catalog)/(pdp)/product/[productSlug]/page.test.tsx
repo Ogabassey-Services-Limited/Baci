@@ -1,5 +1,3 @@
-import { render } from '@testing-library/react';
-import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotFound = vi.fn(() => {
@@ -107,15 +105,15 @@ describe('legacy singular product route', () => {
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('triggers notFound without rendering a body marker for missing legacy products', async () => {
-    const page = await LegacyProductPage({
-      params: Promise.resolve({
-        slug: 'ogabassey',
-        productSlug: 'missing-product',
-      }),
-    });
-
-    expect(() => render(page as ReactElement)).toThrow('NEXT_NOT_FOUND');
+  it('throws notFound before returning streamed body markup for missing legacy products', async () => {
+    await expect(
+      LegacyProductPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          productSlug: 'missing-product',
+        }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       'merchant-1',

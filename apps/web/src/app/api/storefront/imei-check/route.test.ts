@@ -268,9 +268,11 @@ function mockAuthenticatedUser({
   return { adminSupabase, userSupabase };
 }
 
+let routeModulePromise: Promise<typeof import('./route')> | null = null;
+
 function importRoute() {
-  vi.resetModules();
-  return import('./route');
+  routeModulePromise ??= import('./route');
+  return routeModulePromise;
 }
 
 describe('POST /api/storefront/imei-check', () => {

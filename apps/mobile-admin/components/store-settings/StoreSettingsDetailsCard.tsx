@@ -25,9 +25,11 @@ interface StoreSettingsDetailsCardProps {
   onOpenCountryPicker: () => void;
   onPhoneChange: (text: string) => void;
   onSlugChange: (text: string) => void;
+  onSupportPhoneChange: (text: string) => void;
   phone: string;
   shadowStyle: StyleProp<ViewStyle>;
   slug: string;
+  supportPhone: string;
 }
 
 export function StoreSettingsDetailsCard({
@@ -43,9 +45,11 @@ export function StoreSettingsDetailsCard({
   onOpenCountryPicker,
   onPhoneChange,
   onSlugChange,
+  onSupportPhoneChange,
   phone,
   shadowStyle,
   slug,
+  supportPhone,
 }: StoreSettingsDetailsCardProps) {
   const sharedInputStyle: StyleProp<TextStyle> = [
     styles.input,
@@ -88,6 +92,23 @@ export function StoreSettingsDetailsCard({
           placeholderTextColor={colors.textMuted}
           style={sharedInputStyle}
           value={phone}
+        />
+      </View>
+
+      <View
+        style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}
+      >
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          Support Phone
+        </Text>
+        <TextInput
+          accessibilityLabel="Support Phone"
+          keyboardType="phone-pad"
+          onChangeText={onSupportPhoneChange}
+          placeholder="Enter support phone number"
+          placeholderTextColor={colors.textMuted}
+          style={sharedInputStyle}
+          value={supportPhone}
         />
       </View>
 

@@ -25,7 +25,7 @@ vi.mock('@/contexts/auth-context', () => ({
 
 // Mock logger
 vi.mock('@/lib/logger', () => ({
-  logger: { error: vi.fn(), info: vi.fn() },
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
 const testMerchant: MerchantData = {
@@ -293,5 +293,25 @@ describe('useMerchant', () => {
     const { result } = renderHook(() => useMerchant(), { wrapper });
 
     expect(result.current.navigationCategories).toEqual(categories);
+  });
+
+  it('skips the Supabase update when only non-writable keys are provided', async () => {
+    // Arrange
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <MerchantProvider
+        initialMerchant={testMerchant}
+        initialStaffAccess={staffAccessOwner}
+      >
+        {children}
+      </MerchantProvider>
+    );
+    const { result } = renderHook(() => useMerchant(), { wrapper });
+    mockFrom.mockClear();
+
+    // Act
+    await result.current.updateMerchant({ id: 'merchant-2' });
+
+    // Assert
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
   getImportJobWorkerBatchSize: vi.fn(),
+  processImportJobById: vi.fn(),
   processImportJobQueue: vi.fn(),
 }));
 
@@ -11,6 +12,7 @@ vi.mock('@/lib/supabase/service', () => ({
 }));
 
 vi.mock('@/lib/import-jobs/process-import-job', () => ({
+  processImportJobById: mocks.processImportJobById,
   processImportJobQueue: mocks.processImportJobQueue,
 }));
 
@@ -71,5 +73,94 @@ describe('runProcessImportJobsCli', () => {
       processed: 1,
       statusCounts: { failed: 1 },
     });
+  });
+
+  it('processes a single triggered job when IMPORT_JOB_TRIGGER_JOB_ID is set', async () => {
+    const supabase = { service: true };
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    mocks.createServiceClient.mockReturnValue(supabase);
+    mocks.processImportJobById.mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      status: 'preview_ready',
+      processed: 5903,
+    });
+
+    const exitCode = await runProcessImportJobsCli({
+      env: {
+        IMPORT_JOB_TRIGGER_JOB_ID: '11111111-1111-4111-8111-111111111111',
+      },
+    });
+
+    expect(exitCode).toBe(0);
+    expect(mocks.processImportJobById).toHaveBeenCalledWith(
+      supabase,
+      '11111111-1111-4111-8111-111111111111'
+    );
+    expect(mocks.processImportJobQueue).not.toHaveBeenCalled();
+    expect(JSON.parse(logSpy.mock.calls[0]?.[0] ?? '{}')).toMatchObject({
+      processed: 1,
+      statusCounts: { preview_ready: 1 },
+    });
+  });
+
+  it('returns non-zero when a triggered job is not claimed', async () => {
+    const supabase = { service: true };
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.createServiceClient.mockReturnValue(supabase);
+    mocks.processImportJobById.mockResolvedValue(null);
+
+    const exitCode = await runProcessImportJobsCli({
+      env: {
+        IMPORT_JOB_TRIGGER_JOB_ID: '11111111-1111-4111-8111-111111111111',
+      },
+    });
+
+    expect(exitCode).toBe(1);
+    expect(mocks.processImportJobById).toHaveBeenCalledWith(
+      supabase,
+      '11111111-1111-4111-8111-111111111111'
+    );
+    expect(JSON.parse(logSpy.mock.calls[0]?.[0] ?? '{}')).toMatchObject({
+      processed: 0,
+      statusCounts: {},
+    });
+    expect(JSON.parse(errorSpy.mock.calls[0]?.[0] ?? '{}')).toMatchObject({
+      jobId: '11111111-1111-4111-8111-111111111111',
+      message: 'Triggered import job was not claimed',
+    });
+  });
+
+  it('returns non-zero when a triggered job fails', async () => {
+    const supabase = { service: true };
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    mocks.createServiceClient.mockReturnValue(supabase);
+    mocks.processImportJobById.mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      status: 'failed',
+    });
+
+    const exitCode = await runProcessImportJobsCli({
+      env: {
+        IMPORT_JOB_TRIGGER_JOB_ID: '11111111-1111-4111-8111-111111111111',
+      },
+    });
+
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(logSpy.mock.calls[0]?.[0] ?? '{}')).toMatchObject({
+      processed: 1,
+      statusCounts: { failed: 1 },
+    });
+  });
+
+  it('rejects an invalid triggered job id', async () => {
+    await expect(
+      runProcessImportJobsCli({
+        env: { IMPORT_JOB_TRIGGER_JOB_ID: 'not-a-uuid' },
+      })
+    ).rejects.toThrow('IMPORT_JOB_TRIGGER_JOB_ID must be a UUID');
+
+    expect(mocks.processImportJobById).not.toHaveBeenCalled();
+    expect(mocks.processImportJobQueue).not.toHaveBeenCalled();
   });
 });

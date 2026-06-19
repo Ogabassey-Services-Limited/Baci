@@ -87,6 +87,9 @@ AI_STOREFRONT_GENERATION_ENABLED=false
 AI_STOREFRONT_TRIGGER_SECRET=...
 AI_STOREFRONT_TRIGGER_HOST=127.0.0.1
 AI_STOREFRONT_TRIGGER_PORT=3917
+IMPORT_JOB_TRIGGER_SECRET=...
+IMPORT_JOB_TRIGGER_HOST=127.0.0.1
+IMPORT_JOB_TRIGGER_PORT=3918
 VERCEL_ERROR_LOG_PATH=/home/bassey/baci-workers/logs/vercel-drain.jsonl
 BACI_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/vercel-error-remediator
 BACI_REMEDIATION_MIN_OCCURRENCES=2
@@ -125,6 +128,9 @@ Variable purposes:
 - `AI_STOREFRONT_TRIGGER_SECRET`: Bearer secret required by the local trigger listener before it starts the storefront worker.
 - `AI_STOREFRONT_TRIGGER_HOST`: Bind host for the trigger listener. Keep the default `127.0.0.1` and expose it only through an HTTPS reverse proxy.
 - `AI_STOREFRONT_TRIGGER_PORT`: Local trigger listener port. Default is `3917`.
+- `IMPORT_JOB_TRIGGER_SECRET`: Bearer secret required by the local trigger listener before it starts the import worker for a finalized upload.
+- `IMPORT_JOB_TRIGGER_HOST`: Bind host for the import trigger listener. Keep the default `127.0.0.1` and expose it only through an HTTPS reverse proxy.
+- `IMPORT_JOB_TRIGGER_PORT`: Local import trigger listener port. Default is `3918`.
 - `VERCEL_ERROR_LOG_PATH`: JSONL file written by the Vercel log-drain receiver or log export process. Each line must be one Vercel log event JSON object.
 - `BACI_REMEDIATION_OUTPUT_DIR`: Directory where the remediator writes Codex prompts and reports.
 - `BACI_REMEDIATION_MIN_OCCURRENCES`: Minimum repeated fingerprint count before the worker creates remediation work. Default is `2`.
@@ -191,6 +197,16 @@ storefront generation. `deploy.sh` installs it as the
 `storefront_layout_generation` job is enqueued, using the matching
 `AI_STOREFRONT_TRIGGER_URL` and `AI_STOREFRONT_TRIGGER_SECRET` values in the web
 deployment. The cron entry remains as a 10-minute fallback sweep, not the
+primary scheduler.
+
+`jobs/import-job-trigger-server.mjs` is the event-driven entrypoint for Bumpa
+CSV preview generation. `deploy.sh` installs it as the
+`baci-import-job-trigger.service` user service. The web app calls it after an
+upload is finalized, using the matching `IMPORT_JOB_TRIGGER_URL` and
+`IMPORT_JOB_TRIGGER_SECRET` values in the web deployment. The listener starts
+`bin/process-import-jobs.sh` under `process-import-jobs.lock` with
+`IMPORT_JOB_TRIGGER_JOB_ID`, so it targets the finalized upload immediately.
+The hourly cron entry remains as a fallback sweep for missed signals, not the
 primary scheduler.
 
 ## Vercel Error Remediator

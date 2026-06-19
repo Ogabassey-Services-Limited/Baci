@@ -305,15 +305,27 @@ async function processNotifyingJob(
 
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
-    .select(
-      'id, slug, business_name, custom_domain, support_email, email_sender_name, email'
-    )
+    .select('id, slug, business_name, support_email, email_sender_name, email')
     .eq('id', job.merchant_id)
     .single();
 
   if (merchantError || !merchant) {
     throw new Error(
       `Failed to load merchant notification settings: ${merchantError?.message}`
+    );
+  }
+
+  const { data: primaryDomain, error: domainError } = await supabase
+    .from('domains')
+    .select('domain')
+    .eq('merchant_id', job.merchant_id)
+    .eq('is_primary', true)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (domainError) {
+    throw new Error(
+      `Failed to load merchant notification domain: ${domainError.message}`
     );
   }
 
@@ -332,7 +344,10 @@ async function processNotifyingJob(
   const summary = await sendImportNotificationCampaign({
     supabase,
     importJobId: job.id,
-    merchant,
+    merchant: {
+      ...merchant,
+      custom_domain: primaryDomain?.domain ?? null,
+    },
     customSettings:
       (featureSettings?.custom_settings as Record<string, unknown> | null) ||
       null,
