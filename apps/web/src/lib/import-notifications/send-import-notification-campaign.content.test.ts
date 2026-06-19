@@ -69,6 +69,7 @@ describe('sendImportNotificationCampaign content safety', () => {
       customSettings: {
         migration_imports: {
           receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
           app_store_url: 'javascript:alert(1)',
         },
       },
