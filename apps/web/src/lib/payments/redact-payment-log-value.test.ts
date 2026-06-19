@@ -46,4 +46,43 @@ describe('redactPaymentLogValue', () => {
       type: 'string',
     });
   });
+
+  it('redacts camelCase payment PII keys', () => {
+    expect(
+      redactPaymentLogValue({
+        customerEmail: 'customer@example.com',
+        customerName: 'John Doe',
+        customerPhone: '08012345678',
+        mobileNumber: '08012345678',
+        safeMetadata: 'keep-me',
+      })
+    ).toEqual({
+      customerEmail: '[REDACTED]',
+      customerName: '[REDACTED]',
+      customerPhone: '[REDACTED]',
+      mobileNumber: '[REDACTED]',
+      safeMetadata: 'keep-me',
+    });
+  });
+
+  it('handles circular arrays without infinite recursion', () => {
+    const circular: unknown[] = [];
+    circular.push(circular);
+
+    expect(redactPaymentLogValue(circular)).toEqual([{ circular: true }]);
+  });
+
+  it('does not treat shared non-circular objects as circular', () => {
+    const sharedAddress = { line1: '123 Main St', city: 'Lagos' };
+
+    expect(
+      redactPaymentLogValue({
+        shipping: sharedAddress,
+        billing: sharedAddress,
+      })
+    ).toEqual({
+      shipping: { line1: '[REDACTED]', city: '[REDACTED]' },
+      billing: { line1: '[REDACTED]', city: '[REDACTED]' },
+    });
+  });
 });

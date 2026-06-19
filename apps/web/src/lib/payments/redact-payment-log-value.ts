@@ -26,8 +26,10 @@ const SENSITIVE_PAYMENT_LOG_KEYS = new Set([
 function normalizePaymentLogKey(key: string): string {
   return key
     .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_');
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 function shouldRedactPaymentLogKey(key: string): boolean {
@@ -44,12 +46,6 @@ function redactPaymentLogRecord(
   record: Record<string, unknown>,
   seen: WeakSet<object>
 ): Record<string, unknown> {
-  if (seen.has(record)) {
-    return { circular: true };
-  }
-
-  seen.add(record);
-
   return Object.fromEntries(
     Object.entries(record).map(([key, value]) => [
       key,
@@ -64,15 +60,24 @@ function redactPaymentLogValueInternal(
   value: unknown,
   seen: WeakSet<object>
 ): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => redactPaymentLogValueInternal(item, seen));
+  if (!(value && typeof value === 'object')) {
+    return value;
   }
 
-  if (value && typeof value === 'object') {
+  if (seen.has(value)) {
+    return { circular: true };
+  }
+
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return value.map((item) => redactPaymentLogValueInternal(item, seen));
+    }
+
     return redactPaymentLogRecord(value as Record<string, unknown>, seen);
+  } finally {
+    seen.delete(value);
   }
-
-  return value;
 }
 
 export function redactPaymentLogValue(value: unknown): unknown {
