@@ -258,7 +258,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
   return (
     <div className={`w-full flex justify-center items-center my-6 ${className}`}>
       <div ref={containerRef} className="flex flex-col items-center">
-        <span className="text-[9px] text-gray-300 uppercase tracking-widest mb-1 self-start ml-1">
+        <span className="ogabassey-ad-placeholder-text text-[9px] uppercase tracking-widest mb-1 self-start ml-1">
           Sponsored
         </span>
 
@@ -279,18 +279,18 @@ export const AdUnit: React.FC<AdUnitProps> = ({
           {/* Placeholder Pattern (Visible only until ad loads) */}
           {!isAdLoaded && (
             <div
-              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 z-0 opacity-50"
+              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 z-0"
               style={{
                 backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 1px, transparent 10px)'
               }}
             >
-              <span className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-1">
+              <span className="ogabassey-ad-placeholder-text text-xs font-bold uppercase tracking-widest mb-1">
                 Ad Space
               </span>
-              <span className="text-[10px] text-gray-400 font-medium">
+              <span className="ogabassey-ad-placeholder-text text-[10px] font-medium">
                 {config.name}
               </span>
-              <span className="text-[9px] text-gray-300 mt-1">
+              <span className="ogabassey-ad-placeholder-text text-[9px] mt-1">
                 {config.width}x{config.height}
               </span>
             </div>

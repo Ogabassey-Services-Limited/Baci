@@ -8,7 +8,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { isStorefrontProductSlugMissing } from '@/lib/storefront-product-slug-membership';
+import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from './config/storefront-metadata-cache-bots';
 import { config, proxy } from './proxy';
@@ -54,7 +54,9 @@ vi.mock('@/env', () => ({
 // Mock the crawl-budget product-slug membership check (PR-B §3.2). Defaults to
 // "present" so it is a no-op for existing tests; individual tests override it.
 vi.mock('@/lib/storefront-product-slug-membership', () => ({
-  isStorefrontProductSlugMissing: vi.fn().mockResolvedValue(false),
+  resolveStorefrontProductSlugResolution: vi
+    .fn()
+    .mockResolvedValue({ kind: 'present-or-unknown' }),
 }));
 
 // Mock rate limit
@@ -109,7 +111,9 @@ describe('Middleware Proxy', () => {
     // clearAllMocks resets call history but not implementations; restore the
     // crawl-budget membership mock to its "present" default so a per-test
     // override does not leak into unrelated custom-domain tests.
-    vi.mocked(isStorefrontProductSlugMissing).mockResolvedValue(false);
+    vi.mocked(resolveStorefrontProductSlugResolution).mockResolvedValue({
+      kind: 'present-or-unknown',
+    });
   });
 
   it('should apply security headers to API routes', async () => {
@@ -179,6 +183,31 @@ describe('Middleware Proxy', () => {
     );
     expect(directives['frame-src']).toContain(
       'https://directdebit.useklump.com'
+    );
+  });
+
+  it('allows Cloudflare Insights beacon hosts on storefront CSP', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/products`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+    const csp = res.headers.get('Content-Security-Policy') || '';
+    const directives = Object.fromEntries(
+      csp
+        .split(';')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+          const [name, ...values] = entry.split(/\s+/);
+          return [name, values.join(' ')];
+        })
+    );
+
+    expect(directives['script-src']).toContain(
+      'https://static.cloudflareinsights.com'
+    );
+    expect(directives['connect-src']).toContain(
+      'https://cloudflareinsights.com'
     );
   });
 
@@ -499,6 +528,156 @@ describe('Middleware Proxy', () => {
     expect(res.status).not.toBe(308);
   });
 
+  it('passes PostHog relay requests through on merchant subdomains', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/baci-relay/e/capture/`
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  it('passes PostHog relay requests through on custom domains', async () => {
+    const req = new NextRequest('https://ogabassey.com/baci-relay/e/capture/');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(getSlugForCustomDomain).not.toHaveBeenCalled();
+  });
+
+  it('strips app credentials from PostHog relay requests', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/baci-relay/e/capture/`
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+    req.headers.set('user-agent', 'PostHog Test Agent');
+    req.headers.set('cookie', 'sb-auth-token=secret');
+    req.headers.set('authorization', 'Bearer secret');
+    req.headers.set('proxy-authorization', 'Bearer proxy-secret');
+    req.headers.set(
+      'referer',
+      `https://ogabassey.${ROOT_DOMAIN}/checkout?email=buyer@example.com`
+    );
+    req.headers.set('x-csrf-token', 'csrf-secret');
+    req.headers.set('x-supabase-auth-token', 'supabase-secret');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-middleware-request-cookie')).toBeNull();
+    expect(res.headers.get('x-middleware-request-authorization')).toBeNull();
+    expect(
+      res.headers.get('x-middleware-request-proxy-authorization')
+    ).toBeNull();
+    expect(res.headers.get('x-middleware-request-referer')).toBeNull();
+    expect(res.headers.get('x-middleware-request-x-csrf-token')).toBeNull();
+    expect(
+      res.headers.get('x-middleware-request-x-supabase-auth-token')
+    ).toBeNull();
+    expect(res.headers.get('x-middleware-request-user-agent')).toBe(
+      'PostHog Test Agent'
+    );
+  });
+
+  it('matches PostHog relay static assets so rewrites cannot bypass header stripping', () => {
+    expect(config.matcher).toContain('/baci-relay/:path*');
+  });
+
+  it('does not match every static chunk for custom relay assets', () => {
+    const legacyCatchAllMatcher = '/((?:.+/)?(?:static|array)/.*)';
+    const customRelayStaticMatcher = config.matcher.find((matcher) =>
+      matcher?.includes('(?:static|array)')
+    );
+    if (!customRelayStaticMatcher) {
+      throw new Error('Custom relay static matcher is missing');
+    }
+
+    const regex = new RegExp(`^${customRelayStaticMatcher}`);
+    const matchesNextStaticChunk = regex.test('/_next/static/chunks/app.js');
+    const matchesCustomRelayAsset = regex.test(
+      '/baci-observe/static/recorder.js'
+    );
+
+    expect(config.matcher).not.toContain(legacyCatchAllMatcher);
+    expect(matchesNextStaticChunk).toBe(false);
+    expect(matchesCustomRelayAsset).toBe(true);
+  });
+
+  it('strips app credentials from custom PostHog relay static asset paths', async () => {
+    const originalRelayPath = process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
+    process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = '/baci-observe';
+
+    try {
+      vi.resetModules();
+      const { config: configWithCustomRelay, proxy: proxyWithCustomRelay } =
+        await import('./proxy');
+
+      expect(configWithCustomRelay.matcher).toContain(
+        '/((?!_next/static(?:/|$))(?:.+/)?(?:static|array)/.*)'
+      );
+
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/baci-observe/static/recorder.js`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+      req.headers.set('cookie', 'sb-auth-token=secret');
+      req.headers.set('authorization', 'Bearer secret');
+      req.headers.set(
+        'referer',
+        `https://ogabassey.${ROOT_DOMAIN}/checkout?email=buyer@example.com`
+      );
+
+      const res = await proxyWithCustomRelay(req);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('x-middleware-request-cookie')).toBeNull();
+      expect(res.headers.get('x-middleware-request-authorization')).toBeNull();
+      expect(res.headers.get('x-middleware-request-referer')).toBeNull();
+    } finally {
+      if (originalRelayPath === undefined) {
+        delete process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
+      } else {
+        process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = originalRelayPath;
+      }
+      vi.resetModules();
+    }
+  });
+
+  it('falls back to the default PostHog relay path for reserved route prefixes', async () => {
+    const originalRelayPath = process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
+    process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = '/api';
+
+    try {
+      vi.resetModules();
+      const { proxy: proxyWithReservedRelayPath } = await import('./proxy');
+
+      const req = new NextRequest(`https://${ROOT_DOMAIN}/api/products`);
+      req.headers.set('host', ROOT_DOMAIN);
+      req.headers.set('user-agent', 'Reserved Relay Test Agent');
+
+      const res = await proxyWithReservedRelayPath(req);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('x-middleware-request-user-agent')).toBeNull();
+    } finally {
+      if (originalRelayPath === undefined) {
+        delete process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
+      } else {
+        process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH = originalRelayPath;
+      }
+      vi.resetModules();
+    }
+  });
+
   it('should rewrite storefront checkout routes on merchant subdomains', async () => {
     const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/checkout`);
     req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
@@ -515,10 +694,14 @@ describe('Middleware Proxy', () => {
   });
 
   describe('crawl-budget PDP hard-404 (PR-B §3.2)', () => {
-    const missingMock = vi.mocked(isStorefrontProductSlugMissing);
+    const resolutionMock = vi.mocked(resolveStorefrontProductSlugResolution);
+    const mockMissing = (missing: boolean) =>
+      resolutionMock.mockResolvedValue(
+        missing ? { kind: 'missing' } : { kind: 'present-or-unknown' }
+      );
 
     it('returns a hard 404 for a confirmed-missing product slug on a custom domain', async () => {
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest(
         'https://ogabassey.com/smartphones/totally-made-up'
       );
@@ -532,7 +715,7 @@ describe('Middleware Proxy', () => {
       expect(res.headers.get('Content-Type')).toContain('text/html');
       // Header-level noindex so HEAD / non-HTML-parsing crawlers still see it.
       expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
-      expect(missingMock).toHaveBeenCalledWith(
+      expect(resolutionMock).toHaveBeenCalledWith(
         expect.objectContaining({
           identifier: 'ogabassey',
           productSlug: 'totally-made-up',
@@ -541,7 +724,7 @@ describe('Middleware Proxy', () => {
     });
 
     it('returns a header-only hard 404 (no body) for HEAD requests to confirmed-missing products', async () => {
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest(
         'https://ogabassey.com/smartphones/totally-made-up',
         { method: 'HEAD' }
@@ -557,8 +740,63 @@ describe('Middleware Proxy', () => {
       expect(res.headers.get('Cache-Control')).toContain('no-store');
     });
 
+    it('returns a real 308 for a redirectable archived product slug before the PDP route streams', async () => {
+      resolutionMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/iphone-15-pro-max',
+      });
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/iphone-15-pro-max-8gb-256gb'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/smartphones/iphone-15-pro-max'
+      );
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      expect(resolutionMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          productSlug: 'iphone-15-pro-max-8gb-256gb',
+        })
+      );
+    });
+
+    it('preserves attribution query params when redirecting a legacy product alias', async () => {
+      resolutionMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/iphone-15-pro-max',
+      });
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/iphone-15-pro-max-8gb-256gb?utm_source=email&gclid=abc123'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/smartphones/iphone-15-pro-max?utm_source=email&gclid=abc123'
+      );
+    });
+
+    it('does not hard-404 query-param product URLs even when the slug is reported missing', async () => {
+      mockMissing(true);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/totally-made-up?utm_source=email'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+    });
+
     it('falls through (rewrite, not 404) when the product slug exists', async () => {
-      missingMock.mockResolvedValue(false);
+      mockMissing(false);
       const req = new NextRequest(
         'https://ogabassey.com/smartphones/iphone-15'
       );
@@ -573,7 +811,7 @@ describe('Middleware Proxy', () => {
     });
 
     it('does not run the check for RSC/prefetch navigations', async () => {
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest(
         'https://ogabassey.com/smartphones/totally-made-up'
       );
@@ -583,7 +821,7 @@ describe('Middleware Proxy', () => {
       const res = await proxy(req);
 
       expect(res.status).not.toBe(404);
-      expect(missingMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -591,31 +829,31 @@ describe('Middleware Proxy', () => {
       ['account', 'https://ogabassey.com/account/login'],
       ['pages', 'https://ogabassey.com/pages/rewards'],
     ])('does not hard-404 reserved first-segment route /%s/... (real App Router page)', async (_segment, url) => {
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest(url);
       req.headers.set('host', 'ogabassey.com');
 
       const res = await proxy(req);
 
       expect(res.status).not.toBe(404);
-      expect(missingMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
     });
 
     it('hard-404s a confirmed-missing categoryless /products/{slug} PDP (getProductUrl fallback)', async () => {
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest('https://ogabassey.com/products/not-real');
       req.headers.set('host', 'ogabassey.com');
 
       const res = await proxy(req);
 
       expect(res.status).toBe(404);
-      expect(missingMock).toHaveBeenCalledWith(
+      expect(resolutionMock).toHaveBeenCalledWith(
         expect.objectContaining({ productSlug: 'not-real' })
       );
     });
 
     it('does not hard-404 an existing /products/{slug} PDP', async () => {
-      missingMock.mockResolvedValue(false);
+      mockMissing(false);
       const req = new NextRequest('https://ogabassey.com/products/iphone-15');
       req.headers.set('host', 'ogabassey.com');
 
@@ -625,18 +863,18 @@ describe('Middleware Proxy', () => {
     });
 
     it('does not hard-404 the singular /product/{slug} legacy redirect route', async () => {
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest('https://ogabassey.com/product/whatever');
       req.headers.set('host', 'ogabassey.com');
 
       const res = await proxy(req);
 
       expect(res.status).not.toBe(404);
-      expect(missingMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
     });
 
     it('does not hard-404 a UUID product URL (resolved by the page id lookup)', async () => {
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest(
         'https://ogabassey.com/smartphones/6b5cb8a4-5575-456c-b936-8cdfae30db74'
       );
@@ -645,22 +883,22 @@ describe('Middleware Proxy', () => {
       const res = await proxy(req);
 
       expect(res.status).not.toBe(404);
-      expect(missingMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
     });
 
     it('does not hard-404 the /my-account/[...path] catch-all (non-PDP first segment)', async () => {
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest('https://ogabassey.com/my-account/orders');
       req.headers.set('host', 'ogabassey.com');
 
       const res = await proxy(req);
 
       expect(res.status).not.toBe(404);
-      expect(missingMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
     });
 
     it('decodes a percent-encoded product slug before the membership check', async () => {
-      missingMock.mockResolvedValue(false);
+      mockMissing(false);
       // `cafe%cc%81` is `cafe` + a combining acute accent — the DB slug stores
       // the decoded form, so the proxy must compare decoded, not the raw bytes.
       const req = new NextRequest(
@@ -670,7 +908,7 @@ describe('Middleware Proxy', () => {
 
       await proxy(req);
 
-      expect(missingMock).toHaveBeenCalledWith(
+      expect(resolutionMock).toHaveBeenCalledWith(
         expect.objectContaining({
           productSlug: decodeURIComponent('cafe%cc%81'),
         })
@@ -678,7 +916,7 @@ describe('Middleware Proxy', () => {
     });
 
     it('returns a hard 404 for a confirmed-missing product slug on a subdomain', async () => {
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest(
         'https://ogabassey.usebaci.com/smartphones/totally-made-up'
       );
@@ -688,7 +926,7 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).toBe(404);
       expect(res.headers.get('x-middleware-rewrite')).toBeNull();
-      expect(missingMock).toHaveBeenCalledWith(
+      expect(resolutionMock).toHaveBeenCalledWith(
         expect.objectContaining({
           identifier: 'ogabassey',
           productSlug: 'totally-made-up',
@@ -700,7 +938,7 @@ describe('Middleware Proxy', () => {
       // getCustomDomainForSlug defaults to null, so the slug is served in
       // path-mode (no 301 to a custom domain) and the platform host strips the
       // leading slug, leaving `{category}/{product}` for the check.
-      missingMock.mockResolvedValue(true);
+      mockMissing(true);
       const req = new NextRequest(
         'https://usebaci.com/ogabassey/smartphones/totally-made-up'
       );
@@ -709,10 +947,34 @@ describe('Middleware Proxy', () => {
       const res = await proxy(req);
 
       expect(res.status).toBe(404);
-      expect(missingMock).toHaveBeenCalledWith(
+      expect(resolutionMock).toHaveBeenCalledWith(
         expect.objectContaining({
           identifier: 'ogabassey',
           productSlug: 'totally-made-up',
+        })
+      );
+    });
+
+    it('keeps the storefront slug prefix when redirecting a legacy product alias on the root domain', async () => {
+      resolutionMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/iphone-15-pro-max',
+      });
+      const req = new NextRequest(
+        'https://usebaci.com/ogabassey/smartphones/iphone-15-pro-max-8gb-256gb?utm_source=email'
+      );
+      req.headers.set('host', 'usebaci.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://usebaci.com/ogabassey/smartphones/iphone-15-pro-max?utm_source=email'
+      );
+      expect(resolutionMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          productSlug: 'iphone-15-pro-max-8gb-256gb',
         })
       );
     });

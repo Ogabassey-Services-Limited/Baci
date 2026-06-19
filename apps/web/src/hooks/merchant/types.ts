@@ -62,6 +62,9 @@ export interface MerchantData {
   legal_entity_name?: string | null;
   registered_address?: RegisteredAddress | null;
   tax_identification_number?: string | null;
+  // FIRS tax-jurisdiction code (e.g. 'NG-LA'); written via the dedicated
+  // /api/merchant/settings PATCH route, an identity field for drift purposes.
+  state_code?: string | null;
   trust_profile?: MerchantTrustProfileDraft | null;
   // Store publish status
   is_published?: boolean;

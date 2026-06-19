@@ -24,6 +24,8 @@ export interface RegisteredAddress {
   city?: string | null;
   state?: string | null;
   postal_code?: string | null;
+  /** Legacy persisted key from older address payloads; postal_code is canonical. */
+  postalCode?: string | null;
   country?: string | null;
 }
 
@@ -150,4 +152,33 @@ export function normalizeRegisteredAddress(
 
   const hasValue = Object.values(normalizedAddress).some(Boolean);
   return hasValue ? normalizedAddress : null;
+}
+
+/**
+ * Formats a structured {@link RegisteredAddress} into the free-text address
+ * shown in the storefront footer, JSON-LD, receipts and invoices.
+ *
+ * Comma-joins the non-empty `street`, `city`, `state` and `postal_code` parts
+ * (falling back to the legacy stored `postalCode` key).
+ * Returns `null` (never an empty string) when the address is null/empty so a
+ * cleared structured address never leaves a stale free-text value behind.
+ *
+ * This is the canonical source of truth for deriving `merchants.business_address`
+ * from `merchants.registered_address`. It MUST stay in lock-step with the SQL
+ * `public.format_merchant_address(jsonb)` (PR-F address unification) — the
+ * parity test in `merchant-settings.test.ts` enforces identical output.
+ */
+export function formatMerchantAddress(
+  address: RegisteredAddress | null | undefined
+): string | null {
+  if (!address) {
+    return null;
+  }
+
+  const postalCode = address.postal_code?.trim() || address.postalCode?.trim();
+  const parts = [address.street, address.city, address.state, postalCode]
+    .map((part) => part?.trim() ?? '')
+    .filter((part) => part.length > 0);
+
+  return parts.length > 0 ? parts.join(', ') : null;
 }

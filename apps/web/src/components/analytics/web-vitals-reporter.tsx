@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { extractWebVitalAttribution } from './web-vital-attribution';
+import { buildWebVitalEndpointPayload } from './web-vital-endpoint-payload';
 
 /**
  * Web Vitals Reporter Component
@@ -60,6 +62,7 @@ interface WebVitalMetric {
   id: string;
   rating: string;
   navigationType: string;
+  attribution?: unknown;
 }
 
 function handleWebVitalMetric(
@@ -90,6 +93,10 @@ function handleWebVitalMetric(
   ) {
     const gtag = (window as unknown as { gtag: (...args: unknown[]) => void })
       .gtag;
+    // GA4 collects custom event parameters immediately. To use them in GA4 UI
+    // reporting, register the relevant event-scoped custom dimensions/metrics
+    // in the GA property; otherwise keep high-cardinality selectors/URLs for
+    // DebugView or BigQuery export analysis.
     gtag('event', metric.name, {
       value: Math.round(
         metric.name === 'CLS' ? metric.value * 1000 : metric.value
@@ -98,19 +105,13 @@ function handleWebVitalMetric(
       metric_rating: metric.rating,
       navigation_type: metric.navigationType,
       non_interaction: true,
+      ...extractWebVitalAttribution(metric),
     });
   }
 
   // Send to custom endpoint if provided
   if (endpoint) {
-    const body = JSON.stringify({
-      name: metric.name,
-      value: metric.value,
-      rating: metric.rating,
-      id: metric.id,
-      navigationType: metric.navigationType,
-      timestamp: Date.now(),
-    });
+    const body = JSON.stringify(buildWebVitalEndpointPayload(metric));
 
     if (navigator.sendBeacon) {
       navigator.sendBeacon(endpoint, body);
@@ -133,7 +134,11 @@ async function registerWebVitals(
 ): Promise<void> {
   try {
     // Dynamic import to avoid Turbopack bundling issues
-    const { onCLS, onFCP, onINP, onLCP, onTTFB } = await import('web-vitals');
+    // Attribution build: emits metric.attribution (LCP element, CLS shift
+    // target, INP target) so the FIELD reveals WHICH node is slow/shifting.
+    const { onCLS, onFCP, onINP, onLCP, onTTFB } = await import(
+      'web-vitals/attribution'
+    );
     const handleMetric = (metric: WebVitalMetric) =>
       handleWebVitalMetric(metric, debug, endpoint);
 

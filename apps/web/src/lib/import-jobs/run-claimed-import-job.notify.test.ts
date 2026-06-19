@@ -83,10 +83,23 @@ describe('runClaimedImportJob notification and failure flows', () => {
         id: 'merchant-1',
         slug: 'ogabassey',
         business_name: 'Ogabassey',
-        custom_domain: null,
         support_email: 'support@ogabassey.com',
         email_sender_name: 'Ogabassey',
         email: 'hello@ogabassey.com',
+      },
+      error: null,
+    });
+
+    const domainQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    domainQuery.select.mockReturnValue(domainQuery);
+    domainQuery.eq.mockReturnValue(domainQuery);
+    domainQuery.maybeSingle.mockResolvedValue({
+      data: {
+        domain: 'ogabassey.com',
       },
       error: null,
     });
@@ -116,6 +129,7 @@ describe('runClaimedImportJob notification and failure flows', () => {
       from: vi
         .fn()
         .mockReturnValueOnce(merchantQuery)
+        .mockReturnValueOnce(domainQuery)
         .mockReturnValueOnce(featureQuery)
         .mockReturnValueOnce(updateQuery),
     } as unknown as SupabaseClient;
@@ -130,7 +144,13 @@ describe('runClaimedImportJob notification and failure flows', () => {
     expect(sendImportNotificationCampaignMock).toHaveBeenCalledWith(
       expect.objectContaining({
         importJobId: 'notifying-job',
+        merchant: expect.objectContaining({
+          custom_domain: 'ogabassey.com',
+        }),
       })
+    );
+    expect(merchantQuery.select).toHaveBeenCalledWith(
+      'id, slug, business_name, support_email, email_sender_name, email'
     );
   });
 

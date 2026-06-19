@@ -78,6 +78,7 @@ export async function buildOgabasseyPdpLcpImageResponse({
   }
 
   const preloadUrl = imageLoader({
+    preferOgabasseyTransform: true,
     quality: parsed.data.quality,
     src: primaryImage,
     width: parsed.data.width,

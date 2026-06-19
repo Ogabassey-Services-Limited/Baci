@@ -4,6 +4,7 @@ import {
   type SupabaseClient,
 } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
+import { unstable_rethrow } from 'next/navigation';
 import { cache } from 'react';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import {
@@ -1179,10 +1180,12 @@ export async function getMerchantSafe(
   try {
     return await getMerchantByIdentifier(identifier);
   } catch (firstError) {
+    unstable_rethrow(firstError);
     // Retry once on transient failure (e.g., Supabase timeout during cache revalidation)
     try {
       return await getMerchantByIdentifier(identifier);
     } catch (retryError) {
+      unstable_rethrow(retryError);
       const safeId = sanitizeLookupLogValue(identifier);
       const isTransient =
         isTransientMerchantLookupError(firstError) ||
@@ -1230,8 +1233,8 @@ export async function getMerchantSafe(
 
 /**
  * Strict merchant lookup with retry — throws on transient failures.
- * Use inside 'use cache: remote' functions where returning null on a
- * transient error would cache the failure across instances.
+ * Use inside cached functions where returning null on a transient error would
+ * cache the failure instead of letting the caller retry on a later render.
  * A genuine "merchant not found" still returns null (safe to cache).
  */
 export async function getMerchantStrict(
@@ -1239,10 +1242,12 @@ export async function getMerchantStrict(
 ): Promise<CachedMerchant | null> {
   try {
     return await getMerchantByIdentifier(identifier);
-  } catch {
+  } catch (firstError) {
+    unstable_rethrow(firstError);
     try {
       return await getMerchantByIdentifier(identifier);
     } catch (retryError) {
+      unstable_rethrow(retryError);
       const safeId = sanitizeLookupLogValue(identifier);
       console.error('Strict merchant lookup failed after retry:', safeId);
       throw retryError;
@@ -2459,14 +2464,17 @@ export async function getCachedFeatureSettings(
 
 /**
  * Cached blog post with related posts.
- * Uses 'merchant' cacheLife profile (revalidate 60s)
+ * Keep public blog metadata/content in the local Cache Components cache.
+ * Live Vercel logs showed RemoteCacheHandler errors for post-specific keys,
+ * and official Next guidance reserves remote cache for cases where the
+ * network lookup/infrastructure cost is justified.
  */
 export async function getCachedBlogPost(
   identifier: string,
   postSlug: string,
   includeDrafts: boolean = false
 ) {
-  'use cache: remote';
+  'use cache';
   cacheLife('merchant');
   cacheTag('blog-posts', getBlogCacheTag(identifier, postSlug));
 
@@ -2626,7 +2634,9 @@ export async function getCachedBlogPost(
 
 /**
  * Cached blog listing data for storefront markdown mirrors and list pages.
- * Uses 'merchant' cacheLife profile (revalidate 60s)
+ * Keep public blog listing data in the local Cache Components cache; the key
+ * cardinality is storefront/category/page/search-specific, and remote cache
+ * lookups have produced production handler errors on adjacent blog routes.
  */
 export async function getCachedBlogListing(
   identifier: string,
@@ -2636,7 +2646,7 @@ export async function getCachedBlogListing(
     searchQuery?: string;
   }
 ) {
-  'use cache: remote';
+  'use cache';
   const category = options?.category;
   const page = options?.page || 1;
   const searchQuery = options?.searchQuery;

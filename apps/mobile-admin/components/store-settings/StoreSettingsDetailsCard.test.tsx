@@ -62,6 +62,7 @@ describe('StoreSettingsDetailsCard', () => {
     onOpenCountryPicker: vi.fn(),
     onPhoneChange: vi.fn(),
     onSlugChange: vi.fn(),
+    onSupportPhoneChange: vi.fn(),
   };
 
   const renderCard = () =>
@@ -76,6 +77,7 @@ describe('StoreSettingsDetailsCard', () => {
         phone="+2348012345678"
         shadowStyle={SHADOWS.sm}
         slug="baci-foods"
+        supportPhone="+2347000000000"
         {...callbacks}
       />
     );
@@ -89,6 +91,7 @@ describe('StoreSettingsDetailsCard', () => {
 
     expect(screen.getByDisplayValue('Baci Foods')).toBeInTheDocument();
     expect(screen.getByDisplayValue('+2348012345678')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('+2347000000000')).toBeInTheDocument();
     expect(screen.getByDisplayValue('support@usebaci.com')).toBeInTheDocument();
     expect(screen.getByDisplayValue('12 Allen Avenue')).toBeInTheDocument();
     expect(screen.getByDisplayValue('baci-foods')).toBeInTheDocument();
@@ -105,6 +108,9 @@ describe('StoreSettingsDetailsCard', () => {
     fireEvent.change(screen.getByLabelText('Phone Number'), {
       target: { value: '+2348099999999' },
     });
+    fireEvent.change(screen.getByLabelText('Support Phone'), {
+      target: { value: '+2347111111111' },
+    });
     fireEvent.change(screen.getByLabelText('Support Email'), {
       target: { value: 'hello@usebaci.com' },
     });
@@ -117,6 +123,9 @@ describe('StoreSettingsDetailsCard', () => {
 
     expect(callbacks.onBusinessNameChange).toHaveBeenCalledWith('Baci Stores');
     expect(callbacks.onPhoneChange).toHaveBeenCalledWith('+2348099999999');
+    expect(callbacks.onSupportPhoneChange).toHaveBeenCalledWith(
+      '+2347111111111'
+    );
     expect(callbacks.onEmailChange).toHaveBeenCalledWith('hello@usebaci.com');
     expect(callbacks.onAddressChange).toHaveBeenCalledWith('44 Marina');
     expect(callbacks.onSlugChange).toHaveBeenCalledWith('baci-stores');
