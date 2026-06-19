@@ -2536,10 +2536,18 @@ export async function fulfillPendingVtuTransaction({
           transactionId: row.id,
         })
       : undefined);
-  const updatedMetadata = {
+  const providerErrorDetail = result.success
+    ? undefined
+    : result.providerErrorDetail?.trim();
+  const updatedMetadata: Record<string, unknown> = {
     ...(row.metadata ?? {}),
     ...(voucherPin && { voucherPin }),
   };
+  if (providerErrorDetail) {
+    updatedMetadata.providerErrorDetail = providerErrorDetail;
+  } else {
+    delete updatedMetadata.providerErrorDetail;
+  }
 
   if (result.status === 'pending') {
     const processingUpdatePayload: {

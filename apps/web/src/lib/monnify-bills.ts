@@ -31,6 +31,43 @@ const MONNIFY_PROCESSING_STATUSES = new Set([
   'PROCESSING',
 ]);
 const MONNIFY_FAILED_STATUSES = new Set(['FAILED', 'FAILURE', 'UNSUCCESSFUL']);
+const SENSITIVE_DIGIT_SEQUENCE_PATTERN = /(?<!\d)\d{7,}(?!\d)/g;
+const MONNIFY_ERROR_DETAIL_MAX_LENGTH = 240;
+// 64 chars covers normal phone/account/reference lengths while keeping regex work bounded.
+const MONNIFY_ERROR_DETAIL_REDACTION_LOOKAHEAD = 64;
+
+class MonnifyHttpError extends Error {
+  readonly detail: string | null;
+  readonly status: number;
+  readonly statusText: string;
+
+  constructor({
+    detail,
+    prefix,
+    status,
+    statusText,
+  }: {
+    detail: string | null;
+    prefix: string;
+    status: number;
+    statusText: string;
+  }) {
+    super(`${prefix}: ${status} ${statusText}`.trim());
+    Object.setPrototypeOf(this, MonnifyHttpError.prototype);
+    this.name = 'MonnifyHttpError';
+    this.detail = detail;
+    this.status = status;
+    this.statusText = statusText;
+  }
+
+  get isClientError() {
+    return this.status >= 400 && this.status < 500;
+  }
+
+  get diagnosticMessage() {
+    return this.detail ? `${this.message} - ${this.detail}` : this.message;
+  }
+}
 
 export class MonnifyTransientVendError extends Error {
   constructor(message: string) {
@@ -38,6 +75,77 @@ export class MonnifyTransientVendError extends Error {
     Object.setPrototypeOf(this, MonnifyTransientVendError.prototype);
     this.name = 'MonnifyTransientVendError';
   }
+}
+
+export function sanitizeMonnifyErrorDetail(value: string) {
+  const redactionBound =
+    MONNIFY_ERROR_DETAIL_MAX_LENGTH + MONNIFY_ERROR_DETAIL_REDACTION_LOOKAHEAD;
+  let boundedValue = value.slice(0, redactionBound);
+
+  if (
+    boundedValue.length === redactionBound &&
+    /\d$/.test(boundedValue) &&
+    /^\d/.test(value.slice(redactionBound, redactionBound + 1))
+  ) {
+    boundedValue = boundedValue.replace(/\d+$/, '');
+  }
+
+  return boundedValue
+    .replace(SENSITIVE_DIGIT_SEQUENCE_PATTERN, '[redacted]')
+    .slice(0, MONNIFY_ERROR_DETAIL_MAX_LENGTH)
+    .trim();
+}
+
+function getMonnifyErrorDetailFromBody(value: unknown): string | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const body = value as Record<string, unknown>;
+  const candidates = [
+    body.responseMessage,
+    body.message,
+    body.error,
+    body.errorMessage,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return sanitizeMonnifyErrorDetail(candidate);
+    }
+  }
+
+  return null;
+}
+
+async function getMonnifyHttpErrorDetail(response: Response) {
+  try {
+    const responseText = await response.text();
+    if (!responseText.trim()) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(responseText) as unknown;
+      return (
+        getMonnifyErrorDetailFromBody(parsed) ??
+        sanitizeMonnifyErrorDetail(responseText)
+      );
+    } catch {
+      return sanitizeMonnifyErrorDetail(responseText);
+    }
+  } catch {
+    return null;
+  }
+}
+
+async function createMonnifyHttpError(response: Response, prefix: string) {
+  return new MonnifyHttpError({
+    detail: await getMonnifyHttpErrorDetail(response),
+    prefix,
+    status: response.status,
+    statusText: response.statusText,
+  });
 }
 
 function getMonnifyEnvelopeMessage({
@@ -140,13 +248,9 @@ async function monnifyRequest<T = unknown>(
 
     if (!response.ok) {
       if (response.status >= 500) {
-        throw new Error(
-          `Monnify server error: ${response.status} ${response.statusText}`
-        );
+        throw await createMonnifyHttpError(response, 'Monnify server error');
       }
-      throw new Error(
-        `Monnify API error: ${response.status} ${response.statusText}`
-      );
+      throw await createMonnifyHttpError(response, 'Monnify API error');
     }
 
     return (await response.json()) as T;
@@ -240,7 +344,7 @@ export async function getCachedBillerProducts(billerCode: string) {
 }
 
 export async function verifyBillCustomer(
-  billerCode: string,
+  _billerCode: string,
   productCode: string,
   customerIdentifier: string
 ): Promise<{
@@ -252,7 +356,6 @@ export async function verifyBillCustomer(
 }> {
   try {
     const payload = validateCustomerRequestSchema.parse({
-      billerCode,
       productCode,
       customerId: customerIdentifier,
     });
@@ -301,7 +404,12 @@ export async function verifyBillCustomer(
   } catch (error) {
     return {
       verified: false,
-      message: error instanceof Error ? error.message : 'Verification failed',
+      message:
+        error instanceof MonnifyHttpError
+          ? 'Verification could not be completed with Monnify. Please check the details and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'Verification failed',
     };
   }
 }
@@ -388,17 +496,24 @@ export async function purchaseBill(
       amount,
     };
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    // Explicit client HTTP 4xx errors are terminal business failures
-    if (errorMsg.includes('Monnify API error: 4')) {
+    if (error instanceof MonnifyHttpError && error.isClientError) {
       return {
         success: false,
         reference: requestReference,
-        message: errorMsg,
+        message:
+          'Monnify rejected the bill payment request. Please verify the details and try again.',
+        providerErrorDetail: error.diagnosticMessage,
         status: 'failed',
         amount,
       };
     }
+
+    const errorMsg =
+      error instanceof MonnifyHttpError
+        ? error.diagnosticMessage
+        : error instanceof Error
+          ? error.message
+          : String(error);
 
     if (error instanceof MonnifyTransientVendError) {
       throw error;
