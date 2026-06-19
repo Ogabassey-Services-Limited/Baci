@@ -1,13 +1,10 @@
 'use client';
 
-import { Play } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { asRoute } from '@/lib/routes';
-import { useDeferredActivation } from './deferred-shell-feature';
-import { DeferredAdUnit } from './deferred-ad-unit';
 import { MOBILE_SLIDES } from './hero-data';
 import {
   MOBILE_HERO_IMAGE_QUALITY,
@@ -42,47 +39,10 @@ export function HeroMobileCarousel({
   isDesktopViewport,
 }: HeroMobileCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [adRefreshTrigger, setAdRefreshTrigger] = useState(0);
   const isResolvedMobileViewport = hasResolvedViewport && !isDesktopViewport;
   const shouldPrioritizeMobileLcpImage =
     !hasResolvedViewport || isResolvedMobileViewport;
-  const isMobileAutoplayReady = useDeferredActivation({
-    enabled: hasResolvedViewport && !isDesktopViewport,
-    timeoutMs: 15000,
-    activateOnIdle: false,
-    activateOnInteraction: true,
-  });
-
-  // Refresh the ad each time its slide becomes active. Adjusted inline during
-  // render with a prev-compare (react.dev "Adjusting some state when a prop
-  // changes") instead of an effect, so the compiler can memoize this component
-  // and the refreshed ad commits in the same paint.
-  const isAdSlideActive =
-    isMobileAutoplayReady && MOBILE_SLIDES[currentSlide]?.type === 'ad';
-  const [prevIsAdSlideActive, setPrevIsAdSlideActive] = useState(false);
-  if (isAdSlideActive !== prevIsAdSlideActive) {
-    setPrevIsAdSlideActive(isAdSlideActive);
-    if (isAdSlideActive) {
-      setAdRefreshTrigger((prev) => prev + 1);
-    }
-  }
-
-  useEffect(() => {
-    if (!isMobileAutoplayReady) {
-      return;
-    }
-
-    if (MOBILE_SLIDES[currentSlide]?.type === 'ad') {
-      // Autoplay pauses on the sponsored slide; no advance timer.
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setCurrentSlide((prev) => (prev + 1) % MOBILE_SLIDES.length);
-    }, 6000);
-
-    return () => window.clearTimeout(timer);
-  }, [currentSlide, isMobileAutoplayReady]);
+  const hasMultipleSlides = MOBILE_SLIDES.length > 1;
 
   return (
     <div className="md:hidden mb-4 order-1">
@@ -91,7 +51,14 @@ export function HeroMobileCarousel({
         data-ogabassey-mobile-hero-panel="true"
       >
         {MOBILE_SLIDES.map((slide, index) => {
-          const isMobileLcpImage = index === 0 && slide.type === 'image';
+          // The hero renders product image slides only. (The demo video and
+          // sponsored ad slides were removed: stock third-party content + an ad
+          // in the LCP region hurt CWV without earning their keep.)
+          if (slide.type !== 'image' || !slide.src) {
+            return null;
+          }
+
+          const isMobileLcpImage = index === 0;
           const usesContainedMedia = slide.imageFit === 'contain';
 
           return (
@@ -99,178 +66,98 @@ export function HeroMobileCarousel({
               key={slide.id}
               className={`absolute inset-0 transition-opacity [transition-duration:400ms] ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'} ${slide.bgClass}`}
             >
-              {slide.type === 'image' && (
-                <>
-                  <div className="relative h-full flex items-center px-6 py-5 z-10">
-                    <div
-                      className={`${
-                        usesContainedMedia ? 'w-[46%] pr-2' : 'max-w-[55%]'
-                      } ${slide.textColor}`}
-                      data-ogabassey-mobile-hero-copy={
-                        usesContainedMedia ? 'true' : undefined
-                      }
-                    >
-                      <h2 className="text-2xl font-extrabold leading-tight mb-2 drop-shadow-xs font-sans">
-                        {slide.title}
-                      </h2>
-                      <p className="text-[11px] font-medium leading-relaxed opacity-90">
-                        {slide.subtitle}
-                      </p>
-                      <Link
-                        href={asRoute(getHref('/products'))}
-                        prefetch={false}
-                        className="mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-opacity hover:opacity-90 border"
-                        style={HERO_CTA_STYLE}
-                      >
-                        Shop Now
-                      </Link>
-                    </div>
-                  </div>
-                  {slide.src ? (
-                    <div className="absolute inset-0 z-0 pointer-events-none">
-                      <div
-                        className={
-                          usesContainedMedia
-                            ? 'absolute inset-y-4 right-4 w-[43%]'
-                            : 'relative h-full w-full'
-                        }
-                        data-ogabassey-mobile-hero-media={
-                          usesContainedMedia ? 'true' : undefined
-                        }
-                      >
-                        {isMobileLcpImage ? (
-                          <MobileLcpHeroImage
-                            alt={slide.title || 'Hero slide'}
-                            imageFit={slide.imageFit}
-                            inlineSrc={slide.inlineSrc}
-                            shouldPrioritizeImage={
-                              shouldPrioritizeMobileLcpImage
-                            }
-                            src={slide.src}
-                          />
-                        ) : (
-                          <Image
-                            src={slide.src}
-                            alt={slide.title || 'Hero slide'}
-                            fill
-                            sizes={MOBILE_HERO_IMAGE_SIZES}
-                            className={
-                              slide.imageFit === 'contain'
-                                ? 'object-contain object-right'
-                                : 'object-cover'
-                            }
-                            loading="lazy"
-                            quality={MOBILE_HERO_IMAGE_QUALITY}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-                </>
-              )}
-
-              {slide.type === 'video' && (
-                <>
-                  <div className="absolute inset-0">
-                    {slide.poster && (
-                      <Image
-                        src={slide.poster}
-                        alt={slide.title || 'Promotional video'}
-                        fill
-                        sizes="100vw"
-                        className="object-cover"
-                      />
-                    )}
-                    {index === currentSlide && (
-                      <video
-                        src={slide.src}
-                        poster={slide.poster}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        muted
-                        loop
-                        playsInline
-                        preload="none"
-                        aria-label={slide.title || 'Promotional video'}
-                      >
-                        {slide.captions && (
-                          <track
-                            kind="captions"
-                            src={slide.captions}
-                            label="English"
-                            default
-                          />
-                        )}
-                      </video>
-                    )}
-                  </div>
-                  <div className="absolute inset-0 bg-black/30 z-1" />
-                  <div className="relative h-full flex flex-col justify-center p-6 z-10 text-white">
-                    <span className="bg-primary text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse w-fit mb-2">
-                      Live Demo
-                    </span>
-                    <h2 className="text-2xl font-extrabold leading-tight mb-1">
-                      {slide.title}
-                    </h2>
-                    <p className="text-xs opacity-90 mb-3">{slide.subtitle}</p>
-                    <button
-                      type="button"
-                      className="text-xs font-bold px-4 py-2 rounded-full flex min-h-12 items-center gap-1 w-fit border"
-                      style={HERO_CTA_STYLE}
-                      aria-label="Watch video demo"
-                    >
-                      <Play size={10} fill="currentColor" aria-hidden="true" />
-                      Watch
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {slide.type === 'ad' && (
-                <div className="w-full h-full flex items-center justify-center bg-gray-50 relative">
-                  <div className="absolute top-2 right-2 text-[8px] text-gray-400 border border-gray-200 px-1 rounded">
-                    Sponsored
-                  </div>
-                  <div className="w-full h-full flex items-center justify-center transform scale-90">
-                    <DeferredAdUnit
-                      placementKey="HEADER_LEADERBOARD"
-                      className="my-0"
-                      enabled={index === currentSlide && isMobileAutoplayReady}
-                      isActive={index === currentSlide}
-                      refreshKey={adRefreshTrigger}
-                      timeoutMs={1}
-                    />
-                  </div>
+              <div className="relative h-full flex items-center px-6 py-5 z-10">
+                <div
+                  className={`${
+                    usesContainedMedia ? 'w-[46%] pr-2' : 'max-w-[55%]'
+                  } ${slide.textColor}`}
+                  data-ogabassey-mobile-hero-copy={
+                    usesContainedMedia ? 'true' : undefined
+                  }
+                >
+                  <h2 className="text-2xl font-extrabold leading-tight mb-2 drop-shadow-xs font-sans">
+                    {slide.title}
+                  </h2>
+                  <p className="text-[11px] font-medium leading-relaxed opacity-90">
+                    {slide.subtitle}
+                  </p>
+                  <Link
+                    href={asRoute(getHref('/products'))}
+                    prefetch={false}
+                    className="mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-opacity hover:opacity-90 border"
+                    style={HERO_CTA_STYLE}
+                  >
+                    Shop Now
+                  </Link>
                 </div>
-              )}
+              </div>
+              <div className="absolute inset-0 z-0 pointer-events-none">
+                <div
+                  className={
+                    usesContainedMedia
+                      ? 'absolute inset-y-4 right-4 w-[43%]'
+                      : 'relative h-full w-full'
+                  }
+                  data-ogabassey-mobile-hero-media={
+                    usesContainedMedia ? 'true' : undefined
+                  }
+                >
+                  {isMobileLcpImage ? (
+                    <MobileLcpHeroImage
+                      alt={slide.title || 'Hero slide'}
+                      imageFit={slide.imageFit}
+                      inlineSrc={slide.inlineSrc}
+                      shouldPrioritizeImage={shouldPrioritizeMobileLcpImage}
+                      src={slide.src}
+                    />
+                  ) : (
+                    <Image
+                      src={slide.src}
+                      alt={slide.title || 'Hero slide'}
+                      fill
+                      sizes={MOBILE_HERO_IMAGE_SIZES}
+                      className={
+                        slide.imageFit === 'contain'
+                          ? 'object-contain object-right'
+                          : 'object-cover'
+                      }
+                      loading="lazy"
+                      quality={MOBILE_HERO_IMAGE_QUALITY}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
           );
         })}
       </div>
 
-      <div
-        aria-label="Hero carousel slide controls"
-        className="mt-2 flex justify-center gap-1.5"
-        role="group"
-      >
-        {MOBILE_SLIDES.map((slide, idx) => {
-          const isActive = currentSlide === idx;
+      {hasMultipleSlides ? (
+        <div
+          aria-label="Hero carousel slide controls"
+          className="mt-2 flex justify-center gap-1.5"
+          role="group"
+        >
+          {MOBILE_SLIDES.map((slide, idx) => {
+            const isActive = currentSlide === idx;
 
-          return (
-            <button
-              key={slide.id}
-              type="button"
-              onClick={() => setCurrentSlide(idx)}
-              className="flex h-12 min-w-12 items-center justify-center rounded-full cursor-pointer"
-              aria-label={`Go to hero slide ${idx + 1}`}
-            >
-              <span
-                className={`block h-1 rounded-full transition-[width,background-color,opacity] duration-300 ${isActive ? 'w-5' : 'w-1.5'}`}
-                style={getIndicatorStyle(isActive)}
-              />
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <button
+                key={slide.id}
+                type="button"
+                onClick={() => setCurrentSlide(idx)}
+                className="flex h-12 min-w-12 items-center justify-center rounded-full cursor-pointer"
+                aria-label={`Go to hero slide ${idx + 1}`}
+              >
+                <span
+                  className={`block h-1 rounded-full transition-[width,background-color,opacity] duration-300 ${isActive ? 'w-5' : 'w-1.5'}`}
+                  style={getIndicatorStyle(isActive)}
+                />
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
