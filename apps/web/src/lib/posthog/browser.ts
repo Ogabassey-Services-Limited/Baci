@@ -8,6 +8,7 @@ const POSTHOG_NODE_ENV = process.env.NODE_ENV;
 
 let hasInitializedPostHogBrowser = false;
 let isPostHogReadyForCapture = false;
+let isPostHogBrowserDisabled = false;
 let lastCapturedPostHogPageviewUrl: string | undefined;
 const pendingPostHogPageviewUrls: string[] = [];
 
@@ -26,11 +27,16 @@ export function initializePostHogBrowser(
   const projectToken = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
 
   if (!projectToken) {
+    isPostHogBrowserDisabled = true;
+    pendingPostHogPageviewUrls.length = 0;
+
     if (isPostHogDevelopmentMode(env)) {
       logger.warn(MISSING_TOKEN_WARNING);
     }
     return;
   }
+
+  isPostHogBrowserDisabled = false;
 
   const clientConfig = buildPostHogClientConfig(env);
   const clientLoaded = clientConfig.loaded;
@@ -99,6 +105,10 @@ function sendPostHogPageview(resolvedUrl: string) {
 }
 
 export function capturePostHogPageview(currentUrl?: string) {
+  if (isPostHogBrowserDisabled) {
+    return;
+  }
+
   const resolvedUrl = resolvePostHogPageviewUrl(currentUrl);
 
   if (!resolvedUrl) {

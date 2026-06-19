@@ -144,6 +144,29 @@ describe('initializePostHogBrowser', () => {
     });
   });
 
+  it('clears queued pageviews and disables future queueing when tracking is unconfigured', async () => {
+    const warn = vi.fn();
+    const { capturePostHogPageview, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    capturePostHogPageview('https://usebaci.com/queued-before-disabled');
+    initializePostHogBrowser(
+      {
+        NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: '',
+        NODE_ENV: 'development',
+      },
+      { warn }
+    );
+    capturePostHogPageview('https://usebaci.com/after-disabled');
+    initializePostHogBrowser({ NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_token' });
+    loadPostHogClient();
+
+    expect(warn).toHaveBeenCalledWith(
+      '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.'
+    );
+    expect(mocks.posthogCapture).not.toHaveBeenCalled();
+  });
+
   it('swallows client loaded callback errors and still flushes queued pageviews', async () => {
     const warn = vi.fn();
     const env = {
