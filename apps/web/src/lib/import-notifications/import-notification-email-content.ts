@@ -29,6 +29,18 @@ interface BuildReceiptNotificationEmailContentInput {
 
 const DEFAULT_NOTIFICATION_SOURCE: ReceiptNotificationDeliveryConfig['accessMode'] =
   'site';
+const RECEIPT_CHANGED_SUBJECT = 'Your Receipt has Changed.';
+
+function isOgabasseyMerchant(merchant: MerchantNotificationContext) {
+  const slug = merchant.slug.trim().toLowerCase();
+  const domain = merchant.custom_domain?.trim().toLowerCase() || '';
+
+  return (
+    slug === 'ogabassey' ||
+    domain === 'ogabassey.com' ||
+    domain === 'www.ogabassey.com'
+  );
+}
 
 function buildStorefrontUrl(merchant: MerchantNotificationContext) {
   if (merchant.custom_domain) {
@@ -47,11 +59,14 @@ export function resolveReceiptNotificationDelivery(
     string,
     unknown
   >;
+  const isOgabassey = isOgabasseyMerchant(merchant);
   const configuredAccessMode = migrationSettings.receipt_access_mode;
   const accessMode =
-    configuredAccessMode === 'app_first' || configuredAccessMode === 'site'
+    isOgabassey && configuredAccessMode === 'app_first'
       ? configuredAccessMode
-      : DEFAULT_NOTIFICATION_SOURCE;
+      : configuredAccessMode === 'site'
+        ? configuredAccessMode
+        : DEFAULT_NOTIFICATION_SOURCE;
 
   const receiptPath =
     typeof migrationSettings.receipt_path === 'string' &&
@@ -60,13 +75,19 @@ export function resolveReceiptNotificationDelivery(
       : '/receipts';
 
   const appStoreUrl =
+    accessMode === 'app_first' &&
     typeof migrationSettings.app_store_url === 'string'
       ? migrationSettings.app_store_url
-      : MOBILE_APPS.storefront.appStoreUrl || null;
+      : accessMode === 'app_first'
+        ? MOBILE_APPS.storefront.appStoreUrl || null
+        : null;
   const playStoreUrl =
+    accessMode === 'app_first' &&
     typeof migrationSettings.play_store_url === 'string'
       ? migrationSettings.play_store_url
-      : MOBILE_APPS.storefront.playStoreUrl || null;
+      : accessMode === 'app_first'
+        ? MOBILE_APPS.storefront.playStoreUrl || null
+        : null;
 
   return {
     accessMode,
@@ -84,7 +105,12 @@ export function buildReceiptNotificationEmailContent({
   devices,
 }: BuildReceiptNotificationEmailContentInput) {
   if (delivery.accessMode === 'site') {
-    return buildSiteReceiptEmailContent({ delivery, merchant, recipientName });
+    return buildSiteReceiptEmailContent({
+      delivery,
+      devices,
+      merchant,
+      recipientName,
+    });
   }
 
   return buildAppFirstReceiptEmailContent({
@@ -128,7 +154,7 @@ function buildAppFirstReceiptEmailContent({
 
   return {
     fromName: merchant.email_sender_name || merchant.business_name || 'Orders',
-    subject: 'Your Receipt Has Changed.',
+    subject: RECEIPT_CHANGED_SUBJECT,
     htmlContent: `
       <div style="font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111827; line-height: 1.6; max-width: 640px; margin: 0 auto; padding: 28px; background: #f8fafc;">
         <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 28px;">
@@ -163,65 +189,54 @@ function buildSiteReceiptEmailContent({
   merchant,
   recipientName,
   delivery,
+  devices,
 }: Pick<
   BuildReceiptNotificationEmailContentInput,
-  'merchant' | 'recipientName' | 'delivery'
+  'merchant' | 'recipientName' | 'delivery' | 'devices'
 >) {
   const merchantName = merchant.business_name || 'Your store';
   const escapedMerchantName = escapeHtml(merchantName);
   const escapedRecipientName = escapeHtml(recipientName);
+  const escapedDevices = devices.map((device) => escapeHtml(device));
   const supportContact = escapeHtml(
     merchant.support_email || merchant.email || 'the store team'
   );
   const sanitizedReceiptsUrl = sanitizeUrl(delivery.receiptsUrl);
-  const sanitizedPlayStoreUrl = delivery.playStoreUrl
-    ? sanitizeUrl(delivery.playStoreUrl)
-    : '';
-  const sanitizedAppStoreUrl = delivery.appStoreUrl
-    ? sanitizeUrl(delivery.appStoreUrl)
-    : '';
-  const secondaryLinks = [
-    sanitizedPlayStoreUrl
-      ? `<a href="${sanitizedPlayStoreUrl}">Google Play</a>`
-      : '',
-    sanitizedAppStoreUrl
-      ? `<a href="${sanitizedAppStoreUrl}">App Store</a>`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
-  const actionCopy =
-    'Sign in to view your imported order history and download your updated receipt or invoice.';
+  const deviceItemsHtml = escapedDevices
+    .map((device) => `<li>${device}</li>`)
+    .join('');
+  const textDevices = devices
+    .map((device, index) => `${index + 1}. ${device}`)
+    .join('\n');
 
   return {
     fromName: merchant.email_sender_name || merchant.business_name || 'Orders',
-    subject: `${merchantName}: your updated order history is ready`,
+    subject: RECEIPT_CHANGED_SUBJECT,
     htmlContent: `
       <div style="font-family: system-ui, -apple-system, sans-serif; color: #111827; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 24px;">
         <p>Hello ${escapedRecipientName},</p>
-        <p>${escapedMerchantName} has moved your previous order history into a new account experience.</p>
-        <p>${escapeHtml(actionCopy)}</p>
+        <p>${escapedMerchantName} has moved your receipt for the following item(s) to your online account.</p>
+        <ol style="margin: 12px 0 20px; padding-left: 22px;">${deviceItemsHtml}</ol>
+        <p>This is to ensure you can access your receipt at any time from the website.</p>
         <p style="margin: 24px 0;">
           <a href="${sanitizedReceiptsUrl}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px;">
-            View My Orders
+            View your receipt
           </a>
         </p>
-        ${secondaryLinks ? `<p>Download options: ${secondaryLinks}</p>` : ''}
         <p>If you need help, reply to this email or contact ${supportContact}.</p>
       </div>
     `,
     textContent: [
       `Hello ${recipientName},`,
       '',
-      `${merchantName} has moved your previous order history into a new account experience.`,
-      actionCopy,
+      `${merchantName} has moved your receipt for the following item(s) to your online account.`,
+      textDevices,
+      '',
+      'This is to ensure you can access your receipt at any time from the website.',
       '',
       sanitizedReceiptsUrl
-        ? `View your orders: ${sanitizedReceiptsUrl}`
-        : 'View your orders: unavailable (invalid link configuration).',
-      secondaryLinks
-        ? `Download options: ${secondaryLinks.replace(/<[^>]+>/g, '')}`
-        : '',
+        ? `View your receipt: ${sanitizedReceiptsUrl}`
+        : 'View your receipt: unavailable (invalid link configuration).',
       `Need help? Contact ${merchant.support_email || merchant.email || 'the store team'}.`,
     ]
       .filter(Boolean)

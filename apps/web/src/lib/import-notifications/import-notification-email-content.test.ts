@@ -36,7 +36,7 @@ describe('import notification email content', () => {
     });
 
     expect(delivery.accessMode).toBe('app_first');
-    expect(content.subject).toBe('Your Receipt Has Changed.');
+    expect(content.subject).toBe('Your Receipt has Changed.');
     expect(content.htmlContent).toContain('Hello Ada,');
     expect(content.htmlContent).toContain(
       'Ogabassey has moved your receipt for the following device(s) to the mobile app'
@@ -84,13 +84,59 @@ describe('import notification email content', () => {
         receiptsUrl: 'https://futuremerchant.com/account/receipts',
       })
     );
-    expect(content.subject).toBe(
-      'Future Merchant: your updated order history is ready'
-    );
+    expect(content.subject).toBe('Your Receipt has Changed.');
     expect(content.htmlContent).toContain(
       'https://futuremerchant.com/account/receipts'
     );
-    expect(content.htmlContent).not.toContain('Pixel 9');
+    expect(content.htmlContent).toContain(
+      'Future Merchant has moved your receipt for the following item(s) to your online account'
+    );
+    expect(content.htmlContent).toContain('Pixel 9');
+    expect(content.htmlContent).toContain(
+      'This is to ensure you can access your receipt at any time from the website'
+    );
+    expect(content.htmlContent).not.toContain('Download options');
+    expect(content.htmlContent).not.toContain('mobile app');
+    expect(content.textContent).toContain('1. Pixel 9');
+  });
+
+  it('keeps non-Ogabassey merchants on web-only receipt links even when app-first is configured', () => {
+    const futureMerchant: MerchantNotificationContext = {
+      ...merchant,
+      slug: 'future-merchant',
+      business_name: 'Future Merchant',
+      custom_domain: 'futuremerchant.com',
+      support_email: 'support@futuremerchant.com',
+      email: 'hello@futuremerchant.com',
+    };
+    const delivery = resolveReceiptNotificationDelivery(futureMerchant, {
+      migration_imports: {
+        app_store_url: 'https://apps.apple.com/app/future',
+        play_store_url: 'https://play.google.com/store/apps/details?id=future',
+        receipt_access_mode: 'app_first',
+      },
+    });
+
+    const content = buildReceiptNotificationEmailContent({
+      merchant: futureMerchant,
+      recipientName: 'Ada',
+      delivery,
+      claimUrl: delivery.receiptsUrl,
+      devices: ['Pixel 9'],
+    });
+
+    expect(delivery).toEqual(
+      expect.objectContaining({
+        accessMode: 'site',
+        appStoreUrl: null,
+        playStoreUrl: null,
+        receiptsUrl: 'https://futuremerchant.com/receipts',
+      })
+    );
+    expect(content.htmlContent).not.toContain('Download options');
+    expect(content.htmlContent).not.toContain('Google Play');
+    expect(content.htmlContent).not.toContain('App Store');
+    expect(content.htmlContent).not.toContain('mobile app');
   });
 
   it('falls back to storefront receipts when custom settings are missing', () => {
@@ -130,6 +176,29 @@ describe('import notification email content', () => {
     expect(delivery.accessMode).toBe('app_first');
     expect(delivery.appStoreUrl).not.toBe('42');
     expect(delivery.playStoreUrl).not.toBe('false');
+  });
+
+  it('allows Ogabassey app-first receipt claim links on the custom domain', () => {
+    const delivery = resolveReceiptNotificationDelivery(
+      {
+        ...merchant,
+        custom_domain: 'ogabassey.com',
+      },
+      {
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+        },
+      }
+    );
+
+    expect(delivery).toEqual(
+      expect.objectContaining({
+        accessMode: 'app_first',
+        receiptsUrl: 'https://ogabassey.com/receipts',
+        playStoreUrl:
+          'https://play.google.com/store/apps/details?id=com.ogabassey.store',
+      })
+    );
   });
 
   it('sanitizes unsafe merchant, recipient, device, and URL content', () => {

@@ -114,7 +114,8 @@ describe('sendImportNotificationCampaign app-first claim links', () => {
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        subject: 'Your Receipt Has Changed.',
+        subject: 'Your Receipt has Changed.',
+        replyTo: 'support@ogabassey.com',
         htmlContent: expect.stringContaining('Hello Ada,'),
       })
     );
