@@ -59,6 +59,29 @@ const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
   ),
 }));
 
+const mockGetImageProps = vi.hoisted(() =>
+  vi.fn(
+    (props: Record<string, unknown>): { props: Record<string, unknown> } => ({
+      props: {
+        alt: props.alt,
+        decoding: props.decoding,
+        fetchPriority: props.fetchPriority,
+        height: props.height,
+        loading: props.loading,
+        sizes: props.sizes,
+        src: props.src,
+        srcSet: `${String(props.src)} 640w, ${String(props.src)} 960w`,
+        width: props.width,
+      },
+    })
+  )
+);
+
+vi.mock('next/image', () => ({
+  default: () => null,
+  getImageProps: mockGetImageProps,
+}));
+
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/app/(storefront)/storefront-home-critical.css', () => {
@@ -157,7 +180,15 @@ describe('OgabasseyLayout', () => {
         '.storefront-shell-loading__chrome'
       )
     ).toBeInTheDocument();
-    expect(fallbackRender.container.querySelector('picture')).toBeTruthy();
+    const fallbackHero = fallbackRender.container.querySelector(
+      '.storefront-shell-loading__mobile-hero'
+    );
+    expect(fallbackHero).toBeTruthy();
+    // The static shell now paints the full first-slide banner (inline LCP image
+    // + copy) so the real hero appears in the first flush, not a lone photo.
+    expect(fallbackHero?.querySelector('picture')).toBeTruthy();
+    expect(fallbackHero?.querySelector('img')).toBeTruthy();
+    expect(fallbackHero?.textContent).toContain('iPhone 17 Pro Max');
     fallbackRender.unmount();
     await expect(props?.params).resolves.toEqual({
       slug: OGABASSEY_TEMPLATE_ID,

@@ -1,6 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton';
-import type { CSSProperties } from 'react';
-import * as ReactDOM from 'react-dom';
+import type { CSSProperties, ReactNode } from 'react';
 import {
   ProductDetailSkeleton,
   ProductGridSkeleton,
@@ -8,20 +7,14 @@ import {
   StorefrontPageSkeleton,
 } from '@/components/ui/skeletons';
 
-interface ShellChromeLoadingMobileHeroImage {
-  alt: string;
-  avifSrc: string;
-  fallbackSrc: string;
-  inlineAvifSrc?: string;
-}
-
 interface ShellChromeLoadingProps {
-  mobileHeroImage?: ShellChromeLoadingMobileHeroImage;
+  // Optional tenant-provided mobile hero banner. When supplied it is painted in
+  // the first static-shell HTML flush (md only), so the real LCP banner shows
+  // immediately instead of a placeholder. Kept generic so the shared shell stays
+  // decoupled from any one storefront's hero markup.
+  mobileHero?: ReactNode;
   showChromeFrame?: boolean;
 }
-
-const transparentPixelSrc =
-  'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
 const shellChromeLoadingStyle = {
   background: 'var(--store-background, #ffffff)',
@@ -31,23 +24,6 @@ const shellChromeLoadingStyle = {
   position: 'relative',
   width: '100%',
   zIndex: 1,
-} satisfies CSSProperties;
-
-const shellChromeMobileHeroStyle = {
-  aspectRatio: '16 / 9',
-  display: 'block',
-  maxWidth: '100%',
-  overflow: 'hidden',
-  width: '100%',
-} satisfies CSSProperties;
-
-const shellChromeMobileHeroImageStyle = {
-  aspectRatio: '16 / 9',
-  display: 'block',
-  height: 'auto',
-  maxWidth: '100%',
-  objectFit: 'contain',
-  width: '100%',
 } satisfies CSSProperties;
 
 const shellChromeLoadingBarStyle = {
@@ -133,20 +109,9 @@ function LoadingStatus({
 }
 
 export function ShellChromeLoading({
-  mobileHeroImage,
+  mobileHero,
   showChromeFrame = false,
 }: ShellChromeLoadingProps = {}) {
-  if (mobileHeroImage && !mobileHeroImage.inlineAvifSrc) {
-    // ReactDOM.preload forwards `media`; keep this viewport-scoped so the
-    // mobile shell LCP image does not compete with desktop hero resources.
-    ReactDOM.preload(mobileHeroImage.avifSrc, {
-      as: 'image',
-      fetchPriority: 'high',
-      media: '(max-width: 767px)',
-      type: 'image/avif',
-    });
-  }
-
   return (
     <LoadingStatus label="Loading storefront chrome">
       <div
@@ -172,33 +137,13 @@ export function ShellChromeLoading({
             </div>
           </div>
         ) : null}
-        {mobileHeroImage ? (
-          <picture
+        {mobileHero ? (
+          <div
+            aria-hidden="true"
             className="storefront-shell-loading__mobile-hero md:hidden"
-            style={shellChromeMobileHeroStyle}
           >
-            <source
-              media="(max-width: 767px)"
-              srcSet={mobileHeroImage.inlineAvifSrc ?? mobileHeroImage.avifSrc}
-              type="image/avif"
-            />
-            <source
-              media="(max-width: 767px)"
-              srcSet={mobileHeroImage.fallbackSrc}
-              type="image/jpeg"
-            />
-            <img
-              alt={mobileHeroImage.alt}
-              className="storefront-shell-loading__mobile-hero-image"
-              decoding="sync"
-              fetchPriority="high"
-              height={540}
-              loading="eager"
-              src={transparentPixelSrc}
-              style={shellChromeMobileHeroImageStyle}
-              width={960}
-            />
-          </picture>
+            {mobileHero}
+          </div>
         ) : null}
         <div
           className="storefront-shell-loading__bar"

@@ -29,45 +29,37 @@ describe('storefront-loading-ui', () => {
     ).toBeInTheDocument();
   });
 
-  it('can preserve the mobile LCP hero image in the shell fallback', () => {
+  it('paints the provided mobile hero banner in the static shell slot', () => {
     const { container } = render(
       <ShellChromeLoading
-        mobileHeroImage={{
-          alt: 'OgaBassey storefront hero',
-          avifSrc: '/hero-mobile.avif',
-          fallbackSrc: '/hero-mobile.jpg',
-        }}
+        mobileHero={<div data-testid="tenant-hero">Banner</div>}
       />
     );
 
-    const image = screen.getByRole('img', {
-      name: 'OgaBassey storefront hero',
-    });
-    expect(image).toHaveAttribute('fetchpriority', 'high');
-    expect(image).toHaveAttribute('loading', 'eager');
-    expect(image).toHaveAttribute('decoding', 'sync');
-    expect(image).toHaveAttribute('width', '960');
-    expect(image).toHaveAttribute('height', '540');
-    expect(image).toHaveClass('storefront-shell-loading__mobile-hero-image', {
-      exact: true,
-    });
-
-    const sources = container.querySelectorAll('source');
-    expect(sources[0]).toHaveAttribute('srcset', '/hero-mobile.avif');
-    expect(sources[0]).toHaveAttribute('type', 'image/avif');
-    expect(sources[1]).toHaveAttribute('srcset', '/hero-mobile.jpg');
-    expect(sources[1]).toHaveAttribute('type', 'image/jpeg');
+    const hero = container.querySelector(
+      '.storefront-shell-loading__mobile-hero'
+    );
+    expect(hero).toBeInTheDocument();
+    // Mobile-only and decorative: hidden from assistive tech because the real
+    // streamed hero owns the accessible banner.
+    expect(hero).toHaveAttribute('aria-hidden', 'true');
+    expect(hero?.className).toContain('md:hidden');
+    expect(hero?.querySelector('[data-testid="tenant-hero"]')).toBeTruthy();
   });
 
-  it('can render a lightweight storefront chrome frame before the mobile hero', () => {
+  it('does not reserve the mobile hero area when no banner is provided', () => {
+    const { container } = render(<ShellChromeLoading />);
+
+    expect(
+      container.querySelector('.storefront-shell-loading__mobile-hero')
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders a lightweight storefront chrome frame before the hero slot', () => {
     const { container } = render(
       <ShellChromeLoading
         showChromeFrame
-        mobileHeroImage={{
-          alt: 'OgaBassey storefront hero',
-          avifSrc: '/hero-mobile.avif',
-          fallbackSrc: '/hero-mobile.jpg',
-        }}
+        mobileHero={<div data-testid="tenant-hero">Banner</div>}
       />
     );
 
@@ -87,11 +79,7 @@ describe('storefront-loading-ui', () => {
   it('does not render the storefront chrome frame by default', () => {
     const { container } = render(
       <ShellChromeLoading
-        mobileHeroImage={{
-          alt: 'OgaBassey storefront hero',
-          avifSrc: '/hero-mobile.avif',
-          fallbackSrc: '/hero-mobile.jpg',
-        }}
+        mobileHero={<div data-testid="tenant-hero">Banner</div>}
       />
     );
 
@@ -100,59 +88,13 @@ describe('storefront-loading-ui', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('emits a viewport-scoped preload link for the mobile shell hero', () => {
+  it('never emits its own preload link from the loading shell', () => {
     const html = renderToString(
       <ShellChromeLoading
-        mobileHeroImage={{
-          alt: 'OgaBassey storefront hero',
-          avifSrc: '/hero-mobile.avif',
-          fallbackSrc: '/hero-mobile.jpg',
-        }}
+        showChromeFrame
+        mobileHero={<div data-testid="tenant-hero">Banner</div>}
       />
     );
-    const template = document.createElement('template');
-    template.innerHTML = html;
-    const preload = template.content.querySelector(
-      'link[rel="preload"][href="/hero-mobile.avif"]'
-    );
-
-    expect(preload).toBeTruthy();
-    expect(preload?.getAttribute('as')).toBe('image');
-    expect(preload?.getAttribute('fetchpriority')).toBe('high');
-    expect(preload?.getAttribute('media')).toBe('(max-width: 767px)');
-    expect(preload?.getAttribute('type')).toBe('image/avif');
-  });
-
-  it('uses an inline shell hero source without preloading an external mobile AVIF', () => {
-    const html = renderToString(
-      <ShellChromeLoading
-        mobileHeroImage={{
-          alt: 'OgaBassey storefront hero',
-          avifSrc: '/hero-mobile.avif',
-          fallbackSrc: '/hero-mobile.jpg',
-          inlineAvifSrc: 'data:image/avif;base64,AAAA',
-        }}
-      />
-    );
-    const template = document.createElement('template');
-    template.innerHTML = html;
-
-    expect(
-      template.content.querySelector(
-        'link[rel="preload"][href="/hero-mobile.avif"]'
-      )
-    ).toBeNull();
-    const inlineSource = template.content.querySelector(
-      'source[type="image/avif"]'
-    );
-
-    expect(inlineSource?.getAttribute('srcset')).toBe(
-      'data:image/avif;base64,AAAA'
-    );
-  });
-
-  it('does not emit a preload link when the shell has no hero image', () => {
-    const html = renderToString(<ShellChromeLoading />);
     const template = document.createElement('template');
     template.innerHTML = html;
 
@@ -162,35 +104,17 @@ describe('storefront-loading-ui', () => {
   it('does not rely on external CSS for critical shell fallback geometry', () => {
     const { container } = render(
       <ShellChromeLoading
-        mobileHeroImage={{
-          alt: 'OgaBassey storefront hero',
-          avifSrc: '/hero-mobile.avif',
-          fallbackSrc: '/hero-mobile.jpg',
-        }}
+        mobileHero={<div data-testid="tenant-hero">Banner</div>}
       />
     );
 
     const shell = container.querySelector('.storefront-shell-loading');
-    const picture = container.querySelector(
-      '.storefront-shell-loading__mobile-hero'
-    );
-    const image = screen.getByRole('img', {
-      name: 'OgaBassey storefront hero',
-    });
     const bar = container.querySelector('.storefront-shell-loading__bar');
 
     expect(shell).toHaveStyle({
       background: 'var(--store-background, #ffffff)',
       boxSizing: 'border-box',
       padding: '0.75rem 1rem',
-    });
-    expect(picture).toHaveStyle({
-      aspectRatio: '16 / 9',
-      overflow: 'hidden',
-    });
-    expect(image).toHaveStyle({
-      height: 'auto',
-      objectFit: 'contain',
     });
     expect(bar).toHaveStyle({
       height: '2.5rem',
