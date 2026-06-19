@@ -597,4 +597,31 @@ describe('generateReceiptBlob', () => {
       })
     ).resolves.toBeNull();
   });
+
+  it('prints the support email when one is set', () => {
+    const order = {
+      ...baseOrder,
+      items: [{ product_name: 'MacBook Pro', quantity: 1, price: 150000 }],
+      transactions: [],
+    };
+    const pdfText = getPdfText(order, baseMerchant);
+
+    expect(pdfText).toContain('support@ogabassey.com');
+  });
+
+  it('does not leak the private account email when no support email is set', () => {
+    const order = {
+      ...baseOrder,
+      items: [{ product_name: 'MacBook Pro', quantity: 1, price: 150000 }],
+      transactions: [],
+    };
+    const merchant = {
+      ...baseMerchant,
+      email: 'owner-private@gmail.com',
+      support_email: null,
+    };
+    const pdfText = getPdfText(order, merchant);
+
+    expect(pdfText).not.toContain('owner-private@gmail.com');
+  });
 });
