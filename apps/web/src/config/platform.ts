@@ -47,7 +47,7 @@ export const MOBILE_APPS = {
     name: 'Ogabassey - Easybuy Gadgets',
     // TODO: Add App Store ID once storefront iOS app is published
     iosAppId: '',
-    iosBundleId: 'com.ogabassey.store',
+    iosBundleId: 'com.ogabassey.app',
     androidPackage: 'com.ogabassey.store',
     androidSha256Fingerprints: [
       '2A:30:FA:83:66:5D:C1:2B:77:BB:17:1B:48:EB:4F:12:03:33:DC:12:EC:A7:0A:6A:31:A9:D1:C7:38:6B:FC:96',
@@ -62,6 +62,7 @@ export const MOBILE_APPS = {
       '/category/*',
       '/cart',
       '/receipts',
+      '/receipts/claim/*',
       '/account',
       '/account/*',
       '/',
