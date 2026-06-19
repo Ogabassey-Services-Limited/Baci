@@ -63,6 +63,7 @@ function loadPostHogClient() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   mocks.posthogClient.__loaded = false;
   vi.clearAllMocks();
   vi.resetModules();
@@ -190,6 +191,38 @@ describe('initializePostHogBrowser', () => {
       '$pageview',
       {
         $current_url: 'https://usebaci.com/async-loaded',
+        app_surface: 'web',
+      },
+      PAGEVIEW_CAPTURE_OPTIONS
+    );
+  });
+
+  it('flushes a pageview queued before init when the loaded state flips without firing the loaded callback', async () => {
+    // Arrange
+    vi.useFakeTimers();
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    };
+    const { capturePostHogPageview, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    capturePostHogPageview('https://usebaci.com/initial-visit');
+
+    // Act
+    initializePostHogBrowser(env);
+
+    expect(mocks.posthogCapture).not.toHaveBeenCalled();
+
+    mocks.posthogClient.__loaded = true;
+    await vi.runOnlyPendingTimersAsync();
+
+    // Assert
+    expect(mocks.clientConfigLoaded).not.toHaveBeenCalled();
+    expect(mocks.posthogCapture).toHaveBeenCalledOnce();
+    expect(mocks.posthogCapture).toHaveBeenCalledWith(
+      '$pageview',
+      {
+        $current_url: 'https://usebaci.com/initial-visit',
         app_surface: 'web',
       },
       PAGEVIEW_CAPTURE_OPTIONS
