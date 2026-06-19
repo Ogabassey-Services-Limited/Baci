@@ -29,6 +29,37 @@ describe('buildFeedDescription', () => {
     expect(description).toContain('Weight: 227g');
   });
 
+  it('front-loads missing Merchant Center key details before long prose', () => {
+    const description = buildFeedDescription({
+      name: 'iPhone 14',
+      description:
+        "iPhone 14 is Apple's standard 2022 iPhone for buyers who want a compact OLED phone with A15 Bionic performance, 5G and improved camera processing. This open-box page explains the model family, software support and checkout expectations before listing technical specifications.",
+      color: 'Purple',
+      product_key_specs: {
+        screen_size_inches: 6.1,
+        display_resolution: '2532 x 1170',
+        ram_gb: 6,
+        storage_gb: 128,
+        main_camera_mp: 12,
+        front_camera_mp: 12,
+        weight_g: 172,
+      },
+    });
+
+    const baseDescriptionStart = description.indexOf(
+      "iPhone 14 is Apple's standard"
+    );
+
+    expect(description).toMatch(/^Key details: /);
+    expect(description.indexOf('Key details:')).toBeLessThan(
+      baseDescriptionStart
+    );
+    expect(description.indexOf('Screen resolution: 2532 x 1170')).toBeLessThan(
+      baseDescriptionStart
+    );
+    expect(description.indexOf('RAM: 6GB')).toBeLessThan(baseDescriptionStart);
+  });
+
   it('falls back to the product name when no base description exists', () => {
     const description = buildFeedDescription({
       name: 'Galaxy S26',
@@ -39,6 +70,26 @@ describe('buildFeedDescription', () => {
     });
 
     expect(description).toBe('Galaxy S26. Key details: RAM: 8GB.');
+  });
+
+  it('removes feed-only price and checkout boilerplate before enrichment', () => {
+    const description = buildFeedDescription({
+      name: 'iPhone 13',
+      description:
+        'iPhone 13 is a smartphone listed by Ogabassey with A15 Bionic and 5G support. Current listed price is NGN 460,000. Confirm selected variant price, colour, storage, device condition, and live availability before checkout.',
+      color: 'Midnight',
+      product_key_specs: {
+        ram_gb: 4,
+        storage_gb: 256,
+      },
+    });
+
+    expect(description).not.toContain('Current listed price');
+    expect(description).not.toContain('Confirm selected variant price');
+    expect(description).toContain(
+      'iPhone 13 is a smartphone listed by Ogabassey'
+    );
+    expect(description).toContain('RAM: 4GB');
   });
 
   it('does not append duplicate detail strings already present in the base description', () => {

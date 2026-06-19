@@ -19,6 +19,23 @@ function normalizeText(value: unknown) {
     .trim();
 }
 
+function removeFeedOnlyBoilerplate(value: string) {
+  return (
+    value
+      .replace(
+        /\bCurrent listed price is\s+[A-Z]{3}\s*[\d,]+(?:\.\d+)?\.\s*/gi,
+        ''
+      )
+      .replace(
+        /\bConfirm selected variant price,\s*colou?r,\s*storage,\s*device condition,\s*and live availability before checkout\.\s*/gi,
+        ''
+      )
+      // Removing full sentences can leave fresh doubled or trailing spaces.
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}
+
 function buildWeightLabel(input: FeedDescriptionInput) {
   const keySpecWeight = input.product_key_specs?.weight_g;
   if (typeof keySpecWeight === 'number' && Number.isFinite(keySpecWeight)) {
@@ -121,7 +138,9 @@ function trimDescription(value: string) {
 }
 
 export function buildFeedDescription(input: FeedDescriptionInput) {
-  const baseDescription = normalizeText(input.description);
+  const baseDescription = removeFeedOnlyBoilerplate(
+    normalizeText(input.description)
+  );
   const specDetails = buildSpecDetails(input);
 
   if (specDetails.length === 0) {
@@ -145,5 +164,5 @@ export function buildFeedDescription(input: FeedDescriptionInput) {
     );
   }
 
-  return trimDescription(`${baseDescription} ${specSentence}`);
+  return trimDescription(`${specSentence} ${baseDescription}`);
 }
