@@ -7,7 +7,7 @@ import StorefrontLayout, {
 } from '@/app/(storefront)/[slug]/layout';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
-import { OGABASSEY_SHELL_MOBILE_HERO_IMAGE } from '@/components/storefront/ogabassey/components/hero-data';
+import { OgabasseyShellMobileHero } from '@/components/storefront/ogabassey/components/ogabassey-shell-mobile-hero';
 import { OGABASSEY_URL } from '@/config/ogabassey';
 
 const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
@@ -41,7 +41,7 @@ export default function OgabasseyDomainLayout({
       <StorefrontLayout
         loadingFallback={
           <ShellChromeLoading
-            mobileHeroImage={OGABASSEY_SHELL_MOBILE_HERO_IMAGE}
+            mobileHero={<OgabasseyShellMobileHero />}
             showChromeFrame
           />
         }
