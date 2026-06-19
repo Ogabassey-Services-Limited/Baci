@@ -53,6 +53,48 @@ describe('DeferredAdUnit', () => {
     expect(screen.getByText('HOMEPAGE_STRIP')).toBeInTheDocument();
   });
 
+  it('reserves a height-locked ad-slot fallback when none is provided', () => {
+    const loadAdUnitModule = vi.fn(() =>
+      Promise.resolve({ AdUnit: () => <div data-testid="ad-unit" /> })
+    );
+
+    const { container } = render(
+      <DeferredAdUnit
+        loadAdUnitModule={loadAdUnitModule}
+        placementKey="PRODUCT_GRID_MPU"
+        timeoutMs={1000}
+      />
+    );
+
+    // Before activation the default shell reserves the slot at the exact
+    // configured creative height (MPU mobile = 250px), so the later swap to the
+    // real AdUnit does not shift layout.
+    const box = container.querySelector('.ogabassey-ad-slot') as HTMLElement;
+    expect(box).not.toBeNull();
+    expect(box.style.getPropertyValue('--ad-slot-h')).toBe('250px');
+    expect(loadAdUnitModule).not.toHaveBeenCalled();
+  });
+
+
+
+  it('respects an explicit null fallback by rendering no reserved shell', () => {
+    const loadAdUnitModule = vi.fn(() =>
+      Promise.resolve({ AdUnit: () => <div data-testid="ad-unit" /> })
+    );
+
+    const { container } = render(
+      <DeferredAdUnit
+        fallback={null}
+        loadAdUnitModule={loadAdUnitModule}
+        placementKey="PRODUCT_GRID_MPU"
+        timeoutMs={1000}
+      />
+    );
+
+    expect(container.querySelector('.ogabassey-ad-slot')).toBeNull();
+    expect(loadAdUnitModule).not.toHaveBeenCalled();
+  });
+
   it('keeps the fallback visible and logs when the AdUnit import fails', async () => {
     const importError = new Error('ad chunk failed');
     const loadAdUnitModule = vi.fn(() => Promise.reject(importError));

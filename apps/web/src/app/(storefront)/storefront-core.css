@@ -116,6 +116,22 @@
     color: var(--ogabassey-ad-placeholder-text, #374151);
   }
 
+  /* Ad slots reserve a FIXED creative-sized box per breakpoint (height locked +
+     overflow-hidden on the element) so a filled ad can never grow the box,
+     keeping placements CLS-safe. Dimensions come from the per-placement CSS
+     vars set by AdSlotShell; mobile applies by default, desktop at >=768px. */
+  .ogabassey-ad-slot {
+    min-width: var(--ad-slot-w);
+    height: var(--ad-slot-h);
+  }
+
+  @media (min-width: 768px) {
+    .ogabassey-ad-slot {
+      min-width: var(--ad-slot-w-lg);
+      height: var(--ad-slot-h-lg);
+    }
+  }
+
   .storefront-shell-loading {
     box-sizing: border-box;
     padding: 0.75rem 1rem;

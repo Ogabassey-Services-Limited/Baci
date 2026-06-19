@@ -4,6 +4,7 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { AD_CONFIG } from '../config/ads';
+import { AdSlotShell } from './ad-slot-shell';
 import {
   registerPubAdsSlotRenderListener,
   type GoogleSlotRenderEndedEvent,
@@ -255,48 +256,23 @@ export const AdUnit: React.FC<AdUnitProps> = ({
 
   if (!config) return null;
 
+  // The reserved box is rendered by the shared AdSlotShell so the loaded ad and
+  // the deferred fallback occupy an identical, height-locked box -> no CLS on
+  // either the fallback->ad swap or the ad fill. The live GPT slot is passed as
+  // children; `containerRef` (on the box) drives viewport activation.
   return (
-    <div className={`w-full flex justify-center items-center my-6 ${className}`}>
-      <div ref={containerRef} className="flex flex-col items-center">
-        <span className="ogabassey-ad-placeholder-text text-[9px] uppercase tracking-widest mb-1 self-start ml-1">
-          Sponsored
-        </span>
-
-        {/* 
-          --- AD CONTAINER ---
-          Preserving CLS protection with fixed dimensions.
-        */}
-        <div
-          className="relative overflow-hidden bg-gray-50 border border-gray-100 flex flex-col items-center justify-center text-center shadow-sm"
-          style={{
-            minHeight: `${config.mobileHeight || config.height}px`, // Start with mobile height min
-            minWidth: `${config.mobileWidth || config.width}px`,
-          }}
-        >
-          {/* THE ACTUAL GOOGLE AD SLOT */}
-          <div id={config.id} ref={adRef} className="z-10" />
-
-          {/* Placeholder Pattern (Visible only until ad loads) */}
-          {!isAdLoaded && (
-            <div
-              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 z-0"
-              style={{
-                backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 1px, transparent 10px)'
-              }}
-            >
-              <span className="ogabassey-ad-placeholder-text text-xs font-bold uppercase tracking-widest mb-1">
-                Ad Space
-              </span>
-              <span className="ogabassey-ad-placeholder-text text-[10px] font-medium">
-                {config.name}
-              </span>
-              <span className="ogabassey-ad-placeholder-text text-[9px] mt-1">
-                {config.width}x{config.height}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <AdSlotShell
+      boxRef={containerRef}
+      height={config.height}
+      mobileHeight={config.mobileHeight}
+      mobileWidth={config.mobileWidth}
+      name={config.name}
+      outerClassName={className}
+      showPlaceholder={!isAdLoaded}
+      width={config.width}
+    >
+      {/* THE ACTUAL GOOGLE AD SLOT */}
+      <div className="z-10" id={config.id} ref={adRef} />
+    </AdSlotShell>
   );
 };

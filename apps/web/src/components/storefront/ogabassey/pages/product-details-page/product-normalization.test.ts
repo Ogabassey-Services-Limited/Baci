@@ -81,6 +81,53 @@ describe('normalizeProductDetails', () => {
     expect(count).toBe(1);
   });
 
+  it('drops images and color entries that normalize to the placeholder', () => {
+    const productWithBlanks = {
+      ...baseProduct,
+      images: ['https://example.com/keep.jpg', '', '   '],
+      color_images: {
+        Silver: ['https://example.com/silver1.jpg', '  "" '],
+      },
+    } as unknown as Product;
+    const normalized = normalizeProductDetails(productWithBlanks);
+
+    expect(normalized.images).toContain('https://example.com/keep.jpg');
+    expect(normalized.images).not.toContain('/placeholder.svg');
+    expect(normalized.colorImages.Silver).toEqual([
+      'https://example.com/silver1.jpg',
+    ]);
+  });
+
+  it('fails soft when trusted image payloads have malformed shapes', () => {
+    const malformedProduct = {
+      ...baseProduct,
+      color_images: 'not-a-color-map',
+      image: 42,
+      images: 'not-an-image-array',
+    } as unknown as Product;
+
+    const normalized = normalizeProductDetails(malformedProduct);
+
+    expect(normalized.colorImages).toEqual({});
+    expect(normalized.images).toEqual(['/placeholder.svg']);
+  });
+
+  it('ignores malformed per-color image lists without dropping valid colors', () => {
+    const malformedColorImagesProduct = {
+      ...baseProduct,
+      color_images: {
+        Gold: 'not-an-array',
+        Silver: ['https://example.com/silver1.jpg'],
+      },
+    } as unknown as Product;
+
+    const normalized = normalizeProductDetails(malformedColorImagesProduct);
+
+    expect(normalized.colorImages).toEqual({
+      Silver: ['https://example.com/silver1.jpg'],
+    });
+  });
+
   it('treats variant media as the canonical image-driven color mapping', () => {
     const variantMediaProduct = {
       ...baseProduct,
