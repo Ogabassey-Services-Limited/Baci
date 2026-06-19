@@ -11,6 +11,7 @@ export type ValidateCustomerRequest = z.infer<
 
 export const vendRequestSchema = z.object({
   productCode: z.string().min(1, 'Product code is required'),
+  amount: z.number().positive('Vend amount must be positive'),
   vendAmount: z.number().positive('Vend amount must be positive'),
   customerId: z.string().min(1, 'Customer identifier is required'),
   vendReference: z.string().min(1, 'Vend reference is required'),
