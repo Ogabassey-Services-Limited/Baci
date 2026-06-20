@@ -257,11 +257,15 @@ export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
     if (!src || !isTrustedCdnInlineImage(src)) {
       return imgTag;
     }
+    // `src` is captured from the already-sanitized HTML, so it is attribute-safe
+    // (entities already escaped). Deriving siblings only appends `.avif`/`.webp`,
+    // so the values stay correctly escaped — re-escaping here would double-encode
+    // ampersands in any query string (`&amp;` -> `&amp;amp;`).
     const { avif, webp } = buildInlineImageSiblings(src);
     return (
       '<picture>' +
-      `<source srcset="${escapeHtmlAttr(avif)}" type="image/avif" />` +
-      `<source srcset="${escapeHtmlAttr(webp)}" type="image/webp" />` +
+      `<source srcset="${avif}" type="image/avif" />` +
+      `<source srcset="${webp}" type="image/webp" />` +
       `${imgTag}</picture>`
     );
   });

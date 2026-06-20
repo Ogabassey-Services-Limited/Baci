@@ -32,6 +32,22 @@ describe('isTrustedCdnInlineImage', () => {
     expect(isTrustedCdnInlineImage(undefined)).toBe(false);
     expect(isTrustedCdnInlineImage('')).toBe(false);
   });
+
+  it('honors a configured NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN', () => {
+    const prev = process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
+    process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
+    try {
+      expect(
+        isTrustedCdnInlineImage('https://media.example.com/blog/x/inline-1.png')
+      ).toBe(true);
+    } finally {
+      if (prev === undefined) {
+        process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = undefined;
+      } else {
+        process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = prev;
+      }
+    }
+  });
 });
 
 describe('buildInlineImageSiblings', () => {

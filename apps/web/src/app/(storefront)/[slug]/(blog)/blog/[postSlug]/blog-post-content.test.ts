@@ -496,4 +496,15 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
       '<img src="https://cdn.ogabassey.com/core-assets/blog/x/landscape_16x9.jpg" alt="x" />';
     expect(wrapTrustedCdnInlineImagesInPicture(featured)).toBe(featured);
   });
+
+  it('does not double-escape ampersands already escaped by the sanitizer', () => {
+    // src is captured from sanitized HTML, so `&` is already `&amp;`.
+    const src = `${CDN}?v=1&amp;x=2`;
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${src}" alt="x" />`
+    );
+
+    expect(out).toContain(`${CDN}.avif?v=1&amp;x=2`);
+    expect(out).not.toContain('&amp;amp;');
+  });
 });

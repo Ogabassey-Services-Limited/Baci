@@ -16,7 +16,14 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 const INLINE_IMAGE_PATH_PATTERN = /\/inline-\d+\.png(?:[?#]|$)/i;
 
 function getTrustedCdnOrigin(): string {
-  return DEFAULT_BLOG_MEDIA_CDN_ORIGIN.replace(/\/+$/, '');
+  // Match the origin the rest of the blog media helpers use
+  // (blog-managed-storage-paths.ts), so configured deployments are honored —
+  // not just the compile-time default. NEXT_PUBLIC_ vars are inlined for the
+  // client bundle, so read process.env directly to avoid the server env module.
+  const origin =
+    process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN ||
+    DEFAULT_BLOG_MEDIA_CDN_ORIGIN;
+  return origin.replace(/\/+$/, '');
 }
 
 export function isTrustedCdnInlineImage(
