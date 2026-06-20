@@ -62,7 +62,6 @@ export function SearchAutocomplete({
   const [popularSearches, setPopularSearches] = useState<PopularSearch[]>([]);
   const [loading, setLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [isFocused, setIsFocused] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedValue = useDebounce(value, 300);
@@ -230,16 +229,12 @@ export function SearchAutocomplete({
       aria-busy={loading}
       tabIndex={-1}
     >
-      <div className="relative">
+      <div className="group relative">
         <Search
-          className={cn(
-            // z-20 keeps the icon above the input, which gains `z-10` on
-            // focus-visible (otherwise the input background covers the glass).
-            'pointer-events-none absolute left-4 top-1/2 z-20 size-5 -translate-y-1/2 transition-colors',
-            isFocused
-              ? 'text-[color:var(--store-primary,var(--ogabassey-brand))]'
-              : 'text-muted-foreground'
-          )}
+          // Tint via CSS :focus-within (group) — no React state/re-render.
+          // z-20 keeps the icon above the input, which gains `z-10` on
+          // focus-visible (otherwise the input background covers the glass).
+          className="pointer-events-none absolute left-4 top-1/2 z-20 size-5 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-[color:var(--store-primary,var(--ogabassey-brand))]"
           aria-hidden="true"
         />
         <Input
@@ -249,13 +244,7 @@ export function SearchAutocomplete({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => {
-            setIsFocused(true);
-            if (value.length >= 2) {
-              setIsOpen(true);
-            }
-          }}
-          onBlur={() => setIsFocused(false)}
+          onFocus={() => value.length >= 2 && setIsOpen(true)}
           className={cn(
             'pl-10 [&::-webkit-search-cancel-button]:appearance-none',
             value ? 'pr-10' : ''

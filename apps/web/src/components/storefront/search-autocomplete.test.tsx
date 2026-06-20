@@ -67,7 +67,7 @@ describe('SearchAutocomplete', () => {
     expect(typeof SearchAutocomplete).toBe('function');
   });
 
-  it('tints the search icon with the brand colour while focused and reverts on blur', () => {
+  it('wires the search icon to tint with the brand colour on focus-within', () => {
     const { container } = render(
       <SearchAutocomplete
         merchantId="test-merchant"
@@ -75,20 +75,18 @@ describe('SearchAutocomplete', () => {
         onChange={vi.fn()}
       />
     );
-    const input = screen.getByRole('searchbox', { name: /search products/i });
     const icon = container.querySelector('svg.lucide-search');
+    const iconWrapper = icon?.parentElement;
 
-    // Stays above the input, which gains z-10 on focus-visible.
+    // CSS-only tint: muted by default, brand colour via group-focus-within.
+    // JSDOM cannot compute :focus-within, so assert the wiring, not the paint.
+    expect(iconWrapper?.getAttribute('class')).toContain('group');
+    expect(icon?.getAttribute('class')).toContain('text-muted-foreground');
+    expect(icon?.getAttribute('class')).toContain(
+      'group-focus-within:text-[color:var(--store-primary,var(--ogabassey-brand))]'
+    );
+    // z-20 keeps it above the input, which gains z-10 on focus-visible.
     expect(icon?.getAttribute('class')).toContain('z-20');
-    expect(icon?.getAttribute('class')).toContain('text-muted-foreground');
-    expect(icon?.getAttribute('class')).not.toContain('--store-primary');
-
-    fireEvent.focus(input);
-    expect(icon?.getAttribute('class')).toContain('--store-primary');
-    expect(icon?.getAttribute('class')).not.toContain('text-muted-foreground');
-
-    fireEvent.blur(input);
-    expect(icon?.getAttribute('class')).toContain('text-muted-foreground');
   });
 
   it('shows clear button when value is present', () => {
