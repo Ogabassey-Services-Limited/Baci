@@ -46,6 +46,27 @@ function getMixedConditionLabel(availableConditions?: unknown) {
     : 'Multiple Conditions';
 }
 
+function normalizeVariantAttributeMap(
+  attributes: Record<string, unknown> | null | undefined
+) {
+  const normalized: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(attributes ?? {})) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      continue;
+    }
+
+    normalized[key] = trimmedValue;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 export function normalizeProductVariants(
   variants: unknown,
   options: {
@@ -60,7 +81,7 @@ export function normalizeProductVariants(
 
   return (
     parsedVariants.data?.map((variant) => {
-      const attributes = variant.attributes ?? undefined;
+      const attributes = normalizeVariantAttributeMap(variant.attributes);
       const synthesizedName =
         [
           attributes?.storage,

@@ -26,6 +26,29 @@ import type { ConversionData } from './ad-tracking.types';
 
 const SERVER_CONVERSION_TIMEOUT_MS = 5000;
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value !== null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    'then' in value && typeof (value as { then?: unknown }).then === 'function'
+  );
+}
+
+function runNativeAdModuleCall(label: string, call: () => unknown): boolean {
+  try {
+    const result = call();
+    if (isPromiseLike(result)) {
+      void Promise.resolve(result).catch((error: unknown) => {
+        log.warn(`${label} failed:`, error);
+      });
+    }
+    return true;
+  } catch (error) {
+    log.warn(`${label} failed:`, error);
+    return false;
+  }
+}
+
 export async function generateEventId(): Promise<string> {
   const timestamp = Date.now().toString(36);
   const randomBytes = await Crypto.getRandomBytesAsync(8);
@@ -62,13 +85,23 @@ export async function initAdTracking(): Promise<void> {
     if (Platform.OS === 'ios') {
       const { status } = await getTrackingPermissionStatus();
       setIsTrackingAllowed(status === 'granted');
-      modules.FBSettings?.setAdvertiserTrackingEnabled(getIsTrackingAllowed());
+      runNativeAdModuleCall('Facebook advertiser tracking update', () =>
+        modules.FBSettings?.setAdvertiserTrackingEnabled?.(
+          getIsTrackingAllowed()
+        )
+      );
     } else {
       setIsTrackingAllowed(true);
     }
 
-    if (FB_APP_ID && FB_CLIENT_TOKEN && modules.FBSettings) {
-      modules.FBSettings.initializeSDK();
+    if (
+      FB_APP_ID &&
+      FB_CLIENT_TOKEN &&
+      typeof modules.FBSettings?.initializeSDK === 'function' &&
+      runNativeAdModuleCall('Facebook SDK initialization', () =>
+        modules.FBSettings?.initializeSDK?.()
+      )
+    ) {
       log.info('Facebook SDK initialized (backup)');
     }
 
@@ -100,8 +133,10 @@ export async function requestTrackingPermission(): Promise<string> {
   try {
     const { status } = await requestTrackingPermissionStatus();
     setIsTrackingAllowed(status === 'granted');
-    getAdTrackingModules().FBSettings?.setAdvertiserTrackingEnabled(
-      getIsTrackingAllowed()
+    runNativeAdModuleCall('Facebook advertiser tracking update', () =>
+      getAdTrackingModules().FBSettings?.setAdvertiserTrackingEnabled?.(
+        getIsTrackingAllowed()
+      )
     );
     return status;
   } catch (error) {
@@ -189,13 +224,17 @@ export function sendClientBackup(
   tikTokParams: Record<string, unknown> = params
 ): void {
   const modules = getAdTrackingModules();
-  modules.AppEventsLogger?.logEvent(fbEvent, value, {
-    ...params,
-    _eventId: eventId,
-  });
+  runNativeAdModuleCall('Facebook event log', () =>
+    modules.AppEventsLogger?.logEvent?.(fbEvent, value, {
+      ...params,
+      _eventId: eventId,
+    })
+  );
 
   if (Platform.OS === 'ios') {
-    modules.AEMReporterIOS?.logAEMEvent(fbEvent, value, currency, params);
+    runNativeAdModuleCall('Facebook AEM event log', () =>
+      modules.AEMReporterIOS?.logAEMEvent?.(fbEvent, value, currency, params)
+    );
   }
 
   trackTikTokEvent(ttEvent, eventId, tikTokParams);
@@ -205,7 +244,9 @@ export function trackFacebookEvent(
   eventName: string,
   params?: Record<string, unknown>
 ): void {
-  getAdTrackingModules().AppEventsLogger?.logEvent(eventName, params);
+  runNativeAdModuleCall('Facebook event log', () =>
+    getAdTrackingModules().AppEventsLogger?.logEvent?.(eventName, params)
+  );
 }
 
 export function trackFacebookPurchase(
@@ -213,7 +254,13 @@ export function trackFacebookPurchase(
   currency: string,
   params: Record<string, unknown>
 ): void {
-  getAdTrackingModules().AppEventsLogger?.logPurchase(value, currency, params);
+  runNativeAdModuleCall('Facebook purchase log', () =>
+    getAdTrackingModules().AppEventsLogger?.logPurchase?.(
+      value,
+      currency,
+      params
+    )
+  );
 }
 
 export function trackAemEvent(
@@ -223,11 +270,13 @@ export function trackAemEvent(
   params: Record<string, unknown>
 ): void {
   if (Platform.OS === 'ios') {
-    getAdTrackingModules().AEMReporterIOS?.logAEMEvent(
-      eventName,
-      value,
-      currency,
-      params
+    runNativeAdModuleCall('Facebook AEM event log', () =>
+      getAdTrackingModules().AEMReporterIOS?.logAEMEvent?.(
+        eventName,
+        value,
+        currency,
+        params
+      )
     );
   }
 }
@@ -238,10 +287,12 @@ export function trackTikTokEvent(
   params?: Record<string, unknown>
 ): void {
   if (getIsTikTokInitialized() && eventName) {
-    getAdTrackingModules().TikTokBusiness?.trackEvent(
-      eventName,
-      eventId,
-      toTikTokEventData(params)
+    runNativeAdModuleCall('TikTok event log', () =>
+      getAdTrackingModules().TikTokBusiness?.trackEvent?.(
+        eventName,
+        eventId,
+        toTikTokEventData(params)
+      )
     );
   }
 }

@@ -188,6 +188,39 @@ describe('ProductRowSchema', () => {
     expect(result.data.variants?.[0]?.stock_quantity).toBe(0);
   });
 
+  it('accepts non-selector metadata values inside nested variant attributes', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      name: 'Samsung Galaxy A27 5G Preorder',
+      slug: 'samsung-galaxy-a27-5g',
+      price: 50000,
+      images: [],
+      has_variants: true,
+      manage_stock: false,
+      available_conditions: ['new'],
+      variant_attributes: [
+        { param: 'color', options: ['Blue'] },
+        { param: 'storage', options: ['128GB'] },
+      ],
+      variants: [
+        {
+          id: 'variant-blue-128',
+          condition: 'new',
+          price_override: 50000,
+          stock_quantity: 0,
+          attributes: {
+            color: 'Blue',
+            storage: '128GB',
+            preorder: true,
+          },
+        },
+      ],
+      status: 'active',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('rejects negative inventory counts and out-of-range ratings', () => {
     const result = ProductRowSchema.safeParse({
       id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
