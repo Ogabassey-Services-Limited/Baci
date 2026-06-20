@@ -1650,8 +1650,14 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(isValidElement(semanticSections)).toBe(true);
     expect(
-      isValidElement(semanticSections) ? semanticSections.type : undefined
-    ).not.toBe(Suspense);
+      isValidElement(semanticSections) ? semanticSections.type : null
+    ).toBe(Suspense);
+    expect(
+      isValidElement(semanticSections)
+        ? (semanticSections as ReactElement<{ fallback?: ReactNode }>).props
+            .fallback
+        : undefined
+    ).toBeNull();
     expect(
       screen.getByRole('complementary', { name: /purchase options/i })
     ).toBeInTheDocument();
