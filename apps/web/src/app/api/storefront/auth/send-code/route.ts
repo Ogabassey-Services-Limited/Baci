@@ -1,24 +1,17 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import z from 'zod';
-import {
-  type CachedMerchant,
-  getMerchantByIdentifier,
-} from '@/lib/cached-data';
 import { createClient } from '@/lib/supabase/server';
+import {
+  resolveStorefrontAuthMerchant,
+  type StorefrontAuthMerchant,
+} from '../resolve-storefront-auth-merchant';
 
 // Zod schema for email validation (2026 best practice: use Zod instead of custom validation)
 const SendCodeSchema = z.object({
   email: z.email({ error: 'Invalid email format' }).max(254, 'Email too long'),
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
 });
-
-interface StorefrontOtpMerchant {
-  custom_domain?: string | null;
-  id: string;
-  is_published: boolean;
-  slug: string;
-}
 
 function normalizeOrigin(value: string | null): string | null {
   if (!value) return null;
@@ -51,7 +44,7 @@ function getRequestOrigin(request: Request): string | null {
   return normalizeOrigin(request.url);
 }
 
-function buildStorefrontOrigins(merchant: StorefrontOtpMerchant): Set<string> {
+function buildStorefrontOrigins(merchant: StorefrontAuthMerchant): Set<string> {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const origins = new Set<string>();
@@ -66,7 +59,7 @@ function buildStorefrontOrigins(merchant: StorefrontOtpMerchant): Set<string> {
 
 function resolveOtpRedirectUrl(
   request: Request,
-  merchant: StorefrontOtpMerchant
+  merchant: StorefrontAuthMerchant
 ) {
   const storefrontOrigins = buildStorefrontOrigins(merchant);
   const requestOrigin = getRequestOrigin(request);
@@ -109,8 +102,10 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const merchant: CachedMerchant | null =
-      await getMerchantByIdentifier(merchantSlug);
+    const merchant = await resolveStorefrontAuthMerchant(
+      supabase,
+      merchantSlug
+    );
 
     if (!merchant) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
