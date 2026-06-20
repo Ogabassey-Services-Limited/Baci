@@ -64,6 +64,7 @@ describe('HomeScreen', () => {
 
     await act(async () => {
       fireEvent.press(screen.getByTestId('home-feed-refresh'));
+      await Promise.resolve();
     });
 
     // Partial prefix keys match useProducts' ['products', merchantId, options].

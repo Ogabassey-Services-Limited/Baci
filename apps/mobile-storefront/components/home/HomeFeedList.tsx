@@ -108,6 +108,8 @@ export function HomeFeedList({
   // Scroll to top when the active filter/category set changes — a same-variant
   // data swap doesn't remount, and mVCP could otherwise pin to a removed item.
   useEffect(() => {
+    // Intentionally read feedResetKey so the effect re-runs only for feed swaps.
+    void feedResetKey;
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [feedResetKey]);
 
