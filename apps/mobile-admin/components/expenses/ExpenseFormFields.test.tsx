@@ -20,6 +20,9 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: () => ({
+    currency: 'USD',
+    format: (amount: number) => `$${amount.toFixed(2)}`,
+    formatCompact: (amount: number) => `$${amount}`,
     symbol: '$',
   }),
 }));
