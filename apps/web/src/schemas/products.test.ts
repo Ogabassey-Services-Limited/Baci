@@ -133,6 +133,19 @@ describe('product schemas', () => {
     ).toThrow();
   });
 
+  it('bounds update variant batches to prevent unbounded concurrent writes', () => {
+    const variant = {
+      id: '11111111-1111-4111-8111-111111111111',
+      stock_quantity: 1,
+    };
+
+    expect(() =>
+      updateProductSchema.parse({
+        variants: Array.from({ length: 51 }, () => variant),
+      })
+    ).toThrow();
+  });
+
   it('strips unsafe URL protocols from image fields on update', () => {
     let result: ReturnType<typeof updateProductSchema.parse> | undefined;
 
