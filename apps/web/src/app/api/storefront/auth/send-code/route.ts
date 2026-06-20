@@ -57,6 +57,28 @@ function buildStorefrontOrigins(merchant: StorefrontAuthMerchant): Set<string> {
   return origins;
 }
 
+function isOtpRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const candidate = error as {
+    code?: unknown;
+    message?: unknown;
+    status?: unknown;
+  };
+
+  const isRateLimitStatus =
+    candidate.status === 429 || candidate.status === '429';
+
+  return (
+    isRateLimitStatus ||
+    candidate.code === 'over_email_send_rate_limit' ||
+    (typeof candidate.message === 'string' &&
+      candidate.message.toLowerCase().includes('rate'))
+  );
+}
+
 function resolveOtpRedirectUrl(
   request: Request,
   merchant: StorefrontAuthMerchant
@@ -139,8 +161,9 @@ export async function POST(request: Request) {
     if (otpError) {
       console.error('OTP send error:', otpError);
 
-      // Handle rate limiting
-      if (otpError.message?.includes('rate')) {
+      // Handle Supabase Auth rate limiting. Supabase exposes a stable
+      // status/code pair; the human-readable message is not stable enough.
+      if (isOtpRateLimitError(otpError)) {
         return NextResponse.json(
           { error: 'Too many requests. Please wait a moment and try again.' },
           { status: 429 }

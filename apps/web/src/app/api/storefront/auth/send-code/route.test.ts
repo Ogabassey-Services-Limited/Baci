@@ -162,6 +162,27 @@ describe('POST /api/storefront/auth/send-code', () => {
     expect(sendCodeMocks.mockSignInWithOtp).not.toHaveBeenCalled();
   });
 
+  it('returns 429 when Supabase reports the OTP email rate limit by status and code', async () => {
+    sendCodeMocks.mockSignInWithOtp.mockResolvedValue({
+      error: {
+        code: 'over_email_send_rate_limit',
+        message:
+          'For security purposes, you can only request this after 4 seconds.',
+        status: 429,
+      },
+    });
+
+    const response = await POST(
+      makeRequest({ email: 'customer@example.com', merchantSlug: 'ogabassey' })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body).toEqual({
+      error: 'Too many requests. Please wait a moment and try again.',
+    });
+  });
+
   it('returns 404 when the storefront merchant resolver misses', async () => {
     sendCodeMocks.mockResolveStorefrontAuthMerchant.mockResolvedValue(null);
 
