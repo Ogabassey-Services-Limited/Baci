@@ -1,11 +1,20 @@
 import type { Route } from 'next';
 import type { Product as CartProduct } from '@/lib/products';
-import type { OgabasseyPdpCriticalProduct } from './critical-product';
+import {
+  getOgabasseyPdpPriceSlotId,
+  getOgabasseyPdpVariantSelectorSlotId,
+  type OgabasseyPdpCriticalProduct,
+} from './critical-product';
 import { OgabasseyPdpCriticalCommerceClient } from './critical-commerce.client';
 
 interface OgabasseyPdpCriticalCommerceProps {
   cartHref: Route;
   cartProduct: CartProduct;
+  initialVariantSelection?: {
+    attributes?: Record<string, string>;
+    condition?: string;
+    variantId?: string;
+  };
   product: Pick<
     OgabasseyPdpCriticalProduct,
     | 'brand'
@@ -21,6 +30,7 @@ interface OgabasseyPdpCriticalCommerceProps {
   > & {
     variantCount?: number;
   };
+  variantAxes?: string[];
 }
 
 function formatCondition(condition: string | null | undefined) {
@@ -40,9 +50,15 @@ function formatCondition(condition: string | null | undefined) {
 export function OgabasseyPdpCriticalCommerce({
   cartHref,
   cartProduct,
+  initialVariantSelection,
   product,
+  variantAxes = [],
 }: OgabasseyPdpCriticalCommerceProps) {
   const formattedCondition = formatCondition(product.condition);
+  const variantSelectorPortalTargetId = getOgabasseyPdpVariantSelectorSlotId(
+    product.id
+  );
+  const pricePortalTargetId = getOgabasseyPdpPriceSlotId(product.id);
 
   return (
     <aside
@@ -67,7 +83,11 @@ export function OgabasseyPdpCriticalCommerce({
       <OgabasseyPdpCriticalCommerceClient
         cartHref={cartHref}
         cartProduct={cartProduct}
+        initialVariantSelection={initialVariantSelection}
+        pricePortalTargetId={pricePortalTargetId}
         productName={product.name}
+        variantSelectorPortalTargetId={variantSelectorPortalTargetId}
+        variantAxes={variantAxes}
         variantCount={product.variantCount || 0}
       />
     </aside>

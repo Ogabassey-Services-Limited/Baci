@@ -106,7 +106,7 @@ function renderCriticalShell(
 
 describe('OgabasseyPdpCriticalShell', () => {
   it('renders one server-owned product heading and high-priority image', () => {
-    renderCriticalShell(
+    const { container } = renderCriticalShell(
       {
         brand: 'Lenovo',
         categoryName: 'Laptops',
@@ -158,6 +158,15 @@ describe('OgabasseyPdpCriticalShell', () => {
     expect(
       screen.getByRole('button', { name: 'Add to Cart' })
     ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-ogabassey-pdp-summary-variant-slot]')
+    ).toHaveAttribute(
+      'id',
+      'ogabassey-pdp-variant-selectors-product-1'
+    );
+    expect(
+      container.querySelector('[data-ogabassey-pdp-price-live]')
+    ).toHaveAttribute('id', 'ogabassey-pdp-price-product-1');
   });
 
 

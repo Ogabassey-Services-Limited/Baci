@@ -1,0 +1,210 @@
+import { describe, expect, it } from 'vitest';
+import type { Product as CartProduct, ProductVariant } from '@/lib/products';
+import {
+  buildVariantCartProduct,
+  compactVariantOptions,
+  formatCriticalPrice,
+  getVariantAxesWithMultipleOptions,
+  pickInitialSelectedAttributes,
+} from './critical-commerce-selection';
+
+const cartProduct: CartProduct = {
+  brand: 'Dell',
+  condition: 'used',
+  description: 'Dell Alienware m18 R3',
+  gtin: '',
+  id: 'product-1',
+  image: 'https://cdn.ogabassey.com/base.avif',
+  imageHint: 'Dell Alienware m18 R3',
+  imageLarge: 'https://cdn.ogabassey.com/base-large.avif',
+  manage_stock: true,
+  mpn: 'dell-alienware-m18-r3',
+  name: 'Dell Alienware m18 R3',
+  price: 237_674.42,
+  status: 'active',
+  stock: 4,
+};
+
+describe('critical commerce selection helpers', () => {
+  it('formats the selected price for the PDP summary', () => {
+    expect(formatCriticalPrice(278_418.6)).toContain('278,419');
+    expect(formatCriticalPrice(0)).toContain('0');
+    expect(formatCriticalPrice(99.99)).toContain('100');
+    expect(formatCriticalPrice(1_000_000_000)).toContain('1,000,000,000');
+  });
+
+  it('builds a variant cart product from resolved SKU state', () => {
+    expect(
+      buildVariantCartProduct(cartProduct, {
+        attributes: { ram: '8GB', storage: '256GB' },
+        condition: 'open_box',
+        price: 278_418.6,
+        storage: '256GB',
+        variant: {
+          attributes: { ram: '8GB', storage: '256GB' },
+          id: 'variant-256-8',
+          images: ['https://cdn.ogabassey.com/variant.avif'],
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      })
+    ).toMatchObject({
+      condition: 'open_box',
+      image: 'https://cdn.ogabassey.com/variant.avif',
+      imageLarge: 'https://cdn.ogabassey.com/variant.avif',
+      price: 278_418.6,
+      stock: 8,
+    });
+  });
+
+  it('returns the original cart product when no variant selection exists', () => {
+    expect(buildVariantCartProduct(cartProduct, null)).toBe(cartProduct);
+  });
+
+  it('falls back to base images when a variant has no image', () => {
+    expect(
+      buildVariantCartProduct(cartProduct, {
+        attributes: { storage: '256GB' },
+        price: 278_418.6,
+        variant: {
+          attributes: { storage: '256GB' },
+          id: 'variant-256',
+          images: [],
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      })
+    ).toMatchObject({
+      image: cartProduct.image,
+      imageLarge: cartProduct.imageLarge,
+    });
+  });
+
+  it('falls back to base stock when a variant stock quantity is undefined', () => {
+    expect(
+      buildVariantCartProduct(cartProduct, {
+        attributes: { storage: '256GB' },
+        price: 278_418.6,
+        variant: {
+          attributes: { storage: '256GB' },
+          id: 'variant-256',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: undefined,
+        } as unknown as ProductVariant,
+      })
+    ).toMatchObject({
+      stock: cartProduct.stock,
+    });
+  });
+
+  it('removes undefined cart option values only', () => {
+    expect(
+      compactVariantOptions({
+        color: undefined,
+        condition: 'used',
+        variantAttributes: { storage: '256GB' },
+      })
+    ).toEqual({
+      condition: 'used',
+      variantAttributes: { storage: '256GB' },
+    });
+  });
+
+  it('detects hidden axes with multiple SKU options', () => {
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { color: 'Black', storage: '128GB' },
+          id: 'variant-black',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { color: 'Blue', storage: '128GB' },
+          id: 'variant-blue',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual(['color']);
+  });
+
+  it('handles empty, single-valued, and multi-axis option sets', () => {
+    expect(getVariantAxesWithMultipleOptions([])).toEqual([]);
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { color: 'Black', storage: '128GB' },
+          id: 'variant-black',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { color: 'Black', storage: '128GB' },
+          id: 'variant-black-2',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual([]);
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { color: 'Black', storage: '128GB' },
+          id: 'variant-black',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { color: 'Blue', storage: '256GB' },
+          id: 'variant-blue',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual(['color', 'storage']);
+  });
+
+  it('keeps hidden attributes only when they came from the route', () => {
+    const selection = {
+      attributes: { color: 'Blue', ram: '8GB', storage: '256GB' },
+      price: 278_418.6,
+      variant: {
+        attributes: { color: 'Blue', ram: '8GB', storage: '256GB' },
+        id: 'variant-blue',
+        merchant_id: 'merchant-1',
+        product_id: 'product-1',
+        stock_quantity: 8,
+      },
+    };
+
+    expect(
+      pickInitialSelectedAttributes({
+        renderableVariantAxes: ['storage', 'ram'],
+        selection: null,
+      })
+    ).toEqual({});
+    expect(
+      pickInitialSelectedAttributes({
+        renderableVariantAxes: ['storage', 'ram'],
+        selection,
+      })
+    ).toEqual({ ram: '8GB', storage: '256GB' });
+    expect(
+      pickInitialSelectedAttributes({
+        explicitAttributes: { color: 'Blue' },
+        renderableVariantAxes: ['storage', 'ram'],
+        selection,
+      })
+    ).toEqual({ color: 'Blue', ram: '8GB', storage: '256GB' });
+  });
+});

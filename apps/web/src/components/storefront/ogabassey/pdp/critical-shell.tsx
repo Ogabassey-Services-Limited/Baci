@@ -6,7 +6,11 @@ import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
-import type { OgabasseyPdpCriticalProduct } from './critical-product';
+import {
+  getOgabasseyPdpPriceSlotId,
+  getOgabasseyPdpVariantSelectorSlotId,
+  type OgabasseyPdpCriticalProduct,
+} from './critical-product';
 
 interface OgabasseyPdpCriticalShellProps {
   basePath?: string;
@@ -117,6 +121,10 @@ export function OgabasseyPdpCriticalShell({
         : `${aggregateRatingCount} ${
             aggregateRatingCount === 1 ? 'Rating' : 'Ratings'
           }`;
+  const variantSelectorSlotId = getOgabasseyPdpVariantSelectorSlotId(
+    product.id
+  );
+  const priceSlotId = getOgabasseyPdpPriceSlotId(product.id);
 
   return (
     <section data-ogabassey-pdp-critical-shell>
@@ -171,7 +179,19 @@ export function OgabasseyPdpCriticalShell({
               ) : null}
               <span data-ogabassey-pdp-review-count>{reviewCountText}</span>
             </div>
-            <div data-ogabassey-pdp-price>{formatPrice(product.price)}</div>
+            <div data-ogabassey-pdp-price>
+              <span data-ogabassey-pdp-price-static>
+                {formatPrice(product.price)}
+              </span>
+              <span
+                data-ogabassey-pdp-price-live
+                id={priceSlotId}
+              />
+            </div>
+            <div
+              data-ogabassey-pdp-summary-variant-slot
+              id={variantSelectorSlotId}
+            />
           </div>
           <div data-ogabassey-pdp-commerce-slot>
             {children}

@@ -188,6 +188,7 @@ import { OgabasseyNavbar } from './navbar';
 
 describe('OgabasseyNavbar', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     mocks.asRoute.mockClear();
     mocks.merchantContext = mocks.defaultMerchantContext;
     mocks.pathname = '/ogabassey';

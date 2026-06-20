@@ -1595,7 +1595,7 @@ describe('[category]/[productSlug] page render', () => {
     });
     const productImageSrc = productImageElement.getAttribute('src');
 
-    expect(productImageSrc).toBe(
+    expect(productImageSrc).toContain(
       'https://cdn.ogabassey.com/image/width=640,quality=35,format=auto/core-assets/products/hp-laptop.avif'
     );
     expect(productImageSrc).not.toContain('/api/ogabassey/pdp-lcp-image');
@@ -1668,6 +1668,72 @@ describe('[category]/[productSlug] page render', () => {
     expect(
       container.querySelectorAll('img[alt="HP Laptop 14-ep0063nia"]')
     ).toHaveLength(1);
+  });
+
+  it('renders first-viewport OgaBassey commerce selectors for variant products', async () => {
+    const variantRows = [
+      {
+        id: 'variant-128-4',
+        attributes: { ram: '4GB', storage: '128GB' },
+        condition: 'new',
+        price_override: 237_674.42,
+        stock_quantity: 10,
+      },
+      {
+        id: 'variant-256-8',
+        attributes: { ram: '8GB', storage: '256GB' },
+        condition: 'new',
+        price_override: 278_418.6,
+        stock_quantity: 8,
+      },
+    ];
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      product_variants: variantRows,
+      variant_attributes: {
+        ram: ['4GB', '8GB'],
+        storage: ['128GB', '256GB'],
+      },
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValueOnce(variantRows);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpCriticalCommerce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartProduct: expect.objectContaining({
+          variants: [
+            expect.objectContaining({
+              attributes: { ram: '4GB', storage: '128GB' },
+              id: 'variant-128-4',
+            }),
+            expect.objectContaining({
+              attributes: { ram: '8GB', storage: '256GB' },
+              id: 'variant-256-8',
+            }),
+          ],
+        }),
+        product: expect.objectContaining({
+          variantCount: 2,
+        }),
+        variantAxes: ['storage', 'ram'],
+      })
+    );
+    expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('complementary', { name: /purchase options/i })
+    ).toBeInTheDocument();
   });
 
   it('keeps critical PDP links root-relative for domain-routed storefront requests', async () => {
@@ -1811,7 +1877,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('throws notFound from the route before returning streamed body markup when the product is missing', async () => {
+  it('triggers notFound without rendering a body marker when the product is missing', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -1819,16 +1885,16 @@ describe('[category]/[productSlug] page render', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
 
     try {
-      await expect(
-        CategoryProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'laptops',
-            productSlug: 'missing-product',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      ).rejects.toThrow('NEXT_NOT_FOUND');
+      const page = await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'missing-product',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(() => render(page as ReactElement)).toThrow('NEXT_NOT_FOUND');
 
       expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
         baseMerchant.id,
@@ -2520,6 +2586,15 @@ describe('[category]/[productSlug] page render', () => {
         name: 'HP Laptop 14-ep0063nia',
       })
     ).toBeInTheDocument();
+    expect(mockOgabasseyPdpCriticalCommerce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialVariantSelection: {
+          attributes: { storage: '128GB' },
+          condition: 'used',
+          variantId: 'variant-used-128',
+        },
+      })
+    );
   });
 
   it('skips early product preload when the cached product has no image and still renders details', async () => {

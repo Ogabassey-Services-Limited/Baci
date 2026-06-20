@@ -18,6 +18,7 @@ function mockMatchMedia(matches: boolean) {
 }
 
 const mockUseMerchantSafe = vi.hoisted(() => vi.fn(() => null));
+const mockGadgetPattern = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks/merchant/use-merchant', () => ({
   useMerchantSafe: () => mockUseMerchantSafe(),
@@ -87,6 +88,13 @@ vi.mock('./hero-mobile-carousel', () => ({
   ),
 }));
 
+vi.mock('./GadgetPattern', () => ({
+  GadgetPattern: (props: { opacity?: number }) => {
+    mockGadgetPattern(props);
+    return <div data-testid="gadget-pattern" />;
+  },
+}));
+
 vi.mock('./hero-utility-panel', () => ({
   HeroUtilityPanel: () => <div data-testid="utility-panel">Utility panel</div>,
 }));
@@ -103,6 +111,7 @@ describe('Hero', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockMatchMedia(false);
+    mockGadgetPattern.mockClear();
   });
 
   afterEach(() => {
@@ -114,6 +123,25 @@ describe('Hero', () => {
     render(<Hero />);
 
     expect(screen.getByTestId('utility-panel')).toBeInTheDocument();
+  });
+
+  it('extends the black patterned mobile shell behind the carousel', () => {
+    const { container } = render(<Hero />);
+
+    const mobileBackground = container.querySelector(
+      '[data-ogabassey-mobile-hero-bg-extension="true"]'
+    );
+
+    expect(mobileBackground).toHaveClass(
+      'h-28',
+      'bg-[var(--ogabassey-shell-background)]'
+    );
+    expect(mobileBackground).not.toHaveClass('h-14');
+    expect(
+      mobileBackground?.querySelector('.bg-linear-to-b')
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('gadget-pattern')).toBeInTheDocument();
+    expect(mockGadgetPattern).toHaveBeenCalledWith({ opacity: 0.1 });
   });
 
   it('uses an explicit server-resolved base path for product calls to action', () => {

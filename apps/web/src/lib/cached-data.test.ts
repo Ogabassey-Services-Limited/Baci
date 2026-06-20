@@ -29,6 +29,7 @@ import {
   getCachedMerchantById,
   getCachedProductRatingStats,
   getCachedProducts,
+  getCachedStorefrontHomeProducts,
   getPublicSupabaseClient,
 } from '@/lib/cached-data';
 
@@ -526,5 +527,64 @@ describe('getCachedProducts', () => {
     expect(result[0].product_variants).toHaveLength(1);
     // Product without variant
     expect(result[1].product_variants).toEqual([]);
+  });
+});
+
+describe('getCachedStorefrontHomeProducts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('orders by price descending by default', async () => {
+    harness.mockListResult.data = [];
+    harness.mockListResult.error = null;
+
+    await getCachedStorefrontHomeProducts('merchant-1');
+
+    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(harness.mockEq).toHaveBeenCalledWith('status', 'active');
+    expect(harness.mockOrder).toHaveBeenCalledTimes(1);
+    expect(harness.mockOrder).toHaveBeenCalledWith('price', {
+      ascending: false,
+    });
+  });
+
+  it('orders by most recently updated first when sort is "recent"', async () => {
+    harness.mockListResult.data = [];
+    harness.mockListResult.error = null;
+
+    await getCachedStorefrontHomeProducts('merchant-1', 'recent');
+
+    expect(harness.mockOrder).toHaveBeenCalledTimes(2);
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(1, 'updated_at', {
+      ascending: false,
+    });
+    // Price stays as a stable tiebreaker for products updated in the same tick.
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(2, 'price', {
+      ascending: false,
+    });
+  });
+
+  it('throws when the products query errors', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = { message: 'Connection error' };
+
+    await expect(
+      getCachedStorefrontHomeProducts('merchant-1', 'recent')
+    ).rejects.toMatchObject({ message: 'Connection error' });
+    expect(consoleSpy).toHaveBeenCalled();
   });
 });

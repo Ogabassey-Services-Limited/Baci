@@ -164,6 +164,18 @@ describe('OgabasseyHomeDynamicContent', () => {
     );
   });
 
+  it('requests home products ordered by most recently updated', async () => {
+    await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
+      'merchant-1',
+      'recent'
+    );
+  });
+
   it('falls back to normalized legacy analytics IDs when feature settings are blank', async () => {
     const merchantWithLegacyAnalytics = {
       ...mockMerchant,

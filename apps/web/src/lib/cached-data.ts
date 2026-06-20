@@ -2760,18 +2760,28 @@ export async function getCachedBlogListing(
 }
 
 /**
+ * Ordering strategy for the storefront home product grid.
+ * - 'price': highest price first (default for all storefronts).
+ * - 'recent': most recently updated first (opt-in, e.g. OgaBassey).
+ */
+export type StorefrontHomeProductSort = 'price' | 'recent';
+
+/**
  * Cached storefront homepage products.
  * Uses 'products' cacheLife profile and the standard products-${merchantId} tag
  * so revalidateProducts() automatically busts this cache.
  */
-export async function getCachedStorefrontHomeProducts(merchantId: string) {
+export async function getCachedStorefrontHomeProducts(
+  merchantId: string,
+  sort: StorefrontHomeProductSort = 'price'
+) {
   'use cache: remote';
   cacheLife('products');
   cacheTag('products', `products-${merchantId}`);
   const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
 
   const supabase = getPublicSupabaseClient();
-  const { data, error } = await supabase
+  const baseQuery = supabase
     .from('products')
     .select(
       `
@@ -2782,9 +2792,22 @@ export async function getCachedStorefrontHomeProducts(merchantId: string) {
     `
     )
     .eq('merchant_id', merchantId)
-    .eq('status', 'active')
-    .order('price', { ascending: false })
-    .limit(STOREFRONT_HOME_PRODUCT_LIMIT);
+    .eq('status', 'active');
+
+  // 'recent' surfaces the most recently updated devices first. `updated_at` is
+  // trigger-maintained on every row update, with price as a stable tiebreaker.
+  // 'price' (the default for all other storefronts) keeps the original
+  // highest-price-first ordering.
+  const orderedQuery =
+    sort === 'recent'
+      ? baseQuery
+          .order('updated_at', { ascending: false })
+          .order('price', { ascending: false })
+      : baseQuery.order('price', { ascending: false });
+
+  const { data, error } = await orderedQuery.limit(
+    STOREFRONT_HOME_PRODUCT_LIMIT
+  );
 
   if (error) {
     console.error('Failed to load storefront home products', {

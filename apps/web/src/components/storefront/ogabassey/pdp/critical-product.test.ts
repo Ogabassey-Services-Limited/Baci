@@ -2,10 +2,46 @@ import { describe, expect, it } from 'vitest';
 import {
   buildOgabasseyPdpCriticalProduct,
   getOgabasseyPdpImageVersion,
+  getOgabasseyPdpPriceSlotId,
   getOgabasseyPdpPrimaryImage,
+  getOgabasseyPdpVariantSelectorSlotId,
 } from './critical-product';
 
 describe('buildOgabasseyPdpCriticalProduct', () => {
+  it('builds a stable DOM slot id for variant selectors', () => {
+    expect(getOgabasseyPdpVariantSelectorSlotId('product 1/blue')).toBe(
+      'ogabassey-pdp-variant-selectors-product-1-blue'
+    );
+    expect(getOgabasseyPdpPriceSlotId('product 1/blue')).toBe(
+      'ogabassey-pdp-price-product-1-blue'
+    );
+  });
+
+  it('handles edge cases in product IDs', () => {
+    expect(getOgabasseyPdpVariantSelectorSlotId('')).toBe(
+      'ogabassey-pdp-variant-selectors-product'
+    );
+    expect(getOgabasseyPdpVariantSelectorSlotId('###')).toBe(
+      'ogabassey-pdp-variant-selectors-product'
+    );
+    expect(getOgabasseyPdpVariantSelectorSlotId('!!product-1##')).toBe(
+      'ogabassey-pdp-variant-selectors-product-1'
+    );
+    expect(getOgabasseyPdpVariantSelectorSlotId('product###!!!blue')).toBe(
+      'ogabassey-pdp-variant-selectors-product-blue'
+    );
+    expect(getOgabasseyPdpPriceSlotId('')).toBe('ogabassey-pdp-price-product');
+    expect(getOgabasseyPdpPriceSlotId('###')).toBe(
+      'ogabassey-pdp-price-product'
+    );
+    expect(getOgabasseyPdpPriceSlotId('!!product-1##')).toBe(
+      'ogabassey-pdp-price-product-1'
+    );
+    expect(getOgabasseyPdpPriceSlotId('product###!!!blue')).toBe(
+      'ogabassey-pdp-price-product-blue'
+    );
+  });
+
   it('maps cached product fields without requiring a review_count column', () => {
     const product = buildOgabasseyPdpCriticalProduct({
       brand: 'Lenovo',

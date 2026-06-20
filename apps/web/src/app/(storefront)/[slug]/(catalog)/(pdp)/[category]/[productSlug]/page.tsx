@@ -4,6 +4,7 @@ import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
+import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
@@ -56,7 +57,7 @@ import {
   getProductUrl,
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { stripVolatileProductPriceSentences } from '@/lib/storefront-product-description';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
@@ -276,6 +277,18 @@ function buildTrustBulletsFromProfile(
   return bullets;
 }
 
+function getFirstViewportVariantAxes(
+  variants: Product['variants'],
+  variantAttributes: VariantAttributeSource
+) {
+  const variantCount = variants?.length ?? 0;
+  if (variantCount <= 1) {
+    return [];
+  }
+
+  return getRenderableVariantAxes(variants, variantAttributes);
+}
+
 type TemplateProductRenderMode = 'full' | 'belowFold';
 
 /**
@@ -383,6 +396,46 @@ function shouldRedirectVariantSelectionParams(
     selectionResolution.type === 'invalid_variant_id' ||
     selectionResolution.type === 'zero_match'
   );
+}
+
+function getInitialCriticalVariantSelection(
+  product: Product,
+  searchParams: Awaited<PageProps['searchParams']>
+) {
+  if (!product.variants || product.variants.length === 0) {
+    return undefined;
+  }
+
+  const selectionResolution = resolveVariantSelectionParamResolution(
+    product,
+    searchParams
+  );
+
+  if (selectionResolution.type === 'none') {
+    return undefined;
+  }
+
+  const [match] = selectionResolution.matches;
+  const attributes =
+    match?.attributes || selectionResolution.selectionInput.attributes;
+  const condition =
+    selectionResolution.selectionInput.condition ||
+    match?.condition ||
+    undefined;
+  const variantId =
+    selectionResolution.type === 'variant_id'
+      ? selectionResolution.selectionInput.variantId
+      : undefined;
+
+  if (!attributes && !condition && !variantId) {
+    return undefined;
+  }
+
+  return {
+    ...(attributes && { attributes }),
+    ...(condition && { condition }),
+    ...(variantId && { variantId }),
+  };
 }
 
 type CategoryProductResult =
@@ -853,12 +906,15 @@ async function getProductRouteControl(
   };
 }
 
-function buildCategoryProductMetadata(
-  product: LcpRouteProduct,
-  merchant: CachedMerchant
-): Metadata {
-  const baseUrl = buildStoreUrl(merchant);
-
+function buildCategoryProductMetadata({
+  baseUrl,
+  merchant,
+  product,
+}: {
+  baseUrl: string;
+  merchant: CachedMerchant;
+  product: LcpRouteProduct;
+}): Metadata {
   const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productCategoryName =
     product.categories?.name ||
@@ -1054,7 +1110,8 @@ export async function generateMetadata({
     return CANONICAL_PRODUCT_REDIRECT_METADATA;
   }
 
-  return buildCategoryProductMetadata(product, merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  return buildCategoryProductMetadata({ baseUrl, merchant, product });
 }
 
 interface CategoryProductPageContentProps {
@@ -1105,13 +1162,14 @@ async function CategoryProductPageCriticalCommerceControls({
   searchParams,
   productResultPromise,
 }: Omit<CategoryProductPageCriticalCommerceControlsProps, 'renderMode'>) {
-  const [basePath, { product }] = await Promise.all([
+  const [basePath, { product }, resolvedSearchParams] = await Promise.all([
     basePathPromise,
     getRenderableCategoryProductResult({
       slug,
       searchParams,
       productResultPromise,
     }),
+    searchParams,
   ]);
   const commerceProduct: Product = {
     ...product,
@@ -1119,15 +1177,26 @@ async function CategoryProductPageCriticalCommerceControls({
   };
   const criticalProduct = buildOgabasseyPdpCriticalProduct(commerceProduct);
   const cartHref = `${basePath}/cart` as Route;
+  const rawVariantAttributes = (
+    commerceProduct as { variant_attributes?: unknown }
+  ).variant_attributes as VariantAttributeSource;
 
   return (
     <OgabasseyPdpCriticalCommerce
       cartHref={cartHref}
       cartProduct={createCriticalCartProduct(commerceProduct)}
+      initialVariantSelection={getInitialCriticalVariantSelection(
+        commerceProduct,
+        resolvedSearchParams
+      )}
       product={{
         ...criticalProduct,
         variantCount: commerceProduct.variants?.length ?? 0,
       }}
+      variantAxes={getFirstViewportVariantAxes(
+        commerceProduct.variants,
+        rawVariantAttributes
+      )}
     />
   );
 }
@@ -1319,7 +1388,7 @@ export default async function CategoryProductPage({
   );
 
   if (!routeControl) {
-    notFound();
+    return <StorefrontRouteNotFound />;
   }
 
   const {
