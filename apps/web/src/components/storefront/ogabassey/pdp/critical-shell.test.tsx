@@ -160,13 +160,29 @@ describe('OgabasseyPdpCriticalShell', () => {
     ).toBeInTheDocument();
     expect(
       container.querySelector('[data-ogabassey-pdp-summary-variant-slot]')
-    ).toHaveAttribute(
-      'id',
-      'ogabassey-pdp-variant-selectors-product-1'
-    );
+    ).not.toBeInTheDocument();
     expect(
       container.querySelector('[data-ogabassey-pdp-price-live]')
-    ).toHaveAttribute('id', 'ogabassey-pdp-price-product-1');
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders summary commerce content natively in the product summary', () => {
+    const { container } = render(
+      <OgabasseyPdpCriticalShell
+        basePath=""
+        product={defaultProduct}
+        summaryCommerce={
+          <div data-testid="native-summary-commerce">Variant controls</div>
+        }
+      >
+        <button type="button">Add to Cart</button>
+      </OgabasseyPdpCriticalShell>
+    );
+
+    expect(screen.getByTestId('native-summary-commerce')).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-ogabassey-pdp-price-static]')
+    ).not.toBeInTheDocument();
   });
 
 

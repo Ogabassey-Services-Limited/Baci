@@ -1449,6 +1449,7 @@ export interface CachedProductLcpHint {
   keywords?: string[] | null;
   manage_stock?: boolean | null;
   max_variant_price?: number | string | null;
+  merchant_id?: string | null;
   meta_description?: string | null;
   meta_title?: string | null;
   min_variant_price?: number | string | null;
@@ -1468,6 +1469,7 @@ export interface CachedProductLcpHint {
         }>
       | null;
   }> | null;
+  product_variants?: PublicVariantRecord[] | null;
   sale_price?: number | null;
   schema_markup?: unknown;
   slug?: string | null;
@@ -1501,6 +1503,7 @@ export async function getCachedProductLcpHint(
     .from('products')
     .select(`
         id,
+        merchant_id,
         brand,
         name,
         slug,
@@ -1531,6 +1534,18 @@ export async function getCachedProductLcpHint(
             name,
             slug
           )
+        ),
+        product_variants (
+          id,
+          product_id,
+          merchant_id,
+          sku,
+          condition,
+          attributes,
+          price_override,
+          stock_quantity,
+          images,
+          primary_image
         )
       `)
     .eq('merchant_id', merchantId)
@@ -2768,8 +2783,8 @@ export type StorefrontHomeProductSort = 'price' | 'recent';
 
 /**
  * Cached storefront homepage products.
- * Uses 'products' cacheLife profile and the standard products-${merchantId} tag
- * so revalidateProducts() automatically busts this cache.
+ * Uses the products cacheLife profile plus shared and sort-specific product
+ * tags so revalidateProducts() can bust every home-product ordering.
  */
 export async function getCachedStorefrontHomeProducts(
   merchantId: string,
@@ -2777,7 +2792,11 @@ export async function getCachedStorefrontHomeProducts(
 ) {
   'use cache: remote';
   cacheLife('products');
-  cacheTag('products', `products-${merchantId}`);
+  cacheTag(
+    'products',
+    `products-${merchantId}`,
+    `products-home-${merchantId}-${sort}`
+  );
   const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
 
   const supabase = getPublicSupabaseClient();

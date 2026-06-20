@@ -1,3 +1,4 @@
+import { cacheTag } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildCachedDataTestHarness,
@@ -557,6 +558,11 @@ describe('getCachedStorefrontHomeProducts', () => {
     expect(harness.mockOrder).toHaveBeenCalledWith('price', {
       ascending: false,
     });
+    expect(cacheTag).toHaveBeenCalledWith(
+      'products',
+      'products-merchant-1',
+      'products-home-merchant-1-price'
+    );
   });
 
   it('orders by most recently updated first when sort is "recent"', async () => {
@@ -573,6 +579,11 @@ describe('getCachedStorefrontHomeProducts', () => {
     expect(harness.mockOrder).toHaveBeenNthCalledWith(2, 'price', {
       ascending: false,
     });
+    expect(cacheTag).toHaveBeenCalledWith(
+      'products',
+      'products-merchant-1',
+      'products-home-merchant-1-recent'
+    );
   });
 
   it('throws when the products query errors', async () => {

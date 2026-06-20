@@ -2,7 +2,12 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product as CartProduct } from '@/lib/products';
-import { OgabasseyPdpCriticalCommerceClient } from './critical-commerce.client';
+import {
+  OgabasseyPdpCriticalCommerceClient,
+  OgabasseyPdpCriticalCommerceControls,
+  OgabasseyPdpCriticalCommerceProvider,
+  OgabasseyPdpCriticalCommerceSummary,
+} from './critical-commerce.client';
 
 const cartMocks = vi.hoisted(() => ({
   addToCart: vi.fn(),
@@ -74,33 +79,28 @@ const variantCartProduct: CartProduct = {
 beforeEach(() => {
   cartMocks.addToCart.mockClear();
   cartMocks.setIsCartOpen.mockClear();
-  document
-    .querySelector('#ogabassey-pdp-variant-selectors-product-1')
-    ?.remove();
-  document.querySelector('#ogabassey-pdp-price-product-1')?.remove();
 });
 
 describe('OgabasseyPdpCriticalCommerceClient variant routing', () => {
-  it('mounts selector buttons in the summary slot without duplicating them in purchase controls', () => {
-    const summarySlot = document.createElement('div');
-    summarySlot.id = 'ogabassey-pdp-variant-selectors-product-1';
-    summarySlot.setAttribute('aria-label', 'Product variant selector slot');
-    summarySlot.setAttribute('role', 'group');
-    document.body.append(summarySlot);
-
+  it('renders selector buttons in native summary content without duplicating them in purchase controls', () => {
     render(
-      <OgabasseyPdpCriticalCommerceClient
-        cartHref="/cart"
+      <OgabasseyPdpCriticalCommerceProvider
         cartProduct={variantCartProduct}
-        productName={variantCartProduct.name}
         variantAxes={['storage', 'ram']}
         variantCount={2}
-        variantSelectorPortalTargetId="ogabassey-pdp-variant-selectors-product-1"
-      />
+      >
+        <div aria-label="Product summary" role="group">
+          <OgabasseyPdpCriticalCommerceSummary />
+        </div>
+        <OgabasseyPdpCriticalCommerceControls
+          cartHref="/cart"
+          productName={variantCartProduct.name}
+        />
+      </OgabasseyPdpCriticalCommerceProvider>
     );
 
     const summarySlotGroup = screen.getByRole('group', {
-      name: /product variant selector slot/i,
+      name: /product summary/i,
     });
     expect(
       within(summarySlotGroup).getByRole('button', {
@@ -141,25 +141,22 @@ describe('OgabasseyPdpCriticalCommerceClient variant routing', () => {
   });
 
   it('seeds selectors and the summary price from a valid variant link', () => {
-    const priceSlot = document.createElement('span');
-    priceSlot.id = 'ogabassey-pdp-price-product-1';
-    priceSlot.setAttribute('aria-label', 'Product price');
-    priceSlot.setAttribute('role', 'status');
-    document.body.append(priceSlot);
-
     render(
-      <OgabasseyPdpCriticalCommerceClient
-        cartHref="/cart"
+      <OgabasseyPdpCriticalCommerceProvider
         cartProduct={variantCartProduct}
         initialVariantSelection={{
           attributes: { ram: '8GB', storage: '256GB' },
           variantId: 'variant-256-8',
         }}
-        pricePortalTargetId="ogabassey-pdp-price-product-1"
-        productName={variantCartProduct.name}
         variantAxes={['storage', 'ram']}
         variantCount={2}
-      />
+      >
+        <OgabasseyPdpCriticalCommerceSummary />
+        <OgabasseyPdpCriticalCommerceControls
+          cartHref="/cart"
+          productName={variantCartProduct.name}
+        />
+      </OgabasseyPdpCriticalCommerceProvider>
     );
 
     expect(
@@ -168,9 +165,7 @@ describe('OgabasseyPdpCriticalCommerceClient variant routing', () => {
     expect(
       screen.getByRole('button', { name: /select 8gb ram/i })
     ).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      screen.getByRole('status', { name: /product price/i })
-    ).toHaveTextContent(/278,419/);
+    expect(screen.getByText(/278,419/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
 

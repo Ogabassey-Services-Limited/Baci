@@ -47,23 +47,6 @@ export interface OgabasseyPdpCriticalProduct {
   stockQuantity: number | null;
 }
 
-function normalizeOgabasseyPdpSlotProductId(productId: string) {
-  return (
-    productId.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') ||
-    'product'
-  );
-}
-
-export function getOgabasseyPdpVariantSelectorSlotId(productId: string) {
-  const normalizedProductId = normalizeOgabasseyPdpSlotProductId(productId);
-  return `ogabassey-pdp-variant-selectors-${normalizedProductId}`;
-}
-
-export function getOgabasseyPdpPriceSlotId(productId: string) {
-  const normalizedProductId = normalizeOgabasseyPdpSlotProductId(productId);
-  return `ogabassey-pdp-price-${normalizedProductId}`;
-}
-
 function parseNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;

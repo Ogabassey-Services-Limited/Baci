@@ -1,20 +1,13 @@
 import type { Route } from 'next';
-import type { Product as CartProduct } from '@/lib/products';
+import { Suspense } from 'react';
 import {
-  getOgabasseyPdpPriceSlotId,
-  getOgabasseyPdpVariantSelectorSlotId,
   type OgabasseyPdpCriticalProduct,
 } from './critical-product';
-import { OgabasseyPdpCriticalCommerceClient } from './critical-commerce.client';
+import { OgabasseyPdpCriticalCommerceControls } from './critical-commerce.client';
 
 interface OgabasseyPdpCriticalCommerceProps {
-  cartHref: Route;
-  cartProduct: CartProduct;
-  initialVariantSelection?: {
-    attributes?: Record<string, string>;
-    condition?: string;
-    variantId?: string;
-  };
+  cartBasePathPromise?: Promise<string>;
+  cartHref?: Route;
   product: Pick<
     OgabasseyPdpCriticalProduct,
     | 'brand'
@@ -30,7 +23,24 @@ interface OgabasseyPdpCriticalCommerceProps {
   > & {
     variantCount?: number;
   };
-  variantAxes?: string[];
+}
+
+async function OgabasseyPdpResolvedCriticalCommerceControls({
+  basePathPromise,
+  productName,
+}: {
+  basePathPromise: Promise<string>;
+  productName: string;
+}) {
+  const basePath = await basePathPromise;
+  const cartHref = `${basePath}/cart` as Route;
+
+  return (
+    <OgabasseyPdpCriticalCommerceControls
+      cartHref={cartHref}
+      productName={productName}
+    />
+  );
 }
 
 function formatCondition(condition: string | null | undefined) {
@@ -48,17 +58,24 @@ function formatCondition(condition: string | null | undefined) {
 }
 
 export function OgabasseyPdpCriticalCommerce({
+  cartBasePathPromise,
   cartHref,
-  cartProduct,
-  initialVariantSelection,
   product,
-  variantAxes = [],
 }: OgabasseyPdpCriticalCommerceProps) {
   const formattedCondition = formatCondition(product.condition);
-  const variantSelectorPortalTargetId = getOgabasseyPdpVariantSelectorSlotId(
-    product.id
-  );
-  const pricePortalTargetId = getOgabasseyPdpPriceSlotId(product.id);
+  const controls = cartHref ? (
+    <OgabasseyPdpCriticalCommerceControls
+      cartHref={cartHref}
+      productName={product.name}
+    />
+  ) : cartBasePathPromise ? (
+    <Suspense fallback={null}>
+      <OgabasseyPdpResolvedCriticalCommerceControls
+        basePathPromise={cartBasePathPromise}
+        productName={product.name}
+      />
+    </Suspense>
+  ) : null;
 
   return (
     <aside
@@ -80,16 +97,7 @@ export function OgabasseyPdpCriticalCommerce({
           <strong>Lagos and nationwide</strong>
         </p>
       </div>
-      <OgabasseyPdpCriticalCommerceClient
-        cartHref={cartHref}
-        cartProduct={cartProduct}
-        initialVariantSelection={initialVariantSelection}
-        pricePortalTargetId={pricePortalTargetId}
-        productName={product.name}
-        variantSelectorPortalTargetId={variantSelectorPortalTargetId}
-        variantAxes={variantAxes}
-        variantCount={product.variantCount || 0}
-      />
+      {controls}
     </aside>
   );
 }

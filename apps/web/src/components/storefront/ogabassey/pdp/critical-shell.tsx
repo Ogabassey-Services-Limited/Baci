@@ -6,17 +6,14 @@ import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
-import {
-  getOgabasseyPdpPriceSlotId,
-  getOgabasseyPdpVariantSelectorSlotId,
-  type OgabasseyPdpCriticalProduct,
-} from './critical-product';
+import type { OgabasseyPdpCriticalProduct } from './critical-product';
 
 interface OgabasseyPdpCriticalShellProps {
   basePath?: string;
   basePathPromise?: Promise<string>;
   children?: ReactNode;
   product: OgabasseyPdpCriticalProduct;
+  summaryCommerce?: ReactNode;
 }
 
 const PRICE_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
@@ -104,6 +101,7 @@ export function OgabasseyPdpCriticalShell({
   basePathPromise,
   children,
   product,
+  summaryCommerce,
 }: OgabasseyPdpCriticalShellProps) {
   const aggregateRatingCount = Math.max(
     product.reviewCount,
@@ -121,11 +119,6 @@ export function OgabasseyPdpCriticalShell({
         : `${aggregateRatingCount} ${
             aggregateRatingCount === 1 ? 'Rating' : 'Ratings'
           }`;
-  const variantSelectorSlotId = getOgabasseyPdpVariantSelectorSlotId(
-    product.id
-  );
-  const priceSlotId = getOgabasseyPdpPriceSlotId(product.id);
-
   return (
     <section data-ogabassey-pdp-critical-shell>
       <div data-ogabassey-pdp-critical-inner>
@@ -179,19 +172,13 @@ export function OgabasseyPdpCriticalShell({
               ) : null}
               <span data-ogabassey-pdp-review-count>{reviewCountText}</span>
             </div>
-            <div data-ogabassey-pdp-price>
-              <span data-ogabassey-pdp-price-static>
-                {formatPrice(product.price)}
-              </span>
-              <span
-                data-ogabassey-pdp-price-live
-                id={priceSlotId}
-              />
-            </div>
-            <div
-              data-ogabassey-pdp-summary-variant-slot
-              id={variantSelectorSlotId}
-            />
+            {summaryCommerce || (
+              <div data-ogabassey-pdp-price>
+                <span data-ogabassey-pdp-price-static>
+                  {formatPrice(product.price)}
+                </span>
+              </div>
+            )}
           </div>
           <div data-ogabassey-pdp-commerce-slot>
             {children}

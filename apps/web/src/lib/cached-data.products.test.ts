@@ -115,7 +115,7 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('canonical_url');
   });
 
-  it('getCachedProductLcpHint reads only route and image fields without hydrating variants', async () => {
+  it('getCachedProductLcpHint reads route, image, and lightweight variant fields without detail hydration', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
 
     await getCachedProductLcpHint('merchant-123', 'iphone-16');
@@ -135,10 +135,12 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('stock_quantity');
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).toContain('product_categories');
+    expect(selectArg).toContain('product_variants');
+    expect(selectArg).toContain('price_override');
+    expect(selectArg).toContain('primary_image');
     expect(selectArg).not.toMatch(standaloneDescriptionColumnPattern);
     expect(selectArg).not.toContain('specifications');
     expect(selectArg).not.toContain('review_count');
-    expect(selectArg).not.toContain('product_variants');
     expect(selectArg).not.toContain('product_key_specs');
     expect(selectArg).not.toContain('product_offers');
     expect(harness.mockRpc).not.toHaveBeenCalled();
