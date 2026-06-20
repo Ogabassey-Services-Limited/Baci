@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GET } from './route';
 
-const mockGetUser = vi.fn();
-const mockFrom = vi.fn();
-const mockRpc = vi.fn();
+const { mockFrom, mockGetMerchantByIdentifier, mockGetUser, mockRpc } =
+  vi.hoisted(() => ({
+    mockFrom: vi.fn(),
+    mockGetMerchantByIdentifier: vi.fn(),
+    mockGetUser: vi.fn(),
+    mockRpc: vi.fn(),
+  }));
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({}),
@@ -16,6 +19,13 @@ vi.mock('@/lib/supabase/server', () => ({
     rpc: mockRpc,
   })),
 }));
+
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
+}));
+
+import { GET } from './route';
 
 function makeRequest(merchantSlug = 'ogabassey') {
   return new Request(
@@ -82,6 +92,7 @@ const customer = {
 describe('GET /api/storefront/auth/session', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetMerchantByIdentifier.mockResolvedValue(merchant);
     mockRpc.mockResolvedValue({ data: 'customer-1', error: null });
   });
 
@@ -143,12 +154,7 @@ describe('GET /api/storefront/auth/session', () => {
       data: { user },
       error: null,
     });
-    mockFrom.mockReturnValue(
-      makeSelectChain({
-        data: null,
-        error: { code: 'PGRST116', message: 'No rows found' },
-      })
-    );
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
 
     const response = await GET(makeRequest('nonexistent'));
     const body = await response.json();
