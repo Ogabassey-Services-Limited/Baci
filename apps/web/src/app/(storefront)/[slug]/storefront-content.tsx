@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { resolveStorefrontTemplateId } from '@/app/(storefront)/[slug]/resolve-storefront-template';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
@@ -15,7 +16,6 @@ import {
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateCollectionPageSchema,
   generateMetaDescription,
@@ -269,9 +269,7 @@ export async function StorefrontContent({
     .slice(0, 24);
 
   const homepageSchema = homeCollectionSchema ? (
-    <script type="application/ld+json">
-      {safeJsonLdStringify(homeCollectionSchema)}
-    </script>
+    <JsonLd data={homeCollectionSchema as unknown as JsonLdData} />
   ) : null;
   const discoveryLinksSection = (
     <section

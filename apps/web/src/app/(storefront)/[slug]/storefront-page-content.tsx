@@ -1,8 +1,8 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateLocalBusinessSchema,
   generateOrganizationSchema,
@@ -100,20 +100,22 @@ export async function StorefrontPageContent({
   return (
     <>
       {(localBusinessSchema || webSiteSchema) && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify({
-            '@context': 'https://schema.org',
-            '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
-              .filter(Boolean)
-              .map((schema) => {
-                const { '@context': _, ...rest } = schema as Record<
-                  string,
-                  unknown
-                >;
-                return rest;
-              }),
-          })}
-        </script>
+        <JsonLd
+          data={
+            {
+              '@context': 'https://schema.org',
+              '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
+                .filter(Boolean)
+                .map((schema) => {
+                  const { '@context': _, ...rest } = schema as Record<
+                    string,
+                    unknown
+                  >;
+                  return rest;
+                }),
+            } as unknown as JsonLdData
+          }
+        />
       )}
 
       <StorefrontContent merchant={merchant} />
