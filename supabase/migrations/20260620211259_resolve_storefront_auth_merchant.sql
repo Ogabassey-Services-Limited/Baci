@@ -20,25 +20,37 @@ AS $$
   WITH normalized_input AS (
     SELECT lower(trim(p_identifier)) AS identifier
   ),
-  matched_domain AS (
+  matched_domain_candidates AS (
     SELECT
       d.domain,
-      d.merchant_id
+      d.merchant_id,
+      count(*) OVER () AS match_count,
+      COALESCE(d.is_primary, false) AS is_primary,
+      d.updated_at,
+      d.created_at,
+      d.id
     FROM public.domains AS d
     CROSS JOIN normalized_input AS input
     WHERE lower(d.domain) = input.identifier
       AND d.status = 'active'
+  ),
+  matched_domain AS (
+    SELECT
+      candidate.domain,
+      candidate.merchant_id
+    FROM matched_domain_candidates AS candidate
+    WHERE candidate.match_count = 1
     ORDER BY
-      COALESCE(d.is_primary, false) DESC,
-      d.updated_at DESC NULLS LAST,
-      d.created_at DESC NULLS LAST,
-      d.id
+      candidate.is_primary DESC,
+      candidate.updated_at DESC NULLS LAST,
+      candidate.created_at DESC NULLS LAST,
+      candidate.id
     LIMIT 1
   )
   SELECT
     m.id,
     m.slug::text,
-    m.business_name::text,
+    COALESCE(m.business_name, '')::text,
     COALESCE(m.is_published, false) AS is_published,
     COALESCE(md.domain, primary_domain.domain)::text AS custom_domain
   FROM public.merchants AS m

@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 export const storefrontAuthMerchantRpcRowSchema = z.object({
-  business_name: z.string(),
+  business_name: z.preprocess((value) => {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    return value === null ? '' : value;
+  }, z.string()),
   custom_domain: z.preprocess(
     (value) => (typeof value === 'string' ? value : null),
     z.string().nullable()

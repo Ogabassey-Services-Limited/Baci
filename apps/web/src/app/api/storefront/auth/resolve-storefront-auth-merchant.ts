@@ -1,3 +1,4 @@
+import { isValidMerchantIdentifier } from '@/lib/validation';
 import {
   type StorefrontAuthMerchant,
   storefrontAuthMerchantRpcRowSchema,
@@ -30,7 +31,7 @@ export async function resolveStorefrontAuthMerchant(
 ): Promise<StorefrontAuthMerchant | null> {
   const normalizedIdentifier = identifier.trim().toLowerCase();
 
-  if (!normalizedIdentifier) {
+  if (!isValidMerchantIdentifier(normalizedIdentifier)) {
     return null;
   }
 

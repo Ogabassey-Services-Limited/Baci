@@ -71,6 +71,22 @@ describe('storefrontAuthMerchantRpcRowSchema', () => {
     expect(numericCustomDomain.data?.custom_domain).toBeNull();
   });
 
+  it('coerces nullable merchant names to an empty string', () => {
+    const nullName = storefrontAuthMerchantRpcRowSchema.safeParse({
+      business_name: null,
+      custom_domain: 'ogabassey.com',
+      id: 'merchant-1',
+      is_published: true,
+      slug: 'ogabassey',
+    });
+
+    expect(nullName.success).toBe(true);
+    if (!nullName.success) {
+      throw new Error('Expected null merchant name parse to succeed');
+    }
+    expect(nullName.data.business_name).toBe('');
+  });
+
   it('rejects rows missing required merchant fields', () => {
     const parsed = storefrontAuthMerchantRpcRowSchema.safeParse({
       custom_domain: 'ogabassey.com',

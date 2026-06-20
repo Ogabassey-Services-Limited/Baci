@@ -61,6 +61,20 @@ describe('resolveStorefrontAuthMerchant', () => {
     expect(merchant).toBeNull();
   });
 
+  it('returns null without calling the RPC for invalid merchant identifiers', async () => {
+    const rpc = vi.fn();
+
+    const reserved = await resolveStorefrontAuthMerchant({ rpc }, 'api');
+    const overlong = await resolveStorefrontAuthMerchant(
+      { rpc },
+      'a'.repeat(255)
+    );
+
+    expect(reserved).toBeNull();
+    expect(overlong).toBeNull();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('returns null without calling the RPC when the identifier is blank', async () => {
     const rpc = vi.fn();
 
