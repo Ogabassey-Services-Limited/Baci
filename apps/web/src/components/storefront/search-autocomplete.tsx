@@ -62,6 +62,7 @@ export function SearchAutocomplete({
   const [popularSearches, setPopularSearches] = useState<PopularSearch[]>([]);
   const [loading, setLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [isFocused, setIsFocused] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedValue = useDebounce(value, 300);
@@ -231,7 +232,12 @@ export function SearchAutocomplete({
     >
       <div className="relative">
         <Search
-          className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          className={cn(
+            'pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 transition-colors',
+            isFocused
+              ? 'text-[color:var(--store-primary,var(--ogabassey-brand))]'
+              : 'text-muted-foreground'
+          )}
           aria-hidden="true"
         />
         <Input
@@ -241,7 +247,13 @@ export function SearchAutocomplete({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => value.length >= 2 && setIsOpen(true)}
+          onFocus={() => {
+            setIsFocused(true);
+            if (value.length >= 2) {
+              setIsOpen(true);
+            }
+          }}
+          onBlur={() => setIsFocused(false)}
           className={cn(
             'pl-10 [&::-webkit-search-cancel-button]:appearance-none',
             value ? 'pr-10' : ''

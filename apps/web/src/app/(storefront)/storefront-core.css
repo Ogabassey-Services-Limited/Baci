@@ -309,8 +309,11 @@
       color-mix(in srgb, var(--ogabassey-brand) 28%, transparent);
   }
 
-  .ogabassey-navbar-search__icon,
-  .ogabassey-navbar-search > div:first-child > svg {
+  /* Fallback (non-hydrated) form icon only. The hydrated SearchAutocomplete
+     component centres + sizes its own icon via Tailwind; styling it here too
+     stacked a CSS `transform: translateY(-50%)` on top of Tailwind's
+     `translate` property, shifting the glass 8px above centre. */
+  .ogabassey-navbar-search__icon {
     color: color-mix(
       in srgb,
       var(--store-foreground, var(--ogabassey-surface-text)) 38%,

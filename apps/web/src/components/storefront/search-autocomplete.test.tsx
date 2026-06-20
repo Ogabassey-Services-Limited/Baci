@@ -67,6 +67,28 @@ describe('SearchAutocomplete', () => {
     expect(typeof SearchAutocomplete).toBe('function');
   });
 
+  it('tints the search icon with the brand colour while focused and reverts on blur', () => {
+    const { container } = render(
+      <SearchAutocomplete
+        merchantId="test-merchant"
+        value=""
+        onChange={vi.fn()}
+      />
+    );
+    const input = screen.getByRole('searchbox', { name: /search products/i });
+    const icon = container.querySelector('svg.lucide-search');
+
+    expect(icon?.getAttribute('class')).toContain('text-muted-foreground');
+    expect(icon?.getAttribute('class')).not.toContain('--store-primary');
+
+    fireEvent.focus(input);
+    expect(icon?.getAttribute('class')).toContain('--store-primary');
+    expect(icon?.getAttribute('class')).not.toContain('text-muted-foreground');
+
+    fireEvent.blur(input);
+    expect(icon?.getAttribute('class')).toContain('text-muted-foreground');
+  });
+
   it('shows clear button when value is present', () => {
     const handleChange = vi.fn();
     render(
