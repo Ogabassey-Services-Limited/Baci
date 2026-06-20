@@ -27,6 +27,20 @@ describe('prioritizeSmartphoneProducts', () => {
     expect(sorted.map((product) => product.id)).toEqual(['phone-1', 'audio-1']);
   });
 
+  it('does not treat phone accessory categories as handset categories', () => {
+    const sorted = prioritizeSmartphoneProducts([
+      { id: 'case-1', category: 'Phone Cases' },
+      { id: 'charger-1', category_slug: 'mobile-phone-chargers' },
+      { id: 'phone-1', category: 'Mobile Phones' },
+    ]);
+
+    expect(sorted.map((product) => product.id)).toEqual([
+      'phone-1',
+      'case-1',
+      'charger-1',
+    ]);
+  });
+
   it('handles empty array', () => {
     expect(prioritizeSmartphoneProducts([])).toEqual([]);
   });

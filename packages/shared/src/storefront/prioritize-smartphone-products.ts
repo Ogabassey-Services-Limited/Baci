@@ -9,11 +9,26 @@ interface ProductWithCategoryName {
   category_slug?: string | null;
 }
 
+const SMARTPHONE_ACCESSORY_CATEGORY_TERMS = [
+  'headphone',
+  'microphone',
+  'case',
+  'charger',
+  'cable',
+  'cover',
+  'protector',
+  'accessor',
+];
+
 function isSmartphoneCategory(categoryName?: string | null): boolean {
   if (!categoryName) return false;
 
   const normalized = categoryName.toLowerCase().trim();
-  if (normalized.includes('headphone') || normalized.includes('microphone')) {
+  if (
+    SMARTPHONE_ACCESSORY_CATEGORY_TERMS.some((term) =>
+      normalized.includes(term)
+    )
+  ) {
     return false;
   }
 

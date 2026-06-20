@@ -2794,6 +2794,35 @@ export async function getCachedBlogListing(
   };
 }
 
+interface StorefrontHomeProductRecencyCandidate {
+  price?: number | string | null;
+  updated_at?: string | null;
+}
+
+function getHomeProductRecencyTime(
+  product: StorefrontHomeProductRecencyCandidate
+): number {
+  if (!product.updated_at) return Number.NEGATIVE_INFINITY;
+  const timestamp = Date.parse(product.updated_at);
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+}
+
+function getHomeProductPrice(
+  product: StorefrontHomeProductRecencyCandidate
+): number {
+  const price = Number(product.price ?? 0);
+  return Number.isFinite(price) ? price : 0;
+}
+
+function compareHomeProductRecency<
+  T extends StorefrontHomeProductRecencyCandidate,
+>(first: T, second: T): number {
+  return (
+    getHomeProductRecencyTime(second) - getHomeProductRecencyTime(first) ||
+    getHomeProductPrice(second) - getHomeProductPrice(first)
+  );
+}
+
 /**
  * Ordering strategy for the storefront home product grid.
  * - 'price': highest price first (default for all storefronts).
@@ -2827,20 +2856,54 @@ export async function getCachedStorefrontHomeProducts(
       manage_stock, low_stock_threshold,
       product_categories(categories(name, slug))
     `;
-  const homeProductRelationCategorySelect = `
-      id, name, slug, description, price, compare_at_price,
+  const homeProductRecentSelect = `
+      id, name, slug, description, price, compare_at_price, updated_at,
       images, category, brand, condition, stock, stock_quantity,
       manage_stock, low_stock_threshold,
+      categories:category_id(id, name, slug, parent_id),
+      product_categories(categories(name, slug))
+    `;
+  const homeProductDirectCategorySelect = `
+      id, name, slug, description, price, compare_at_price, updated_at,
+      images, category, brand, condition, stock, stock_quantity,
+      manage_stock, low_stock_threshold,
+      categories:category_id!inner(id, name, slug, parent_id),
+      product_categories(categories(name, slug))
+    `;
+  const homeProductRelationCategorySelect = `
+      id, name, slug, description, price, compare_at_price, updated_at,
+      images, category, brand, condition, stock, stock_quantity,
+      manage_stock, low_stock_threshold,
+      categories:category_id(id, name, slug, parent_id),
       product_categories!inner(categories!inner(name, slug))
     `;
-  const relationPhoneCategoryFilter = [
-    'and(name.ilike.%smartphone%,name.not.ilike.%headphone%,name.not.ilike.%microphone%)',
-    'and(slug.ilike.%smartphone%,slug.not.ilike.%headphone%,slug.not.ilike.%microphone%)',
-    'and(name.ilike.%mobile%,name.not.ilike.%headphone%,name.not.ilike.%microphone%)',
-    'and(slug.ilike.%mobile%,slug.not.ilike.%headphone%,slug.not.ilike.%microphone%)',
-    'and(name.ilike.%phone%,name.not.ilike.%headphone%,name.not.ilike.%microphone%)',
-    'and(slug.ilike.%phone%,slug.not.ilike.%headphone%,slug.not.ilike.%microphone%)',
-  ].join(',');
+  const handsetCategoryKeywords = ['smartphone', 'mobile', 'phone'];
+  const excludedHandsetCategoryTerms = [
+    'headphone',
+    'microphone',
+    'case',
+    'charger',
+    'cable',
+    'cover',
+    'protector',
+    'accessor',
+  ];
+  const buildHandsetCategoryClause = (
+    column: 'name' | 'slug',
+    keyword: string
+  ) =>
+    [
+      `${column}.ilike.%${keyword}%`,
+      ...excludedHandsetCategoryTerms.map(
+        (term) => `${column}.not.ilike.%${term}%`
+      ),
+    ].join(',');
+  const handsetCategoryClauses = handsetCategoryKeywords
+    .flatMap((keyword) => [
+      `and(${buildHandsetCategoryClause('name', keyword)})`,
+      `and(${buildHandsetCategoryClause('slug', keyword)})`,
+    ])
+    .join(',');
 
   // 'recent' surfaces the most recently updated devices first. `updated_at` is
   // trigger-maintained on every row update, with price as a stable tiebreaker.
@@ -2848,16 +2911,32 @@ export async function getCachedStorefrontHomeProducts(
   // the downstream phone-first homepage slice cannot lose older smartphones to
   // the database LIMIT.
   if (sort === 'recent') {
-    const phoneCandidatesQuery = supabase
+    let phoneCandidatesQuery = supabase
       .from('products')
-      .select(homeProductSelect)
+      .select(homeProductRecentSelect)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .or(
         'category.ilike.%smartphone%,category.ilike.%mobile%,category.ilike.%phone%'
-      )
-      .not('category', 'ilike', '%headphone%')
-      .not('category', 'ilike', '%microphone%')
+      );
+    for (const excludedTerm of excludedHandsetCategoryTerms) {
+      phoneCandidatesQuery = phoneCandidatesQuery.not(
+        'category',
+        'ilike',
+        `%${excludedTerm}%`
+      );
+    }
+    phoneCandidatesQuery = phoneCandidatesQuery
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('price', { ascending: false })
+      .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
+
+    const directCategoryPhoneCandidatesQuery = supabase
+      .from('products')
+      .select(homeProductDirectCategorySelect)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .or(handsetCategoryClauses, { referencedTable: 'categories' })
       .order('updated_at', { ascending: false, nullsFirst: false })
       .order('price', { ascending: false })
       .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
@@ -2867,7 +2946,7 @@ export async function getCachedStorefrontHomeProducts(
       .select(homeProductRelationCategorySelect)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
-      .or(relationPhoneCategoryFilter, {
+      .or(handsetCategoryClauses, {
         referencedTable: 'product_categories.categories',
       })
       .order('updated_at', { ascending: false, nullsFirst: false })
@@ -2876,7 +2955,7 @@ export async function getCachedStorefrontHomeProducts(
 
     const recentProductsQuery = supabase
       .from('products')
-      .select(homeProductSelect)
+      .select(homeProductRecentSelect)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('updated_at', { ascending: false, nullsFirst: false })
@@ -2885,16 +2964,22 @@ export async function getCachedStorefrontHomeProducts(
 
     const [
       { data: phoneCandidates, error: phoneCandidatesError },
+      {
+        data: directCategoryPhoneCandidates,
+        error: directCategoryPhoneCandidatesError,
+      },
       { data: relationPhoneCandidates, error: relationPhoneCandidatesError },
       { data: recentProducts, error: recentProductsError },
     ] = await Promise.all([
       phoneCandidatesQuery,
+      directCategoryPhoneCandidatesQuery,
       relationPhoneCandidatesQuery,
       recentProductsQuery,
     ]);
 
     const error =
       phoneCandidatesError ||
+      directCategoryPhoneCandidatesError ||
       relationPhoneCandidatesError ||
       recentProductsError;
     if (error) {
@@ -2905,10 +2990,14 @@ export async function getCachedStorefrontHomeProducts(
       throw error;
     }
 
+    const phonePriorityProducts = [
+      ...(phoneCandidates ?? []),
+      ...(directCategoryPhoneCandidates ?? []),
+      ...(relationPhoneCandidates ?? []),
+    ].sort(compareHomeProductRecency);
     const seenProductIds = new Set<string>();
     const combinedProducts = [
-      ...(phoneCandidates ?? []),
-      ...(relationPhoneCandidates ?? []),
+      ...phonePriorityProducts,
       ...(recentProducts ?? []),
     ]
       .filter((product) => {
