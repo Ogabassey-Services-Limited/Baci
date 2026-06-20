@@ -24,6 +24,7 @@ import type { Product } from '@/types/product';
 import EditorialProductCard from './product-card/EditorialProductCard';
 import GridProductCard from './product-card/GridProductCard';
 import ListProductCard from './product-card/ListProductCard';
+import { trackCartAdd, trackWishlistAdd } from './product-card-tracking';
 
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
 
@@ -34,31 +35,6 @@ export const BLURHASH_VARIANTS = {
   food: 'L9Ry;S~V.A-;~W9uM{IURiE2E3s:',
   beauty: 'LBP?syt7~pt7~WofM{fQ~ps:9ZWB',
 } as const;
-
-function trackWishlistAdd(product: Product): void {
-  void import('@/services/ad-tracking').then(({ trackAddToWishlist }) => {
-    void trackAddToWishlist({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      category: product.category,
-      brand: product.brand,
-    });
-  });
-}
-
-function trackCartAdd(product: Product, price: number): void {
-  void import('@/services/ad-tracking').then(({ trackAddToCart }) => {
-    void trackAddToCart({
-      id: product.id,
-      name: product.name,
-      price,
-      quantity: 1,
-      category: product.category,
-      brand: product.brand,
-    });
-  });
-}
 
 interface ProductCardProps {
   product: Product;
