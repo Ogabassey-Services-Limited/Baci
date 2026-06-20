@@ -1,12 +1,9 @@
-import { z } from 'zod';
+import {
+  type StorefrontAuthMerchant,
+  storefrontAuthMerchantRpcRowSchema,
+} from '@/schemas/storefront-auth-merchant';
 
-export interface StorefrontAuthMerchant {
-  business_name: string;
-  custom_domain: string | null;
-  id: string;
-  is_published: boolean;
-  slug: string;
-}
+export type { StorefrontAuthMerchant } from '@/schemas/storefront-auth-merchant';
 
 interface StorefrontAuthMerchantRpcClient {
   rpc(
@@ -14,17 +11,6 @@ interface StorefrontAuthMerchantRpcClient {
     args: { p_identifier: string }
   ): PromiseLike<{ data: unknown; error: unknown }>;
 }
-
-const storefrontAuthMerchantRpcRowSchema = z.object({
-  business_name: z.string(),
-  custom_domain: z.preprocess(
-    (value) => (typeof value === 'string' ? value : null),
-    z.string().nullable()
-  ),
-  id: z.string(),
-  is_published: z.boolean(),
-  slug: z.string(),
-});
 
 function parseStorefrontAuthMerchantRow(
   value: unknown
