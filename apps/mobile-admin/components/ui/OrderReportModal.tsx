@@ -212,16 +212,16 @@ export default function OrderReportModal({
               }}
             >
               {isExportingPDF ? (
-                <ActivityIndicator color="#FFF" size="small" />
+                <ActivityIndicator color={colors.textOnPrimary} size="small" />
               ) : (
                 <>
                   <Ionicons
                     name="document-text-outline"
                     size={18}
-                    color="#FFF"
+                    color={colors.textOnPrimary}
                     style={{ marginRight: 8 }}
                   />
-                  <Text style={[styles.buttonText, { color: '#FFF' }]}>
+                  <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
                     Download PDF Report
                   </Text>
                 </>
