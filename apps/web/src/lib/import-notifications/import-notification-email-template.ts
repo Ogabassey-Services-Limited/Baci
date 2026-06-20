@@ -86,8 +86,9 @@ export function renderReceiptDeviceRows(
 }
 
 /**
- * Render the call-to-action. `sanitizedUrl` must already have passed through
- * `sanitizeUrl` — an empty string renders a safe fallback with no link.
+ * Render the call-to-action. `sanitizedUrl` must already be sanitized
+ * (`sanitizeUrl`) AND attribute-escaped (`escapeHtmlAttribute`) by the caller —
+ * an empty string renders a safe fallback with no link.
  */
 export function renderReceiptCta(
   sanitizedUrl: string,

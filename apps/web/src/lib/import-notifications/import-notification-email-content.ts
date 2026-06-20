@@ -233,7 +233,7 @@ function buildAppFirstReceiptEmailContent({
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),
       ctaHtml: renderReceiptCta(
-        sanitizedClaimUrl,
+        escapeHtmlAttribute(sanitizedClaimUrl),
         'View your receipt',
         brandColor
       ),
@@ -306,7 +306,7 @@ function buildSiteReceiptEmailContent({
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),
       ctaHtml: renderReceiptCta(
-        sanitizedReceiptsUrl,
+        escapeHtmlAttribute(sanitizedReceiptsUrl),
         'View your receipt',
         brandColor
       ),
