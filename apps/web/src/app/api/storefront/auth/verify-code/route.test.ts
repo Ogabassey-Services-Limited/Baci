@@ -80,6 +80,25 @@ describe('POST /api/storefront/auth/verify-code', () => {
     expect(mockVerifyOtp).not.toHaveBeenCalled();
   });
 
+  it('returns 500 when the storefront merchant resolver fails', async () => {
+    mockResolveStorefrontAuthMerchant.mockRejectedValue(
+      new Error('RPC unavailable')
+    );
+
+    const response = await POST(
+      makeRequest({
+        email: 'customer@example.com',
+        token: '123456',
+        merchantSlug: 'ogabassey',
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Internal server error' });
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+  });
+
   it('logs expired customer OTP attempts as warnings while returning the existing 400 response', async () => {
     mockVerifyOtp.mockResolvedValue({
       data: { user: null },

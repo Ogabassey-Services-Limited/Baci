@@ -53,14 +53,12 @@ AS $$
   WHERE input.identifier <> ''
     AND (
       lower(m.slug) = input.identifier
-      OR lower(COALESCE(m.custom_domain, '')) = input.identifier
       OR md.merchant_id IS NOT NULL
     )
   ORDER BY
     CASE
       WHEN lower(m.slug) = input.identifier THEN 0
       WHEN md.merchant_id IS NOT NULL THEN 1
-      ELSE 2
     END,
     m.id
   LIMIT 1;
