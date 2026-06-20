@@ -451,4 +451,119 @@ describe('Email Templates', () => {
       expect(output).not.toContain('javascript:alert(1)');
     });
   });
+
+  describe('HTML escaping (XSS prevention)', () => {
+    const XSS = '<script>alert(1)</script>';
+    const ESCAPED = '&lt;script&gt;alert(1)&lt;/script&gt;';
+
+    it('escapes user data in order confirmation email', () => {
+      const html = generateOrderConfirmationEmail({
+        ...baseOrderData,
+        customerName: XSS,
+        merchantName: XSS,
+        items: [{ name: XSS, quantity: 1, price: 1000 }],
+        shippingAddress: {
+          address: XSS,
+          city: XSS,
+          state: XSS,
+          phone: XSS,
+        },
+        merchantUrl: 'javascript:alert(1)',
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+
+    it('escapes user data in payment reminder email', () => {
+      const html = generatePaymentReminderEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1, price: 1000 }],
+        totalAmount: 1000,
+        amountPaid: 0,
+        balanceDue: 1000,
+        paymentLink: 'javascript:alert(1)',
+        merchantName: XSS,
+        merchantUrl: 'https://shop.usebaci.com',
+        supportEmail: XSS,
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+
+    it('escapes user data in payment receipt email', () => {
+      const html = generatePaymentReceiptEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1, price: 1000 }],
+        totalAmount: 1000,
+        amountPaidNow: 1000,
+        totalPaidSoFar: 1000,
+        balanceDue: 0,
+        merchantName: XSS,
+        merchantUrl: 'https://shop.usebaci.com',
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).toContain(ESCAPED);
+    });
+
+    it('escapes user data in shipped email', () => {
+      const html = generateOrderShippedEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1 }],
+        shippingAddress: { address: XSS, city: XSS, state: XSS, phone: XSS },
+        trackingNumber: XSS,
+        courierName: XSS,
+        estimatedDelivery: XSS,
+        supportEmail: XSS,
+        merchantName: XSS,
+        merchantUrl: 'javascript:alert(1)',
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+
+    it('escapes user data in delivered email', () => {
+      const html = generateOrderDeliveredEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1 }],
+        supportEmail: XSS,
+        merchantName: XSS,
+        merchantUrl: 'javascript:alert(1)',
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+
+    it('escapes user data in cancellation email', () => {
+      const html = generateOrderCancellationEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1, price: 1000 }],
+        totalAmount: 1000,
+        amountPaid: 1000,
+        refundAmount: 1000,
+        cancelledBy: 'merchant',
+        cancellationReason: XSS,
+        supportEmail: XSS,
+        merchantName: XSS,
+        merchantUrl: 'javascript:alert(1)',
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+  });
 });
