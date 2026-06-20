@@ -42,19 +42,30 @@ function readRequiredFile(filePath) {
   return readFileSync(filePath, 'utf8');
 }
 
+function extractQuotedPropertyValues(source, propertyName) {
+  const pattern = new RegExp(`${propertyName}:\\s*(['"])([\\s\\S]*?)\\1`, 'g');
+  return [...source.matchAll(pattern)].map((match) => match[2]);
+}
+
 function extractAppConfigAdDeclarations(appConfigSource) {
-  const usageDescription = appConfigSource.match(
-    /NSUserTrackingUsageDescription:\s*\n\s*'([^']+)'/
-  )?.[1];
+  const usageDescription = extractQuotedPropertyValues(
+    appConfigSource,
+    'NSUserTrackingUsageDescription'
+  )[0];
   if (!usageDescription) {
-    throw new Error('Could not find NSUserTrackingUsageDescription in app.config.ts');
+    throw new Error(
+      'Could not find quoted NSUserTrackingUsageDescription in app.config.ts'
+    );
   }
 
-  const skAdNetworkIds = [
-    ...appConfigSource.matchAll(/SKAdNetworkIdentifier:\s*'([^']+)'/g),
-  ].map((match) => match[1]);
+  const skAdNetworkIds = extractQuotedPropertyValues(
+    appConfigSource,
+    'SKAdNetworkIdentifier'
+  );
   if (skAdNetworkIds.length === 0) {
-    throw new Error('Could not find SKAdNetworkIdentifier entries in app.config.ts');
+    throw new Error(
+      'Could not find quoted SKAdNetworkIdentifier entries in app.config.ts'
+    );
   }
 
   return {

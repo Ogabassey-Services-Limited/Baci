@@ -183,6 +183,36 @@ describe('ad-tracking runtime', () => {
     );
   });
 
+  it('logs rejected native module promises without failing initialization', async () => {
+    const nativeBridgeError = new TypeError('async bridge failure');
+    const setAdvertiserTrackingEnabled = jest.fn(() =>
+      Promise.reject(nativeBridgeError)
+    );
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        FBSettings: {
+          initializeSDK: jest.fn(),
+          setAdvertiserTrackingEnabled,
+        },
+      })
+    );
+
+    const { initAdTracking } = await import('./ad-tracking-runtime');
+
+    await initAdTracking();
+    await Promise.resolve();
+
+    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledWith(false);
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Facebook advertiser tracking update failed:',
+      nativeBridgeError
+    );
+    expect(mockError).not.toHaveBeenCalledWith(
+      'Initialization error:',
+      expect.anything()
+    );
+  });
+
   it('returns the ATT permission result when the Facebook tracking update fails', async () => {
     const nativeBridgeError = new TypeError('undefined is not a function');
     const setAdvertiserTrackingEnabled = jest.fn(() => {
