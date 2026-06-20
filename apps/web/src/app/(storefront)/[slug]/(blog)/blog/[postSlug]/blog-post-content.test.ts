@@ -6,6 +6,7 @@ import {
   resolveBlogPostContent,
   transformImageTitlesToFigureCaptions,
   unescapeHtmlText,
+  wrapTrustedCdnInlineImagesInPicture,
 } from './blog-post-content';
 
 describe('resolveBlogPostContent', () => {
@@ -467,5 +468,32 @@ describe('buildBlogUrl', () => {
     expect(buildBlogUrl('https://usebaci.com', '/ogabassey///')).toBe(
       'https://usebaci.com/ogabassey/blog'
     );
+  });
+});
+
+describe('wrapTrustedCdnInlineImagesInPicture', () => {
+  const CDN =
+    'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
+
+  it('wraps trusted CDN inline images in <picture> with avif/webp sources', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="Speaker" />`
+    );
+
+    expect(out).toContain('<picture>');
+    expect(out).toContain(`srcset="${CDN}.avif" type="image/avif"`);
+    expect(out).toContain(`srcset="${CDN}.webp" type="image/webp"`);
+    // The original <img> is preserved as the fallback for browsers/clients
+    // without a sibling.
+    expect(out).toContain(`<img src="${CDN}" alt="Speaker" />`);
+  });
+
+  it('leaves external and already-optimized featured images untouched', () => {
+    const external = '<img src="https://example.com/inline-1.png" alt="x" />';
+    expect(wrapTrustedCdnInlineImagesInPicture(external)).toBe(external);
+
+    const featured =
+      '<img src="https://cdn.ogabassey.com/core-assets/blog/x/landscape_16x9.jpg" alt="x" />';
+    expect(wrapTrustedCdnInlineImagesInPicture(featured)).toBe(featured);
   });
 });

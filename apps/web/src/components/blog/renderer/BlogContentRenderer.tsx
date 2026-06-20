@@ -5,6 +5,10 @@ import { common, createLowlight } from 'lowlight';
 import Image from 'next/image';
 import type React from 'react';
 import { SafeHtml } from '@/components/ui/safe-html';
+import {
+  buildInlineImageSiblings,
+  isTrustedCdnInlineImage,
+} from '@/lib/blog-inline-image-optimization';
 import { generateHeadingId } from '@/lib/blog-utils';
 import { sanitizeUrl } from '@/lib/sanitize-core';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
@@ -252,6 +256,10 @@ const NodeRenderer = ({
         return null;
       }
 
+      const imageAlt = node.attrs?.alt || 'Blog image';
+      const inlineSiblings = isTrustedCdnInlineImage(imageSrc)
+        ? buildInlineImageSiblings(imageSrc)
+        : null;
       const imageContainer = (
         <div
           className={cn(
@@ -259,13 +267,30 @@ const NodeRenderer = ({
             !imageCaption && 'my-10'
           )}
         >
-          <Image
-            src={imageSrc}
-            alt={node.attrs?.alt || 'Blog image'}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 800px"
-          />
+          {inlineSiblings ? (
+            // Trusted CDN inline image: serve the pre-optimized AVIF/WebP
+            // siblings via <picture>, falling back to the original PNG. next/image
+            // would needlessly re-process an already-optimized CDN URL.
+            <picture>
+              <source srcSet={inlineSiblings.avif} type="image/avif" />
+              <source srcSet={inlineSiblings.webp} type="image/webp" />
+              <img
+                src={imageSrc}
+                alt={imageAlt}
+                className="absolute inset-0 h-full w-full object-cover"
+                decoding="async"
+                loading="lazy"
+              />
+            </picture>
+          ) : (
+            <Image
+              src={imageSrc}
+              alt={imageAlt}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 800px"
+            />
+          )}
         </div>
       );
 

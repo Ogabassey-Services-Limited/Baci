@@ -759,4 +759,44 @@ describe('BlogContentRenderer', () => {
       );
     });
   });
+
+  describe('inline image optimization', () => {
+    const makeImageDoc = (src: string) => ({
+      type: 'doc',
+      content: [{ type: 'image', attrs: { src, alt: 'Speaker' } }],
+    });
+
+    it('serves trusted CDN inline images as <picture> with avif/webp sources', () => {
+      const src =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
+      const { container } = render(
+        <BlogContentRenderer json={makeImageDoc(src)} />
+      );
+
+      const picture = container.querySelector('picture');
+      expect(picture).toBeTruthy();
+      expect(
+        picture
+          ?.querySelector('source[type="image/avif"]')
+          ?.getAttribute('srcset')
+      ).toBe(`${src}.avif`);
+      expect(
+        picture
+          ?.querySelector('source[type="image/webp"]')
+          ?.getAttribute('srcset')
+      ).toBe(`${src}.webp`);
+      const img = picture?.querySelector('img');
+      expect(img?.getAttribute('src')).toBe(src);
+      expect(img?.getAttribute('alt')).toBe('Speaker');
+    });
+
+    it('renders non-CDN images without a <picture> wrapper', () => {
+      const { container } = render(
+        <BlogContentRenderer json={makeImageDoc('https://example.com/x.png')} />
+      );
+
+      expect(container.querySelector('picture')).toBeNull();
+      expect(container.querySelector('img')).toBeTruthy();
+    });
+  });
 });

@@ -2,6 +2,10 @@ import { marked } from 'marked';
 
 export { getBlogPostTextPreview } from '@/lib/blog-utils';
 
+import {
+  buildInlineImageSiblings,
+  isTrustedCdnInlineImage,
+} from '@/lib/blog-inline-image-optimization';
 import { escapeHtmlText, sanitizeHtml } from '@/lib/sanitize';
 import { buildStoreUrl } from '@/lib/store-url';
 import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
@@ -238,6 +242,31 @@ export function transformImageTitlesToFigureCaptions(html: string): string {
   );
 }
 
+/**
+ * Wraps trusted CDN inline `<img>` tags in a `<picture>` that prefers the
+ * pre-generated AVIF/WebP siblings, keeping the original `<img>` as the fallback.
+ * Runs AFTER sanitization (the sources are derived from already-sanitized,
+ * trusted-CDN URLs); `<picture>`/`<source>` are allowlisted in sanitize.ts so
+ * they survive SafeHtml's re-sanitization. External and non-inline images are
+ * left untouched, and a missing sibling degrades to the original PNG.
+ */
+export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
+  return html.replace(/<img\b[^>]*>/gi, (imgTag) => {
+    const srcMatch = imgTag.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
+    const src = srcMatch?.[2];
+    if (!src || !isTrustedCdnInlineImage(src)) {
+      return imgTag;
+    }
+    const { avif, webp } = buildInlineImageSiblings(src);
+    return (
+      '<picture>' +
+      `<source srcset="${escapeHtmlAttr(avif)}" type="image/avif" />` +
+      `<source srcset="${escapeHtmlAttr(webp)}" type="image/webp" />` +
+      `${imgTag}</picture>`
+    );
+  });
+}
+
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
   fallbackImageAlt?: string | null;
 };
@@ -268,10 +297,11 @@ export async function resolveBlogPostContent(
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
     const sanitizedHtml = sanitizeHtml(rewrittenHtml);
     const captionedHtml = transformImageTitlesToFigureCaptions(sanitizedHtml);
-    legacyHtml = ensureBlogImageAltText(
+    const altedHtml = ensureBlogImageAltText(
       captionedHtml,
       options.fallbackImageAlt
     );
+    legacyHtml = wrapTrustedCdnInlineImagesInPicture(altedHtml);
   }
 
   return {
