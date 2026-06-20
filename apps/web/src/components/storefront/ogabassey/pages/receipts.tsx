@@ -47,7 +47,6 @@ interface ReceiptListItem {
   balance: string;
   firstProductName: string;
   firstProductImage: string | null;
-  additionalDeviceCount: number;
   /** Raw order data for the shared receipt generator */
   rawOrder: ReceiptOrder;
 }
@@ -76,32 +75,6 @@ function getReceiptItemImage(item: Record<string, unknown> | undefined) {
       ? getStringValue(item.product_images[0])
       : null)
   );
-}
-
-function getReceiptItemName(item: Record<string, unknown> | undefined) {
-  if (!item) {
-    return 'Unknown item';
-  }
-
-  return (
-    getStringValue(item.product_name) ||
-    getStringValue(item.name) ||
-    'Unknown item'
-  );
-}
-
-function getReceiptItemQuantity(item: Record<string, unknown>) {
-  const quantity = Number(item.quantity);
-  return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
-}
-
-function getAdditionalDeviceCount(items: Array<Record<string, unknown>>) {
-  const totalDeviceCount = items.reduce(
-    (count, item) => count + getReceiptItemQuantity(item),
-    0
-  );
-
-  return Math.max(0, totalDeviceCount - 1);
 }
 
 function ReceiptProductThumbnail({
@@ -170,8 +143,6 @@ async function fetchReceiptListItems(
     const total = Number(order.total) || 0;
     const amountPaid = Number(order.amount_paid ?? total);
     const paymentStatus = (order.payment_status as string) || 'unpaid';
-    const firstProductName = getReceiptItemName(items[0]);
-    const additionalDeviceCount = getAdditionalDeviceCount(items);
 
     const formatCurrency = (val: number) =>
       getCurrencyFormatter(currency).format(val);
@@ -203,8 +174,9 @@ async function fetchReceiptListItems(
         (order.fulfillment_details as ReceiptOrder['fulfillment_details']) ??
         null,
       items: items.map((item) => ({
-        product_name: getReceiptItemName(item),
-        quantity: getReceiptItemQuantity(item),
+        product_name:
+          (item.product_name as string) || (item.name as string) || 'Product',
+        quantity: Number(item.quantity) || 1,
         price: Number(item.price) || 0,
       })),
     };
@@ -224,9 +196,11 @@ async function fetchReceiptListItems(
       status: statusLabel,
       paymentStatus: paymentStatus as ReceiptListItem['paymentStatus'],
       balance: formatCurrency(Math.max(0, total - amountPaid)),
-      firstProductName,
+      firstProductName:
+        (items[0]?.product_name as string) ||
+        (items[0]?.name as string) ||
+        'Unknown item',
       firstProductImage: getReceiptItemImage(items[0]),
-      additionalDeviceCount,
       rawOrder,
     } satisfies ReceiptListItem;
   });
@@ -439,24 +413,11 @@ export const OgabasseyV2Receipts: React.FC = () => {
                           {receipt.date}
                         </span>
                       </div>
-                      <h3 className="flex items-center gap-2 min-w-0 font-bold text-gray-900 text-sm md:text-base">
-                        <span className="truncate">
-                          {receipt.firstProductName}
-                        </span>
-                        {receipt.additionalDeviceCount > 0 && (
-                          <span className="shrink-0 rounded-full bg-[color:color-mix(in_srgb,var(--store-primary,#d62027)_10%,transparent)] px-2 py-0.5 text-[10px] font-bold leading-none text-[var(--store-primary,#d62027)] ring-1 ring-[color:color-mix(in_srgb,var(--store-primary,#d62027)_16%,transparent)]">
-                            <span aria-hidden="true">
-                              +{receipt.additionalDeviceCount}
-                            </span>
-                            <span className="sr-only">
-                              , {receipt.additionalDeviceCount} additional
-                              devices in this receipt
-                            </span>
-                          </span>
-                        )}
-                      </h3>
-                      <p className="mt-0.5 text-xs font-medium text-[var(--store-muted-text,#6b7280)] truncate">
+                      <h3 className="font-bold text-gray-900 text-sm md:text-base mb-0.5">
                         #{receipt.order_number}
+                      </h3>
+                      <p className="text-xs text-gray-500 truncate">
+                        {receipt.firstProductName}
                       </p>
                     </div>
 

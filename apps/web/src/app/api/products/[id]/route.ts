@@ -626,21 +626,13 @@ export async function PUT(
       );
 
       if (variantsToUpdate.length > 0) {
-        const updatePromises = variantsToUpdate.map((variant) => {
-          const {
-            id: variantId,
-            product_id: _productId,
-            merchant_id: _merchantId,
-            ...variantData
-          } = variant;
-
-          return supabase
+        const updatePromises = variantsToUpdate.map((variant) =>
+          supabase
             .from('product_variants')
-            .update(variantData)
-            .eq('id', variantId)
-            .eq('product_id', id)
-            .eq('merchant_id', merchantId);
-        });
+            .update(variant)
+            .eq('id', variant.id)
+            .eq('merchant_id', merchantId)
+        );
         const updateResults = await Promise.all(updatePromises);
         const failedUpdate = updateResults.find((r) => r.error);
 

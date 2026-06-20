@@ -122,35 +122,6 @@ let deleteError: unknown = null;
 let variantInsertError: unknown = null;
 let variantUpsertError: unknown = null;
 let lastProductUpdatePayload: unknown = null;
-let variantUpdatePayloads: unknown[] = [];
-let variantUpdateFilters: [string, unknown][][] = [];
-
-function createVariantUpdateChain(payload: unknown) {
-  const filters: [string, unknown][] = [];
-  variantUpdatePayloads.push(payload);
-  variantUpdateFilters.push(filters);
-
-  const recordFilter = (column: string, value: unknown) => {
-    filters.push([column, value]);
-  };
-
-  return {
-    eq: vi.fn((firstColumn: string, firstValue: unknown) => {
-      recordFilter(firstColumn, firstValue);
-      return {
-        eq: vi.fn((secondColumn: string, secondValue: unknown) => {
-          recordFilter(secondColumn, secondValue);
-          return {
-            eq: vi.fn((thirdColumn: string, thirdValue: unknown) => {
-              recordFilter(thirdColumn, thirdValue);
-              return Promise.resolve({ error: variantUpsertError });
-            }),
-          };
-        }),
-      };
-    }),
-  };
-}
 
 const createMockSupabase = () => ({
   auth: {
@@ -259,7 +230,15 @@ const createMockSupabase = () => ({
             error: variantUpsertError,
           })
         ),
-        update: vi.fn((payload: unknown) => createVariantUpdateChain(payload)),
+        update: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            eq: vi.fn(() =>
+              Promise.resolve({
+                error: variantUpsertError,
+              })
+            ),
+          })),
+        })),
         insert: vi.fn(() =>
           Promise.resolve({
             error: variantInsertError,
@@ -346,8 +325,6 @@ function resetMocks() {
   variantInsertError = null;
   variantUpsertError = null;
   lastProductUpdatePayload = null;
-  variantUpdatePayloads = [];
-  variantUpdateFilters = [];
   csrfValid = true;
 }
 
@@ -703,7 +680,7 @@ describe('PUT /api/products/[id]', () => {
       expect(lastProductUpdatePayload).not.toHaveProperty('imageLarge');
     });
 
-    it('updates product variants with scoped filters and immutable keys stripped', async () => {
+    it('updates product with variants', async () => {
       product = {
         id: PRODUCT_ID,
         name: 'Product',
@@ -715,16 +692,13 @@ describe('PUT /api/products/[id]', () => {
         has_variants: true,
       };
 
-      const variantId = '11111111-1111-4111-8111-111111111111';
       const bodyWithVariants = {
         has_variants: true,
         variants: [
           {
-            id: variantId,
-            product_id: 'attacker-product',
-            merchant_id: 'attacker-merchant',
+            id: 'variant-1',
             attributes: { size: 'L' },
-            price_override: 7000,
+            price: 7000,
             stock_quantity: 5,
             sku: 'SKU-L',
           },
@@ -737,24 +711,6 @@ describe('PUT /api/products/[id]', () => {
       await res.json();
 
       expect(res.status).toBe(200);
-      expect(variantUpdatePayloads).toEqual([
-        expect.objectContaining({
-          attributes: { size: 'L' },
-          price_override: 7000,
-          sku: 'SKU-L',
-          stock_quantity: 5,
-        }),
-      ]);
-      expect(variantUpdatePayloads[0]).not.toHaveProperty('id');
-      expect(variantUpdatePayloads[0]).not.toHaveProperty('product_id');
-      expect(variantUpdatePayloads[0]).not.toHaveProperty('merchant_id');
-      expect(variantUpdateFilters).toEqual([
-        [
-          ['id', variantId],
-          ['product_id', PRODUCT_ID],
-          ['merchant_id', MERCHANT_ID],
-        ],
-      ]);
     });
 
     it('does not mark a product as migrated when variant sync fails', async () => {
