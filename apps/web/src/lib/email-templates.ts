@@ -1635,11 +1635,13 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
             ? 'Airtime Top-up'
             : 'Data Top-up';
 
-  const tokenLine = isTokenReady
-    ? `YOUR PREPAID TOKEN PIN: ${data.voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
-    : expectsToken
-      ? 'Status: Payment received. Token fulfillment is still in progress and will be updated once available.\n'
-      : `Status: Successful (Directly credited to your account. No PIN entry required.)\n`;
+  const voucherPin = data.voucherPin ? stripHtmlTags(data.voucherPin) : null;
+  const tokenLine =
+    isTokenReady && voucherPin
+      ? `YOUR PREPAID TOKEN PIN: ${voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
+      : expectsToken
+        ? 'Status: Payment received. Token fulfillment is still in progress and will be updated once available.\n'
+        : `Status: Successful (Directly credited to your account. No PIN entry required.)\n`;
 
   const customerIdLabel =
     data.type === 'electricity'
@@ -1657,10 +1659,6 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
     ? stripHtmlTags(data.phone_number)
     : null;
   const reference = stripHtmlTags(data.reference);
-  const voucherPin = data.voucherPin ? stripHtmlTags(data.voucherPin) : null;
-  const safeTokenLine = voucherPin
-    ? `YOUR PREPAID TOKEN PIN: ${voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
-    : tokenLine;
   const heading = isTokenPending
     ? `${typeLabel} Payment Received`
     : `${typeLabel} Confirmation!`;
@@ -1675,7 +1673,7 @@ Hi ${customerName},
 
 ${introText}
 
-${safeTokenLine}
+${tokenLine}
 TRANSACTION DETAILS:
 - Biller/Service: ${providerLabel}
 - Product: ${typeLabel}

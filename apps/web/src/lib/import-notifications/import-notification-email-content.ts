@@ -210,8 +210,10 @@ function buildAppFirstReceiptEmailContent({
   const rawSupport =
     merchant.support_email || merchant.email || 'the store team';
   const supportContact = escapeHtmlAttribute(rawSupport);
-  const tagline =
-    delivery.receiptTagline || `${merchantName} Never Disappoints!`;
+  // Only render a tagline the merchant actually configured — never invent one.
+  const footerNote = delivery.receiptTagline
+    ? escapeHtmlAttribute(delivery.receiptTagline)
+    : escapedMerchantName;
   const textDevices = devices
     .map((device, index) => `${index + 1}. ${device}`)
     .join('\n');
@@ -244,7 +246,7 @@ function buildAppFirstReceiptEmailContent({
         supportContact,
         brandColor
       ),
-      footerNote: escapeHtmlAttribute(tagline),
+      footerNote,
     }),
     textContent: [
       `Hello ${recipientName},`,
@@ -259,7 +261,7 @@ function buildAppFirstReceiptEmailContent({
         : 'View your receipt: unavailable (invalid link configuration).',
       '',
       `Thank you for choosing ${merchantName}.`,
-      tagline,
+      ...(delivery.receiptTagline ? [delivery.receiptTagline] : []),
       '',
       `Need help? Contact ${rawSupport}.`,
     ].join('\n'),

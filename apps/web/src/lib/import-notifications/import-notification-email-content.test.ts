@@ -56,7 +56,6 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain('On this receipt');
     expect(content.htmlContent).toContain('box-shadow');
     expect(content.htmlContent).toContain('Powered by Baci');
-    expect(content.htmlContent).toContain('Ogabassey Never Disappoints!');
     expect(content.htmlContent).toContain(
       'This ensures you can access the receipts for your devices purchased from us at any time in case you need them for support, warranty, or as proof of purchase.'
     );
@@ -76,9 +75,11 @@ describe('import notification email content', () => {
     expect(content.htmlContent).not.toContain('Digital receipt update');
     expect(content.htmlContent).not.toContain('Georgia');
     expect(content.htmlContent).not.toContain('#fbbf24');
-    // Warm brand sign-off mirrored into the plain-text fallback.
+    // No tagline is configured here, so none is invented (footer = merchant name).
+    expect(content.htmlContent).not.toContain('Never Disappoints');
+    expect(content.textContent).not.toContain('Never Disappoints');
+    // Warm, generic sign-off still present in the plain-text fallback.
     expect(content.textContent).toContain('Thank you for choosing Ogabassey.');
-    expect(content.textContent).toContain('Ogabassey Never Disappoints!');
   });
 
   it('honors a configured receipt tagline over the default', () => {
@@ -96,6 +97,7 @@ describe('import notification email content', () => {
 
     expect(delivery.receiptTagline).toBe('Premium gadgets, delivered.');
     expect(content.htmlContent).toContain('Premium gadgets, delivered.');
+    expect(content.textContent).toContain('Premium gadgets, delivered.');
     expect(content.htmlContent).not.toContain('Never Disappoints!');
   });
 
