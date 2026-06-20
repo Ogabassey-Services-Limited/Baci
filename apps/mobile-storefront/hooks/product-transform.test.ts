@@ -71,6 +71,14 @@ describe('product-transform', () => {
     ]);
   });
 
+  it('drops malformed product and variant payloads safely', () => {
+    expect(
+      normalizeProductVariants({ not: 'an array' }, { basePrice: 1000 })
+    ).toEqual([]);
+
+    expect(transformProduct({ ...variantProductRow, id: null })).toBeNull();
+  });
+
   it('transforms live preorder products without keeping boolean variant metadata', () => {
     const product = transformProduct(variantProductRow);
 

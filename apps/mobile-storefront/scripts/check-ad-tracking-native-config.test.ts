@@ -64,6 +64,8 @@ describe('check-ad-tracking-native-config', () => {
           /SKAdNetworkIdentifier:\s*'([^']+)'/g,
           'SKAdNetworkIdentifier: "$1"'
         );
+      expect(appConfigSource).toContain('NSUserTrackingUsageDescription: "');
+      expect(appConfigSource).toContain('SKAdNetworkIdentifier: "');
       writeFileSync(path.join(tempRoot, 'app.config.ts'), appConfigSource);
 
       const result = runNativeAdConfigCheck(tempRoot);

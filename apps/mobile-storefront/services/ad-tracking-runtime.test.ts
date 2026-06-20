@@ -249,6 +249,77 @@ describe('ad-tracking runtime', () => {
     );
   });
 
+  it('initializes native SDKs and sends client backup events when bridges succeed', async () => {
+    const initializeSDK = jest.fn();
+    const setAdvertiserTrackingEnabled = jest.fn(() => Promise.resolve(true));
+    const logEvent = jest.fn();
+    const logAEMEvent = jest.fn();
+    const trackEvent = jest.fn();
+    const initializeTikTok = jest.fn(() => true);
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
+    mockExpoConfigExtra = {
+      ...mockExpoConfigExtra,
+      tiktokBusiness: {
+        isConfigured: true,
+      },
+    };
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        AEMReporterIOS: {
+          logAEMEvent,
+        },
+        AppEventsLogger: {
+          logEvent,
+        },
+        FBSettings: {
+          initializeSDK,
+          setAdvertiserTrackingEnabled,
+        },
+        TikTokBusiness: {
+          initialize: initializeTikTok,
+          trackEvent,
+        },
+      })
+    );
+
+    const { initAdTracking, requestTrackingPermission, sendClientBackup } =
+      await import('./ad-tracking-runtime');
+
+    await initAdTracking();
+    await expect(requestTrackingPermission()).resolves.toBe('granted');
+    sendClientBackup(
+      'evt-success',
+      'fb_mobile_purchase',
+      'Purchase',
+      12_000,
+      'NGN',
+      { content_name: 'Phone' }
+    );
+
+    expect(initializeSDK).toHaveBeenCalledTimes(1);
+    expect(initializeTikTok).toHaveBeenCalledTimes(1);
+    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledWith(true);
+    expect(logEvent).toHaveBeenCalledWith('fb_mobile_purchase', 12_000, {
+      _eventId: 'evt-success',
+      content_name: 'Phone',
+    });
+    expect(logAEMEvent).toHaveBeenCalledWith(
+      'fb_mobile_purchase',
+      12_000,
+      'NGN',
+      { content_name: 'Phone' }
+    );
+    expect(trackEvent).toHaveBeenCalledWith(
+      'Purchase',
+      'evt-success',
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'content_name', value: 'Phone' }),
+      ])
+    );
+    expect(mockWarn).not.toHaveBeenCalled();
+    expect(mockError).not.toHaveBeenCalled();
+  });
+
   it('keeps client backup tracking non-fatal when native event logging fails', async () => {
     const facebookEventError = new TypeError('undefined is not a function');
     const aemEventError = new TypeError('undefined is not a function');
