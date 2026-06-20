@@ -303,6 +303,8 @@ export async function PUT(
             }
 
             return {
+              ...variant,
+              id: variant.id.trim().toLowerCase(),
               condition: Object.hasOwn(variant, 'condition')
                 ? variant.condition
                 : 'new',

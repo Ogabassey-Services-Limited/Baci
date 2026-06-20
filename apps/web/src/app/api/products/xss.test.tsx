@@ -274,7 +274,6 @@ describe('Product API XSS Prevention', () => {
         variant_model: 'sku_matrix' as const,
         variants: [
           {
-            id: '4d3558bf-3013-476d-8efa-162d85b8f3fd',
             price_override: 800,
             stock_quantity: 1,
           },
