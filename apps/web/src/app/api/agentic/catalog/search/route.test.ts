@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 
+const VALID_AGENTIC_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
 const mockVerifyAgenticApiKey = vi.hoisted(() => vi.fn(() => true));
 const mockResolveAgenticMerchantContext = vi.hoisted(() =>
   vi.fn(async () => ({
@@ -10,7 +11,7 @@ const mockResolveAgenticMerchantContext = vi.hoisted(() =>
     agentic_checkout_enabled: true,
     business_name: 'Ogabassey',
     custom_domain: undefined,
-    id: 'merchant-1',
+    id: '00000000-0000-4000-8000-000000000001',
     pay_on_delivery_enabled: false,
     paystack_subaccount_code: null,
     slug: 'ogabassey',
@@ -37,6 +38,8 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({})),
 }));
 
+import { POST } from './route';
+
 type ProductRow = {
   id: string;
   name: string;
@@ -46,24 +49,58 @@ type ProductRow = {
 };
 
 let mockSelect: ReturnType<typeof vi.fn>;
+let mockRpc: ReturnType<typeof vi.fn>;
 let query: {
   eq: ReturnType<typeof vi.fn>;
+  in: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
   or: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
 };
 
 function mockProductRows(rows: ProductRow[]) {
+  mockRpc = vi.fn().mockResolvedValue({
+    data: rows
+      .filter((row) => row.status !== 'draft')
+      .map((row) => ({ product_id: row.id, total_count: rows.length })),
+    error: null,
+  });
   query = {
     eq: vi.fn(() => query),
+    in: vi.fn(() => query),
     limit: vi.fn(async () => ({ data: rows, error: null })),
     or: vi.fn(() => query),
     order: vi.fn(() => query),
   };
   mockSelect = vi.fn(() => query);
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
+    rpc: mockRpc,
     from: vi.fn(() => ({ select: mockSelect })),
   } as never);
+}
+
+function mockRankedProductRows(rows: ProductRow[], rankedIds: string[]) {
+  mockRpc = vi.fn().mockResolvedValue({
+    data: rankedIds.map((id) => ({
+      product_id: id,
+      total_count: rankedIds.length,
+    })),
+    error: null,
+  });
+  query = {
+    eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    limit: vi.fn(async () => ({ data: rows, error: null })),
+    or: vi.fn(() => query),
+    order: vi.fn(() => query),
+  };
+  mockSelect = vi.fn(() => query);
+  vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
+    rpc: mockRpc,
+    from: vi.fn(() => ({ select: mockSelect })),
+  } as never);
+
+  return { rpc: mockRpc };
 }
 
 describe('POST /api/agentic/catalog/search', () => {
@@ -76,7 +113,6 @@ describe('POST /api/agentic/catalog/search', () => {
   it('returns 401 when the agent key is missing', async () => {
     mockVerifyAgenticApiKey.mockReturnValueOnce(false);
 
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'iphone' }),
@@ -99,7 +135,6 @@ describe('POST /api/agentic/catalog/search', () => {
       },
     ]);
 
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'iphone', pagination: { limit: 10 } }),
@@ -112,11 +147,113 @@ describe('POST /api/agentic/catalog/search', () => {
     expect(body.products).toEqual([
       expect.objectContaining({ id: 'product-1', title: 'iPhone 15' }),
     ]);
-    expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
-    expect(query.eq).toHaveBeenCalledWith('status', 'active');
-    expect(query.or).toHaveBeenCalledWith(
-      'name.ilike.%iphone%,description.ilike.%iphone%'
+    expect(query.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      VALID_AGENTIC_MERCHANT_ID
     );
+    expect(query.eq).toHaveBeenCalledWith('status', 'active');
+    expect(mockRpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ search_query: 'iphone' })
+    );
+    expect(query.in).toHaveBeenCalledWith('id', ['product-1']);
+    expect(query.or).not.toHaveBeenCalled();
+  });
+
+  it('uses search_products_v2 for catalog search ranking', async () => {
+    const { rpc } = mockRankedProductRows(
+      [
+        {
+          id: 'product-1',
+          name: 'iPhone X',
+          price: 240_000,
+          slug: 'iphone-x',
+          status: 'active',
+        },
+        {
+          id: 'product-2',
+          name: 'iPhone 16 Pro',
+          price: 1_200_000,
+          slug: 'iphone-16-pro',
+          status: 'active',
+        },
+      ],
+      ['product-2', 'product-1']
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'iphnoe', pagination: { limit: 20 } }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(rpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ search_query: 'iphnoe' })
+    );
+    expect(query.in).toHaveBeenCalledWith('id', ['product-2', 'product-1']);
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-2',
+      'product-1',
+    ]);
+  });
+
+  it('hydrates only the ranked page before returning ranked catalog products', async () => {
+    mockRankedProductRows(
+      [
+        {
+          id: 'product-1',
+          name: 'iPhone X',
+          price: 240_000,
+          slug: 'iphone-x',
+          status: 'active',
+        },
+        {
+          id: 'product-2',
+          name: 'iPhone 16 Pro',
+          price: 1_200_000,
+          slug: 'iphone-16-pro',
+          status: 'active',
+        },
+      ],
+      ['product-2', 'product-1', 'product-3']
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'iphnoe', pagination: { limit: 2 } }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(query.in).toHaveBeenCalledWith('id', ['product-2', 'product-1']);
+    expect(query.limit).toHaveBeenCalledWith(2);
+    expect(query.order).not.toHaveBeenCalled();
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-2',
+      'product-1',
+    ]);
+  });
+
+  it('returns 500 when ranked catalog search fails', async () => {
+    mockProductRows([]);
+    mockRpc.mockRejectedValueOnce(new Error('RPC down'));
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'iphone' }),
+        method: 'POST',
+      })
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      error: 'Catalog search failed',
+    });
+    expect(response.status).toBe(500);
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it('omits unpublished products returned by the database', async () => {
@@ -125,7 +262,6 @@ describe('POST /api/agentic/catalog/search', () => {
       { id: 'product-1', name: 'Live', status: 'active' },
     ]);
 
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'phone' }),
@@ -140,7 +276,6 @@ describe('POST /api/agentic/catalog/search', () => {
   });
 
   it('does not use select star in Supabase queries', async () => {
-    const { POST } = await import('./route');
     await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'phone' }),

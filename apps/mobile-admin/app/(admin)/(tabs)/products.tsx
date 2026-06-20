@@ -27,6 +27,7 @@ import { TopSellingProductItem } from '@/components/product/TopSellingProductIte
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import { TopTabBar } from '@/components/ui/TopTabBar';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
   type Product,
@@ -140,6 +141,7 @@ export default function ProductsScreen() {
 
   const [activeTab, setActiveTab] = useState<ProductsTab>('in_stock');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 250);
 
   // Map activeTab to server-side stock filter
   const stockFilter: StockFilter | undefined =
@@ -159,7 +161,7 @@ export default function ProductsScreen() {
     error: productsError,
   } = useProducts({
     stockFilter,
-    search: searchQuery.trim() || undefined,
+    search: debouncedSearchQuery.trim() || undefined,
   });
 
   const {

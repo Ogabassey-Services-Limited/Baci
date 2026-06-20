@@ -60,6 +60,9 @@ describe('GET /api/storefront/products ids flow', () => {
     expect(payload.products).toHaveLength(1);
     expect(payload.products[0].id).toBe('product-1');
     expect(
+      storefrontProductsRouteTestHarness.mockProductsByIdsQuery.current?.eq
+    ).toHaveBeenCalledWith('status', 'active');
+    expect(
       storefrontProductsRouteTestHarness.mockProductsByIdsQuery.current?.in
     ).toHaveBeenCalledWith('id', ['product-1']);
   });

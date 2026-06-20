@@ -1,5 +1,5 @@
-import { render } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductsScreen from './products';
 
 vi.mock('@shopify/flash-list', async () => {
@@ -111,15 +111,41 @@ vi.mock('@/components/ui/SafeImage', async () => {
 
 describe('ProductsScreen', () => {
   beforeEach(() => {
-    productHookMocks.useProducts.mockReturnValue({
-      data: { pages: [{ products: [], totalCount: 0 }] },
-      error: null,
-      fetchNextPage: vi.fn(),
-      hasNextPage: false,
-      isFetchingNextPage: false,
-      isLoading: false,
-      refetch: vi.fn(),
-    });
+    productHookMocks.useProducts.mockImplementation(
+      (filters?: { search?: string }) => ({
+        data: {
+          pages: [
+            {
+              products:
+                filters?.search === 'iphone'
+                  ? [
+                      {
+                        id: 'product-1',
+                        images: [],
+                        manage_stock: true,
+                        name: 'iPhone 15 Pro',
+                        price: 1000,
+                        stock: 8,
+                        stock_quantity: 8,
+                      },
+                    ]
+                  : [],
+              totalCount: filters?.search === 'iphone' ? 1 : 0,
+            },
+          ],
+        },
+        error: null,
+        fetchNextPage: vi.fn(),
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        isLoading: false,
+        refetch: vi.fn(),
+      })
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders products screen successfully', () => {
@@ -150,5 +176,22 @@ describe('ProductsScreen', () => {
     expect(
       getByText('Refresh the page or try again in a moment.')
     ).toBeTruthy();
+  });
+
+  it('waits for the debounced product search value before rendering search results', () => {
+    vi.useFakeTimers();
+    const { getByLabelText } = render(<ProductsScreen />);
+
+    fireEvent.change(getByLabelText('Search products'), {
+      target: { value: 'iphone' },
+    });
+
+    expect(screen.queryByText('iPhone 15 Pro')).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(screen.getByText('iPhone 15 Pro')).toBeTruthy();
   });
 });
