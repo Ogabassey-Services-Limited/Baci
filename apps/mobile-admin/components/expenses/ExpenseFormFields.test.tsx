@@ -20,7 +20,7 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: () => ({
-    symbol: '₦',
+    symbol: '$',
   }),
 }));
 
@@ -103,6 +103,7 @@ describe('ExpenseFormFields', () => {
 
     const amountInput = screen.getByLabelText('Expense amount');
 
+    expect(screen.getByText('$')).toBeInTheDocument();
     expect(amountInput).toBeInTheDocument();
     expect((amountInput as HTMLInputElement).value.replace(/\D/g, '')).toBe(
       '12500'
