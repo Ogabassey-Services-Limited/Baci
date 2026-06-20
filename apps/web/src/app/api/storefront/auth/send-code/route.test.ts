@@ -2,11 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendCodeMocks = vi.hoisted(() => ({
   mockFrom: vi.fn(),
+  mockGetMerchantByIdentifier: vi.fn(),
   mockSignInWithOtp: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    sendCodeMocks.mockGetMerchantByIdentifier(...args),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -47,38 +53,12 @@ function makeRequest(
   });
 }
 
-function mockMerchantLookup(merchant: MockMerchant | null) {
-  const filters: Array<{ column: string; value: string }> = [];
-  const chain = {
-    select: vi.fn(() => chain),
-    eq: vi.fn((column: string, value: string) => {
-      filters.push({ column, value });
-      return chain;
-    }),
-    single: vi.fn(() => {
-      const lookup = filters[0];
-      if (lookup?.column === 'slug' && lookup.value === merchant?.slug) {
-        return Promise.resolve({ data: merchant, error: null });
-      }
-      if (
-        lookup?.column === 'custom_domain' &&
-        lookup.value === merchant?.custom_domain
-      ) {
-        return Promise.resolve({ data: merchant, error: null });
-      }
-      return Promise.resolve({ data: null, error: { message: 'not found' } });
-    }),
-  };
-
-  return chain;
-}
-
 describe('POST /api/storefront/auth/send-code', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
-    sendCodeMocks.mockFrom.mockImplementation(() =>
-      mockMerchantLookup(ogabasseyMerchant)
+    sendCodeMocks.mockGetMerchantByIdentifier.mockResolvedValue(
+      ogabasseyMerchant
     );
     sendCodeMocks.mockSignInWithOtp.mockResolvedValue({ error: null });
   });
@@ -92,6 +72,10 @@ describe('POST /api/storefront/auth/send-code', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(sendCodeMocks.mockGetMerchantByIdentifier).toHaveBeenCalledWith(
+      'ogabassey'
+    );
+    expect(sendCodeMocks.mockFrom).not.toHaveBeenCalled();
     expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
       email: 'customer@example.com',
       options: expect.objectContaining({
@@ -121,12 +105,10 @@ describe('POST /api/storefront/auth/send-code', () => {
 
   it('uses the merchant subdomain when the merchant has no custom domain', async () => {
     vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'usebaci.com');
-    sendCodeMocks.mockFrom.mockImplementation(() =>
-      mockMerchantLookup({
-        ...ogabasseyMerchant,
-        custom_domain: null,
-      })
-    );
+    sendCodeMocks.mockGetMerchantByIdentifier.mockResolvedValue({
+      ...ogabasseyMerchant,
+      custom_domain: null,
+    });
 
     const response = await POST(
       makeRequest({ email: 'customer@example.com', merchantSlug: 'ogabassey' })
@@ -139,5 +121,21 @@ describe('POST /api/storefront/auth/send-code', () => {
         emailRedirectTo: 'http://ogabassey.usebaci.com/account/verify',
       }),
     });
+  });
+
+  it('returns 404 when the storefront merchant resolver misses', async () => {
+    sendCodeMocks.mockGetMerchantByIdentifier.mockResolvedValue(null);
+
+    const response = await POST(
+      makeRequest({
+        email: 'customer@example.com',
+        merchantSlug: 'missing-store',
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Store not found' });
+    expect(sendCodeMocks.mockSignInWithOtp).not.toHaveBeenCalled();
   });
 });

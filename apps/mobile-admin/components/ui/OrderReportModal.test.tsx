@@ -33,6 +33,7 @@ vi.mock('@/hooks/useTheme', () => ({
       success: '#16a34a',
       text: '#f8fafc',
       textMuted: '#94a3b8',
+      textOnPrimary: '#ffffff',
       textSecondary: '#cbd5e1',
       warning: '#f59e0b',
     },

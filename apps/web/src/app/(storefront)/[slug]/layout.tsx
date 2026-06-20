@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import '@/app/(storefront)/storefront-core.css';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import type React from 'react';
 import { Suspense } from 'react';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
@@ -264,11 +265,6 @@ export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  // The prior `await connection()` here forced the storefront request-bound to
-  // dodge a Next 16 PPR resume mismatch. That upstream bug
-  // (vercel/next.js#94630) is now fixed via patches/next@16.2.9.patch (PR
-  // #2436), so it is removed to allow static prerendering. Tenant validation and
-  // notFound() are retained below.
   const { slug } = await props.params;
 
   if (!isValidMerchantIdentifier(slug)) {
@@ -288,6 +284,14 @@ export async function StorefrontLayoutContent(props: {
         businessName={shellSnapshotBase.merchant.business_name}
       />
     );
+  }
+
+  if (shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID) {
+    // Keep OgaBassey chrome rendering request-bound so browsers never hydrate
+    // it or the PDP critical shell against the static PPR fallback sibling. The
+    // static fallback still preserves immediate chrome; page-level PDP resource
+    // hints keep LCP image discovery early.
+    await connection();
   }
 
   const shellSnapshot = await getStorefrontShellSnapshot(shellSnapshotBase);
