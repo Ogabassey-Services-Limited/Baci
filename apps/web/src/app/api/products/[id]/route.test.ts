@@ -95,7 +95,22 @@ vi.mock('@/schemas/products', () => ({
           },
         };
       }
-      return { success: true, data };
+      const parsedData = { ...data };
+      if (Array.isArray(data.variants)) {
+        parsedData.variants = data.variants.map((variant) => {
+          if (
+            typeof variant !== 'object' ||
+            variant === null ||
+            Array.isArray(variant) ||
+            Object.hasOwn(variant, 'stock_quantity')
+          ) {
+            return variant;
+          }
+
+          return { ...variant, stock_quantity: 0 };
+        });
+      }
+      return { success: true, data: parsedData };
     },
   },
   formatZodErrors: (error: { issues: { path: string[]; message: string }[] }) =>
@@ -776,6 +791,51 @@ describe('PUT /api/products/[id]', () => {
       expect(
         (lastRpcCall?.args.p_variants as Record<string, unknown>[])[0]
       ).not.toHaveProperty('merchant_id');
+    });
+
+    it('preserves existing variant stock when stock_quantity is omitted', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        condition: 'new',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        has_variants: true,
+      };
+      variants = [{ id: VARIANT_ID }];
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variants: [
+            {
+              id: VARIANT_ID,
+              sku: 'SKU-L-UPDATED',
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(lastRpcCall).toEqual({
+        functionName: 'sync_product_variants_for_product',
+        args: {
+          p_product_id: PRODUCT_ID,
+          p_merchant_id: MERCHANT_ID,
+          p_variants: [
+            {
+              id: VARIANT_ID,
+              sku: 'SKU-L-UPDATED',
+            },
+          ],
+        },
+      });
     });
 
     it('rejects stale or cross-tenant variant IDs without applying migration state', async () => {

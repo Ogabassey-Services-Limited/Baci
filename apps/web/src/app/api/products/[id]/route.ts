@@ -39,6 +39,23 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { formatZodErrors, updateProductSchema } from '@/schemas/products';
 
+function getRawObject(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function getRawVariantInputs(rawBody: unknown): Record<string, unknown>[] {
+  const rawObject = getRawObject(rawBody);
+  if (!rawObject || !Array.isArray(rawObject.variants)) {
+    return [];
+  }
+
+  return rawObject.variants.map((variant) => getRawObject(variant) ?? {});
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -541,35 +558,34 @@ export async function PUT(
     let variantsToSync: Record<string, unknown>[] | null = null;
     if (body.variants !== undefined && body.has_variants !== false) {
       type RequestVariant = NonNullable<typeof body.variants>[number];
-      const variantHasOwn = (
-        variant: RequestVariant,
-        key: keyof RequestVariant
-      ) => Object.hasOwn(variant, key);
+      const rawVariants = getRawVariantInputs(rawBody);
+      const variantHasOwn = (index: number, key: keyof RequestVariant) =>
+        Object.hasOwn(rawVariants[index] ?? {}, key);
 
-      variantsToSync = body.variants.map((variant: RequestVariant) => {
+      variantsToSync = body.variants.map((variant: RequestVariant, index) => {
         const payload: Record<string, unknown> = { id: variant.id };
-        if (variantHasOwn(variant, 'attributes')) {
+        if (variantHasOwn(index, 'attributes')) {
           payload.attributes = variant.attributes ?? {};
         }
-        if (variantHasOwn(variant, 'condition')) {
+        if (variantHasOwn(index, 'condition')) {
           payload.condition = variant.condition ?? null;
         }
-        if (variantHasOwn(variant, 'price_override')) {
+        if (variantHasOwn(index, 'price_override')) {
           payload.price_override = variant.price_override ?? null;
         }
-        if (variantHasOwn(variant, 'cost_price')) {
+        if (variantHasOwn(index, 'cost_price')) {
           payload.cost_price = variant.cost_price ?? null;
         }
-        if (variantHasOwn(variant, 'stock_quantity')) {
+        if (variantHasOwn(index, 'stock_quantity')) {
           payload.stock_quantity = variant.stock_quantity ?? 0;
         }
-        if (variantHasOwn(variant, 'sku')) {
+        if (variantHasOwn(index, 'sku')) {
           payload.sku = variant.sku ?? null;
         }
-        if (variantHasOwn(variant, 'primary_image')) {
+        if (variantHasOwn(index, 'primary_image')) {
           payload.primary_image = variant.primary_image ?? null;
         }
-        if (variantHasOwn(variant, 'images')) {
+        if (variantHasOwn(index, 'images')) {
           payload.images = variant.images ?? [];
         }
         return payload;
