@@ -11,4 +11,10 @@ describe('formatBlogListDateLabel', () => {
   it('returns null for invalid published dates', () => {
     expect(formatBlogListDateLabel('not-a-date')).toBeNull();
   });
+
+  it('returns null for empty runtime published date values', () => {
+    expect(formatBlogListDateLabel(null)).toBeNull();
+    expect(formatBlogListDateLabel(undefined)).toBeNull();
+    expect(formatBlogListDateLabel('')).toBeNull();
+  });
 });

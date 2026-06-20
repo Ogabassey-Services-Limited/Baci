@@ -5,7 +5,13 @@ const BLOG_LIST_DATE_FORMATTER = new Intl.DateTimeFormat('en-NG', {
   year: 'numeric',
 });
 
-export function formatBlogListDateLabel(publishedAt: string): string | null {
+export function formatBlogListDateLabel(
+  publishedAt: string | null | undefined
+): string | null {
+  if (!publishedAt) {
+    return null;
+  }
+
   const publishedDate = new Date(publishedAt);
   if (Number.isNaN(publishedDate.getTime())) {
     return null;
