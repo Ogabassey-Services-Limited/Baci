@@ -56,6 +56,7 @@ function normalizeVariantAttributeMap(
       continue;
     }
 
+    // Variant attributes are selector labels; blank labels are not selectable.
     const trimmedValue = value.trim();
     if (!trimmedValue) {
       continue;

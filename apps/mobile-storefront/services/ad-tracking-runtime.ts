@@ -34,6 +34,7 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
   );
 }
 
+// True means the call started without a sync throw; async failures log later.
 function runNativeAdModuleCall(label: string, call: () => unknown): boolean {
   try {
     const result = call();
@@ -94,6 +95,7 @@ export async function initAdTracking(): Promise<void> {
       setIsTrackingAllowed(true);
     }
 
+    // Only report backup init after the native SDK call starts cleanly.
     if (
       FB_APP_ID &&
       FB_CLIENT_TOKEN &&
