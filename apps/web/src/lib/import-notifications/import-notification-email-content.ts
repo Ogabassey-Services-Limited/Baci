@@ -1,6 +1,12 @@
 import { MOBILE_APPS } from '@/config/platform';
 import { getRootDomain } from '@/env';
-import { escapeHtml, sanitizeUrl } from '@/lib/sanitize-core';
+import {
+  renderReceiptCta,
+  renderReceiptDeviceRows,
+  renderReceiptEmailHtml,
+} from '@/lib/import-notifications/import-notification-email-template';
+import { escapeHtmlAttribute } from '@/lib/sanitize';
+import { sanitizeUrl } from '@/lib/sanitize-core';
 
 export interface MerchantBrandColors {
   primary?: string | null;
@@ -17,6 +23,7 @@ export interface MerchantNotificationContext {
   email_sender_name: string | null;
   email: string | null;
   brand_colors?: MerchantBrandColors | null;
+  logo_url?: string | null;
 }
 
 export interface ReceiptNotificationDeliveryConfig {
@@ -36,37 +43,17 @@ interface BuildReceiptNotificationEmailContentInput {
   devices: string[];
 }
 
-type BuildReceiptEmailContentBaseInput = Pick<
-  BuildReceiptNotificationEmailContentInput,
-  'merchant' | 'recipientName' | 'claimUrl' | 'devices'
->;
-
-type BuildReceiptEmailContentWithDeliveryInput =
-  BuildReceiptEmailContentBaseInput & {
-    delivery: ReceiptNotificationDeliveryConfig;
-  };
-
-const DEFAULT_NOTIFICATION_SOURCE = 'site';
-const RECEIPT_CHANGED_SUBJECT = 'Your Receipt has Changed.';
-const APP_FIRST_RECEIPT_THEME =
-  '<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>:root{color-scheme:light dark;supported-color-schemes:light dark}@media (prefers-color-scheme:dark){.receipt-bg{background:#120d0b!important}.receipt-card{background:#181310!important;border-color:#3d2d25!important}.receipt-panel{background:#211915!important;border-color:#4a372d!important}.receipt-text{color:#fff7ed!important}.receipt-muted{color:#d9c8bc!important}.receipt-rule{border-color:#4a372d!important}.receipt-pill{color:#ffd8cf!important;border-color:#4a372d!important}.receipt-link{color:#ff9b92!important}}</style>';
-const DEFAULT_RECEIPT_BRAND_COLOR = '#b91c1c';
+const DEFAULT_NOTIFICATION_SOURCE: ReceiptNotificationDeliveryConfig['accessMode'] =
+  'site';
+const RECEIPT_CHANGED_SUBJECT = 'Your receipt has moved';
+const DEFAULT_RECEIPT_BRAND_COLOR = '#d62027';
 const RECEIPT_TAGLINE_MAX_LENGTH = 120;
-
-function buildStorefrontUrl(merchant: MerchantNotificationContext) {
-  if (merchant.custom_domain) {
-    return `https://${merchant.custom_domain.replace(/\/$/, '')}`;
-  }
-
-  const rootDomain = getRootDomain() || 'usebaci.com';
-  return `https://${merchant.slug}.${rootDomain}`;
-}
+const RASTER_LOGO_PATTERN = /\.(png|jpe?g|gif|webp)$/;
 
 function normalizeEmailHexColor(value: string | null | undefined) {
   if (!value || !/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(value)) {
     return DEFAULT_RECEIPT_BRAND_COLOR;
   }
-
   return value;
 }
 
@@ -76,40 +63,56 @@ function getReceiptBrandColor(merchant: MerchantNotificationContext) {
   );
 }
 
-function getMerchantInitials(merchantName: string) {
-  const words = merchantName
-    .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (words.length === 0) {
-    return 'YS';
+/**
+ * Resolve an email-safe logo URL. Returns '' for missing, unsafe, or
+ * non-raster URLs — email clients (Gmail/Outlook/Apple Mail) do not render
+ * SVGs, so those fall back to the text wordmark.
+ */
+function emailSafeLogoUrl(logoUrl: string | null | undefined): string {
+  if (!logoUrl) {
+    return '';
   }
-
-  if (words.length === 1) {
-    return words[0].slice(0, 2).toUpperCase();
+  const safe = sanitizeUrl(logoUrl);
+  if (!safe) {
+    return '';
   }
-
-  return words
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase();
+  const path = safe.split('?')[0].split('#')[0].toLowerCase();
+  return RASTER_LOGO_PATTERN.test(path) ? safe : '';
 }
 
 function readReceiptTagline(migrationSettings: Record<string, unknown>) {
   const configuredTagline = migrationSettings.receipt_tagline;
-
   if (typeof configuredTagline !== 'string') {
     return null;
   }
-
   const trimmedTagline = configuredTagline.trim();
-
   return trimmedTagline
     ? trimmedTagline.slice(0, RECEIPT_TAGLINE_MAX_LENGTH)
     : null;
+}
+
+/**
+ * Build the footer support sentence. When the contact looks like an email it is
+ * rendered as a mailto link; otherwise it falls back to plain escaped text.
+ */
+function buildReceiptSupportLine(
+  rawContact: string,
+  escapedContact: string,
+  brandColor: string
+): string {
+  const contactHtml = rawContact.includes('@')
+    ? `<a class="r-link" href="mailto:${escapedContact}" style="color:${brandColor};font-weight:600;text-decoration:none;">${escapedContact}</a>`
+    : escapedContact;
+  return `Need a hand? Reach our team at ${contactHtml}.`;
+}
+
+function buildStorefrontUrl(merchant: MerchantNotificationContext) {
+  if (merchant.custom_domain) {
+    return `https://${merchant.custom_domain.replace(/\/$/, '')}`;
+  }
+
+  const rootDomain = getRootDomain() || 'usebaci.com';
+  return `https://${merchant.slug}.${rootDomain}`;
 }
 
 export function resolveReceiptNotificationDelivery(
@@ -194,171 +197,128 @@ function buildAppFirstReceiptEmailContent({
   delivery,
   claimUrl,
   devices,
-}: BuildReceiptEmailContentWithDeliveryInput) {
+}: Pick<
+  BuildReceiptNotificationEmailContentInput,
+  'merchant' | 'recipientName' | 'delivery' | 'claimUrl' | 'devices'
+>) {
   const merchantName = merchant.business_name || 'Your store';
   const brandColor = getReceiptBrandColor(merchant);
-  const escapedBrandColor = escapeHtml(brandColor);
-  const escapedMerchantInitials = escapeHtml(getMerchantInitials(merchantName));
-  const escapedMerchantName = escapeHtml(merchantName);
-  const escapedRecipientName = escapeHtml(recipientName);
-  const escapedDevices = devices.map((device) => escapeHtml(device));
+  const escapedMerchantName = escapeHtmlAttribute(merchantName);
+  const escapedRecipientName = escapeHtmlAttribute(recipientName);
+  const escapedDevices = devices.map((device) => escapeHtmlAttribute(device));
   const sanitizedClaimUrl = sanitizeUrl(claimUrl);
-  const sanitizedContactUrl = sanitizeUrl(
-    `${buildStorefrontUrl(merchant)}/contact`
-  );
-  const contactUsHtml = sanitizedContactUrl
-    ? `<a class="receipt-link" href="${sanitizedContactUrl}" style="color: ${escapedBrandColor}; font-weight: 800; text-decoration: underline;">contact us</a>`
-    : 'contact us';
-  const contactUsText = `contact us${sanitizedContactUrl ? `: ${sanitizedContactUrl}` : ''}`;
-  const receiptAccessCopy =
-    'This ensures you can access the receipts for your devices purchased from us at any time in case you need them for support, warranty, or as proof of purchase.';
-  const deviceItemsHtml = escapedDevices
-    .map(
-      (device, index) => `
-        <tr>
-          <td class="receipt-rule" style="padding: ${index === 0 ? '4px' : '16px'} 28px 16px; border-bottom: 1px dashed #e5d5c8;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
-              <tr>
-                <td valign="top" width="40" style="color: ${escapedBrandColor}; font-size: 13px; font-weight: 800; line-height: 1.45;">${index + 1}.</td>
-                <td class="receipt-text" style="color: #111827; font-size: 15px; font-weight: 800; line-height: 1.45;">${device}</td>
-              </tr>
-            </table>
-          </td>
-        </tr>`
-    )
-    .join('');
+  const rawSupport =
+    merchant.support_email || merchant.email || 'the store team';
+  const supportContact = escapeHtmlAttribute(rawSupport);
+  const tagline =
+    delivery.receiptTagline || `${merchantName} Never Disappoints!`;
   const textDevices = devices
     .map((device, index) => `${index + 1}. ${device}`)
     .join('\n');
-  const claimActionHtml = sanitizedClaimUrl
-    ? `<a href="${sanitizedClaimUrl}" style="display: inline-block; background: ${escapedBrandColor}; color: #ffffff; font-size: 15px; font-weight: 800; line-height: 1; text-decoration: none; padding: 16px 24px; border-radius: 999px;">View Receipt</a>`
-    : '<span style="color: #7f1d1d; font-size: 14px; font-weight: 700;">Receipt link unavailable (invalid link configuration).</span>';
-  const claimActionText = sanitizedClaimUrl
-    ? `View Receipt: ${sanitizedClaimUrl}`
-    : 'View Receipt: unavailable (invalid link configuration).';
-  const escapedReceiptTagline = delivery.receiptTagline
-    ? escapeHtml(delivery.receiptTagline)
-    : null;
-  const receiptTaglineHtml = escapedReceiptTagline
-    ? `<p style="margin: 6px 0 0; color: ${escapedBrandColor}; font-size: 15px; font-weight: 900; line-height: 1.5; text-align: center;">${escapedReceiptTagline}</p>`
-    : '';
-  const receiptTaglineText = delivery.receiptTagline
-    ? ['', delivery.receiptTagline]
-    : [];
 
   return {
     fromName: merchant.email_sender_name || merchant.business_name || 'Orders',
     subject: RECEIPT_CHANGED_SUBJECT,
-    htmlContent: `
-      ${APP_FIRST_RECEIPT_THEME}<div class="receipt-bg" style="margin: 0; padding: 0; background: #f3eee8; font-family: Arial, Helvetica, sans-serif;">
-        <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">Your receipt has moved to the ${escapedMerchantName} app. View it securely from this email.</div>
-        <table class="receipt-bg" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #f3eee8; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif;">
-          <tr>
-            <td align="center" style="padding: 32px 16px;">
-              <table class="receipt-card" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 620px; border-collapse: separate; border-spacing: 0; overflow: hidden; background: #fffdf8; border: 1px solid #eadfd4; border-radius: 18px;">
-                <tr>
-                  <td style="height: 6px; background: ${escapedBrandColor}; line-height: 6px; font-size: 0;">&nbsp;</td>
-                </tr>
-                <tr>
-                  <td style="padding: 30px 30px 18px;">
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse; margin: 0 0 24px;">
-                      <tr>
-                        <td width="54" valign="top">
-                          <div style="width: 42px; height: 42px; border-radius: 12px; background: ${escapedBrandColor}; color: #ffffff; font-size: 13px; font-weight: 900; letter-spacing: 0.08em; line-height: 42px; text-align: center;">${escapedMerchantInitials}</div>
-                        </td>
-                        <td valign="middle">
-                          <p class="receipt-text" style="margin: 0; color: #111827; font-size: 15px; font-weight: 900;">${escapedMerchantName}</p>
-                          <p style="margin: 3px 0 0; color: ${escapedBrandColor}; font-size: 11px; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase;">Digital receipt update</p>
-                        </td>
-                        <td align="right" valign="middle">
-                          <span class="receipt-pill" style="display: inline-block; border: 1px solid #eadfd4; border-radius: 999px; color: #6b4f3f; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; padding: 7px 10px; text-transform: uppercase;">Moved to app</span>
-                        </td>
-                      </tr>
-                    </table>
-                    <h1 class="receipt-text" style="margin: 0; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-size: 32px; line-height: 1.12; font-weight: 700;">Your Receipt has Changed.</h1>
-                    <p class="receipt-muted" style="margin: 18px 0 0; color: #374151; font-size: 16px; line-height: 1.65;">Hello ${escapedRecipientName},</p>
-                    <p class="receipt-muted" style="margin: 10px 0 0; color: #374151; font-size: 16px; line-height: 1.65;">${escapedMerchantName} has moved your receipt for the following device(s) to the mobile app.</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 0 30px 30px;">
-                    <table class="receipt-panel" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse: separate; border-spacing: 0; background: #ffffff; border: 1px solid #eadfd4; border-radius: 16px;">
-                      ${deviceItemsHtml}
-                    </table>
-                    <p class="receipt-text" style="margin: 20px 0 0; color: #1f2937; font-size: 14px; line-height: 1.7;">${escapeHtml(receiptAccessCopy)}</p>
-                    <div style="padding: 24px 0 4px; text-align: center;">
-                      ${claimActionHtml}
-                    </div>
-                    <p class="receipt-text" style="margin: 20px 0 0; color: #1f2937; font-size: 14px; line-height: 1.6; text-align: center;">Thank you for choosing ${escapedMerchantName}.</p>
-                    ${receiptTaglineHtml}
-                    <p class="receipt-muted receipt-rule" style="margin: 18px 0 0; padding-top: 16px; border-top: 1px solid #eadfd4; color: #6b7280; font-size: 13px; line-height: 1.55;">Need help? Reply to this email or ${contactUsHtml}.</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </div>
-    `,
+    htmlContent: renderReceiptEmailHtml({
+      preheader: `Your ${escapedMerchantName} receipt is now in the app. Open it securely from this email.`,
+      brandWordmark: escapedMerchantName,
+      brandColor,
+      eyebrow: 'Receipt',
+      headline: 'Your receipt is now in the app',
+      subhead:
+        'A quicker, more secure way to keep your purchase records in one place.',
+      greetingName: escapedRecipientName,
+      logoUrl: emailSafeLogoUrl(merchant.logo_url),
+      introHtml: `${escapedMerchantName} has moved your receipt for the following device(s) to the mobile app.`,
+      sectionLabel: 'On this receipt',
+      deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),
+      ctaHtml: renderReceiptCta(
+        sanitizedClaimUrl,
+        'View your receipt',
+        brandColor
+      ),
+      reassurance:
+        'This ensures you can access the receipts for your devices purchased from us at any time in case you need them for support, warranty, or as proof of purchase.',
+      supportLineHtml: buildReceiptSupportLine(
+        rawSupport,
+        supportContact,
+        brandColor
+      ),
+      footerNote: escapeHtmlAttribute(tagline),
+    }),
     textContent: [
       `Hello ${recipientName},`,
       '',
       `${merchantName} has moved your receipt for the following device(s) to the mobile app.`,
-      '',
       textDevices,
       '',
-      receiptAccessCopy,
+      'This is to ensure you can access your receipt at any time directly from the app.',
       '',
-      claimActionText,
+      sanitizedClaimUrl
+        ? `View your receipt: ${sanitizedClaimUrl}`
+        : 'View your receipt: unavailable (invalid link configuration).',
       '',
       `Thank you for choosing ${merchantName}.`,
-      ...receiptTaglineText,
+      tagline,
       '',
-      `Need help? Reply to this email or ${contactUsText}.`,
+      `Need help? Contact ${rawSupport}.`,
     ].join('\n'),
   };
 }
+
 function buildSiteReceiptEmailContent({
   merchant,
   recipientName,
   delivery,
   claimUrl,
   devices,
-}: BuildReceiptEmailContentWithDeliveryInput) {
+}: Pick<
+  BuildReceiptNotificationEmailContentInput,
+  'merchant' | 'recipientName' | 'delivery' | 'devices' | 'claimUrl'
+>) {
   const merchantName = merchant.business_name || 'Your store';
-  const escapedMerchantName = escapeHtml(merchantName);
-  const escapedRecipientName = escapeHtml(recipientName);
-  const escapedDevices = devices.map((device) => escapeHtml(device));
-  const supportContact = escapeHtml(
-    merchant.support_email || merchant.email || 'the store team'
-  );
+  const brandColor = getReceiptBrandColor(merchant);
+  const escapedMerchantName = escapeHtmlAttribute(merchantName);
+  const escapedRecipientName = escapeHtmlAttribute(recipientName);
+  const escapedDevices = devices.map((device) => escapeHtmlAttribute(device));
+  const rawSupport =
+    merchant.support_email || merchant.email || 'the store team';
+  const supportContact = escapeHtmlAttribute(rawSupport);
   const sanitizedReceiptsUrl = sanitizeUrl(claimUrl || delivery.receiptsUrl);
-  const deviceItemsHtml = escapedDevices
-    .map((device) => `<li>${device}</li>`)
-    .join('');
   const textDevices = devices
     .map((device, index) => `${index + 1}. ${device}`)
     .join('\n');
-  const receiptActionHtml = sanitizedReceiptsUrl
-    ? `<p style="margin: 24px 0;">
-          <a href="${sanitizedReceiptsUrl}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px;">
-            View your receipt
-          </a>
-        </p>`
-    : '<p style="margin: 24px 0; color: #5f6375; font-size: 14px;">Receipt link unavailable (invalid link configuration).</p>';
+
   return {
     fromName: merchant.email_sender_name || merchant.business_name || 'Orders',
     subject: RECEIPT_CHANGED_SUBJECT,
-    htmlContent: `
-      <div style="font-family: system-ui, -apple-system, sans-serif; color: #111827; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 24px;">
-        <p>Hello ${escapedRecipientName},</p>
-        <p>${escapedMerchantName} has moved your receipt for the following item(s) to your online account.</p>
-        <ol style="margin: 12px 0 20px; padding-left: 22px;">${deviceItemsHtml}</ol>
-        <p>This is to ensure you can access your receipt at any time from the website.</p>
-        ${receiptActionHtml}
-        <p>If you need help, reply to this email or contact ${supportContact}.</p>
-      </div>
-    `,
+    htmlContent: renderReceiptEmailHtml({
+      preheader: `Your ${escapedMerchantName} receipt is now in your online account.`,
+      brandWordmark: escapedMerchantName,
+      brandColor,
+      eyebrow: 'Receipt',
+      headline: 'Your receipt is now in your account',
+      subhead:
+        'A simpler, more secure way to keep your purchase records in one place.',
+      greetingName: escapedRecipientName,
+      logoUrl: emailSafeLogoUrl(merchant.logo_url),
+      introHtml: `${escapedMerchantName} has moved your receipt for the following item(s) to your online account.`,
+      sectionLabel: 'On this receipt',
+      deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),
+      ctaHtml: renderReceiptCta(
+        sanitizedReceiptsUrl,
+        'View your receipt',
+        brandColor
+      ),
+      reassurance:
+        'This is to ensure you can access your receipt at any time from the website. Nothing about your purchase has changed.',
+      supportLineHtml: buildReceiptSupportLine(
+        rawSupport,
+        supportContact,
+        brandColor
+      ),
+      footerNote: escapedMerchantName,
+    }),
     textContent: [
       `Hello ${recipientName},`,
       '',
@@ -371,7 +331,7 @@ function buildSiteReceiptEmailContent({
         ? `View your receipt: ${sanitizedReceiptsUrl}`
         : 'View your receipt: unavailable (invalid link configuration).',
       '',
-      `Need help? Contact ${merchant.support_email || merchant.email || 'the store team'}.`,
+      `Need help? Contact ${rawSupport}.`,
     ].join('\n'),
   };
 }

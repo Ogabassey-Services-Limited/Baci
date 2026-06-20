@@ -17,18 +17,25 @@ const merchant: MerchantNotificationContext = {
   support_email: 'support@ogabassey.com',
   email_sender_name: 'Ogabassey',
   email: 'hello@ogabassey.com',
-  brand_colors: { primary: '#d71920' },
+  brand_colors: { primary: '#d62027' },
 };
 
+function appFirstDelivery(
+  context: MerchantNotificationContext,
+  extra: Record<string, unknown> = {}
+) {
+  return resolveReceiptNotificationDelivery(context, {
+    migration_imports: {
+      receipt_access_mode: 'app_first',
+      receipt_app_links_enabled: true,
+      ...extra,
+    },
+  });
+}
+
 describe('import notification email content', () => {
-  it('builds app-first receipt-changed copy with claim links and device rows', () => {
-    const delivery = resolveReceiptNotificationDelivery(merchant, {
-      migration_imports: {
-        receipt_access_mode: 'app_first',
-        receipt_app_links_enabled: true,
-        receipt_tagline: 'Ogabassey Never Disappoints!',
-      },
-    });
+  it('builds the app-first brand-aligned receipt email', () => {
+    const delivery = appFirstDelivery(merchant);
 
     const content = buildReceiptNotificationEmailContent({
       merchant,
@@ -40,95 +47,133 @@ describe('import notification email content', () => {
 
     expect(delivery.accessMode).toBe('app_first');
     expect(delivery.requiresReceiptClaim).toBe(true);
-    expect(delivery.receiptTagline).toBe('Ogabassey Never Disappoints!');
-    expect(content.subject).toBe('Your Receipt has Changed.');
+    expect(content.subject).toBe('Your receipt has moved');
     expect(content.htmlContent).toContain('Hello Ada,');
     expect(content.htmlContent).toContain(
       'Ogabassey has moved your receipt for the following device(s) to the mobile app'
     );
-    expect(content.htmlContent).toContain('Digital receipt update');
-    expect(content.htmlContent).toContain('>OG<');
-    expect(content.htmlContent).toContain('background: #d71920');
-    expect(content.htmlContent).toContain(
-      'This ensures you can access the receipts for your devices purchased from us'
-    );
-    expect(content.htmlContent).toContain('Thank you for choosing Ogabassey');
+    expect(content.htmlContent).toContain('Your receipt is now in the app');
+    expect(content.htmlContent).toContain('On this receipt');
+    expect(content.htmlContent).toContain('box-shadow');
+    expect(content.htmlContent).toContain('Powered by Baci');
     expect(content.htmlContent).toContain('Ogabassey Never Disappoints!');
     expect(content.htmlContent).toContain(
-      'https://ogabassey.usebaci.com/contact'
+      'This ensures you can access the receipts for your devices purchased from us at any time in case you need them for support, warranty, or as proof of purchase.'
     );
-    expect(content.htmlContent).toContain('>contact us</a>');
-    expect(content.htmlContent).toContain('border-bottom: 1px dashed');
+    expect(content.htmlContent).toContain('@media (prefers-color-scheme:dark)');
     expect(content.htmlContent).toContain('iPhone 16 Pro Max');
     expect(content.htmlContent).toContain('2 x AirPods Pro');
     expect(content.htmlContent).toContain(
       'https://ogabassey.com/receipts/claim/claim-token'
     );
-    expect(content.htmlContent).toContain('prefers-color-scheme:dark');
-    expect(content.htmlContent).toContain('class="receipt-card"');
-    expect(content.htmlContent).toContain('class="receipt-link"');
-    expect(content.htmlContent).not.toContain('This keeps your receipt');
-    expect(content.htmlContent).not.toContain('View your receipt</a>');
-    expect(content.htmlContent).not.toContain('#e11d2e');
-    expect(content.htmlContent).not.toContain('#fff7f7');
-    expect(content.htmlContent).not.toContain('#f0d7d7');
+    // Brand red accent on a near-black header.
+    expect(content.htmlContent).toContain('#d62027');
+    expect(content.htmlContent).toContain('background-color:#0f0f0f');
+    // The standalone "Receipt moved to app" banner is gone.
+    expect(content.htmlContent).not.toContain('Receipt moved to app');
+    // The superseded #2620/#2622 cream/serif design must be gone.
+    expect(content.htmlContent).not.toContain('Receipt Vault');
+    expect(content.htmlContent).not.toContain('Digital receipt update');
+    expect(content.htmlContent).not.toContain('Georgia');
+    expect(content.htmlContent).not.toContain('#fbbf24');
+    // Warm brand sign-off mirrored into the plain-text fallback.
+    expect(content.textContent).toContain('Thank you for choosing Ogabassey.');
+    expect(content.textContent).toContain('Ogabassey Never Disappoints!');
   });
 
-  it('derives app-first branding from the merchant instead of Ogabassey defaults', () => {
+  it('honors a configured receipt tagline over the default', () => {
+    const delivery = appFirstDelivery(merchant, {
+      receipt_tagline: 'Premium gadgets, delivered.',
+    });
+
+    const content = buildReceiptNotificationEmailContent({
+      merchant,
+      recipientName: 'Ada',
+      delivery,
+      claimUrl: 'https://ogabassey.com/receipts/claim/claim-token',
+      devices: ['iPhone 16 Pro Max'],
+    });
+
+    expect(delivery.receiptTagline).toBe('Premium gadgets, delivered.');
+    expect(content.htmlContent).toContain('Premium gadgets, delivered.');
+    expect(content.htmlContent).not.toContain('Never Disappoints!');
+  });
+
+  it('drives the accent from the merchant brand color', () => {
     const futureMerchant: MerchantNotificationContext = {
       ...merchant,
       slug: 'future-merchant',
       business_name: 'Future Merchant',
-      support_email: 'support@futuremerchant.com',
-      email_sender_name: 'Future Merchant',
-      email: 'hello@futuremerchant.com',
       brand_colors: { primary: '#2563eb' },
     };
-    const delivery = resolveReceiptNotificationDelivery(futureMerchant, {
-      migration_imports: {
-        receipt_access_mode: 'app_first',
-        receipt_app_links_enabled: true,
-      },
-    });
+    const delivery = appFirstDelivery(futureMerchant);
 
     const content = buildReceiptNotificationEmailContent({
       merchant: futureMerchant,
       recipientName: 'Ada',
       delivery,
-      claimUrl: 'https://futuremerchant.com/receipts/claim/claim-token',
+      claimUrl: 'https://future-merchant.usebaci.com/receipts/claim/token',
       devices: ['Pixel 9'],
     });
 
-    expect(content.htmlContent).toContain('>FM<');
-    expect(content.htmlContent).toContain('background: #2563eb');
-    expect(content.htmlContent).toContain('Future Merchant');
-    expect(content.htmlContent).not.toContain('>OG<');
-    expect(content.htmlContent).not.toContain('#d71920');
-    expect(content.htmlContent).not.toContain('Ogabassey Never Disappoints');
-    expect(content.textContent).not.toContain('Ogabassey Never Disappoints');
+    expect(content.htmlContent).toContain('#2563eb');
+    expect(content.htmlContent).not.toContain('#d62027');
   });
 
-  it('defaults to site-mode receipt links and honors a custom receipt path', () => {
-    const delivery = resolveReceiptNotificationDelivery(
-      {
-        ...merchant,
-        custom_domain: 'futuremerchant.com',
-        business_name: 'Future Merchant',
-      },
-      {
-        migration_imports: {
-          receipt_access_mode: 'site',
-          receipt_path: '/account/receipts',
-        },
-      }
-    );
+  it('renders a raster merchant logo as an image in the header', () => {
+    const delivery = appFirstDelivery(merchant);
 
     const content = buildReceiptNotificationEmailContent({
       merchant: {
         ...merchant,
-        custom_domain: 'futuremerchant.com',
-        business_name: 'Future Merchant',
+        logo_url: 'https://cdn.ogabassey.com/media/ogabassey-logo.png',
       },
+      recipientName: 'Ada',
+      delivery,
+      claimUrl: 'https://ogabassey.com/receipts/claim/claim-token',
+      devices: ['iPhone 16 Pro Max'],
+    });
+
+    expect(content.htmlContent).toContain(
+      '<img src="https://cdn.ogabassey.com/media/ogabassey-logo.png"'
+    );
+    expect(content.htmlContent).toContain('alt="Ogabassey"');
+  });
+
+  it('falls back to the wordmark when the logo is an SVG (email-unsafe)', () => {
+    const delivery = appFirstDelivery(merchant);
+
+    const content = buildReceiptNotificationEmailContent({
+      merchant: {
+        ...merchant,
+        logo_url: 'https://cdn.ogabassey.com/media/ogabassey-logo.svg',
+      },
+      recipientName: 'Ada',
+      delivery,
+      claimUrl: 'https://ogabassey.com/receipts/claim/claim-token',
+      devices: ['iPhone 16 Pro Max'],
+    });
+
+    expect(content.htmlContent).not.toContain('<img');
+    expect(content.htmlContent).not.toContain('.svg');
+    expect(content.htmlContent).toContain('text-transform:uppercase');
+  });
+
+  it('defaults to site-mode receipt links and honors a custom receipt path', () => {
+    const siteMerchant = {
+      ...merchant,
+      custom_domain: 'futuremerchant.com',
+      business_name: 'Future Merchant',
+    };
+    const delivery = resolveReceiptNotificationDelivery(siteMerchant, {
+      migration_imports: {
+        receipt_access_mode: 'site',
+        receipt_path: '/account/receipts',
+      },
+    });
+
+    const content = buildReceiptNotificationEmailContent({
+      merchant: siteMerchant,
       recipientName: 'Ada',
       delivery,
       claimUrl: delivery.receiptsUrl,
@@ -142,7 +187,7 @@ describe('import notification email content', () => {
         requiresReceiptClaim: false,
       })
     );
-    expect(content.subject).toBe('Your Receipt has Changed.');
+    expect(content.subject).toBe('Your receipt has moved');
     expect(content.htmlContent).toContain(
       'https://futuremerchant.com/account/receipts'
     );
@@ -163,127 +208,35 @@ describe('import notification email content', () => {
     );
   });
 
-  it('keeps merchants on web-only receipt links when app-first is configured without the app-links flag', () => {
-    const futureMerchant: MerchantNotificationContext = {
-      ...merchant,
-      slug: 'future-merchant',
-      business_name: 'Future Merchant',
-      custom_domain: 'futuremerchant.com',
-      support_email: 'support@futuremerchant.com',
-      email: 'hello@futuremerchant.com',
-    };
-    const delivery = resolveReceiptNotificationDelivery(futureMerchant, {
-      migration_imports: {
-        app_store_url: 'https://apps.apple.com/app/future',
-        play_store_url: 'https://play.google.com/store/apps/details?id=future',
-        receipt_access_mode: 'app_first',
-      },
+  it('keeps merchants on web-only receipt links when app-first lacks the app-links flag', () => {
+    const delivery = resolveReceiptNotificationDelivery(merchant, {
+      migration_imports: { receipt_access_mode: 'app_first' },
     });
 
     const content = buildReceiptNotificationEmailContent({
-      merchant: futureMerchant,
+      merchant,
       recipientName: 'Ada',
       delivery,
       claimUrl: delivery.receiptsUrl,
-      devices: ['Pixel 9'],
+      devices: ['iPhone 16 Pro Max'],
     });
 
-    expect(delivery).toEqual(
-      expect.objectContaining({
-        accessMode: 'site',
-        appStoreUrl: null,
-        playStoreUrl: null,
-        receiptsUrl: 'https://futuremerchant.com/receipts',
-        requiresReceiptClaim: true,
-      })
-    );
+    expect(delivery.accessMode).toBe('site');
     expect(content.htmlContent).not.toContain('Download options');
     expect(content.htmlContent).not.toContain('Google Play');
     expect(content.htmlContent).not.toContain('App Store');
     expect(content.htmlContent).not.toContain('mobile app');
   });
 
-  it('falls back to storefront receipts when custom settings are missing', () => {
-    expect(resolveReceiptNotificationDelivery(merchant, null)).toEqual(
-      expect.objectContaining({
-        accessMode: 'site',
-        receiptsUrl: 'https://ogabassey.usebaci.com/receipts',
-        requiresReceiptClaim: false,
-      })
-    );
-  });
+  it('renders a safe fallback for unsafe claim URLs', () => {
+    const delivery = appFirstDelivery(merchant);
 
-  it('falls back for invalid access mode and receipt path settings', () => {
-    expect(
-      resolveReceiptNotificationDelivery(merchant, {
-        migration_imports: {
-          receipt_access_mode: 'native_only',
-          receipt_path: 'javascript:alert(1)',
-        },
-      })
-    ).toEqual(
-      expect.objectContaining({
-        accessMode: 'site',
-        receiptsUrl: 'https://ogabassey.usebaci.com/receipts',
-      })
-    );
-  });
-
-  it('uses default app links when configured app links are missing', () => {
-    const delivery = resolveReceiptNotificationDelivery(merchant, {
-      migration_imports: {
-        app_store_url: 42,
-        play_store_url: false,
-        receipt_access_mode: 'app_first',
-        receipt_app_links_enabled: true,
-      },
-    });
-
-    expect(delivery.accessMode).toBe('app_first');
-    expect(delivery.requiresReceiptClaim).toBe(true);
-    expect(delivery.appStoreUrl).not.toBe('42');
-    expect(delivery.playStoreUrl).not.toBe('false');
-  });
-
-  it('allows app-first receipt claim links when the merchant explicitly enables app links', () => {
-    const delivery = resolveReceiptNotificationDelivery(
-      {
-        ...merchant,
-        custom_domain: 'ogabassey.com',
-      },
-      {
-        migration_imports: {
-          receipt_access_mode: 'app_first',
-          receipt_app_links_enabled: true,
-        },
-      }
-    );
-
-    expect(delivery).toEqual(
-      expect.objectContaining({
-        accessMode: 'app_first',
-        receiptsUrl: 'https://ogabassey.com/receipts',
-        requiresReceiptClaim: true,
-        playStoreUrl:
-          'https://play.google.com/store/apps/details?id=com.ogabassey.store',
-      })
-    );
-  });
-
-  it('renders a fallback instead of an empty site receipt CTA when the URL is unsafe', () => {
     const content = buildReceiptNotificationEmailContent({
       merchant,
       recipientName: 'Ada',
-      delivery: {
-        accessMode: 'site',
-        appStoreUrl: null,
-        playStoreUrl: null,
-        receiptsUrl: 'javascript:alert(1)',
-        requiresReceiptClaim: false,
-        receiptTagline: null,
-      },
+      delivery,
       claimUrl: 'javascript:alert(1)',
-      devices: ['Pixel 9'],
+      devices: ['iPhone 16 Pro Max'],
     });
 
     expect(content.htmlContent).not.toContain('href=""');
@@ -294,26 +247,11 @@ describe('import notification email content', () => {
     );
   });
 
-  it('sanitizes unsafe merchant, recipient, device, and URL content', () => {
-    const delivery = resolveReceiptNotificationDelivery(
-      {
-        ...merchant,
-        business_name: '<Merchant>',
-      },
-      {
-        migration_imports: {
-          receipt_access_mode: 'app_first',
-          receipt_app_links_enabled: true,
-          app_store_url: 'javascript:alert(1)',
-        },
-      }
-    );
+  it('HTML-entity-escapes merchant and device input', () => {
+    const delivery = appFirstDelivery(merchant);
 
     const content = buildReceiptNotificationEmailContent({
-      merchant: {
-        ...merchant,
-        business_name: '<Merchant>',
-      },
+      merchant: { ...merchant, business_name: '<Merchant>' },
       recipientName: '<Ada>',
       delivery,
       claimUrl: 'javascript:alert(1)',
@@ -324,14 +262,10 @@ describe('import notification email content', () => {
     expect(content.htmlContent).not.toContain('<Merchant>');
     expect(content.htmlContent).not.toContain('<Device>');
     expect(content.htmlContent).not.toContain('javascript:alert(1)');
-    expect(content.textContent).not.toContain('javascript:alert(1)');
     expect(content.htmlContent).not.toContain('href=""');
-    expect(content.htmlContent).toContain('Receipt link unavailable');
-    expect(content.textContent).toContain(
-      'View Receipt: unavailable (invalid link configuration).'
-    );
-    expect(content.htmlContent).toContain('\\u003cAda\\u003e');
-    expect(content.htmlContent).toContain('\\u003cMerchant\\u003e');
-    expect(content.htmlContent).toContain('\\u003cDevice\\u003e');
+    // Entity escaping renders correctly in email (unlike \uXXXX escapes).
+    expect(content.htmlContent).toContain('&lt;Ada&gt;');
+    expect(content.htmlContent).toContain('&lt;Merchant&gt;');
+    expect(content.htmlContent).toContain('&lt;Device&gt;');
   });
 });

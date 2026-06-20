@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { escapeHtml, isValidUuid, sanitizeText } from '@/lib/sanitize-core';
+import { escapeHtmlAttribute } from '@/lib/sanitize';
+import { isValidUuid, sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
       const formDataRows = Object.entries(formData)
         .map(
           ([key, value]) =>
-            `<tr><td style="padding: 8px; border: 1px solid #eee; font-weight: 500;">${escapeHtml(String(key))}</td><td style="padding: 8px; border: 1px solid #eee;">${escapeHtml(String(value ?? ''))}</td></tr>`
+            `<tr><td style="padding: 8px; border: 1px solid #eee; font-weight: 500;">${escapeHtmlAttribute(String(key))}</td><td style="padding: 8px; border: 1px solid #eee;">${escapeHtmlAttribute(String(value ?? ''))}</td></tr>`
         )
         .join('');
 
