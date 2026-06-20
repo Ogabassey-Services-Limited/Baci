@@ -106,6 +106,7 @@ vi.mock('@/schemas/products', () => ({
 const MERCHANT_ID = 'merchant-123';
 const USER_ID = 'user-123';
 const PRODUCT_ID = 'product-456';
+const VARIANT_ID = '953ba6ff-3e83-403a-a07c-8c5ff54ede98';
 
 let authUser: unknown = { id: USER_ID };
 let merchant: unknown = {
@@ -127,6 +128,7 @@ let lastRpcCall: {
   args: Record<string, unknown>;
 } | null = null;
 let lastProductUpdatePayload: unknown = null;
+const lastVariantDeleteFilters: [string, unknown][] = [];
 
 const createMockSupabase = () => ({
   rpc: vi.fn((functionName: string, args: Record<string, unknown>) => {
@@ -211,32 +213,42 @@ const createMockSupabase = () => ({
       };
     }
     if (table === 'product_variants') {
-      const variantSelectChain = {
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            returns: vi.fn(() =>
-              Promise.resolve({
-                data: variants,
-                error: null,
-              })
-            ),
-          })),
-        })),
+      const variantSelectChain: {
+        eq: ReturnType<typeof vi.fn>;
+        in: ReturnType<typeof vi.fn>;
+        returns: ReturnType<typeof vi.fn>;
+      } = {
+        eq: vi.fn(() => variantSelectChain),
+        in: vi.fn(() => variantSelectChain),
+        returns: vi.fn(() =>
+          Promise.resolve({
+            data: variants,
+            error: null,
+          })
+        ),
+      };
+      let variantDeleteEqCallCount = 0;
+      const variantDeleteChain: {
+        eq: ReturnType<typeof vi.fn>;
+        not: ReturnType<typeof vi.fn>;
+      } = {
+        eq: vi.fn((column: string, value: unknown) => {
+          lastVariantDeleteFilters.push([column, value]);
+          variantDeleteEqCallCount++;
+          return variantDeleteEqCallCount >= 3
+            ? Promise.resolve({ error: deleteError })
+            : variantDeleteChain;
+        }),
+        not: vi.fn(() =>
+          Promise.resolve({
+            error: deleteError,
+          })
+        ),
       };
       return {
         select: vi.fn(() => variantSelectChain),
         eq: vi.fn(() => variantSelectChain),
-        delete: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              not: vi.fn(() =>
-                Promise.resolve({
-                  error: null,
-                })
-              ),
-            })),
-          })),
-        })),
+        delete: vi.fn(() => variantDeleteChain),
         upsert: vi.fn(() =>
           Promise.resolve({
             error: variantUpsertError,
@@ -339,6 +351,7 @@ function resetMocks() {
   variantSyncError = null;
   lastRpcCall = null;
   lastProductUpdatePayload = null;
+  lastVariantDeleteFilters.length = 0;
   csrfValid = true;
 }
 
@@ -705,12 +718,13 @@ describe('PUT /api/products/[id]', () => {
         id: PRODUCT_ID,
         has_variants: true,
       };
+      variants = [{ id: VARIANT_ID }];
 
       const bodyWithVariants = {
         has_variants: true,
         variants: [
           {
-            id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+            id: VARIANT_ID,
             product_id: 'attacker-product',
             merchant_id: 'attacker-merchant',
             attributes: { size: 'L' },
@@ -740,26 +754,18 @@ describe('PUT /api/products/[id]', () => {
           p_merchant_id: MERCHANT_ID,
           p_variants: [
             {
-              id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+              id: VARIANT_ID,
               attributes: { size: 'L' },
-              condition: null,
               price_override: 7000,
-              cost_price: null,
               stock_quantity: 5,
               sku: 'SKU-L',
-              primary_image: null,
-              images: [],
             },
             {
               id: undefined,
               attributes: { size: 'M' },
-              condition: null,
               price_override: 6500,
-              cost_price: null,
               stock_quantity: 2,
               sku: 'SKU-M',
-              primary_image: null,
-              images: [],
             },
           ],
         },
@@ -787,10 +793,6 @@ describe('PUT /api/products/[id]', () => {
         slug: 'product',
         name: 'Product',
       };
-      variantSyncError = {
-        code: 'P0002',
-        message: 'variant_not_found_or_not_owned',
-      };
 
       const res = await PUT(
         makePutRequest(PRODUCT_ID, {
@@ -798,7 +800,7 @@ describe('PUT /api/products/[id]', () => {
           variant_model: 'sku_matrix',
           variants: [
             {
-              id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+              id: VARIANT_ID,
               attributes: { storage: '128GB' },
               condition: 'used',
               price_override: 7000,
@@ -814,8 +816,8 @@ describe('PUT /api/products/[id]', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe('Invalid product variant update');
-      expect(lastProductUpdatePayload).not.toHaveProperty('migration_status');
-      expect(lastProductUpdatePayload).not.toHaveProperty('variant_model');
+      expect(lastProductUpdatePayload).toBeNull();
+      expect(lastRpcCall).toBeNull();
     });
 
     it('does not mark a product as migrated when variant sync fails', async () => {
@@ -917,13 +919,14 @@ describe('PUT /api/products/[id]', () => {
         price: '6000',
         slug: 'updated-product',
       };
+      variants = [{ id: VARIANT_ID }];
 
       const res = await PUT(
         makePutRequest(PRODUCT_ID, {
           name: 'Updated Product',
           variants: [
             {
-              id: 'variant-1',
+              id: VARIANT_ID,
               attributes: { storage: '128GB' },
               price_override: 6000,
               stock_quantity: 5,
@@ -964,6 +967,7 @@ describe('PUT /api/products/[id]', () => {
         has_variants: true,
         variant_model: 'sku_matrix',
       };
+      variants = [{ id: VARIANT_ID }];
 
       const res = await PUT(
         makePutRequest(PRODUCT_ID, {
@@ -971,7 +975,7 @@ describe('PUT /api/products/[id]', () => {
           variant_model: 'sku_matrix',
           variants: [
             {
-              id: 'variant-1',
+              id: VARIANT_ID,
               attributes: { storage: '128GB' },
               condition: 'used',
               price_override: 7000,
@@ -1016,6 +1020,10 @@ describe('PUT /api/products/[id]', () => {
       await res.json();
 
       expect(res.status).toBe(200);
+      expect(lastVariantDeleteFilters).toContainEqual([
+        'is_inventory_anchor',
+        false,
+      ]);
     });
   });
 
