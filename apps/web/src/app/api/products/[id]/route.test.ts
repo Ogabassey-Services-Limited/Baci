@@ -823,6 +823,91 @@ describe('PUT /api/products/[id]', () => {
       });
     });
 
+    it('allows partial sku_matrix variant updates for existing rows', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+      variants = [{ id: VARIANT_ID }];
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: VARIANT_ID,
+              sku: 'SKU-L-UPDATED',
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(lastRpcCall?.args.p_variants).toEqual([
+        {
+          id: VARIANT_ID,
+          sku: 'SKU-L-UPDATED',
+        },
+      ]);
+    });
+
+    it('normalizes uppercase variant IDs before ownership checks and RPC sync', async () => {
+      const uppercaseVariantId = VARIANT_ID.toUpperCase();
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        has_variants: true,
+      };
+      variants = [{ id: VARIANT_ID }];
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variants: [
+            {
+              id: uppercaseVariantId,
+              sku: 'SKU-L-UPDATED',
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(lastRpcCall?.args.p_variants).toEqual([
+        {
+          id: VARIANT_ID,
+          sku: 'SKU-L-UPDATED',
+        },
+      ]);
+    });
+
     it('rejects duplicate variant IDs before applying product updates', async () => {
       product = {
         id: PRODUCT_ID,

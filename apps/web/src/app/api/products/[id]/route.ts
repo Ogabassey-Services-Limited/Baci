@@ -295,11 +295,28 @@ export async function PUT(
         : body.variants !== undefined
           ? body.variants.length > 0
           : existingProduct.has_variants;
+    const skuMatrixVariantsForValidation =
+      existingVariantModel === 'sku_matrix' && variantModel === 'sku_matrix'
+        ? body.variants?.map((variant) => {
+            if (typeof variant.id !== 'string' || variant.id.trim() === '') {
+              return variant;
+            }
+
+            return {
+              condition: Object.hasOwn(variant, 'condition')
+                ? variant.condition
+                : 'new',
+              price_override: Object.hasOwn(variant, 'price_override')
+                ? variant.price_override
+                : 0,
+            };
+          })
+        : body.variants;
     const skuMatrixValidationError = shouldValidateSkuMatrixInput
       ? getSkuMatrixValidationError({
           variantModel,
           hasVariants: nextHasVariants,
-          variants: body.variants,
+          variants: skuMatrixVariantsForValidation,
         })
       : null;
 
@@ -547,7 +564,11 @@ export async function PUT(
       ) => Object.hasOwn(variant, key);
 
       variantsToSync = body.variants.map((variant: RequestVariant) => {
-        const payload: Record<string, unknown> = { id: variant.id };
+        const normalizedVariantId =
+          typeof variant.id === 'string'
+            ? variant.id.toLowerCase()
+            : variant.id;
+        const payload: Record<string, unknown> = { id: normalizedVariantId };
         if (variantHasOwn(variant, 'attributes')) {
           payload.attributes = variant.attributes ?? {};
         }

@@ -134,6 +134,24 @@ describe('product schemas', () => {
     expect(updated.variants?.[0]).not.toHaveProperty('stock_quantity');
   });
 
+  it('lets update payloads carry partial sku_matrix variant rows', () => {
+    const updated = updateProductSchema.parse({
+      has_variants: true,
+      variant_model: 'sku_matrix',
+      variants: [
+        {
+          id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+          sku: 'SKU-M',
+        },
+      ],
+    });
+
+    expect(updated.variants?.[0]).toEqual({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      sku: 'SKU-M',
+    });
+  });
+
   it('rejects update payloads with invalid field types', () => {
     expect(() =>
       updateProductSchema.parse({
