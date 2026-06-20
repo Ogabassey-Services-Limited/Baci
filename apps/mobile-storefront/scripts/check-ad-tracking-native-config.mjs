@@ -191,6 +191,12 @@ function validateXcodeProject(projectSource) {
   if (!projectSource.includes('refusing to continue without Facebook SDK plist injection')) {
     failures.push('missing Release fail-closed guard for Facebook SDK plist injection');
   }
+  if (projectSource.includes('CFBundleURLTypes:2:CFBundleURLSchemes:0')) {
+    failures.push('Facebook URL scheme injection must not depend on a hardcoded CFBundleURLTypes array index');
+  }
+  if (!projectSource.includes('plistlib.load') || !projectSource.includes('scheme.startswith')) {
+    failures.push('missing order-independent Facebook URL scheme plist injection');
+  }
 
   return failures;
 }
