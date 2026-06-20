@@ -229,14 +229,11 @@ export function SearchAutocomplete({
       aria-busy={loading}
       tabIndex={-1}
     >
-      <div className="group relative">
-        <Search
-          // Tint via CSS :focus-within (group) — no React state/re-render.
-          // z-20 keeps the icon above the input, which gains `z-10` on
-          // focus-visible (otherwise the input background covers the glass).
-          className="pointer-events-none absolute left-4 top-1/2 z-20 size-5 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-[color:var(--store-primary,var(--ogabassey-brand))]"
-          aria-hidden="true"
-        />
+      <div className="relative">
+        {/* Geometry, z-index and focus-within tint come from core CSS
+            (.ogabassey-navbar-search__icon) so they apply on every route,
+            including PDP whose stylesheet does not source this component. */}
+        <Search className="ogabassey-navbar-search__icon" aria-hidden="true" />
         <Input
           ref={inputRef}
           type="search"

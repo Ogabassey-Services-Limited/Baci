@@ -309,10 +309,13 @@
       color-mix(in srgb, var(--ogabassey-brand) 28%, transparent);
   }
 
-  /* Fallback (non-hydrated) form icon only. The hydrated SearchAutocomplete
-     component centres + sizes its own icon via Tailwind; styling it here too
-     stacked a CSS `transform: translateY(-50%)` on top of Tailwind's
-     `translate` property, shifting the glass 8px above centre. */
+  /* Shared by the non-hydrated fallback form AND the hydrated
+     SearchAutocomplete icon. Styling lives here (core CSS, loaded on every
+     storefront route) rather than as Tailwind utilities on the component,
+     because route stylesheets like storefront-pdp.css use
+     `@import "tailwindcss" source(none)` and do not source that component, so
+     its utilities would not be generated on a direct PDP load. z-index sits
+     above the input's focus-visible z-10 so the glass is never covered. */
   .ogabassey-navbar-search__icon {
     color: color-mix(
       in srgb,
@@ -325,8 +328,14 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
+    transition: color 0.15s ease;
     width: 1.25rem;
-    z-index: 1;
+    z-index: 20;
+  }
+
+  /* Tint the glass with the merchant brand colour while the search is focused. */
+  .ogabassey-navbar-search:focus-within .ogabassey-navbar-search__icon {
+    color: var(--store-primary, var(--ogabassey-brand));
   }
 
   .ogabassey-navbar__desktop-actions {

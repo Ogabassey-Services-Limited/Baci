@@ -67,7 +67,7 @@ describe('SearchAutocomplete', () => {
     expect(typeof SearchAutocomplete).toBe('function');
   });
 
-  it('wires the search icon to tint with the brand colour on focus-within', () => {
+  it('styles the search icon via the shared core CSS class (route-independent)', () => {
     const { container } = render(
       <SearchAutocomplete
         merchantId="test-merchant"
@@ -76,17 +76,17 @@ describe('SearchAutocomplete', () => {
       />
     );
     const icon = container.querySelector('svg.lucide-search');
-    const iconWrapper = icon?.parentElement;
 
-    // CSS-only tint: muted by default, brand colour via group-focus-within.
-    // JSDOM cannot compute :focus-within, so assert the wiring, not the paint.
-    expect(iconWrapper?.getAttribute('class')).toContain('group');
-    expect(icon?.getAttribute('class')).toContain('text-muted-foreground');
+    // Geometry, z-index and the :focus-within brand tint live in core CSS
+    // (.ogabassey-navbar-search__icon), which is loaded on every storefront
+    // route — unlike Tailwind utilities, which PDP's source(none) stylesheet
+    // would not generate for this lazy-loaded component.
     expect(icon?.getAttribute('class')).toContain(
-      'group-focus-within:text-[color:var(--store-primary,var(--ogabassey-brand))]'
+      'ogabassey-navbar-search__icon'
     );
-    // z-20 keeps it above the input, which gains z-10 on focus-visible.
-    expect(icon?.getAttribute('class')).toContain('z-20');
+    // No Tailwind geometry utilities (they would be missing on PDP routes).
+    expect(icon?.getAttribute('class')).not.toContain('group-focus-within');
+    expect(icon?.getAttribute('class')).not.toMatch(/\bz-20\b/);
   });
 
   it('shows clear button when value is present', () => {
