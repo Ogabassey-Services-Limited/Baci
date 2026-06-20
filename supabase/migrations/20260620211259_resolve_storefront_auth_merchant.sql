@@ -18,11 +18,9 @@ SECURITY DEFINER
 SET search_path TO ''
 AS $$
   WITH normalized_input AS (
-    SELECT
-      CASE
-        WHEN p_identifier IS NULL OR octet_length(p_identifier) > 254 THEN ''
-        ELSE lower(trim(p_identifier))
-      END AS identifier
+    SELECT lower(trim(p_identifier)) AS identifier
+    WHERE p_identifier IS NOT NULL
+      AND octet_length(p_identifier) <= 254
   ),
   slug_match AS (
     SELECT
