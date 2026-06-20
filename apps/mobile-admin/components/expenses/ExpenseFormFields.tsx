@@ -4,7 +4,6 @@ import type { ExpenseCategory } from '@/components/expenses/expense-categories';
 import { expenseFormStyles } from '@/components/expenses/expense-form.styles';
 import SafeImage from '@/components/ui/SafeImage';
 import { useTheme } from '@/hooks/useTheme';
-import { useCurrency } from '@/hooks/useCurrency';
 
 const CATEGORY_PLACEHOLDER = 'Select a category';
 
@@ -30,7 +29,6 @@ export function ExpenseFormFields({
   selectedCategory,
 }: ExpenseFormFieldsProps) {
   const { colors } = useTheme();
-  const { symbol } = useCurrency();
   const formattedAmount = amount
     ? amount.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
     : '';
@@ -57,7 +55,7 @@ export function ExpenseFormFields({
           <Text
             style={[expenseFormStyles.currencyPrefix, { color: colors.text }]}
           >
-            {symbol}
+            ₦
           </Text>
           <TextInput
             accessibilityLabel="Expense amount"

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockFrom, mockGetUser, mockResolveStorefrontAuthMerchant, mockRpc } =
+const { mockFrom, mockGetMerchantByIdentifier, mockGetUser, mockRpc } =
   vi.hoisted(() => ({
     mockFrom: vi.fn(),
+    mockGetMerchantByIdentifier: vi.fn(),
     mockGetUser: vi.fn(),
-    mockResolveStorefrontAuthMerchant: vi.fn(),
     mockRpc: vi.fn(),
   }));
 
@@ -20,9 +20,9 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
-vi.mock('../resolve-storefront-auth-merchant', () => ({
-  resolveStorefrontAuthMerchant: (...args: unknown[]) =>
-    mockResolveStorefrontAuthMerchant(...args),
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
 }));
 
 import { GET } from './route';
@@ -92,7 +92,7 @@ const customer = {
 describe('GET /api/storefront/auth/session', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockResolveStorefrontAuthMerchant.mockResolvedValue(merchant);
+    mockGetMerchantByIdentifier.mockResolvedValue(merchant);
     mockRpc.mockResolvedValue({ data: 'customer-1', error: null });
   });
 
@@ -154,7 +154,7 @@ describe('GET /api/storefront/auth/session', () => {
       data: { user },
       error: null,
     });
-    mockResolveStorefrontAuthMerchant.mockResolvedValue(null);
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
 
     const response = await GET(makeRequest('nonexistent'));
     const body = await response.json();
@@ -170,6 +170,7 @@ describe('GET /api/storefront/auth/session', () => {
       error: null,
     });
 
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
     const missingCustomerChain = makeSelectChain({
       data: null,
       error: { code: 'PGRST116', message: 'No rows found' },
@@ -181,6 +182,7 @@ describe('GET /api/storefront/auth/session', () => {
 
     let customerLookupCount = 0;
     mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
       if (table === 'customers') {
         customerLookupCount += 1;
         return customerLookupCount === 1
@@ -221,6 +223,7 @@ describe('GET /api/storefront/auth/session', () => {
       error: null,
     });
 
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
     const missingCustomerChain = makeSelectChain({
       data: null,
       error: { code: 'PGRST116', message: 'No rows found' },
@@ -232,6 +235,7 @@ describe('GET /api/storefront/auth/session', () => {
 
     let customerLookupCount = 0;
     mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
       if (table === 'customers') {
         customerLookupCount += 1;
         return customerLookupCount === 1
@@ -284,6 +288,7 @@ describe('GET /api/storefront/auth/session', () => {
       error: null,
     });
 
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
     const missingCustomerChain = makeSelectChain({
       data: null,
       error: { code: 'PGRST116', message: 'No rows found' },
@@ -295,6 +300,7 @@ describe('GET /api/storefront/auth/session', () => {
 
     let customerLookupCount = 0;
     mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
       if (table === 'customers') {
         customerLookupCount += 1;
         return customerLookupCount === 1
@@ -336,6 +342,7 @@ describe('GET /api/storefront/auth/session', () => {
       error: null,
     });
 
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
     const missingCustomerChain = makeSelectChain({
       data: null,
       error: { code: 'PGRST116', message: 'No rows found' },
@@ -347,6 +354,7 @@ describe('GET /api/storefront/auth/session', () => {
 
     let customerLookupCount = 0;
     mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
       if (table === 'customers') {
         customerLookupCount += 1;
         return customerLookupCount === 1
@@ -378,6 +386,7 @@ describe('GET /api/storefront/auth/session', () => {
       error: null,
     });
 
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
     const missingCustomerChain = makeSelectChain({
       data: null,
       error: { code: 'PGRST116', message: 'No rows found' },
@@ -393,6 +402,7 @@ describe('GET /api/storefront/auth/session', () => {
 
     let customerLookupCount = 0;
     mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
       if (table === 'customers') {
         customerLookupCount += 1;
         if (customerLookupCount === 1) return missingCustomerChain;
@@ -426,9 +436,11 @@ describe('GET /api/storefront/auth/session', () => {
       error: null,
     });
 
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
     const customerChain = makeSelectChain({ data: customer, error: null });
 
     mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
       if (table === 'customers') return customerChain;
       throw new Error(`Unexpected table: ${table}`);
     });

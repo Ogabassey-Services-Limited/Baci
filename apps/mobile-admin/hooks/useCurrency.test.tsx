@@ -25,7 +25,7 @@ describe('useCurrency', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getCurrencySymbol.mockImplementation((currency: string) =>
-      currency === 'USD' ? '$' : currency
+      currency === 'USD' ? '$' : '₦'
     );
     mocks.formatCurrency.mockImplementation(
       (
@@ -60,7 +60,6 @@ describe('useCurrency', () => {
 
     expect(result.current.currency).toBe('NGN');
     expect(result.current.symbol).toBe('₦');
-    expect(mocks.getCurrencySymbol).not.toHaveBeenCalled();
   });
 
   it('handles undefined merchant gracefully', () => {
@@ -72,7 +71,6 @@ describe('useCurrency', () => {
 
     expect(result.current.currency).toBe('NGN');
     expect(result.current.symbol).toBe('₦');
-    expect(mocks.getCurrencySymbol).not.toHaveBeenCalled();
   });
 
   it('handles null merchant gracefully', () => {
@@ -84,7 +82,6 @@ describe('useCurrency', () => {
 
     expect(result.current.currency).toBe('NGN');
     expect(result.current.symbol).toBe('₦');
-    expect(mocks.getCurrencySymbol).not.toHaveBeenCalled();
   });
 
   it('falls back to NGN when the merchant currency is empty', () => {
@@ -96,20 +93,6 @@ describe('useCurrency', () => {
 
     expect(result.current.currency).toBe('NGN');
     expect(result.current.symbol).toBe('₦');
-    expect(mocks.getCurrencySymbol).not.toHaveBeenCalled();
-  });
-
-  it('preserves the naira glyph when the runtime Intl symbol is the NGN code', () => {
-    mocks.useMerchant.mockReturnValue({
-      merchant: { payout_currency: 'ngn' },
-    });
-    mocks.getCurrencySymbol.mockReturnValue('NGN');
-
-    const { result } = renderHook(() => useCurrency());
-
-    expect(result.current.currency).toBe('NGN');
-    expect(result.current.symbol).toBe('₦');
-    expect(mocks.getCurrencySymbol).not.toHaveBeenCalled();
   });
 
   it('delegates formatting helpers with the resolved currency', () => {

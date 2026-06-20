@@ -5,9 +5,6 @@ import {
   getCurrencySymbol,
 } from '@/lib/utils';
 
-const DEFAULT_CURRENCY = 'NGN';
-const NIGERIAN_NAIRA_SYMBOL = '₦';
-
 export interface CurrencyFormatter {
   /** ISO-4217 currency code resolved from merchant settings. */
   currency: string;
@@ -29,17 +26,11 @@ export interface CurrencyFormatter {
  */
 export function useCurrency(): CurrencyFormatter {
   const { merchant } = useMerchant();
-  const currency = (
-    merchant?.payout_currency?.trim() || DEFAULT_CURRENCY
-  ).toUpperCase();
-  const symbol =
-    currency === DEFAULT_CURRENCY
-      ? NIGERIAN_NAIRA_SYMBOL
-      : getCurrencySymbol(currency);
+  const currency = merchant?.payout_currency?.trim() || 'NGN';
 
   return {
     currency,
-    symbol,
+    symbol: getCurrencySymbol(currency),
     format: (amount: number, options?: Partial<Intl.NumberFormatOptions>) =>
       formatCurrency(amount, options, currency),
     formatCompact: (amount: number) =>
