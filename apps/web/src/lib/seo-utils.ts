@@ -4,6 +4,7 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
+import type { CollectionPage, WithContext } from 'schema-dts';
 import {
   type CheckoutPaymentMerchant,
   isBankTransferCheckoutAvailable,
@@ -1984,6 +1985,9 @@ export function generateMetaDescription(
  * Generates CollectionPage schema for product listing pages (categories, collections)
  * @see https://schema.org/CollectionPage
  */
+export type CollectionPageJsonLdSchema = WithContext<CollectionPage> &
+  Record<string, unknown>;
+
 export interface CollectionPageData {
   name: string;
   description?: string;
@@ -2013,7 +2017,7 @@ function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
  */
 export function generateCollectionPageSchema(
   data: CollectionPageData
-): Record<string, unknown> {
+): CollectionPageJsonLdSchema {
   const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
   const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
   const currency = data.currency || 'NGN';
@@ -2028,7 +2032,7 @@ export function generateCollectionPageSchema(
     data.trustProfile
   );
 
-  return {
+  const schema = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: escapeHtml(data.name),
@@ -2078,6 +2082,11 @@ export function generateCollectionPageSchema(
       }),
     },
   };
+
+  // Nested offer, shipping, and return-policy helpers intentionally remain
+  // dynamic records because they are shared across multiple schema builders;
+  // this generator fixes the top-level Schema.org document type for JsonLd.
+  return schema as unknown as CollectionPageJsonLdSchema;
 }
 
 /**
