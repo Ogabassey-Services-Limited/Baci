@@ -46,16 +46,24 @@ vi.mock('react-native-reanimated', () => {
     },
     default: {
       View: ({
+        accessibilityRole,
         children,
+        pointerEvents,
         style,
         testID,
       }: {
+        accessibilityRole?: string;
         children?: ReactNode;
         pointerEvents?: string;
         style?: unknown;
         testID?: string;
       }) => (
-        <div data-style={JSON.stringify(style)} data-testid={testID}>
+        <div
+          data-pointer-events={pointerEvents}
+          data-style={JSON.stringify(style)}
+          data-testid={testID}
+          role={accessibilityRole === 'tablist' ? 'tablist' : undefined}
+        >
           {children}
         </div>
       ),
@@ -115,16 +123,62 @@ vi.mock('react-native', () => {
     ),
     useWindowDimensions: () => ({ height: 844, width: 390 }),
     View: ({
+      accessibilityRole,
       children,
+      pointerEvents,
+      style,
       testID,
     }: {
+      accessibilityRole?: string;
       children?: ReactNode;
       pointerEvents?: string;
       style?: unknown;
       testID?: string;
-    }) => <div data-testid={testID}>{children}</div>,
+    }) => (
+      <div
+        data-pointer-events={pointerEvents}
+        data-style={JSON.stringify(style)}
+        data-testid={testID}
+        role={accessibilityRole === 'tablist' ? 'tablist' : undefined}
+      >
+        {children}
+      </div>
+    ),
   };
 });
+
+function getRenderedElementStyle(element: Element) {
+  const styleAttribute = element.getAttribute('data-style');
+  return styleAttribute ? JSON.parse(styleAttribute) : null;
+}
+
+function getRenderedChildStyles(testID: string) {
+  return Array.from(
+    screen.getByTestId(testID).querySelectorAll('[data-style]')
+  )
+    .map((element) => element.getAttribute('data-style'))
+    .filter((styleAttribute): styleAttribute is string =>
+      Boolean(styleAttribute)
+    )
+    .map((styleAttribute) => JSON.parse(styleAttribute));
+}
+
+function styleContains(
+  style: unknown,
+  expected: Record<string, unknown>
+): boolean {
+  if (Array.isArray(style)) {
+    return style.some((entry) => styleContains(entry, expected));
+  }
+
+  if (!style || typeof style !== 'object') {
+    return false;
+  }
+
+  return Object.entries(expected).every(
+    ([key, value]) => (style as Record<string, unknown>)[key] === value
+  );
+}
 
 function createProps(): BottomTabBarProps {
   const routes = [
@@ -217,6 +271,48 @@ describe('AdminFloatingTabBar', () => {
         ]),
       })
     );
+  });
+
+  it('floats as a transparent overlay instead of painting a footer behind the bar', () => {
+    render(<AdminFloatingTabBar {...createProps()} />);
+
+    const wrapperStyle = getRenderedElementStyle(screen.getByRole('tablist'));
+
+    expect(
+      styleContains(wrapperStyle, {
+        backgroundColor: 'transparent',
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+      })
+    ).toBe(true);
+  });
+
+  it('lets touches outside the floating bar pass through the transparent overlay', () => {
+    render(<AdminFloatingTabBar {...createProps()} />);
+
+    expect(screen.getByRole('tablist')).toHaveAttribute(
+      'data-pointer-events',
+      'box-none'
+    );
+  });
+
+  it('does not render the thin glass highlight strip over the tab bar', () => {
+    render(<AdminFloatingTabBar {...createProps()} />);
+
+    const childStyles = getRenderedChildStyles('admin-floating-tab-bar');
+
+    expect(
+      childStyles.some((style) =>
+        styleContains(style, {
+          height: 16,
+          left: 14,
+          right: 14,
+          top: 2,
+        })
+      )
+    ).toBe(false);
   });
 
   it('jumps to the pressed tab immediately on press-in', () => {
