@@ -17,6 +17,7 @@ const merchant: MerchantNotificationContext = {
   support_email: 'support@ogabassey.com',
   email_sender_name: 'Ogabassey',
   email: 'hello@ogabassey.com',
+  brand_colors: { primary: '#d71920' },
 };
 
 describe('import notification email content', () => {
@@ -25,6 +26,7 @@ describe('import notification email content', () => {
       migration_imports: {
         receipt_access_mode: 'app_first',
         receipt_app_links_enabled: true,
+        receipt_tagline: 'Ogabassey Never Disappoints!',
       },
     });
 
@@ -38,25 +40,72 @@ describe('import notification email content', () => {
 
     expect(delivery.accessMode).toBe('app_first');
     expect(delivery.requiresReceiptClaim).toBe(true);
+    expect(delivery.receiptTagline).toBe('Ogabassey Never Disappoints!');
     expect(content.subject).toBe('Your Receipt has Changed.');
     expect(content.htmlContent).toContain('Hello Ada,');
     expect(content.htmlContent).toContain(
       'Ogabassey has moved your receipt for the following device(s) to the mobile app'
     );
-    expect(content.htmlContent).toContain('Ogabassey Receipt Vault');
-    expect(content.htmlContent).toContain('Receipt moved to app');
-    expect(content.htmlContent).toContain('Device receipts');
-    expect(content.htmlContent).toContain('box-shadow');
+    expect(content.htmlContent).toContain('Digital receipt update');
+    expect(content.htmlContent).toContain('>OG<');
+    expect(content.htmlContent).toContain('background: #d71920');
+    expect(content.htmlContent).toContain(
+      'This ensures you can access the receipts for your devices purchased from us'
+    );
+    expect(content.htmlContent).toContain('Thank you for choosing Ogabassey');
+    expect(content.htmlContent).toContain('Ogabassey Never Disappoints!');
+    expect(content.htmlContent).toContain(
+      'https://ogabassey.usebaci.com/contact'
+    );
+    expect(content.htmlContent).toContain('>contact us</a>');
+    expect(content.htmlContent).toContain('border-bottom: 1px dashed');
     expect(content.htmlContent).toContain('iPhone 16 Pro Max');
     expect(content.htmlContent).toContain('2 x AirPods Pro');
     expect(content.htmlContent).toContain(
       'https://ogabassey.com/receipts/claim/claim-token'
     );
-    expect(content.htmlContent).toContain('background: #111827');
-    expect(content.htmlContent).toContain('background: #dc2626');
+    expect(content.htmlContent).toContain('prefers-color-scheme:dark');
+    expect(content.htmlContent).toContain('class="receipt-card"');
+    expect(content.htmlContent).toContain('class="receipt-link"');
+    expect(content.htmlContent).not.toContain('This keeps your receipt');
+    expect(content.htmlContent).not.toContain('View your receipt</a>');
     expect(content.htmlContent).not.toContain('#e11d2e');
     expect(content.htmlContent).not.toContain('#fff7f7');
     expect(content.htmlContent).not.toContain('#f0d7d7');
+  });
+
+  it('derives app-first branding from the merchant instead of Ogabassey defaults', () => {
+    const futureMerchant: MerchantNotificationContext = {
+      ...merchant,
+      slug: 'future-merchant',
+      business_name: 'Future Merchant',
+      support_email: 'support@futuremerchant.com',
+      email_sender_name: 'Future Merchant',
+      email: 'hello@futuremerchant.com',
+      brand_colors: { primary: '#2563eb' },
+    };
+    const delivery = resolveReceiptNotificationDelivery(futureMerchant, {
+      migration_imports: {
+        receipt_access_mode: 'app_first',
+        receipt_app_links_enabled: true,
+      },
+    });
+
+    const content = buildReceiptNotificationEmailContent({
+      merchant: futureMerchant,
+      recipientName: 'Ada',
+      delivery,
+      claimUrl: 'https://futuremerchant.com/receipts/claim/claim-token',
+      devices: ['Pixel 9'],
+    });
+
+    expect(content.htmlContent).toContain('>FM<');
+    expect(content.htmlContent).toContain('background: #2563eb');
+    expect(content.htmlContent).toContain('Future Merchant');
+    expect(content.htmlContent).not.toContain('>OG<');
+    expect(content.htmlContent).not.toContain('#d71920');
+    expect(content.htmlContent).not.toContain('Ogabassey Never Disappoints');
+    expect(content.textContent).not.toContain('Ogabassey Never Disappoints');
   });
 
   it('defaults to site-mode receipt links and honors a custom receipt path', () => {
@@ -231,6 +280,7 @@ describe('import notification email content', () => {
         playStoreUrl: null,
         receiptsUrl: 'javascript:alert(1)',
         requiresReceiptClaim: false,
+        receiptTagline: null,
       },
       claimUrl: 'javascript:alert(1)',
       devices: ['Pixel 9'],
@@ -278,7 +328,7 @@ describe('import notification email content', () => {
     expect(content.htmlContent).not.toContain('href=""');
     expect(content.htmlContent).toContain('Receipt link unavailable');
     expect(content.textContent).toContain(
-      'View your receipt: unavailable (invalid link configuration).'
+      'View Receipt: unavailable (invalid link configuration).'
     );
     expect(content.htmlContent).toContain('\\u003cAda\\u003e');
     expect(content.htmlContent).toContain('\\u003cMerchant\\u003e');
