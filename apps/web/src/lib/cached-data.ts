@@ -2817,10 +2817,16 @@ function getHomeProductPrice(
 function compareHomeProductRecency<
   T extends StorefrontHomeProductRecencyCandidate,
 >(first: T, second: T): number {
-  return (
-    getHomeProductRecencyTime(second) - getHomeProductRecencyTime(first) ||
-    getHomeProductPrice(second) - getHomeProductPrice(first)
-  );
+  const firstUpdatedAt = getHomeProductRecencyTime(first);
+  const secondUpdatedAt = getHomeProductRecencyTime(second);
+
+  if (firstUpdatedAt !== secondUpdatedAt) {
+    if (firstUpdatedAt === Number.NEGATIVE_INFINITY) return 1;
+    if (secondUpdatedAt === Number.NEGATIVE_INFINITY) return -1;
+    return secondUpdatedAt - firstUpdatedAt;
+  }
+
+  return getHomeProductPrice(second) - getHomeProductPrice(first);
 }
 
 /**
@@ -2962,20 +2968,21 @@ export async function getCachedStorefrontHomeProducts(
       .order('price', { ascending: false })
       .limit(STOREFRONT_HOME_PRODUCT_LIMIT);
 
-    const [
-      { data: phoneCandidates, error: phoneCandidatesError },
-      {
-        data: directCategoryPhoneCandidates,
-        error: directCategoryPhoneCandidatesError,
-      },
-      { data: relationPhoneCandidates, error: relationPhoneCandidatesError },
-      { data: recentProducts, error: recentProductsError },
-    ] = await Promise.all([
-      phoneCandidatesQuery,
-      directCategoryPhoneCandidatesQuery,
-      relationPhoneCandidatesQuery,
-      recentProductsQuery,
-    ]);
+    // Keep these awaits sequential instead of Promise.all: this path is remote
+    // cached, and a cold cache miss should not spend four PostgREST/Postgres
+    // connections at once for one homepage request.
+    const { data: phoneCandidates, error: phoneCandidatesError } =
+      await phoneCandidatesQuery;
+    const {
+      data: directCategoryPhoneCandidates,
+      error: directCategoryPhoneCandidatesError,
+    } = await directCategoryPhoneCandidatesQuery;
+    const {
+      data: relationPhoneCandidates,
+      error: relationPhoneCandidatesError,
+    } = await relationPhoneCandidatesQuery;
+    const { data: recentProducts, error: recentProductsError } =
+      await recentProductsQuery;
 
     const error =
       phoneCandidatesError ||
