@@ -47,6 +47,74 @@ function escapeHtmlAttr(value: string): string {
   );
 }
 
+function readHtmlTagAttribute(
+  tag: string,
+  attributeName: string
+): string | null {
+  const openTagMatch = /^<\s*[a-z][a-z0-9-]*/i.exec(tag);
+  if (!openTagMatch) {
+    return null;
+  }
+
+  const targetName = attributeName.toLowerCase();
+  let index = openTagMatch[0].length;
+
+  while (index < tag.length) {
+    while (index < tag.length && /\s/.test(tag[index] ?? '')) {
+      index += 1;
+    }
+
+    const char = tag[index];
+    if (!char || char === '>' || (char === '/' && tag[index + 1] === '>')) {
+      break;
+    }
+
+    const nameStart = index;
+    while (index < tag.length && !/[\s=/>]/.test(tag[index] ?? '')) {
+      index += 1;
+    }
+
+    const name = tag.slice(nameStart, index).toLowerCase();
+
+    while (index < tag.length && /\s/.test(tag[index] ?? '')) {
+      index += 1;
+    }
+
+    let value = '';
+    if (tag[index] === '=') {
+      index += 1;
+      while (index < tag.length && /\s/.test(tag[index] ?? '')) {
+        index += 1;
+      }
+
+      const quote = tag[index];
+      if (quote === '"' || quote === "'") {
+        index += 1;
+        const valueStart = index;
+        while (index < tag.length && tag[index] !== quote) {
+          index += 1;
+        }
+        value = tag.slice(valueStart, index);
+        if (tag[index] === quote) {
+          index += 1;
+        }
+      } else {
+        const valueStart = index;
+        while (index < tag.length && !/[\s>]/.test(tag[index] ?? '')) {
+          index += 1;
+        }
+        value = tag.slice(valueStart, index);
+      }
+    }
+
+    if (name === targetName) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 export function unescapeHtmlText(value: string): string {
   if (!value) return '';
   return value.replace(HTML_TEXT_UNESCAPE_REGEX, (match) => {
@@ -254,8 +322,7 @@ export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
   // Quote-aware <img> match: tolerate a literal `>` inside a quoted attribute
   // value (e.g. alt text) instead of truncating on the first `>`.
   return html.replace(/<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi, (imgTag) => {
-    const srcMatch = imgTag.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
-    const src = srcMatch?.[2];
+    const src = readHtmlTagAttribute(imgTag, 'src');
     if (!src || !isTrustedCdnInlineImage(src)) {
       return imgTag;
     }

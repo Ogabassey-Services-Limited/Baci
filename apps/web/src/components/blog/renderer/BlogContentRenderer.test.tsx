@@ -790,6 +790,31 @@ describe('BlogContentRenderer', () => {
       expect(img?.getAttribute('alt')).toBe('Speaker');
     });
 
+    it('prioritizes the first trusted inline image and lazy-loads later inline images', () => {
+      const firstSrc =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
+      const secondSrc =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-2.png';
+      const { container } = render(
+        <BlogContentRenderer
+          json={doc(
+            paragraph(textNode('Intro')),
+            { type: 'image', attrs: { src: firstSrc, alt: 'First inline' } },
+            { type: 'image', attrs: { src: secondSrc, alt: 'Second inline' } }
+          )}
+        />
+      );
+
+      const images = Array.from(container.querySelectorAll('picture img'));
+      expect(images).toHaveLength(2);
+      expect(images[0]).toHaveAttribute('src', firstSrc);
+      expect(images[0]).toHaveAttribute('fetchpriority', 'high');
+      expect(images[0]).toHaveAttribute('loading', 'eager');
+      expect(images[1]).toHaveAttribute('src', secondSrc);
+      expect(images[1]).not.toHaveAttribute('fetchpriority');
+      expect(images[1]).toHaveAttribute('loading', 'lazy');
+    });
+
     it('renders non-CDN images without a <picture> wrapper', () => {
       const { container } = render(
         <BlogContentRenderer json={makeImageDoc('https://example.com/x.png')} />

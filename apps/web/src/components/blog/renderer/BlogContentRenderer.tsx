@@ -45,6 +45,7 @@ interface NodeRendererProps {
   merchantSlug?: string;
   node: TipTapNode;
   index: number;
+  priorityInlineImageSrc?: string | null;
 }
 
 interface BlogContentRendererProps {
@@ -161,6 +162,7 @@ const NodeRenderer = ({
   merchantSlug,
   node,
   index: _index,
+  priorityInlineImageSrc,
 }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer
@@ -171,6 +173,7 @@ const NodeRenderer = ({
       merchantSlug={merchantSlug}
       node={child}
       index={i}
+      priorityInlineImageSrc={priorityInlineImageSrc}
     />
   ));
 
@@ -260,6 +263,8 @@ const NodeRenderer = ({
       const inlineSiblings = isTrustedCdnInlineImage(imageSrc)
         ? buildInlineImageSiblings(imageSrc)
         : null;
+      const isPriorityInlineImage =
+        !!inlineSiblings && imageSrc === priorityInlineImageSrc;
       const imageContainer = (
         <div
           className={cn(
@@ -279,7 +284,8 @@ const NodeRenderer = ({
                 alt={imageAlt}
                 className="absolute inset-0 h-full w-full object-cover"
                 decoding="async"
-                loading="lazy"
+                fetchPriority={isPriorityInlineImage ? 'high' : undefined}
+                loading={isPriorityInlineImage ? 'eager' : 'lazy'}
               />
             </picture>
           ) : (
@@ -410,6 +416,25 @@ function parseBlogDoc(json: unknown): ParsedBlogDoc {
   return { kind: 'fallback' };
 }
 
+function findFirstTrustedInlineImageSrc(node: TipTapNode): string | null {
+  if (node.type === 'image') {
+    const rawSrc = node.attrs?.src;
+    const src = typeof rawSrc === 'string' ? sanitizeUrl(rawSrc) : '';
+    if (src?.startsWith('http') && isTrustedCdnInlineImage(src)) {
+      return src;
+    }
+  }
+
+  for (const child of node.content ?? []) {
+    const found = findFirstTrustedInlineImageSrc(child);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
 export const BlogContentRenderer = ({
   json,
   basePath,
@@ -432,6 +457,7 @@ export const BlogContentRenderer = ({
         merchantSlug={merchantSlug}
         node={parsed.doc}
         index={0}
+        priorityInlineImageSrc={findFirstTrustedInlineImageSrc(parsed.doc)}
       />
     </div>
   );

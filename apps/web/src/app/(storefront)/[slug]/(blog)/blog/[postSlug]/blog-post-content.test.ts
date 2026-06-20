@@ -508,6 +508,14 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(out).toContain(`<img src="${CDN}" alt="value a > b" />`);
   });
 
+  it('does not treat data-src or quoted text as the real src attribute', () => {
+    const dataSrcOnly = `<img data-src="${CDN}" alt="Speaker" />`;
+    expect(wrapTrustedCdnInlineImagesInPicture(dataSrcOnly)).toBe(dataSrcOnly);
+
+    const srcInAlt = `<img src="https://example.com/fallback.png" alt="code sample src='${CDN}'" />`;
+    expect(wrapTrustedCdnInlineImagesInPicture(srcInAlt)).toBe(srcInAlt);
+  });
+
   it('does not double-escape ampersands already escaped by the sanitizer', () => {
     // src is captured from sanitized HTML, so `&` is already `&amp;`.
     const src = `${CDN}?v=1&amp;x=2`;
