@@ -13,7 +13,12 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
  * is missing the browser falls back to the original `<img>` PNG, so the rewrite
  * is always safe.
  */
-const INLINE_IMAGE_PATH_PATTERN = /\/inline-\d+\.png(?:[?#]|$)/i;
+// Codex inline images are named `inline-<n>.<ext>` (legacy) or
+// `inline-<n>-<hash>.<ext>` (current), where <ext> is png/jpg/jpeg — the
+// publisher generates `.avif`/`.webp` siblings for all of these. Match the full
+// `inline-` family; anchor on the extension so sibling URLs (…png.avif) and
+// non-inline images (featured variants) are excluded.
+const INLINE_IMAGE_PATH_PATTERN = /\/inline-[^/?#]+\.(?:png|jpe?g)(?:[?#]|$)/i;
 
 function getTrustedCdnOrigin(): string {
   // Match the origin the rest of the blog media helpers use

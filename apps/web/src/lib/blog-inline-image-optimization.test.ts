@@ -8,14 +8,27 @@ const CDN = 'https://cdn.ogabassey.com';
 const INLINE = `${CDN}/image/format=auto/core-assets/blog/codex/post-token/inline-1.png`;
 
 describe('isTrustedCdnInlineImage', () => {
-  it('accepts trusted CDN inline png URLs', () => {
+  it('accepts trusted CDN inline images (plain, hashed, png/jpg)', () => {
     expect(isTrustedCdnInlineImage(INLINE)).toBe(true);
     expect(
       isTrustedCdnInlineImage(`${CDN}/core-assets/blog/x/inline-12.png`)
     ).toBe(true);
+    // Current codex naming: inline-<n>-<hash>.png
+    expect(
+      isTrustedCdnInlineImage(
+        `${CDN}/core-assets/blog/x/inline-2-b9244d7a754d.png`
+      )
+    ).toBe(true);
+    // Publisher also supports jpg/jpeg inline images.
+    expect(
+      isTrustedCdnInlineImage(`${CDN}/core-assets/blog/x/inline-3.jpg`)
+    ).toBe(true);
   });
 
-  it('rejects external, non-inline, and empty URLs', () => {
+  it('rejects external, non-inline, sibling, and empty URLs', () => {
+    // The generated siblings themselves must not re-match.
+    expect(isTrustedCdnInlineImage(`${INLINE}.avif`)).toBe(false);
+    expect(isTrustedCdnInlineImage(`${INLINE}.webp`)).toBe(false);
     // External origin — never rewrite arbitrary URLs.
     expect(
       isTrustedCdnInlineImage('https://evil.example.com/inline-1.png')
