@@ -26,6 +26,7 @@ export interface CachedDataTestHarness {
   mockIn: ReturnType<typeof vi.fn>;
   mockLimit: ReturnType<typeof vi.fn>;
   mockListResult: MockListResult;
+  mockListResults: MockListResult[];
   mockMaybeSingle: ReturnType<typeof vi.fn>;
   mockNeq: ReturnType<typeof vi.fn>;
   mockNot: ReturnType<typeof vi.fn>;
@@ -91,13 +92,16 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
     .fn()
     .mockResolvedValue({ data: null, error: null });
   const mockListResult: MockListResult = { data: [], error: null };
+  const mockListResults: MockListResult[] = [];
   const mockIn = vi.fn();
   const mockLimit = vi.fn();
   const mockOr = vi.fn();
   const mockOrder = vi.fn();
   const mockNeq = vi.fn();
   const mockNot = vi.fn();
-  const mockQueryExecution = vi.fn(() => mockListResult);
+  const mockQueryExecution = vi.fn(
+    () => mockListResults.shift() ?? mockListResult
+  );
   const mockRange = vi.fn();
   const mockRpc = vi.fn().mockResolvedValue({ data: [], error: null });
   const mockSingle = vi.fn();
@@ -156,6 +160,7 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
     mockIn,
     mockLimit,
     mockListResult,
+    mockListResults,
     mockMaybeSingle,
     mockNeq,
     mockNot,
