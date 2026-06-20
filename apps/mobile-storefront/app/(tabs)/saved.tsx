@@ -11,6 +11,7 @@ import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { SAVED_LIST_BOTTOM_PADDING } from '@/constants/saved-list-layout';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { useSavedStore } from '@/stores/saved-store';
 
 const handleProductPress = (slug: string): void => {
@@ -149,7 +150,7 @@ export default function SavedTabScreen() {
                 {item.name}
               </Text>
               <Text style={[styles.productPrice, { color: BRAND.primary }]}>
-                ₦{(item.price ?? 0).toLocaleString()}
+                {formatNgnCurrency(item.price ?? 0)}
               </Text>
               {!isOnline && (
                 <Text
