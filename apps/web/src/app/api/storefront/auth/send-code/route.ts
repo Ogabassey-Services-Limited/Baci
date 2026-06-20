@@ -71,11 +71,19 @@ function isOtpRateLimitError(error: unknown): boolean {
   const isRateLimitStatus =
     candidate.status === 429 || candidate.status === '429';
 
+  if (isRateLimitStatus || candidate.code === 'over_email_send_rate_limit') {
+    return true;
+  }
+
+  if (typeof candidate.message !== 'string') {
+    return false;
+  }
+
+  const message = candidate.message.toLowerCase();
   return (
-    isRateLimitStatus ||
-    candidate.code === 'over_email_send_rate_limit' ||
-    (typeof candidate.message === 'string' &&
-      candidate.message.toLowerCase().includes('rate'))
+    message.includes('rate limit') ||
+    message.includes('too many request') ||
+    message.includes('429')
   );
 }
 
