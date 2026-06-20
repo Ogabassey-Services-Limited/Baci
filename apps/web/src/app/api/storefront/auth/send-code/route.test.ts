@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendCodeMocks = vi.hoisted(() => ({
   mockFrom: vi.fn(),
-  mockGetMerchantByIdentifier: vi.fn(),
+  mockResolveStorefrontAuthMerchant: vi.fn(),
   mockSignInWithOtp: vi.fn(),
 }));
 
@@ -10,9 +10,9 @@ vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({}),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: (...args: unknown[]) =>
-    sendCodeMocks.mockGetMerchantByIdentifier(...args),
+vi.mock('../resolve-storefront-auth-merchant', () => ({
+  resolveStorefrontAuthMerchant: (...args: unknown[]) =>
+    sendCodeMocks.mockResolveStorefrontAuthMerchant(...args),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -57,7 +57,7 @@ describe('POST /api/storefront/auth/send-code', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
-    sendCodeMocks.mockGetMerchantByIdentifier.mockResolvedValue(
+    sendCodeMocks.mockResolveStorefrontAuthMerchant.mockResolvedValue(
       ogabasseyMerchant
     );
     sendCodeMocks.mockSignInWithOtp.mockResolvedValue({ error: null });
@@ -72,9 +72,9 @@ describe('POST /api/storefront/auth/send-code', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(sendCodeMocks.mockGetMerchantByIdentifier).toHaveBeenCalledWith(
-      'ogabassey'
-    );
+    expect(
+      sendCodeMocks.mockResolveStorefrontAuthMerchant
+    ).toHaveBeenCalledWith(expect.anything(), 'ogabassey');
     expect(sendCodeMocks.mockFrom).not.toHaveBeenCalled();
     expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
       email: 'customer@example.com',
@@ -105,7 +105,7 @@ describe('POST /api/storefront/auth/send-code', () => {
 
   it('uses the merchant subdomain when the merchant has no custom domain', async () => {
     vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'usebaci.com');
-    sendCodeMocks.mockGetMerchantByIdentifier.mockResolvedValue({
+    sendCodeMocks.mockResolveStorefrontAuthMerchant.mockResolvedValue({
       ...ogabasseyMerchant,
       custom_domain: null,
     });
@@ -123,8 +123,47 @@ describe('POST /api/storefront/auth/send-code', () => {
     });
   });
 
+  it('keeps a custom-domain identifier on the custom-domain redirect', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'usebaci.com');
+
+    const response = await POST(
+      makeRequest({
+        email: 'customer@example.com',
+        merchantSlug: 'ogabassey.com',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      sendCodeMocks.mockResolveStorefrontAuthMerchant
+    ).toHaveBeenCalledWith(expect.anything(), 'ogabassey.com');
+    expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
+      email: 'customer@example.com',
+      options: expect.objectContaining({
+        emailRedirectTo: 'https://ogabassey.com/account/verify',
+      }),
+    });
+  });
+
+  it('returns 403 without sending OTP when the store is unpublished', async () => {
+    sendCodeMocks.mockResolveStorefrontAuthMerchant.mockResolvedValue({
+      ...ogabasseyMerchant,
+      is_published: false,
+    });
+
+    const response = await POST(
+      makeRequest({ email: 'customer@example.com', merchantSlug: 'ogabassey' })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Store is not available' });
+    expect(sendCodeMocks.mockSignInWithOtp).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the storefront merchant resolver misses', async () => {
-    sendCodeMocks.mockGetMerchantByIdentifier.mockResolvedValue(null);
+    sendCodeMocks.mockResolveStorefrontAuthMerchant.mockResolvedValue(null);
 
     const response = await POST(
       makeRequest({

@@ -1,12 +1,9 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import {
-  type CachedMerchant,
-  getMerchantByIdentifier,
-} from '@/lib/cached-data';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 import { verifyCodeSchema } from '@/schemas/auth';
+import { resolveStorefrontAuthMerchant } from '../resolve-storefront-auth-merchant';
 
 /**
  * Customer OTP Authentication - Verify Code
@@ -34,8 +31,10 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const merchant: CachedMerchant | null =
-      await getMerchantByIdentifier(merchantSlug);
+    const merchant = await resolveStorefrontAuthMerchant(
+      supabase,
+      merchantSlug
+    );
 
     if (!merchant) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });

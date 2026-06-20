@@ -2,15 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockFrom,
-  mockGetMerchantByIdentifier,
   mockLoggerError,
   mockLoggerWarn,
+  mockResolveStorefrontAuthMerchant,
   mockVerifyOtp,
 } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
-  mockGetMerchantByIdentifier: vi.fn(),
   mockLoggerError: vi.fn(),
   mockLoggerWarn: vi.fn(),
+  mockResolveStorefrontAuthMerchant: vi.fn(),
   mockVerifyOtp: vi.fn(),
 }));
 
@@ -29,9 +29,9 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: (...args: unknown[]) =>
-    mockGetMerchantByIdentifier(...args),
+vi.mock('../resolve-storefront-auth-merchant', () => ({
+  resolveStorefrontAuthMerchant: (...args: unknown[]) =>
+    mockResolveStorefrontAuthMerchant(...args),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -60,11 +60,11 @@ function makeRequest(body: Record<string, unknown>) {
 describe('POST /api/storefront/auth/verify-code', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetMerchantByIdentifier.mockResolvedValue(merchant);
+    mockResolveStorefrontAuthMerchant.mockResolvedValue(merchant);
   });
 
   it('returns 404 when the storefront merchant resolver misses', async () => {
-    mockGetMerchantByIdentifier.mockResolvedValue(null);
+    mockResolveStorefrontAuthMerchant.mockResolvedValue(null);
 
     const response = await POST(
       makeRequest({
@@ -77,6 +77,25 @@ describe('POST /api/storefront/auth/verify-code', () => {
 
     expect(response.status).toBe(404);
     expect(body).toEqual({ error: 'Store not found' });
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the storefront merchant resolver fails', async () => {
+    mockResolveStorefrontAuthMerchant.mockRejectedValue(
+      new Error('RPC unavailable')
+    );
+
+    const response = await POST(
+      makeRequest({
+        email: 'customer@example.com',
+        token: '123456',
+        merchantSlug: 'ogabassey',
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Internal server error' });
     expect(mockVerifyOtp).not.toHaveBeenCalled();
   });
 
