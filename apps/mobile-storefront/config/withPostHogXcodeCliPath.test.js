@@ -141,6 +141,9 @@ export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"
   it('patches the generated PostHog dSYM upload phase for pnpm CLI lookup and dSYM readiness', () => {
     const { dsymScript, dsymUploadPhase } = runPluginWithPhases({
       dsymShellScript: `# Upload iOS dSYMs to PostHog so native crashes can be symbolicated.
+if [ -n "$SKIP_DSYM_UPLOAD" ]; then
+  exit 0
+fi
 PODS_SCRIPT="\${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 SPM_SCRIPT="\${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
 /bin/sh "$PODS_SCRIPT"
@@ -150,11 +153,16 @@ SPM_SCRIPT="\${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-to
 
     expect(dsymScript).toContain('export PROJECT_ROOT="$PROJECT_DIR"/..');
     expect(dsymScript).toContain(EXPECTED_PATH_EXPORT);
+    expect(dsymScript).toContain(
+      'PostHog dSYM upload is best-effort; never fail the app archive.'
+    );
+    expect(dsymScript).toContain('set +e');
     expect(dsymScript).toContain('if ! /bin/sh "$PODS_SCRIPT"; then');
     expect(dsymScript).toContain('if ! /bin/sh "$SPM_SCRIPT"; then');
     expect(dsymScript).toContain(
       'warning: PostHog dSYM upload failed; continuing archive.'
     );
+    expect(dsymScript.trimEnd().endsWith('exit 0')).toBe(true);
     expect(dsymUploadPhase.inputPaths).toContain(EXPECTED_DSYM_INPUT_PATH);
   });
 
