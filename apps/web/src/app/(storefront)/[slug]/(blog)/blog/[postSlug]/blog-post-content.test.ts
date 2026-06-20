@@ -497,6 +497,17 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(wrapTrustedCdnInlineImagesInPicture(featured)).toBe(featured);
   });
 
+  it('wraps an inline image even when alt text contains a literal ">"', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="value a > b" />`
+    );
+
+    expect(out).toContain('<picture>');
+    expect(out).toContain(`${CDN}.avif`);
+    // The full <img> (including the ">" inside alt) is preserved as the fallback.
+    expect(out).toContain(`<img src="${CDN}" alt="value a > b" />`);
+  });
+
   it('does not double-escape ampersands already escaped by the sanitizer', () => {
     // src is captured from sanitized HTML, so `&` is already `&amp;`.
     const src = `${CDN}?v=1&amp;x=2`;

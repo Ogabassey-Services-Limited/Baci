@@ -251,7 +251,9 @@ export function transformImageTitlesToFigureCaptions(html: string): string {
  * left untouched, and a missing sibling degrades to the original PNG.
  */
 export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
-  return html.replace(/<img\b[^>]*>/gi, (imgTag) => {
+  // Quote-aware <img> match: tolerate a literal `>` inside a quoted attribute
+  // value (e.g. alt text) instead of truncating on the first `>`.
+  return html.replace(/<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi, (imgTag) => {
     const srcMatch = imgTag.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
     const src = srcMatch?.[2];
     if (!src || !isTrustedCdnInlineImage(src)) {
