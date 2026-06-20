@@ -1,3 +1,7 @@
+CREATE INDEX IF NOT EXISTS idx_domains_active_lower_domain
+  ON public.domains (lower(domain))
+  WHERE status = 'active';
+
 CREATE OR REPLACE FUNCTION public.resolve_storefront_auth_merchant(
   p_identifier text
 )
@@ -36,8 +40,7 @@ AS $$
     m.slug::text,
     m.business_name::text,
     COALESCE(m.is_published, false) AS is_published,
-    COALESCE(md.domain, primary_domain.domain, NULLIF(m.custom_domain, ''))::text
-      AS custom_domain
+    COALESCE(md.domain, primary_domain.domain)::text AS custom_domain
   FROM public.merchants AS m
   CROSS JOIN normalized_input AS input
   LEFT JOIN matched_domain AS md ON md.merchant_id = m.id
@@ -52,12 +55,12 @@ AS $$
   ) AS primary_domain ON true
   WHERE input.identifier <> ''
     AND (
-      lower(m.slug) = input.identifier
+      m.slug = input.identifier
       OR md.merchant_id IS NOT NULL
     )
   ORDER BY
     CASE
-      WHEN lower(m.slug) = input.identifier THEN 0
+      WHEN m.slug = input.identifier THEN 0
       WHEN md.merchant_id IS NOT NULL THEN 1
     END,
     m.id

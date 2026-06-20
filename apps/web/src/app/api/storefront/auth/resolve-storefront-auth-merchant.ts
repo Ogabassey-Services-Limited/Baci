@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface StorefrontAuthMerchant {
   business_name: string;
   custom_domain: string | null;
@@ -13,32 +15,27 @@ interface StorefrontAuthMerchantRpcClient {
   ): PromiseLike<{ data: unknown; error: unknown }>;
 }
 
+const storefrontAuthMerchantRpcRowSchema = z.object({
+  business_name: z.string(),
+  custom_domain: z.preprocess(
+    (value) => (typeof value === 'string' ? value : null),
+    z.string().nullable()
+  ),
+  id: z.string(),
+  is_published: z.boolean(),
+  slug: z.string(),
+});
+
 function parseStorefrontAuthMerchantRow(
   value: unknown
 ): StorefrontAuthMerchant | null {
-  if (!value || typeof value !== 'object') {
+  const parsed = storefrontAuthMerchantRpcRowSchema.safeParse(value);
+
+  if (!parsed.success) {
     return null;
   }
 
-  const row = value as Record<string, unknown>;
-
-  if (
-    typeof row.id !== 'string' ||
-    typeof row.slug !== 'string' ||
-    typeof row.business_name !== 'string' ||
-    typeof row.is_published !== 'boolean'
-  ) {
-    return null;
-  }
-
-  return {
-    business_name: row.business_name,
-    custom_domain:
-      typeof row.custom_domain === 'string' ? row.custom_domain : null,
-    id: row.id,
-    is_published: row.is_published,
-    slug: row.slug,
-  };
+  return parsed.data;
 }
 
 export async function resolveStorefrontAuthMerchant(

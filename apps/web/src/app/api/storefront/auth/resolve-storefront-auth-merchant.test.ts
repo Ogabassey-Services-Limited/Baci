@@ -94,6 +94,7 @@ describe('resolveStorefrontAuthMerchant', () => {
       data: [
         {
           business_name: 'Ogabassey',
+          custom_domain: 123,
           id: 'merchant-1',
           is_published: true,
           slug: 'ogabassey',
