@@ -77,27 +77,30 @@ jest.mock('@/components/OfflineNotice', () => {
   };
 });
 
-jest.mock('@/components/storefront/BlockRenderer', () => {
-  const { Text, View } = jest.requireActual(
+jest.mock('./HomeFeedList', () => {
+  const { Pressable, Text, View } = jest.requireActual(
     'react-native'
   ) as typeof import('react-native');
 
   return {
-    BlockRenderer: ({
+    HomeFeedList: ({
       blocks,
-      renderAfterBlock,
+      onRefresh,
     }: {
       blocks: Block[];
-      renderAfterBlock?: (block: Block, index: number) => React.ReactNode;
+      onRefresh: () => void;
     }) => (
-      <>
-        {blocks.map((block, index) => (
+      <View testID="home-feed-list">
+        {blocks.map((block) => (
           <View key={block.props.id}>
             <Text>{`Block ${block.type}`}</Text>
-            {renderAfterBlock?.(block, index)}
+            {block.type === 'CategoryRail' ? <Text>Services</Text> : null}
           </View>
         ))}
-      </>
+        <Pressable testID="home-feed-refresh" onPress={onRefresh}>
+          <Text>Refresh</Text>
+        </Pressable>
+      </View>
     ),
   };
 });
@@ -219,7 +222,6 @@ function createProps() {
     onSearchSubmit: jest.fn(),
     primaryColor: '#0ea5e9',
     primaryProductGridIndex: 1,
-    productGridLoadMoreSignal: 2,
     refreshing: false,
     resolvedHeaderHeight: 150,
     searchQuery: '',
@@ -278,7 +280,7 @@ describe('HomeScreenView', () => {
     expect(screen.getByText('Header')).toBeTruthy();
     expect(screen.getByText('Hero skeleton')).toBeTruthy();
     expect(screen.getByText('Grid skeleton')).toBeTruthy();
-    expect(screen.queryByTestId('home-scroll-view')).toBeNull();
+    expect(screen.queryByTestId('home-feed-list')).toBeNull();
   });
 
   it('keeps the root navigation bar style while the light loading shell is visible', () => {
@@ -308,7 +310,7 @@ describe('HomeScreenView', () => {
     fireEvent.press(screen.getByText('Header'));
     expect(onSearch).toHaveBeenCalledTimes(1);
 
-    fireEvent(screen.getByTestId('home-scroll-view'), 'refresh');
+    fireEvent.press(screen.getByTestId('home-feed-refresh'));
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 

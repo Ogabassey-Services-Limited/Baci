@@ -70,7 +70,9 @@ export function useProducts(options: UseProductsOptions = {}) {
     hasMore: hasNextPage || false,
     refetch,
     loadMore: () => {
-      if (hasNextPage && !isFetchingNextPage) {
+      // Guard general `isFetching` (not just `isFetchingNextPage`) so a fast
+      // scroll-to-bottom during a background refetch doesn't double-fetch.
+      if (hasNextPage && !isFetching && !isFetchingNextPage) {
         fetchNextPage();
       }
     },

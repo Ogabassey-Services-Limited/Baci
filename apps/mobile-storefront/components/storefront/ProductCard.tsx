@@ -18,8 +18,8 @@ import {
   getProductCardImageAttempt,
   normalizeProductImages,
 } from '@/lib/product-normalization';
-import { useCartStore } from '@/stores/cart-store';
-import { useSavedStore } from '@/stores/saved-store';
+import { selectCartQuantities, useCartStore } from '@/stores/cart-store';
+import { selectSavedProductIds, useSavedStore } from '@/stores/saved-store';
 import type { Product } from '@/types/product';
 import EditorialProductCard from './product-card/EditorialProductCard';
 import GridProductCard from './product-card/GridProductCard';
@@ -85,18 +85,18 @@ export function ProductCard({
   const addItem = useCartStore((state) => state.addItem);
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
 
+  // O(1) per-card lookups via memoized derived selectors; still return a
+  // primitive so a store change for one product never re-renders the others.
   const isSaved = useSavedStore((state) =>
-    state.items.some((item) => String(item.product_id) === String(product.id))
+    selectSavedProductIds(state).has(String(product.id))
   );
 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const haptics = useHaptics();
 
-  const cartItemCount = useCartStore((state) =>
-    state.items
-      .filter((item) => item.product_id === product.id)
-      .reduce((total, item) => total + item.quantity, 0)
+  const cartItemCount = useCartStore(
+    (state) => selectCartQuantities(state).get(String(product.id)) ?? 0
   );
   const defaultVariantSelection = resolveDefaultVariantSelection(product);
   const requiresSelection = requiresProductSelection(product);
@@ -159,9 +159,21 @@ export function ProductCard({
         ]
       : product.images
   );
-  const _imageCandidatesKey = imageCandidates.join('|');
+  const imageCandidatesKey = imageCandidates.join('|');
   const [imageAttempt, setImageAttempt] = useState(0);
   const [showLocalPlaceholder, setShowLocalPlaceholder] = useState(false);
+
+  // FlashList recycles card instances, so reset the image-fallback state when
+  // the product (its image set) changes — otherwise a recycled card would show
+  // the previous product's placeholder/attempt. (Render-time adjustment, not an
+  // effect, so it lands before paint without a flash.)
+  const [prevImageCandidatesKey, setPrevImageCandidatesKey] =
+    useState(imageCandidatesKey);
+  if (prevImageCandidatesKey !== imageCandidatesKey) {
+    setPrevImageCandidatesKey(imageCandidatesKey);
+    setImageAttempt(0);
+    setShowLocalPlaceholder(false);
+  }
 
   const imageProps = {
     placeholder: { blurhash },

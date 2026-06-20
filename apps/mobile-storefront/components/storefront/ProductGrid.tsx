@@ -23,18 +23,20 @@ import {
 } from './product-grid.helpers';
 import { useProductGridCategories } from './use-product-grid-categories';
 import { useProductGridFilters } from './use-product-grid-filters';
-import { useProductGridPagination } from './use-product-grid-pagination';
 
 interface ProductGridProps {
   block: ProductGridBlock;
-  loadMoreSignal?: number;
   selectedCategoryId: string | null;
   variant: 'grid' | 'editorial' | 'list';
 }
 
+/**
+ * Renders a **bounded** (non-paginating) product grid for non-primary/curated
+ * home blocks. The primary, infinitely-scrolled home grid is virtualized by
+ * `HomeFeedList` instead; this container is capped at `displayLimit`.
+ */
 export default function ProductGrid({
   block,
-  loadMoreSignal = 0,
   selectedCategoryId,
   variant,
 }: ProductGridProps) {
@@ -79,13 +81,11 @@ export default function ProductGrid({
 
   const {
     products,
-    hasMore,
     isFetchedAfterMount,
     isLoading,
     isLoadingMore,
     isFetching,
     isError,
-    loadMore,
     refetch,
   } = useProducts({
     limit: fetchLimit,
@@ -139,17 +139,6 @@ export default function ProductGrid({
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-  const paginationResetKey = JSON.stringify({
-    category: normalizedCategoryId ?? null,
-    displayLimit,
-    maxPrice,
-    minPrice,
-    minRating,
-    selectedBrand,
-    selectedCategorySlug,
-    selectedCondition,
-  });
-
   useEffect(() => {
     if (
       shouldLoadBrandOptions &&
@@ -173,17 +162,11 @@ export default function ProductGrid({
     );
   };
 
-  const orderedProducts = filteredProducts;
-  const { visibleProducts } = useProductGridPagination({
-    displayLimit,
-    hasMore,
-    isLoadingMore,
-    loadMore,
-    loadMoreSignal,
-    orderedProducts,
-    paginationResetKey,
-  });
-  const uniqueVisibleProducts = dedupeById(visibleProducts);
+  // Bounded: cap a curated/secondary grid at displayLimit (no infinite scroll).
+  const uniqueVisibleProducts = dedupeById(filteredProducts).slice(
+    0,
+    displayLimit
+  );
   const currentVariant = viewMode === 'list' ? 'list' : variant;
   const { isRetrying, shouldShowFatalError, shouldShowInitialLoading } =
     resolveProductGridRenderFlags({

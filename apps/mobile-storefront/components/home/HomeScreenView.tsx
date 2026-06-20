@@ -1,7 +1,6 @@
 import { Stack } from 'expo-router';
 import {
   type LayoutChangeEvent,
-  RefreshControl,
   StatusBar,
   StyleSheet,
   View,
@@ -14,10 +13,8 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import { OfflineNotice } from '@/components/OfflineNotice';
-import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 import { Header } from '@/components/storefront/Header';
-import { HomeServiceCards } from '@/components/storefront/HomeServiceCards';
 import { SearchDropdown } from '@/components/storefront/SearchDropdown';
 import { PermissionModal } from '@/components/ui/PermissionModal';
 import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
@@ -25,6 +22,7 @@ import { SnowEffect } from '@/components/ui/SnowEffect';
 import { useColorScheme } from '@/components/useColorScheme';
 import { ELITE_BACKDROP_HEIGHT } from '@/constants/layout';
 import type { Block } from '@/types/blocks';
+import { HomeFeedList } from './HomeFeedList';
 import { homeScreenStyles as styles } from './home-screen.styles';
 import { useHomeNavigationBarStyle } from './useHomeNavigationBarStyle';
 
@@ -52,7 +50,6 @@ interface HomeScreenViewProps {
   onSearchSubmit: () => void;
   primaryColor: string;
   primaryProductGridIndex: number;
-  productGridLoadMoreSignal: number;
   refreshing: boolean;
   resolvedHeaderHeight: number;
   searchQuery: string;
@@ -86,7 +83,6 @@ export function HomeScreenView({
   onSearchSubmit,
   primaryColor,
   primaryProductGridIndex,
-  productGridLoadMoreSignal,
   refreshing,
   resolvedHeaderHeight,
   searchQuery,
@@ -198,46 +194,20 @@ export function HomeScreenView({
         </View>
       </Animated.View>
 
-      <Animated.ScrollView
-        testID="home-scroll-view"
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingBottom: contentBottomPadding },
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={primaryColor}
-            colors={[primaryColor]}
-            progressViewOffset={resolvedHeaderHeight}
-          />
-        }
-        showsVerticalScrollIndicator={false}
+      <HomeFeedList
+        blocks={blocks}
+        primaryProductGridIndex={primaryProductGridIndex}
+        selectedCategoryId={selectedCategoryId}
+        onCategorySelect={onCategorySelect}
         onScroll={onListScroll}
-        scrollEventThrottle={16}
-      >
-        <Animated.View
-          testID="home-header-spacer"
-          style={{ height: resolvedHeaderHeight }}
-        />
-        <BlockRenderer
-          blocks={blocks}
-          blockWrapperStyle={styles.blockWrapper}
-          getProductGridLoadMoreSignal={(block, index) =>
-            block.type === 'ProductGrid' && index === primaryProductGridIndex
-              ? productGridLoadMoreSignal
-              : 0
-          }
-          selectedCategoryId={selectedCategoryId}
-          onCategorySelect={onCategorySelect}
-          renderAfterBlock={(block) =>
-            block.type === 'CategoryRail' ? (
-              <HomeServiceCards placement="belowUtility" />
-            ) : null
-          }
-        />
-      </Animated.ScrollView>
+        isSearchOpen={searchVisible}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        primaryColor={primaryColor}
+        resolvedHeaderHeight={resolvedHeaderHeight}
+        contentBottomPadding={contentBottomPadding}
+        blockWrapperStyle={styles.blockWrapper}
+      />
       <PermissionModal
         visible={showPermissionModal}
         type="tracking"
