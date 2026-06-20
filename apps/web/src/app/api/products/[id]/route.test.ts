@@ -121,9 +121,21 @@ let updateError: unknown = null;
 let deleteError: unknown = null;
 let variantInsertError: unknown = null;
 let variantUpsertError: unknown = null;
+let variantSyncError: { code?: string; message?: string } | null = null;
+let lastRpcCall: {
+  functionName: string;
+  args: Record<string, unknown>;
+} | null = null;
 let lastProductUpdatePayload: unknown = null;
 
 const createMockSupabase = () => ({
+  rpc: vi.fn((functionName: string, args: Record<string, unknown>) => {
+    lastRpcCall = { functionName, args };
+    return Promise.resolve({
+      data: variantSyncError ? null : 1,
+      error: variantSyncError,
+    });
+  }),
   auth: {
     getUser: vi.fn(() => {
       if (authUser === undefined) {
@@ -324,6 +336,8 @@ function resetMocks() {
   deleteError = null;
   variantInsertError = null;
   variantUpsertError = null;
+  variantSyncError = null;
+  lastRpcCall = null;
   lastProductUpdatePayload = null;
   csrfValid = true;
 }
@@ -680,7 +694,7 @@ describe('PUT /api/products/[id]', () => {
       expect(lastProductUpdatePayload).not.toHaveProperty('imageLarge');
     });
 
-    it('updates product with variants', async () => {
+    it('syncs existing and new variants through the tenant-scoped RPC', async () => {
       product = {
         id: PRODUCT_ID,
         name: 'Product',
@@ -696,11 +710,19 @@ describe('PUT /api/products/[id]', () => {
         has_variants: true,
         variants: [
           {
-            id: 'variant-1',
+            id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+            product_id: 'attacker-product',
+            merchant_id: 'attacker-merchant',
             attributes: { size: 'L' },
-            price: 7000,
+            price_override: 7000,
             stock_quantity: 5,
             sku: 'SKU-L',
+          },
+          {
+            attributes: { size: 'M' },
+            price_override: 6500,
+            stock_quantity: 2,
+            sku: 'SKU-M',
           },
         ],
       };
@@ -711,6 +733,89 @@ describe('PUT /api/products/[id]', () => {
       await res.json();
 
       expect(res.status).toBe(200);
+      expect(lastRpcCall).toEqual({
+        functionName: 'sync_product_variants_for_product',
+        args: {
+          p_product_id: PRODUCT_ID,
+          p_merchant_id: MERCHANT_ID,
+          p_variants: [
+            {
+              id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+              attributes: { size: 'L' },
+              condition: null,
+              price_override: 7000,
+              cost_price: null,
+              stock_quantity: 5,
+              sku: 'SKU-L',
+              primary_image: null,
+              images: [],
+            },
+            {
+              id: undefined,
+              attributes: { size: 'M' },
+              condition: null,
+              price_override: 6500,
+              cost_price: null,
+              stock_quantity: 2,
+              sku: 'SKU-M',
+              primary_image: null,
+              images: [],
+            },
+          ],
+        },
+      });
+      expect(
+        (lastRpcCall?.args.p_variants as Record<string, unknown>[])[0]
+      ).not.toHaveProperty('product_id');
+      expect(
+        (lastRpcCall?.args.p_variants as Record<string, unknown>[])[0]
+      ).not.toHaveProperty('merchant_id');
+    });
+
+    it('rejects stale or cross-tenant variant IDs without applying migration state', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+      };
+      variantSyncError = {
+        code: 'P0002',
+        message: 'variant_not_found_or_not_owned',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              price_override: 7000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe('Invalid product variant update');
+      expect(lastProductUpdatePayload).not.toHaveProperty('migration_status');
+      expect(lastProductUpdatePayload).not.toHaveProperty('variant_model');
     });
 
     it('does not mark a product as migrated when variant sync fails', async () => {
@@ -728,7 +833,7 @@ describe('PUT /api/products/[id]', () => {
         slug: 'product',
         name: 'Product',
       };
-      variantInsertError = { message: 'insert failed' };
+      variantSyncError = { message: 'sync failed' };
 
       const res = await PUT(
         makePutRequest(PRODUCT_ID, {
@@ -750,7 +855,7 @@ describe('PUT /api/products/[id]', () => {
       const json = await res.json();
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to create product variants');
+      expect(json.error).toBe('Failed to sync product variants');
       expect(lastProductUpdatePayload).not.toHaveProperty('migration_status');
       expect(lastProductUpdatePayload).not.toHaveProperty('variant_model');
     });
@@ -770,7 +875,7 @@ describe('PUT /api/products/[id]', () => {
         slug: 'product',
         name: 'Product',
       };
-      variantInsertError = { message: 'insert failed' };
+      variantSyncError = { message: 'sync failed' };
 
       const res = await PUT(
         makePutRequest(PRODUCT_ID, {
@@ -789,7 +894,7 @@ describe('PUT /api/products/[id]', () => {
       const json = await res.json();
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to create product variants');
+      expect(json.error).toBe('Failed to sync product variants');
       expect(lastProductUpdatePayload).toEqual(
         expect.objectContaining({
           has_variants: true,

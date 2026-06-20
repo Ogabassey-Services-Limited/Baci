@@ -564,98 +564,41 @@ export async function PUT(
     // Handle Variants
     if (body.variants !== undefined && body.has_variants !== false) {
       type RequestVariant = NonNullable<typeof body.variants>[number];
-
-      // 1. Get IDs of variants to keep
-      const variantIdsToKeep = body.variants
-        .filter((v: RequestVariant) => v.id)
-        .map((v: RequestVariant) => v.id);
-
-      // 2. Delete variants not in the list
-      if (variantIdsToKeep.length > 0) {
-        const { error: deleteVariantsError } = await supabase
-          .from('product_variants')
-          .delete()
-          .eq('product_id', id)
-          .eq('merchant_id', merchantId)
-          .not('id', 'in', `(${variantIdsToKeep.join(',')})`);
-        if (deleteVariantsError) {
-          console.error('Error deleting stale variants:', deleteVariantsError);
-          return NextResponse.json(
-            { error: 'Failed to sync product variants' },
-            { status: 500 }
-          );
-        }
-      } else {
-        const { error: deleteVariantsError } = await supabase
-          .from('product_variants')
-          .delete()
-          .eq('product_id', id)
-          .eq('merchant_id', merchantId);
-        if (deleteVariantsError) {
-          console.error(
-            'Error deleting product variants:',
-            deleteVariantsError
-          );
-          return NextResponse.json(
-            { error: 'Failed to sync product variants' },
-            { status: 500 }
-          );
-        }
-      }
-
-      // 3. Separate updates and inserts
-      const variantsToUpsert = body.variants.map((v: RequestVariant) => ({
-        id: v.id,
-        product_id: id,
-        merchant_id: merchantId,
-        condition: v.condition,
-        attributes: v.attributes,
-        price_override: v.price_override,
-        cost_price: v.cost_price, // New field
-        stock_quantity: v.stock_quantity,
-        sku: v.sku,
-        primary_image: v.primary_image,
-        images: v.images || [],
+      const variantsToSync = body.variants.map((variant: RequestVariant) => ({
+        id: variant.id,
+        attributes: variant.attributes ?? {},
+        condition: variant.condition ?? null,
+        price_override: variant.price_override ?? null,
+        cost_price: variant.cost_price ?? null,
+        stock_quantity: variant.stock_quantity ?? 0,
+        sku: variant.sku ?? null,
+        primary_image: variant.primary_image ?? null,
+        images: variant.images ?? [],
       }));
 
-      const variantsToUpdate = variantsToUpsert.filter(
-        (v: (typeof variantsToUpsert)[number]) => v.id
-      );
-      const variantsToInsert = variantsToUpsert.filter(
-        (v: (typeof variantsToUpsert)[number]) => !v.id
+      const { error: syncVariantsError } = await supabase.rpc(
+        'sync_product_variants_for_product',
+        {
+          p_product_id: id,
+          p_merchant_id: merchantId,
+          p_variants: variantsToSync,
+        }
       );
 
-      if (variantsToUpdate.length > 0) {
-        const updatePromises = variantsToUpdate.map((variant) =>
-          supabase
-            .from('product_variants')
-            .update(variant)
-            .eq('id', variant.id)
-            .eq('merchant_id', merchantId)
+      if (syncVariantsError) {
+        console.error('Error syncing product variants:', syncVariantsError);
+        const isInvalidVariantReference =
+          syncVariantsError.code === 'P0002' ||
+          syncVariantsError.message === 'variant_not_found_or_not_owned';
+
+        return NextResponse.json(
+          {
+            error: isInvalidVariantReference
+              ? 'Invalid product variant update'
+              : 'Failed to sync product variants',
+          },
+          { status: isInvalidVariantReference ? 400 : 500 }
         );
-        const updateResults = await Promise.all(updatePromises);
-        const failedUpdate = updateResults.find((r) => r.error);
-
-        if (failedUpdate) {
-          console.error('Error updating variants:', failedUpdate.error);
-          return NextResponse.json(
-            { error: 'Failed to update product variants' },
-            { status: 500 }
-          );
-        }
-      }
-
-      if (variantsToInsert.length > 0) {
-        const { error: insertVarError } = await supabase
-          .from('product_variants')
-          .insert(variantsToInsert);
-        if (insertVarError) {
-          console.error('Error inserting variants:', insertVarError);
-          return NextResponse.json(
-            { error: 'Failed to create product variants' },
-            { status: 500 }
-          );
-        }
       }
     } else if (body.has_variants === false) {
       const { error: deleteVariantsError } = await supabase

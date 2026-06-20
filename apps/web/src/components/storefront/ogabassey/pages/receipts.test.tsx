@@ -107,6 +107,85 @@ describe('OgabasseyV2Receipts', () => {
     );
   });
 
+  it('uses the device name as the primary receipt label and the order number as supporting text', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      createJsonResponse({
+        orders: [
+          {
+            id: 'order-1',
+            order_number: 'ORD-260403-00NN-J',
+            created_at: '2026-04-03T10:00:00.000Z',
+            total: 1283968.38,
+            amount_paid: 1283968.38,
+            currency: 'NGN',
+            payment_status: 'paid',
+            items: [
+              {
+                id: 'item-1',
+                name: 'Samsung Galaxy S26',
+                image_url: 'https://cdn.example.com/samsung-galaxy-s26.png',
+                quantity: 1,
+                price: 1283968.38,
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    render(<OgabasseyV2Receipts />);
+
+    const deviceName = await screen.findByRole('heading', {
+      name: 'Samsung Galaxy S26',
+    });
+    expect(deviceName).toBeVisible();
+    expect(screen.getByText('#ORD-260403-00NN-J')).toBeVisible();
+  });
+
+  it('shows the additional device count when a receipt contains more than one device', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      createJsonResponse({
+        orders: [
+          {
+            id: 'order-1',
+            order_number: 'ORD-003',
+            created_at: '2026-04-03T10:00:00.000Z',
+            total: 3000000,
+            amount_paid: 3000000,
+            currency: 'NGN',
+            payment_status: 'paid',
+            items: [
+              {
+                id: 'item-1',
+                name: 'Samsung Galaxy S26',
+                image_url: 'https://cdn.example.com/samsung-galaxy-s26.png',
+                quantity: 1,
+                price: 1283968.38,
+              },
+              {
+                id: 'item-2',
+                name: 'Lenovo ThinkBook 16 G7 IML',
+                image_url: 'https://cdn.example.com/lenovo-thinkbook.png',
+                quantity: 2,
+                price: 858015.81,
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    render(<OgabasseyV2Receipts />);
+
+    const visualBadgeText = await screen.findByText('+2');
+    expect(visualBadgeText).toHaveAttribute('aria-hidden', 'true');
+    expect(
+      screen.getByRole('heading', {
+        name: /Samsung Galaxy S26.*2 additional devices in this receipt/,
+      })
+    ).toBeVisible();
+  });
+
   it('renders a non-broken fallback when an order item has no usable image', async () => {
     vi.mocked(fetch).mockResolvedValue(
       createJsonResponse({

@@ -474,7 +474,7 @@ export const updateProductSchema = withSkuMatrixVariantConditionValidation(
 
     // Variants
     has_variants: z.boolean().optional(),
-    variants: z.array(productVariantSchema).max(50).optional(),
+    variants: z.array(productVariantSchema).optional(),
     variant_model: productVariantModelSchema.optional(),
 
     // Fulfillment
