@@ -16,6 +16,7 @@ const {
   mockGetBlogPostRedirect,
   mockBuildInformationalClusterModel,
   mockGenerateBlogPostSchema,
+  mockNextImage,
   mockBlogPostHeader,
   mockBlogPostBody,
 } = vi.hoisted(() => ({
@@ -32,6 +33,7 @@ const {
   mockGenerateBlogPostSchema: vi.fn<(data: unknown) => Record<string, unknown>>(
     () => ({})
   ),
+  mockNextImage: vi.fn((_props: Record<string, unknown>) => null),
   mockBlogPostHeader: vi.fn(({ title }: { title: string; locale?: string }) => (
     <h1>{title}</h1>
   )),
@@ -49,7 +51,7 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('next/image', () => ({
-  default: () => null,
+  default: (props: Record<string, unknown>) => mockNextImage(props),
 }));
 
 vi.mock('next/link', () => ({
@@ -218,6 +220,7 @@ describe('BlogPostPageContent', () => {
     vi.clearAllMocks();
     mockBlogPostBody.mockReset();
     mockBlogPostBodyFallback.mockReset();
+    mockNextImage.mockReset();
     mockGenerateBlogPostSchema.mockReset();
     mockBlogPostBody.mockImplementation(() => null);
     mockBlogPostBodyFallback.mockImplementation(() => null);
@@ -455,6 +458,40 @@ describe('BlogPostPageContent', () => {
         imageUrls: expect.any(Array),
       })
     );
+  });
+
+  it('marks the featured article image as eager high priority without deprecated priority', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...smartphoneGuideBlogPost,
+      post: {
+        ...smartphoneGuideBlogPost.post,
+        featured_image_url:
+          'https://cdn.ogabassey.com/media/blog/best-phones-cover.webp',
+        featured_image_alt: 'Best phones in Nigeria cover',
+      },
+    });
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockNextImage).toHaveBeenCalled();
+
+    const imageProps = mockNextImage.mock.calls[0]?.[0];
+
+    expect(imageProps).toEqual(
+      expect.objectContaining({
+        src: 'https://cdn.ogabassey.com/media/blog/best-phones-cover.webp',
+        loading: 'eager',
+        fetchPriority: 'high',
+      })
+    );
+    expect(imageProps).not.toHaveProperty('priority');
   });
 
   it('permanently redirects retired direct blog slugs before rendering notFound', async () => {

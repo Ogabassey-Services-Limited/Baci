@@ -89,6 +89,23 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       };
     }),
   };
+  const itemListPosts = posts.slice(0, 10);
+  const itemListSchema =
+    itemListPosts.length > 0
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: `${merchant.business_name} Blog articles`,
+          url: `${baseUrl}/blog`,
+          numberOfItems: itemListPosts.length,
+          itemListElement: itemListPosts.map((post, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            url: `${baseUrl}/blog/${post.slug}`,
+            name: post.title,
+          })),
+        }
+      : undefined;
   const breadcrumbSchema = generateBreadcrumbSchema([
     {
       name: merchant.business_name,
@@ -147,6 +164,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
             <TemplateBlogRenderer
               blogSchema={blogSchema}
               breadcrumbSchema={breadcrumbSchema}
+              itemListSchema={itemListSchema}
               BlogComponent={templateBlogUi.BlogComponent}
               basePath={basePath}
               blogPosts={templateBlogUi.posts}
@@ -169,6 +187,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       <DefaultBlogUi
         blogSchema={blogSchema}
         breadcrumbSchema={breadcrumbSchema}
+        itemListSchema={itemListSchema}
         basePath={basePath}
         categories={publicCategories}
         category={category}
