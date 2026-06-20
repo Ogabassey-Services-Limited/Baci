@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
+import { JsonLd } from '@/components/seo/json-ld';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import {
@@ -101,20 +101,18 @@ export async function StorefrontPageContent({
     <>
       {(localBusinessSchema || webSiteSchema) && (
         <JsonLd
-          data={
-            {
-              '@context': 'https://schema.org',
-              '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
-                .filter(Boolean)
-                .map((schema) => {
-                  const { '@context': _, ...rest } = schema as Record<
-                    string,
-                    unknown
-                  >;
-                  return rest;
-                }),
-            } as unknown as JsonLdData
-          }
+          data={{
+            '@context': 'https://schema.org',
+            '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
+              .filter(Boolean)
+              .map((schema) => {
+                const { '@context': _, ...rest } = schema as Record<
+                  string,
+                  unknown
+                >;
+                return rest;
+              }),
+          }}
         />
       )}
 
