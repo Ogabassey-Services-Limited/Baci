@@ -18,6 +18,12 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useCurrency', () => ({
+  useCurrency: () => ({
+    symbol: '₦',
+  }),
+}));
+
 vi.mock('@/components/ui/SafeImage', () => ({
   default: ({ source }: { source?: { uri?: string } }) => (
     <img alt="Receipt preview" data-src={source?.uri} />
