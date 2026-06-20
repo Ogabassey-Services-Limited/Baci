@@ -7,6 +7,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { searchStorefrontProducts } from '@/lib/storefront-search';
 import type {
   AddToCartParams,
   CheckPaymentStatusParams,
@@ -20,7 +22,7 @@ import type {
 const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 const OGABASSEY_MERCHANT_SLUG = 'ogabassey';
 
-type ChatToolSupabaseClient = Pick<SupabaseClient, 'from'>;
+type ChatToolSupabaseClient = Pick<SupabaseClient, 'from' | 'rpc'>;
 
 function createChatToolSupabaseClient(
   sessionId?: string
@@ -48,26 +50,52 @@ interface ProductSearchResult {
   status: string;
 }
 
-function escapeProductSearchTerm(value: string): string {
-  return value.replace(/[%_\\,()]/g, '\\$&').slice(0, 100);
+function buildChatSearchText(params: SearchProductsParams): string {
+  return [params.query, params.category]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map((value) => sanitizeSearchQuery(value).trim())
+    .filter(Boolean)
+    .join(' ');
 }
 
-function createProductSearchFilter(params: SearchProductsParams): string {
-  const terms = [params.query, params.category]
-    .filter((value): value is string => Boolean(value?.trim()))
-    .map((value) => escapeProductSearchTerm(value.trim()));
-  const uniqueTerms = [...new Set(terms)];
-  const columns = ['name', 'description', 'brand', 'category'];
-
-  return uniqueTerms
-    .flatMap((term) => columns.map((column) => `${column}.ilike.%${term}%`))
-    .join(',');
+function orderProductsByRankedIds<T extends { id: string }>(
+  products: T[],
+  rankedIds: string[]
+): T[] {
+  const order = new Map(rankedIds.map((id, index) => [id, index] as const));
+  return [...products].sort(
+    (a, b) =>
+      (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+      (order.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+  );
 }
 
 export async function handleSearchProducts(
   params: SearchProductsParams
 ): Promise<{ products: ProductSearchResult[]; total: number }> {
   const supabase = createChatToolSupabaseClient();
+  const searchText = buildChatSearchText(params);
+  let ranked: Awaited<ReturnType<typeof searchStorefrontProducts>> | null =
+    null;
+
+  if (searchText) {
+    try {
+      ranked = await searchStorefrontProducts({
+        supabase,
+        filters: {
+          maxPrice: params.maxPrice ?? null,
+          minPrice: params.minPrice ?? null,
+        },
+        limit: 10,
+        merchantId: OGABASSEY_MERCHANT_ID,
+        query: searchText,
+        trackAnalytics: false,
+      });
+    } catch (error) {
+      console.error('[Chat Tools] Search ranking error:', error);
+      return { products: [], total: 0 };
+    }
+  }
 
   let query = supabase
     .from('products')
@@ -79,19 +107,18 @@ export async function handleSearchProducts(
     .order('price', { ascending: false })
     .limit(10);
 
-  // Apply search/category filter (sanitize PostgREST metacharacters to prevent injection).
-  // Category-only requests still need a filter; category acts as an extra search
-  // term rather than a hard AND so laptop queries can match names/brands too.
-  const searchFilter = createProductSearchFilter(params);
-  if (searchFilter) {
-    query = query.or(searchFilter);
+  if (ranked) {
+    if (ranked.productIds.length === 0) {
+      return { products: [], total: ranked.count };
+    }
+    query = query.in('id', ranked.productIds);
   }
 
   // Apply price filters
-  if (params.maxPrice) {
+  if (params.maxPrice !== undefined) {
     query = query.lte('price', params.maxPrice);
   }
-  if (params.minPrice) {
+  if (params.minPrice !== undefined) {
     query = query.gte('price', params.minPrice);
   }
 
@@ -102,7 +129,7 @@ export async function handleSearchProducts(
     return { products: [], total: 0 };
   }
 
-  const products = (data || []).map((p) => ({
+  const mappedProducts = (data || []).map((p) => ({
     id: p.id,
     name: p.name,
     price: p.price,
@@ -114,8 +141,11 @@ export async function handleSearchProducts(
     stock: p.stock,
     status: p.status,
   }));
+  const products = ranked
+    ? orderProductsByRankedIds(mappedProducts, ranked.productIds)
+    : mappedProducts;
 
-  return { products, total: count || products.length };
+  return { products, total: ranked?.count ?? (count || products.length) };
 }
 
 // ============================================

@@ -45,6 +45,54 @@ describe('fetchComparisonProductSearchResults', () => {
         expect(requestInit).toEqual({ signal });
     });
 
+    it('forwards typo comparison searches to the same merchant-scoped storefront API', async () => {
+        const fetchMock = vi.fn(
+            async (_input: string | URL | Request, _init?: RequestInit) => ({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    products: [
+                        {
+                            id: 'candidate-product',
+                            name: 'iPhone 16 Pro',
+                            price: 1200000,
+                        },
+                    ],
+                }),
+            })
+        );
+        vi.stubGlobal('fetch', fetchMock);
+
+        const signal = new AbortController().signal;
+        const results = await fetchComparisonProductSearchResults({
+            query: 'iphnoe',
+            mainProduct: {
+                id: 'main-product',
+                merchantId: 'merchant-1',
+                category: 'Smartphones',
+                categorySlug: 'smartphones',
+            },
+            comparisonProducts: [],
+            signal,
+        });
+
+        const firstCall = fetchMock.mock.calls[0];
+        expect(firstCall).toBeDefined();
+
+        const [requestUrl, requestInit] = firstCall;
+        const url = new URL(String(requestUrl), 'http://localhost');
+
+        expect(url.pathname).toBe('/api/storefront/products');
+        expect(url.searchParams.get('q')).toBe('iphnoe');
+        expect(url.searchParams.get('merchant_id')).toBe('merchant-1');
+        expect(url.searchParams.get('category')).toBe('smartphones');
+        expect(url.searchParams.get('compact')).toBe('false');
+        expect(requestInit).toEqual({ signal });
+        expect(results).toEqual([
+            { id: 'candidate-product', name: 'iPhone 16 Pro', price: 1200000 },
+        ]);
+    });
+
     it('filters the current product and already selected comparison products', async () => {
         const fetchMock = vi.fn(async () => ({
             ok: true,

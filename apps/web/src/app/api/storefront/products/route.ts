@@ -4,11 +4,17 @@ import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { getPrimaryProductImage } from '@/lib/product-image';
 import { storefrontProductFilters } from '@/lib/storefront-product-filters';
 import {
   buildStorefrontProductsCacheKeyParts,
   buildStorefrontProductsCacheTags,
 } from '@/lib/storefront-products-cache-key';
+import {
+  collectRankedSearchProductIds,
+  searchStorefrontProducts,
+  toStorefrontSearchSort,
+} from '@/lib/storefront-search';
 import { createClient } from '@/lib/supabase/server';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import type { StorefrontProductsQuery } from '@/schemas/storefront-products-query.types';
@@ -18,6 +24,8 @@ import {
 } from './storefront-products-route-data';
 
 type ProductFilters = StorefrontProductsQuery;
+
+const PRODUCT_ID_FETCH_CHUNK_SIZE = 100;
 
 function hasInMemoryStorefrontFilters(filters: ProductFilters): boolean {
   return Boolean(
@@ -176,6 +184,20 @@ async function fetchProductsByIds(
   ids: string[],
   options: { compact?: boolean } = {}
 ) {
+  const products = await fetchProductRowsByIds(merchantId, ids, options);
+
+  return products.map(storefrontProductsRouteData.mapProduct);
+}
+
+async function fetchProductRowsByIds(
+  merchantId: string,
+  ids: string[],
+  options: { compact?: boolean } = {}
+) {
+  if (ids.length === 0) {
+    return [];
+  }
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const selectColumns: string =
@@ -183,18 +205,83 @@ async function fetchProductsByIds(
       ? storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT
       : storefrontProductsRouteData.STOREFRONT_PRODUCTS_COMPACT_SELECT;
 
-  const { data: products, error } = (await supabase
-    .from('products')
-    .select(selectColumns)
-    .eq('merchant_id', merchantId)
-    .in('id', ids)) as {
-    data: RawStorefrontProductRow[] | null;
-    error: unknown;
-  };
+  const products: RawStorefrontProductRow[] = [];
+  for (
+    let index = 0;
+    index < ids.length;
+    index += PRODUCT_ID_FETCH_CHUNK_SIZE
+  ) {
+    const idChunk = ids.slice(index, index + PRODUCT_ID_FETCH_CHUNK_SIZE);
+    const result = (await supabase
+      .from('products')
+      .select(selectColumns)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .in('id', idChunk)) as {
+      data: RawStorefrontProductRow[] | null;
+      error: unknown;
+    };
 
-  if (error) throw error;
+    if (result.error) throw result.error;
+    products.push(...(result.data || []));
+  }
 
-  return (products || []).map(storefrontProductsRouteData.mapProduct);
+  return products;
+}
+
+function hasActiveStorefrontFilter(value: string | undefined) {
+  return Boolean(value && !storefrontProductFilters.isAllFilter(value));
+}
+
+function hasRouteProductImage(product: RawStorefrontProductRow) {
+  return Boolean(
+    getPrimaryProductImage(
+      product.images as Array<string | { url?: string | null }> | null
+    )
+  );
+}
+
+function matchesRouteProductFilters(
+  product: RawStorefrontProductRow,
+  filters: Pick<ProductFilters, 'brand' | 'category' | 'condition'> & {
+    hasImages?: boolean;
+  }
+) {
+  if (filters.hasImages && !hasRouteProductImage(product)) {
+    return false;
+  }
+
+  if (
+    filters.category &&
+    !storefrontProductFilters.matchesStorefrontCategoryFilter(
+      storefrontProductsRouteData.buildCategoryFilterSource(product),
+      filters.category
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    filters.brand &&
+    !storefrontProductFilters.matchesStorefrontBrandFilter(
+      product,
+      filters.brand
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    filters.condition &&
+    !storefrontProductFilters.matchesStorefrontConditionFilter(
+      product,
+      filters.condition
+    )
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export async function GET(request: NextRequest) {
@@ -228,6 +315,7 @@ export async function GET(request: NextRequest) {
       max_price,
       sort,
       q,
+      has_images,
     } = parsed.data;
 
     if (!merchantId) {
@@ -258,6 +346,116 @@ export async function GET(request: NextRequest) {
         {
           headers: {
             'Cache-Control': 'private, max-age=60',
+          },
+        }
+      );
+    }
+
+    if (q) {
+      // Page ranked candidates when filters run in memory. search_products_v2
+      // caps each page at 100, so filtered storefront responses must not stop at
+      // a fixed pre-filter candidate window.
+      const cookieStore = await cookies();
+      const supabase = createClient(cookieStore);
+      const requestedLimit = limit ?? 20;
+      const searchSort = searchParams.has('sort')
+        ? toStorefrontSearchSort(sort)
+        : 'relevance';
+      const usesInMemoryFilters =
+        hasActiveStorefrontFilter(category) ||
+        hasActiveStorefrontFilter(brand) ||
+        hasActiveStorefrontFilter(condition) ||
+        has_images === true;
+      const searchFilters = {
+        brand: null,
+        condition: null,
+        maxPrice: max_price ?? null,
+        minPrice: min_price ?? null,
+      };
+
+      let rankedProductIds: string[];
+      let didYouMean: string | null;
+      // Exact RPC total when no in-memory filter narrows the result set.
+      let dbCount: number | null;
+      if (usesInMemoryFilters) {
+        const candidates = await collectRankedSearchProductIds({
+          supabase,
+          merchantId,
+          query: q,
+          filters: searchFilters,
+          sort: searchSort,
+        });
+        rankedProductIds = candidates.productIds;
+        didYouMean = candidates.didYouMean;
+        dbCount = null;
+      } else {
+        const ranked = await searchStorefrontProducts({
+          supabase,
+          merchantId,
+          query: q,
+          limit: requestedLimit,
+          filters: searchFilters,
+          sort: searchSort,
+        });
+        rankedProductIds = ranked.productIds;
+        didYouMean = ranked.didYouMean;
+        dbCount = ranked.count;
+      }
+
+      if (rankedProductIds.length === 0) {
+        return NextResponse.json(
+          {
+            products: [],
+            didYouMean,
+            count: dbCount ?? 0,
+          },
+          {
+            headers: {
+              'Cache-Control':
+                'public, s-maxage=60, stale-while-revalidate=300',
+            },
+          }
+        );
+      }
+
+      const productRows = await fetchProductRowsByIds(
+        merchantId,
+        rankedProductIds,
+        { compact }
+      );
+      const order = new Map(
+        rankedProductIds.map((id, index) => [id, index] as const)
+      );
+      const activeFilters = {
+        brand: hasActiveStorefrontFilter(brand) ? brand : undefined,
+        category: hasActiveStorefrontFilter(category) ? category : undefined,
+        condition: hasActiveStorefrontFilter(condition) ? condition : undefined,
+        hasImages: has_images === true ? true : undefined,
+      };
+      const filteredRows = productRows.filter((product) =>
+        matchesRouteProductFilters(product, activeFilters)
+      );
+      filteredRows.sort(
+        (a, b) =>
+          (order.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER) -
+          (order.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER)
+      );
+      const visibleProducts = filteredRows
+        .slice(0, requestedLimit)
+        .map(storefrontProductsRouteData.mapProduct);
+      const responseCount = usesInMemoryFilters
+        ? filteredRows.length
+        : (dbCount ?? filteredRows.length);
+
+      return NextResponse.json(
+        {
+          products: visibleProducts,
+          didYouMean,
+          count: responseCount,
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
           },
         }
       );

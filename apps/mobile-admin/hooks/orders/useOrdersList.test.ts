@@ -104,7 +104,7 @@ vi.mock('@/lib/orders', () => ({
 }));
 
 vi.mock('@/lib/sanitize', () => ({
-  sanitizeSearchQuery: (value: string) => value.trim(),
+  sanitizeText: (value: string) => value.trim(),
 }));
 
 vi.mock('@/schemas/branch', () => ({
@@ -235,7 +235,7 @@ describe('fetchOrders', () => {
         {
           method: 'or',
           args: [
-            'order_number.ilike.%Ada%,customer_name.ilike.%Ada%,customer_email.ilike.%Ada%',
+            'order_number.ilike."%Ada%",customer_name.ilike."%Ada%",customer_email.ilike."%Ada%",customer_phone.ilike."%Ada%",payment_method.ilike."%Ada%",tracking_number.ilike."%Ada%",tracking_token.ilike."%Ada%"',
           ],
         },
         { method: 'range', args: [20, 39] },
@@ -247,6 +247,50 @@ describe('fetchOrders', () => {
     expect(
       supabaseMock.chainCalls.filter((call) => call.method === 'lte')
     ).toHaveLength(1);
+  });
+
+  it('escapes order search wildcards before building PostgREST ilike filters', async () => {
+    await fetchOrders(
+      'merchant-1',
+      0,
+      {
+        search: 'ORD_100%',
+      },
+      { type: 'all' }
+    );
+
+    expect(supabaseMock.chainCalls).toEqual(
+      expect.arrayContaining([
+        {
+          method: 'or',
+          args: [
+            'order_number.ilike."%ORD\\\\_100\\\\%%",customer_name.ilike."%ORD\\\\_100\\\\%%",customer_email.ilike."%ORD\\\\_100\\\\%%",customer_phone.ilike."%ORD\\\\_100\\\\%%",payment_method.ilike."%ORD\\\\_100\\\\%%",tracking_number.ilike."%ORD\\\\_100\\\\%%",tracking_token.ilike."%ORD\\\\_100\\\\%%"',
+          ],
+        },
+      ])
+    );
+  });
+
+  it('quotes order search patterns so PostgREST reserved commas cannot split or filters', async () => {
+    await fetchOrders(
+      'merchant-1',
+      0,
+      {
+        search: 'John, "JD"',
+      },
+      { type: 'all' }
+    );
+
+    expect(supabaseMock.chainCalls).toEqual(
+      expect.arrayContaining([
+        {
+          method: 'or',
+          args: [
+            String.raw`order_number.ilike."%John, \"JD\"%",customer_name.ilike."%John, \"JD\"%",customer_email.ilike."%John, \"JD\"%",customer_phone.ilike."%John, \"JD\"%",payment_method.ilike."%John, \"JD\"%",tracking_number.ilike."%John, \"JD\"%",tracking_token.ilike."%John, \"JD\"%"`,
+          ],
+        },
+      ])
+    );
   });
 
   it('keeps checkout drop-offs out of the admin orders list', async () => {

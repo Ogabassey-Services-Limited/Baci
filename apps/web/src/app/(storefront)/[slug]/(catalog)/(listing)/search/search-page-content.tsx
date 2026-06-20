@@ -1,10 +1,11 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { BreadcrumbList, CollectionPage, WithContext } from 'schema-dts';
+import { JsonLd } from '@/components/seo/json-ld';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema, getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getStorefrontSearchProducts } from '@/lib/storefront-search';
@@ -105,6 +106,11 @@ export async function SearchPageContent({
 
   const headersList = await headers();
   const pathPrefix = getStorefrontPathPrefix(headersList, merchant.slug);
+  const allProductsHref = `${pathPrefix}/products`;
+  const contactHref = `${pathPrefix}/contact`;
+  const didYouMeanHref = searchResult.didYouMean
+    ? `${pathPrefix}/search?q=${encodeURIComponent(searchResult.didYouMean)}`
+    : null;
   const storeUrl = buildRequestScopedStoreUrl(merchant, headersList);
   const pageUrl = searchQuery
     ? `${storeUrl}/search?q=${encodeURIComponent(searchQuery)}`
@@ -150,12 +156,12 @@ export async function SearchPageContent({
 
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(breadcrumbSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(searchResultsSchema)}
-      </script>
+      <JsonLd
+        data={breadcrumbSchema as unknown as WithContext<BreadcrumbList>}
+      />
+      <JsonLd
+        data={searchResultsSchema as unknown as WithContext<CollectionPage>}
+      />
       <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
         <div className="mx-auto max-w-[1400px] px-4 md:px-6">
           <nav className="flex items-center gap-2 text-sm text-store-background-text/55">
@@ -185,10 +191,16 @@ export async function SearchPageContent({
             </p>
           </div>
 
-          {searchResult.didYouMean && (
+          {searchResult.didYouMean && didYouMeanHref && (
             <p className="mt-4 text-sm text-store-background-text/55">
               Did you mean{' '}
-              <span className="font-medium">{searchResult.didYouMean}</span>?
+              <Link
+                href={asRoute(didYouMeanHref)}
+                className="font-medium text-store-primary underline-offset-4 hover:underline"
+              >
+                {searchResult.didYouMean}
+              </Link>
+              ?
             </p>
           )}
 
@@ -212,6 +224,22 @@ export async function SearchPageContent({
                 <p className="mt-2 text-sm text-store-background-text/55">
                   We could not find any products matching “{searchQuery}”.
                 </p>
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <Link
+                    href={asRoute(allProductsHref)}
+                    prefetch={false}
+                    className="rounded-md bg-store-primary px-4 py-2 text-sm font-semibold text-store-primary-text transition hover:opacity-90"
+                  >
+                    View all products
+                  </Link>
+                  <Link
+                    href={asRoute(contactHref)}
+                    prefetch={false}
+                    className="rounded-md border border-store-background-text/15 px-4 py-2 text-sm font-semibold text-store-background-text transition hover:border-store-primary hover:text-store-primary"
+                  >
+                    Contact support
+                  </Link>
+                </div>
               </div>
             )
           ) : (
@@ -223,13 +251,6 @@ export async function SearchPageContent({
                 Enter a product name or keyword to see matching items.
               </p>
             </div>
-          )}
-
-          {searchResult.didYouMean && searchResult.products.length === 0 && (
-            <p className="mt-4 text-sm text-store-background-text/55">
-              Try searching for{' '}
-              <span className="font-medium">{searchResult.didYouMean}</span>.
-            </p>
           )}
         </div>
       </div>

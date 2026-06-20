@@ -15,6 +15,10 @@ import {
   type UcpCatalogProductRow,
 } from '@/lib/agentic/ucp-catalog-adapters';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import {
+  type StorefrontSearchResult,
+  searchStorefrontProducts,
+} from '@/lib/storefront-search';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ucpCatalogSearchRequestSchema } from '@/schemas/ucp-catalog-request';
 
@@ -44,22 +48,49 @@ export async function POST(request: NextRequest) {
     return context.response;
   }
 
+  const limit = parsed.data.pagination?.limit ?? 20;
+  let ranked: StorefrontSearchResult | null = null;
+  if (parsed.data.query) {
+    try {
+      ranked = await searchStorefrontProducts({
+        supabase: context.supabase,
+        merchantId: context.merchant.id,
+        query: parsed.data.query,
+        limit,
+        trackAnalytics: false,
+      });
+    } catch (error: unknown) {
+      console.error('Agentic catalog search failed:', error);
+      return NextResponse.json(
+        { error: 'Catalog search failed' },
+        { status: 500 }
+      );
+    }
+  }
+
   let query = context.supabase
     .from('products')
     .select(PRODUCT_SELECT)
     .eq('merchant_id', context.merchant.id)
     .eq('status', 'active');
 
-  if (parsed.data.query) {
-    const escapedQuery = escapeLikePattern(parsed.data.query.slice(0, 100));
-    query = query.or(
-      `name.ilike.%${escapedQuery}%,description.ilike.%${escapedQuery}%`
-    );
+  const rankedProductIds = ranked?.productIds.slice(0, limit) ?? [];
+
+  if (ranked) {
+    if (rankedProductIds.length === 0) {
+      return NextResponse.json(
+        buildUcpCatalogProductsResponse({
+          capability: UCP_CATALOG_SEARCH_CAPABILITY,
+          products: [],
+        })
+      );
+    }
+    query = query.in('id', rankedProductIds);
   }
 
-  const { data, error } = await query
-    .order('created_at', { ascending: false })
-    .limit(parsed.data.pagination?.limit ?? 20);
+  const { data, error } = await (ranked
+    ? query.limit(rankedProductIds.length)
+    : query.order('created_at', { ascending: false }).limit(limit));
   if (error) {
     return NextResponse.json(
       { error: 'Catalog search failed' },
@@ -68,15 +99,24 @@ export async function POST(request: NextRequest) {
   }
 
   const baseUrl = buildRequestScopedStoreUrl(context.merchant, request.headers);
+  const order = new Map(
+    rankedProductIds.map((id, index) => [id, index] as const)
+  );
   const products = filterActiveUcpCatalogProductRows(
     (data ?? []) as UcpCatalogProductRow[]
-  ).map((row) =>
-    mapUcpCatalogProductRow({
-      baseUrl,
-      currency: CATALOG_CURRENCY,
-      row,
-    })
-  );
+  )
+    .map((row) =>
+      mapUcpCatalogProductRow({
+        baseUrl,
+        currency: CATALOG_CURRENCY,
+        row,
+      })
+    )
+    .sort(
+      (a, b) =>
+        (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+        (order.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+    );
 
   return NextResponse.json(
     buildUcpCatalogProductsResponse({
@@ -145,11 +185,4 @@ async function readJsonBody(
       ),
     };
   }
-}
-
-function escapeLikePattern(value: string) {
-  return value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('%', '\\%')
-    .replaceAll('_', '\\_');
 }

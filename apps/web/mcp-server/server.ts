@@ -42,6 +42,7 @@ import {
   updateAgenticCheckoutSessionMcpInputSchema,
 } from './agentic-checkout-client';
 import { registerAgenticUcpTools } from './agentic-ucp-tools';
+import { loadMcpSearchProducts } from './search-products-query';
 
 // =============================================================================
 // CONFIGURATION
@@ -1236,45 +1237,25 @@ function createOgabasseyServer() {
         const merchantId = await getMerchantId();
         if (!merchantId) throw new Error('Merchant ID unavailable');
 
-        const sanitizedQuery = args.query
-          ? sanitizeString(args.query, 100)
-          : undefined;
-        const limit = Math.min(Math.max(args.limit || 10, 1), 20);
+        const { products, sanitizedQuery, sawRankedRows } =
+          await loadMcpSearchProducts({
+            args,
+            merchantId,
+            sanitizeString,
+            supabase,
+          });
 
-        let query = supabase
-          .from('products')
-          .select(
-            'id, name, slug, price, compare_at_price, images, condition, condition_detail, brand, category, stock_quantity, has_variants, updated_at, created_at'
-          )
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active')
-          .limit(limit);
-
-        // Filters
-        if (sanitizedQuery) query = query.ilike('name', `%${sanitizedQuery}%`);
-        if (args.condition) query = query.eq('condition', args.condition);
-        if (args.category)
-          query = query.ilike(
-            'category',
-            `%${sanitizeString(args.category, 50)}%`
-          );
-        if (args.brand)
-          query = query.ilike('brand', `%${sanitizeString(args.brand, 50)}%`);
-        if (args.min_price) query = query.gte('price', args.min_price);
-        if (args.max_price) query = query.lte('price', args.max_price);
-
-        // Sorting
-        if (args.sort === 'price_asc')
-          query = query.order('price', { ascending: true });
-        else if (args.sort === 'price_desc')
-          query = query.order('price', { ascending: false });
-        else if (args.sort === 'newest')
-          query = query.order('created_at', { ascending: false });
-        else query = query.order('stock_quantity', { ascending: false }); // Relevance proxy: push in-stock items up
-
-        const { data: products, error } = await query;
-
-        if (error) throw error;
+        if (sanitizedQuery && !sawRankedRows) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No specific products found for "${sanitizedQuery}". Try broader terms.`,
+              },
+            ],
+            structuredContent: { products: [], status: 'empty' },
+          };
+        }
 
         // Graceful fallback for empty results
         if (!products || products.length === 0) {

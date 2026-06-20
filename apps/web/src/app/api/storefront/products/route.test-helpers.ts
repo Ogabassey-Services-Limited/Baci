@@ -32,12 +32,27 @@ const mockProductsByIdsResult = {
   },
 };
 
+const mockProductsByIdsResults = {
+  current: [] as Array<{
+    data: Record<string, unknown>[];
+    error: { message: string } | null;
+  }>,
+};
+
+const mockSearchRpc = {
+  current: vi.fn(),
+};
+
 const mockProductsQuery = {
   current: null as MockProductsQuery | null,
 };
 
 const mockProductsByIdsQuery = {
   current: null as MockProductsByIdsQuery | null,
+};
+
+const mockProductsByIdsQueries = {
+  current: [] as MockProductsByIdsQuery[],
 };
 
 function createProductsQuery() {
@@ -62,10 +77,16 @@ function createProductsByIdsQuery() {
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
-    in: vi.fn(() => Promise.resolve(mockProductsByIdsResult.current)),
+    in: vi.fn(() =>
+      Promise.resolve(
+        mockProductsByIdsResults.current.shift() ??
+          mockProductsByIdsResult.current
+      )
+    ),
   };
 
   mockProductsByIdsQuery.current = query;
+  mockProductsByIdsQueries.current.push(query);
 
   return query;
 }
@@ -81,6 +102,7 @@ const mockCreateStaticClient = vi.fn(() => ({
 }));
 
 const mockCreateServerClient = vi.fn(() => ({
+  rpc: (...args: unknown[]) => mockSearchRpc.current(...args),
   from: vi.fn((table: string) => {
     if (table === 'products') {
       return createProductsByIdsQuery();
@@ -122,6 +144,7 @@ function reset() {
   vi.clearAllMocks();
   mockProductsQuery.current = null;
   mockProductsByIdsQuery.current = null;
+  mockProductsByIdsQueries.current = [];
   mockProductsResult.current = {
     data: [],
     error: null,
@@ -130,15 +153,20 @@ function reset() {
     data: [],
     error: null,
   };
+  mockProductsByIdsResults.current = [];
+  mockSearchRpc.current = vi.fn();
 }
 
 export const storefrontProductsRouteTestHarness = {
   mockCreateStaticClient,
   mockCreateServerClient,
+  mockProductsByIdsQueries,
   mockProductsByIdsQuery,
   mockProductsByIdsResult,
+  mockProductsByIdsResults,
   mockProductsQuery,
   mockProductsResult,
+  mockSearchRpc,
   createRawProduct,
   reset,
 } as const;

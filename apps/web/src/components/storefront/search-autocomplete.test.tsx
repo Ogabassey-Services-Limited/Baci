@@ -362,4 +362,79 @@ describe('SearchAutocomplete', () => {
       screen.getByRole('option', { name: /kurta set/i })
     ).not.toHaveTextContent(/₹|INR/);
   });
+
+  it('renders ranked autocomplete suggestions in API order', async () => {
+    vi.useRealTimers();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        suggestions: [
+          {
+            id: 'product-2',
+            name: 'iPhone 16 Pro',
+            slug: 'iphone-16-pro',
+            category: 'Smartphones',
+            price: 1_200_000,
+            image_small: '',
+          },
+          {
+            id: 'product-1',
+            name: 'iPhone X',
+            slug: 'iphone-x',
+            category: 'Smartphones',
+            price: 240_000,
+            image_small: '',
+          },
+        ],
+        popularSearches: [],
+      }),
+    } as Response);
+
+    render(
+      <SearchAutocomplete
+        merchantId="merchant-1"
+        value="iphnoe"
+        onChange={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/search/autocomplete?q=iphnoe&merchant_id=merchant-1&limit=10'
+      );
+    });
+
+    const options = await screen.findAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual([
+      expect.stringContaining('iPhone 16 Pro'),
+      expect.stringContaining('iPhone X'),
+    ]);
+  });
+
+  it('keeps the autocomplete popup closed for empty ranked suggestions', async () => {
+    vi.useRealTimers();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        suggestions: [],
+        popularSearches: [],
+      }),
+    } as Response);
+
+    render(
+      <SearchAutocomplete
+        merchantId="merchant-1"
+        value="zzzz"
+        onChange={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/search/autocomplete?q=zzzz&merchant_id=merchant-1&limit=10'
+      );
+    });
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
 });
