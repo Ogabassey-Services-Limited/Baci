@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useLayoutEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 
 const STOREFRONT_LIGHT_CLASS = 'storefront-light';
 const STOREFRONT_LIGHT_ATTR = 'data-storefront-light-count';
@@ -53,14 +53,24 @@ function decrementStorefrontLightScope(target: HTMLElement) {
  *    (since `.dark` on `<html>` still matches descendant `dark:*` rules).
  */
 export function StorefrontThemeProvider({ children }: { children: ReactNode }) {
-  useLayoutEffect(() => {
+  useEffect(() => {
+    let applied = false;
     const root = document.documentElement;
     const body = document.body;
-
-    incrementStorefrontLightScope(root);
-    incrementStorefrontLightScope(body);
+    // Defer document-level mutations until after React's hydration turn; mutating
+    // html/body from a layout effect can invalidate streamed PPR boundaries.
+    const timeoutId = window.setTimeout(() => {
+      incrementStorefrontLightScope(root);
+      incrementStorefrontLightScope(body);
+      applied = true;
+    }, 0);
 
     return () => {
+      window.clearTimeout(timeoutId);
+      if (!applied) {
+        return;
+      }
+
       decrementStorefrontLightScope(root);
       decrementStorefrontLightScope(body);
     };

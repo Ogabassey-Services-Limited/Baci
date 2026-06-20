@@ -1,9 +1,17 @@
 import { render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StorefrontThemeProvider } from './storefront-theme-provider';
+
+function flushDeferredPortalLightMode() {
+  act(() => {
+    vi.runOnlyPendingTimers();
+  });
+}
 
 describe('StorefrontThemeProvider', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     document.documentElement.classList.remove('storefront-light');
     document.documentElement.removeAttribute('data-storefront-light-count');
     document.body.classList.remove('storefront-light');
@@ -11,6 +19,10 @@ describe('StorefrontThemeProvider', () => {
   });
 
   afterEach(() => {
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    vi.useRealTimers();
     document.documentElement.classList.remove('storefront-light');
     document.documentElement.removeAttribute('data-storefront-light-count');
     document.body.classList.remove('storefront-light');
@@ -47,12 +59,30 @@ describe('StorefrontThemeProvider', () => {
     expect(wrapper).toHaveClass('storefront-light');
   });
 
+  it('defers document-level light mode until after the hydration turn', () => {
+    render(
+      <StorefrontThemeProvider>
+        <div>content</div>
+      </StorefrontThemeProvider>
+    );
+
+    expect(document.documentElement).not.toHaveClass('storefront-light');
+    expect(document.body).not.toHaveClass('storefront-light');
+    expect(
+      document.documentElement.getAttribute('data-storefront-light-count')
+    ).toBeNull();
+    expect(
+      document.body.getAttribute('data-storefront-light-count')
+    ).toBeNull();
+  });
+
   it('forces light mode for portal surfaces while mounted', () => {
     const { unmount } = render(
       <StorefrontThemeProvider>
         <div>content</div>
       </StorefrontThemeProvider>
     );
+    flushDeferredPortalLightMode();
 
     expect(document.documentElement).toHaveClass('storefront-light');
     expect(document.body).toHaveClass('storefront-light');
@@ -80,6 +110,7 @@ describe('StorefrontThemeProvider', () => {
         <div>second</div>
       </StorefrontThemeProvider>
     );
+    flushDeferredPortalLightMode();
 
     expect(document.documentElement).toHaveClass('storefront-light');
     expect(document.body).toHaveClass('storefront-light');
