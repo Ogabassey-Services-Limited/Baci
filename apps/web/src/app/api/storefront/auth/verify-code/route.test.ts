@@ -1,13 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockFrom, mockLoggerError, mockLoggerWarn, mockVerifyOtp } = vi.hoisted(
-  () => ({
-    mockFrom: vi.fn(),
-    mockLoggerError: vi.fn(),
-    mockLoggerWarn: vi.fn(),
-    mockVerifyOtp: vi.fn(),
-  })
-);
+const {
+  mockFrom,
+  mockGetMerchantByIdentifier,
+  mockLoggerError,
+  mockLoggerWarn,
+  mockVerifyOtp,
+} = vi.hoisted(() => ({
+  mockFrom: vi.fn(),
+  mockGetMerchantByIdentifier: vi.fn(),
+  mockLoggerError: vi.fn(),
+  mockLoggerWarn: vi.fn(),
+  mockVerifyOtp: vi.fn(),
+}));
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({}),
@@ -22,6 +27,11 @@ vi.mock('@/lib/supabase/server', () => ({
     from: mockFrom,
     rpc: vi.fn(),
   })),
+}));
+
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -47,20 +57,27 @@ function makeRequest(body: Record<string, unknown>) {
   });
 }
 
-function makeMerchantQuery(data: unknown) {
-  const chain = {
-    select: vi.fn(() => chain),
-    eq: vi.fn(() => chain),
-    single: vi.fn().mockResolvedValue({ data, error: null }),
-  };
-
-  return chain;
-}
-
 describe('POST /api/storefront/auth/verify-code', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFrom.mockReturnValue(makeMerchantQuery(merchant));
+    mockGetMerchantByIdentifier.mockResolvedValue(merchant);
+  });
+
+  it('returns 404 when the storefront merchant resolver misses', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
+
+    const response = await POST(
+      makeRequest({
+        email: 'customer@example.com',
+        token: '123456',
+        merchantSlug: 'missing-store',
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Store not found' });
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
   });
 
   it('logs expired customer OTP attempts as warnings while returning the existing 400 response', async () => {

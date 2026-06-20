@@ -1,5 +1,9 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import {
+  type CachedMerchant,
+  getMerchantByIdentifier,
+} from '@/lib/cached-data';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 import { verifyCodeSchema } from '@/schemas/auth';
@@ -30,28 +34,8 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Get merchant first - support both slug and custom_domain
-    let merchant = null;
-
-    // First, try by slug (standard lookup)
-    const slugResult = await supabase
-      .from('merchants')
-      .select('id, slug, business_name')
-      .eq('slug', merchantSlug)
-      .single();
-
-    if (slugResult.data) {
-      merchant = slugResult.data;
-    } else {
-      // Fallback: try by custom_domain (for custom domain access like ogabassey.com)
-      const domainResult = await supabase
-        .from('merchants')
-        .select('id, slug, business_name')
-        .eq('custom_domain', merchantSlug.toLowerCase())
-        .single();
-
-      merchant = domainResult.data;
-    }
+    const merchant: CachedMerchant | null =
+      await getMerchantByIdentifier(merchantSlug);
 
     if (!merchant) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
