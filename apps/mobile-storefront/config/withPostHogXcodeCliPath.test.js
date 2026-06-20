@@ -141,6 +141,9 @@ export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"
   it('patches the generated PostHog dSYM upload phase for pnpm CLI lookup and dSYM readiness', () => {
     const { dsymScript, dsymUploadPhase } = runPluginWithPhases({
       dsymShellScript: `# Upload iOS dSYMs to PostHog so native crashes can be symbolicated.
+if [ -n "$SKIP_DSYM_UPLOAD" ]; then
+  exit 0
+fi
 PODS_SCRIPT="\${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 SPM_SCRIPT="\${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
 /bin/sh "$PODS_SCRIPT"

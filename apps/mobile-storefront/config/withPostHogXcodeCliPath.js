@@ -110,7 +110,7 @@ ${indent}fi`;
     bestEffortScript
   );
 
-  return /^\s*exit 0\s*$/m.test(wrappedScript)
+  return /(?:^|\n)\s*exit 0\s*$/.test(wrappedScript.trimEnd())
     ? wrappedScript
     : `${wrappedScript.trimEnd()}\nexit 0\n`;
 }
