@@ -77,7 +77,7 @@ describe('sendImportNotificationCampaign claim modes', () => {
 
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        subject: 'Your Receipt has Changed.',
+        subject: 'Your receipt has moved',
         replyTo: 'hello@futuremerchant.com',
         htmlContent: expect.stringContaining(
           'https://futuremerchant.com/account/receipts'

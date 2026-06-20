@@ -379,21 +379,13 @@ describe('Email Templates', () => {
         merchantRcNumber: 'RC-<script>rc()</script>',
       });
 
-      expect(html).toContain('Ada \\u003cimg src=x onerror=alert(1)\\u003e');
-      expect(html).toContain('EKEDC \\u003cb\\u003ebad\\u003c/b\\u003e');
-      expect(html).toContain(
-        'METER-\\u003cscript\\u003emeter()\\u003c/script\\u003e'
-      );
-      expect(html).toContain(
-        'PIN-\\u003cscript\\u003etoken()\\u003c/script\\u003e'
-      );
+      expect(html).toContain('Ada &lt;img src=x onerror=alert(1)&gt;');
+      expect(html).toContain('EKEDC &lt;b&gt;bad&lt;/b&gt;');
+      expect(html).toContain('METER-&lt;script&gt;meter()&lt;/script&gt;');
+      expect(html).toContain('PIN-&lt;script&gt;token()&lt;/script&gt;');
       expect(html).toContain('href="#"');
-      expect(html).toContain(
-        'RC: RC-\\u003cscript\\u003erc()\\u003c/script\\u003e'
-      );
-      expect(html).toContain(
-        'TIN: TIN-\\u003cscript\\u003etin()\\u003c/script\\u003e'
-      );
+      expect(html).toContain('RC: RC-&lt;script&gt;rc()&lt;/script&gt;');
+      expect(html).toContain('TIN: TIN-&lt;script&gt;tin()&lt;/script&gt;');
       expect(html).not.toContain('<script>');
       expect(html).not.toContain('javascript:alert(1)');
     });
@@ -453,12 +445,8 @@ describe('Email Templates', () => {
 
       expect(html).toContain('Directly Successful & Active');
       expect(html).toContain('href="#"');
-      expect(output).toContain(
-        'RC: RC-\\u003cscript\\u003erc()\\u003c/script\\u003e'
-      );
-      expect(output).toContain(
-        'TIN: TIN-\\u003cscript\\u003etin()\\u003c/script\\u003e'
-      );
+      expect(output).toContain('RC: RC-&lt;script&gt;rc()&lt;/script&gt;');
+      expect(output).toContain('TIN: TIN-&lt;script&gt;tin()&lt;/script&gt;');
       expect(output).not.toContain('<script>');
       expect(output).not.toContain('javascript:alert(1)');
     });

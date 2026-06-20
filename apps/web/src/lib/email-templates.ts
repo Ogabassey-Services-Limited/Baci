@@ -1,5 +1,6 @@
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
-import { escapeHtml, sanitizeUrl } from '@/lib/sanitize-core';
+import { escapeHtmlAttribute } from '@/lib/sanitize';
+import { sanitizeUrl, stripHtmlTags } from '@/lib/sanitize-core';
 
 interface OrderItem {
   name: string;
@@ -26,10 +27,10 @@ function getSafeHttpUrl(value?: string): string | undefined {
 function buildEscapedRegistrationLine(data: MerchantRegistrationInfo): string {
   const parts: string[] = [];
   if (data.merchantRcNumber) {
-    parts.push(`RC: ${escapeHtml(data.merchantRcNumber)}`);
+    parts.push(`RC: ${escapeHtmlAttribute(data.merchantRcNumber)}`);
   }
   if (data.merchantTin) {
-    parts.push(`TIN: ${escapeHtml(data.merchantTin)}`);
+    parts.push(`TIN: ${escapeHtmlAttribute(data.merchantTin)}`);
   }
   return parts.join(' &middot; ');
 }
@@ -718,7 +719,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
 
   const safeTrackingUrl = getSafeHttpUrl(data.trackingUrl);
   const escapedTrackingUrl = safeTrackingUrl
-    ? escapeHtml(safeTrackingUrl)
+    ? escapeHtmlAttribute(safeTrackingUrl)
     : undefined;
 
   const trackingLinkHtml = escapedTrackingUrl
@@ -1380,17 +1381,23 @@ export function generateVtuTokenReceiptEmail(
     data.type === 'betting';
   const isTokenPending = expectsToken && !isTokenReady;
   const safeMerchantUrl = getSafeHttpUrl(data.merchantUrl) ?? '#';
-  const safeMerchantHref = escapeHtml(safeMerchantUrl);
-  const merchantName = escapeHtml(data.merchantName);
-  const customerName = escapeHtml(data.customerName);
-  const providerLabel = escapeHtml(data.providerLabel);
+  const safeMerchantHref = escapeHtmlAttribute(safeMerchantUrl);
+  const merchantName = escapeHtmlAttribute(data.merchantName);
+  const customerName = escapeHtmlAttribute(data.customerName);
+  const providerLabel = escapeHtmlAttribute(data.providerLabel);
   const customerIdentifier = data.customerIdentifier
-    ? escapeHtml(data.customerIdentifier)
+    ? escapeHtmlAttribute(data.customerIdentifier)
     : null;
-  const contactPhone = data.phone_number ? escapeHtml(data.phone_number) : null;
-  const reference = escapeHtml(data.reference);
-  const voucherPin = data.voucherPin ? escapeHtml(data.voucherPin) : null;
-  const supportEmail = data.supportEmail ? escapeHtml(data.supportEmail) : null;
+  const contactPhone = data.phone_number
+    ? escapeHtmlAttribute(data.phone_number)
+    : null;
+  const reference = escapeHtmlAttribute(data.reference);
+  const voucherPin = data.voucherPin
+    ? escapeHtmlAttribute(data.voucherPin)
+    : null;
+  const supportEmail = data.supportEmail
+    ? escapeHtmlAttribute(data.supportEmail)
+    : null;
   const registrationLine = buildEscapedRegistrationLine(data);
   const typeLabel =
     data.type === 'electricity'
@@ -1573,7 +1580,7 @@ export function generateVtuTokenReceiptEmail(
                     <tr>
                       <td style="padding: 16px 0 12px 0; color: #0f172a; font-weight: 700; font-size: 15px;">Total Amount</td>
                       <td style="padding: 16px 0 12px 0; color: ${accentColor}; font-weight: 800; font-size: 18px; text-align: right;">
-                        ${escapeHtml(formatEmailMoney(data.amount, data.currency))}
+                        ${escapeHtmlAttribute(formatEmailMoney(data.amount, data.currency))}
                       </td>
                     </tr>
                   </tbody>
@@ -1628,11 +1635,13 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
             ? 'Airtime Top-up'
             : 'Data Top-up';
 
-  const tokenLine = isTokenReady
-    ? `YOUR PREPAID TOKEN PIN: ${data.voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
-    : expectsToken
-      ? 'Status: Payment received. Token fulfillment is still in progress and will be updated once available.\n'
-      : `Status: Successful (Directly credited to your account. No PIN entry required.)\n`;
+  const voucherPin = data.voucherPin ? stripHtmlTags(data.voucherPin) : null;
+  const tokenLine =
+    isTokenReady && voucherPin
+      ? `YOUR PREPAID TOKEN PIN: ${voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
+      : expectsToken
+        ? 'Status: Payment received. Token fulfillment is still in progress and will be updated once available.\n'
+        : `Status: Successful (Directly credited to your account. No PIN entry required.)\n`;
 
   const customerIdLabel =
     data.type === 'electricity'
@@ -1640,18 +1649,16 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
       : data.type === 'cable_tv'
         ? 'Smartcard / Decoder Number'
         : 'Target Account';
-  const customerName = escapeHtml(data.customerName);
-  const merchantName = escapeHtml(data.merchantName);
-  const providerLabel = escapeHtml(data.providerLabel);
+  const customerName = stripHtmlTags(data.customerName);
+  const merchantName = stripHtmlTags(data.merchantName);
+  const providerLabel = stripHtmlTags(data.providerLabel);
   const customerIdentifier = data.customerIdentifier
-    ? escapeHtml(data.customerIdentifier)
+    ? stripHtmlTags(data.customerIdentifier)
     : null;
-  const contactPhone = data.phone_number ? escapeHtml(data.phone_number) : null;
-  const reference = escapeHtml(data.reference);
-  const voucherPin = data.voucherPin ? escapeHtml(data.voucherPin) : null;
-  const safeTokenLine = voucherPin
-    ? `YOUR PREPAID TOKEN PIN: ${voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
-    : tokenLine;
+  const contactPhone = data.phone_number
+    ? stripHtmlTags(data.phone_number)
+    : null;
+  const reference = stripHtmlTags(data.reference);
   const heading = isTokenPending
     ? `${typeLabel} Payment Received`
     : `${typeLabel} Confirmation!`;
@@ -1666,7 +1673,7 @@ Hi ${customerName},
 
 ${introText}
 
-${safeTokenLine}
+${tokenLine}
 TRANSACTION DETAILS:
 - Biller/Service: ${providerLabel}
 - Product: ${typeLabel}
