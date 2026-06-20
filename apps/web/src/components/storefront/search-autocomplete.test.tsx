@@ -78,6 +78,8 @@ describe('SearchAutocomplete', () => {
     const input = screen.getByRole('searchbox', { name: /search products/i });
     const icon = container.querySelector('svg.lucide-search');
 
+    // Stays above the input, which gains z-10 on focus-visible.
+    expect(icon?.getAttribute('class')).toContain('z-20');
     expect(icon?.getAttribute('class')).toContain('text-muted-foreground');
     expect(icon?.getAttribute('class')).not.toContain('--store-primary');
 

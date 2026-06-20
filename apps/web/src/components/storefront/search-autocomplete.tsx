@@ -233,7 +233,9 @@ export function SearchAutocomplete({
       <div className="relative">
         <Search
           className={cn(
-            'pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 transition-colors',
+            // z-20 keeps the icon above the input, which gains `z-10` on
+            // focus-visible (otherwise the input background covers the glass).
+            'pointer-events-none absolute left-4 top-1/2 z-20 size-5 -translate-y-1/2 transition-colors',
             isFocused
               ? 'text-[color:var(--store-primary,var(--ogabassey-brand))]'
               : 'text-muted-foreground'
