@@ -1200,17 +1200,15 @@ async function CategoryProductPageContent({
     ...buildTrustBulletsFromProfile(trustProfile),
   ];
   const semanticSections = (
-    <Suspense fallback={null}>
-      <OgabasseyPdpSemanticSections
-        categoryName={renderableProduct.category || 'All Products'}
-        categorySlug={resolvedCategorySlug}
-        merchant={merchant}
-        product={renderableProduct}
-        storeSlug={slug}
-        storeUrl={baseUrl}
-        trustBullets={trustBullets}
-      />
-    </Suspense>
+    <OgabasseyPdpSemanticSections
+      categoryName={renderableProduct.category || 'All Products'}
+      categorySlug={resolvedCategorySlug}
+      merchant={merchant}
+      product={renderableProduct}
+      storeSlug={slug}
+      storeUrl={baseUrl}
+      trustBullets={trustBullets}
+    />
   );
   const derivedSpecData = buildOgabasseyProductSpecData(renderableProduct);
   const schemaProduct =

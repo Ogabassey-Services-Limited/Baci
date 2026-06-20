@@ -217,9 +217,9 @@ describe('storefront layout', () => {
     await waitFor(() => {
       expect(getStorefrontShellSnapshotBase).toHaveBeenCalledWith('ogabassey');
     });
-    // The connection() guard was removed (PR #2436 patches the resume bug) so
-    // the storefront layout can prerender; it is no longer called.
-    expect(mockConnection).not.toHaveBeenCalled();
+    // Keep tenant/chrome rendering request-bound so the PPR resume slot does
+    // not hydrate against the static fallback shell under CPU throttling.
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(getStorefrontShellSnapshot).toHaveBeenCalledWith(
       baseShellSnapshotWithoutCategories
     );
@@ -259,6 +259,7 @@ describe('storefront layout', () => {
       })
     );
 
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('ogabassey-layout')).toHaveAttribute(
       'data-preload-hero-lcp',
       'false'
@@ -269,6 +270,41 @@ describe('storefront layout', () => {
       }),
       undefined
     );
+  });
+
+  it('does not force non-OgaBassey storefront layouts request-bound', async () => {
+    const genericMerchant = {
+      ...baseShellSnapshot.merchant,
+      business_name: 'Generic Store',
+      custom_domain: undefined,
+      slug: 'generic-store',
+      template_id: 'modern',
+    };
+    const genericShellSnapshotBase = {
+      ...baseShellSnapshotWithoutCategories,
+      merchant: genericMerchant,
+    };
+    const genericShellSnapshot = {
+      ...baseShellSnapshot,
+      merchant: genericMerchant,
+    };
+
+    vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
+      genericShellSnapshotBase
+    );
+    vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(
+      genericShellSnapshot
+    );
+
+    render(
+      await StorefrontLayoutContent({
+        params: Promise.resolve({ slug: 'generic-store' }),
+        children: <main>Generic storefront content</main>,
+      })
+    );
+
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(screen.getByText('Generic storefront content')).toBeInTheDocument();
   });
 
   it('renders the static PPR shell by default while tenant data is loading', async () => {
