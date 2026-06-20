@@ -70,6 +70,7 @@ function createSupabaseMock(input?: {
       order_items: Array<{
         id: string;
         product_id: string;
+        image_url?: string | null;
         name: string;
         quantity: number;
         price: number;
@@ -78,6 +79,7 @@ function createSupabaseMock(input?: {
           slug?: string;
           category?: string | null;
           category_slug?: string | null;
+          images?: string[] | null;
           categories?: { name?: string; slug?: string }[] | null;
         } | null;
       }>;
@@ -387,6 +389,79 @@ describe('GET /api/storefront/orders', () => {
         }),
       ],
     });
+  });
+
+  it('falls back to joined product images when imported order items have no snapshot image', async () => {
+    vi.mocked(authenticateApiRequest).mockResolvedValue(
+      createAuthenticatedAuthResult(
+        createSupabaseMock({
+          orders: {
+            data: [
+              {
+                id: 'order-imported',
+                order_number: 'ORD-260403-00NN-J',
+                created_at: '2026-04-03T10:00:00.000Z',
+                total: 1283968.38,
+                subtotal: 1283968.38,
+                shipping_fee: 0,
+                tax_amount: 0,
+                discount_amount: 0,
+                amount_paid: 0,
+                currency: 'NGN',
+                external_source: 'bumpa',
+                import_job_id: 'job-1',
+                payment_status: 'UNPAID',
+                shipping_status: 'Processing',
+                shipping_address: null,
+                tracking_number: null,
+                shipping_provider: null,
+                payment_method: 'imported',
+                order_items: [
+                  {
+                    id: 'item-1',
+                    product_id: 'product-1',
+                    image_url: null,
+                    name: 'Samsung Galaxy S26',
+                    quantity: 1,
+                    price: 1283968.38,
+                    has_assurance: false,
+                    products: {
+                      slug: 'samsung-galaxy-s26',
+                      category: 'smartphones',
+                      images: [
+                        'https://cdn.ogabassey.com/core-assets/products/samsung-galaxy-s25-navy.avif',
+                      ],
+                      categories: [
+                        { name: 'Smartphones', slug: 'smartphones' },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+            error: null,
+          },
+        })
+      )
+    );
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/orders?merchantSlug=ogabassey'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.orders[0].items[0]).toEqual(
+      expect.objectContaining({
+        image_url:
+          'https://cdn.ogabassey.com/core-assets/products/samsung-galaxy-s25-navy.avif',
+        product_images: [
+          'https://cdn.ogabassey.com/core-assets/products/samsung-galaxy-s25-navy.avif',
+        ],
+      })
+    );
   });
 
   it('returns 500 when the orders query fails', async () => {
