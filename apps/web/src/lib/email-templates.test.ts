@@ -486,8 +486,14 @@ describe('Email Templates', () => {
         balanceDue: 1000,
         paymentLink: 'javascript:alert(1)',
         merchantName: XSS,
-        merchantUrl: 'https://shop.usebaci.com',
+        merchantUrl: 'javascript:alert(1)',
         supportEmail: XSS,
+        // Bank-transfer block: only renders when virtualAccount is present.
+        virtualAccount: {
+          bankName: XSS,
+          accountNumber: XSS,
+          accountName: XSS,
+        },
       });
 
       expect(html).not.toContain('<script>alert(1)</script>');
@@ -505,10 +511,11 @@ describe('Email Templates', () => {
         totalPaidSoFar: 1000,
         balanceDue: 0,
         merchantName: XSS,
-        merchantUrl: 'https://shop.usebaci.com',
+        merchantUrl: 'javascript:alert(1)',
       });
 
       expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
       expect(html).toContain(ESCAPED);
     });
 
@@ -519,6 +526,7 @@ describe('Email Templates', () => {
         items: [{ name: XSS, quantity: 1 }],
         shippingAddress: { address: XSS, city: XSS, state: XSS, phone: XSS },
         trackingNumber: XSS,
+        trackingUrl: 'javascript:alert(1)',
         courierName: XSS,
         estimatedDelivery: XSS,
         supportEmail: XSS,
@@ -539,11 +547,14 @@ describe('Email Templates', () => {
         supportEmail: XSS,
         merchantName: XSS,
         merchantUrl: 'javascript:alert(1)',
+        googlePlaceId: XSS,
       });
 
       expect(html).not.toContain('<script>alert(1)</script>');
       expect(html).not.toContain('javascript:alert(1)');
       expect(html).toContain(ESCAPED);
+      // Google review placeId is URL-encoded, not raw, in the review link.
+      expect(html).toContain('placeid=%3Cscript%3E');
     });
 
     it('escapes user data in cancellation email', () => {
