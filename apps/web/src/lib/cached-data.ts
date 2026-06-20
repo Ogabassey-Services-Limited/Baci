@@ -2840,7 +2840,7 @@ export async function getCachedStorefrontHomeProducts(
   const orderedQuery =
     sort === 'recent'
       ? baseQuery
-          .order('updated_at', { ascending: false })
+          .order('updated_at', { ascending: false, nullsFirst: false })
           .order('price', { ascending: false })
       : baseQuery.order('price', { ascending: false });
 

@@ -574,6 +574,7 @@ describe('getCachedStorefrontHomeProducts', () => {
     expect(harness.mockOrder).toHaveBeenCalledTimes(2);
     expect(harness.mockOrder).toHaveBeenNthCalledWith(1, 'updated_at', {
       ascending: false,
+      nullsFirst: false,
     });
     // Price stays as a stable tiebreaker for products updated in the same tick.
     expect(harness.mockOrder).toHaveBeenNthCalledWith(2, 'price', {
