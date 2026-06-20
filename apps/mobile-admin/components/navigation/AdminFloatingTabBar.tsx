@@ -129,6 +129,8 @@ export function AdminFloatingTabBar({
 
   return (
     <View
+      accessibilityRole="tablist"
+      pointerEvents="box-none"
       style={[
         styles.outer,
         {
@@ -153,17 +155,6 @@ export function AdminFloatingTabBar({
         ]}
         testID="admin-floating-tab-bar"
       >
-        <View
-          pointerEvents="none"
-          style={[
-            styles.glassHighlight,
-            {
-              backgroundColor: isDark
-                ? 'rgba(255, 255, 255, 0.07)'
-                : 'rgba(255, 255, 255, 0.7)',
-            },
-          ]}
-        />
         <Animated.View
           pointerEvents="none"
           style={capsuleStyle}
@@ -262,8 +253,12 @@ export function AdminFloatingTabBar({
 const styles = StyleSheet.create({
   outer: {
     backgroundColor: 'transparent',
+    bottom: 0,
     justifyContent: 'flex-end',
+    left: 0,
     paddingHorizontal: BAR_HORIZONTAL_MARGIN,
+    position: 'absolute',
+    right: 0,
     width: '100%',
     zIndex: 100,
   },
@@ -281,14 +276,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 18,
     elevation: 8,
-  },
-  glassHighlight: {
-    borderRadius: 999,
-    height: 16,
-    left: 14,
-    position: 'absolute',
-    right: 14,
-    top: 2,
-    zIndex: 0,
   },
 });
