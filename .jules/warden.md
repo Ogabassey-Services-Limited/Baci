@@ -32,3 +32,7 @@ Source: Supabase v2 Docs - Select Data
 Learning: Blindly type-casting the request body in an API route bypasses runtime safety and creates a data-integrity risk.
 Action: Always use Zod `safeParse` to validate the incoming API payload against a defined schema and return a 400 error if it fails, instead of type casting.
 Source: Zod 4 documentation, Warden persona rules
+## 2025-02-21 — Prevent Cross-Tenant Mutation via Unscoped Upsert
+**Learning:** In Supabase/PostgREST, `.upsert()` operations cannot be chained securely with `.eq('merchant_id', ...)` filters to restrict the modification to the current tenant. Passing a user-provided array directly to `.upsert()` risks overwriting another merchant's rows if their primary keys are supplied.
+**Action:** Replace array `.upsert()` operations with a `Promise.all()` block mapping to individual `.update()` operations. Always append explicit `.eq('merchant_id', merchantId)` and `.eq('id', variantId)` to enforce multi-tenant constraints at the query level.
+**Source:** https://supabase.com/docs/reference/javascript/upsert

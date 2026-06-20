@@ -230,6 +230,15 @@ const createMockSupabase = () => ({
             error: variantUpsertError,
           })
         ),
+        update: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            eq: vi.fn(() =>
+              Promise.resolve({
+                error: variantUpsertError,
+              })
+            ),
+          })),
+        })),
         insert: vi.fn(() =>
           Promise.resolve({
             error: variantInsertError,
