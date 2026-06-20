@@ -65,4 +65,49 @@ describe('OrderDetailsItemRow', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.getByText('Wireless Headphones')).toBeInTheDocument();
   });
+
+  it('uses the API image_url field when no legacy product image field exists', () => {
+    render(
+      <OrderDetailsItemRow
+        item={{
+          id: 'item-1',
+          product_id: 'product-1',
+          name: 'Samsung Galaxy S26',
+          product_name: 'Samsung Galaxy S26',
+          image_url: 'https://cdn.example.com/samsung-galaxy-s26.png',
+          quantity: 1,
+          price: 1000,
+        }}
+        basePath="/ogabassey"
+      />
+    );
+
+    expect(screen.getByAltText('Samsung Galaxy S26')).toHaveAttribute(
+      'src',
+      'https://cdn.example.com/samsung-galaxy-s26.png'
+    );
+  });
+
+  it('renders a non-broken fallback when an order item has no usable image', () => {
+    render(
+      <OrderDetailsItemRow
+        item={{
+          id: 'item-1',
+          product_id: 'product-1',
+          name: 'Samsung Galaxy S26',
+          product_name: 'Samsung Galaxy S26',
+          quantity: 1,
+          price: 1000,
+        }}
+        basePath="/ogabassey"
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'No product image available for Samsung Galaxy S26',
+      })
+    ).toBeInTheDocument();
+    expect(screen.queryByAltText('Samsung Galaxy S26')).not.toBeInTheDocument();
+  });
 });

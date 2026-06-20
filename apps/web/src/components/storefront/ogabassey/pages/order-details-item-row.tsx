@@ -1,7 +1,9 @@
 'use client';
 
+import { ReceiptText } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontOrderItemHref } from '@/lib/storefront-order-item-href';
 import type { StorefrontOrderItem } from '@/types/storefront-order';
@@ -16,9 +18,13 @@ interface OrderDetailsItemRowProps {
   basePath: string;
 }
 
-function getOrderItemImage(item: StorefrontOrderItem): string {
+function getOrderItemImage(item: StorefrontOrderItem): string | null {
   return (
-    item.product_image || item.image || item.product_images?.[0] || '/placeholder.png'
+    item.product_image ||
+    item.image ||
+    item.image_url ||
+    item.product_images?.[0] ||
+    null
   );
 }
 
@@ -29,15 +35,34 @@ export function OrderDetailsItemRow({
   const productHref = getStorefrontOrderItemHref(item, basePath);
   const imageSrc = getOrderItemImage(item);
   const productName = item.product_name || item.name;
+  const [hasImageError, setHasImageError] = useState(false);
+  const shouldRenderImage = Boolean(imageSrc && !hasImageError);
   const image = (
-    <div className="size-20 bg-gray-50 rounded-xl p-2 border border-gray-100 shrink-0 block relative overflow-hidden">
-      <Image
-        src={imageSrc}
-        alt={productName}
-        fill
-        sizes="80px"
-        className="object-contain mix-blend-multiply p-2"
-      />
+    <div
+      aria-label={
+        shouldRenderImage
+          ? undefined
+          : `No product image available for ${productName}`
+      }
+      className="size-20 bg-gray-50 rounded-xl p-2 border border-gray-100 shrink-0 flex items-center justify-center relative overflow-hidden"
+      role={shouldRenderImage ? undefined : 'img'}
+    >
+      {imageSrc && !hasImageError ? (
+        <Image
+          src={imageSrc}
+          alt={productName}
+          fill
+          sizes="80px"
+          className="object-contain mix-blend-multiply p-2"
+          onError={() => setHasImageError(true)}
+        />
+      ) : (
+        <ReceiptText
+          aria-hidden="true"
+          className="size-8 text-gray-300"
+          strokeWidth={1.8}
+        />
+      )}
     </div>
   );
 
