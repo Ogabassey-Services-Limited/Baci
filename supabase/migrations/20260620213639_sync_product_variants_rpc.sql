@@ -184,7 +184,7 @@ BEGIN
     updated_at
   )
   SELECT
-    extensions.uuid_generate_v4(),
+    pg_catalog.gen_random_uuid(),
     p_product_id,
     p_merchant_id,
     incoming.attributes,

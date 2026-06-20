@@ -95,22 +95,7 @@ vi.mock('@/schemas/products', () => ({
           },
         };
       }
-      const parsedData = { ...data };
-      if (Array.isArray(data.variants)) {
-        parsedData.variants = data.variants.map((variant) => {
-          if (
-            typeof variant !== 'object' ||
-            variant === null ||
-            Array.isArray(variant) ||
-            Object.hasOwn(variant, 'stock_quantity')
-          ) {
-            return variant;
-          }
-
-          return { ...variant, stock_quantity: 0 };
-        });
-      }
-      return { success: true, data: parsedData };
+      return { success: true, data: { ...data } };
     },
   },
   formatZodErrors: (error: { issues: { path: string[]; message: string }[] }) =>
@@ -836,6 +821,38 @@ describe('PUT /api/products/[id]', () => {
           ],
         },
       });
+    });
+
+    it('rejects duplicate variant IDs before applying product updates', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+
+      variants = [{ id: VARIANT_ID }];
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variants: [
+            { id: VARIANT_ID, sku: 'SKU-A' },
+            { id: VARIANT_ID, sku: 'SKU-B' },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe('Duplicate product variant update');
+      expect(lastProductUpdatePayload).toBeNull();
+      expect(lastRpcCall).toBeNull();
     });
 
     it('rejects stale or cross-tenant variant IDs without applying migration state', async () => {

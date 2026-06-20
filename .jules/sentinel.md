@@ -52,14 +52,8 @@
 **Learning:** The `GET` endpoint for fetching AI hero images statistics was accessible to any authenticated user because it lacked the `is_platform_admin` check. Furthermore, when implementing the fix, `getMerchantForApiRequest` should not be used to check for platform admins, because a platform admin might not have a merchant account attached, leading to a 404. Instead, the centralized `getPlatformAdminAuth` helper must be used.
 **Prevention:** Always ensure that `GET` endpoints fetching platform-wide data, especially under `/api/admin`, properly verify platform admin privileges using `getPlatformAdminAuth()`.
 **Source:** https://owasp.org/API-Security/editions/2023/en/0x11-t10/ 2023
-## 2025-02-28 — Unscoped Bulk Upsert Enables Cross-Tenant Data Overwrite
+## 2026-06-20 — Tenant-scoped RPCs for Bulk Variant Sync
 **Vulnerability:** Broken Access Control / IDOR (OWASP A01:2021) / CWE-284
-**Learning:** Supabase `upsert` cannot securely accept `.eq('merchant_id', ...)` filters to restrict updates to the current tenant. Passing an array containing `{ id: <victim-id>, merchant_id: <attacker-id>, ... }` to `upsert()` causes the database to match the primary key and execute an overwrite, transferring ownership to the attacker.
-**Prevention:** Avoid unscoped array `upsert()` for tenant-isolated mutations. Instead, use `Promise.all()` to map over items and execute individual `.update()` operations explicitly chained with `.eq('merchant_id', merchantId)` and `.eq('id', item.id)`.
-**Source:** Supabase Security Documentation / RLS and Upsert mechanics.
-
-## 2025-02-28 — Unbounded Concurrent Promises Cause Connection Pool Exhaustion
-**Vulnerability:** Denial of Service / Connection Pool Exhaustion (OWASP A04:2021) / CWE-400
-**Learning:** Mapping over an array to fire concurrent database queries via `Promise.all()` introduces a risk of connection pool exhaustion or API rate limiting. If an attacker submits a massive array of variants, it could cause a localized DoS.
-**Prevention:** Ensure Zod validation schemas for API routes enforce strict maximum lengths (e.g., `z.array(...).max(50)`) on arrays that are subsequently iterated to fire concurrent DB operations.
-**Source:** Node.js Best Practices / Unbounded concurrency handling.
+**Learning:** Supabase array `upsert()` cannot be safely constrained by route-level tenant filters for existing rows; a payload containing another merchant's variant ID can match the primary key before merchant ownership is enforced.
+**Prevention:** Use one transactional Postgres RPC for tenant-scoped bulk variant synchronization. The RPC must validate the product and every existing variant ID against `product_id` + `merchant_id` before any stale visible variants are deleted, preserve hidden inventory-anchor rows, and merge omitted optional fields with the stored row rather than overwriting them with route defaults.
+**Source:** Supabase/Postgres RPC and RLS guidance; OWASP Broken Access Control.

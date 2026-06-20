@@ -119,6 +119,21 @@ describe('product schemas', () => {
     expect(result.imageLarge).toBeNull();
   });
 
+  it('defaults omitted create variant stock while preserving omitted update variant stock', () => {
+    const created = createProductSchema.parse({
+      ...validCreateInput,
+      has_variants: true,
+      variants: [{ attributes: { size: 'M' } }],
+    });
+    const updated = updateProductSchema.parse({
+      has_variants: true,
+      variants: [{ sku: 'SKU-M' }],
+    });
+
+    expect(created.variants?.[0]?.stock_quantity).toBe(0);
+    expect(updated.variants?.[0]).not.toHaveProperty('stock_quantity');
+  });
+
   it('rejects update payloads with invalid field types', () => {
     expect(() =>
       updateProductSchema.parse({
