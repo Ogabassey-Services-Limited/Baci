@@ -115,10 +115,21 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('canonical_url');
   });
 
-  it('getCachedProductLcpHint reads route, image, and lightweight variant fields without detail hydration', async () => {
+  it('getCachedProductLcpHint reads route and image fields, then hydrates public variants by RPC', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          attributes: { storage: '128GB' },
+          id: 'variant-1',
+          product_id: 'product-123',
+          stock_quantity: 2,
+        },
+      ],
+      error: null,
+    });
 
-    await getCachedProductLcpHint('merchant-123', 'iphone-16');
+    const result = await getCachedProductLcpHint('merchant-123', 'iphone-16');
 
     expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
     expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
@@ -132,18 +143,43 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('images');
     expect(selectArg).toContain('manage_stock');
     expect(selectArg).toContain('schema_markup');
+    expect(selectArg).toContain('stock');
     expect(selectArg).toContain('stock_quantity');
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).toContain('product_categories');
-    expect(selectArg).toContain('product_variants');
-    expect(selectArg).toContain('price_override');
-    expect(selectArg).toContain('primary_image');
+    expect(selectArg).not.toContain('product_variants');
+    expect(selectArg).not.toContain('price_override');
+    expect(selectArg).not.toContain('primary_image');
     expect(selectArg).not.toMatch(standaloneDescriptionColumnPattern);
     expect(selectArg).not.toContain('specifications');
     expect(selectArg).not.toContain('review_count');
     expect(selectArg).not.toContain('product_key_specs');
     expect(selectArg).not.toContain('product_offers');
-    expect(harness.mockRpc).not.toHaveBeenCalled();
+    expect(harness.mockRpc).toHaveBeenCalledWith(
+      'get_storefront_product_variants',
+      {
+        p_product_ids: ['product-123'],
+      }
+    );
+    expect(result?.product_variants).toEqual([
+      expect.objectContaining({
+        attributes: { storage: '128GB' },
+        id: 'variant-1',
+      }),
+    ]);
+  });
+
+  it('getCachedProductLcpHint can skip public variant hydration for image-only callers', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+
+    await getCachedProductLcpHint('merchant-123', 'iphone-16', {
+      includeVariants: false,
+    });
+
+    expect(harness.mockRpc).not.toHaveBeenCalledWith(
+      'get_storefront_product_variants',
+      expect.any(Object)
+    );
   });
 
   it('getCachedProductLcpHint supports UUID-shaped product slugs as well as IDs', async () => {

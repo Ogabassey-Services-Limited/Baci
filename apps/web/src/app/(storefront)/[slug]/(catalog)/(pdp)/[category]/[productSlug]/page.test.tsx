@@ -80,6 +80,40 @@ const mockGetCachedStorefrontProductIndex =
     }>
   >();
 
+function getMockEffectiveStock(item: unknown): number {
+  if (!item || typeof item !== 'object') {
+    return 0;
+  }
+
+  const stockLike = item as {
+    stock?: number | string | null;
+    stock_quantity?: number | string | null;
+  };
+  const stockQuantity =
+    stockLike.stock_quantity === null || stockLike.stock_quantity === undefined
+      ? null
+      : Number(stockLike.stock_quantity);
+  const legacyStock =
+    stockLike.stock === null || stockLike.stock === undefined
+      ? 0
+      : Number(stockLike.stock);
+  const safeStockQuantity =
+    stockQuantity !== null && Number.isFinite(stockQuantity)
+      ? Math.max(0, stockQuantity)
+      : 0;
+  const safeLegacyStock = Number.isFinite(legacyStock)
+    ? Math.max(0, legacyStock)
+    : 0;
+
+  if (stockLike.stock_quantity == null) {
+    return safeLegacyStock;
+  }
+
+  return safeStockQuantity === 0 && safeLegacyStock > 0
+    ? safeLegacyStock
+    : safeStockQuantity;
+}
+
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
@@ -709,6 +743,7 @@ function toLegacyCachedProduct(
     schema_markup: null,
     updated_at: product.updated_at,
     stock_quantity: product.stock_quantity ?? product.stock,
+    stock: product.stock,
     base_price:
       typeof product.price === 'string'
         ? Number.parseFloat(product.price)
@@ -755,7 +790,7 @@ describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetEffectiveStock.mockReset();
-    mockGetEffectiveStock.mockReturnValue(0);
+    mockGetEffectiveStock.mockImplementation(getMockEffectiveStock);
     mockOgabasseyPdpCriticalCommerce.mockReset();
     mockOgabasseyPdpCriticalCommerceProvider.mockReset();
     mockOgabasseyPdpCriticalCommerceSummary.mockReset();
@@ -1460,7 +1495,7 @@ describe('[category]/[productSlug] page render', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetEffectiveStock.mockReset();
-    mockGetEffectiveStock.mockReturnValue(0);
+    mockGetEffectiveStock.mockImplementation(getMockEffectiveStock);
     mockProductDetailClient.mockReset();
     mockProductDetailClient.mockReturnValue(null);
     mockHeaders.mockReset();
@@ -1799,6 +1834,42 @@ describe('[category]/[productSlug] page render', () => {
     ).toBeInTheDocument();
   });
 
+  it('uses legacy stock fallback from the LCP hint for critical cart controls', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        stock: 9,
+        stock_quantity: 0,
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      stock: 9,
+      stock_quantity: 0,
+    });
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartProduct: expect.objectContaining({
+          stock: 9,
+        }),
+      })
+    );
+  });
+
   it('keeps critical PDP links root-relative for domain-routed storefront requests', async () => {
     mockGetStorefrontShellSnapshotBase.mockResolvedValueOnce({
       merchant: {
@@ -1959,13 +2030,15 @@ describe('[category]/[productSlug] page render', () => {
         searchParams: Promise.resolve({}),
       });
 
-      expect(() => render(page as ReactElement)).toThrow('NEXT_NOT_FOUND');
-
+      render(page as ReactElement);
+      throw new Error('CategoryProductPage should throw notFound()');
+    } catch (error) {
+      expect(error).toEqual(new Error('NEXT_NOT_FOUND'));
+      expect(mockNotFound).toHaveBeenCalled();
       expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
         baseMerchant.id,
         'missing-product'
       );
-      expect(mockNotFound).toHaveBeenCalled();
       expect(consoleWarnSpy).not.toHaveBeenCalledWith(
         'Product not found for storefront product route:',
         'missing-product'
@@ -2805,6 +2878,7 @@ describe('[category]/[productSlug] page render', () => {
       name: 'iPhone 13',
       slug: 'iphone-13',
       stock: 0,
+      stock_quantity: 0,
       product_variants: [
         {
           id: 'variant-128-black',

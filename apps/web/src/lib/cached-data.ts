@@ -1469,21 +1469,28 @@ export interface CachedProductLcpHint {
         }>
       | null;
   }> | null;
-  product_variants?: PublicVariantRecord[] | null;
+  product_variants?: PublicStorefrontProductVariant[] | null;
   sale_price?: number | null;
   schema_markup?: unknown;
   slug?: string | null;
+  stock?: number | null;
   stock_quantity?: number | null;
   updated_at?: string | null;
 }
 
+interface CachedProductLcpHintOptions {
+  includeVariants?: boolean;
+}
+
 /**
  * Cached product route and image hint by slug.
- * Avoids the full product projection and variant RPC on the LCP preload path.
+ * Avoids the full product projection; callers that only need an image can skip
+ * storefront variant hydration.
  */
 export async function getCachedProductLcpHint(
   merchantId: string,
-  productSlug: string
+  productSlug: string,
+  options: CachedProductLcpHintOptions = {}
 ): Promise<CachedProductLcpHint | null> {
   'use cache: remote';
   cacheLife('products');
@@ -1521,6 +1528,7 @@ export async function getCachedProductLcpHint(
         canonical_url,
         schema_markup,
         images,
+        stock,
         updated_at,
         categories:category_id (
           id,
@@ -1534,18 +1542,6 @@ export async function getCachedProductLcpHint(
             name,
             slug
           )
-        ),
-        product_variants (
-          id,
-          product_id,
-          merchant_id,
-          sku,
-          condition,
-          attributes,
-          price_override,
-          stock_quantity,
-          images,
-          primary_image
         )
       `)
     .eq('merchant_id', merchantId)
@@ -1566,7 +1562,24 @@ export async function getCachedProductLcpHint(
     return null;
   }
 
-  return data ? withLegacyPriceFields(data as CachedProductLcpHint) : null;
+  if (!data) {
+    return null;
+  }
+
+  const product = withLegacyPriceFields(data as CachedProductLcpHint);
+
+  if (options.includeVariants === false) {
+    return product;
+  }
+
+  const variantsByProductId = await getPublicProductVariantsByProductIds([
+    product.id,
+  ]);
+
+  return {
+    ...product,
+    product_variants: variantsByProductId[product.id] || [],
+  };
 }
 
 /**

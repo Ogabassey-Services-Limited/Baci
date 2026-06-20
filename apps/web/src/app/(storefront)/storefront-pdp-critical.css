@@ -129,11 +129,6 @@
     display: none;
   }
 
-  [data-ogabassey-pdp-price]:has([data-ogabassey-pdp-price-live]:not(:empty))
-    [data-ogabassey-pdp-price-static] {
-    display: none;
-  }
-
   [data-ogabassey-pdp-summary-variant-slot]:not(:empty) {
     margin-top: 1.25rem;
   }

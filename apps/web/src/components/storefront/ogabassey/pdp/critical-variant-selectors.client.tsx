@@ -1,7 +1,10 @@
 'use client';
 
 import type { Product as CartProduct } from '@/lib/products';
-import { getAvailableOptionsForAxis } from '@/components/storefront/ogabassey/variant-attributes';
+import {
+  canonicalizeVariantAxis,
+  getAvailableOptionsForAxis,
+} from '@/components/storefront/ogabassey/variant-attributes';
 
 interface OgabasseyPdpCriticalVariantSelectorsProps {
   explicitSelectedAxes?: string[];
@@ -34,10 +37,21 @@ function getVariantAxisOptions(
   variants: CartProduct['variants'],
   axis: string
 ) {
+  const normalizedAxis = canonicalizeVariantAxis(axis);
+
   return Array.from(
     new Set(
       (variants || [])
-        .map((variant) => variant.attributes?.[axis])
+        .map((variant) => {
+          const normalizedAttributes = Object.fromEntries(
+            Object.entries(variant.attributes || {}).map(([key, value]) => [
+              canonicalizeVariantAxis(key),
+              value,
+            ])
+          );
+
+          return normalizedAttributes[normalizedAxis];
+        })
         .filter((value): value is string => Boolean(value))
     )
   );
@@ -47,7 +61,9 @@ export function getRenderableCriticalVariantAxes(
   axes: string[],
   variants: CartProduct['variants']
 ) {
-  return axes.filter((axis) => getVariantAxisOptions(variants, axis).length > 1);
+  return Array.from(new Set(axes.map(canonicalizeVariantAxis))).filter(
+    (axis) => axis && getVariantAxisOptions(variants, axis).length > 1
+  );
 }
 
 export function OgabasseyPdpCriticalVariantSelectors({

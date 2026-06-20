@@ -28,6 +28,27 @@ describe('getRenderableCriticalVariantAxes', () => {
       getRenderableCriticalVariantAxes(['storage', 'ram', 'color'], variants)
     ).toEqual(['storage', 'ram']);
   });
+
+  it('canonicalizes variant attribute keys before deciding visible axes', () => {
+    expect(
+      getRenderableCriticalVariantAxes(['Storage'], [
+        {
+          attributes: { Storage: '128GB' },
+          id: 'variant-128',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 2,
+        },
+        {
+          attributes: { Storage: '256GB' },
+          id: 'variant-256',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 2,
+        },
+      ])
+    ).toEqual(['storage']);
+  });
 });
 
 describe('OgabasseyPdpCriticalVariantSelectors', () => {
@@ -110,6 +131,40 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
     expect(
       screen.getByRole('button', { name: /select 8gb ram/i })
     ).toBeEnabled();
+  });
+
+  it('renders options for legacy-cased variant attribute keys', () => {
+    render(
+      <OgabasseyPdpCriticalVariantSelectors
+        onAttributeSelection={vi.fn()}
+        renderableVariantAxes={['storage']}
+        selectedAttributes={{ storage: '128GB' }}
+        variantCount={2}
+        variants={[
+          {
+            attributes: { Storage: '128GB' },
+            id: 'variant-128',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+          {
+            attributes: { Storage: '256GB' },
+            id: 'variant-256',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: /select 128gb storage/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /select 256gb storage/i })
+    ).toBeInTheDocument();
   });
 
   it('renders nothing when there are no variant options', () => {

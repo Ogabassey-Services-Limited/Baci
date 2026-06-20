@@ -4,7 +4,6 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
-import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
@@ -598,7 +597,7 @@ function mapCachedProductLcpHintToRouteProduct(
   const primaryImage = getCachedProductLcpHintPrimaryImage(cachedProduct) ?? '';
   const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
   const manageStock = cachedProduct.manage_stock ?? true;
-  const stockQuantity = parseRouteProductNumber(cachedProduct.stock_quantity);
+  const effectiveStock = getEffectiveStock(cachedProduct);
   const canUseDenormalizedVariantPrices = manageStock === false;
   const variants = normalizeStorefrontProductVariants(
     cachedProduct.product_variants,
@@ -641,8 +640,8 @@ function mapCachedProductLcpHintToRouteProduct(
     schema_markup: cachedProduct.schema_markup as Product['schema_markup'],
     slug: cachedProduct.slug ?? cachedProduct.id,
     status: 'active',
-    stock: stockQuantity ?? 0,
-    stock_quantity: stockQuantity,
+    stock: effectiveStock,
+    stock_quantity: effectiveStock,
     updated_at: cachedProduct.updated_at,
     variants,
   };
@@ -1365,7 +1364,7 @@ export default async function CategoryProductPage({
   );
 
   if (!routeControl) {
-    return <StorefrontRouteNotFound />;
+    notFound();
   }
 
   const {
