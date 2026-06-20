@@ -223,6 +223,7 @@ const createMockSupabase = () => ({
                 })
               ),
               // Support for delete without 'not' clause
+              // biome-ignore lint/suspicious/noThenProperty: intentional thenable mock for Supabase query builder
               then: vi.fn((resolve) => resolve({ error: null })),
             })),
           })),
