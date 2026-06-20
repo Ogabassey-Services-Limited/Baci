@@ -1642,6 +1642,22 @@ describe('[category]/[productSlug] page render', () => {
         semanticSections: expect.anything(),
       })
     );
+    const deferredDetailProps =
+      mockOgabasseyPdpDeferredDetailIsland.mock.calls.at(-1)?.[0] as
+        | { semanticSections?: ReactNode }
+        | undefined;
+    const semanticSections = deferredDetailProps?.semanticSections;
+
+    expect(isValidElement(semanticSections)).toBe(true);
+    expect(
+      isValidElement(semanticSections) ? semanticSections.type : null
+    ).toBe(Suspense);
+    expect(
+      isValidElement(semanticSections)
+        ? (semanticSections as ReactElement<{ fallback?: ReactNode }>).props
+            .fallback
+        : undefined
+    ).toBeNull();
     expect(
       screen.getByRole('complementary', { name: /purchase options/i })
     ).toBeInTheDocument();
