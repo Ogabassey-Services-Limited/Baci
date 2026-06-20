@@ -50,4 +50,26 @@ describe('prioritizeSmartphoneProducts', () => {
 
     expect(sorted.map((product) => product.id)).toEqual(['b', 'a', 'c']);
   });
+
+  it('uses relation-backed category names and slugs as phone priority candidates', () => {
+    const sorted = prioritizeSmartphoneProducts([
+      { id: 'case-1', category: 'Accessories' },
+      {
+        id: 'phone-1',
+        category: null,
+        categories: { name: 'Smartphones', slug: 'smartphones' },
+      },
+      {
+        id: 'phone-2',
+        category: undefined,
+        categories: [{ name: 'Devices', slug: 'mobile-phones' }],
+      },
+    ]);
+
+    expect(sorted.map((product) => product.id)).toEqual([
+      'phone-1',
+      'phone-2',
+      'case-1',
+    ]);
+  });
 });

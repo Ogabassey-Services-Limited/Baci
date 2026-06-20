@@ -2827,6 +2827,20 @@ export async function getCachedStorefrontHomeProducts(
       manage_stock, low_stock_threshold,
       product_categories(categories(name, slug))
     `;
+  const homeProductRelationCategorySelect = `
+      id, name, slug, description, price, compare_at_price,
+      images, category, brand, condition, stock, stock_quantity,
+      manage_stock, low_stock_threshold,
+      product_categories!inner(categories!inner(name, slug))
+    `;
+  const relationPhoneCategoryFilter = [
+    'and(name.ilike.%smartphone%,name.not.ilike.%headphone%,name.not.ilike.%microphone%)',
+    'and(slug.ilike.%smartphone%,slug.not.ilike.%headphone%,slug.not.ilike.%microphone%)',
+    'and(name.ilike.%mobile%,name.not.ilike.%headphone%,name.not.ilike.%microphone%)',
+    'and(slug.ilike.%mobile%,slug.not.ilike.%headphone%,slug.not.ilike.%microphone%)',
+    'and(name.ilike.%phone%,name.not.ilike.%headphone%,name.not.ilike.%microphone%)',
+    'and(slug.ilike.%phone%,slug.not.ilike.%headphone%,slug.not.ilike.%microphone%)',
+  ].join(',');
 
   // 'recent' surfaces the most recently updated devices first. `updated_at` is
   // trigger-maintained on every row update, with price as a stable tiebreaker.
@@ -2848,6 +2862,18 @@ export async function getCachedStorefrontHomeProducts(
       .order('price', { ascending: false })
       .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
 
+    const relationPhoneCandidatesQuery = supabase
+      .from('products')
+      .select(homeProductRelationCategorySelect)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .or(relationPhoneCategoryFilter, {
+        referencedTable: 'product_categories.categories',
+      })
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('price', { ascending: false })
+      .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
+
     const recentProductsQuery = supabase
       .from('products')
       .select(homeProductSelect)
@@ -2859,10 +2885,18 @@ export async function getCachedStorefrontHomeProducts(
 
     const [
       { data: phoneCandidates, error: phoneCandidatesError },
+      { data: relationPhoneCandidates, error: relationPhoneCandidatesError },
       { data: recentProducts, error: recentProductsError },
-    ] = await Promise.all([phoneCandidatesQuery, recentProductsQuery]);
+    ] = await Promise.all([
+      phoneCandidatesQuery,
+      relationPhoneCandidatesQuery,
+      recentProductsQuery,
+    ]);
 
-    const error = phoneCandidatesError || recentProductsError;
+    const error =
+      phoneCandidatesError ||
+      relationPhoneCandidatesError ||
+      recentProductsError;
     if (error) {
       console.error('Failed to load storefront home products', {
         merchantId,
@@ -2874,6 +2908,7 @@ export async function getCachedStorefrontHomeProducts(
     const seenProductIds = new Set<string>();
     const combinedProducts = [
       ...(phoneCandidates ?? []),
+      ...(relationPhoneCandidates ?? []),
       ...(recentProducts ?? []),
     ]
       .filter((product) => {
