@@ -18,20 +18,25 @@ export function getProductCardShadowStyles(
     } as const;
   }
 
+  // iOS keeps the soft shadow (rasterized once, cheap to re-blit while
+  // scrolling). Android `elevation` is re-derived per composite and is the main
+  // per-card scroll cost on low-end devices, so it's minimized here — the card
+  // already has a hairline border for separation. These are conservative
+  // defaults; tune on a mid/low-end Android device.
   return {
     gridContainer: {
       shadowColor: gridShadowColor,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05,
       shadowRadius: 4,
-      elevation: 2,
+      elevation: 0,
     },
     floatingCartBtn: {
       shadowColor: floatingCartShadowColor,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
-      elevation: 3,
+      elevation: 1,
     },
   } as const;
 }

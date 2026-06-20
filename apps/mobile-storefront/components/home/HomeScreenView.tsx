@@ -121,13 +121,12 @@ export function HomeScreenView({
   }
 
   return (
-    <View style={styles.container}>
+    // Background lives on the root container (was a separate absoluteFill layer)
+    // to cut one full-screen overdraw pass — meaningful on low-end Android GPUs.
+    <View style={[styles.container, { backgroundColor }]}>
       <Stack.Screen options={{ headerShown: false, title: '' }} />
       {shouldRenderDecorations && <SnowEffect />}
       <StatusBar barStyle="light-content" />
-
-      {/* Base background color layer to ensure reliable absolute rendering */}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor }]} />
 
       {shouldRenderDecorations && (
         <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
