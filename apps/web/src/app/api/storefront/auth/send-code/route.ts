@@ -9,6 +9,76 @@ const SendCodeSchema = z.object({
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
 });
 
+interface StorefrontOtpMerchant {
+  custom_domain?: string | null;
+  id: string;
+  is_published: boolean;
+  slug: string;
+}
+
+function normalizeOrigin(value: string | null): string | null {
+  if (!value) return null;
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return null;
+    }
+
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+function getRequestOrigin(request: Request): string | null {
+  const origin = normalizeOrigin(request.headers.get('origin'));
+  if (origin) return origin;
+
+  const referer = request.headers.get('referer');
+  if (referer) {
+    try {
+      return normalizeOrigin(new URL(referer).origin);
+    } catch {
+      return null;
+    }
+  }
+
+  return normalizeOrigin(request.url);
+}
+
+function buildStorefrontOrigins(merchant: StorefrontOtpMerchant): Set<string> {
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const origins = new Set<string>();
+  origins.add(`${protocol}://${merchant.slug}.${rootDomain}`);
+
+  if (merchant.custom_domain) {
+    origins.add(`https://${merchant.custom_domain.toLowerCase()}`);
+  }
+
+  return origins;
+}
+
+function resolveOtpRedirectUrl(
+  request: Request,
+  merchant: StorefrontOtpMerchant
+) {
+  const storefrontOrigins = buildStorefrontOrigins(merchant);
+  const requestOrigin = getRequestOrigin(request);
+
+  if (requestOrigin && storefrontOrigins.has(requestOrigin)) {
+    return `${requestOrigin}/account/verify`;
+  }
+
+  const preferredOrigin =
+    merchant.custom_domain && process.env.NODE_ENV === 'production'
+      ? `https://${merchant.custom_domain.toLowerCase()}`
+      : Array.from(storefrontOrigins)[0];
+
+  return `${preferredOrigin}/account/verify`;
+}
+
 /**
  * Customer OTP Authentication - Send Code
  *
@@ -42,7 +112,7 @@ export async function POST(request: Request) {
     // First, try by slug (standard lookup)
     const slugResult = await supabase
       .from('merchants')
-      .select('id, slug, business_name, is_published')
+      .select('id, slug, business_name, is_published, custom_domain')
       .eq('slug', merchantSlug)
       .single();
 
@@ -52,7 +122,7 @@ export async function POST(request: Request) {
       // Fallback: try by custom_domain (for custom domain access like ogabassey.com)
       const domainResult = await supabase
         .from('merchants')
-        .select('id, slug, business_name, is_published')
+        .select('id, slug, business_name, is_published, custom_domain')
         .eq('custom_domain', merchantSlug.toLowerCase())
         .single();
 
@@ -70,10 +140,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get the redirect URL for OTP verification
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const redirectUrl = `${protocol}://${merchantSlug}.${rootDomain}/account/verify`;
+    // Keep auth redirects on the storefront origin the customer is using.
+    const redirectUrl = resolveOtpRedirectUrl(request, merchant);
 
     // Send OTP using Supabase's built-in magic link/OTP system
     // We use signInWithOtp which sends a 6-digit code

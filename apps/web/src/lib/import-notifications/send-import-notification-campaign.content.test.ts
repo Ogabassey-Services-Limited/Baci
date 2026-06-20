@@ -89,7 +89,7 @@ describe('sendImportNotificationCampaign content safety', () => {
     );
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        htmlContent: expect.stringContaining('\\u003cMerchant Six\\u003e'),
+        htmlContent: expect.stringContaining('&lt;Merchant Six&gt;'),
       })
     );
     expect(sendEmail).toHaveBeenCalledWith(
