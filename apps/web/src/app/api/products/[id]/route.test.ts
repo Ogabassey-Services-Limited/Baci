@@ -222,14 +222,11 @@ const createMockSupabase = () => ({
                   error: null,
                 })
               ),
+              // Support for delete without 'not' clause
+              then: vi.fn((resolve) => resolve({ error: null })),
             })),
           })),
         })),
-        upsert: vi.fn(() =>
-          Promise.resolve({
-            error: variantUpsertError,
-          })
-        ),
         update: vi.fn(() => ({
           eq: vi.fn(() => ({
             eq: vi.fn(() =>
