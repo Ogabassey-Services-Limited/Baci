@@ -435,7 +435,7 @@ export function generatePaymentReminderEmail(
       <div style="margin-top: 32px; padding: 20px; background: #fffbeb; border-radius: 8px; border-left: 4px solid #f59e0b;">
         <p style="margin: 0; font-size: 14px; color: #92400e;">
           <strong>Need help?</strong><br>
-          Reply to this email or contact us at <a href="mailto:${escapeHtmlAttribute(data.supportEmail || `support@${data.merchantUrl.replace('https://', '')}`)}" style="color: #764ba2;">${escapeHtmlText(data.supportEmail || data.merchantName)}</a>
+          Reply to this email or contact us at <a href="mailto:${escapeHtmlAttribute(data.supportEmail || `support@${data.merchantUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '')}`)}" style="color: #764ba2;">${escapeHtmlText(data.supportEmail || data.merchantName)}</a>
         </p>
       </div>
     </div>

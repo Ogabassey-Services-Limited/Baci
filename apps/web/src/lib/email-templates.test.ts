@@ -577,4 +577,24 @@ describe('Email Templates', () => {
       expect(html).toContain(ESCAPED);
     });
   });
+
+  describe('Payment reminder mailto fallback', () => {
+    it('derives a clean host (no protocol/path) when supportEmail is absent', () => {
+      const html = generatePaymentReminderEmail({
+        orderNumber: 'ORD-X',
+        customerName: 'Jane Doe',
+        items: [{ name: 'Gadget', quantity: 1, price: 1000 }],
+        totalAmount: 1000,
+        amountPaid: 0,
+        balanceDue: 1000,
+        paymentLink: 'https://pay.test/link',
+        merchantName: 'TestShop',
+        merchantUrl: 'http://shop.example.com/store?ref=1',
+      });
+
+      expect(html).toContain('mailto:support@shop.example.com"');
+      expect(html).not.toContain('support@http');
+      expect(html).not.toContain('shop.example.com/store');
+    });
+  });
 });
