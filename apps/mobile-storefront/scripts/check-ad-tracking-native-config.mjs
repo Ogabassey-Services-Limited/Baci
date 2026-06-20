@@ -188,6 +188,9 @@ function validateXcodeProject(projectSource) {
   if (!projectSource.includes('STOREFRONT_FACEBOOK_CLIENT_TOKEN')) {
     failures.push('missing STOREFRONT_FACEBOOK_CLIENT_TOKEN build-time plist injection');
   }
+  if (!projectSource.includes('refusing to continue without Facebook SDK plist injection')) {
+    failures.push('missing Release fail-closed guard for Facebook SDK plist injection');
+  }
 
   return failures;
 }
