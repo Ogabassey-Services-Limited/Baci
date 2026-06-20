@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import type { Graph, Thing } from 'schema-dts';
 import { JsonLd } from '@/components/seo/json-ld';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -97,24 +98,24 @@ export async function StorefrontPageContent({
     searchUrlTemplate
   );
 
+  const storefrontGraphSchema: Graph | null =
+    localBusinessSchema || webSiteSchema
+      ? {
+          '@context': 'https://schema.org',
+          '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
+            .filter((schema): schema is Record<string, unknown> =>
+              Boolean(schema)
+            )
+            .map((schema) => {
+              const { '@context': _, ...rest } = schema;
+              return rest as Thing;
+            }),
+        }
+      : null;
+
   return (
     <>
-      {(localBusinessSchema || webSiteSchema) && (
-        <JsonLd
-          data={{
-            '@context': 'https://schema.org',
-            '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
-              .filter(Boolean)
-              .map((schema) => {
-                const { '@context': _, ...rest } = schema as Record<
-                  string,
-                  unknown
-                >;
-                return rest;
-              }),
-          }}
-        />
-      )}
+      {storefrontGraphSchema && <JsonLd data={storefrontGraphSchema} />}
 
       <StorefrontContent merchant={merchant} />
     </>
