@@ -9,9 +9,11 @@ import {
   FileText,
   Leaf,
   Loader2,
+  ReceiptText,
   Search,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/empty-state';
@@ -44,7 +46,7 @@ interface ReceiptListItem {
   paymentStatus: 'paid' | 'partially_paid' | 'unpaid';
   balance: string;
   firstProductName: string;
-  firstProductImage: string;
+  firstProductImage: string | null;
   /** Raw order data for the shared receipt generator */
   rawOrder: ReceiptOrder;
 }
@@ -54,6 +56,65 @@ interface ReceiptCustomerInfo {
   last_name?: string | null;
   email?: string | null;
   phone?: string | null;
+}
+
+function getStringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function getReceiptItemImage(item: Record<string, unknown> | undefined) {
+  if (!item) {
+    return null;
+  }
+
+  return (
+    getStringValue(item.product_image) ||
+    getStringValue(item.image) ||
+    getStringValue(item.image_url) ||
+    (Array.isArray(item.product_images)
+      ? getStringValue(item.product_images[0])
+      : null)
+  );
+}
+
+function ReceiptProductThumbnail({
+  imageSrc,
+  productName,
+}: {
+  imageSrc: string | null;
+  productName: string;
+}) {
+  const [hasImageError, setHasImageError] = useState(false);
+  const shouldRenderImage = Boolean(imageSrc && !hasImageError);
+
+  return (
+    <div
+      aria-label={
+        shouldRenderImage
+          ? undefined
+          : `No product image available for ${productName}`
+      }
+      className="w-16 h-16 md:w-20 md:h-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center relative overflow-hidden"
+      role={shouldRenderImage ? undefined : 'img'}
+    >
+      {imageSrc && !hasImageError ? (
+        <Image
+          src={imageSrc}
+          alt={productName}
+          fill
+          sizes="80px"
+          className="object-contain mix-blend-multiply p-2"
+          onError={() => setHasImageError(true)}
+        />
+      ) : (
+        <ReceiptText
+          aria-hidden="true"
+          className="size-8 text-gray-300"
+          strokeWidth={1.8}
+        />
+      )}
+    </div>
+  );
 }
 
 // Module-scope helper keeps async fetch/mapping logic out of the component
@@ -139,10 +200,7 @@ async function fetchReceiptListItems(
         (items[0]?.product_name as string) ||
         (items[0]?.name as string) ||
         'Unknown item',
-      firstProductImage:
-        (items[0]?.product_image as string) ||
-        (items[0]?.image as string) ||
-        '/placeholder.png',
+      firstProductImage: getReceiptItemImage(items[0]),
       rawOrder,
     } satisfies ReceiptListItem;
   });
@@ -339,13 +397,10 @@ export const OgabasseyV2Receipts: React.FC = () => {
               >
                 <div className="p-5 md:p-6 flex flex-col md:flex-row gap-6 md:items-center">
                   {/* Product Image */}
-                  <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center">
-                    <img
-                      src={receipt.firstProductImage}
-                      alt={receipt.firstProductName}
-                      className="w-full h-full object-contain mix-blend-multiply"
-                    />
-                  </div>
+                  <ReceiptProductThumbnail
+                    imageSrc={receipt.firstProductImage}
+                    productName={receipt.firstProductName}
+                  />
 
                   {/* Info Grid */}
                   <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">

@@ -26,6 +26,7 @@ export interface StorefrontOrderItem {
    */
   product_images?: string[];
   product_image?: string;
+  image_url?: string | null;
   image?: string;
   has_assurance?: boolean;
   /**

@@ -9,30 +9,35 @@ import {
 } from '@/lib/storefront-account-document-data';
 import { storefrontAccountDocumentQuerySchema } from '@/schemas/storefront-account-document';
 
+interface JoinedProduct {
+  slug?: string;
+  category?: string | null;
+  category_slug?: string | null;
+  images?: unknown;
+  categories?:
+    | { name?: string; slug?: string }[]
+    | { name?: string; slug?: string }
+    | null;
+}
+
 function extractJoinedProduct(
-  products:
-    | {
-        slug?: string;
-        category?: string | null;
-        category_slug?: string | null;
-        categories?:
-          | { name?: string; slug?: string }[]
-          | { name?: string; slug?: string }
-          | null;
-      }
-    | {
-        slug?: string;
-        category?: string | null;
-        category_slug?: string | null;
-        categories?:
-          | { name?: string; slug?: string }[]
-          | { name?: string; slug?: string }
-          | null;
-      }[]
-    | null
-    | undefined
+  products: JoinedProduct | JoinedProduct[] | null | undefined
 ) {
   return Array.isArray(products) ? products[0] || null : products || null;
+}
+
+function extractProductImages(product: JoinedProduct | null) {
+  if (!Array.isArray(product?.images)) {
+    return [];
+  }
+
+  return product.images.filter(
+    (image): image is string => typeof image === 'string' && image.trim() !== ''
+  );
+}
+
+function normalizeImageUrl(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 /**
@@ -130,6 +135,7 @@ export async function GET(request: NextRequest) {
           products:products!order_items_product_id_fkey (
             slug,
             category,
+            images,
             categories:categories (
               name,
               slug
@@ -197,6 +203,9 @@ export async function GET(request: NextRequest) {
         }),
         items: (order.order_items || []).map((item) => {
           const product = extractJoinedProduct(item.products);
+          const productImages = extractProductImages(product);
+          const itemImageUrl =
+            normalizeImageUrl(item.image_url) || productImages[0] || undefined;
           const primaryCategory = Array.isArray(product?.categories)
             ? product.categories[0] || null
             : product?.categories || null;
@@ -204,7 +213,9 @@ export async function GET(request: NextRequest) {
           return {
             id: item.id,
             product_id: item.product_id,
-            image_url: item.image_url,
+            image_url: itemImageUrl,
+            product_images:
+              productImages.length > 0 ? productImages : undefined,
             name: item.name,
             quantity: item.quantity,
             price: item.price,
