@@ -1,4 +1,5 @@
 import { deriveProductImageData } from '@baci/shared/lib';
+import { prioritizeSmartphoneProducts } from '@baci/shared/storefront';
 import type { Product as StorefrontProduct } from '@/lib/products';
 import { OGABASSEY_HOME_PRODUCT_FEED_LIMIT } from './config/products';
 import type { Product as OgabasseyProduct } from './types';
@@ -78,6 +79,9 @@ export function createOgabasseyHomeProductFeed(
   storefrontProducts: StorefrontProduct[]
 ): OgabasseyProduct[] {
   return mapStorefrontProductsToOgabasseyProducts(
-    storefrontProducts.slice(0, OGABASSEY_HOME_PRODUCT_FEED_LIMIT)
+    prioritizeSmartphoneProducts(storefrontProducts).slice(
+      0,
+      OGABASSEY_HOME_PRODUCT_FEED_LIMIT
+    )
   );
 }
