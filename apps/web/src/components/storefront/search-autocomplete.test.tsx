@@ -76,6 +76,8 @@ describe('SearchAutocomplete', () => {
       />
     );
     const icon = container.querySelector('svg.lucide-search');
+    // Guard: a lucide class rename would make the assertions below vacuous.
+    expect(icon).not.toBeNull();
 
     // Geometry, z-index and the :focus-within brand tint live in core CSS
     // (.ogabassey-navbar-search__icon), which is loaded on every storefront
