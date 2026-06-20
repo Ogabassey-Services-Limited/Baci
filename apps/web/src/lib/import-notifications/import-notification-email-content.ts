@@ -228,7 +228,7 @@ function buildAppFirstReceiptEmailContent({
       subhead:
         'A quicker, more secure way to keep your purchase records in one place.',
       greetingName: escapedRecipientName,
-      logoUrl: emailSafeLogoUrl(merchant.logo_url),
+      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant.logo_url)),
       introHtml: `${escapedMerchantName} has moved your receipt for the following device(s) to the mobile app.`,
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),
@@ -301,7 +301,7 @@ function buildSiteReceiptEmailContent({
       subhead:
         'A simpler, more secure way to keep your purchase records in one place.',
       greetingName: escapedRecipientName,
-      logoUrl: emailSafeLogoUrl(merchant.logo_url),
+      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant.logo_url)),
       introHtml: `${escapedMerchantName} has moved your receipt for the following item(s) to your online account.`,
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),

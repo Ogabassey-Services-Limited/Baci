@@ -34,9 +34,9 @@ export interface ReceiptEmailTemplateInput {
   /** Merchant brand color (validated hex) — drives the accent throughout. */
   brandColor: string;
   /**
-   * Optional sanitized, email-safe (raster) logo URL. When present it is shown
-   * on a white chip in the header (guarantees contrast); otherwise the
-   * {@link brandWordmark} text is used.
+   * Optional logo URL — caller must sanitize (raster, http/https) AND
+   * attribute-escape it. When present it is shown on a white chip in the header
+   * (guarantees contrast); otherwise the {@link brandWordmark} text is used.
    */
   logoUrl?: string;
   /** Small uppercase tag shown top-right of the header (rendered as a pill). */
