@@ -626,11 +626,18 @@ export async function PUT(
       );
 
       if (variantsToUpdate.length > 0) {
-        const { error: updateVarError } = await supabase
-          .from('product_variants')
-          .upsert(variantsToUpdate);
-        if (updateVarError) {
-          console.error('Error updating variants:', updateVarError);
+        const updatePromises = variantsToUpdate.map((variant) =>
+          supabase
+            .from('product_variants')
+            .update(variant)
+            .eq('id', variant.id)
+            .eq('merchant_id', merchantId)
+        );
+        const updateResults = await Promise.all(updatePromises);
+        const failedUpdate = updateResults.find((r) => r.error);
+
+        if (failedUpdate) {
+          console.error('Error updating variants:', failedUpdate.error);
           return NextResponse.json(
             { error: 'Failed to update product variants' },
             { status: 500 }
