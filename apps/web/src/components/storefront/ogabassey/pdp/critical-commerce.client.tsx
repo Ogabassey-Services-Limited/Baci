@@ -1,8 +1,17 @@
 'use client';
 
+import {
+  formatCanonicalProductConditionLabel,
+  sortCanonicalProductConditionsByPreference,
+} from '@baci/shared/lib';
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
 import type { Product as CartProduct } from '@/lib/products';
+import {
+  OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
+  OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+} from '@/components/storefront/ogabassey/config/product-media';
 import {
   formatCriticalPrice,
   type InitialCriticalVariantSelection,
@@ -12,6 +21,7 @@ import {
   useOptionalOgabasseyPdpCriticalCommerce,
   useOgabasseyPdpCriticalCommerce,
 } from './critical-commerce-state.client';
+import { getVariantAxisOptions } from './critical-variant-selector-options';
 import { OgabasseyPdpCriticalVariantSelectors } from './critical-variant-selectors.client';
 
 export { OgabasseyPdpCriticalCommerceProvider } from './critical-commerce-state.client';
@@ -32,17 +42,22 @@ interface OgabasseyPdpCriticalCommerceControlsProps {
 }
 
 function formatCriticalCondition(condition: string | null | undefined) {
-  const normalizedCondition = condition?.trim();
-  if (!normalizedCondition) {
+  return formatCanonicalProductConditionLabel(condition) || null;
+}
+
+function getCriticalMixedConditionLabel(conditions: string[]) {
+  const sortedConditions =
+    sortCanonicalProductConditionsByPreference(conditions);
+
+  if (sortedConditions.length <= 1) {
     return null;
   }
 
-  return normalizedCondition
-    .replace(/[_-]+/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ');
+  return sortedConditions.length === 2 &&
+    sortedConditions.includes('new') &&
+    sortedConditions.includes('used')
+    ? 'New & Used'
+    : 'Multiple Conditions';
 }
 
 export function OgabasseyPdpCriticalConditionBadge({
@@ -51,9 +66,18 @@ export function OgabasseyPdpCriticalConditionBadge({
   fallbackCondition?: string | null;
 }) {
   const commerceState = useOptionalOgabasseyPdpCriticalCommerce();
-  const condition = formatCriticalCondition(
-    commerceState?.productForCart.condition ?? fallbackCondition
-  );
+  const conditionOptions = commerceState
+    ? getVariantAxisOptions(
+        commerceState.variants,
+        'condition',
+        commerceState.variantAxisOptions
+      )
+    : [];
+  const condition =
+    getCriticalMixedConditionLabel(conditionOptions) ||
+    formatCriticalCondition(
+      commerceState?.productForCart.condition ?? fallbackCondition
+    );
 
   if (!condition) {
     return null;
@@ -81,6 +105,30 @@ export function OgabasseyPdpCriticalCommerceConditionFact({
       <span>Condition</span>
       <strong>{condition}</strong>
     </p>
+  );
+}
+
+export function OgabasseyPdpCriticalProductImage({
+  alt,
+  fallbackImage,
+}: {
+  alt: string;
+  fallbackImage: string;
+}) {
+  const commerceState = useOptionalOgabasseyPdpCriticalCommerce();
+  const image = commerceState?.productForCart.image || fallbackImage;
+
+  return (
+    <Image
+      alt={alt}
+      data-ogabassey-pdp-image="true"
+      fetchPriority="high"
+      fill
+      loading="eager"
+      quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
+      sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
+      src={image}
+    />
   );
 }
 

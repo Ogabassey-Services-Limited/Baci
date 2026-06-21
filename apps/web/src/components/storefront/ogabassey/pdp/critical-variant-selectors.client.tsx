@@ -3,6 +3,7 @@
 import type { Product as CartProduct } from '@/lib/products';
 import {
   formatVariantAxisLabel,
+  formatVariantOptionLabel,
   getAvailableCriticalVariantOptions,
   getVariantAxisOptions,
 } from './critical-variant-selector-options';
@@ -60,24 +61,25 @@ export function OgabasseyPdpCriticalVariantSelectors({
                 variantAxisOptions
               )
             );
+            const selectedOptionLabel = selectedAttributes[axis]
+              ? formatVariantOptionLabel(axis, selectedAttributes[axis])
+              : `Select ${label.toLowerCase()}`;
 
             return (
               <div data-ogabassey-pdp-commerce-variant-axis key={axis}>
                 <p data-ogabassey-pdp-commerce-variant-label>
                   {label}:{' '}
-                  <strong>
-                    {selectedAttributes[axis] ||
-                      `Select ${label.toLowerCase()}`}
-                  </strong>
+                  <strong>{selectedOptionLabel}</strong>
                 </p>
                 <div data-ogabassey-pdp-commerce-variant-options>
                   {options.map((value) => {
                     const isSelected = selectedAttributes[axis] === value;
                     const isAvailable = availableOptions.has(value);
+                    const optionLabel = formatVariantOptionLabel(axis, value);
 
                     return (
                       <button
-                        aria-label={`Select ${value} ${label.toLowerCase()}`}
+                        aria-label={`Select ${optionLabel} ${label.toLowerCase()}`}
                         aria-pressed={isSelected}
                         data-ogabassey-pdp-commerce-variant-option
                         data-selected={isSelected ? 'true' : undefined}
@@ -86,7 +88,7 @@ export function OgabasseyPdpCriticalVariantSelectors({
                         onClick={() => onAttributeSelection(axis, value)}
                         type="button"
                       >
-                        {value}
+                        {optionLabel}
                       </button>
                     );
                   })}

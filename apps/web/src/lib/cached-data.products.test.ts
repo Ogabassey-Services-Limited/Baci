@@ -145,6 +145,8 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('slug');
     expect(selectArg).toContain('price');
     expect(selectArg).toContain('images');
+    expect(selectArg).toContain('color');
+    expect(selectArg).toContain('default_variant_id');
     expect(selectArg).toContain('manage_stock');
     expect(selectArg).toContain('schema_markup');
     expect(selectArg).toContain('stock');

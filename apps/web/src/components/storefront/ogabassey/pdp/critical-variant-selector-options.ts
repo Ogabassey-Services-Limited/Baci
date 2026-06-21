@@ -1,4 +1,7 @@
-import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+import {
+  formatCanonicalProductConditionLabel,
+  normalizeCanonicalProductCondition,
+} from '@baci/shared/lib';
 import type { Product as CartProduct } from '@/lib/products';
 import {
   canonicalizeVariantAxis,
@@ -28,6 +31,14 @@ export function formatVariantAxisLabel(axis: string) {
     labels[axis] ||
     `${axis.charAt(0).toUpperCase()}${axis.slice(1).replace(/_/g, ' ')}`
   );
+}
+
+export function formatVariantOptionLabel(axis: string, value: string) {
+  if (axis === 'condition') {
+    return formatCanonicalProductConditionLabel(value) || value;
+  }
+
+  return value;
 }
 
 export function getVariantAxisOptions(

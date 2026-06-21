@@ -320,13 +320,19 @@ describe('OgabasseyPdpCriticalCommerceClient', () => {
       </OgabasseyPdpCriticalCommerceProvider>
     );
 
-    expect(screen.getAllByText('Used')).toHaveLength(2);
+    expect(screen.getByText('Multiple Conditions')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /select used condition/i })
+    ).toHaveAttribute('aria-pressed', 'true');
 
     fireEvent.click(
-      screen.getByRole('button', { name: /select open_box condition/i })
+      screen.getByRole('button', { name: /select open box condition/i })
     );
 
-    expect(screen.getAllByText('Open Box')).toHaveLength(2);
+    expect(screen.getByText('Multiple Conditions')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /select open box condition/i })
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('renders condition labels from fallback condition outside the provider', () => {

@@ -149,7 +149,7 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
     ).toHaveAttribute('aria-pressed', 'true');
 
     fireEvent.click(
-      screen.getByRole('button', { name: /select open_box condition/i })
+      screen.getByRole('button', { name: /select open box condition/i })
     );
 
     expect(onAttributeSelection).toHaveBeenCalledWith('condition', 'open_box');

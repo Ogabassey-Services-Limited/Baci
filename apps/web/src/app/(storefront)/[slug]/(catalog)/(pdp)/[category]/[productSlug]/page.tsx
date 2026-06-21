@@ -407,7 +407,7 @@ function getInitialCriticalVariantSelection(
   );
 
   if (selectionResolution.type === 'none') {
-    return undefined;
+    return getDefaultCriticalVariantSelection(product);
   }
 
   const [match] = selectionResolution.matches;
@@ -426,6 +426,34 @@ function getInitialCriticalVariantSelection(
     selectionResolution.type === 'variant_id'
       ? selectionResolution.selectionInput.variantId
       : undefined;
+
+  if (!attributes && !condition && !variantId) {
+    return undefined;
+  }
+
+  return {
+    ...(attributes && { attributes }),
+    ...(condition && { condition }),
+    ...(variantId && { variantId }),
+  };
+}
+
+function getDefaultCriticalVariantSelection(product: Product) {
+  const productColor = normalizeRouteSelectionValue(product.color);
+  const productCondition = normalizeProductCondition(product.condition);
+  const defaultVariantId = normalizeRouteSelectionValue(
+    product.default_variant_id
+  );
+  const defaultVariant = defaultVariantId
+    ? product.variants?.find((variant) => variant.id === defaultVariantId)
+    : undefined;
+  const attributes = productColor
+    ? { color: productColor }
+    : defaultVariant?.attributes;
+  const condition =
+    (productColor ? productCondition : defaultVariant?.condition) ||
+    productCondition;
+  const variantId = productColor ? undefined : defaultVariant?.id;
 
   if (!attributes && !condition && !variantId) {
     return undefined;
@@ -458,8 +486,10 @@ interface LcpRouteProduct {
   categories?: { name?: string; slug?: string } | null;
   category?: string;
   category_slug?: string;
+  color?: string;
   condition?: ProductCondition;
   compare_at_price?: number;
+  default_variant_id?: string;
   description: string;
   gtin: string;
   has_variants?: boolean;
@@ -490,6 +520,7 @@ interface LcpRouteProduct {
   stock: number;
   stock_quantity?: number | null;
   updated_at?: string | null;
+  variant_attributes?: unknown;
   variants?: Product['variants'];
 }
 
@@ -589,6 +620,55 @@ function getLcpRouteLegacyPrices(cachedProduct: CachedProductLcpHint) {
   };
 }
 
+function normalizeRouteSelectionValue(value: string | null | undefined) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeRouteSelectionKey(value: string | null | undefined) {
+  return normalizeRouteSelectionValue(value).toLowerCase();
+}
+
+function getVariantPrimaryImage(
+  variant: NonNullable<Product['variants']>[number] | null | undefined
+) {
+  if (!variant || typeof variant !== 'object') {
+    return null;
+  }
+
+  return variant.primary_image || variant.images?.[0] || null;
+}
+
+function getInitialRouteVariant(
+  cachedProduct: CachedProductLcpHint,
+  variants: NonNullable<Product['variants']>
+) {
+  const productColor = normalizeRouteSelectionValue(cachedProduct.color);
+  const productColorKey = normalizeRouteSelectionKey(cachedProduct.color);
+  const productCondition = normalizeProductCondition(cachedProduct.condition);
+  const defaultVariantId = normalizeRouteSelectionValue(
+    cachedProduct.default_variant_id
+  );
+  const sameProductColorVariants = productColor
+    ? variants.filter(
+        (variant) =>
+          normalizeRouteSelectionKey(variant.attributes?.color) ===
+          productColorKey
+      )
+    : [];
+  const productColorAndConditionVariant = sameProductColorVariants.find(
+    (variant) =>
+      !productCondition ||
+      (variant.condition ?? productCondition) === productCondition
+  );
+
+  return (
+    productColorAndConditionVariant ||
+    sameProductColorVariants[0] ||
+    variants.find((variant) => variant.id === defaultVariantId) ||
+    null
+  );
+}
+
 function mapCachedProductLcpHintToRouteProduct(
   cachedProduct: CachedProductLcpHint
 ): LcpRouteProduct {
@@ -601,7 +681,6 @@ function mapCachedProductLcpHintToRouteProduct(
     ? rawFallbackCategory[0]
     : rawFallbackCategory;
   const primaryCategory = canonicalCategory ?? fallbackCategory;
-  const primaryImage = getCachedProductLcpHintPrimaryImage(cachedProduct) ?? '';
   const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
   const manageStock = cachedProduct.manage_stock ?? true;
   const effectiveStock = getEffectiveStock(cachedProduct);
@@ -613,6 +692,11 @@ function mapCachedProductLcpHintToRouteProduct(
       productId: cachedProduct.id,
     }
   );
+  const initialVariant = getInitialRouteVariant(cachedProduct, variants);
+  const primaryImage =
+    getVariantPrimaryImage(initialVariant) ||
+    getCachedProductLcpHintPrimaryImage(cachedProduct) ||
+    '';
 
   return {
     base_price: legacyPrices.basePrice,
@@ -621,8 +705,10 @@ function mapCachedProductLcpHintToRouteProduct(
     categories: primaryCategory,
     category: primaryCategory?.name ?? cachedProduct.category ?? undefined,
     category_slug: primaryCategory?.slug,
+    color: cachedProduct.color ?? undefined,
     condition: normalizeProductCondition(cachedProduct.condition),
     compare_at_price: legacyPrices.compareAtPrice ?? undefined,
+    default_variant_id: cachedProduct.default_variant_id ?? undefined,
     description: cachedProduct.meta_description ?? '',
     gtin: '',
     has_variants: Boolean(cachedProduct.has_variants) || variants.length > 0,
@@ -650,6 +736,7 @@ function mapCachedProductLcpHintToRouteProduct(
     stock: effectiveStock,
     stock_quantity: effectiveStock,
     updated_at: cachedProduct.updated_at,
+    variant_attributes: cachedProduct.variant_attributes,
     variants,
   };
 }
