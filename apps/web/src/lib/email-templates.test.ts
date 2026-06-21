@@ -101,7 +101,6 @@ describe('Email Templates', () => {
         totalPaidSoFar: 10000,
         balanceDue: 10000,
         merchantName: 'TestShop',
-        merchantUrl: 'https://testshop.usebaci.com',
         merchantTin: '1111111111',
         merchantRcNumber: 'RC-11111',
       });
@@ -511,11 +510,9 @@ describe('Email Templates', () => {
         totalPaidSoFar: 1000,
         balanceDue: 0,
         merchantName: XSS,
-        merchantUrl: 'javascript:alert(1)',
       });
 
       expect(html).not.toContain('<script>alert(1)</script>');
-      expect(html).not.toContain('javascript:alert(1)');
       expect(html).toContain(ESCAPED);
     });
 
