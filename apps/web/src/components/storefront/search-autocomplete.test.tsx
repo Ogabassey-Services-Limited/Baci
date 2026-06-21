@@ -99,6 +99,12 @@ describe('SearchAutocomplete', () => {
     // No Tailwind geometry utilities (they would be missing on PDP routes).
     expect(icon?.getAttribute('class')).not.toContain('group-focus-within');
     expect(icon?.getAttribute('class')).not.toMatch(/\bz-20\b/);
+
+    // The input's left padding (icon clearance) also lives in core CSS keyed on
+    // __field, so it must NOT depend on the unsourced `pl-11` Tailwind utility,
+    // which PDP/content stylesheets would not generate for this component.
+    const input = screen.getByRole('searchbox', { name: /search products/i });
+    expect(input).not.toHaveClass('pl-11');
   });
 
   it('shows clear button when value is present', () => {

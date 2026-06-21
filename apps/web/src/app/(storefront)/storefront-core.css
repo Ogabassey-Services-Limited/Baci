@@ -331,6 +331,17 @@
     color: var(--store-primary, var(--ogabassey-brand));
   }
 
+  /* Left clearance for the absolutely-positioned glass. Lives here (core CSS,
+     loaded on every storefront route) and is keyed on the always-present
+     SearchAutocomplete root (.ogabassey-navbar-search__field) so it applies even
+     where there is no `.ogabassey-navbar-search` wrapper (the generic storefront
+     header) and on PDP/content routes whose `source(none)` stylesheets never
+     generate this lazily-loaded component's Tailwind `pl-11`. Matches the navbar
+     input's 2.75rem so the icon never crowds the text on any surface. */
+  .ogabassey-navbar-search__field input {
+    padding-left: 2.75rem;
+  }
+
   .ogabassey-navbar__desktop-actions {
     display: none;
   }

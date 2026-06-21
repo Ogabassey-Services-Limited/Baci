@@ -248,10 +248,12 @@ export function SearchAutocomplete({
           onKeyDown={handleKeyDown}
           onFocus={() => value.length >= 2 && setIsOpen(true)}
           className={cn(
-            // pl-11 (2.75rem) matches the navbar's core-CSS padding so the icon
-            // never crowds the text on non-navbar surfaces (no `.ogabassey-
-            // navbar-search` override there).
-            'pl-11 [&::-webkit-search-cancel-button]:appearance-none',
+            // Left clearance for the glass comes from core CSS
+            // (.ogabassey-navbar-search__field input { padding-left }), which
+            // loads on every storefront route — unlike a `pl-11` Tailwind
+            // utility, which PDP/content `source(none)` stylesheets would not
+            // generate for this lazily-loaded component.
+            '[&::-webkit-search-cancel-button]:appearance-none',
             value ? 'pr-10' : ''
           )}
           aria-autocomplete="list"
