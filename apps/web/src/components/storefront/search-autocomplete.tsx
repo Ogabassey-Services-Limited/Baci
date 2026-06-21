@@ -248,13 +248,12 @@ export function SearchAutocomplete({
           onKeyDown={handleKeyDown}
           onFocus={() => value.length >= 2 && setIsOpen(true)}
           className={cn(
-            // Left clearance for the glass comes from core CSS
-            // (.ogabassey-navbar-search__field input { padding-left }), which
-            // loads on every storefront route — unlike a `pl-11` Tailwind
-            // utility, which PDP/content `source(none)` stylesheets would not
-            // generate for this lazily-loaded component.
-            '[&::-webkit-search-cancel-button]:appearance-none',
-            value ? 'pr-10' : ''
+            // The input carries NO geometry/padding Tailwind utilities: left and
+            // right clearance and the native-✕ reset all live in core CSS (keyed
+            // on `__field` / `__input--has-value`), which loads on every
+            // storefront route. PDP/content `source(none)` stylesheets would not
+            // generate utilities for this lazily-loaded component.
+            value ? 'ogabassey-navbar-search__input--has-value' : ''
           )}
           aria-autocomplete="list"
           aria-controls={listboxId}

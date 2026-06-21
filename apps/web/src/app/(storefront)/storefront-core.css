@@ -342,6 +342,23 @@
     padding-left: 2.75rem;
   }
 
+  /* Right clearance for the clear (✕) button, applied only while the field
+     holds a value (the button is rendered then). Like the left padding it lives
+     in core CSS rather than a `pr-10` Tailwind utility, which PDP/content
+     `source(none)` stylesheets would not generate for this lazily-loaded
+     component. Two-class specificity so it also wins over the navbar's
+     `.ogabassey-navbar-search input` padding shorthand. */
+  .ogabassey-navbar-search .ogabassey-navbar-search__input--has-value,
+  .ogabassey-navbar-search__field .ogabassey-navbar-search__input--has-value {
+    padding-right: 2.5rem;
+  }
+
+  /* Hide the native WebKit search ✕ — the component renders its own clear
+     button — route-independently, for the same `source(none)` reason. */
+  .ogabassey-navbar-search__field input::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
   .ogabassey-navbar__desktop-actions {
     display: none;
   }

@@ -119,6 +119,13 @@ describe('SearchAutocomplete', () => {
 
     const clearButton = screen.getByRole('button', { name: /clear search/i });
     expect(clearButton).toBeInTheDocument();
+
+    // Right clearance for the clear button comes from core CSS (keyed on the
+    // __input--has-value class), not the unsourced `pr-10` Tailwind utility,
+    // which PDP/content stylesheets would not generate for this component.
+    const input = screen.getByRole('searchbox', { name: /search products/i });
+    expect(input).toHaveClass('ogabassey-navbar-search__input--has-value');
+    expect(input).not.toHaveClass('pr-10');
   });
 
   it('does not show clear button when value is empty', () => {
