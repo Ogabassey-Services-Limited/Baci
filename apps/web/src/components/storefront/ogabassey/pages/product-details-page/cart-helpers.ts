@@ -94,6 +94,13 @@ function getVariantBackedAxisOptions(
   return Array.from(options);
 }
 
+export function hasVariantBackedAxis(
+  axis: string,
+  variants: NormalizedProductDetails['variants']
+) {
+  return getVariantBackedAxisOptions(axis, variants).length > 0;
+}
+
 function getMetadataAxisOptions(
   axis: string,
   productData: NormalizedProductDetails

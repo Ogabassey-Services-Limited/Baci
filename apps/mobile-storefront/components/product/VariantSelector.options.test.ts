@@ -59,4 +59,26 @@ describe('normalizeVariantOptions', () => {
       { axis: 'finish', values: ['Matte'] },
     ]);
   });
+
+  it('keeps attribute-backed condition options when no dedicated condition selector is visible', () => {
+    const result = normalizeVariantOptions({
+      hideConditionAttributes: false,
+      attributes: {
+        Condition: ['used', 'open_box'],
+      },
+      variants: [
+        {
+          id: 'variant-used',
+          name: 'Used',
+          condition: 'used',
+          price: 1000,
+          attributes: { condition: 'used' },
+        },
+      ],
+    });
+
+    expect(result.normalizedGenericAttributes).toEqual([
+      { axis: 'condition', values: ['used', 'open_box'] },
+    ]);
+  });
 });

@@ -27,6 +27,7 @@ import {
 } from '@/components/storefront/ogabassey/types';
 import type { VariantAttributeSource } from '@/components/storefront/ogabassey/variant-attributes';
 import {
+  canonicalizeVariantAxis,
   getRenderableVariantAxes,
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
@@ -463,26 +464,44 @@ function getDefaultCriticalVariantSelection(product: Product) {
   const defaultVariantId = normalizeRouteSelectionValue(
     product.default_variant_id
   );
+  const normalizedProduct = {
+    ...product,
+    variants: normalizeRouteProductVariants(product.variants || []),
+  };
 
   if (defaultVariantId) {
     return (
       toInitialCriticalVariantSelection(
-        resolveVariantSelection(product, { variantId: defaultVariantId })
+        resolveVariantSelection(normalizedProduct, {
+          variantId: defaultVariantId,
+        })
       ) ??
-      toInitialCriticalVariantSelection(resolveDefaultVariantSelection(product))
+      toInitialCriticalVariantSelection(
+        resolveDefaultVariantSelection(normalizedProduct)
+      )
     );
   }
 
-  const attributes = productColor ? { color: productColor } : undefined;
-  const condition = productColor ? productCondition : undefined;
-
-  if (!attributes && !condition) {
+  if (!productColor) {
     return undefined;
   }
 
+  const colorConditionSelection = productCondition
+    ? resolveVariantSelection(normalizedProduct, {
+        attributes: { color: productColor },
+        condition: productCondition,
+      })
+    : null;
+
+  if (colorConditionSelection) {
+    return {
+      attributes: { color: productColor },
+      condition: productCondition,
+    };
+  }
+
   return {
-    ...(attributes && { attributes }),
-    ...(condition && { condition }),
+    attributes: { color: productColor },
   };
 }
 
@@ -648,6 +667,36 @@ function normalizeRouteSelectionKey(value: string | null | undefined) {
   return normalizeRouteSelectionValue(value).toLowerCase();
 }
 
+function normalizeRouteVariantAxis(axis: string) {
+  const normalizedAxis = canonicalizeVariantAxis(axis);
+  return normalizedAxis === 'colour' ? 'color' : normalizedAxis;
+}
+
+function normalizeRouteVariantAttributes(
+  attributes: Record<string, string> | null | undefined
+) {
+  const normalizedAttributes: Record<string, string> = {};
+
+  for (const [rawAxis, rawValue] of Object.entries(attributes || {})) {
+    const axis = normalizeRouteVariantAxis(rawAxis);
+    const value = normalizeRouteSelectionValue(rawValue);
+    if (axis && value) {
+      normalizedAttributes[axis] = value;
+    }
+  }
+
+  return normalizedAttributes;
+}
+
+function normalizeRouteProductVariants(
+  variants: NonNullable<Product['variants']>
+) {
+  return variants.map((variant) => ({
+    ...variant,
+    attributes: normalizeRouteVariantAttributes(variant.attributes),
+  }));
+}
+
 function getVariantPrimaryImage(
   variant: NonNullable<Product['variants']>[number] | null | undefined
 ) {
@@ -663,13 +712,14 @@ function getRouteVariantResolutionProduct(
   variants: NonNullable<Product['variants']>
 ) {
   const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
+  const normalizedVariants = normalizeRouteProductVariants(variants);
 
   return {
     compare_at_price: legacyPrices.compareAtPrice,
     condition: normalizeProductCondition(cachedProduct.condition),
     manage_stock: cachedProduct.manage_stock,
     price: legacyPrices.price ?? legacyPrices.basePrice ?? 0,
-    variants,
+    variants: normalizedVariants,
   };
 }
 
@@ -709,8 +759,9 @@ function getInitialRouteVariant(
     }
   }
 
+  const normalizedVariants = resolutionProduct.variants || [];
   const sameProductColorVariants = productColor
-    ? variants.filter(
+    ? normalizedVariants.filter(
         (variant) =>
           normalizeRouteSelectionKey(variant.attributes?.color) ===
           productColorKey
@@ -722,7 +773,12 @@ function getInitialRouteVariant(
       (variant.condition ?? productCondition) === productCondition
   );
 
-  return productColorAndConditionVariant || sameProductColorVariants[0] || null;
+  return (
+    productColorAndConditionVariant ||
+    sameProductColorVariants[0] ||
+    resolveDefaultVariantSelection(resolutionProduct)?.variant ||
+    null
+  );
 }
 
 function getCachedProductRoutePrimaryImage(

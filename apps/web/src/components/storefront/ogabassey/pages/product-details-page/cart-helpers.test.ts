@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applySingleOptionAxisSelectionsToVariants,
   getAxisOptions,
+  hasVariantBackedAxis,
 } from './cart-helpers';
 import type { NormalizedProductDetails } from './product-normalization';
 
@@ -48,6 +49,21 @@ describe('cart helpers', () => {
     });
 
     expect(getAxisOptions('storage', product)).toEqual(['128GB']);
+  });
+
+  it('detects whether an axis is backed by variant rows', () => {
+    const product = productFixture({
+      variants: [
+        {
+          attributes: { Storage: '128GB' },
+          id: 'variant-128',
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(hasVariantBackedAxis('storage', product.variants)).toBe(true);
+    expect(hasVariantBackedAxis('platform', product.variants)).toBe(false);
   });
 
   it('does not expose multi-option metadata fallbacks without variant-backed values', () => {

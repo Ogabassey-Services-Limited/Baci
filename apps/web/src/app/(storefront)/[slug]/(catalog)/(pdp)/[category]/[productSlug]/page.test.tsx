@@ -2423,6 +2423,55 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
+  it('preloads the resolved default variant image when no route color is present', async () => {
+    const baseProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-base.avif';
+    const variantProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-default-variant.avif';
+    const variants = [
+      {
+        attributes: { storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-128',
+        primary_image: variantProductImage,
+        stock_quantity: 3,
+      },
+    ];
+
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        has_variants: true,
+        images: [baseProductImage],
+        product_variants: variants,
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      has_variants: true,
+      images: [baseProductImage],
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: variantProductImage,
+    });
+  });
+
   it('emits one page preload when the merchant lookup wins the early LCP hint race', async () => {
     let resolveHint:
       | ((value: ReturnType<typeof toLegacyCachedProduct>) => void)
@@ -2870,9 +2919,9 @@ describe('[category]/[productSlug] page render', () => {
       'https://cdn.ogabassey.com/core-assets/products/s24-jade-green.avif';
     const usedJadeImage =
       'https://cdn.ogabassey.com/core-assets/products/s24-used-jade-green.avif';
-    const variants = [
+    const variants: LegacyProductVariantFixture[] = [
       {
-        attributes: { color: 'Jade Green', storage: '128GB' },
+        attributes: { Colour: 'Jade Green', storage: '128GB' },
         condition: 'open_box',
         id: 'variant-open-jade-128',
         primary_image: jadeImage,
@@ -3084,18 +3133,21 @@ describe('[category]/[productSlug] page render', () => {
   it('does not force stale product condition into the default critical selection', async () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/used-laptop.avif';
+    const jadeImage =
+      'https://cdn.ogabassey.com/core-assets/products/used-jade-laptop.avif';
     const variants = [
       {
-        attributes: { storage: '128GB' },
+        attributes: { color: 'Jade Green', storage: '128GB' },
         condition: 'used',
         id: 'variant-used-128',
-        primary_image: productImage,
+        primary_image: jadeImage,
         stock_quantity: 3,
       },
     ];
     mockGetCachedProductLcpHint.mockResolvedValueOnce(
       toLegacyCachedProduct({
         ...categorizedDetailedProduct,
+        color: 'Jade Green',
         condition: 'new',
         has_variants: true,
         images: [productImage],
@@ -3104,6 +3156,7 @@ describe('[category]/[productSlug] page render', () => {
     );
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,
+      color: 'Jade Green',
       condition: 'new',
       has_variants: true,
       images: [productImage],
@@ -3128,7 +3181,12 @@ describe('[category]/[productSlug] page render', () => {
       .at(-1)
       ?.at(0) as { initialVariantSelection?: unknown };
 
-    expect(providerProps.initialVariantSelection).toBeUndefined();
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: jadeImage,
+    });
+    expect(providerProps.initialVariantSelection).toEqual({
+      attributes: { color: 'Jade Green' },
+    });
   });
 
   it('preserves has_variants from the cached product hint when variant hydration is empty', async () => {
