@@ -276,5 +276,3 @@ ${supportLine}
 Powered by Baci - AI E-commerce Platform
   `.trim();
 }
-
-// --- Order Delivered Email ---

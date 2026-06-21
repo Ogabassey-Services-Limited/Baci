@@ -2,6 +2,12 @@ import { stripHtmlTags } from '@/lib/sanitize-core';
 import { formatEmailMoney } from './shared';
 import type { VtuTokenReceiptData } from './vtu-token-receipt';
 
+// NOTE: Each email's HTML and plain-text generators are intentionally
+// co-located in a single module (one cohesive template, two renderings).
+// The VTU token receipt is the sole exception: its combined module exceeds
+// the 300-line limit, so the text generator lives here while the HTML
+// generator and the shared `VtuTokenReceiptData` type stay in
+// `vtu-token-receipt.ts`.
 export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
   const isTokenReady = Boolean(data.voucherPin);
   const expectsToken =
