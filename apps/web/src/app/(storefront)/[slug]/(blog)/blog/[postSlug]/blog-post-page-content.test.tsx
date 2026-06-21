@@ -120,6 +120,7 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 vi.mock('@/lib/seo-utils', () => ({
   generateBlogPostSchema: (data: unknown) => mockGenerateBlogPostSchema(data),
   generateBreadcrumbSchema: () => ({}),
+  generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),
 }));
 
 vi.mock('@/lib/blog-organization-schema', () => ({
@@ -131,6 +132,7 @@ vi.mock('@/lib/blog-organization-schema', () => ({
 
 vi.mock('@/lib/blog-authors', () => ({
   getBlogAuthorSameAs: () => ['https://www.linkedin.com/in/michael-bolakale'],
+  hasBlogAuthorPage: () => true,
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -596,6 +598,23 @@ describe('BlogPostPageContent', () => {
           image:
             'https://cdn.ogabassey.com/merchants/ogabassey/authors/bolakale.jpg',
         }),
+      })
+    );
+  });
+
+  it('links the byline to the author page for a known author', async () => {
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockBlogPostHeader).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorHref: '/ogabassey/blog/author/bolakale',
       })
     );
   });
