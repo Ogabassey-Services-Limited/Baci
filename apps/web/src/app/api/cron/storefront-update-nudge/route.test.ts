@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GET } from './route';
+import { GET, maxDuration } from './route';
 
 vi.mock('@/env', () => ({
   getCronSecret: () => process.env.CRON_SECRET,
@@ -126,7 +126,7 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     });
   });
 
-  it('stays 200 on partial failure so a healthy platform still nudges', async () => {
+  it('returns 500 when any platform fails, even if another succeeds', async () => {
     vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
     vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
     vi.stubEnv('MOBILE_STOREFRONT_IOS_LATEST_BUILD', '390');
@@ -136,10 +136,16 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
     const body = await response.json();
 
-    expect(response.status).toBe(200);
+    // Surfaced to the scheduler so the android failure is noticed; iOS still ran.
+    expect(response.status).toBe(500);
     expect(body.results).toContainEqual({
       platform: 'android',
       skipped: 'error',
     });
+    expect(mockNotify).toHaveBeenCalledTimes(2);
+  });
+
+  it('exports a long maxDuration so large batches do not 504 mid-send', () => {
+    expect(maxDuration).toBe(300);
   });
 });

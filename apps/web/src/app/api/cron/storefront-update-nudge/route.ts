@@ -19,6 +19,11 @@ import {
 // than MOBILE_STOREFRONT_<PLATFORM>_LATEST_BUILD. Each device is throttled
 // server-side (last_update_push_at), so running this daily is safe and idempotent.
 
+// A real backlog can send up to the per-platform cap (5k tokens) of chunked
+// Expo + DB calls, so allow well beyond the default function duration to avoid
+// a 504 before tokens are stamped (which would re-send next run).
+export const maxDuration = 300;
+
 const PLATFORMS = ['android', 'ios'] as const;
 
 type PlatformOutcome =
@@ -49,7 +54,6 @@ export async function GET(request: NextRequest) {
     process.env.MOBILE_STOREFRONT_UPDATE_MESSAGE?.trim() || undefined;
 
   const results: PlatformOutcome[] = [];
-  let attempted = 0;
   let errored = 0;
 
   for (const platform of PLATFORMS) {
@@ -61,7 +65,6 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
-    attempted += 1;
     try {
       const result = await notifyStorefrontUpdateAvailable({
         platform,
@@ -81,10 +84,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // If every attempted platform failed, return non-2xx so the VPS scheduler
-  // (run-web-cron.mjs exits non-zero) alerts. A partial failure stays 200 so
-  // one platform's outage doesn't suppress the other's successful nudge.
-  if (attempted > 0 && errored === attempted) {
+  // Any platform send that threw is a real delivery failure for that platform —
+  // return non-2xx so run-web-cron.mjs exits non-zero and the schedule alerts.
+  // Successful platforms' sends already persisted (and stamped their throttle),
+  // so surfacing the failure doesn't undo that work; it just gets it noticed.
+  if (errored > 0) {
     return NextResponse.json({ results }, { status: 500 });
   }
 
