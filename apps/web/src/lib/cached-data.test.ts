@@ -866,16 +866,26 @@ describe('getCachedStorefrontHomeProducts', () => {
     ]);
   });
 
-  it('throws when the products query errors', async () => {
+  it('fails fast when the first recent products query errors', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    harness.mockListResult.data = null;
-    harness.mockListResult.error = { message: 'Connection error' };
+    harness.mockListResults.push(
+      { data: null, error: { message: 'Connection error' } },
+      { data: [{ id: 'should-not-run' }], error: null }
+    );
 
     await expect(
       getCachedStorefrontHomeProducts('merchant-1', 'recent')
     ).rejects.toMatchObject({ message: 'Connection error' });
-    expect(consoleSpy).toHaveBeenCalled();
+
+    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(1);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to load storefront home products',
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        error: { message: 'Connection error' },
+      })
+    );
   });
 });

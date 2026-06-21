@@ -2974,28 +2974,46 @@ export async function getCachedStorefrontHomeProducts(
     // connections at once for one homepage request.
     const { data: phoneCandidates, error: phoneCandidatesError } =
       await phoneCandidatesQuery;
+    if (phoneCandidatesError) {
+      console.error('Failed to load storefront home products', {
+        merchantId,
+        error: phoneCandidatesError,
+      });
+      throw phoneCandidatesError;
+    }
+
     const {
       data: directCategoryPhoneCandidates,
       error: directCategoryPhoneCandidatesError,
     } = await directCategoryPhoneCandidatesQuery;
+    if (directCategoryPhoneCandidatesError) {
+      console.error('Failed to load storefront home products', {
+        merchantId,
+        error: directCategoryPhoneCandidatesError,
+      });
+      throw directCategoryPhoneCandidatesError;
+    }
+
     const {
       data: relationPhoneCandidates,
       error: relationPhoneCandidatesError,
     } = await relationPhoneCandidatesQuery;
-    const { data: recentProducts, error: recentProductsError } =
-      await recentProductsQuery;
-
-    const error =
-      phoneCandidatesError ||
-      directCategoryPhoneCandidatesError ||
-      relationPhoneCandidatesError ||
-      recentProductsError;
-    if (error) {
+    if (relationPhoneCandidatesError) {
       console.error('Failed to load storefront home products', {
         merchantId,
-        error,
+        error: relationPhoneCandidatesError,
       });
-      throw error;
+      throw relationPhoneCandidatesError;
+    }
+
+    const { data: recentProducts, error: recentProductsError } =
+      await recentProductsQuery;
+    if (recentProductsError) {
+      console.error('Failed to load storefront home products', {
+        merchantId,
+        error: recentProductsError,
+      });
+      throw recentProductsError;
     }
 
     const phonePriorityProducts = [
