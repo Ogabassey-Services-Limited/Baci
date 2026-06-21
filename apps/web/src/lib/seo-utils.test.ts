@@ -1464,6 +1464,15 @@ describe('generateBlogPostSchema', () => {
     expect(schema.isPartOf).toBeUndefined();
   });
 
+  it('omits author @id when author.url is not provided', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: { name: 'Anonymous' },
+    });
+
+    expect((schema.author as Record<string, unknown>)['@id']).toBeUndefined();
+  });
+
   it('emits the author headshot as Person.image when provided', () => {
     const schema = generateBlogPostSchema({
       ...baseBlogSchemaInput,
