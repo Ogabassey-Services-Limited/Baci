@@ -64,7 +64,10 @@ export function SearchAutocomplete({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debouncedValue = useDebounce(value, 180);
+  const fetchAbortRef = useRef<AbortController | null>(null);
+  // 200ms sits at the responsive end of the 200-400ms typeahead debounce range;
+  // pairs with the AbortController below so quick typing never spams or races.
+  const debouncedValue = useDebounce(value, 200);
   const safeCountryCode = countryCode || 'NG';
   const { formatCurrencyCompact } = useCurrencyWithCountry(safeCountryCode);
 
@@ -115,6 +118,19 @@ export function SearchAutocomplete({
     }
   }
 
+  // Abort the in-flight request as soon as the RAW input changes — not only
+  // when the next debounced value commits. Otherwise a request for "iphone"
+  // could still be live during the 200ms debounce window after the user has
+  // typed "iphones", resolve, and paint stale suggestions against newer input.
+  // `value` is intentionally the dependency: the body reads nothing, but the
+  // cleanup must re-run on every raw value change to cancel the prior request.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup runs on each `value` change by design
+  useEffect(() => {
+    return () => {
+      fetchAbortRef.current?.abort();
+    };
+  }, [value]);
+
   // Debounced search with autocomplete suggestions
   useEffect(() => {
     if (debouncedValue.length < 2) {
@@ -124,6 +140,7 @@ export function SearchAutocomplete({
     // Cancel any superseded request so a slow earlier keystroke can never paint
     // over the latest results and the server stops work it no longer needs.
     const controller = new AbortController();
+    fetchAbortRef.current = controller;
     let isMounted = true;
     const fetchAutocomplete = () => {
       setLoading(true);

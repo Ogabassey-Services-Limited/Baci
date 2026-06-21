@@ -470,12 +470,15 @@ describe('SearchAutocomplete', () => {
     ]);
   });
 
-  it('aborts the in-flight request when the query changes', async () => {
-    vi.useRealTimers();
-    const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock.mockResolvedValue({
-      json: async () => ({ suggestions: [], popularSearches: [] }),
-    } as Response);
+  it('aborts the in-flight request as soon as the raw query changes', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(
+      () =>
+        new Promise(() => {
+          // Keep the request pending so only an abort can settle it.
+        })
+    ) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
 
     const { rerender } = render(
       <SearchAutocomplete
@@ -485,24 +488,23 @@ describe('SearchAutocomplete', () => {
       />
     );
 
-    // Capture the abort signal handed to the first autocomplete request.
-    await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some(
-          ([url]) => typeof url === 'string' && url.includes('q=iphone&')
-        )
-      ).toBe(true);
+    // Flush the mount effect that dispatches the first request, then capture its
+    // abort signal.
+    await act(async () => {
+      await Promise.resolve();
     });
     const firstSignal = (
-      fetchMock.mock.calls.find(
-        ([url]) => typeof url === 'string' && url.includes('q=iphone&')
-      )?.[1] as RequestInit | undefined
+      vi
+        .mocked(fetchMock)
+        .mock.calls.find(
+          ([url]) => typeof url === 'string' && url.includes('q=iphone&')
+        )?.[1] as RequestInit | undefined
     )?.signal;
     expect(firstSignal).toBeInstanceOf(AbortSignal);
     expect(firstSignal?.aborted).toBe(false);
 
-    // Typing more supersedes the first request — it must be aborted, never
-    // left to resolve and paint over the newer query's results.
+    // Typing more must abort the prior request immediately on the raw value
+    // change — without waiting for the 200ms debounce window to elapse.
     rerender(
       <SearchAutocomplete
         merchantId="merchant-1"
@@ -511,9 +513,7 @@ describe('SearchAutocomplete', () => {
       />
     );
 
-    await waitFor(() => {
-      expect(firstSignal?.aborted).toBe(true);
-    });
+    expect(firstSignal?.aborted).toBe(true);
   });
 
   it('keeps the autocomplete popup closed for empty ranked suggestions', async () => {
