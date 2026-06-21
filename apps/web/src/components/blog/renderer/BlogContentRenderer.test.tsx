@@ -826,6 +826,27 @@ describe('BlogContentRenderer', () => {
       expect(images[1]).toHaveAttribute('loading', 'lazy');
     });
 
+    it('does not prioritize a later trusted inline image when the first rendered image is untrusted', () => {
+      const firstSrc = 'https://example.com/body-first.png';
+      const secondSrc =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-2-b9244d7a754d.png';
+      const { container } = render(
+        <BlogContentRenderer
+          json={doc(
+            { type: 'image', attrs: { src: firstSrc, alt: 'First body' } },
+            { type: 'image', attrs: { src: secondSrc, alt: 'Second inline' } }
+          )}
+        />
+      );
+
+      const allImages = Array.from(container.querySelectorAll('img'));
+      expect(allImages[0]).toHaveAttribute('src', firstSrc);
+      const trustedInlineImage = container.querySelector('picture img');
+      expect(trustedInlineImage).toHaveAttribute('src', secondSrc);
+      expect(trustedInlineImage).not.toHaveAttribute('fetchpriority');
+      expect(trustedInlineImage).toHaveAttribute('loading', 'lazy');
+    });
+
     it('prioritizes only the first occurrence when an inline image URL repeats', () => {
       const src =
         'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';

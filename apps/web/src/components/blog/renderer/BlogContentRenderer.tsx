@@ -428,34 +428,45 @@ function parseBlogDoc(json: unknown): ParsedBlogDoc {
   return { kind: 'fallback' };
 }
 
-function findFirstTrustedInlineImage(
+function findFirstRenderableImageNode(
   node: TipTapNode,
-  nodePath: string,
-  targetSrc?: string
-): PriorityInlineImage | null {
+  nodePath: string
+): { src: string; nodePath: string } | null {
   if (node.type === 'image') {
     const rawSrc = node.attrs?.src;
     const src = typeof rawSrc === 'string' ? sanitizeUrl(rawSrc) : '';
-    if (
-      src?.startsWith('http') &&
-      isTrustedCdnInlineImage(src) &&
-      (targetSrc === undefined || src === targetSrc)
-    ) {
-      return { src, nodePath };
-    }
+    return src?.startsWith('http') ? { src, nodePath } : null;
   }
 
   for (const [index, child] of (node.content ?? []).entries()) {
-    const found = findFirstTrustedInlineImage(
-      child,
-      `${nodePath}.${index}`,
-      targetSrc
-    );
+    const found = findFirstRenderableImageNode(child, `${nodePath}.${index}`);
     if (found) {
       return found;
     }
   }
 
+  return null;
+}
+
+function findFirstTrustedInlineImage(
+  node: TipTapNode,
+  nodePath: string,
+  targetSrc?: string
+): PriorityInlineImage | null {
+  // The first rendered image is the only body LCP candidate, so stop at it and
+  // only prioritize when it is a trusted, optimized inline image. Never skip an
+  // earlier (untrusted) image to prioritize a later one — that would set
+  // fetchPriority="high" on an image that cannot be the LCP.
+  const first = findFirstRenderableImageNode(node, nodePath);
+  if (!first) {
+    return null;
+  }
+  if (targetSrc !== undefined && first.src !== targetSrc) {
+    return null;
+  }
+  if (first.src.startsWith('http') && isTrustedCdnInlineImage(first.src)) {
+    return { src: first.src, nodePath: first.nodePath };
+  }
   return null;
 }
 

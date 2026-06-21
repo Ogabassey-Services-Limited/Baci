@@ -45,4 +45,34 @@ describe('removeDuplicateLegacyFeaturedImage', () => {
 
     expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(html);
   });
+
+  it('removes a leading link-wrapped duplicate hero image', () => {
+    const html = `<p><a href="https://example.com"><img src="${FEATURED}" alt="Hero" /></a></p><p>Body</p>`;
+
+    expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(
+      '<p>Body</p>'
+    );
+  });
+
+  it('keeps a link-wrapped duplicate when the link contains additional content', () => {
+    const html = `<p><a href="https://example.com"><span>Open hero</span><img src="${FEATURED}" alt="Hero" /></a></p><p>Body</p>`;
+
+    expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(html);
+  });
+
+  it('removes a leading figure>link-wrapped duplicate with caption', () => {
+    const html = `<figure><a href="https://example.com"><img src="${FEATURED}" alt="Hero" /></a><figcaption>Cap</figcaption></figure><p>Body</p>`;
+
+    expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(
+      '<p>Body</p>'
+    );
+  });
+
+  it('matches the duplicate even when alt text contains a literal ">"', () => {
+    const html = `<p><img src="${FEATURED}" alt="value a > b" /></p><p>Body</p>`;
+
+    expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(
+      '<p>Body</p>'
+    );
+  });
 });
