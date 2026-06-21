@@ -1461,7 +1461,7 @@ export default async function CategoryProductPage({
           },
           variantAxes: getFirstViewportVariantAxes(
             commerceProduct.variants,
-            variantAxisOptions,
+            rawVariantAttributes,
             commerceProduct.condition
           ),
           variantAxisOptions,
