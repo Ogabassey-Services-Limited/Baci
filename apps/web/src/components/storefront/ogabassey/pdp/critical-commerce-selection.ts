@@ -92,18 +92,44 @@ export function normalizeCriticalVariantAttributes(
   return normalized;
 }
 
+function getSingleOptionVariantAttributes(
+  variantAxisOptions: Record<string, string[]> | null | undefined
+) {
+  const attributes: Record<string, string> = {};
+
+  for (const [rawAxis, options] of Object.entries(variantAxisOptions || {})) {
+    const axis = canonicalizeVariantAxis(rawAxis);
+    const option = options.length === 1 ? options[0]?.trim() : '';
+
+    if (!axis || axis === 'condition' || !option) {
+      continue;
+    }
+
+    attributes[axis] = option;
+  }
+
+  return attributes;
+}
+
 export function normalizeCriticalVariantProduct(
-  cartProduct: CartProduct
+  cartProduct: CartProduct,
+  variantAxisOptions?: Record<string, string[]>
 ): CartProduct {
   if (!cartProduct.variants || cartProduct.variants.length === 0) {
     return cartProduct;
   }
 
+  const singleOptionVariantAttributes =
+    getSingleOptionVariantAttributes(variantAxisOptions);
+
   return {
     ...cartProduct,
     variants: cartProduct.variants.map((variant) => ({
       ...variant,
-      attributes: normalizeCriticalVariantAttributes(variant.attributes),
+      attributes: {
+        ...singleOptionVariantAttributes,
+        ...normalizeCriticalVariantAttributes(variant.attributes),
+      },
       condition: variant.condition ?? cartProduct.condition,
     })),
   };

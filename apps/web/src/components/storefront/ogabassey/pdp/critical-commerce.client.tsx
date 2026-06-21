@@ -21,12 +21,66 @@ interface OgabasseyPdpCriticalCommerceClientProps {
   initialVariantSelection?: InitialCriticalVariantSelection;
   productName: string;
   variantAxes?: string[];
+  variantAxisOptions?: Record<string, string[]>;
   variantCount: number;
 }
 
 interface OgabasseyPdpCriticalCommerceControlsProps {
   cartHref: Route;
   productName: string;
+}
+
+function formatCriticalCondition(condition: string | null | undefined) {
+  const normalizedCondition = condition?.trim();
+  if (!normalizedCondition) {
+    return null;
+  }
+
+  return normalizedCondition
+    .replace(/[_-]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+export function OgabasseyPdpCriticalConditionBadge({
+  fallbackCondition,
+}: {
+  fallbackCondition?: string | null;
+}) {
+  const { productForCart } = useOgabasseyPdpCriticalCommerce();
+  const condition = formatCriticalCondition(
+    productForCart.condition ?? fallbackCondition
+  );
+
+  if (!condition) {
+    return null;
+  }
+
+  return <span data-ogabassey-pdp-condition>{condition}</span>;
+}
+
+export function OgabasseyPdpCriticalCommerceConditionFact({
+  fallbackCondition,
+}: {
+  fallbackCondition?: string | null;
+}) {
+  const { productForCart } = useOgabasseyPdpCriticalCommerce();
+  const condition = formatCriticalCondition(
+    productForCart.condition ?? fallbackCondition
+  );
+
+  if (!condition) {
+    return null;
+  }
+
+  return (
+    <p data-ogabassey-pdp-commerce-fact>
+      <span>Condition</span>
+      <strong>{condition}</strong>
+    </p>
+  );
 }
 
 export function OgabasseyPdpCriticalCommerceSummary() {
@@ -36,6 +90,7 @@ export function OgabasseyPdpCriticalCommerceSummary() {
     productForCart,
     renderableVariantAxes,
     selectedAttributes,
+    variantAxisOptions,
     variantCount,
     variants,
   } = useOgabasseyPdpCriticalCommerce();
@@ -53,6 +108,7 @@ export function OgabasseyPdpCriticalCommerceSummary() {
           onAttributeSelection={handleAttributeSelection}
           renderableVariantAxes={renderableVariantAxes}
           selectedAttributes={selectedAttributes}
+          variantAxisOptions={variantAxisOptions}
           variantCount={variantCount}
           variants={variants}
         />
@@ -132,6 +188,7 @@ export function OgabasseyPdpCriticalCommerceClient({
   initialVariantSelection,
   productName,
   variantAxes = [],
+  variantAxisOptions = {},
   variantCount,
 }: OgabasseyPdpCriticalCommerceClientProps) {
   return (
@@ -139,6 +196,7 @@ export function OgabasseyPdpCriticalCommerceClient({
       cartProduct={cartProduct}
       initialVariantSelection={initialVariantSelection}
       variantAxes={variantAxes}
+      variantAxisOptions={variantAxisOptions}
       variantCount={variantCount}
     >
       <OgabasseyPdpCriticalCommerceSummary />

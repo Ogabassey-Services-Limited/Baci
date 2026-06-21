@@ -1,0 +1,120 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+import type { Product as CartProduct } from '@/lib/products';
+import {
+  canonicalizeVariantAxis,
+  getAvailableOptionsForAxis,
+} from '@/components/storefront/ogabassey/variant-attributes';
+
+// Color is represented by product imagery, and color_hex is only swatch metadata.
+const NON_RENDERABLE_CRITICAL_VARIANT_AXES = new Set([
+  'color',
+  'color_hex',
+]);
+
+export function formatVariantAxisLabel(axis: string) {
+  const labels: Record<string, string> = {
+    color: 'Color',
+    condition: 'Condition',
+    connectivity: 'Connectivity',
+    gpu: 'GPU',
+    platform: 'Platform',
+    processor: 'Processor',
+    ram: 'RAM',
+    sim_type: 'SIM Type',
+    storage: 'Storage',
+  };
+
+  return (
+    labels[axis] ||
+    `${axis.charAt(0).toUpperCase()}${axis.slice(1).replace(/_/g, ' ')}`
+  );
+}
+
+export function getVariantAxisOptions(
+  variants: CartProduct['variants'],
+  axis: string,
+  fallbackAxisOptions: Record<string, string[]> = {}
+) {
+  const normalizedAxis = canonicalizeVariantAxis(axis);
+  const options = new Set<string>();
+
+  for (const variant of variants || []) {
+    const normalizedAttributes: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(variant.attributes || {})) {
+      const attributeAxis = canonicalizeVariantAxis(key);
+      const trimmedValue = typeof value === 'string' ? value.trim() : '';
+
+      if (attributeAxis && trimmedValue) {
+        normalizedAttributes[attributeAxis] = trimmedValue;
+      }
+    }
+
+    const value =
+      normalizedAxis === 'condition'
+        ? normalizeCanonicalProductCondition(variant.condition)
+        : normalizedAttributes[normalizedAxis];
+
+    if (value) {
+      options.add(value);
+    }
+  }
+
+  for (const fallbackValue of fallbackAxisOptions[normalizedAxis] ?? []) {
+    const normalizedValue =
+      normalizedAxis === 'condition'
+        ? normalizeCanonicalProductCondition(fallbackValue)
+        : fallbackValue.trim();
+
+    if (normalizedValue) {
+      options.add(normalizedValue);
+    }
+  }
+
+  return Array.from(options);
+}
+
+function isRenderableCriticalVariantAxis(
+  axis: string,
+  variants: CartProduct['variants'],
+  fallbackAxisOptions: Record<string, string[]> = {}
+) {
+  if (!axis || NON_RENDERABLE_CRITICAL_VARIANT_AXES.has(axis)) {
+    return false;
+  }
+
+  const options = getVariantAxisOptions(variants, axis, fallbackAxisOptions);
+
+  if (axis === 'condition') {
+    return options.length > 1;
+  }
+
+  return options.length > 0;
+}
+
+export function getRenderableCriticalVariantAxes(
+  axes: string[],
+  variants: CartProduct['variants'],
+  fallbackAxisOptions: Record<string, string[]> = {}
+) {
+  return Array.from(new Set(axes.map(canonicalizeVariantAxis))).filter((axis) =>
+    isRenderableCriticalVariantAxis(axis, variants, fallbackAxisOptions)
+  );
+}
+
+export function getAvailableCriticalVariantOptions(
+  axis: string,
+  variants: CartProduct['variants'],
+  explicitSelectedAttributes: Record<string, string>,
+  fallbackAxisOptions: Record<string, string[]> = {}
+) {
+  const options = getAvailableOptionsForAxis(
+    axis,
+    variants,
+    explicitSelectedAttributes
+  );
+
+  return options.length > 0
+    ? options
+    : getVariantAxisOptions(variants, axis, fallbackAxisOptions);
+}

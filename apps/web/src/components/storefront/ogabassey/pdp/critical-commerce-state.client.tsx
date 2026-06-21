@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelection,
@@ -29,13 +30,14 @@ import {
   normalizeCriticalVariantProduct,
   pickInitialSelectedAttributes,
 } from './critical-commerce-selection';
-import { getRenderableCriticalVariantAxes } from './critical-variant-selectors.client';
+import { getRenderableCriticalVariantAxes } from './critical-variant-selector-options';
 
 interface OgabasseyPdpCriticalCommerceProviderProps {
   cartProduct: CartProduct;
   children: ReactNode;
   initialVariantSelection?: InitialCriticalVariantSelection;
   variantAxes?: string[];
+  variantAxisOptions?: Record<string, string[]>;
   variantCount: number;
 }
 
@@ -51,6 +53,7 @@ interface OgabasseyPdpCriticalCommerceState {
   renderableVariantAxes: string[];
   selectedAttributes: Record<string, string>;
   setQuantity: Dispatch<SetStateAction<number>>;
+  variantAxisOptions: Record<string, string[]>;
   variantCount: number;
   variants: CartProduct['variants'];
 }
@@ -74,13 +77,18 @@ export function OgabasseyPdpCriticalCommerceProvider({
   children,
   initialVariantSelection,
   variantAxes = [],
+  variantAxisOptions = {},
   variantCount,
 }: OgabasseyPdpCriticalCommerceProviderProps) {
-  const selectionCartProduct = normalizeCriticalVariantProduct(cartProduct);
+  const selectionCartProduct = normalizeCriticalVariantProduct(
+    cartProduct,
+    variantAxisOptions
+  );
   const variants = selectionCartProduct.variants || [];
   const firstViewportVariantAxes = getRenderableCriticalVariantAxes(
     variantAxes,
-    variants
+    variants,
+    variantAxisOptions
   );
   const requiredVariantAxes = getVariantAxesWithMultipleOptions(variants);
   const renderableVariantAxes = firstViewportVariantAxes;
@@ -90,8 +98,10 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const normalizedInitialVariantAttributes =
     normalizeCriticalVariantAttributes(initialVariantSelection?.attributes);
   const explicitVariantCondition =
-    normalizedInitialVariantAttributes.condition ??
-    initialVariantSelection?.condition;
+    normalizeCanonicalProductCondition(
+      normalizedInitialVariantAttributes.condition ??
+        initialVariantSelection?.condition
+    ) || undefined;
   const normalizedInitialSelectionAttributes = explicitVariantCondition
     ? {
         ...normalizedInitialVariantAttributes,
@@ -306,6 +316,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
         renderableVariantAxes,
         selectedAttributes,
         setQuantity,
+        variantAxisOptions,
         variantCount,
         variants,
       }}

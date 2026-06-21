@@ -223,6 +223,31 @@ describe('critical commerce selection helpers', () => {
     ]);
   });
 
+  it('applies single-option metadata axes to critical variant rows that omit them', () => {
+    expect(
+      normalizeCriticalVariantProduct(
+        {
+          ...cartProduct,
+          variants: [
+            {
+              attributes: {},
+              id: 'variant-metadata-only',
+              merchant_id: 'merchant-1',
+              product_id: 'product-1',
+              stock_quantity: 4,
+            },
+          ],
+        },
+        { condition: ['new'], storage: ['128GB'] }
+      ).variants
+    ).toEqual([
+      expect.objectContaining({
+        attributes: { storage: '128GB' },
+        id: 'variant-metadata-only',
+      }),
+    ]);
+  });
+
   it('detects hidden axes with multiple SKU options', () => {
     expect(
       getVariantAxesWithMultipleOptions([

@@ -1,9 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  getRenderableCriticalVariantAxes,
-  OgabasseyPdpCriticalVariantSelectors,
-} from './critical-variant-selectors.client';
+import { OgabasseyPdpCriticalVariantSelectors } from './critical-variant-selectors.client';
 
 const variants = [
   {
@@ -21,100 +18,6 @@ const variants = [
     stock_quantity: 8,
   },
 ];
-
-describe('getRenderableCriticalVariantAxes', () => {
-  it('keeps axes with visible options while filtering hidden axes', () => {
-    expect(
-      getRenderableCriticalVariantAxes(['storage', 'ram', 'color'], variants)
-    ).toEqual(['storage', 'ram']);
-  });
-
-  it('shows condition only when multiple SKU conditions exist', () => {
-    expect(
-      getRenderableCriticalVariantAxes(['condition', 'storage'], [
-        {
-          attributes: { storage: '128GB' },
-          condition: 'used',
-          id: 'variant-used',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 2,
-        },
-        {
-          attributes: { storage: '128GB' },
-          condition: 'new',
-          id: 'variant-new',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 2,
-        },
-      ])
-    ).toEqual(['condition', 'storage']);
-
-    expect(
-      getRenderableCriticalVariantAxes(['condition', 'storage'], [
-        {
-          attributes: { storage: '128GB' },
-          condition: 'used',
-          id: 'variant-used-a',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 2,
-        },
-        {
-          attributes: { storage: '256GB' },
-          condition: 'used',
-          id: 'variant-used-b',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 2,
-        },
-      ])
-    ).toEqual(['storage']);
-  });
-
-  it('keeps a single-option visible axis selected for display', () => {
-    expect(
-      getRenderableCriticalVariantAxes(['storage', 'color'], [
-        {
-          attributes: { color: 'Black', storage: '128GB' },
-          id: 'variant-black',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 2,
-        },
-        {
-          attributes: { color: 'Blue', storage: '128GB' },
-          id: 'variant-blue',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 2,
-        },
-      ])
-    ).toEqual(['storage']);
-  });
-
-  it('canonicalizes variant attribute keys before deciding visible axes', () => {
-    expect(
-      getRenderableCriticalVariantAxes(['Storage'], [
-        {
-          attributes: { Storage: '128GB' },
-          id: 'variant-128',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 2,
-        },
-        {
-          attributes: { Storage: '256GB' },
-          id: 'variant-256',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 2,
-        },
-      ])
-    ).toEqual(['storage']);
-  });
-});
 
 describe('OgabasseyPdpCriticalVariantSelectors', () => {
   it('renders selectable variant axes and reports option clicks', () => {

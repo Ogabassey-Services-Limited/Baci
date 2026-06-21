@@ -398,6 +398,45 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
     );
   });
 
+  it('does not satisfy hidden condition axes with malformed route conditions', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 500_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 3,
+            },
+            {
+              attributes: { storage: '256GB' },
+              id: 'variant-new-256',
+              merchant_id: 'merchant-1',
+              price_override: 552_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 5,
+            },
+          ],
+        }}
+        initialVariantSelection={{ condition: '   ' }}
+        variantAxes={['storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:storage')).toBeInTheDocument();
+    expect(screen.getByText('explicit axes:')).toBeInTheDocument();
+    expect(screen.getByText('blocked')).toBeInTheDocument();
+  });
+
   it('keeps required color-only axes hidden until explicitly selected', () => {
     render(
       <OgabasseyPdpCriticalCommerceProvider
@@ -514,6 +553,35 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
 
     expect(screen.getByText('axes:storage')).toBeInTheDocument();
     expect(screen.getByText('selected storage:128GB')).toBeInTheDocument();
+  });
+
+  it('preselects metadata-only single-option axes for critical variants', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          variants: [
+            {
+              attributes: {},
+              id: 'variant-black',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+          ],
+        }}
+        variantAxes={['storage']}
+        variantAxisOptions={{ storage: ['128GB'] }}
+        variantCount={1}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:storage')).toBeInTheDocument();
+    expect(screen.getByText('selected storage:128GB')).toBeInTheDocument();
+    expect(screen.getByText('ready')).toBeInTheDocument();
   });
 
   it('blocks checkout when a visible change prunes an explicit hidden SKU axis', () => {

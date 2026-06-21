@@ -6,6 +6,7 @@ import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
+import { OgabasseyPdpCriticalConditionBadge } from './critical-commerce.client';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
 
 interface OgabasseyPdpCriticalShellProps {
@@ -153,9 +154,9 @@ export function OgabasseyPdpCriticalShell({
               sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
               src={product.image}
             />
-            <span data-ogabassey-pdp-condition>
-              {product.condition}
-            </span>
+            <OgabasseyPdpCriticalConditionBadge
+              fallbackCondition={product.condition}
+            />
           </div>
           <div data-ogabassey-pdp-summary>
             <p data-ogabassey-pdp-brand>{product.brand}</p>

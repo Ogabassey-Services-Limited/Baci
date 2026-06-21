@@ -1443,6 +1443,11 @@ export default async function CategoryProductPage({
           commerceProduct as { variant_attributes?: unknown }
         ).variant_attributes as VariantAttributeSource;
         const variantCount = commerceProduct.variants?.length ?? 0;
+        const variantAxisOptions = mergeVariantAxisOptions(
+          commerceProduct.variants,
+          rawVariantAttributes,
+          commerceProduct.condition
+        );
 
         return {
           cartProduct: createCriticalCartProduct(commerceProduct),
@@ -1456,9 +1461,10 @@ export default async function CategoryProductPage({
           },
           variantAxes: getFirstViewportVariantAxes(
             commerceProduct.variants,
-            rawVariantAttributes,
+            variantAxisOptions,
             commerceProduct.condition
           ),
+          variantAxisOptions,
           variantCount,
         };
       })()
@@ -1473,6 +1479,7 @@ export default async function CategoryProductPage({
             criticalCommerceContext.initialVariantSelection
           }
           variantAxes={criticalCommerceContext.variantAxes}
+          variantAxisOptions={criticalCommerceContext.variantAxisOptions}
           variantCount={criticalCommerceContext.variantCount}
         >
           <OgabasseyPdpCriticalShell
