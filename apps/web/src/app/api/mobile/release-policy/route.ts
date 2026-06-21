@@ -41,7 +41,11 @@ function readPlatformEnv(
  */
 function parseBuildNumber(value: string | null) {
   if (!value) return null;
-  const parsed = Number(value.trim());
+  const trimmed = value.trim();
+  // Guard the empty/whitespace case explicitly: `Number('')` is 0, which would
+  // otherwise pass the integer/non-negative checks and read as build 0.
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
