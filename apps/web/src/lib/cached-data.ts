@@ -2841,7 +2841,7 @@ export async function getCachedBlogAuthor(
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
-    .not('author_name', 'is', null)
+    .eq('author_name', authorName)
     .not('published_at', 'is', null)
     .not('title', 'is', null)
     .not('slug', 'is', null)
@@ -2850,8 +2850,9 @@ export async function getCachedBlogAuthor(
     .order('published_at', { ascending: false });
 
   query = applyPublicBlogSqlFilters(query);
+  query = query.range(offset, offset + limit - 1);
 
-  const { data: posts, error: postsError } = await query;
+  const { data: posts, count, error: postsError } = await query;
   if (postsError) {
     console.error('Failed to load blog author posts', {
       merchantId: merchant.id,
@@ -2861,13 +2862,9 @@ export async function getCachedBlogAuthor(
     throw postsError;
   }
 
-  const matchingPosts = filterPublicBlogPosts(posts || []).filter(
-    (post) => generateSlug(post.author_name ?? '') === authorSlug
-  );
-  const identity = matchingPosts[0];
+  const publicPosts = filterPublicBlogPosts(posts || []);
+  const identity = publicPosts[0];
   if (!identity) return null;
-
-  const publicPosts = matchingPosts.slice(offset, offset + limit);
 
   return {
     merchant: {
@@ -2884,9 +2881,9 @@ export async function getCachedBlogAuthor(
       imageUrl: identity.author_image_url ?? null,
     },
     posts: publicPosts,
-    totalPosts: matchingPosts.length,
+    totalPosts: count ?? publicPosts.length,
     currentPage: page,
-    totalPages: Math.max(1, Math.ceil(matchingPosts.length / limit)),
+    totalPages: Math.max(1, Math.ceil((count ?? publicPosts.length) / limit)),
   };
 }
 
