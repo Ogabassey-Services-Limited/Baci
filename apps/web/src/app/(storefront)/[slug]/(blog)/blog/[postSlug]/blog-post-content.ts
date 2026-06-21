@@ -310,12 +310,8 @@ export function transformImageTitlesToFigureCaptions(html: string): string {
   );
 }
 
-function isInsideHtmlTag(
-  html: string,
-  innerStart: number,
-  tagName: 'picture'
-): boolean {
-  const openTagPattern = new RegExp(`<${tagName}(?:\\s|>)`, 'gi');
+function isInsidePictureTag(html: string, innerStart: number): boolean {
+  const openTagPattern = /<picture(?:\s|>)/gi;
   let openStart = -1;
   for (
     let match = openTagPattern.exec(html);
@@ -327,7 +323,7 @@ function isInsideHtmlTag(
   }
   if (openStart === -1) return false;
 
-  const previousClose = html.lastIndexOf(`</${tagName}>`, innerStart);
+  const previousClose = html.lastIndexOf('</picture>', innerStart);
   return previousClose < openStart;
 }
 
@@ -351,7 +347,7 @@ export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
         return imgTag;
       }
 
-      if (isInsideHtmlTag(html, offset, 'picture')) {
+      if (isInsidePictureTag(html, offset)) {
         return imgTag;
       }
       // `src` is captured from the already-sanitized HTML, so it is attribute-safe

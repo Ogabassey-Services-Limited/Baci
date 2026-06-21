@@ -2,13 +2,24 @@ function normalizeHtmlImageUrl(value: string): string {
   return value.replace(/&amp;/g, '&').trim();
 }
 
+function getOpeningTagPattern(tagName: 'figure' | 'p' | 'picture'): RegExp {
+  switch (tagName) {
+    case 'figure':
+      return /<figure(?:\s|>)/gi;
+    case 'p':
+      return /<p(?:\s|>)/gi;
+    case 'picture':
+      return /<picture(?:\s|>)/gi;
+  }
+}
+
 function findEnclosingTagRange(
   html: string,
   innerStart: number,
   innerEnd: number,
   tagName: 'figure' | 'p' | 'picture'
 ): { start: number; end: number } | null {
-  const openTagPattern = new RegExp(`<${tagName}(?:\\s|>)`, 'gi');
+  const openTagPattern = getOpeningTagPattern(tagName);
   let openStart = -1;
   for (
     let match = openTagPattern.exec(html);
