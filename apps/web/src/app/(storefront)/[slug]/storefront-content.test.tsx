@@ -42,9 +42,9 @@ const mockOgabasseyHomePage = vi.hoisted(() =>
       products?: unknown[];
       storeSlug?: string;
     }) => (
-      <div data-testid="ogabassey-direct-home">
+      <main aria-label="OgaBassey home">
         {storeSlug}:{basePath}:{products?.length ?? 0}
-      </div>
+      </main>
     )
   )
 );
@@ -253,9 +253,9 @@ describe('StorefrontContent', () => {
         }),
       ])
     );
-    expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
-      'ogabassey:/ogabassey:1'
-    );
+    expect(
+      screen.getByRole('main', { name: 'OgaBassey home' })
+    ).toHaveTextContent('ogabassey:/ogabassey:1');
     expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
       expect.objectContaining({ basePath: '/ogabassey' })
     );
@@ -281,9 +281,9 @@ describe('StorefrontContent', () => {
       mockOgabasseyMerchant.id,
       'recent'
     );
-    expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
-      'ogabassey::1'
-    );
+    expect(
+      screen.getByRole('main', { name: 'OgaBassey home' })
+    ).toHaveTextContent('ogabassey::1');
     expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
       expect.objectContaining({ basePath: '' })
     );
@@ -306,9 +306,9 @@ describe('StorefrontContent', () => {
       mockMerchant.id,
       'recent'
     );
-    expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
-      'test-store:/test-store:0'
-    );
+    expect(
+      screen.getByRole('main', { name: 'OgaBassey home' })
+    ).toHaveTextContent('test-store:/test-store:0');
   });
 
   it('falls back to StorefrontWrapper when template render throws', async () => {
@@ -459,11 +459,9 @@ describe('StorefrontContent', () => {
             id: 'full-product',
             description: 'Full description',
             price: 1200000,
-            categories: [
-              expect.objectContaining({
-                slug: 'smartphones',
-              }),
-            ],
+            categories: expect.objectContaining({
+              slug: 'smartphones',
+            }),
           }),
         ],
       }),
