@@ -6,7 +6,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
-import { getBlogAuthorSameAs } from '@/lib/blog-authors';
+import { getBlogAuthorSameAs, hasBlogAuthorPage } from '@/lib/blog-authors';
 import {
   extractBlogFaqItems,
   generateFaqPageSchema,
@@ -25,6 +25,7 @@ import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
+  generateSlug,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
@@ -82,6 +83,10 @@ async function renderBlogPostContent({
   const blogIndexUrl = `${baseUrl}/blog`;
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  const authorHref =
+    post.author_name && hasBlogAuthorPage(post.author_name, merchant.slug)
+      ? `${basePath}/blog/author/${generateSlug(post.author_name)}`
+      : undefined;
   const blogImageUrls = getBlogStructuredDataImageUrls(post);
   const blogImages = getBlogStructuredDataImages(post);
   const faqSchema = generateFaqPageSchema(extractBlogFaqItems(content));
@@ -102,7 +107,7 @@ async function renderBlogPostContent({
       url: baseUrl,
       jobTitle: post.author_title,
       description: post.author_bio,
-      sameAs: getBlogAuthorSameAs(post.author_name),
+      sameAs: getBlogAuthorSameAs(post.author_name, merchant.slug),
       image: post.author_image_url ?? undefined,
     },
     publisher: {
@@ -220,6 +225,7 @@ async function renderBlogPostContent({
               author_bio={post.author_bio}
               author_name={post.author_name}
               author_title={post.author_title}
+              authorHref={authorHref}
               category={post.category}
               locale={locale}
               published_at={post.published_at}
