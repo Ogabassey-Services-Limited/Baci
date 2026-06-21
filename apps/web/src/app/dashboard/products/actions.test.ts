@@ -393,6 +393,185 @@ describe('product import actions', () => {
     ]);
   });
 
+  it('parses cost price from CSV without treating it as the selling price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Cost Price,Selling Price,SKU\nNew Phone,1500,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toEqual({
+      details: {
+        category: 'General',
+        cost_price: 1500,
+        image: undefined,
+        name: 'New Phone',
+        price: 2000,
+        sku: 'NEW-1',
+        stock: 0,
+      },
+      type: 'new',
+    });
+  });
+
+  it('emits an update when only cost price changes for an existing product', async () => {
+    const result = await parseCSVDirectly(
+      [
+        {
+          ...existingProducts[0],
+          cost_price: 700,
+        },
+      ] as unknown as Product[],
+      'Name,Selling Price,Cost Price,SKU\nOld Phone,1000,800,OLD-1'
+    );
+
+    expect(result.changes).toEqual([
+      {
+        details: {
+          cost_price: 800,
+          category: undefined,
+          image: undefined,
+          name: 'Old Phone',
+          price: 1000,
+          sku: 'OLD-1',
+          stock: 5,
+        },
+        newPrice: 1000,
+        productId: 'product-1',
+        reason: 'Cost price changed from 700 to 800',
+        type: 'update',
+      },
+    ]);
+  });
+
+  it('omits non-numeric cost prices from parsed products', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,2000,not available,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
+  });
+
+  it('omits negative cost prices from parsed products', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,2000,-1500,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
+  });
+
+  it('keeps zero cost prices from parsed products', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,2000,0,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]?.details.cost_price).toBe(0);
+  });
+
+  it('parses products when the cost price column is missing', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,SKU\nNew Phone,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        name: 'New Phone',
+        price: 2000,
+        sku: 'NEW-1',
+      },
+      type: 'new',
+    });
+    expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
+  });
+
+  it('emits one update when price and cost price both change', async () => {
+    const result = await parseCSVDirectly(
+      [
+        {
+          ...existingProducts[0],
+          cost_price: 700,
+        },
+      ] as unknown as Product[],
+      'Name,Selling Price,Cost Price,SKU\nOld Phone,1200,800,OLD-1'
+    );
+
+    expect(result.changes).toEqual([
+      {
+        details: {
+          cost_price: 800,
+          category: undefined,
+          image: undefined,
+          name: 'Old Phone',
+          price: 1000,
+          sku: 'OLD-1',
+          stock: 5,
+        },
+        newPrice: 1200,
+        productId: 'product-1',
+        reason:
+          'Price changed from 1000 to 1200; Cost price changed from 700 to 800',
+        type: 'update',
+      },
+    ]);
+  });
+
+  it('describes a newly set cost price without pretending the old value was zero', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nOld Phone,1000,800,OLD-1'
+    );
+
+    expect(result.changes).toEqual([
+      {
+        details: {
+          cost_price: 800,
+          category: undefined,
+          image: undefined,
+          name: 'Old Phone',
+          price: 1000,
+          sku: 'OLD-1',
+          stock: 5,
+        },
+        newPrice: 1000,
+        productId: 'product-1',
+        reason: 'Cost price set to 800',
+        type: 'update',
+      },
+    ]);
+  });
+
+  it('skips rows with invalid selling prices', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,not-a-price,1500,NEW-1'
+    );
+
+    expect(result.changes).toEqual([]);
+    expect(result.summary).toContain('Parsed 0 products from CSV');
+    expect(result.summary).toContain('Skipped 1 rows');
+  });
+
+  it('does not use a standalone cost column as the selling price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Cost,SKU\nNew Phone,1500,NEW-1'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary:
+        'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
+    });
+  });
+
   it('does not fetch Google Sheets for unauthenticated callers', async () => {
     mocks.getUser.mockResolvedValueOnce({
       data: { user: null },

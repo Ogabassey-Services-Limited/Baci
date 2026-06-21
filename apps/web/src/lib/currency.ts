@@ -30,6 +30,43 @@ const COUNTRY_LOCALES: Record<string, string> = {
   ZA: 'en-ZA',
 };
 
+const CURRENCY_FALLBACK_LOCALES: Record<string, string> = {
+  AUD: 'en-AU',
+  BRL: 'pt-BR',
+  CAD: 'en-CA',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  GHS: 'en-GH',
+  INR: 'en-IN',
+  JPY: 'ja-JP',
+  KES: 'en-KE',
+  NGN: 'en-NG',
+  USD: 'en-US',
+  XAF: 'fr-CM',
+  XOF: 'fr-SN',
+  ZAR: 'en-ZA',
+};
+
+function getCurrencySymbolForCode(
+  currencyCode: string,
+  locale: string
+): string {
+  try {
+    const symbol = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currencyCode,
+      currencyDisplay: 'symbol',
+    })
+      .formatToParts(0)
+      .filter((part) => part.type === 'currency')
+      .map((part) => part.value)
+      .join('');
+    return symbol || currencyCode;
+  } catch {
+    return currencyCode;
+  }
+}
+
 /**
  * Common options for compact currency display (no decimals)
  * constant reference to avoid object creation on every render
@@ -42,9 +79,25 @@ export const COMPACT_OPTIONS = {
 /**
  * Get currency configuration for a country
  * Defaults to USD if country not found
+ *
+ * @param countryCode - The country code. Takes precedence when provided.
+ * @param payoutCurrency - Fallback currency code used when countryCode is absent.
  */
-export function getCurrencyConfig(countryCode?: string | null): CurrencyConfig {
+export function getCurrencyConfig(
+  countryCode?: string | null,
+  payoutCurrency?: string | null
+): CurrencyConfig {
   if (!countryCode) {
+    const normalizedCurrency = payoutCurrency?.trim().toUpperCase();
+    if (normalizedCurrency) {
+      const locale = CURRENCY_FALLBACK_LOCALES[normalizedCurrency] || 'en-US';
+      return {
+        code: normalizedCurrency,
+        symbol: getCurrencySymbolForCode(normalizedCurrency, locale),
+        locale,
+      };
+    }
+
     return {
       code: 'USD',
       symbol: '$',
@@ -147,9 +200,10 @@ export function formatCurrencyWithConfig(
 export function formatCurrency(
   amount: number,
   countryCode?: string | null,
-  options?: Partial<Intl.NumberFormatOptions>
+  options?: Partial<Intl.NumberFormatOptions>,
+  payoutCurrency?: string | null
 ): string {
-  const config = getCurrencyConfig(countryCode);
+  const config = getCurrencyConfig(countryCode, payoutCurrency);
   return formatCurrencyWithConfig(amount, config, options);
 }
 
@@ -169,23 +223,35 @@ export function formatCurrencyCompact(
 /**
  * Get just the currency symbol for a country
  *
+ * @param countryCode - The country code. Takes precedence when provided.
+ * @param payoutCurrency - Fallback currency code used when countryCode is absent.
+ *
  * @example
  * getCurrencySymbol('NG') // "₦"
  * getCurrencySymbol('US') // "$"
  */
-export function getCurrencySymbol(countryCode?: string | null): string {
-  const config = getCurrencyConfig(countryCode);
+export function getCurrencySymbol(
+  countryCode?: string | null,
+  payoutCurrency?: string | null
+): string {
+  const config = getCurrencyConfig(countryCode, payoutCurrency);
   return config.symbol;
 }
 
 /**
  * Get the currency code for a country
  *
+ * @param countryCode - The country code. Takes precedence when provided.
+ * @param payoutCurrency - Fallback currency code used when countryCode is absent.
+ *
  * @example
  * getCurrencyCode('NG') // "NGN"
  * getCurrencyCode('US') // "USD"
  */
-export function getCurrencyCode(countryCode?: string | null): string {
-  const config = getCurrencyConfig(countryCode);
+export function getCurrencyCode(
+  countryCode?: string | null,
+  payoutCurrency?: string | null
+): string {
+  const config = getCurrencyConfig(countryCode, payoutCurrency);
   return config.code;
 }

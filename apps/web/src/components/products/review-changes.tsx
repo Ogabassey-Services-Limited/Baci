@@ -34,7 +34,7 @@ import {
 import { useProductContext } from '@/contexts/product-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrency, getCurrencySymbol } from '@/lib/currency';
+import { formatCurrencyWithConfig, getCurrencyConfig } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
 const ENRICHMENT_BATCH_SIZE = 5;
@@ -214,6 +214,11 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
 
   const isPro =
     merchant?.plan_tier === 'pro' || merchant?.plan_tier === 'business';
+  const currencyConfig = getCurrencyConfig(
+    merchant?.country,
+    merchant?.payout_currency
+  );
+  const currencySymbol = currencyConfig.symbol;
 
   const handleGenerateDescriptions = async () => {
     if (!isPro) {
@@ -325,6 +330,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
               <TableHead className="min-w-[200px]">Product Name</TableHead>
               <TableHead className="w-[140px]">Category</TableHead>
               <TableHead className="w-[180px]">Price</TableHead>
+              <TableHead className="w-[180px]">Cost Price</TableHead>
               <TableHead className="min-w-[300px]">Description</TableHead>
               <TableHead className="w-[150px]">SKU / Condition</TableHead>
             </TableRow>
@@ -384,7 +390,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                   <TableCell>
                     <div className="flex flex-col gap-1 relative">
                       <span className="absolute left-2 top-2 text-sm text-muted-foreground pointer-events-none">
-                        {getCurrencySymbol(merchant?.country)}
+                        {currencySymbol}
                       </span>
                       <Input
                         type="text"
@@ -420,12 +426,51 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                       {change.type === 'update' && (
                         <span className="text-xs text-muted-foreground line-through pl-1">
                           Stats:{' '}
-                          {formatCurrency(
+                          {formatCurrencyWithConfig(
                             change.details.price,
-                            merchant?.country
+                            currencyConfig
                           )}
                         </span>
                       )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1 relative">
+                      <span className="absolute left-2 top-2 text-sm text-muted-foreground pointer-events-none">
+                        {currencySymbol}
+                      </span>
+                      <Input
+                        type="text"
+                        value={
+                          typeof change.details.cost_price === 'number'
+                            ? change.details.cost_price.toLocaleString(
+                                'en-US',
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }
+                              )
+                            : ''
+                        }
+                        placeholder="0.00"
+                        onChange={(e) => {
+                          const rawVal = e.target.value.replace(/[^0-9.]/g, '');
+                          const val = Number.parseFloat(rawVal);
+
+                          setLocalChanges((prev) => {
+                            const next = [...prev];
+                            next[index] = {
+                              ...next[index],
+                              details: {
+                                ...next[index].details,
+                                cost_price: Number.isNaN(val) ? undefined : val,
+                              },
+                            };
+                            return next;
+                          });
+                        }}
+                        className="h-8 pl-7"
+                      />
                     </div>
                   </TableCell>
                   <TableCell>

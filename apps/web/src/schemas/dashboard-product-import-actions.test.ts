@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BulkUpdateChangesSchema,
   FetchGoogleSheetInputSchema,
   MAX_GOOGLE_SHEET_URL_CHARS,
   MAX_PRICE_LIST_INPUT_CHARS,
@@ -12,6 +13,7 @@ const validProduct = {
   id: 'product-1',
   name: 'Existing Phone',
   price: 1000,
+  cost_price: 700,
   sku: 'SKU-1',
   stock: 3,
 };
@@ -168,6 +170,188 @@ describe('dashboard product import action schemas', () => {
           currentProducts: [{ ...validProduct, stock: Number.NaN }],
         })
       ).success
+    ).toBe(false);
+  });
+
+  it('allows null and omitted import product cost prices', () => {
+    expect(
+      ProcessPriceListInputSchema.safeParse(
+        createProcessPriceListInput({
+          currentProducts: [{ ...validProduct, cost_price: null }],
+        })
+      ).success
+    ).toBe(true);
+
+    const { cost_price: _costPrice, ...productWithoutCostPrice } = validProduct;
+
+    expect(
+      ProcessPriceListInputSchema.safeParse(
+        createProcessPriceListInput({
+          currentProducts: [productWithoutCostPrice],
+        })
+      ).success
+    ).toBe(true);
+  });
+
+  it('rejects invalid import product cost prices', () => {
+    expect(
+      ProcessPriceListInputSchema.safeParse(
+        createProcessPriceListInput({
+          currentProducts: [{ ...validProduct, cost_price: -1 }],
+        })
+      ).success
+    ).toBe(false);
+
+    expect(
+      ProcessPriceListInputSchema.safeParse(
+        createProcessPriceListInput({
+          currentProducts: [{ ...validProduct, cost_price: Number.NaN }],
+        })
+      ).success
+    ).toBe(false);
+
+    expect(
+      ProcessPriceListInputSchema.safeParse(
+        createProcessPriceListInput({
+          currentProducts: [
+            { ...validProduct, cost_price: Number.POSITIVE_INFINITY },
+          ],
+        })
+      ).success
+    ).toBe(false);
+
+    expect(
+      ProcessPriceListInputSchema.safeParse(
+        createProcessPriceListInput({
+          currentProducts: [
+            { ...validProduct, cost_price: Number.NEGATIVE_INFINITY },
+          ],
+        })
+      ).success
+    ).toBe(false);
+  });
+
+  it('accepts zero and decimal import product cost prices', () => {
+    for (const costPrice of [0, 10.5]) {
+      expect(
+        ProcessPriceListInputSchema.safeParse(
+          createProcessPriceListInput({
+            currentProducts: [{ ...validProduct, cost_price: costPrice }],
+          })
+        ).success
+      ).toBe(true);
+    }
+  });
+
+  it('allows null and omitted bulk change cost prices', () => {
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: 'New Phone',
+              price: 1000,
+              cost_price: null,
+            },
+          },
+        ],
+      }).success
+    ).toBe(true);
+
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: 'New Phone',
+              price: 1000,
+            },
+          },
+        ],
+      }).success
+    ).toBe(true);
+  });
+
+  it('accepts zero and decimal bulk change cost prices', () => {
+    for (const costPrice of [0, 10.5]) {
+      expect(
+        BulkUpdateChangesSchema.safeParse({
+          changes: [
+            {
+              type: 'new',
+              details: {
+                name: 'New Phone',
+                price: 1000,
+                cost_price: costPrice,
+              },
+            },
+          ],
+        }).success
+      ).toBe(true);
+    }
+  });
+
+  it('rejects invalid bulk change cost prices', () => {
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: 'New Phone',
+              price: 1000,
+              cost_price: -1,
+            },
+          },
+        ],
+      }).success
+    ).toBe(false);
+
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: 'New Phone',
+              price: 1000,
+              cost_price: Number.POSITIVE_INFINITY,
+            },
+          },
+        ],
+      }).success
+    ).toBe(false);
+
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: 'New Phone',
+              price: 1000,
+              cost_price: Number.NaN,
+            },
+          },
+        ],
+      }).success
+    ).toBe(false);
+
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: 'New Phone',
+              price: 1000,
+              cost_price: Number.NEGATIVE_INFINITY,
+            },
+          },
+        ],
+      }).success
     ).toBe(false);
   });
 

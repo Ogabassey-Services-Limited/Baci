@@ -47,6 +47,7 @@ export interface Change {
   details: {
     name: string;
     price: number;
+    cost_price?: number | null;
     sku?: string;
     description?: string;
     stock?: number;
@@ -134,6 +135,7 @@ Instructions:
 1.  Analyze the new price list. verify header rows vs data rows.
     - **Header Row Detection**: The first few rows might be titles/decorative (e.g., "Premium Used..."). Look for the actual header row containing "Product Name", "Price", etc.
     - **Currency Cleaning**: Prices may contain symbols like "₦" or ",". Strip these out to get raw numbers (e.g., "₦320,000.00" -> 320000).
+    - **Cost Price Extraction**: If a column is labeled "Cost Price", "Cost", "Buying Price", "Purchase Price", "Wholesale", "Supplier Price", or similar, map it to details.cost_price. Do not confuse cost price with the customer-facing product price.
     - **Category Extraction**: Try to infer the 'category' from the sheet constraints (e.g. if the sheet is "Samsung Phones", category is "Phones"). Or if there is a column for "Type" or "Category".
 2.  **Matching Logic**:
     - First, try to match by SKU if available.
@@ -251,6 +253,7 @@ export async function parseCSVDirectly(
   let stockIdx = -1;
   let categoryIdx = -1; // Added category index
   let imageIdx = -1; // Added image index
+  let costPriceIdx = -1;
 
   for (let i = 0; i < Math.min(lines.length, 10); i++) {
     const row = parseCSVRow(lines[i].toLowerCase());
@@ -263,14 +266,7 @@ export async function parseCSVDirectly(
         h.includes('title') ||
         h.includes('model')
     );
-    const pIdx = row.findIndex(
-      (h) =>
-        h.includes('price') ||
-        h.includes('cost') ||
-        h.includes('amount') ||
-        h.includes('naira') ||
-        h.includes('ngn')
-    );
+    const pIdx = findSellingPriceColumnIndex(row);
 
     if (nIdx !== -1 && pIdx !== -1) {
       headerRowIdx = i;
@@ -306,6 +302,7 @@ export async function parseCSVDirectly(
           h.includes('url') ||
           h.includes('img')
       ); // Find image index
+      costPriceIdx = row.findIndex(isCostPriceHeader);
 
       break;
     }
@@ -346,6 +343,8 @@ export async function parseCSVDirectly(
     const rawCategory =
       categoryIdx !== -1 ? row[categoryIdx]?.trim() : undefined;
     const rawImage = imageIdx !== -1 ? row[imageIdx]?.trim() : undefined; // Extract raw image
+    const rawCostPrice =
+      costPriceIdx !== -1 ? row[costPriceIdx]?.trim() : undefined;
 
     if (!rawName || !rawPrice) {
       skippedCount++;
@@ -354,11 +353,12 @@ export async function parseCSVDirectly(
 
     const normalizedName = normalizeName(rawName);
     const price = parsePrice(rawPrice);
+    const costPrice = parseOptionalPrice(rawCostPrice);
     const stock = rawStock
       ? Number.parseInt(rawStock.replace(/[^0-9]/g, ''), 10)
       : undefined;
 
-    if (Number.isNaN(price)) {
+    if (Number.isNaN(price) || price < 0) {
       skippedCount++;
       continue;
     }
@@ -375,7 +375,26 @@ export async function parseCSVDirectly(
 
     if (existingProduct) {
       // Check if price changed
-      if (Math.abs(existingProduct.price - price) > 0.01) {
+      const costPriceChanged =
+        typeof costPrice === 'number' &&
+        Math.abs((existingProduct.cost_price ?? 0) - costPrice) > 0.01;
+      const priceChanged = Math.abs(existingProduct.price - price) > 0.01;
+      if (priceChanged || costPriceChanged) {
+        const reasons = [];
+        if (priceChanged) {
+          reasons.push(
+            `Price changed from ${existingProduct.price} to ${price}`
+          );
+        }
+        if (costPriceChanged) {
+          if (existingProduct.cost_price == null) {
+            reasons.push(`Cost price set to ${costPrice}`);
+          } else {
+            reasons.push(
+              `Cost price changed from ${existingProduct.cost_price} to ${costPrice}`
+            );
+          }
+        }
         changes.push({
           type: 'update',
           productId: existingProduct.id,
@@ -383,12 +402,13 @@ export async function parseCSVDirectly(
           details: {
             name: rawName,
             price: existingProduct.price,
+            ...(typeof costPrice === 'number' ? { cost_price: costPrice } : {}),
             sku: rawSku || existingProduct.sku || undefined,
             stock: stock ?? existingProduct.stock,
             category: rawCategory, // Include category in update if new one provided
             image: rawImage, // Include image in update
           },
-          reason: `Price changed from ${existingProduct.price} to ${price}`,
+          reason: reasons.join('; '),
         });
       }
       // Could add stock change detection here if needed
@@ -399,6 +419,7 @@ export async function parseCSVDirectly(
         details: {
           name: rawName,
           price,
+          ...(typeof costPrice === 'number' ? { cost_price: costPrice } : {}),
           sku: rawSku,
           stock: stock ?? 0,
           category: rawCategory || 'General', // Default to General for new products if missing
@@ -470,12 +491,60 @@ function normalizeName(name: string): string {
     .trim();
 }
 
+function isCostPriceHeader(header: string): boolean {
+  const words = header.split(/[^a-z0-9]+/).filter(Boolean);
+  const hasCost = words.includes('cost');
+  return (
+    (hasCost &&
+      (words.includes('price') ||
+        words.includes('unit') ||
+        words.length === 1)) ||
+    header.includes('cogs') ||
+    header.includes('buying') ||
+    header.includes('purchase') ||
+    header.includes('wholesale') ||
+    header.includes('supplier') ||
+    header.includes('landed')
+  );
+}
+
+function findSellingPriceColumnIndex(headers: string[]): number {
+  const customerPriceIdx = headers.findIndex(
+    (header) =>
+      !isCostPriceHeader(header) &&
+      (header.includes('selling') ||
+        header.includes('retail') ||
+        header.includes('sale price') ||
+        header.includes('list price') ||
+        header.includes('customer price'))
+  );
+  if (customerPriceIdx !== -1) return customerPriceIdx;
+
+  const genericPriceIdx = headers.findIndex(
+    (header) =>
+      !isCostPriceHeader(header) &&
+      (header.includes('price') ||
+        header.includes('amount') ||
+        header.includes('naira') ||
+        header.includes('ngn') ||
+        header.includes('rate'))
+  );
+  return genericPriceIdx;
+}
+
 // Helper: Parse price string (handles currency symbols, commas)
 function parsePrice(priceStr: string): number {
   const cleaned = priceStr
     .replace(/[₦$€£¥,\s]/g, '') // Remove currency symbols and commas
     .replace(/\.(?=.*\.)/g, ''); // Keep only last decimal point
-  return Number.parseFloat(cleaned) || 0;
+  return Number.parseFloat(cleaned);
+}
+
+function parseOptionalPrice(priceStr?: string): number | undefined {
+  if (!priceStr?.trim()) return undefined;
+
+  const parsed = parsePrice(priceStr);
+  return Number.isNaN(parsed) || parsed < 0 ? undefined : parsed;
 }
 
 export async function fetchGoogleSheet(url: string): Promise<string> {

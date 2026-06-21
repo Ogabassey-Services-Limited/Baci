@@ -14,6 +14,7 @@ const ProductImportProductSchema = z.object({
   id: z.string().min(1).max(128),
   name: z.string().min(1).max(500),
   price: z.number().finite().nonnegative(),
+  cost_price: z.number().finite().nonnegative().nullable().optional(),
   sku: z.string().max(256).nullable().optional(),
   stock: z.number().finite().nonnegative().optional(),
 });
@@ -80,6 +81,7 @@ export const FetchGoogleSheetInputSchema = z.object({
 const ChangeDetailsSchema = z.object({
   name: z.string(),
   price: z.number(),
+  cost_price: z.number().finite().nonnegative().nullable().optional(),
   sku: z.string().optional(),
   description: z.string().optional(),
   stock: z.number().optional(),

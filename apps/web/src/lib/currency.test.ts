@@ -4,7 +4,9 @@ import {
   formatCurrency,
   formatCurrencyCompact,
   formatCurrencyWithConfig,
+  getCurrencyCode,
   getCurrencyConfig,
+  getCurrencySymbol,
 } from './currency';
 
 describe('Currency Utils', () => {
@@ -34,6 +36,31 @@ describe('Currency Utils', () => {
         symbol: '$',
         locale: 'en-US',
       });
+    });
+
+    it('uses payout currency when country is missing', () => {
+      const config = getCurrencyConfig(null, 'NGN');
+      expect(config).toEqual({
+        code: 'NGN',
+        symbol: '₦',
+        locale: 'en-NG',
+      });
+    });
+
+    it('prioritizes country currency over payout currency', () => {
+      const config = getCurrencyConfig('US', 'NGN');
+      expect(config).toEqual({
+        code: 'USD',
+        symbol: '$',
+        locale: 'en-US',
+      });
+    });
+
+    it('uses the default locale for unmapped payout currencies', () => {
+      const config = getCurrencyConfig(null, 'CHF');
+      expect(config.code).toBe('CHF');
+      expect(config.locale).toBe('en-US');
+      expect(config.symbol).toBeTruthy();
     });
   });
 
@@ -81,11 +108,27 @@ describe('Currency Utils', () => {
     it('should handle undefined country (default to USD)', () => {
       expect(formatCurrency(1000)).toBe('$1,000.00');
     });
+
+    it('uses payout currency when country is missing', () => {
+      expect(formatCurrency(1000, null, undefined, 'NGN')).toBe('₦1,000.00');
+    });
   });
 
   describe('formatCurrencyCompact', () => {
     it('should format without decimals', () => {
       expect(formatCurrencyCompact(1000, 'NG')).toBe('₦1,000');
+    });
+  });
+
+  describe('currency helpers', () => {
+    it('uses payout currency for symbol and code when country is missing', () => {
+      expect(getCurrencySymbol(null, 'NGN')).toBe('₦');
+      expect(getCurrencyCode(null, 'NGN')).toBe('NGN');
+    });
+
+    it('normalizes payout currency before resolving symbol and code', () => {
+      expect(getCurrencyCode(null, ' ngn ')).toBe('NGN');
+      expect(getCurrencySymbol(null, 'ngn')).toBe('₦');
     });
   });
 });
