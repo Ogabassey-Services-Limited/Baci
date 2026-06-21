@@ -23,22 +23,13 @@ import { parseBlogListingPage } from './blog-listing-page-params';
 import { BlogListingPagination } from './blog-listing-pagination';
 import { buildBlogListingRouteHref } from './blog-listing-route';
 import { buildBlogListingSchemaUrl } from './blog-listing-schema-url';
+import { getBlogStorefrontPathPrefix } from './blog-storefront-path-prefix';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
 export interface BlogPageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ category?: string; page?: string; search?: string }>;
-}
-
-function getStorefrontPathPrefix(
-  headersList: Awaited<ReturnType<typeof headers>>,
-  merchantSlug: string
-): string {
-  return headersList.has('x-custom-domain') ||
-    headersList.has('x-merchant-slug')
-    ? ''
-    : `/${merchantSlug}`;
 }
 
 export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
@@ -69,7 +60,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   const headersList = await headers();
   const basePath = isDomainIdentifier(slug)
     ? ''
-    : getStorefrontPathPrefix(headersList, merchant.slug);
+    : getBlogStorefrontPathPrefix(headersList, merchant);
 
   if (currentPage > totalPages) {
     redirect(
