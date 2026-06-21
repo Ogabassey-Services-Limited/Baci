@@ -1,5 +1,8 @@
+import { CONFIG } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import type { AuthStoreSet } from './auth-store.types';
+
+const OTP_EMAIL_REDIRECT_URL = `https://${CONFIG.MERCHANT_SLUG}.usebaci.com/account/verify`;
 
 export function createCredentialActions(set: AuthStoreSet) {
   return {
@@ -8,7 +11,11 @@ export function createCredentialActions(set: AuthStoreSet) {
         set({ isLoading: true, error: null });
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: { shouldCreateUser: true },
+          options: {
+            shouldCreateUser: true,
+            emailRedirectTo: OTP_EMAIL_REDIRECT_URL,
+            data: { role: 'customer' },
+          },
         });
         if (error) {
           set({ error: error.message, isLoading: false });
