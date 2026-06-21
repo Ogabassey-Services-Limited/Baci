@@ -109,11 +109,14 @@ BEGIN
   -- `similarity() >= 0.18/0.20/0.25` rechecks run — which would silently drop
   -- valid 0.18-0.299 fuzzy matches. Lower the threshold below every recheck so
   -- the index pass is a pure superset and the rechecks remain authoritative.
-  -- (A function SET clause is the cleaner way but Supabase denies setting this
-  -- parameter that way; set_limit() is permitted. This function is the only
-  -- consumer of `%`, and it sets the limit on every call, so the session-level
-  -- effect is idempotent and cannot affect other queries.)
-  PERFORM set_limit(0.15);
+  --
+  -- Use SET LOCAL semantics (set_config(..., is_local => true)) so the change is
+  -- scoped to THIS function's transaction and reverts on commit. Under
+  -- PgBouncer/Supavisor connection pooling a plain SET / set_limit() would leak
+  -- 0.15 onto the pooled connection and silently loosen any later `%` query on
+  -- it. (A function SET clause is the cleanest form, but Supabase denies setting
+  -- this particular parameter that way; set_config() is permitted.)
+  PERFORM set_config('pg_trgm.similarity_threshold', '0.15', true);
 
   RETURN QUERY
   WITH filtered_products AS (
