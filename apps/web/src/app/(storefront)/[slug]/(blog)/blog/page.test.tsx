@@ -54,7 +54,7 @@ describe('blog page metadata', () => {
     ]);
   });
 
-  it('keeps metadata on the canonical blog listing regardless of pagination', async () => {
+  it('uses a self-canonical URL for paginated blog listings', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({
         merchant: {
@@ -62,6 +62,7 @@ describe('blog page metadata', () => {
           slug: 'ogabassey',
           custom_domain: 'example.com',
         },
+        totalPosts: 50,
       })
     );
 
@@ -70,11 +71,39 @@ describe('blog page metadata', () => {
       searchParams: Promise.resolve({ page: '2' }),
     });
 
-    expect(metadata.alternates?.canonical).toBe('https://example.com/blog');
-    expect(metadata.openGraph?.url).toBe('https://example.com/blog');
+    expect(metadata.alternates?.canonical).toBe(
+      'https://example.com/blog?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe('https://example.com/blog?page=2');
+    expect(metadata.other).toBeUndefined();
     expect(mockGetCachedBlogListing).toHaveBeenCalledWith('example.com', {
-      page: 1,
+      page: 2,
     });
+  });
+
+  it('preserves storefront path prefixes in paginated metadata URLs', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+          store_url: 'http://localhost:3000/ogabassey',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'http://localhost:3000/ogabassey/blog?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe(
+      'http://localhost:3000/ogabassey/blog?page=2'
+    );
   });
 
   it('returns fallback metadata when the merchant is missing', async () => {

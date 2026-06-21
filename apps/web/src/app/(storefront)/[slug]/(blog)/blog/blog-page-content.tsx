@@ -1,4 +1,5 @@
-import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
+import { notFound, redirect } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
@@ -7,6 +8,7 @@ import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
+import { asRoute } from '@/lib/routes';
 import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
@@ -17,35 +19,17 @@ import {
   type TemplateBlogPageProps,
 } from '@/templates/registry';
 import { BlogDiscoverySection } from './blog-discovery-section';
+import { parseBlogListingPage } from './blog-listing-page-params';
+import { BlogListingPagination } from './blog-listing-pagination';
+import { buildBlogListingRouteHref } from './blog-listing-route';
+import { buildBlogListingSchemaUrl } from './blog-listing-schema-url';
+import { getBlogStorefrontPathPrefix } from './blog-storefront-path-prefix';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
 export interface BlogPageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ category?: string; page?: string; search?: string }>;
-}
-
-function parseBlogListingPage(page?: string): number {
-  const parsedPage = Number.parseInt(String(page ?? '1'), 10);
-  return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
-}
-
-function buildBlogListingSchemaUrl({
-  baseUrl,
-  category,
-  page,
-  search,
-}: {
-  baseUrl: string;
-  category?: string;
-  page: number;
-  search?: string;
-}): string {
-  const url = new URL('blog', baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
-  if (category) url.searchParams.set('category', category);
-  if (search) url.searchParams.set('search', search);
-  if (page > 1) url.searchParams.set('page', String(page));
-  return url.toString();
 }
 
 export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
@@ -62,6 +46,10 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   }
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
   const effectiveSearchQuery = searchQuery ?? search;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalPosts / BLOG_LISTING_PAGE_SIZE)
+  );
   const publicCategories = filterPublicBlogCategories(categories);
   const baseUrl = buildStoreUrl(merchant);
   const organizationSchema = buildBlogOrganizationSchema(merchant, baseUrl);
@@ -69,7 +57,47 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
     typeof organizationSchema['@id'] === 'string'
       ? organizationSchema['@id']
       : buildBlogOrganizationId(baseUrl);
-  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  const headersList = await headers();
+  const basePath = isDomainIdentifier(slug)
+    ? ''
+    : getBlogStorefrontPathPrefix(headersList, merchant);
+
+  if (currentPage > totalPages) {
+    redirect(
+      asRoute(
+        buildBlogListingRouteHref({
+          storeBasePath: basePath,
+          category,
+          page: totalPages,
+          search: effectiveSearchQuery,
+        })
+      )
+    );
+  }
+  const previousPageUrl =
+    currentPage > 1
+      ? buildBlogListingSchemaUrl({
+          baseUrl,
+          category,
+          page: currentPage - 1,
+          search: effectiveSearchQuery,
+        })
+      : undefined;
+  const nextPageUrl =
+    currentPage < totalPages
+      ? buildBlogListingSchemaUrl({
+          baseUrl,
+          category,
+          page: currentPage + 1,
+          search: effectiveSearchQuery,
+        })
+      : undefined;
+  const paginationHeadLinks = (
+    <>
+      {previousPageUrl ? <link href={previousPageUrl} rel="prev" /> : null}
+      {nextPageUrl ? <link href={nextPageUrl} rel="next" /> : null}
+    </>
+  );
   const guideCollections = buildBlogClusterCollections({
     storeUrl: baseUrl,
     posts: posts.map((post) => ({
@@ -129,7 +157,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
             baseUrl,
             category,
             page: currentPage,
-            search,
+            search: effectiveSearchQuery,
           }),
           numberOfItems: totalPosts,
           itemListElement: itemListPosts.map((post, index) => ({
@@ -154,9 +182,6 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
     if (template) {
-      // Resolve the template data inside try/catch, but construct JSX outside
-      // of it: try/catch cannot catch React rendering errors, and JSX inside
-      // a try block prevents React Compiler optimization.
       let templateBlogUi: {
         BlogComponent: ComponentType<TemplateBlogPageProps>;
         categories: { name: string; slug: string }[];
@@ -195,6 +220,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       if (templateBlogUi) {
         return (
           <>
+            {paginationHeadLinks}
             <TemplateBlogRenderer
               blogSchema={blogSchema}
               breadcrumbSchema={breadcrumbSchema}
@@ -205,6 +231,13 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
               blogPosts={templateBlogUi.posts}
               categories={templateBlogUi.categories}
               searchQuery={effectiveSearchQuery}
+            />
+            <BlogListingPagination
+              storeBasePath={basePath}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              category={category}
+              search={effectiveSearchQuery}
             />
             <InformationalClusterIndex collections={guideCollections} />
             <BlogDiscoverySection
@@ -219,6 +252,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   }
   return (
     <>
+      {paginationHeadLinks}
       <DefaultBlogUi
         blogSchema={blogSchema}
         breadcrumbSchema={breadcrumbSchema}
@@ -232,6 +266,14 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
         searchQuery={effectiveSearchQuery}
         slug={slug}
         totalPosts={totalPosts}
+        currentPage={currentPage}
+      />
+      <BlogListingPagination
+        storeBasePath={basePath}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        category={category}
+        search={effectiveSearchQuery}
       />
       <InformationalClusterIndex collections={guideCollections} />
       <BlogDiscoverySection

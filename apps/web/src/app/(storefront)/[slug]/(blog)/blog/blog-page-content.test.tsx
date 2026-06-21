@@ -4,10 +4,13 @@ import {
   buildListingResult,
   clusterCollections,
   type MockDefaultBlogUiProps,
+  merchant,
   mockBuildBlogClusterCollections,
   mockDefaultBlogUi,
   mockGetCachedBlogListing,
+  mockHeaders,
   mockNotFound,
+  mockRedirect,
   postsPayload,
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
@@ -97,6 +100,117 @@ describe('BlogPageContent', () => {
       guideCollections.compareDocumentPosition(discoveryLinks) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
+  });
+
+  it('redirects out-of-range paginated listings to the last real page', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+        },
+        totalPosts: 50,
+        posts: [],
+      })
+    );
+
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ page: '999', category: 'Guides' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:/ogabassey/blog?category=Guides&page=5');
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/ogabassey/blog?category=Guides&page=5'
+    );
+  });
+
+  it('renders real prev/next head links for paginated listings', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          custom_domain: 'example.com',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'example.com' }),
+        searchParams: Promise.resolve({ page: '2', category: 'Guides' }),
+      })
+    );
+
+    expect(document.head.querySelector('link[rel="prev"]')).toHaveAttribute(
+      'href',
+      'https://example.com/blog?category=Guides'
+    );
+    expect(document.head.querySelector('link[rel="next"]')).toHaveAttribute(
+      'href',
+      'https://example.com/blog?category=Guides&page=3'
+    );
+  });
+
+  it('uses domain-relative pagination links on storefront subdomains', async () => {
+    mockHeaders.mockReturnValue(
+      new Headers([['x-merchant-slug', 'ogabassey']])
+    );
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ page: '2' }),
+      })
+    );
+
+    expect(
+      screen.getByRole('navigation', { name: 'Blog pagination' })
+    ).toHaveAttribute('data-store-base-path', '');
+    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basePath: '',
+      })
+    );
+  });
+
+  it('preserves path-prefixed storefront origins in prev/next head links', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          store_url: 'http://localhost:3000/ogabassey',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ page: '2' }),
+      })
+    );
+
+    expect(document.head.querySelector('link[rel="prev"]')).toHaveAttribute(
+      'href',
+      'http://localhost:3000/ogabassey/blog'
+    );
+    expect(document.head.querySelector('link[rel="next"]')).toHaveAttribute(
+      'href',
+      'http://localhost:3000/ogabassey/blog?page=3'
+    );
   });
 
   it('uses structured image variants and preserves listing pagination totals', async () => {

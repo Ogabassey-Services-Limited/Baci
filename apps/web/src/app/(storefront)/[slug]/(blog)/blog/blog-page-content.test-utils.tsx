@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
 interface MockDefaultBlogUiProps {
@@ -23,6 +24,7 @@ interface MockDefaultBlogUiProps {
   merchant: { business_name: string };
   posts: Array<{ slug: string; title: string }>;
   totalPosts: number;
+  currentPage?: number;
 }
 
 interface MockTemplateBlogRendererProps {
@@ -35,8 +37,12 @@ const hoistedMocks = vi.hoisted(() => ({
     <div>{props.merchant.business_name} blog</div>
   )),
   mockGetTemplate: vi.fn<(...args: unknown[]) => unknown>(() => null),
+  mockHeaders: vi.fn(() => new Headers()),
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
+  }),
+  mockRedirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
   }),
   mockTemplateBlogRenderer: vi.fn((_props: MockTemplateBlogRendererProps) => (
     <div>Template blog</div>
@@ -47,7 +53,9 @@ export const {
   mockBuildBlogClusterCollections,
   mockDefaultBlogUi,
   mockGetTemplate,
+  mockHeaders,
   mockNotFound,
+  mockRedirect,
   mockTemplateBlogRenderer,
 } = hoistedMocks;
 
@@ -55,8 +63,13 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
 }));
 
+vi.mock('next/headers', () => ({
+  headers: async () => mockHeaders(),
+}));
+
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+  redirect: (url: string) => mockRedirect(url),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -113,6 +126,26 @@ vi.mock('./default-blog-ui', () => ({
 vi.mock('./template-blog-renderer', () => ({
   TemplateBlogRenderer: (props: MockTemplateBlogRendererProps) =>
     mockTemplateBlogRenderer(props),
+}));
+
+vi.mock('./blog-listing-pagination', () => ({
+  BlogListingPagination: (props: {
+    storeBasePath: string;
+    category?: string;
+    currentPage: number;
+    search?: string;
+    totalPages: number;
+  }) => (
+    <nav
+      aria-label="Blog pagination"
+      data-testid="blog-pagination"
+      data-store-base-path={props.storeBasePath}
+      data-category={props.category}
+      data-current-page={props.currentPage}
+      data-search={props.search}
+      data-total-pages={props.totalPages}
+    />
+  ),
 }));
 
 export const merchant = {
@@ -181,13 +214,14 @@ export function buildListingResult(
   }>
 ) {
   const posts = overrides?.posts ?? postsPayload;
+  const totalPosts = overrides?.totalPosts ?? posts.length;
   return {
     merchant: overrides?.merchant ?? merchant,
     posts,
-    totalPosts: overrides?.totalPosts ?? posts.length,
+    totalPosts,
     categories: ['News', 'gcrblw'],
     currentPage: 1,
-    totalPages: 1,
+    totalPages: Math.ceil(totalPosts / BLOG_LISTING_PAGE_SIZE),
     searchQuery: undefined,
   };
 }
@@ -198,6 +232,9 @@ export function resetBlogPageContentMocks() {
   mockGetCachedBlogListing.mockReset();
   mockGetCachedBlogListing.mockResolvedValue(buildListingResult());
   mockNotFound.mockClear();
+  mockRedirect.mockClear();
+  mockHeaders.mockReset();
+  mockHeaders.mockReturnValue(new Headers());
   mockBuildBlogClusterCollections.mockReset();
   mockBuildBlogClusterCollections.mockReturnValue([]);
   mockDefaultBlogUi.mockReset();
