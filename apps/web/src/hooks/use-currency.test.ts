@@ -63,4 +63,12 @@ describe('useCurrencyWithCountry', () => {
     expect(result.current.currencyCode).toBe('NGN');
     expect(result.current.currencySymbol).toBe('₦');
   });
+
+  it('falls back to USD when country and payout currency are missing', () => {
+    const { result } = renderHook(() => useCurrencyWithCountry(null, null));
+
+    expect(result.current.formatCurrency(1000)).toBe('$1,000.00');
+    expect(result.current.currencyCode).toBe('USD');
+    expect(result.current.currencySymbol).toBe('$');
+  });
 });

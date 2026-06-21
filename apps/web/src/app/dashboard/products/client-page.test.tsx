@@ -111,4 +111,22 @@ describe('ProductsPage', () => {
       '₦1,000.00'
     );
   });
+
+  it('falls back to USD when country and payout currency are missing', () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        country: null,
+        google_product_sheet_url: null,
+        id: 'merchant-1',
+        payout_currency: null,
+      },
+      updateMerchant: mocks.updateMerchant,
+    });
+
+    render(<ProductsPage initialData={{} as ProductsResult} />);
+
+    expect(screen.getByLabelText(/inventory value/i)).toHaveTextContent(
+      '$1,000.00'
+    );
+  });
 });

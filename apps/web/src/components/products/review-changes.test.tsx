@@ -66,6 +66,9 @@ describe('ReviewChanges', () => {
 
     expect(screen.getAllByText('₦').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('Cost Price')).toBeInTheDocument();
+    expect(
+      screen.getByRole('spinbutton', { name: /cost price/i })
+    ).toHaveAttribute('min', '0');
 
     const costPriceInput = screen.getByDisplayValue('700');
     fireEvent.change(costPriceInput, { target: { value: '800' } });
@@ -81,6 +84,29 @@ describe('ReviewChanges', () => {
         }),
       ]);
     });
+  });
+
+  it('shows a recovery action when there is no AI response to review', async () => {
+    const user = userEvent.setup();
+    mocks.useProductContext.mockReturnValue({
+      aiResponse: undefined,
+      applyChanges: mocks.applyChanges,
+      setWorkflowStep: mocks.setWorkflowStep,
+    });
+
+    render(<ReviewChanges />);
+
+    expect(screen.getByText('Error')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'No AI response to review. Please try uploading a file again.'
+      )
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /go to upload/i }));
+
+    expect(mocks.setWorkflowStep).toHaveBeenCalledWith('upload');
+    expect(mocks.applyChanges).not.toHaveBeenCalled();
   });
 
   it('keeps cost price input unformatted while typing decimals', () => {

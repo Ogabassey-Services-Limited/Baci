@@ -358,7 +358,7 @@ export async function parseCSVDirectly(
       ? Number.parseInt(rawStock.replace(/[^0-9]/g, ''), 10)
       : undefined;
 
-    if (Number.isNaN(price) || price < 0) {
+    if (!Number.isFinite(price) || price < 0) {
       skippedCount++;
       continue;
     }
@@ -545,7 +545,7 @@ function parseOptionalPrice(priceStr?: string): number | undefined {
   if (!priceStr?.trim()) return undefined;
 
   const parsed = parsePrice(priceStr);
-  return Number.isNaN(parsed) || parsed < 0 ? undefined : parsed;
+  return !Number.isFinite(parsed) || parsed < 0 ? undefined : parsed;
 }
 
 export async function fetchGoogleSheet(url: string): Promise<string> {

@@ -440,6 +440,8 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                         {currencySymbol}
                       </span>
                       <Input
+                        aria-label="Cost Price"
+                        min="0"
                         type="number"
                         step="any"
                         value={change.details.cost_price ?? ''}

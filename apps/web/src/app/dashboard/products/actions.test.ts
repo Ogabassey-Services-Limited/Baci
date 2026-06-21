@@ -584,6 +584,30 @@ describe('product import actions', () => {
     expect(result.summary).toContain('Skipped 1 rows');
   });
 
+  it('skips rows with non-finite selling prices', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,Infinity,1500,NEW-1\nOther Phone,-Infinity,1200,NEW-2'
+    );
+
+    expect(result.changes).toEqual([]);
+    expect(result.summary).toContain('Parsed 0 products from CSV');
+    expect(result.summary).toContain('Skipped 2 rows');
+  });
+
+  it('omits non-finite cost prices from parsed products', async () => {
+    const result = await parseCSVDirectly(
+      [],
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,2000,Infinity,NEW-1\nOther Phone,1800,-Infinity,NEW-2'
+    );
+
+    expect(result.summary).toContain('Parsed 2 products from CSV');
+    expect(result.summary).toContain('Skipped 0 rows');
+    expect(result.changes).toHaveLength(2);
+    expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
+    expect(result.changes[1]?.details).not.toHaveProperty('cost_price');
+  });
+
   it('does not use a standalone cost column as the selling price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
