@@ -207,13 +207,27 @@ export async function StorefrontContent({
       ? ''
       : `/${merchant.slug}`;
 
-  // Transform products to match expected interface
+  // Transform products to match expected interface. Prefer the direct
+  // category_id join when present because PDP URLs canonicalize through that
+  // category; fall back to the legacy many-to-many relation for older rows.
   // biome-ignore lint/suspicious/noExplicitAny: DB result shape differs from Product interface
-  const merchantProducts: Product[] = (products || []).map((p: any) => ({
-    ...p,
-    categories: p.product_categories?.[0]?.categories || null,
-    product_categories: undefined,
-  })) as unknown as Product[];
+  const merchantProducts: Product[] = (products || []).map((p: any) => {
+    const directCategory = Array.isArray(p.categories)
+      ? (p.categories[0] ?? null)
+      : (p.categories ?? null);
+    const legacyCategory = p.product_categories?.[0]?.categories ?? null;
+    const category = directCategory ?? legacyCategory;
+
+    return {
+      ...p,
+      categories: category,
+      category_slug:
+        typeof category?.slug === 'string'
+          ? category.slug
+          : (p.category_slug ?? undefined),
+      product_categories: undefined,
+    };
+  }) as unknown as Product[];
   const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
   const schemaProducts = isOgabasseyTemplate
     ? merchantProducts.slice(0, OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT)

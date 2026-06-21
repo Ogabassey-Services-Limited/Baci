@@ -217,6 +217,16 @@ describe('StorefrontContent', () => {
         id: 'ogabassey-product-1',
         name: 'OgaBassey Product 1',
         slug: 'ogabassey-product-1',
+        product_categories: [
+          { categories: [{ name: 'Stale Gadgets', slug: 'gadgets' }] },
+        ],
+        categories: {
+          id: 'cat-smartphones',
+          name: 'Smartphones',
+          slug: 'smartphones',
+        },
+      } as Partial<StorefrontHomeProduct> & {
+        categories: { id: string; name: string; slug: string };
       }),
     ]);
 
@@ -230,7 +240,11 @@ describe('StorefrontContent', () => {
     );
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ id: 'ogabassey-product-1' }),
+        expect.objectContaining({
+          category_slug: 'smartphones',
+          categories: expect.objectContaining({ slug: 'smartphones' }),
+          id: 'ogabassey-product-1',
+        }),
       ])
     );
     expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
