@@ -473,6 +473,8 @@ describe('buildBlogUrl', () => {
 
 describe('wrapTrustedCdnInlineImagesInPicture', () => {
   const CDN =
+    'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+  const LEGACY_INLINE =
     'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
 
   it('wraps trusted CDN inline images in <picture> with avif/webp sources', () => {
@@ -484,7 +486,7 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(out).toContain(`srcset="${CDN}.avif" type="image/avif"`);
     expect(out).toContain(`srcset="${CDN}.webp" type="image/webp"`);
     // The original <img> is preserved as the fallback for browsers/clients
-    // without a sibling.
+    // without AVIF/WebP support.
     expect(out).toContain(`<img src="${CDN}" alt="Speaker" />`);
   });
 
@@ -495,6 +497,12 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     const featured =
       '<img src="https://cdn.ogabassey.com/core-assets/blog/x/landscape_16x9.jpg" alt="x" />';
     expect(wrapTrustedCdnInlineImagesInPicture(featured)).toBe(featured);
+  });
+
+  it('leaves trusted legacy inline images untouched when siblings are not proven', () => {
+    const legacy = `<img src="${LEGACY_INLINE}" alt="Speaker" />`;
+
+    expect(wrapTrustedCdnInlineImagesInPicture(legacy)).toBe(legacy);
   });
 
   it('wraps an inline image even when alt text contains a literal ">"', () => {

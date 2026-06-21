@@ -312,11 +312,12 @@ export function transformImageTitlesToFigureCaptions(html: string): string {
 
 /**
  * Wraps trusted CDN inline `<img>` tags in a `<picture>` that prefers the
- * pre-generated AVIF/WebP siblings, keeping the original `<img>` as the fallback.
+ * pre-generated AVIF/WebP siblings, keeping the original `<img>` as the fallback
+ * for clients without a usable `<source>`.
  * Runs AFTER sanitization (the sources are derived from already-sanitized,
  * trusted-CDN URLs); `<picture>`/`<source>` are allowlisted in sanitize.ts so
- * they survive SafeHtml's re-sanitization. External and non-inline images are
- * left untouched, and a missing sibling degrades to the original PNG.
+ * they survive SafeHtml's re-sanitization. External, non-inline, and legacy
+ * inline images without the generated-sibling filename marker are left untouched.
  */
 export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
   // Quote-aware <img> match: tolerate a literal `>` inside a quoted attribute

@@ -768,7 +768,7 @@ describe('BlogContentRenderer', () => {
 
     it('serves trusted CDN inline images as <picture> with avif/webp sources', () => {
       const src =
-        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
       const { container } = render(
         <BlogContentRenderer json={makeImageDoc(src)} />
       );
@@ -790,11 +790,22 @@ describe('BlogContentRenderer', () => {
       expect(img?.getAttribute('alt')).toBe('Speaker');
     });
 
+    it('renders legacy trusted inline images without unproven sibling sources', () => {
+      const src =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
+      const { container } = render(
+        <BlogContentRenderer json={makeImageDoc(src)} />
+      );
+
+      expect(container.querySelector('picture')).toBeNull();
+      expect(container.querySelector('img')?.getAttribute('src')).toBe(src);
+    });
+
     it('prioritizes the first trusted inline image and lazy-loads later inline images', () => {
       const firstSrc =
-        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
       const secondSrc =
-        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-2.png';
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-2-b9244d7a754d.png';
       const { container } = render(
         <BlogContentRenderer
           json={doc(

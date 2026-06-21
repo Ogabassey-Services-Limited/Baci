@@ -5,15 +5,11 @@ import {
 } from './blog-inline-image-optimization';
 
 const CDN = 'https://cdn.ogabassey.com';
-const INLINE = `${CDN}/image/format=auto/core-assets/blog/codex/post-token/inline-1.png`;
+const INLINE = `${CDN}/image/format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png`;
 
 describe('isTrustedCdnInlineImage', () => {
-  it('accepts trusted CDN inline images (plain, hashed, png/jpg)', () => {
+  it('accepts trusted CDN inline images with generated sibling markers', () => {
     expect(isTrustedCdnInlineImage(INLINE)).toBe(true);
-    expect(
-      isTrustedCdnInlineImage(`${CDN}/core-assets/blog/x/inline-12.png`)
-    ).toBe(true);
-    // Current codex naming: inline-<n>-<hash>.png
     expect(
       isTrustedCdnInlineImage(
         `${CDN}/core-assets/blog/x/inline-2-b9244d7a754d.png`
@@ -21,11 +17,23 @@ describe('isTrustedCdnInlineImage', () => {
     ).toBe(true);
     // Publisher also supports jpg/jpeg inline images.
     expect(
-      isTrustedCdnInlineImage(`${CDN}/core-assets/blog/x/inline-3.jpg`)
+      isTrustedCdnInlineImage(
+        `${CDN}/core-assets/blog/x/inline-3-b9244d7a754d.jpg`
+      )
+    ).toBe(true);
+    expect(
+      isTrustedCdnInlineImage(
+        `${CDN}/core-assets/blog/x/inline-4-b9244d7a754d.jpeg`
+      )
     ).toBe(true);
   });
 
-  it('rejects external, non-inline, sibling, and empty URLs', () => {
+  it('rejects external, legacy, non-inline, sibling, and empty URLs', () => {
+    // Plain legacy inline URLs may not have generated siblings, so keep them as
+    // normal <img> sources instead of emitting possibly-missing AVIF/WebP URLs.
+    expect(
+      isTrustedCdnInlineImage(`${CDN}/core-assets/blog/x/inline-12.png`)
+    ).toBe(false);
     // The generated siblings themselves must not re-match.
     expect(isTrustedCdnInlineImage(`${INLINE}.avif`)).toBe(false);
     expect(isTrustedCdnInlineImage(`${INLINE}.webp`)).toBe(false);
@@ -51,7 +59,9 @@ describe('isTrustedCdnInlineImage', () => {
     process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
     try {
       expect(
-        isTrustedCdnInlineImage('https://media.example.com/blog/x/inline-1.png')
+        isTrustedCdnInlineImage(
+          'https://media.example.com/blog/x/inline-1-b9244d7a754d.png'
+        )
       ).toBe(true);
     } finally {
       if (prev === undefined) {

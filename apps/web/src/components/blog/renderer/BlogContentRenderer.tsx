@@ -274,8 +274,9 @@ const NodeRenderer = ({
         >
           {inlineSiblings ? (
             // Trusted CDN inline image: serve the pre-optimized AVIF/WebP
-            // siblings via <picture>, falling back to the original PNG. next/image
-            // would needlessly re-process an already-optimized CDN URL.
+            // siblings via <picture>, with the original PNG/JPEG as the
+            // compatibility fallback. next/image would needlessly re-process an
+            // already-optimized CDN URL.
             <picture>
               <source srcSet={inlineSiblings.avif} type="image/avif" />
               <source srcSet={inlineSiblings.webp} type="image/webp" />
