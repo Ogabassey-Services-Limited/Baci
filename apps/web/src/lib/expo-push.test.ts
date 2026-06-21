@@ -685,20 +685,29 @@ describe('notifyStorefrontUpdateAvailable', () => {
       eligible: 2,
       sent: 2,
       failed: 0,
+      cappedAtLimit: false,
     });
 
     // Filters to active storefront tokens for the platform, below latest build.
     expect(selectChain.eq).toHaveBeenCalledWith('app_type', 'storefront');
     expect(selectChain.eq).toHaveBeenCalledWith('platform', 'android');
     expect(selectChain.eq).toHaveBeenCalledWith('is_active', true);
-    // A SINGLE .or() carrying BOTH the build-number and throttle conditions —
-    // chaining two .or() calls would drop the build filter (PostgREST overwrite).
+    // A SINGLE .or() carrying BOTH conditions AND-combined as an OR-of-ANDs.
+    // Chaining two .or() calls would drop the build filter (PostgREST overwrite);
+    // a flat OR of the four leaves would bypass the throttle. Asserting the
+    // and(...) groups locks in the AND-combination, not just substring presence.
     expect(selectChain.or).toHaveBeenCalledTimes(1);
     const orArg = selectChain.or.mock.calls[0][0] as string;
-    expect(orArg).toContain('build_number.is.null');
-    expect(orArg).toContain('build_number.lt.646');
-    expect(orArg).toContain('last_update_push_at.is.null');
-    expect(orArg).toContain('last_update_push_at.lt.');
+    expect(orArg).toContain(
+      'and(build_number.is.null,last_update_push_at.is.null)'
+    );
+    expect(orArg).toContain('and(build_number.lt.646,last_update_push_at.lt.');
+    expect(orArg).toContain('and(build_number.is.null,last_update_push_at.lt.');
+    expect(orArg).toContain(
+      'and(build_number.lt.646,last_update_push_at.is.null)'
+    );
+    // No bare leaf outside an and() group (would mean the throttle is bypassed).
+    expect(orArg).not.toMatch(/(^|,)build_number\.(is\.null|lt\.646)(,|$)/);
 
     // Sends the payload the app's tap handler routes to the update prompt.
     const sent = mockChunkPushNotifications.mock
@@ -749,9 +758,10 @@ describe('notifyStorefrontUpdateAvailable', () => {
       tokens.map((_, i) => ({ status: 'ok', id: `ticket-${i}` }))
     );
 
-    await notifyStorefrontUpdateAvailable({
+    const result = await notifyStorefrontUpdateAvailable({
       platform: 'android',
       latestBuild: 646,
+      limit: 150,
     });
 
     // 150 stamped ids → 2 chunks (100 + 50); no chunk exceeds the 100 cap, so
@@ -760,5 +770,7 @@ describe('notifyStorefrontUpdateAvailable', () => {
     expect(idStampCalls).toHaveLength(2);
     expect(idStampCalls[0][1]).toHaveLength(100);
     expect(idStampCalls[1][1]).toHaveLength(50);
+    // Hit the per-run limit → backlog signal is set for operators.
+    expect(result.cappedAtLimit).toBe(true);
   });
 });

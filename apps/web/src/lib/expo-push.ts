@@ -990,7 +990,14 @@ const DEFAULT_UPDATE_NUDGE_LIMIT = 5000;
 
 export interface StorefrontUpdateNudgeResult extends NotificationSendResult {
   platform: 'android' | 'ios';
+  /** Tokens processed this run — capped at `limit`, NOT the true eligible total. */
   eligible: number;
+  /**
+   * True when this run hit the per-run `limit`, i.e. a backlog likely remains
+   * and the next run will drain more. Lets operators detect backlog from the
+   * cron output instead of misreading a capped `eligible` as "all done".
+   */
+  cappedAtLimit: boolean;
 }
 
 /**
@@ -1076,6 +1083,7 @@ export async function notifyStorefrontUpdateAvailable(
       errors: [error.message],
       platform,
       eligible: 0,
+      cappedAtLimit: false,
     });
   }
 
@@ -1086,6 +1094,7 @@ export async function notifyStorefrontUpdateAvailable(
       errors: [],
       platform,
       eligible: 0,
+      cappedAtLimit: false,
     });
   }
 
@@ -1146,5 +1155,10 @@ export async function notifyStorefrontUpdateAvailable(
     result: sendResult,
   });
 
-  return { ...sendResult, platform, eligible: tokens.length };
+  return {
+    ...sendResult,
+    platform,
+    eligible: tokens.length,
+    cappedAtLimit: tokens.length === limit,
+  };
 }
