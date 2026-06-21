@@ -130,6 +130,7 @@ let lastRpcCall: {
   args: Record<string, unknown>;
 } | null = null;
 let lastProductUpdatePayload: unknown = null;
+const productUpdatePayloads: unknown[] = [];
 const lastVariantDeleteFilters: [string, unknown][] = [];
 
 const createMockSupabase = () => ({
@@ -193,6 +194,7 @@ const createMockSupabase = () => ({
         ),
         update: vi.fn((payload: unknown) => {
           lastProductUpdatePayload = payload;
+          productUpdatePayloads.push(payload);
           return {
             eq: vi.fn(() => ({
               eq: vi.fn(() => ({
@@ -363,6 +365,7 @@ function resetMocks() {
   variantSyncError = null;
   lastRpcCall = null;
   lastProductUpdatePayload = null;
+  productUpdatePayloads.length = 0;
   lastVariantDeleteFilters.length = 0;
   csrfValid = true;
 }
@@ -1029,6 +1032,89 @@ describe('PUT /api/products/[id]', () => {
       expect(res.status).toBe(200);
       expect(lastProductUpdatePayload).toMatchObject({ has_variants: false });
       expect(lastRpcCall).toBeNull();
+    });
+
+    it('honors explicit variant disabling even when a stale variants array is submitted', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+        has_variants: false,
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: false,
+          variants: [
+            {
+              id: VARIANT_ID,
+              sku: 'STALE-VARIANT',
+              stock_quantity: 4,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(productUpdatePayloads).toContainEqual(
+        expect.objectContaining({ has_variants: false })
+      );
+      expect(lastRpcCall).toBeNull();
+      expect(lastVariantDeleteFilters).toContainEqual([
+        'is_inventory_anchor',
+        false,
+      ]);
+    });
+
+    it('syncs an explicit empty variants array so stale visible rows are cleared', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+        has_variants: false,
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          variants: [],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(lastProductUpdatePayload).toMatchObject({ has_variants: false });
+      expect(lastRpcCall).toEqual({
+        functionName: 'sync_product_variants_for_product',
+        args: {
+          p_product_id: PRODUCT_ID,
+          p_merchant_id: MERCHANT_ID,
+          p_variants: [],
+        },
+      });
+      expect(lastVariantDeleteFilters).toHaveLength(0);
     });
 
     it('filters serialized inventory anchors before variant ownership validation', async () => {

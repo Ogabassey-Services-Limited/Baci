@@ -344,10 +344,10 @@ export async function PUT(
         body.variants !== undefined ||
         body.has_variants === false);
     const nextHasVariants =
-      body.variants !== undefined
-        ? (effectiveBodyVariants?.length ?? 0) > 0
-        : body.has_variants !== undefined
-          ? body.has_variants
+      body.has_variants !== undefined
+        ? body.has_variants
+        : body.variants !== undefined
+          ? (effectiveBodyVariants?.length ?? 0) > 0
           : existingProduct.has_variants;
     const skuMatrixVariantsForValidation =
       existingVariantModel === 'sku_matrix' && variantModel === 'sku_matrix'
@@ -614,6 +614,10 @@ export async function PUT(
     }
 
     let variantsToSync: Record<string, unknown>[] | null = null;
+    const shouldSyncEmptyVariantClear =
+      body.variants !== undefined &&
+      body.variants.length === 0 &&
+      body.has_variants !== false;
     if (effectiveBodyVariants !== undefined && body.has_variants !== false) {
       const variantHasOwn = (
         variant: RequestVariant,
@@ -653,7 +657,7 @@ export async function PUT(
         return payload;
       });
 
-      if (variantsToSync.length === 0) {
+      if (variantsToSync.length === 0 && !shouldSyncEmptyVariantClear) {
         variantsToSync = null;
       }
 
@@ -737,7 +741,7 @@ export async function PUT(
     }
 
     // Handle Variants
-    if (variantsToSync) {
+    if (variantsToSync !== null) {
       const { error: syncVariantsError } = await supabase.rpc(
         'sync_product_variants_for_product',
         {
