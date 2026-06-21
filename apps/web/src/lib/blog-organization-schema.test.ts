@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildBlogOrganizationId,
-  buildBlogOrganizationSchema,
-} from './blog-organization-schema';
+import { buildBlogOrganizationSchema } from './blog-organization-schema';
 
 describe('buildBlogOrganizationSchema', () => {
   it('builds a stable entity id from the storefront origin', () => {
-    expect(buildBlogOrganizationId('https://ogabassey.com')).toBe(
-      'https://ogabassey.com#organization'
-    );
-    expect(buildBlogOrganizationId('https://ogabassey.com/')).toBe(
-      'https://ogabassey.com#organization'
-    );
+    expect(
+      buildBlogOrganizationSchema(
+        { business_name: 'Ogabassey' },
+        'https://ogabassey.com'
+      )['@id']
+    ).toBe('https://ogabassey.com#organization');
+    expect(
+      buildBlogOrganizationSchema(
+        { business_name: 'Ogabassey' },
+        'https://ogabassey.com/'
+      )['@id']
+    ).toBe('https://ogabassey.com#organization');
   });
 
   it('emits an OnlineStore entity with logo and normalized social sameAs', () => {

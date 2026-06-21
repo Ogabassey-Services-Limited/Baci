@@ -2,10 +2,8 @@ import { notFound } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
-import {
-  buildBlogOrganizationId,
-  buildBlogOrganizationSchema,
-} from '@/lib/blog-organization-schema';
+import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
+import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';

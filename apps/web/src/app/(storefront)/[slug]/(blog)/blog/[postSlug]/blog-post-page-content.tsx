@@ -10,10 +10,8 @@ import {
   extractBlogFaqItems,
   generateFaqPageSchema,
 } from '@/lib/blog-faq-schema';
-import {
-  buildBlogOrganizationId,
-  buildBlogOrganizationSchema,
-} from '@/lib/blog-organization-schema';
+import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
+import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { buildBlogPublisherSameAs } from '@/lib/blog-publisher-same-as';
 import {

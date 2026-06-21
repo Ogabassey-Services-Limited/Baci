@@ -1,3 +1,4 @@
+import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
 import { buildBlogPublisherSameAs } from '@/lib/blog-publisher-same-as';
 import { generateOrganizationSchema } from '@/lib/seo-utils';
 
@@ -6,10 +7,6 @@ interface BlogOrganizationMerchant {
   logo_url?: string | null;
   country?: string | null;
   social_media?: Record<string, unknown> | null;
-}
-
-export function buildBlogOrganizationId(baseUrl: string): string {
-  return `${baseUrl.replace(/\/+$/, '')}#organization`;
 }
 
 // Blog pages emit one stable brand node without deprecated sitelinks-searchbox markup.
