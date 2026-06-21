@@ -52,7 +52,7 @@ function hasScheme(value: string): boolean {
   return /^[a-z][a-z\d+.-]*:/iu.test(value);
 }
 
-function isSafeRelativeReturnTo(value: string | null): boolean {
+export function isSafeRelativeReturnTo(value: string | null): boolean {
   if (value === null) {
     return true;
   }

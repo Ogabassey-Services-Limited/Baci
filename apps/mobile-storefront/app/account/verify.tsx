@@ -1,6 +1,9 @@
 import { type Href, Redirect, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { getPendingAuthLoginResumeState } from '@/components/auth/login-resume-state';
+import {
+  getPendingAuthLoginResumeState,
+  isSafeRelativeReturnTo,
+} from '@/components/auth/login-resume-state';
 
 type AccountVerifySearchParams = Record<string, string | string[]>;
 
@@ -8,12 +11,20 @@ function buildOtpLoginRoute(
   returnTo: string | null,
   searchParams: AccountVerifySearchParams
 ): Href {
+  const { returnTo: incomingReturnTo, ...forwardedSearchParams } = searchParams;
+  const safeIncomingReturnTo =
+    typeof incomingReturnTo === 'string' &&
+    isSafeRelativeReturnTo(incomingReturnTo)
+      ? incomingReturnTo
+      : null;
+  const targetReturnTo = returnTo ?? safeIncomingReturnTo;
+
   return {
     pathname: '/auth/login',
     params: {
-      ...searchParams,
+      ...forwardedSearchParams,
       mode: 'otp',
-      ...(returnTo ? { returnTo } : {}),
+      ...(targetReturnTo ? { returnTo: targetReturnTo } : {}),
     },
   };
 }
