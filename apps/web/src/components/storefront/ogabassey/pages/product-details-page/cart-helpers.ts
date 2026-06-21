@@ -66,10 +66,39 @@ export function getEffectiveAxes(
   return axes;
 }
 
+function getVariantBackedAxisOptions(
+  axis: string,
+  variants: NormalizedProductDetails['variants']
+) {
+  if (!variants?.length) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      variants
+        .map((variant) => variant.attributes?.[axis])
+        .filter((v): v is string => Boolean(v))
+    )
+  );
+}
+
 export function getAxisOptions(
   axis: string,
   productData: NormalizedProductDetails
 ) {
+  const variantBackedOptions = getVariantBackedAxisOptions(
+    axis,
+    productData.variants
+  );
+  if (variantBackedOptions.length > 0) {
+    return variantBackedOptions;
+  }
+
+  if (productData.variants?.length) {
+    return [];
+  }
+
   if (axis === 'storage' && productData.storage.length > 0) {
     return productData.storage;
   }
@@ -78,17 +107,7 @@ export function getAxisOptions(
     return productData.platforms;
   }
 
-  if (!productData.variants) {
-    return [];
-  }
-
-  return Array.from(
-    new Set(
-      productData.variants
-        .map((variant) => variant.attributes?.[axis])
-        .filter((v): v is string => Boolean(v))
-    )
-  );
+  return [];
 }
 
 export function getSingleOptionAxisSelections(

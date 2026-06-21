@@ -132,4 +132,25 @@ describe('critical variant selector options', () => {
       ['128GB']
     );
   });
+
+  it('does not render multi-option metadata axes that no variant can resolve', () => {
+    expect(
+      getRenderableCriticalVariantAxes(
+        ['storage'],
+        [
+          {
+            attributes: {},
+            id: 'variant-1',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ],
+        { storage: ['128GB', '256GB'] }
+      )
+    ).toEqual([]);
+    expect(
+      getVariantAxisOptions([], 'storage', { storage: ['128GB', '256GB'] })
+    ).toEqual([]);
+  });
 });

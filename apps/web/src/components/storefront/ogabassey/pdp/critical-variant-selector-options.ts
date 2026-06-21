@@ -60,7 +60,16 @@ export function getVariantAxisOptions(
     }
   }
 
-  for (const fallbackValue of fallbackAxisOptions[normalizedAxis] ?? []) {
+  if (options.size > 0) {
+    return Array.from(options);
+  }
+
+  const fallbackOptions = fallbackAxisOptions[normalizedAxis] ?? [];
+  if (fallbackOptions.length !== 1) {
+    return [];
+  }
+
+  for (const fallbackValue of fallbackOptions) {
     const normalizedValue =
       normalizedAxis === 'condition'
         ? normalizeCanonicalProductCondition(fallbackValue)

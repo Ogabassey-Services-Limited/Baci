@@ -341,6 +341,46 @@ describe('useProductDetailsState', () => {
     );
   });
 
+  it('does not seed metadata-only axes into variant selection', () => {
+    const { result } = renderHook(() =>
+      useProductDetailsState({
+        ...baseProduct,
+        attributeAxes: ['storage'],
+        color_images: {},
+        colors: [],
+        images: ['https://example.com/default.jpg'],
+        storage: ['128GB'],
+        stock: 5,
+        variant_attributes: { storage: ['128GB'] },
+        variants: [
+          {
+            id: 'variant-new',
+            condition: 'new',
+            attributes: {},
+            price_override: 5000,
+            stock_quantity: 3,
+          },
+        ],
+      } as Product)
+    );
+
+    expect(result.current.selectedAttributes).toEqual({});
+    expect(result.current.canPurchase).toBe(true);
+
+    let wasAdded = false;
+    act(() => {
+      wasAdded = result.current.validateAndAddToCart();
+    });
+
+    expect(wasAdded).toBe(true);
+    expect(result.current.isSelectionModalOpen).toBe(false);
+    expect(mockAddToCart).toHaveBeenCalledWith(
+      expect.not.objectContaining({ storage: '128GB' }),
+      1,
+      expect.not.objectContaining({ storage: '128GB' })
+    );
+  });
+
   it('reopens selection before applying a negotiated price when choices are missing', () => {
     const { result } = renderHook(() => useProductDetailsState(baseProduct));
 
