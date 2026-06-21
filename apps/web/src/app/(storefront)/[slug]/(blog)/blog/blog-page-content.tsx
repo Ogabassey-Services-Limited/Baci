@@ -17,6 +17,7 @@ import {
   type TemplateBlogPageProps,
 } from '@/templates/registry';
 import { BlogDiscoverySection } from './blog-discovery-section';
+import { BlogListingPagination } from './blog-listing-pagination';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
@@ -62,6 +63,10 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   }
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
   const effectiveSearchQuery = searchQuery ?? search;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalPosts / BLOG_LISTING_PAGE_SIZE)
+  );
   const publicCategories = filterPublicBlogCategories(categories);
   const baseUrl = buildStoreUrl(merchant);
   const organizationSchema = buildBlogOrganizationSchema(merchant, baseUrl);
@@ -206,6 +211,13 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
               categories={templateBlogUi.categories}
               searchQuery={effectiveSearchQuery}
             />
+            <BlogListingPagination
+              basePath={basePath}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              category={category}
+              search={effectiveSearchQuery}
+            />
             <InformationalClusterIndex collections={guideCollections} />
             <BlogDiscoverySection
               baseUrl={baseUrl}
@@ -232,6 +244,13 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
         searchQuery={effectiveSearchQuery}
         slug={slug}
         totalPosts={totalPosts}
+      />
+      <BlogListingPagination
+        basePath={basePath}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        category={category}
+        search={effectiveSearchQuery}
       />
       <InformationalClusterIndex collections={guideCollections} />
       <BlogDiscoverySection

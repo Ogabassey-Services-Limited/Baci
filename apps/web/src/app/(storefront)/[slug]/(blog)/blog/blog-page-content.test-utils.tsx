@@ -115,6 +115,19 @@ vi.mock('./template-blog-renderer', () => ({
     mockTemplateBlogRenderer(props),
 }));
 
+vi.mock('./blog-listing-pagination', () => ({
+  BlogListingPagination: (props: {
+    currentPage: number;
+    totalPages: number;
+  }) => (
+    <div
+      data-testid="blog-pagination"
+      data-current-page={props.currentPage}
+      data-total-pages={props.totalPages}
+    />
+  ),
+}));
+
 export const merchant = {
   id: 'merchant-1',
   business_name: 'Ogabassey',
