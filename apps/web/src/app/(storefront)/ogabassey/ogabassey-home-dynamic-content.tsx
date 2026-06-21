@@ -104,7 +104,9 @@ export async function OgabasseyHomeDynamicContent({
   pathPrefix,
 }: OgabasseyHomeDynamicContentProps) {
   const [products, categories] = await Promise.all([
-    getCachedStorefrontHomeProducts(merchant.id),
+    // OgaBassey surfaces the most recently updated devices first (smartphones
+    // are still pinned to the front downstream via prioritizeSmartphoneProducts).
+    getCachedStorefrontHomeProducts(merchant.id, 'recent'),
     getCachedNavigationCategories(merchant.id),
   ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
@@ -227,7 +229,7 @@ export async function OgabasseyHomeDynamicContent({
 
           {productDiscoveryLinks.length > 0 && (
             <>
-              <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-store-background-text/75">
+              <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-store-background-text/55">
                 Featured Product Links
               </h3>
               <ul className="mt-2 grid gap-1 md:grid-cols-2 lg:grid-cols-3">

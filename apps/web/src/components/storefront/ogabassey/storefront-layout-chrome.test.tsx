@@ -260,6 +260,32 @@ describe('OgabasseyLayoutChrome', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps the header visible on the cart route', () => {
+    mockUsePathname.mockReturnValue('/ogabassey/cart');
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
+
+    expect(
+      screen.getByRole('navigation', { name: /ogabassey storefront/i })
+    ).toBeInTheDocument();
+  });
+
+  it('hides the mobile footer on the cart route without dropping deferred footer chrome', async () => {
+    deferredShellActive = true;
+    mockUsePathname.mockReturnValue('/ogabassey/cart');
+
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
+
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', {
+        name: /deferred footer commerce/i,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('complementary', { name: /cart sidebar/i })
+    ).toBeInTheDocument();
+  });
+
   it('still honours an explicit hideNavigation override on any route', () => {
     mockUsePathname.mockReturnValue('/ogabassey/products/some-item');
     render(

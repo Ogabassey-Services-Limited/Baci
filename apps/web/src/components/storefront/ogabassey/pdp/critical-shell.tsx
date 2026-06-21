@@ -13,6 +13,7 @@ interface OgabasseyPdpCriticalShellProps {
   basePathPromise?: Promise<string>;
   children?: ReactNode;
   product: OgabasseyPdpCriticalProduct;
+  summaryCommerce?: ReactNode;
 }
 
 const PRICE_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
@@ -100,6 +101,7 @@ export function OgabasseyPdpCriticalShell({
   basePathPromise,
   children,
   product,
+  summaryCommerce,
 }: OgabasseyPdpCriticalShellProps) {
   const aggregateRatingCount = Math.max(
     product.reviewCount,
@@ -117,7 +119,6 @@ export function OgabasseyPdpCriticalShell({
         : `${aggregateRatingCount} ${
             aggregateRatingCount === 1 ? 'Rating' : 'Ratings'
           }`;
-
   return (
     <section data-ogabassey-pdp-critical-shell>
       <div data-ogabassey-pdp-critical-inner>
@@ -171,7 +172,13 @@ export function OgabasseyPdpCriticalShell({
               ) : null}
               <span data-ogabassey-pdp-review-count>{reviewCountText}</span>
             </div>
-            <div data-ogabassey-pdp-price>{formatPrice(product.price)}</div>
+            {summaryCommerce || (
+              <div data-ogabassey-pdp-price>
+                <span data-ogabassey-pdp-price-static>
+                  {formatPrice(product.price)}
+                </span>
+              </div>
+            )}
           </div>
           <div data-ogabassey-pdp-commerce-slot>
             {children}

@@ -9,6 +9,7 @@ import { MobileFooter } from './components/MobileFooter';
 import { OgabasseyNavbar as Navbar } from './layout/navbar';
 import {
   type OgabasseyChromeSection,
+  shouldHideOgabasseyMobileFooter,
   shouldHideOgabasseyNavigation,
 } from './storefront-layout-utils';
 
@@ -50,6 +51,10 @@ export function OgabasseyLayoutChrome({
     pathname,
     hideNavigation
   );
+  const resolvedHideMobileFooter = shouldHideOgabasseyMobileFooter(
+    pathname,
+    hideNavigation
+  );
 
   if (section === 'header') {
     return (
@@ -67,7 +72,7 @@ export function OgabasseyLayoutChrome({
 
     return (
       <>
-        <MobileFooter storeSlug={basePath} />
+        {!resolvedHideMobileFooter && <MobileFooter storeSlug={basePath} />}
 
         <DeferredShellFeature
           timeoutMs={1600}
