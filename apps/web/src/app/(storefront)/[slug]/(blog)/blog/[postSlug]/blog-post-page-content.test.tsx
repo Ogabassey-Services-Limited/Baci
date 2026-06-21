@@ -487,12 +487,12 @@ describe('BlogPostPageContent', () => {
     expect(imageProps).toEqual(
       expect.objectContaining({
         src: 'https://cdn.ogabassey.com/media/blog/best-phones-cover.webp',
+        fetchPriority: 'high',
+        loading: 'eager',
         preload: true,
       })
     );
     expect(imageProps).not.toHaveProperty('priority');
-    expect(imageProps).not.toHaveProperty('loading');
-    expect(imageProps).not.toHaveProperty('fetchPriority');
   });
 
   it('permanently redirects retired direct blog slugs before rendering notFound', async () => {
