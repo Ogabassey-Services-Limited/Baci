@@ -75,8 +75,11 @@ describe('SearchAutocomplete', () => {
         onChange={vi.fn()}
       />
     );
-    const icon = container.querySelector('svg.lucide-search');
-    // Guard: a lucide class rename would make the assertions below vacuous.
+    // Query by aria-hidden (the icon's intentional API) rather than Lucide's
+    // internal class name. In the empty-value render the search glass is the
+    // only decorative svg, so this uniquely targets it.
+    const icon = container.querySelector('svg[aria-hidden="true"]');
+    // Guard: a missing icon would make the assertions below vacuous.
     expect(icon).not.toBeNull();
 
     // The component root carries __field so the core-CSS :focus-within tint
