@@ -9,6 +9,7 @@ import {
 } from './critical-commerce-selection';
 import {
   OgabasseyPdpCriticalCommerceProvider,
+  useOptionalOgabasseyPdpCriticalCommerce,
   useOgabasseyPdpCriticalCommerce,
 } from './critical-commerce-state.client';
 import { OgabasseyPdpCriticalVariantSelectors } from './critical-variant-selectors.client';
@@ -49,9 +50,9 @@ export function OgabasseyPdpCriticalConditionBadge({
 }: {
   fallbackCondition?: string | null;
 }) {
-  const { productForCart } = useOgabasseyPdpCriticalCommerce();
+  const commerceState = useOptionalOgabasseyPdpCriticalCommerce();
   const condition = formatCriticalCondition(
-    productForCart.condition ?? fallbackCondition
+    commerceState?.productForCart.condition ?? fallbackCondition
   );
 
   if (!condition) {
@@ -66,9 +67,9 @@ export function OgabasseyPdpCriticalCommerceConditionFact({
 }: {
   fallbackCondition?: string | null;
 }) {
-  const { productForCart } = useOgabasseyPdpCriticalCommerce();
+  const commerceState = useOptionalOgabasseyPdpCriticalCommerce();
   const condition = formatCriticalCondition(
-    productForCart.condition ?? fallbackCondition
+    commerceState?.productForCart.condition ?? fallbackCondition
   );
 
   if (!condition) {

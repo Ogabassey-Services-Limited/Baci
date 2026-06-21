@@ -328,4 +328,16 @@ describe('OgabasseyPdpCriticalCommerceClient', () => {
 
     expect(screen.getAllByText('Open Box')).toHaveLength(2);
   });
+
+  it('renders condition labels from fallback condition outside the provider', () => {
+    render(
+      <>
+        <OgabasseyPdpCriticalConditionBadge fallbackCondition="open_box" />
+        <OgabasseyPdpCriticalCommerceConditionFact fallbackCondition="used" />
+      </>
+    );
+
+    expect(screen.getByText('Open Box')).toBeInTheDocument();
+    expect(screen.getByText('Used')).toBeInTheDocument();
+  });
 });

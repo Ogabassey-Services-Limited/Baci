@@ -72,6 +72,10 @@ export function useOgabasseyPdpCriticalCommerce() {
   return context;
 }
 
+export function useOptionalOgabasseyPdpCriticalCommerce() {
+  return useContext(OgabasseyPdpCriticalCommerceContext);
+}
+
 export function OgabasseyPdpCriticalCommerceProvider({
   cartProduct,
   children,

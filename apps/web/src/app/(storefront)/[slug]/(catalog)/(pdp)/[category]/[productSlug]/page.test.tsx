@@ -333,6 +333,11 @@ vi.mock(
       mockOgabasseyPdpCriticalCommerceProvider(props);
       return <div data-testid="critical-commerce-provider">{children}</div>;
     },
+    OgabasseyPdpCriticalConditionBadge: ({
+      fallbackCondition,
+    }: {
+      fallbackCondition?: string | null;
+    }) => <span data-ogabassey-pdp-condition>{fallbackCondition}</span>,
     OgabasseyPdpCriticalCommerceSummary: () => {
       mockOgabasseyPdpCriticalCommerceSummary();
       return <div data-testid="critical-commerce-summary" />;
