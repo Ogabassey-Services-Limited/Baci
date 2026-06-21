@@ -88,7 +88,14 @@ export function OgabasseyPdpCriticalCommerceProvider({
   );
   const normalizedInitialVariantAttributes =
     normalizeCriticalVariantAttributes(initialVariantSelection?.attributes);
-  const explicitVariantCondition = initialVariantSelection?.condition;
+  const explicitVariantCondition =
+    normalizedInitialVariantAttributes.condition ??
+    initialVariantSelection?.condition;
+  const resolverInitialVariantAttributes = Object.fromEntries(
+    Object.entries(normalizedInitialVariantAttributes).filter(
+      ([axis]) => axis !== 'condition'
+    )
+  );
   const defaultVariantSelection = selectionCartProduct.has_variants
     ? resolveDefaultVariantSelection(selectionCartProduct, {
         condition: explicitVariantCondition,
@@ -96,7 +103,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
     : null;
   const initialDisplayVariantSelection = selectionCartProduct.has_variants
     ? (resolveVariantDisplaySelection(selectionCartProduct, {
-        attributes: normalizedInitialVariantAttributes,
+        attributes: resolverInitialVariantAttributes,
         condition: explicitVariantCondition,
         variantId: initialVariantSelection?.variantId,
       }) ?? defaultVariantSelection)
@@ -116,17 +123,22 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const [explicitSelectedAxes, setExplicitSelectedAxes] = useState<string[]>(
     () => Object.keys(normalizedInitialVariantAttributes)
   );
+  const selectedVariantCondition =
+    selectedAttributes.condition ?? explicitVariantCondition;
+  const resolverSelectedAttributes = Object.fromEntries(
+    Object.entries(selectedAttributes).filter(([axis]) => axis !== 'condition')
+  );
   const purchasableVariantSelection = selectionCartProduct.has_variants
     ? resolveVariantSelection(selectionCartProduct, {
-        attributes: selectedAttributes,
-        condition: explicitVariantCondition,
+        attributes: resolverSelectedAttributes,
+        condition: selectedVariantCondition,
         variantId: selectedVariantId,
       })
     : null;
   const displayVariantSelection = selectionCartProduct.has_variants
     ? (resolveVariantDisplaySelection(selectionCartProduct, {
-        attributes: selectedAttributes,
-        condition: explicitVariantCondition,
+        attributes: resolverSelectedAttributes,
+        condition: selectedVariantCondition,
         variantId: selectedVariantId,
       }) ?? defaultVariantSelection)
     : null;

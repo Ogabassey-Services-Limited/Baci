@@ -2,6 +2,7 @@ export const INTERNAL_SELECTION_AXIS_VALUES = [
   'color',
   'colour',
   'storage',
+  'condition',
   'color_hex',
   'colour_hex',
 ] as const;

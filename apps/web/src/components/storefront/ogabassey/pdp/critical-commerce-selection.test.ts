@@ -191,6 +191,7 @@ describe('critical commerce selection helpers', () => {
       getVariantAxesWithMultipleOptions([
         {
           attributes: { color: 'Black', storage: '128GB' },
+          condition: 'used',
           id: 'variant-black',
           merchant_id: 'merchant-1',
           product_id: 'product-1',
@@ -198,13 +199,14 @@ describe('critical commerce selection helpers', () => {
         },
         {
           attributes: { color: 'Blue', storage: '128GB' },
+          condition: 'new',
           id: 'variant-blue',
           merchant_id: 'merchant-1',
           product_id: 'product-1',
           stock_quantity: 8,
         },
       ])
-    ).toEqual(['color']);
+    ).toEqual(['condition', 'color']);
   });
 
   it('canonicalizes legacy-cased SKU axes before requiring selections', () => {
@@ -271,9 +273,11 @@ describe('critical commerce selection helpers', () => {
   it('keeps hidden attributes only when they came from the route', () => {
     const selection = {
       attributes: { color: 'Blue', ram: '8GB', storage: '256GB' },
+      condition: 'used',
       price: 278_418.6,
       variant: {
         attributes: { color: 'Blue', ram: '8GB', storage: '256GB' },
+        condition: 'used' as const,
         id: 'variant-blue',
         merchant_id: 'merchant-1',
         product_id: 'product-1',
@@ -293,6 +297,12 @@ describe('critical commerce selection helpers', () => {
         selection,
       })
     ).toEqual({ ram: '8GB', storage: '256GB' });
+    expect(
+      pickInitialSelectedAttributes({
+        renderableVariantAxes: ['condition', 'storage', 'ram'],
+        selection,
+      })
+    ).toEqual({ condition: 'used', ram: '8GB', storage: '256GB' });
     expect(
       pickInitialSelectedAttributes({
         explicitAttributes: { Color: 'Blue' },

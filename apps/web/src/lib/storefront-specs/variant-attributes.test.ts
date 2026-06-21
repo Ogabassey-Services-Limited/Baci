@@ -59,14 +59,21 @@ describe('storefront variant attribute helpers', () => {
     expect(
       mergeVariantAxisOptions(
         [
-          { attributes: { Storage: '128GB', RAM: '8GB', color: 'Black' } },
-          { attributes: { Storage: '512GB', RAM: '12GB', color: 'Black' } },
+          {
+            attributes: { Storage: '128GB', RAM: '8GB', color: 'Black' },
+            condition: 'used',
+          },
+          {
+            attributes: { Storage: '512GB', RAM: '12GB', color: 'Black' },
+            condition: 'new',
+          },
           {},
         ],
         [{ param: 'storage', options: ['128GB', '256GB'] }]
       )
     ).toEqual({
       color: ['Black'],
+      condition: ['used', 'new'],
       ram: ['8GB', '12GB'],
       storage: ['128GB', '256GB', '512GB'],
     });
@@ -76,9 +83,18 @@ describe('storefront variant attribute helpers', () => {
 
   it('filters available options for the requested axis by other selections', () => {
     const variants = [
-      { attributes: { RAM: '8GB', Storage: '128GB', 'SIM Type': 'Single' } },
-      { attributes: { RAM: '12GB', Storage: '256GB', 'SIM Type': 'Single' } },
-      { attributes: { RAM: '12GB', Storage: '512GB', 'SIM Type': 'Dual' } },
+      {
+        attributes: { RAM: '8GB', Storage: '128GB', 'SIM Type': 'Single' },
+        condition: 'used',
+      },
+      {
+        attributes: { RAM: '12GB', Storage: '256GB', 'SIM Type': 'Single' },
+        condition: 'new',
+      },
+      {
+        attributes: { RAM: '12GB', Storage: '512GB', 'SIM Type': 'Dual' },
+        condition: 'new',
+      },
     ];
 
     expect(getAvailableOptionsForAxis('storage', variants, {})).toEqual([
@@ -101,6 +117,12 @@ describe('storefront variant attribute helpers', () => {
     expect(
       getAvailableOptionsForAxis('storage', variants, { ram: '16GB' })
     ).toEqual([]);
+    expect(
+      getAvailableOptionsForAxis('condition', variants, { ram: '12GB' })
+    ).toEqual(['new']);
+    expect(
+      getAvailableOptionsForAxis('storage', variants, { condition: 'used' })
+    ).toEqual(['128GB']);
     expect(getAvailableOptionsForAxis('storage', null, {})).toEqual([]);
   });
 
@@ -134,5 +156,37 @@ describe('storefront variant attribute helpers', () => {
     ).toEqual(['storage', 'ram', 'sim_type', 'connectivity', 'platform']);
 
     expect(getRenderableVariantAxes([], [])).toEqual([]);
+  });
+
+  it('renders condition only when multiple top-level SKU conditions exist', () => {
+    expect(
+      getRenderableVariantAxes(
+        [
+          { attributes: { Storage: '128GB' }, condition: 'used' },
+          { attributes: { Storage: '256GB' }, condition: 'new' },
+        ],
+        []
+      )
+    ).toEqual(['condition', 'storage']);
+
+    expect(
+      getRenderableVariantAxes(
+        [
+          { attributes: { Storage: '128GB' }, condition: 'used' },
+          { attributes: { Storage: '256GB' }, condition: 'used' },
+        ],
+        []
+      )
+    ).toEqual(['storage']);
+
+    expect(
+      getRenderableVariantAxes(
+        [
+          { attributes: { Storage: '128GB' } },
+          { attributes: { Storage: '256GB' } },
+        ],
+        []
+      )
+    ).toEqual(['storage']);
   });
 });

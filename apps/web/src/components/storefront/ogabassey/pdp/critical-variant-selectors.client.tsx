@@ -6,12 +6,10 @@ import {
   getAvailableOptionsForAxis,
 } from '@/components/storefront/ogabassey/variant-attributes';
 
-// Color is represented by product imagery, color_hex is only swatch metadata,
-// and condition is handled by product/SKU pricing instead of visible buttons.
+// Color is represented by product imagery, and color_hex is only swatch metadata.
 const NON_RENDERABLE_CRITICAL_VARIANT_AXES = new Set([
   'color',
   'color_hex',
-  'condition',
 ]);
 
 interface OgabasseyPdpCriticalVariantSelectorsProps {
@@ -26,6 +24,7 @@ interface OgabasseyPdpCriticalVariantSelectorsProps {
 function formatVariantAxisLabel(axis: string) {
   const labels: Record<string, string> = {
     color: 'Color',
+    condition: 'Condition',
     connectivity: 'Connectivity',
     gpu: 'GPU',
     platform: 'Platform',
@@ -58,11 +57,30 @@ function getVariantAxisOptions(
             ])
           );
 
-          return normalizedAttributes[normalizedAxis];
+          return normalizedAxis === 'condition'
+            ? variant.condition
+            : normalizedAttributes[normalizedAxis];
         })
         .filter((value): value is string => Boolean(value))
     )
   );
+}
+
+function isRenderableCriticalVariantAxis(
+  axis: string,
+  variants: CartProduct['variants']
+) {
+  if (!axis || NON_RENDERABLE_CRITICAL_VARIANT_AXES.has(axis)) {
+    return false;
+  }
+
+  const options = getVariantAxisOptions(variants, axis);
+
+  if (axis === 'condition') {
+    return options.length > 1;
+  }
+
+  return options.length > 0;
 }
 
 export function getRenderableCriticalVariantAxes(
@@ -70,10 +88,7 @@ export function getRenderableCriticalVariantAxes(
   variants: CartProduct['variants']
 ) {
   return Array.from(new Set(axes.map(canonicalizeVariantAxis))).filter(
-    (axis) =>
-      axis &&
-      !NON_RENDERABLE_CRITICAL_VARIANT_AXES.has(axis) &&
-      getVariantAxisOptions(variants, axis).length > 0
+    (axis) => isRenderableCriticalVariantAxis(axis, variants)
   );
 }
 

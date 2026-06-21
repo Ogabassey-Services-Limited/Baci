@@ -6,7 +6,11 @@ describe('normalizeVariantOptions', () => {
       normalizeVariantOptions({
         colors: ['Red'],
         colorImages: { Blue: ['blue.png'] },
-        attributes: { storage: ['128GB'], material: ['Steel'] },
+        attributes: {
+          condition: ['used', 'new'],
+          material: ['Steel'],
+          storage: ['128GB'],
+        },
       })
     ).toMatchObject({
       hasImageDrivenColors: true,
@@ -25,9 +29,10 @@ describe('normalizeVariantOptions', () => {
         {
           id: 'variant-128',
           name: 'Red 128GB',
+          condition: 'used',
           price: 1000,
           stock_quantity: 2,
-          attributes: { storage: '128GB', finish: 'Matte' },
+          attributes: { condition: 'used', finish: 'Matte', storage: '128GB' },
         },
       ],
     });

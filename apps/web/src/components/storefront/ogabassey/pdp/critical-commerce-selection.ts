@@ -110,20 +110,26 @@ export function normalizeCriticalVariantProduct(
 export function getVariantAxesWithMultipleOptions(variants: ProductVariant[]) {
   const axisValues: Record<string, Set<string>> = {};
 
+  const addAxisValue = (rawAxis: string, value: string | null | undefined) => {
+    const axis = canonicalizeVariantAxis(rawAxis);
+    const trimmedValue = value?.trim();
+
+    if (!axis || !trimmedValue) {
+      return;
+    }
+
+    if (!axisValues[axis]) {
+      axisValues[axis] = new Set<string>();
+    }
+
+    axisValues[axis].add(trimmedValue);
+  };
+
   for (const variant of variants) {
+    addAxisValue('condition', variant.condition);
+
     for (const [rawAxis, value] of Object.entries(variant.attributes || {})) {
-      const axis = canonicalizeVariantAxis(rawAxis);
-      const trimmedValue = value.trim();
-
-      if (!axis || !trimmedValue) {
-        continue;
-      }
-
-      if (!axisValues[axis]) {
-        axisValues[axis] = new Set<string>();
-      }
-
-      axisValues[axis].add(trimmedValue);
+      addAxisValue(rawAxis, value);
     }
   }
 
@@ -150,6 +156,10 @@ export function pickInitialSelectedAttributes({
   const normalizedSelectionAttributes = normalizeCriticalVariantAttributes(
     selection.attributes
   );
+  const normalizedSelectionCondition = selection.condition?.trim();
+  if (normalizedSelectionCondition) {
+    normalizedSelectionAttributes.condition = normalizedSelectionCondition;
+  }
   const selectableAxes = new Set([
     ...renderableVariantAxes.map(canonicalizeVariantAxis).filter(Boolean),
     ...Object.keys(normalizedExplicitAttributes),

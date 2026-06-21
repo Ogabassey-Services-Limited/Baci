@@ -29,6 +29,50 @@ describe('getRenderableCriticalVariantAxes', () => {
     ).toEqual(['storage', 'ram']);
   });
 
+  it('shows condition only when multiple SKU conditions exist', () => {
+    expect(
+      getRenderableCriticalVariantAxes(['condition', 'storage'], [
+        {
+          attributes: { storage: '128GB' },
+          condition: 'used',
+          id: 'variant-used',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 2,
+        },
+        {
+          attributes: { storage: '128GB' },
+          condition: 'new',
+          id: 'variant-new',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 2,
+        },
+      ])
+    ).toEqual(['condition', 'storage']);
+
+    expect(
+      getRenderableCriticalVariantAxes(['condition', 'storage'], [
+        {
+          attributes: { storage: '128GB' },
+          condition: 'used',
+          id: 'variant-used-a',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 2,
+        },
+        {
+          attributes: { storage: '256GB' },
+          condition: 'used',
+          id: 'variant-used-b',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 2,
+        },
+      ])
+    ).toEqual(['storage']);
+  });
+
   it('keeps a single-option visible axis selected for display', () => {
     expect(
       getRenderableCriticalVariantAxes(['storage', 'color'], [
@@ -164,6 +208,48 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
     expect(
       screen.getByRole('button', { name: /select 128gb storage/i })
     ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('renders multi-condition options from top-level variant conditions', () => {
+    const onAttributeSelection = vi.fn();
+
+    render(
+      <OgabasseyPdpCriticalVariantSelectors
+        onAttributeSelection={onAttributeSelection}
+        renderableVariantAxes={['condition']}
+        selectedAttributes={{ condition: 'used' }}
+        variantCount={2}
+        variants={[
+          {
+            attributes: { storage: '128GB' },
+            condition: 'used',
+            id: 'variant-used',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+          {
+            attributes: { storage: '128GB' },
+            condition: 'new',
+            id: 'variant-new',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Condition:')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /select used condition/i })
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select new condition/i })
+    );
+
+    expect(onAttributeSelection).toHaveBeenCalledWith('condition', 'new');
   });
 
   it('disables options that cannot produce a real SKU from explicit selections', () => {

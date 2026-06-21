@@ -62,7 +62,20 @@ function CriticalCommerceStateProbe() {
       <p>{commerce.productForCart.price}</p>
       <p>{commerce.canAddToCart ? 'ready' : 'blocked'}</p>
       <p>axes:{commerce.renderableVariantAxes.join(',')}</p>
+      <p>selected condition:{commerce.selectedAttributes.condition || ''}</p>
       <p>selected storage:{commerce.selectedAttributes.storage || ''}</p>
+      <button
+        onClick={() => commerce.handleAttributeSelection('condition', 'new')}
+        type="button"
+      >
+        Select new condition
+      </button>
+      <button
+        onClick={() => commerce.handleAttributeSelection('condition', 'used')}
+        type="button"
+      >
+        Select used condition
+      </button>
       <button
         onClick={() => commerce.handleAttributeSelection('storage', '256GB')}
         type="button"
@@ -215,6 +228,71 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
       expect.objectContaining({
         condition: 'used',
         variantId: 'variant-used-128',
+      })
+    );
+  });
+
+  it('uses the selected multi-condition SKU for price and cart options', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          price: 552_000,
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 500_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 3,
+            },
+            {
+              attributes: { storage: '128GB' },
+              condition: 'new',
+              id: 'variant-new-128',
+              merchant_id: 'merchant-1',
+              price_override: 552_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 5,
+            },
+          ],
+        }}
+        variantAxes={['condition', 'storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    // The initial summary state comes from the default purchasable SKU, not
+    // the parent product's stale condition or base price.
+    expect(screen.getByText('500000')).toBeInTheDocument();
+    expect(screen.getByText('selected condition:used')).toBeInTheDocument();
+    expect(screen.getByText('ready')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select new condition/i })
+    );
+
+    expect(screen.getByText('552000')).toBeInTheDocument();
+    expect(screen.getByText('selected condition:new')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(cartMocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        condition: 'new',
+        price: 552_000,
+        stock: 5,
+      }),
+      1,
+      expect.objectContaining({
+        condition: 'new',
+        storage: '128GB',
+        variantId: 'variant-new-128',
       })
     );
   });

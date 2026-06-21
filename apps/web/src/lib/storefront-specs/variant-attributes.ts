@@ -5,6 +5,7 @@ interface VariantAttributeDefinition {
 
 interface VariantAttributeCarrier {
   attributes?: Record<string, string> | null;
+  condition?: string | null;
 }
 
 export type VariantAttributeSource =
@@ -108,6 +109,33 @@ export function getVariantAttributeOptions(
   return normalizeVariantAttributes(source)[normalizedAxis] || [];
 }
 
+function getVariantAxisValue(variant: VariantAttributeCarrier, axis: string) {
+  if (axis === 'condition') {
+    return variant.condition;
+  }
+
+  const normalizedAttributes = Object.fromEntries(
+    Object.entries(variant.attributes ?? {}).map(([rawAxis, value]) => [
+      canonicalizeVariantAxis(rawAxis),
+      value,
+    ])
+  );
+
+  return normalizedAttributes[axis];
+}
+
+function isRenderableVariantAxis(axis: string, options: string[]) {
+  if (axis === 'color' || axis === 'color_hex') {
+    return false;
+  }
+
+  if (axis === 'condition') {
+    return options.length > 1;
+  }
+
+  return options.length > 0;
+}
+
 export function mergeVariantAxisOptions(
   variants: VariantAttributeCarrier[] | null | undefined,
   source: VariantAttributeSource
@@ -123,6 +151,8 @@ export function mergeVariantAxisOptions(
 
       pushUniqueOption(axisOptions, axis, value);
     }
+
+    pushUniqueOption(axisOptions, 'condition', variant.condition);
   }
 
   return axisOptions;
@@ -147,18 +177,12 @@ export function getAvailableOptionsForAxis(
 
   const reachable = new Set<string>();
   for (const variant of variants ?? []) {
-    // Canonicalize raw attribute keys so lookups match normalizedSelections keys
-    const attrs = Object.fromEntries(
-      Object.entries(variant.attributes ?? {}).map(([k, v]) => [
-        canonicalizeVariantAxis(k),
-        v,
-      ])
-    );
     const matchesAll = Object.entries(normalizedSelections).every(
-      ([k, v]) => attrs[k] === v
+      ([selectionAxis, value]) =>
+        getVariantAxisValue(variant, selectionAxis) === value
     );
     if (matchesAll) {
-      const value = attrs[normalizedAxis];
+      const value = getVariantAxisValue(variant, normalizedAxis);
       if (typeof value === 'string' && value.trim()) {
         reachable.add(value.trim());
       }
@@ -171,8 +195,8 @@ export function getRenderableVariantAxes(
   variants: VariantAttributeCarrier[] | null | undefined,
   source: VariantAttributeSource
 ) {
-  const nonRenderableAxes = new Set(['color', 'color_hex', 'condition']);
   const priorityOrder = [
+    'condition',
     'storage',
     'ram',
     'sim_type',
@@ -182,9 +206,7 @@ export function getRenderableVariantAxes(
   ];
 
   return Object.entries(mergeVariantAxisOptions(variants, source))
-    .filter(
-      ([axis, options]) => options.length > 0 && !nonRenderableAxes.has(axis)
-    )
+    .filter(([axis, options]) => isRenderableVariantAxis(axis, options))
     .sort(([leftAxis], [rightAxis]) => {
       const leftPriority = priorityOrder.indexOf(leftAxis);
       const rightPriority = priorityOrder.indexOf(rightAxis);
