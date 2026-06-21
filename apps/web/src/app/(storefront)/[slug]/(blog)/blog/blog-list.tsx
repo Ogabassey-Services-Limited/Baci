@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { fetchMorePosts } from './actions';
+import { formatBlogListDateLabel } from './blog-date-label';
 
 interface BlogPost {
   id: string;
@@ -145,62 +146,71 @@ export function BlogList({
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {posts.map((post) => (
-            <Link key={post.id} href={`${basePath}/blog/${post.slug}` as Route}>
-              <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden group">
-                {post.featured_image_url && (
-                  <div className="aspect-video overflow-hidden relative">
-                    <Image
-                      src={post.featured_image_url}
-                      alt={post.featured_image_alt || post.title}
-                      fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                )}
-                <CardHeader>
-                  {post.category && (
-                    <Badge variant="secondary" className="w-fit mb-2">
-                      {post.category}
-                    </Badge>
-                  )}
-                  <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors">
-                    {post.title}
-                  </CardTitle>
-                  {post.excerpt && (
-                    <CardDescription className="line-clamp-3">
-                      {post.excerpt}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <User className="size-3.5" />
-                      <span className="truncate max-w-[100px]">
-                        {post.author_name}
-                      </span>
+          {posts.map((post) => {
+            const publishedDateLabel = formatBlogListDateLabel(
+              post.published_at
+            );
+
+            return (
+              <Link
+                key={post.id}
+                href={`${basePath}/blog/${post.slug}` as Route}
+              >
+                <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden group">
+                  {post.featured_image_url && (
+                    <div className="aspect-video overflow-hidden relative">
+                      <Image
+                        src={post.featured_image_url}
+                        alt={post.featured_image_alt || post.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     </div>
-                    {post.published_at && (
+                  )}
+                  <CardHeader>
+                    {post.category && (
+                      <Badge variant="secondary" className="w-fit mb-2">
+                        {post.category}
+                      </Badge>
+                    )}
+                    <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors">
+                      {post.title}
+                    </CardTitle>
+                    {post.excerpt && (
+                      <CardDescription className="line-clamp-3">
+                        {post.excerpt}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
-                        <Calendar className="size-3.5" />
-                        <span>
-                          {new Date(post.published_at).toLocaleDateString()}
+                        <User className="size-3.5" />
+                        <span className="truncate max-w-[100px]">
+                          {post.author_name}
                         </span>
                       </div>
-                    )}
-                    {post.reading_time_minutes && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="size-3.5" />
-                        <span>{post.reading_time_minutes} min</span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                      {publishedDateLabel && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="size-3.5" />
+                          <time dateTime={post.published_at}>
+                            {publishedDateLabel}
+                          </time>
+                        </div>
+                      )}
+                      {post.reading_time_minutes && (
+                        <div className="flex items-center gap-1">
+                          <Clock className="size-3.5" />
+                          <span>{post.reading_time_minutes} min</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
 

@@ -24,6 +24,7 @@ interface BlogListPost {
 interface DefaultBlogUiProps {
   blogSchema: Record<string, unknown>;
   breadcrumbSchema: Record<string, unknown>;
+  itemListSchema?: Record<string, unknown>;
   basePath: string;
   categories: string[];
   category?: string;
@@ -40,6 +41,7 @@ interface DefaultBlogUiProps {
 export function DefaultBlogUi({
   blogSchema,
   breadcrumbSchema,
+  itemListSchema,
   basePath,
   categories,
   category,
@@ -57,6 +59,11 @@ export function DefaultBlogUi({
       <script type="application/ld+json">
         {safeJsonLdStringify(breadcrumbSchema)}
       </script>
+      {itemListSchema && (
+        <script type="application/ld+json">
+          {safeJsonLdStringify(itemListSchema)}
+        </script>
+      )}
       <div className="min-h-screen bg-background">
         <div className="bg-card border-b">
           <div className="container mx-auto px-4 py-8">

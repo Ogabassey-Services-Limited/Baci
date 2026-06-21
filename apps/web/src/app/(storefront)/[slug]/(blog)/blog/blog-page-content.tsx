@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
@@ -27,6 +28,24 @@ function parseBlogListingPage(page?: string): number {
   return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
 }
 
+function buildBlogListingSchemaUrl({
+  baseUrl,
+  category,
+  page,
+  search,
+}: {
+  baseUrl: string;
+  category?: string;
+  page: number;
+  search?: string;
+}): string {
+  const url = new URL('blog', baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
+  if (category) url.searchParams.set('category', category);
+  if (search) url.searchParams.set('search', search);
+  if (page > 1) url.searchParams.set('page', String(page));
+  return url.toString();
+}
+
 export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   const { slug } = await params;
   const { category, page, search } = await searchParams;
@@ -40,6 +59,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
     notFound();
   }
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
+  const effectiveSearchQuery = searchQuery ?? search;
   const publicCategories = filterPublicBlogCategories(categories);
   const baseUrl = buildStoreUrl(merchant);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
@@ -89,6 +109,29 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       };
     }),
   };
+  const itemListPosts = posts.slice(0, 10);
+  const itemListPositionOffset = (currentPage - 1) * BLOG_LISTING_PAGE_SIZE;
+  const itemListSchema =
+    itemListPosts.length > 0
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: `${merchant.business_name} Blog articles`,
+          url: buildBlogListingSchemaUrl({
+            baseUrl,
+            category,
+            page: currentPage,
+            search,
+          }),
+          numberOfItems: totalPosts,
+          itemListElement: itemListPosts.map((post, index) => ({
+            '@type': 'ListItem',
+            position: itemListPositionOffset + index + 1,
+            url: `${baseUrl}/blog/${post.slug}`,
+            name: post.title,
+          })),
+        }
+      : undefined;
   const breadcrumbSchema = generateBreadcrumbSchema([
     {
       name: merchant.business_name,
@@ -147,11 +190,12 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
             <TemplateBlogRenderer
               blogSchema={blogSchema}
               breadcrumbSchema={breadcrumbSchema}
+              itemListSchema={effectiveSearchQuery ? undefined : itemListSchema}
               BlogComponent={templateBlogUi.BlogComponent}
               basePath={basePath}
               blogPosts={templateBlogUi.posts}
               categories={templateBlogUi.categories}
-              searchQuery={searchQuery}
+              searchQuery={effectiveSearchQuery}
             />
             <InformationalClusterIndex collections={guideCollections} />
             <BlogDiscoverySection
@@ -169,12 +213,13 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       <DefaultBlogUi
         blogSchema={blogSchema}
         breadcrumbSchema={breadcrumbSchema}
+        itemListSchema={itemListSchema}
         basePath={basePath}
         categories={publicCategories}
         category={category}
         merchant={merchant}
         posts={posts}
-        searchQuery={searchQuery}
+        searchQuery={effectiveSearchQuery}
         slug={slug}
         totalPosts={totalPosts}
       />

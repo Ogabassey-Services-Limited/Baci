@@ -192,8 +192,8 @@ async function renderBlogPostContent({
                 src={post.featured_image_url || '/placeholder.png'}
                 alt={post.featured_image_alt || post.title}
                 fill
-                priority
                 className="object-cover"
+                preload
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
                 quality={75}
               />
