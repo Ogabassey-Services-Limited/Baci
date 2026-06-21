@@ -78,12 +78,14 @@ describe('GET /api/cron/storefront-update-nudge', () => {
 
     expect(response.status).toBe(200);
     expect(mockNotify).toHaveBeenCalledTimes(1);
-    expect(mockNotify).toHaveBeenCalledWith({
-      platform: 'android',
-      latestBuild: 646,
-      storeUrl:
-        'https://play.google.com/store/apps/details?id=com.ogabassey.store',
-    });
+    expect(mockNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        platform: 'android',
+        latestBuild: 646,
+        storeUrl:
+          'https://play.google.com/store/apps/details?id=com.ogabassey.store',
+      })
+    );
     expect(body.results).toContainEqual({
       platform: 'ios',
       skipped: 'no_latest_build',
@@ -107,9 +109,28 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     );
   });
 
-  it('records an error outcome when a platform send throws', async () => {
+  it('returns 500 when every attempted platform send fails (pages ops)', async () => {
     vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
     vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
+    mockNotify.mockRejectedValueOnce(new Error('expo down'));
+
+    const response = await GET(cronRequest(`Bearer ${SECRET}`));
+    const body = await response.json();
+
+    // Only Android was attempted and it failed → total failure → non-2xx so the
+    // VPS scheduler (run-web-cron.mjs) exits non-zero and alerts.
+    expect(response.status).toBe(500);
+    expect(body.results).toContainEqual({
+      platform: 'android',
+      skipped: 'error',
+    });
+  });
+
+  it('stays 200 on partial failure so a healthy platform still nudges', async () => {
+    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
+    vi.stubEnv('MOBILE_STOREFRONT_IOS_LATEST_BUILD', '390');
+    // Android throws; iOS succeeds (default mockResolvedValue from beforeEach).
     mockNotify.mockRejectedValueOnce(new Error('expo down'));
 
     const response = await GET(cronRequest(`Bearer ${SECRET}`));

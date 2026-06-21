@@ -44,7 +44,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ skipped: 'updates_disabled', results: [] });
   }
 
+  // Optional operator-controlled copy; falls back to the send fn's default.
+  const body =
+    process.env.MOBILE_STOREFRONT_UPDATE_MESSAGE?.trim() || undefined;
+
   const results: PlatformOutcome[] = [];
+  let attempted = 0;
+  let errored = 0;
 
   for (const platform of PLATFORMS) {
     const latestBuild = parseBuildNumber(
@@ -55,14 +61,17 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
+    attempted += 1;
     try {
       const result = await notifyStorefrontUpdateAvailable({
         platform,
         latestBuild,
         storeUrl: readMobilePlatformEnv(platform, 'STORE_URL'),
+        body,
       });
       results.push(result);
     } catch (error) {
+      errored += 1;
       logger.error({
         message: 'Storefront update nudge failed',
         platform,
@@ -70,6 +79,13 @@ export async function GET(request: NextRequest) {
       });
       results.push({ platform, skipped: 'error' });
     }
+  }
+
+  // If every attempted platform failed, return non-2xx so the VPS scheduler
+  // (run-web-cron.mjs exits non-zero) alerts. A partial failure stays 200 so
+  // one platform's outage doesn't suppress the other's successful nudge.
+  if (attempted > 0 && errored === attempted) {
+    return NextResponse.json({ results }, { status: 500 });
   }
 
   return NextResponse.json({ results });
