@@ -6,18 +6,61 @@ import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
-import { BlogPageContent, type BlogPageProps } from './blog-page-content';
+import {
+  BlogPageContent,
+  type BlogPageProps,
+  buildBlogListingRouteHref,
+} from './blog-page-content';
+
+function parseBlogMetadataPage(page?: string): number {
+  const parsedPage = Number.parseInt(String(page ?? '1'), 10);
+  return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+}
+
+function buildAbsoluteBlogListingUrl({
+  baseUrl,
+  category,
+  page,
+  search,
+}: {
+  baseUrl: string;
+  category?: string;
+  page: number;
+  search?: string;
+}): string {
+  const relativeHref = buildBlogListingRouteHref({
+    basePath: '',
+    category,
+    page,
+    search,
+  });
+  return new URL(relativeHref, baseUrl).toString();
+}
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: BlogPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const data = await getCachedBlogListing(slug, { page: 1 });
+  const { category, page, search } = await searchParams;
+  const currentPage = parseBlogMetadataPage(page);
+  const data = await getCachedBlogListing(slug, {
+    category,
+    page: currentPage,
+    searchQuery: search,
+  });
   if (!data) {
     return { title: 'Blog Not Found' };
   }
   const baseUrl = buildStoreUrl(data.merchant);
-  const canonicalUrl = `${baseUrl}/blog`;
+  const totalPages = Math.max(1, data.totalPages);
+  const canonicalPage = Math.min(currentPage, totalPages);
+  const canonicalUrl = buildAbsoluteBlogListingUrl({
+    baseUrl,
+    category,
+    page: canonicalPage,
+    search: data.searchQuery ?? search,
+  });
   const socialImageCandidates = [
     data.posts[0]?.featured_image_url,
     data.merchant.logo_url,
@@ -30,7 +73,25 @@ export async function generateMetadata({
       fallback: `Read expert buying guides, product comparisons, and tech updates from ${data.merchant.business_name}. Find practical recommendations tailored for shoppers in Nigeria.`,
     }
   );
-  const nextUrl = data.totalPages > 1 ? `${baseUrl}/blog?page=2` : undefined;
+  const effectiveSearchQuery = data.searchQuery ?? search;
+  const previousUrl =
+    canonicalPage > 1
+      ? buildAbsoluteBlogListingUrl({
+          baseUrl,
+          category,
+          page: canonicalPage - 1,
+          search: effectiveSearchQuery,
+        })
+      : undefined;
+  const nextUrl =
+    canonicalPage < totalPages
+      ? buildAbsoluteBlogListingUrl({
+          baseUrl,
+          category,
+          page: canonicalPage + 1,
+          search: effectiveSearchQuery,
+        })
+      : undefined;
 
   return {
     title: `Blog | ${data.merchant.business_name}`,
@@ -60,6 +121,7 @@ export async function generateMetadata({
       },
     },
     other: {
+      ...(previousUrl ? { 'link-prev': previousUrl } : {}),
       ...(nextUrl ? { 'link-next': nextUrl } : {}),
     },
     robots: {

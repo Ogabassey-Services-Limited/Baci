@@ -22,7 +22,7 @@ import { BlogListingPagination } from './blog-listing-pagination';
 describe('BlogListingPagination', () => {
   it('renders nothing when there is only one page', () => {
     const { container } = render(
-      <BlogListingPagination basePath="" currentPage={1} totalPages={1} />
+      <BlogListingPagination storeBasePath="" currentPage={1} totalPages={1} />
     );
 
     expect(container).toBeEmptyDOMElement();
@@ -30,7 +30,7 @@ describe('BlogListingPagination', () => {
 
   it('renders crawlable prev/next/page links with correct hrefs', () => {
     render(
-      <BlogListingPagination basePath="" currentPage={3} totalPages={36} />
+      <BlogListingPagination storeBasePath="" currentPage={3} totalPages={36} />
     );
 
     expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
@@ -59,22 +59,46 @@ describe('BlogListingPagination', () => {
 
   it('omits Previous on the first page and Next on the last page', () => {
     const { rerender } = render(
-      <BlogListingPagination basePath="" currentPage={1} totalPages={10} />
+      <BlogListingPagination storeBasePath="" currentPage={1} totalPages={10} />
     );
     expect(screen.queryByRole('link', { name: 'Previous' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Next' })).toBeInTheDocument();
 
     rerender(
-      <BlogListingPagination basePath="" currentPage={10} totalPages={10} />
+      <BlogListingPagination
+        storeBasePath=""
+        currentPage={10}
+        totalPages={10}
+      />
     );
     expect(screen.getByRole('link', { name: 'Previous' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Next' })).toBeNull();
   });
 
+  it('clamps out-of-range current pages when rendering navigation', () => {
+    render(
+      <BlogListingPagination
+        storeBasePath=""
+        currentPage={999}
+        totalPages={5}
+      />
+    );
+
+    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
+      'href',
+      '/blog?page=4'
+    );
+    expect(screen.queryByRole('link', { name: 'Next' })).toBeNull();
+    expect(screen.getByRole('link', { name: '5' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
+
   it('preserves the active category/search filter and the slug base path', () => {
     render(
       <BlogListingPagination
-        basePath="/acme"
+        storeBasePath="/acme"
         currentPage={2}
         totalPages={5}
         category="phones"

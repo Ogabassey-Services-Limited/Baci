@@ -37,6 +37,7 @@ interface DefaultBlogUiProps {
   searchQuery?: string;
   slug: string;
   totalPosts: number;
+  currentPage?: number;
 }
 
 export function DefaultBlogUi({
@@ -52,6 +53,7 @@ export function DefaultBlogUi({
   searchQuery,
   slug,
   totalPosts,
+  currentPage = 1,
 }: DefaultBlogUiProps) {
   return (
     <>
@@ -148,6 +150,7 @@ export function DefaultBlogUi({
             category={category}
             searchQuery={searchQuery}
             basePath={basePath}
+            initialPage={currentPage}
           />
         </main>
       </div>

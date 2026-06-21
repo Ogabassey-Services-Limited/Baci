@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { fetchMorePosts } from './actions';
 import { formatBlogListDateLabel } from './blog-date-label';
 
@@ -38,6 +39,7 @@ interface BlogListProps {
   category?: string;
   searchQuery?: string;
   basePath: string;
+  initialPage?: number;
 }
 
 export function BlogList({
@@ -47,10 +49,13 @@ export function BlogList({
   category,
   searchQuery,
   basePath,
+  initialPage = 1,
 }: BlogListProps) {
   const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(initialPosts.length < totalPosts);
+  const [page, setPage] = useState(initialPage);
+  const [hasMore, setHasMore] = useState(
+    initialPage * BLOG_LISTING_PAGE_SIZE < totalPosts
+  );
   const [isPending, startTransition] = useTransition();
   const sentinelRef = useRef<HTMLDivElement>(null);
   // The IntersectionObserver effect only re-runs when hasMore/isPending change;
@@ -63,12 +68,18 @@ export function BlogList({
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   const [prevInitialPosts, setPrevInitialPosts] = useState(initialPosts);
   const [prevTotalPosts, setPrevTotalPosts] = useState(totalPosts);
-  if (initialPosts !== prevInitialPosts || totalPosts !== prevTotalPosts) {
+  const [prevInitialPage, setPrevInitialPage] = useState(initialPage);
+  if (
+    initialPosts !== prevInitialPosts ||
+    totalPosts !== prevTotalPosts ||
+    initialPage !== prevInitialPage
+  ) {
     setPrevInitialPosts(initialPosts);
     setPrevTotalPosts(totalPosts);
+    setPrevInitialPage(initialPage);
     setPosts(initialPosts);
-    setPage(1);
-    setHasMore(initialPosts.length < totalPosts);
+    setPage(initialPage);
+    setHasMore(initialPage * BLOG_LISTING_PAGE_SIZE < totalPosts);
   }
 
   const loadMore = () => {

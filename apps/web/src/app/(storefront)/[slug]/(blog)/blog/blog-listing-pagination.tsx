@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { asRoute } from '@/lib/routes';
 
 interface BlogListingPaginationProps {
-  basePath: string;
+  storeBasePath: string;
   currentPage: number;
   totalPages: number;
   category?: string;
@@ -10,16 +10,10 @@ interface BlogListingPaginationProps {
 }
 
 /**
- * Server-rendered, crawlable pagination for the blog listing. The listing's
- * "load more" is client-side infinite scroll, which crawlers (and Googlebot,
- * which does not reliably scroll) never trigger — so without these `<a>` links
- * only the first page of posts is reachable on-page. These links give crawlers
- * a path to every page and distribute internal-link equity to deeper posts,
- * while preserving the active category/search filter. Page 1 stays param-free
- * to match the canonical `/blog` URL.
+ * Store-base path excludes the /blog segment so links cannot double-append it.
  */
 function buildPageHref(
-  basePath: string,
+  storeBasePath: string,
   page: number,
   category?: string,
   search?: string
@@ -29,7 +23,7 @@ function buildPageHref(
   if (search) params.set('search', search);
   if (page > 1) params.set('page', String(page));
   const queryString = params.toString();
-  return `${basePath}/blog${queryString ? `?${queryString}` : ''}`;
+  return `${storeBasePath}/blog${queryString ? `?${queryString}` : ''}`;
 }
 
 function getPageWindow(
@@ -60,7 +54,7 @@ const ACTIVE_CLASS =
   'inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-primary bg-primary px-3 text-sm font-semibold text-primary-foreground';
 
 export function BlogListingPagination({
-  basePath,
+  storeBasePath,
   currentPage,
   totalPages,
   category,
@@ -70,17 +64,18 @@ export function BlogListingPagination({
     return null;
   }
 
-  const items = getPageWindow(currentPage, totalPages);
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const items = getPageWindow(safeCurrentPage, totalPages);
 
   return (
     <nav
       aria-label="Blog pagination"
       className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-center gap-2 px-4 py-10"
     >
-      {currentPage > 1 ? (
+      {safeCurrentPage > 1 ? (
         <Link
           href={asRoute(
-            buildPageHref(basePath, currentPage - 1, category, search)
+            buildPageHref(storeBasePath, safeCurrentPage - 1, category, search)
           )}
           rel="prev"
           className={LINK_CLASS}
@@ -101,19 +96,23 @@ export function BlogListingPagination({
         ) : (
           <Link
             key={item.key}
-            href={asRoute(buildPageHref(basePath, item.page, category, search))}
-            aria-current={item.page === currentPage ? 'page' : undefined}
-            className={item.page === currentPage ? ACTIVE_CLASS : LINK_CLASS}
+            href={asRoute(
+              buildPageHref(storeBasePath, item.page, category, search)
+            )}
+            aria-current={item.page === safeCurrentPage ? 'page' : undefined}
+            className={
+              item.page === safeCurrentPage ? ACTIVE_CLASS : LINK_CLASS
+            }
           >
             {item.page}
           </Link>
         )
       )}
 
-      {currentPage < totalPages ? (
+      {safeCurrentPage < totalPages ? (
         <Link
           href={asRoute(
-            buildPageHref(basePath, currentPage + 1, category, search)
+            buildPageHref(storeBasePath, safeCurrentPage + 1, category, search)
           )}
           rel="next"
           className={LINK_CLASS}

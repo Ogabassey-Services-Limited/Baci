@@ -54,7 +54,7 @@ describe('blog page metadata', () => {
     ]);
   });
 
-  it('keeps metadata on the canonical blog listing regardless of pagination', async () => {
+  it('uses a self-canonical URL for paginated blog listings', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({
         merchant: {
@@ -62,6 +62,7 @@ describe('blog page metadata', () => {
           slug: 'ogabassey',
           custom_domain: 'example.com',
         },
+        totalPosts: 50,
       })
     );
 
@@ -70,10 +71,15 @@ describe('blog page metadata', () => {
       searchParams: Promise.resolve({ page: '2' }),
     });
 
-    expect(metadata.alternates?.canonical).toBe('https://example.com/blog');
-    expect(metadata.openGraph?.url).toBe('https://example.com/blog');
+    expect(metadata.alternates?.canonical).toBe(
+      'https://example.com/blog?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe('https://example.com/blog?page=2');
+    expect(metadata.other).toMatchObject({
+      'link-prev': 'https://example.com/blog',
+    });
     expect(mockGetCachedBlogListing).toHaveBeenCalledWith('example.com', {
-      page: 1,
+      page: 2,
     });
   });
 

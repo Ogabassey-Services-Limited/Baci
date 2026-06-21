@@ -8,6 +8,7 @@ import {
   mockDefaultBlogUi,
   mockGetCachedBlogListing,
   mockNotFound,
+  mockRedirect,
   postsPayload,
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
@@ -97,6 +98,23 @@ describe('BlogPageContent', () => {
       guideCollections.compareDocumentPosition(discoveryLinks) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
+  });
+
+  it('redirects out-of-range paginated listings to the last real page', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({ totalPosts: 50, posts: [] })
+    );
+
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ page: '999', category: 'Guides' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:/ogabassey/blog?category=Guides&page=5');
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/ogabassey/blog?category=Guides&page=5'
+    );
   });
 
   it('uses structured image variants and preserves listing pagination totals', async () => {

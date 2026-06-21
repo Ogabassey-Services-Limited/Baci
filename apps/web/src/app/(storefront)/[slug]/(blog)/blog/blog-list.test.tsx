@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BlogList } from './blog-list';
@@ -6,6 +6,10 @@ import { BlogList } from './blog-list';
 const { mockFetchMorePosts } = vi.hoisted(() => ({
   mockFetchMorePosts: vi.fn(),
 }));
+
+let intersectionCallback:
+  | ((entries: Array<{ isIntersecting: boolean }>) => void)
+  | undefined;
 
 vi.mock('next/image', () => ({
   default: ({ alt }: { alt: string }) => <span aria-label={alt} role="img" />,
@@ -39,9 +43,15 @@ const blogPost = {
 describe('BlogList', () => {
   beforeEach(() => {
     mockFetchMorePosts.mockReset();
+    intersectionCallback = undefined;
     vi.stubGlobal(
       'IntersectionObserver',
       class {
+        constructor(
+          callback: (entries: Array<{ isIntersecting: boolean }>) => void
+        ) {
+          intersectionCallback = callback;
+        }
         observe = vi.fn();
         disconnect = vi.fn();
         unobserve = vi.fn();
@@ -85,5 +95,30 @@ describe('BlogList', () => {
     expect(
       screen.getByRole('img', { name: 'Phones on a table' })
     ).toBeInTheDocument();
+  });
+
+  it('continues infinite loading from the selected server-rendered page', () => {
+    mockFetchMorePosts.mockResolvedValueOnce([]);
+
+    render(
+      <BlogList
+        initialPosts={[blogPost]}
+        initialPage={3}
+        merchantId="merchant-1"
+        totalPosts={48}
+        basePath="/ogabassey"
+      />
+    );
+
+    act(() => {
+      intersectionCallback?.([{ isIntersecting: true }]);
+    });
+
+    expect(mockFetchMorePosts).toHaveBeenCalledWith(
+      'merchant-1',
+      4,
+      undefined,
+      undefined
+    );
   });
 });

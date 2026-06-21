@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
@@ -7,6 +7,7 @@ import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
+import { asRoute } from '@/lib/routes';
 import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
@@ -29,6 +30,25 @@ export interface BlogPageProps {
 function parseBlogListingPage(page?: string): number {
   const parsedPage = Number.parseInt(String(page ?? '1'), 10);
   return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+}
+
+export function buildBlogListingRouteHref({
+  basePath,
+  category,
+  page,
+  search,
+}: {
+  basePath: string;
+  category?: string;
+  page: number;
+  search?: string;
+}): string {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (search) params.set('search', search);
+  if (page > 1) params.set('page', String(page));
+  const queryString = params.toString();
+  return `${basePath}/blog${queryString ? `?${queryString}` : ''}`;
 }
 
 function buildBlogListingSchemaUrl({
@@ -75,6 +95,19 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       ? organizationSchema['@id']
       : buildBlogOrganizationId(baseUrl);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+
+  if (currentPage > totalPages) {
+    redirect(
+      asRoute(
+        buildBlogListingRouteHref({
+          basePath,
+          category,
+          page: totalPages,
+          search: effectiveSearchQuery,
+        })
+      )
+    );
+  }
   const guideCollections = buildBlogClusterCollections({
     storeUrl: baseUrl,
     posts: posts.map((post) => ({
@@ -212,7 +245,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
               searchQuery={effectiveSearchQuery}
             />
             <BlogListingPagination
-              basePath={basePath}
+              storeBasePath={basePath}
               currentPage={currentPage}
               totalPages={totalPages}
               category={category}
@@ -244,9 +277,10 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
         searchQuery={effectiveSearchQuery}
         slug={slug}
         totalPosts={totalPosts}
+        currentPage={currentPage}
       />
       <BlogListingPagination
-        basePath={basePath}
+        storeBasePath={basePath}
         currentPage={currentPage}
         totalPages={totalPages}
         category={category}
