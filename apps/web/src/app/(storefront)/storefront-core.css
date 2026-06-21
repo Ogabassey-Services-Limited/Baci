@@ -331,27 +331,10 @@
     color: var(--store-primary, var(--ogabassey-brand));
   }
 
-  /* Left clearance for the absolutely-positioned glass. Lives here (core CSS,
-     loaded on every storefront route) and is keyed on the always-present
-     SearchAutocomplete root (.ogabassey-navbar-search__field) so it applies even
-     where there is no `.ogabassey-navbar-search` wrapper (the generic storefront
-     header) and on PDP/content routes whose `source(none)` stylesheets never
-     generate this lazily-loaded component's Tailwind `pl-11`. Matches the navbar
-     input's 2.75rem so the icon never crowds the text on any surface. */
-  .ogabassey-navbar-search__field input {
-    padding-left: 2.75rem;
-  }
-
-  /* Right clearance for the clear (✕) button, applied only while the field
-     holds a value (the button is rendered then). Like the left padding it lives
-     in core CSS rather than a `pr-10` Tailwind utility, which PDP/content
-     `source(none)` stylesheets would not generate for this lazily-loaded
-     component. Two-class specificity so it also wins over the navbar's
-     `.ogabassey-navbar-search input` padding shorthand. */
-  .ogabassey-navbar-search .ogabassey-navbar-search__input--has-value,
-  .ogabassey-navbar-search__field .ogabassey-navbar-search__input--has-value {
-    padding-right: 2.5rem;
-  }
+  /* NOTE: the autocomplete input's left/right padding lives UNLAYERED further
+     down (next to the navbar input geometry) — not here — because the shared
+     shadcn Input's `px-3` sits in Tailwind's utilities layer, which outranks
+     `@layer components` regardless of specificity. See that block for details. */
 
   /* Hide the native WebKit search ✕ — the component renders its own clear
      button — route-independently, for the same `source(none)` reason. */
@@ -763,6 +746,26 @@
   .ogabassey-navbar-search input {
     height: 3rem;
   }
+}
+
+/* Autocomplete input padding — unlayered for the same reason as the navbar
+   input geometry above: the shared shadcn Input emits `px-3` in Tailwind's
+   utilities layer, which outranks `@layer components` regardless of selector
+   specificity, so a layered override is silently ignored. Keyed on the
+   always-present `__field` root so it also covers the generic storefront header
+   (which has no `.ogabassey-navbar-search` wrapper) and every `source(none)`
+   route where this lazily-loaded component's own `pl-11`/`pr-10` are not
+   generated. Left clearance is for the absolutely-positioned glass. */
+.ogabassey-navbar-search__field input {
+  padding-left: 2.75rem;
+}
+
+/* Right clearance for the clear (✕) button, only while the field holds a value.
+   Two-class specificity so it also wins over the navbar input's unlayered
+   `padding-right: 1rem` above when the clear button appears. */
+.ogabassey-navbar-search .ogabassey-navbar-search__input--has-value,
+.ogabassey-navbar-search__field .ogabassey-navbar-search__input--has-value {
+  padding-right: 2.5rem;
 }
 
 /*
