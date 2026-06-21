@@ -602,6 +602,26 @@ describe('BlogPostPageContent', () => {
     );
   });
 
+  it('passes known author hub URL and stable Person id to structured data', async () => {
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        author: expect.objectContaining({
+          id: 'https://ogabassey.com#author-bolakale',
+          url: 'https://ogabassey.com/blog/author/bolakale',
+        }),
+      })
+    );
+  });
+
   it('links the byline to the author page for a known author', async () => {
     render(
       await BlogPostPageContent({

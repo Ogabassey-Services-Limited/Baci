@@ -1458,6 +1458,24 @@ describe('generateBlogPostSchema', () => {
     });
   });
 
+  it('uses an explicit author entity id separately from the profile URL', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        id: 'https://ogabassey.com#author-bassey-john',
+        url: 'https://ogabassey.com/blog/author/bassey-john',
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>)['@id']).toBe(
+      'https://ogabassey.com#author-bassey-john'
+    );
+    expect((schema.author as Record<string, unknown>).url).toBe(
+      'https://ogabassey.com/blog/author/bassey-john'
+    );
+  });
+
   it('omits isPartOf when no blogId is provided', () => {
     const schema = generateBlogPostSchema(baseBlogSchemaInput);
 

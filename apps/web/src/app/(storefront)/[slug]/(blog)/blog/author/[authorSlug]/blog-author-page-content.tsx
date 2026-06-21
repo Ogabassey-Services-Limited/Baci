@@ -45,9 +45,9 @@ export async function BlogAuthorPageContent({
 
     if (fallbackOutcome.type === 'redirect') {
       if (fallbackOutcome.status === 308) {
-        permanentRedirect(fallbackOutcome.url);
+        permanentRedirect(asRoute(fallbackOutcome.url));
       }
-      redirect(fallbackOutcome.url);
+      redirect(asRoute(fallbackOutcome.url));
     }
 
     notFound();

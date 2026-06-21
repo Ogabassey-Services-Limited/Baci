@@ -83,10 +83,17 @@ async function renderBlogPostContent({
   const blogIndexUrl = `${baseUrl}/blog`;
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
-  const authorHref =
+  const authorSlug = generateSlug(post.author_name);
+  const hasAuthorHub = Boolean(
     post.author_name && hasBlogAuthorPage(post.author_name, merchant.slug)
-      ? `${basePath}/blog/author/${generateSlug(post.author_name)}`
-      : undefined;
+  );
+  const authorHref = hasAuthorHub
+    ? `${basePath}/blog/author/${authorSlug}`
+    : undefined;
+  const authorUrl = hasAuthorHub
+    ? `${baseUrl}/blog/author/${authorSlug}`
+    : baseUrl;
+  const authorId = hasAuthorHub ? `${baseUrl}#author-${authorSlug}` : undefined;
   const blogImageUrls = getBlogStructuredDataImageUrls(post);
   const blogImages = getBlogStructuredDataImages(post);
   const faqSchema = generateFaqPageSchema(extractBlogFaqItems(content));
@@ -104,7 +111,8 @@ async function renderBlogPostContent({
     dateModified: post.updated_at,
     author: {
       name: post.author_name,
-      url: baseUrl,
+      id: authorId,
+      url: authorUrl,
       jobTitle: post.author_title,
       description: post.author_bio,
       sameAs: getBlogAuthorSameAs(post.author_name, merchant.slug),

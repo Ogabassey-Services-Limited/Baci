@@ -2308,6 +2308,7 @@ interface BlogPostSchemaData {
   dateModified?: string;
   author: {
     name: string;
+    id?: string;
     url?: string;
     jobTitle?: string;
     description?: string;
@@ -2326,6 +2327,18 @@ interface BlogPostSchemaData {
   category?: string;
   readingTime?: number;
   blogId?: string;
+}
+
+function sanitizeSchemaEntityId(id: string): string {
+  const trimmed = id.trim();
+  const sanitized = sanitizeSchemaUrl(trimmed);
+  if (!sanitized) {
+    return '';
+  }
+
+  return trimmed.includes('/#')
+    ? sanitized
+    : sanitized.replace(/\/(#.+)$/, '$1');
 }
 
 function normalizeBlogAuthorSameAs(
@@ -2354,6 +2367,11 @@ export function generateBlogPostSchema(
   // SECURITY FIX: Sanitize all inputs to prevent XSS (consistent with other schema functions)
   const authorSameAs = normalizeBlogAuthorSameAs(data.author.sameAs);
   const publisherSameAs = normalizeBlogAuthorSameAs(data.publisher.sameAs);
+  const authorId = data.author.id
+    ? sanitizeSchemaEntityId(data.author.id)
+    : data.author.url
+      ? `${data.author.url}#author-${generateSlug(data.author.name)}`
+      : '';
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -2364,10 +2382,8 @@ export function generateBlogPostSchema(
     dateModified: data.dateModified || data.datePublished,
     author: {
       '@type': 'Person',
-      ...(data.author.url && {
-        '@id': escapeHtml(
-          `${data.author.url}#author-${generateSlug(data.author.name)}`
-        ),
+      ...(authorId && {
+        '@id': escapeHtml(authorId),
       }),
       name: escapeHtml(data.author.name),
       ...(data.author.url && { url: escapeHtml(data.author.url) }),
