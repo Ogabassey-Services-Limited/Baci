@@ -1,5 +1,5 @@
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
-import { escapeHtmlAttribute } from '@/lib/sanitize';
+import { escapeHtmlAttribute, escapeHtmlText } from '@/lib/sanitize';
 import { sanitizeUrl, stripHtmlTags } from '@/lib/sanitize-core';
 
 interface OrderItem {
@@ -67,7 +67,7 @@ export function generateOrderConfirmationEmail(
       (item) => `
     <tr>
       <td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
-        <div style="font-weight: 600; color: #1e293b; font-size: 14px;">${item.name}</div>
+        <div style="font-weight: 600; color: #1e293b; font-size: 14px;">${escapeHtmlText(item.name)}</div>
       </td>
       <td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 14px;">
         ${item.quantity}
@@ -86,7 +86,7 @@ export function generateOrderConfirmationEmail(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Confirmation #${data.orderNumber}</title>
+  <title>Order Confirmation #${escapeHtmlText(data.orderNumber)}</title>
   <style>
     @media only screen and (max-width: 600px) {
       .container { width: 100% !important; padding: 20px !important; }
@@ -110,7 +110,7 @@ export function generateOrderConfirmationEmail(
                 <tr>
                   <!-- Brand Name / Logo -->
                   <td align="left" style="color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">
-                    ${data.merchantName}
+                    ${escapeHtmlText(data.merchantName)}
                   </td>
                   <!-- Date -->
                   <td align="right" style="color: #94a3b8; font-size: 14px;">
@@ -119,7 +119,7 @@ export function generateOrderConfirmationEmail(
                 </tr>
                 <tr>
                   <td colspan="2" style="padding-top: 30px;">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; line-height: 1.2;">Order #${data.orderNumber} Confirmed</h1>
+                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; line-height: 1.2;">Order #${escapeHtmlText(data.orderNumber)} Confirmed</h1>
                     <p style="margin: 10px 0 0 0; color: #cbd5e1; font-size: 16px;">Thank you for your purchase</p>
                   </td>
                 </tr>
@@ -130,7 +130,7 @@ export function generateOrderConfirmationEmail(
           <!-- Intro -->
           <tr>
             <td style="padding: 40px 40px 20px 40px;">
-              <p style="margin: 0; font-size: 16px; color: #334155; line-height: 1.6;">Hi <strong>${data.customerName}</strong>,</p>
+              <p style="margin: 0; font-size: 16px; color: #334155; line-height: 1.6;">Hi <strong>${escapeHtmlText(data.customerName)}</strong>,</p>
               <p style="margin: 16px 0 0 0; font-size: 16px; color: #475569; line-height: 1.6;">
                 We've received your order and are getting it ready! Your items are currently <strong>on hold</strong> until we receive payment confirmation (if applicable).
               </p>
@@ -181,17 +181,17 @@ export function generateOrderConfirmationEmail(
                   <!-- Billing -->
                   <td valign="top" class="columns" width="48%" style="padding-right: 2%;">
                     <h3 style="margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Billing Info</h3>
-                    <p style="margin: 0; font-size: 15px; color: #334155; line-height: 1.5; font-weight: 600;">${data.customerName}</p>
-                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b; line-height: 1.5;">${data.shippingAddress.phone}</p>
+                    <p style="margin: 0; font-size: 15px; color: #334155; line-height: 1.5; font-weight: 600;">${escapeHtmlText(data.customerName)}</p>
+                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b; line-height: 1.5;">${escapeHtmlText(data.shippingAddress.phone)}</p>
                   </td>
 
                   <!-- Shipping -->
                   <td valign="top" class="columns" width="48%" style="padding-left: 2%;">
                     <h3 style="margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Shipping Info</h3>
-                    <p style="margin: 0; font-size: 15px; color: #334155; line-height: 1.5; font-weight: 600;">${data.customerName}</p>
+                    <p style="margin: 0; font-size: 15px; color: #334155; line-height: 1.5; font-weight: 600;">${escapeHtmlText(data.customerName)}</p>
                     <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b; line-height: 1.5;">
-                      ${data.shippingAddress.address}<br>
-                      ${data.shippingAddress.city}, ${data.shippingAddress.state}<br>
+                      ${escapeHtmlText(data.shippingAddress.address)}<br>
+                      ${escapeHtmlText(data.shippingAddress.city)}, ${escapeHtmlText(data.shippingAddress.state)}<br>
                     </p>
                   </td>
                 </tr>
@@ -202,7 +202,7 @@ export function generateOrderConfirmationEmail(
           <!-- CTA -->
           <tr>
             <td align="center" style="padding: 0 40px 40px 40px;">
-              <a href="${data.merchantUrl}" style="background-color: #0f172a; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">
+              <a href="${escapeHtmlAttribute(sanitizeUrl(data.merchantUrl))}" style="background-color: #0f172a; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">
                 View Order
               </a>
             </td>
@@ -212,7 +212,7 @@ export function generateOrderConfirmationEmail(
           <tr>
             <td style="background-color: #f8fafc; padding: 30px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
               <p style="margin: 0; font-size: 14px; color: #64748b;">
-                Questions? Reply to this email or contact us at <a href="${data.merchantUrl}" style="color: #ca8a04; text-decoration: none;">${data.merchantName}</a>
+                Questions? Reply to this email or contact us at <a href="${escapeHtmlAttribute(sanitizeUrl(data.merchantUrl))}" style="color: #ca8a04; text-decoration: none;">${escapeHtmlText(data.merchantName)}</a>
               </p>
               ${(() => {
                 const reg = buildEscapedRegistrationLine(data);
@@ -221,7 +221,7 @@ export function generateOrderConfirmationEmail(
                   : '';
               })()}
               <p style="margin: 20px 0 0 0; font-size: 12px; color: #94a3b8;">
-                &copy; ${new Date().getFullYear()} ${data.merchantName}. Powered by <strong>Baci</strong>.
+                &copy; ${new Date().getFullYear()} ${escapeHtmlText(data.merchantName)}. Powered by <strong>Baci</strong>.
               </p>
             </td>
           </tr>
@@ -320,7 +320,7 @@ export function generatePaymentReminderEmail(
       (item) => `
     <tr>
       <td style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0;">
-        <span style="color: #1a1a2e; font-weight: 500;">${item.name}</span>
+        <span style="color: #1a1a2e; font-weight: 500;">${escapeHtmlText(item.name)}</span>
         <span style="color: #6b7280; font-size: 13px;"> × ${item.quantity}</span>
       </td>
       <td style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; text-align: right; color: #1a1a2e; font-weight: 600;">
@@ -341,15 +341,15 @@ export function generatePaymentReminderEmail(
         <table style="width: 100%; font-size: 14px;">
           <tr>
             <td style="color: #6b7280; padding: 4px 0;">Bank:</td>
-            <td style="color: #1a1a2e; font-weight: 600; text-align: right;">${data.virtualAccount.bankName}</td>
+            <td style="color: #1a1a2e; font-weight: 600; text-align: right;">${escapeHtmlText(data.virtualAccount.bankName)}</td>
           </tr>
           <tr>
             <td style="color: #6b7280; padding: 4px 0;">Account Number:</td>
-            <td style="color: #1a1a2e; font-weight: 700; text-align: right; font-size: 16px;">${data.virtualAccount.accountNumber}</td>
+            <td style="color: #1a1a2e; font-weight: 700; text-align: right; font-size: 16px;">${escapeHtmlText(data.virtualAccount.accountNumber)}</td>
           </tr>
           <tr>
             <td style="color: #6b7280; padding: 4px 0;">Account Name:</td>
-            <td style="color: #1a1a2e; font-weight: 600; text-align: right;">${data.virtualAccount.accountName}</td>
+            <td style="color: #1a1a2e; font-weight: 600; text-align: right;">${escapeHtmlText(data.virtualAccount.accountName)}</td>
           </tr>
         </table>
       </div>
@@ -363,7 +363,7 @@ export function generatePaymentReminderEmail(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Reminder - Order #${data.orderNumber}</title>
+  <title>Payment Reminder - Order #${escapeHtmlText(data.orderNumber)}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f8; line-height: 1.6;">
   <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
@@ -374,25 +374,25 @@ export function generatePaymentReminderEmail(
         Payment Reminder
       </h1>
       <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 15px;">
-        Complete your order at ${data.merchantName}
+        Complete your order at ${escapeHtmlText(data.merchantName)}
       </p>
     </div>
 
     <!-- Main Content -->
     <div style="padding: 32px 30px;">
       <p style="color: #374151; font-size: 16px; margin: 0 0 24px 0;">
-        Hi <strong>${data.customerName}</strong>,
+        Hi <strong>${escapeHtmlText(data.customerName)}</strong>,
       </p>
 
       <p style="color: #6b7280; font-size: 15px; margin: 0 0 24px 0;">
-        We noticed your order <strong>#${data.orderNumber}</strong> is awaiting payment.
+        We noticed your order <strong>#${escapeHtmlText(data.orderNumber)}</strong> is awaiting payment.
         Don't miss out on your items—complete your purchase with just one click!
       </p>
 
       <!-- Order Summary Card -->
       <div style="background: #fafafa; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;">
         <div style="background: #1a1a2e; padding: 14px 16px;">
-          <span style="color: #fff; font-weight: 600; font-size: 14px;">Order #${data.orderNumber}</span>
+          <span style="color: #fff; font-weight: 600; font-size: 14px;">Order #${escapeHtmlText(data.orderNumber)}</span>
         </div>
         <table style="width: 100%; border-collapse: collapse;">
           ${itemsHtml}
@@ -423,7 +423,7 @@ export function generatePaymentReminderEmail(
 
       <!-- CTA Button -->
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${data.paymentLink}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 16px 48px; border-radius: 50px; font-size: 16px; font-weight: 700; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">
+        <a href="${escapeHtmlAttribute(sanitizeUrl(data.paymentLink))}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 16px 48px; border-radius: 50px; font-size: 16px; font-weight: 700; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">
           Complete Payment →
         </a>
       </div>
@@ -435,7 +435,7 @@ export function generatePaymentReminderEmail(
       <div style="margin-top: 32px; padding: 20px; background: #fffbeb; border-radius: 8px; border-left: 4px solid #f59e0b;">
         <p style="margin: 0; font-size: 14px; color: #92400e;">
           <strong>Need help?</strong><br>
-          Reply to this email or contact us at <a href="mailto:${data.supportEmail || `support@${data.merchantUrl.replace('https://', '')}`}" style="color: #764ba2;">${data.supportEmail || data.merchantName}</a>
+          Reply to this email or contact us at <a href="mailto:${escapeHtmlAttribute(data.supportEmail || `support@${data.merchantUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '')}`)}" style="color: #764ba2;">${escapeHtmlText(data.supportEmail || data.merchantName)}</a>
         </p>
       </div>
     </div>
@@ -443,7 +443,7 @@ export function generatePaymentReminderEmail(
     <!-- Footer -->
     <div style="background: #f8fafc; padding: 24px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-        Thank you for shopping with <strong>${data.merchantName}</strong>
+        Thank you for shopping with <strong>${escapeHtmlText(data.merchantName)}</strong>
       </p>
       ${(() => {
         const reg = buildEscapedRegistrationLine(data);
@@ -525,7 +525,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
       (item) => `
     <tr>
       <td style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0;">
-        <span style="color: #1a1a2e; font-weight: 500;">${item.name}</span>
+        <span style="color: #1a1a2e; font-weight: 500;">${escapeHtmlText(item.name)}</span>
         <span style="color: #6b7280; font-size: 13px;"> × ${item.quantity}</span>
       </td>
       <td style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; text-align: right; color: #1a1a2e; font-weight: 600;">
@@ -542,7 +542,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Receipt - Order #${data.orderNumber}</title>
+  <title>Payment Receipt - Order #${escapeHtmlText(data.orderNumber)}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f8; line-height: 1.6;">
   <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
@@ -553,18 +553,18 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
         Payment Received
       </h1>
       <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 15px;">
-        Thank you for your payment to ${data.merchantName}
+        Thank you for your payment to ${escapeHtmlText(data.merchantName)}
       </p>
     </div>
 
     <!-- Main Content -->
     <div style="padding: 32px 30px;">
       <p style="color: #374151; font-size: 16px; margin: 0 0 24px 0;">
-        Hi <strong>${data.customerName}</strong>,
+        Hi <strong>${escapeHtmlText(data.customerName)}</strong>,
       </p>
 
       <p style="color: #6b7280; font-size: 15px; margin: 0 0 24px 0;">
-        We have successfully received a payment of <strong>${formatEmailMoney(data.amountPaidNow, data.currency)}</strong> for your order <strong>#${data.orderNumber}</strong>.
+        We have successfully received a payment of <strong>${formatEmailMoney(data.amountPaidNow, data.currency)}</strong> for your order <strong>#${escapeHtmlText(data.orderNumber)}</strong>.
       </p>
 
       <!-- Payment Summary Card -->
@@ -615,7 +615,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
     <!-- Footer -->
     <div style="background: #f8fafc; padding: 24px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-        Thank you for shopping with <strong>${data.merchantName}</strong>
+        Thank you for shopping with <strong>${escapeHtmlText(data.merchantName)}</strong>
       </p>
       ${(() => {
         const reg = buildEscapedRegistrationLine(data);
@@ -688,7 +688,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
       (item) => `
     <tr>
       <td style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0; color: #1e293b; font-size: 14px;">
-        ${item.name}
+        ${escapeHtmlText(item.name)}
       </td>
       <td style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0; text-align: center; color: #64748b; font-size: 14px;">
         x${item.quantity}
@@ -703,7 +703,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
     ? `
         <tr>
           <td style="padding: 6px 0; color: #6b7280;">Courier</td>
-          <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${data.courierName}</td>
+          <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${escapeHtmlText(data.courierName)}</td>
         </tr>
         `
     : '';
@@ -712,7 +712,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
     ? `
         <tr>
           <td style="padding: 6px 0; color: #6b7280;">Est. Delivery</td>
-          <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${data.estimatedDelivery}</td>
+          <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${escapeHtmlText(data.estimatedDelivery)}</td>
         </tr>
         `
     : '';
@@ -745,7 +745,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
         ${courierRow}
         <tr>
           <td style="padding: 6px 0; color: #6b7280;">Tracking Number</td>
-          <td style="padding: 6px 0; color: #059669; font-weight: 700; text-align: right; font-family: monospace;">${data.trackingNumber}</td>
+          <td style="padding: 6px 0; color: #059669; font-weight: 700; text-align: right; font-family: monospace;">${escapeHtmlText(data.trackingNumber)}</td>
         </tr>
         ${estimatedDeliveryRow}
       </table>
@@ -765,7 +765,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
   }
 
   const supportEmailHtml = data.supportEmail
-    ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${data.supportEmail}</p>`
+    ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${escapeHtmlText(data.supportEmail)}</p>`
     : '';
 
   return `
@@ -789,13 +789,13 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
     <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 40px 30px; text-align: center;">
       <div style="font-size: 48px; margin-bottom: 16px;">🚚</div>
       <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Your Order is On Its Way!</h1>
-      <p style="margin: 12px 0 0 0; color: #d1fae5; font-size: 16px;">Order #${data.orderNumber}</p>
+      <p style="margin: 12px 0 0 0; color: #d1fae5; font-size: 16px;">Order #${escapeHtmlText(data.orderNumber)}</p>
     </div>
 
     <!-- Body -->
     <div style="padding: 30px;">
       <p style="margin: 0; font-size: 16px; color: #334155; line-height: 1.6;">
-        Hi <strong>${data.customerName}</strong>,
+        Hi <strong>${escapeHtmlText(data.customerName)}</strong>,
       </p>
       <p style="margin: 16px 0 0 0; font-size: 16px; color: #475569; line-height: 1.6;">
         Great news! Your order has been shipped and is on its way to you. Here's the delivery information:
@@ -809,10 +809,10 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
           📍 Delivery Address
         </div>
         <p style="margin: 0; font-size: 15px; color: #1e293b; line-height: 1.6;">
-          <strong>${data.customerName}</strong><br>
-          ${data.shippingAddress.address}<br>
-          ${data.shippingAddress.city}, ${data.shippingAddress.state}<br>
-          Phone: ${data.shippingAddress.phone}
+          <strong>${escapeHtmlText(data.customerName)}</strong><br>
+          ${escapeHtmlText(data.shippingAddress.address)}<br>
+          ${escapeHtmlText(data.shippingAddress.city)}, ${escapeHtmlText(data.shippingAddress.state)}<br>
+          Phone: ${escapeHtmlText(data.shippingAddress.phone)}
         </p>
       </div>
 
@@ -837,15 +837,15 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
 
     <!-- CTA -->
     <div style="padding: 0 30px 30px 30px; text-align: center;">
-      <a href="${data.merchantUrl}" style="background: #059669; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3);">
-        Visit ${data.merchantName}
+      <a href="${escapeHtmlAttribute(sanitizeUrl(data.merchantUrl))}" style="background: #059669; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3);">
+        Visit ${escapeHtmlText(data.merchantName)}
       </a>
     </div>
 
     <!-- Footer -->
     <div style="background: #f8fafc; padding: 24px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-        Thank you for shopping with <strong>${data.merchantName}</strong>
+        Thank you for shopping with <strong>${escapeHtmlText(data.merchantName)}</strong>
       </p>
       ${supportEmailHtml}
       ${(() => {
@@ -953,7 +953,7 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
       (item) => `
     <tr>
       <td style="padding: 8px 16px; border-bottom: 1px solid #f0f0f0; color: #1e293b; font-size: 14px;">
-        ✓ ${item.name}
+        ✓ ${escapeHtmlText(item.name)}
       </td>
       <td style="padding: 8px 16px; border-bottom: 1px solid #f0f0f0; text-align: center; color: #64748b; font-size: 14px;">
         x${item.quantity}
@@ -965,7 +965,7 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
 
   // Google Places review URL - opens write review modal
   const googleReviewUrl = data.googlePlaceId
-    ? `https://search.google.com/local/writereview?placeid=${data.googlePlaceId}`
+    ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(data.googlePlaceId)}`
     : null;
 
   const ratingCTA = googleReviewUrl
@@ -977,7 +977,7 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
       <p style="margin: 0 0 16px 0; font-size: 14px; color: #92400e;">
         Your feedback helps us grow! Leave a quick Google review.
       </p>
-      <a href="${googleReviewUrl}" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px; display: inline-block; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);">
+      <a href="${escapeHtmlAttribute(googleReviewUrl)}" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px; display: inline-block; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);">
         ⭐ Rate Us on Google
       </a>
     </div>
@@ -1005,13 +1005,13 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
     <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
       <div style="font-size: 56px; margin-bottom: 16px;">🎉</div>
       <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Order Delivered!</h1>
-      <p style="margin: 12px 0 0 0; color: #d1fae5; font-size: 16px;">Order #${data.orderNumber}</p>
+      <p style="margin: 12px 0 0 0; color: #d1fae5; font-size: 16px;">Order #${escapeHtmlText(data.orderNumber)}</p>
     </div>
 
     <!-- Body -->
     <div style="padding: 30px;">
       <p style="margin: 0; font-size: 16px; color: #334155; line-height: 1.6;">
-        Hi <strong>${data.customerName}</strong>,
+        Hi <strong>${escapeHtmlText(data.customerName)}</strong>,
       </p>
       <p style="margin: 16px 0 0 0; font-size: 16px; color: #475569; line-height: 1.6;">
         Great news! Your order has been successfully delivered. We hope you love your purchase!
@@ -1040,17 +1040,17 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
 
     <!-- CTA -->
     <div style="padding: 0 30px 30px 30px; text-align: center;">
-      <a href="${data.merchantUrl}" style="background: #10b981; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);">
-        Shop Again at ${data.merchantName}
+      <a href="${escapeHtmlAttribute(sanitizeUrl(data.merchantUrl))}" style="background: #10b981; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);">
+        Shop Again at ${escapeHtmlText(data.merchantName)}
       </a>
     </div>
 
     <!-- Footer -->
     <div style="background: #f8fafc; padding: 24px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-        Thank you for shopping with <strong>${data.merchantName}</strong>
+        Thank you for shopping with <strong>${escapeHtmlText(data.merchantName)}</strong>
       </p>
-      ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${data.supportEmail}</p>` : ''}
+      ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${escapeHtmlText(data.supportEmail)}</p>` : ''}
       ${(() => {
         const reg = buildEscapedRegistrationLine(data);
         return reg
@@ -1078,7 +1078,7 @@ export function generateOrderDeliveredText(data: OrderDeliveredData): string {
 
   // Extract conditional strings for cleaner template (2026 best practice)
   const googleReviewUrl = data.googlePlaceId
-    ? `https://search.google.com/local/writereview?placeid=${data.googlePlaceId}`
+    ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(data.googlePlaceId)}`
     : null;
 
   const reviewSection = googleReviewUrl
@@ -1144,7 +1144,7 @@ export function generateOrderCancellationEmail(
       (item) => `
     <tr>
       <td style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0; color: #64748b; font-size: 14px; text-decoration: line-through;">
-        ${item.name}
+        ${escapeHtmlText(item.name)}
       </td>
       <td style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0; text-align: center; color: #94a3b8; font-size: 14px;">
         x${item.quantity}
@@ -1184,7 +1184,7 @@ export function generateOrderCancellationEmail(
     ? `
     <div style="background: #fef2f2; border-radius: 8px; padding: 16px; margin: 16px 0; border: 1px solid #fecaca;">
       <p style="margin: 0; font-size: 14px; color: #991b1b;">
-        <strong>Reason:</strong> ${data.cancellationReason}
+        <strong>Reason:</strong> ${escapeHtmlText(data.cancellationReason)}
       </p>
     </div>
     `
@@ -1202,7 +1202,7 @@ export function generateOrderCancellationEmail(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Cancelled - #${data.orderNumber}</title>
+  <title>Order Cancelled - #${escapeHtmlText(data.orderNumber)}</title>
   <style>
     @media only screen and (max-width: 600px) {
       .container { width: 100% !important; padding: 16px !important; }
@@ -1217,13 +1217,13 @@ export function generateOrderCancellationEmail(
     <div style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); padding: 40px 30px; text-align: center;">
       <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
       <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Order Cancelled</h1>
-      <p style="margin: 12px 0 0 0; color: #cbd5e1; font-size: 16px;">Order #${data.orderNumber}</p>
+      <p style="margin: 12px 0 0 0; color: #cbd5e1; font-size: 16px;">Order #${escapeHtmlText(data.orderNumber)}</p>
     </div>
 
     <!-- Body -->
     <div style="padding: 30px;">
       <p style="margin: 0; font-size: 16px; color: #334155; line-height: 1.6;">
-        Hi <strong>${data.customerName}</strong>,
+        Hi <strong>${escapeHtmlText(data.customerName)}</strong>,
       </p>
       <p style="margin: 16px 0 0 0; font-size: 16px; color: #475569; line-height: 1.6;">
         ${cancellationMessage}
@@ -1260,7 +1260,7 @@ export function generateOrderCancellationEmail(
 
     <!-- CTA -->
     <div style="padding: 0 30px 30px 30px; text-align: center;">
-      <a href="${data.merchantUrl}" style="background: #475569; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block;">
+      <a href="${escapeHtmlAttribute(sanitizeUrl(data.merchantUrl))}" style="background: #475569; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block;">
         Continue Shopping
       </a>
     </div>
@@ -1270,7 +1270,7 @@ export function generateOrderCancellationEmail(
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
         We're sorry this didn't work out. Hope to see you again soon!
       </p>
-      ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Contact: ${data.supportEmail}</p>` : ''}
+      ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Contact: ${escapeHtmlText(data.supportEmail)}</p>` : ''}
       ${(() => {
         const reg = buildEscapedRegistrationLine(data);
         return reg

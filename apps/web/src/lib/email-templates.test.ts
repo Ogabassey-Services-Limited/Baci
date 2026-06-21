@@ -451,4 +451,150 @@ describe('Email Templates', () => {
       expect(output).not.toContain('javascript:alert(1)');
     });
   });
+
+  describe('HTML escaping (XSS prevention)', () => {
+    const XSS = '<script>alert(1)</script>';
+    const ESCAPED = '&lt;script&gt;alert(1)&lt;/script&gt;';
+
+    it('escapes user data in order confirmation email', () => {
+      const html = generateOrderConfirmationEmail({
+        ...baseOrderData,
+        customerName: XSS,
+        merchantName: XSS,
+        items: [{ name: XSS, quantity: 1, price: 1000 }],
+        shippingAddress: {
+          address: XSS,
+          city: XSS,
+          state: XSS,
+          phone: XSS,
+        },
+        merchantUrl: 'javascript:alert(1)',
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+
+    it('escapes user data in payment reminder email', () => {
+      const html = generatePaymentReminderEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1, price: 1000 }],
+        totalAmount: 1000,
+        amountPaid: 0,
+        balanceDue: 1000,
+        paymentLink: 'javascript:alert(1)',
+        merchantName: XSS,
+        merchantUrl: 'javascript:alert(1)',
+        supportEmail: XSS,
+        // Bank-transfer block: only renders when virtualAccount is present.
+        virtualAccount: {
+          bankName: XSS,
+          accountNumber: XSS,
+          accountName: XSS,
+        },
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+
+    it('escapes user data in payment receipt email', () => {
+      const html = generatePaymentReceiptEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1, price: 1000 }],
+        totalAmount: 1000,
+        amountPaidNow: 1000,
+        totalPaidSoFar: 1000,
+        balanceDue: 0,
+        merchantName: XSS,
+        merchantUrl: 'javascript:alert(1)',
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+
+    it('escapes user data in shipped email', () => {
+      const html = generateOrderShippedEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1 }],
+        shippingAddress: { address: XSS, city: XSS, state: XSS, phone: XSS },
+        trackingNumber: XSS,
+        trackingUrl: 'javascript:alert(1)',
+        courierName: XSS,
+        estimatedDelivery: XSS,
+        supportEmail: XSS,
+        merchantName: XSS,
+        merchantUrl: 'javascript:alert(1)',
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+
+    it('escapes user data in delivered email', () => {
+      const html = generateOrderDeliveredEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1 }],
+        supportEmail: XSS,
+        merchantName: XSS,
+        merchantUrl: 'javascript:alert(1)',
+        googlePlaceId: XSS,
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+      // Google review placeId is URL-encoded, not raw, in the review link.
+      expect(html).toContain('placeid=%3Cscript%3E');
+    });
+
+    it('escapes user data in cancellation email', () => {
+      const html = generateOrderCancellationEmail({
+        orderNumber: XSS,
+        customerName: XSS,
+        items: [{ name: XSS, quantity: 1, price: 1000 }],
+        totalAmount: 1000,
+        amountPaid: 1000,
+        refundAmount: 1000,
+        cancelledBy: 'merchant',
+        cancellationReason: XSS,
+        supportEmail: XSS,
+        merchantName: XSS,
+        merchantUrl: 'javascript:alert(1)',
+      });
+
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).not.toContain('javascript:alert(1)');
+      expect(html).toContain(ESCAPED);
+    });
+  });
+
+  describe('Payment reminder mailto fallback', () => {
+    it('derives a clean host (no protocol/path) when supportEmail is absent', () => {
+      const html = generatePaymentReminderEmail({
+        orderNumber: 'ORD-X',
+        customerName: 'Jane Doe',
+        items: [{ name: 'Gadget', quantity: 1, price: 1000 }],
+        totalAmount: 1000,
+        amountPaid: 0,
+        balanceDue: 1000,
+        paymentLink: 'https://pay.test/link',
+        merchantName: 'TestShop',
+        merchantUrl: 'http://shop.example.com/store?ref=1',
+      });
+
+      expect(html).toContain('mailto:support@shop.example.com"');
+      expect(html).not.toContain('support@http');
+      expect(html).not.toContain('shop.example.com/store');
+    });
+  });
 });
