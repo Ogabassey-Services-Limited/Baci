@@ -1,4 +1,4 @@
-// biome-ignore-all lint/correctness/noUndeclaredVariables: Jest globals are provided by jest-expo in this store test.
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 jest.mock('../lib/supabase', () => ({
   supabase: {
@@ -49,7 +49,6 @@ describe('createCredentialActions', () => {
       options: {
         shouldCreateUser: true,
         emailRedirectTo: OTP_EMAIL_REDIRECT_URL,
-        data: { role: 'customer' },
       },
     });
   });

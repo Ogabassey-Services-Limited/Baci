@@ -14,7 +14,6 @@ export function createCredentialActions(set: AuthStoreSet) {
           options: {
             shouldCreateUser: true,
             emailRedirectTo: OTP_EMAIL_REDIRECT_URL,
-            data: { role: 'customer' },
           },
         });
         if (error) {
