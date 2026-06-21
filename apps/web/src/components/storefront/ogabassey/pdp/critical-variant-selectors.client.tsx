@@ -27,7 +27,7 @@ export function OgabasseyPdpCriticalVariantSelectors({
   variantCount,
   variants,
 }: OgabasseyPdpCriticalVariantSelectorsProps) {
-  if (variantCount <= 1 || renderableVariantAxes.length === 0) {
+  if (renderableVariantAxes.length === 0) {
     return null;
   }
 

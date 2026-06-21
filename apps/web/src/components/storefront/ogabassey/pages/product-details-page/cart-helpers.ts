@@ -1,4 +1,5 @@
 import type { Product as CartProduct } from '@/lib/products';
+import { canonicalizeVariantAxis } from '@/components/storefront/ogabassey/variant-attributes';
 import type { Product } from '../../types';
 import type { ConditionType } from './product-condition';
 import type { ProductDetailsCurrentOffer } from './offer-resolution';
@@ -74,13 +75,23 @@ function getVariantBackedAxisOptions(
     return [];
   }
 
-  return Array.from(
-    new Set(
-      variants
-        .map((variant) => variant.attributes?.[axis])
-        .filter((v): v is string => Boolean(v))
-    )
-  );
+  const normalizedAxis = canonicalizeVariantAxis(axis);
+  const options = new Set<string>();
+
+  for (const variant of variants) {
+    for (const [rawAxis, value] of Object.entries(variant.attributes || {})) {
+      if (canonicalizeVariantAxis(rawAxis) !== normalizedAxis) {
+        continue;
+      }
+
+      const trimmedValue = typeof value === 'string' ? value.trim() : '';
+      if (trimmedValue) {
+        options.add(trimmedValue);
+      }
+    }
+  }
+
+  return Array.from(options);
 }
 
 export function getAxisOptions(

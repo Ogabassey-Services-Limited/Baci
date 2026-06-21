@@ -113,6 +113,34 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('renders a selected single-option axis for a single SKU', () => {
+    render(
+      <OgabasseyPdpCriticalVariantSelectors
+        onAttributeSelection={vi.fn()}
+        renderableVariantAxes={['storage']}
+        selectedAttributes={{ storage: '512GB' }}
+        variantCount={1}
+        variants={[
+          {
+            attributes: { storage: '512GB' },
+            id: 'variant-512',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ]}
+      />
+    );
+
+    expect(
+      screen.queryByText('Choose options below before checkout.')
+    ).toBeNull();
+    expect(screen.getByText('512GB', { selector: 'strong' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /select 512gb storage/i })
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('renders multi-condition options from top-level variant conditions', () => {
     const onAttributeSelection = vi.fn();
 

@@ -286,11 +286,6 @@ function getFirstViewportVariantAxes(
   variantAttributes: VariantAttributeSource,
   condition?: Product['condition']
 ) {
-  const variantCount = variants?.length ?? 0;
-  if (variantCount <= 1) {
-    return [];
-  }
-
   return getRenderableVariantAxes(variants, variantAttributes, condition);
 }
 
