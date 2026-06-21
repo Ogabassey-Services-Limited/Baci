@@ -39,7 +39,7 @@ function buildBlogListingSchemaUrl({
   page: number;
   search?: string;
 }): string {
-  const url = new URL('/blog', baseUrl);
+  const url = new URL('blog', baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
   if (category) url.searchParams.set('category', category);
   if (search) url.searchParams.set('search', search);
   if (page > 1) url.searchParams.set('page', String(page));
@@ -59,6 +59,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
     notFound();
   }
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
+  const effectiveSearchQuery = searchQuery ?? search;
   const publicCategories = filterPublicBlogCategories(categories);
   const baseUrl = buildStoreUrl(merchant);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
@@ -122,7 +123,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
             page: currentPage,
             search,
           }),
-          numberOfItems: itemListPosts.length,
+          numberOfItems: totalPosts,
           itemListElement: itemListPosts.map((post, index) => ({
             '@type': 'ListItem',
             position: itemListPositionOffset + index + 1,
@@ -189,12 +190,12 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
             <TemplateBlogRenderer
               blogSchema={blogSchema}
               breadcrumbSchema={breadcrumbSchema}
-              itemListSchema={itemListSchema}
+              itemListSchema={effectiveSearchQuery ? undefined : itemListSchema}
               BlogComponent={templateBlogUi.BlogComponent}
               basePath={basePath}
               blogPosts={templateBlogUi.posts}
               categories={templateBlogUi.categories}
-              searchQuery={searchQuery}
+              searchQuery={effectiveSearchQuery}
             />
             <InformationalClusterIndex collections={guideCollections} />
             <BlogDiscoverySection
@@ -218,7 +219,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
         category={category}
         merchant={merchant}
         posts={posts}
-        searchQuery={searchQuery}
+        searchQuery={effectiveSearchQuery}
         slug={slug}
         totalPosts={totalPosts}
       />

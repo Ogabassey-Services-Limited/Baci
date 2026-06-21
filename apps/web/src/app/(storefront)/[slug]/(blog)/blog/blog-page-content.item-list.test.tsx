@@ -3,8 +3,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
   buildListingResult,
+  merchant,
   mockDefaultBlogUi,
   mockGetCachedBlogListing,
+  mockGetTemplate,
+  mockTemplateBlogRenderer,
   postsPayload,
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
@@ -67,9 +70,19 @@ describe('BlogPageContent ItemList schema', () => {
   });
 
   it('matches ItemList URL and positions to filtered paginated listing URLs', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          store_url: 'http://localhost:3000/ogabassey',
+        },
+        totalPosts: 25,
+      })
+    );
+
     render(
       await BlogPageContent({
-        params: Promise.resolve({ slug: 'test-store' }),
+        params: Promise.resolve({ slug: 'ogabassey' }),
         searchParams: Promise.resolve({
           category: 'News',
           page: '2',
@@ -82,18 +95,19 @@ describe('BlogPageContent ItemList schema', () => {
 
     expect(itemListSchema).toEqual(
       expect.objectContaining({
-        url: 'https://test-store.usebaci.com/blog?category=News&search=phone+launch&page=2',
+        url: 'http://localhost:3000/ogabassey/blog?category=News&search=phone+launch&page=2',
+        numberOfItems: 25,
         itemListElement: [
           expect.objectContaining({
             position: BLOG_LISTING_PAGE_SIZE + 1,
-            url: 'https://test-store.usebaci.com/blog/first-post',
+            url: 'http://localhost:3000/ogabassey/blog/first-post',
           }),
         ],
       })
     );
   });
 
-  it('keeps ItemList count aligned with the emitted top-ten entries', async () => {
+  it('uses the filtered total count when positions are global across pagination', async () => {
     const posts = Array.from({ length: 15 }, (_, index) => ({
       ...postsPayload[0],
       id: `post-${index + 1}`,
@@ -119,7 +133,7 @@ describe('BlogPageContent ItemList schema', () => {
 
     expect(itemListSchema).toEqual(
       expect.objectContaining({
-        numberOfItems: 10,
+        numberOfItems: 15,
         itemListElement: expect.arrayContaining([
           expect.objectContaining({
             position: 1,
@@ -133,5 +147,26 @@ describe('BlogPageContent ItemList schema', () => {
       })
     );
     expect(itemListSchema?.itemListElement).toHaveLength(10);
+  });
+
+  it('omits ItemList schema for template search results when the template may hide entries', async () => {
+    mockGetTemplate.mockReturnValue({
+      getComponents: async () => ({
+        Blog: () => <div>Template component</div>,
+      }),
+    });
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({ search: 'phone' }),
+      })
+    );
+
+    expect(mockTemplateBlogRenderer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemListSchema: undefined,
+      })
+    );
   });
 });

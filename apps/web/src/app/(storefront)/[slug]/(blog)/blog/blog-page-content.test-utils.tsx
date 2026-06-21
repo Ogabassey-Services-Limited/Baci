@@ -22,20 +22,30 @@ interface MockDefaultBlogUiProps {
   totalPosts: number;
 }
 
+interface MockTemplateBlogRendererProps {
+  itemListSchema?: MockDefaultBlogUiProps['itemListSchema'];
+}
+
 const hoistedMocks = vi.hoisted(() => ({
   mockBuildBlogClusterCollections: vi.fn(),
   mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
     <div>{props.merchant.business_name} blog</div>
   )),
+  mockGetTemplate: vi.fn<(...args: unknown[]) => unknown>(() => null),
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
   }),
+  mockTemplateBlogRenderer: vi.fn((_props: MockTemplateBlogRendererProps) => (
+    <div>Template blog</div>
+  )),
 }));
 
 export const {
   mockBuildBlogClusterCollections,
   mockDefaultBlogUi,
+  mockGetTemplate,
   mockNotFound,
+  mockTemplateBlogRenderer,
 } = hoistedMocks;
 
 vi.mock('@/lib/cached-data', () => ({
@@ -61,10 +71,16 @@ vi.mock('@/lib/seo-utils', () => ({
 }));
 
 vi.mock('@/lib/store-url', () => ({
-  buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
-    merchant.custom_domain
-      ? `https://${merchant.custom_domain}`
-      : `https://${merchant.slug}.usebaci.com`,
+  buildStoreUrl: (merchant: {
+    slug: string;
+    custom_domain?: string | null;
+    store_url?: string;
+  }) =>
+    merchant.store_url
+      ? merchant.store_url
+      : merchant.custom_domain
+        ? `https://${merchant.custom_domain}`
+        : `https://${merchant.slug}.usebaci.com`,
 }));
 
 vi.mock('@/lib/validation', () => ({
@@ -77,7 +93,7 @@ vi.mock('@/lib/storefront-content/build-blog-cluster-collections', () => ({
 }));
 
 vi.mock('@/templates/registry', () => ({
-  getTemplate: vi.fn(() => null),
+  getTemplate: (templateId: unknown) => mockGetTemplate(templateId),
 }));
 
 vi.mock('./default-blog-ui', () => ({
@@ -85,7 +101,8 @@ vi.mock('./default-blog-ui', () => ({
 }));
 
 vi.mock('./template-blog-renderer', () => ({
-  TemplateBlogRenderer: () => <div>Template blog</div>,
+  TemplateBlogRenderer: (props: MockTemplateBlogRendererProps) =>
+    mockTemplateBlogRenderer(props),
 }));
 
 export const merchant = {
@@ -93,6 +110,7 @@ export const merchant = {
   business_name: 'Ogabassey',
   slug: 'test-store',
   custom_domain: undefined as string | undefined,
+  store_url: undefined as string | undefined,
   logo_url: '',
   template_id: 'ogabassey',
 };
@@ -172,6 +190,12 @@ export function resetBlogPageContentMocks() {
   mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
     <div>{props.merchant.business_name} blog</div>
   ));
+  mockGetTemplate.mockReset();
+  mockGetTemplate.mockReturnValue(null);
+  mockTemplateBlogRenderer.mockReset();
+  mockTemplateBlogRenderer.mockImplementation(
+    (_props: MockTemplateBlogRendererProps) => <div>Template blog</div>
+  );
 }
 
-export type { MockDefaultBlogUiProps };
+export type { MockDefaultBlogUiProps, MockTemplateBlogRendererProps };
