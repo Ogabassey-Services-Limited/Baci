@@ -1,10 +1,10 @@
 source "https://rubygems.org"
 
-# RubyGems fastlane 2.234.0 still constrains jwt to < 3; pin fastlane#30042
-# until a published release allows the patched jwt 3.x series.
+# RubyGems fastlane 2.236.1 still constrains Faraday to 1.x; pin upstream
+# fastlane#30089 until a release includes the Faraday 2 migration.
 gem "fastlane",
   "~> 2.234",
   git: "https://github.com/fastlane/fastlane.git",
-  ref: "17054b235c12826daba96d9d29ba76fdb939a5ec"
+  ref: "be56dd5cef10f30bddd1ccef8caac33732a1321d"
 gem "cocoapods", "~> 1.16"
 gem "jwt", ">= 3.2.0", "< 4"
