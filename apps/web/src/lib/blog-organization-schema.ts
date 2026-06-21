@@ -13,32 +13,23 @@ interface BlogOrganizationMerchant {
   } | null;
 }
 
-/**
- * Builds the standalone Organization (OnlineStore) JSON-LD node for blog
- * surfaces.
- *
- * Blog listing and post pages previously described the merchant only as a bare
- * `publisher` nested inside the BlogPosting/Blog schema — there was no top-level
- * brand entity carrying the store's `sameAs` social profiles or logo
- * dimensions, even though the storefront home page already emits one. Emitting
- * a consistent Organization node on the high-crawl blog surface lets search
- * engines resolve a single brand entity across the whole site. It reuses the
- * same `generateOrganizationSchema` builder as the home page so the entity
- * shape (`@type`, logo, `sameAs` logic) stays identical site-wide.
- *
- * The `WebSite` + `SearchAction` (sitelinks searchbox) node is intentionally
- * NOT emitted here: Google removed the sitelinks-searchbox visual element in
- * November 2024, so that markup no longer produces a rich result.
- */
+export function buildBlogOrganizationId(baseUrl: string): string {
+  return `${baseUrl.replace(/\/+$/, '')}#organization`;
+}
+
+// Blog pages emit one stable brand node without deprecated sitelinks-searchbox markup.
 export function buildBlogOrganizationSchema(
   merchant: BlogOrganizationMerchant,
   baseUrl: string
 ): Record<string, unknown> {
-  return generateOrganizationSchema({
-    name: merchant.business_name,
-    url: baseUrl,
-    logo: merchant.logo_url || undefined,
-    country: merchant.country || undefined,
-    socialMedia: merchant.social_media || undefined,
-  });
+  return {
+    ...generateOrganizationSchema({
+      name: merchant.business_name,
+      url: baseUrl,
+      logo: merchant.logo_url || undefined,
+      country: merchant.country || undefined,
+      socialMedia: merchant.social_media || undefined,
+    }),
+    '@id': buildBlogOrganizationId(baseUrl),
+  };
 }

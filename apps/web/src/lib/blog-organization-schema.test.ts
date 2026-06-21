@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { buildBlogOrganizationSchema } from './blog-organization-schema';
+import {
+  buildBlogOrganizationId,
+  buildBlogOrganizationSchema,
+} from './blog-organization-schema';
 
 describe('buildBlogOrganizationSchema', () => {
+  it('builds a stable entity id from the storefront origin', () => {
+    expect(buildBlogOrganizationId('https://ogabassey.com')).toBe(
+      'https://ogabassey.com#organization'
+    );
+    expect(buildBlogOrganizationId('https://ogabassey.com/')).toBe(
+      'https://ogabassey.com#organization'
+    );
+  });
+
   it('emits an OnlineStore entity with logo and normalized social sameAs', () => {
     const schema = buildBlogOrganizationSchema(
       {
@@ -18,6 +30,7 @@ describe('buildBlogOrganizationSchema', () => {
     );
 
     expect(schema['@type']).toBe('OnlineStore');
+    expect(schema['@id']).toBe('https://ogabassey.com#organization');
     expect(schema.name).toBe('Ogabassey');
     expect(schema.url).toBe('https://ogabassey.com');
     expect(schema.logo).toEqual(

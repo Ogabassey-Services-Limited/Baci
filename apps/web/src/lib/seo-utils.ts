@@ -2314,6 +2314,7 @@ interface BlogPostSchemaData {
     sameAs?: readonly unknown[];
   };
   publisher: {
+    id?: string;
     name: string;
     logo: string;
     url: string;
@@ -2375,6 +2376,7 @@ export function generateBlogPostSchema(
     },
     publisher: {
       '@type': 'Organization',
+      ...(data.publisher.id && { '@id': escapeHtml(data.publisher.id) }),
       name: escapeHtml(data.publisher.name),
       url: escapeHtml(data.publisher.url),
       logo: {

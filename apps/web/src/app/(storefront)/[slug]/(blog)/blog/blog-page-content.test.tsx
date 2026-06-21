@@ -129,5 +129,10 @@ describe('BlogPageContent', () => {
         ],
       }),
     ]);
+    expect(mockDefaultBlogUi.mock.calls[0]?.[0].blogSchema.publisher).toEqual(
+      expect.objectContaining({
+        '@id': 'https://test-store.usebaci.com#organization',
+      })
+    );
   });
 });

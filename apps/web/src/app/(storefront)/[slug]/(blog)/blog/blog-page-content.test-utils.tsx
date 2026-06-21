@@ -3,6 +3,9 @@ import { getCachedBlogListing } from '@/lib/cached-data';
 
 interface MockDefaultBlogUiProps {
   blogSchema: {
+    publisher?: {
+      '@id'?: string;
+    };
     blogPost?: unknown;
   };
   itemListSchema?: {
@@ -71,7 +74,10 @@ vi.mock('@/lib/seo-utils', () => ({
 }));
 
 vi.mock('@/lib/blog-organization-schema', () => ({
-  buildBlogOrganizationSchema: vi.fn(() => ({ '@type': 'OnlineStore' })),
+  buildBlogOrganizationSchema: vi.fn(() => ({
+    '@id': 'https://test-store.usebaci.com#organization',
+    '@type': 'OnlineStore',
+  })),
 }));
 
 vi.mock('@/lib/store-url', () => ({
