@@ -129,6 +129,10 @@ vi.mock('@/lib/blog-organization-schema', () => ({
   }),
 }));
 
+vi.mock('@/lib/blog-authors', () => ({
+  getBlogAuthorSameAs: () => ['https://www.linkedin.com/in/michael-bolakale'],
+}));
+
 vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: (merchant: { slug: string; custom_domain?: string }) =>
     merchant.custom_domain
@@ -210,6 +214,8 @@ const smartphoneGuideBlogPost = {
     author_name: 'Bolakale',
     author_title: null,
     author_bio: null,
+    author_image_url:
+      'https://cdn.ogabassey.com/merchants/ogabassey/authors/bolakale.jpg',
     published_at: '2026-03-16T10:05:33.654Z',
     updated_at: '2026-03-16T10:05:33.654Z',
     seo_title: null,
@@ -571,5 +577,26 @@ describe('BlogPostPageContent', () => {
       'retired-post'
     );
     expect(mockNotFound).toHaveBeenCalled();
+  });
+
+  it('passes the author personal sameAs and headshot image to structured data', async () => {
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        author: expect.objectContaining({
+          sameAs: ['https://www.linkedin.com/in/michael-bolakale'],
+          image:
+            'https://cdn.ogabassey.com/merchants/ogabassey/authors/bolakale.jpg',
+        }),
+      })
+    );
   });
 });

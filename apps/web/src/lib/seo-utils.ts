@@ -2312,6 +2312,7 @@ interface BlogPostSchemaData {
     jobTitle?: string;
     description?: string;
     sameAs?: readonly unknown[];
+    image?: string;
   };
   publisher: {
     id?: string;
@@ -2379,6 +2380,7 @@ export function generateBlogPostSchema(
       ...(authorSameAs.length > 0 && {
         sameAs: authorSameAs,
       }),
+      ...(data.author.image && { image: escapeHtml(data.author.image) }),
     },
     publisher: {
       '@type': 'Organization',

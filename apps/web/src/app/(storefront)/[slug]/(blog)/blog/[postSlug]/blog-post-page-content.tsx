@@ -6,6 +6,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
+import { getBlogAuthorSameAs } from '@/lib/blog-authors';
 import {
   extractBlogFaqItems,
   generateFaqPageSchema,
@@ -101,6 +102,8 @@ async function renderBlogPostContent({
       url: baseUrl,
       jobTitle: post.author_title,
       description: post.author_bio,
+      sameAs: getBlogAuthorSameAs(post.author_name),
+      image: post.author_image_url ?? undefined,
     },
     publisher: {
       id: organizationId,

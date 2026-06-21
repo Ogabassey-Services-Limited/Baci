@@ -1464,6 +1464,21 @@ describe('generateBlogPostSchema', () => {
     expect(schema.isPartOf).toBeUndefined();
   });
 
+  it('emits the author headshot as Person.image when provided', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        image:
+          'https://cdn.ogabassey.com/merchants/ogabassey/authors/bassey-john.jpg',
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>).image).toBe(
+      'https://cdn.ogabassey.com/merchants/ogabassey/authors/bassey-john.jpg'
+    );
+  });
+
   it('emits a Google Discover image array when persisted image URLs are supplied', () => {
     const schema = generateBlogPostSchema({
       ...baseBlogSchemaInput,
