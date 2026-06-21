@@ -341,6 +341,55 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
     expect(screen.getByText('explicit axes:condition')).toBeInTheDocument();
   });
 
+  it('does not keep using a route condition after availability pruning removes it', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          price: 552_000,
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 500_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 3,
+            },
+            {
+              attributes: { storage: '256GB' },
+              condition: 'new',
+              id: 'variant-new-256',
+              merchant_id: 'merchant-1',
+              price_override: 552_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 5,
+            },
+          ],
+        }}
+        initialVariantSelection={{ condition: 'used' }}
+        variantAxes={['condition', 'storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('selected condition:used')).toBeInTheDocument();
+    expect(screen.getByText('500000')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select 256gb storage/i })
+    );
+
+    expect(screen.getByText('selected condition:')).toBeInTheDocument();
+    expect(screen.getByText('552000')).toBeInTheDocument();
+    expect(screen.getByText('blocked')).toBeInTheDocument();
+    expect(cartMocks.addToCart).not.toHaveBeenCalled();
+  });
+
   it('uses a top-level route condition when the condition axis is hidden', () => {
     render(
       <OgabasseyPdpCriticalCommerceProvider

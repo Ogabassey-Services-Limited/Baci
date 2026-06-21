@@ -102,8 +102,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const [explicitSelectedAxes, setExplicitSelectedAxes] = useState<string[]>(
     () => initialExplicitSelectedAxes
   );
-  const selectedVariantCondition =
-    selectedAttributes.condition ?? explicitVariantCondition;
+  const selectedVariantCondition = selectedAttributes.condition;
   const resolverSelectedAttributes = Object.fromEntries(
     Object.entries(selectedAttributes).filter(([axis]) => axis !== 'condition')
   );
@@ -137,7 +136,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
     renderableVariantAxes.every((axis) => selectedAttributes[axis]);
   function getSelectedAxisValue(axis: string) {
     if (axis === 'condition') {
-      return selectedAttributes.condition ?? explicitVariantCondition;
+      return selectedAttributes.condition;
     }
 
     return selectedAttributes[axis];
