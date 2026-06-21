@@ -134,4 +134,28 @@ describe('sanitize', () => {
 
     expect(output).toBe('&quot;Baci&#39;s&quot; &amp; &lt;Store&gt;');
   });
+
+  it('keeps <picture>/<source> for responsive blog inline images', () => {
+    const input =
+      '<picture><source srcset="https://cdn.ogabassey.com/x/inline-1.png.avif" type="image/avif" /><source srcset="https://cdn.ogabassey.com/x/inline-1.png.webp" type="image/webp" /><img src="https://cdn.ogabassey.com/x/inline-1.png" alt="speaker" /></picture>';
+
+    const output = sanitizeHtml(input);
+
+    expect(output).toContain('<picture>');
+    expect(output).toContain('type="image/avif"');
+    expect(output).toContain(
+      'srcset="https://cdn.ogabassey.com/x/inline-1.png.avif"'
+    );
+    expect(output).toContain('<img');
+  });
+
+  it('still strips event handlers and scripts from media tags', () => {
+    const output = sanitizeHtml(
+      '<picture><source srcset="x" onload="alert(1)" /><img src="x" onerror="alert(1)" /></picture><script>alert(1)</script>'
+    );
+
+    expect(output).not.toContain('onload');
+    expect(output).not.toContain('onerror');
+    expect(output).not.toContain('<script');
+  });
 });

@@ -759,4 +759,138 @@ describe('BlogContentRenderer', () => {
       );
     });
   });
+
+  describe('inline image optimization', () => {
+    const makeImageDoc = (src: string) => ({
+      type: 'doc',
+      content: [{ type: 'image', attrs: { src, alt: 'Speaker' } }],
+    });
+
+    it('serves trusted CDN inline images as <picture> with avif/webp sources', () => {
+      const src =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+      const { container } = render(
+        <BlogContentRenderer json={makeImageDoc(src)} />
+      );
+
+      const picture = container.querySelector('picture');
+      expect(picture).toBeTruthy();
+      expect(
+        picture
+          ?.querySelector('source[type="image/avif"]')
+          ?.getAttribute('srcset')
+      ).toBe(`${src}.avif`);
+      expect(
+        picture
+          ?.querySelector('source[type="image/webp"]')
+          ?.getAttribute('srcset')
+      ).toBe(`${src}.webp`);
+      const img = picture?.querySelector('img');
+      expect(img?.getAttribute('src')).toBe(src);
+      expect(img?.getAttribute('alt')).toBe('Speaker');
+    });
+
+    it('leaves legacy inline images without generated sibling markers as plain images', () => {
+      const src =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
+      const { container } = render(
+        <BlogContentRenderer json={makeImageDoc(src)} />
+      );
+
+      expect(container.querySelector('picture')).toBeNull();
+      expect(container.querySelector('img')?.getAttribute('src')).toBe(src);
+    });
+
+    it('prioritizes the first trusted inline image and lazy-loads later inline images', () => {
+      const firstSrc =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+      const secondSrc =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-2-b9244d7a754d.png';
+      const { container } = render(
+        <BlogContentRenderer
+          json={doc(
+            paragraph(textNode('Intro')),
+            { type: 'image', attrs: { src: firstSrc, alt: 'First inline' } },
+            { type: 'image', attrs: { src: secondSrc, alt: 'Second inline' } }
+          )}
+        />
+      );
+
+      const images = Array.from(container.querySelectorAll('picture img'));
+      expect(images).toHaveLength(2);
+      expect(images[0]).toHaveAttribute('src', firstSrc);
+      expect(images[0]).toHaveAttribute('fetchpriority', 'high');
+      expect(images[0]).toHaveAttribute('loading', 'eager');
+      expect(images[1]).toHaveAttribute('src', secondSrc);
+      expect(images[1]).not.toHaveAttribute('fetchpriority');
+      expect(images[1]).toHaveAttribute('loading', 'lazy');
+    });
+
+    it('does not prioritize a later trusted inline image when the first rendered image is untrusted', () => {
+      const firstSrc = 'https://example.com/body-first.png';
+      const secondSrc =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-2-b9244d7a754d.png';
+      const { container } = render(
+        <BlogContentRenderer
+          json={doc(
+            { type: 'image', attrs: { src: firstSrc, alt: 'First body' } },
+            { type: 'image', attrs: { src: secondSrc, alt: 'Second inline' } }
+          )}
+        />
+      );
+
+      const allImages = Array.from(container.querySelectorAll('img'));
+      expect(allImages[0]).toHaveAttribute('src', firstSrc);
+      const trustedInlineImage = container.querySelector('picture img');
+      expect(trustedInlineImage).toHaveAttribute('src', secondSrc);
+      expect(trustedInlineImage).not.toHaveAttribute('fetchpriority');
+      expect(trustedInlineImage).toHaveAttribute('loading', 'lazy');
+    });
+
+    it('prioritizes only the first occurrence when an inline image URL repeats', () => {
+      const src =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+      const { container } = render(
+        <BlogContentRenderer
+          json={doc(
+            { type: 'image', attrs: { src, alt: 'First occurrence' } },
+            paragraph(textNode('Middle copy')),
+            { type: 'image', attrs: { src, alt: 'Repeated occurrence' } }
+          )}
+        />
+      );
+
+      const images = Array.from(container.querySelectorAll('picture img'));
+      expect(images).toHaveLength(2);
+      expect(images[0]).toHaveAttribute('fetchpriority', 'high');
+      expect(images[0]).toHaveAttribute('loading', 'eager');
+      expect(images[1]).not.toHaveAttribute('fetchpriority');
+      expect(images[1]).toHaveAttribute('loading', 'lazy');
+    });
+
+    it('leaves inline images lazy when another page image is already prioritized', () => {
+      const src =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+      const { container } = render(
+        <BlogContentRenderer
+          json={makeImageDoc(src)}
+          priorityInlineImageSrc={null}
+        />
+      );
+
+      const img = container.querySelector('picture img');
+      expect(img).toHaveAttribute('src', src);
+      expect(img).not.toHaveAttribute('fetchpriority');
+      expect(img).toHaveAttribute('loading', 'lazy');
+    });
+
+    it('renders non-CDN images without a <picture> wrapper', () => {
+      const { container } = render(
+        <BlogContentRenderer json={makeImageDoc('https://example.com/x.png')} />
+      );
+
+      expect(container.querySelector('picture')).toBeNull();
+      expect(container.querySelector('img')).toBeTruthy();
+    });
+  });
 });

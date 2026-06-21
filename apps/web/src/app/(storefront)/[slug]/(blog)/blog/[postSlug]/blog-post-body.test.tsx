@@ -208,6 +208,17 @@ describe('BlogPostBody', () => {
       );
     });
 
+    it('does not hide legacy inline images with a broad first-image selector', async () => {
+      const content =
+        '<p><picture><img src="/inline.png" alt="Inline" /></picture></p>';
+
+      render(await BlogPostBody({ ...BASE_PROPS, content }));
+
+      expect(
+        screen.getByTestId('safe-html').getAttribute('class')
+      ).not.toContain('img:first-of-type');
+    });
+
     it('does NOT render the Table of Contents for legacy HTML', async () => {
       // Arrange
       const content = '<p>Some legacy body</p>';

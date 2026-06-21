@@ -2,6 +2,10 @@ import { marked } from 'marked';
 
 export { getBlogPostTextPreview } from '@/lib/blog-utils';
 
+import {
+  buildInlineImageSiblings,
+  isTrustedCdnInlineImage,
+} from '@/lib/blog-inline-image-optimization';
 import { escapeHtmlText, sanitizeHtml } from '@/lib/sanitize';
 import { buildStoreUrl } from '@/lib/store-url';
 import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
@@ -41,6 +45,74 @@ function escapeHtmlAttr(value: string): string {
     HTML_ATTR_ESCAPE_REGEX,
     (match) => HTML_ATTR_ESCAPE_MAP[match] ?? match
   );
+}
+
+function readHtmlTagAttribute(
+  tag: string,
+  attributeName: string
+): string | null {
+  const openTagMatch = /^<\s*[a-z][a-z0-9-]*/i.exec(tag);
+  if (!openTagMatch) {
+    return null;
+  }
+
+  const targetName = attributeName.toLowerCase();
+  let index = openTagMatch[0].length;
+
+  while (index < tag.length) {
+    while (index < tag.length && /\s/.test(tag[index] ?? '')) {
+      index += 1;
+    }
+
+    const char = tag[index];
+    if (!char || char === '>' || (char === '/' && tag[index + 1] === '>')) {
+      break;
+    }
+
+    const nameStart = index;
+    while (index < tag.length && !/[\s=/>]/.test(tag[index] ?? '')) {
+      index += 1;
+    }
+
+    const name = tag.slice(nameStart, index).toLowerCase();
+
+    while (index < tag.length && /\s/.test(tag[index] ?? '')) {
+      index += 1;
+    }
+
+    let value = '';
+    if (tag[index] === '=') {
+      index += 1;
+      while (index < tag.length && /\s/.test(tag[index] ?? '')) {
+        index += 1;
+      }
+
+      const quote = tag[index];
+      if (quote === '"' || quote === "'") {
+        index += 1;
+        const valueStart = index;
+        while (index < tag.length && tag[index] !== quote) {
+          index += 1;
+        }
+        value = tag.slice(valueStart, index);
+        if (tag[index] === quote) {
+          index += 1;
+        }
+      } else {
+        const valueStart = index;
+        while (index < tag.length && !/[\s>]/.test(tag[index] ?? '')) {
+          index += 1;
+        }
+        value = tag.slice(valueStart, index);
+      }
+    }
+
+    if (name === targetName) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 export function unescapeHtmlText(value: string): string {
@@ -238,6 +310,61 @@ export function transformImageTitlesToFigureCaptions(html: string): string {
   );
 }
 
+function isInsidePictureTag(html: string, innerStart: number): boolean {
+  const openTagPattern = /<picture(?:\s|>)/gi;
+  let openStart = -1;
+  for (
+    let match = openTagPattern.exec(html);
+    match;
+    match = openTagPattern.exec(html)
+  ) {
+    if (match.index > innerStart) break;
+    openStart = match.index;
+  }
+  if (openStart === -1) return false;
+
+  const previousClose = html.lastIndexOf('</picture>', innerStart);
+  return previousClose < openStart;
+}
+
+/**
+ * Wraps trusted CDN inline `<img>` tags in a `<picture>` that prefers the
+ * pre-generated AVIF/WebP siblings, keeping the original `<img>` as the fallback
+ * for clients without a usable `<source>`.
+ * Runs AFTER sanitization (the sources are derived from already-sanitized,
+ * trusted-CDN URLs); `<picture>`/`<source>` are allowlisted in sanitize.ts so
+ * they survive SafeHtml's re-sanitization. External, non-inline, and legacy
+ * inline images without the generated-sibling filename marker are left untouched.
+ */
+export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
+  // Quote-aware <img> match: tolerate a literal `>` inside a quoted attribute
+  // value (e.g. alt text) instead of truncating on the first `>`.
+  return html.replace(
+    /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi,
+    (imgTag, offset: number) => {
+      const src = readHtmlTagAttribute(imgTag, 'src');
+      if (!src || !isTrustedCdnInlineImage(src)) {
+        return imgTag;
+      }
+
+      if (isInsidePictureTag(html, offset)) {
+        return imgTag;
+      }
+      // `src` is captured from the already-sanitized HTML, so it is attribute-safe
+      // (entities already escaped). Deriving siblings only appends `.avif`/`.webp`,
+      // so the values stay correctly escaped — re-escaping here would double-encode
+      // ampersands in any query string (`&amp;` -> `&amp;amp;`).
+      const { avif, webp } = buildInlineImageSiblings(src);
+      return (
+        '<picture>' +
+        `<source srcset="${avif}" type="image/avif" />` +
+        `<source srcset="${webp}" type="image/webp" />` +
+        `${imgTag}</picture>`
+      );
+    }
+  );
+}
+
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
   fallbackImageAlt?: string | null;
 };
@@ -268,10 +395,11 @@ export async function resolveBlogPostContent(
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
     const sanitizedHtml = sanitizeHtml(rewrittenHtml);
     const captionedHtml = transformImageTitlesToFigureCaptions(sanitizedHtml);
-    legacyHtml = ensureBlogImageAltText(
+    const altedHtml = ensureBlogImageAltText(
       captionedHtml,
       options.fallbackImageAlt
     );
+    legacyHtml = wrapTrustedCdnInlineImagesInPicture(altedHtml);
   }
 
   return {

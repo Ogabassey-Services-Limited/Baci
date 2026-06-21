@@ -6,6 +6,7 @@ import {
   resolveBlogPostContent,
   transformImageTitlesToFigureCaptions,
   unescapeHtmlText,
+  wrapTrustedCdnInlineImagesInPicture,
 } from './blog-post-content';
 
 describe('resolveBlogPostContent', () => {
@@ -467,5 +468,81 @@ describe('buildBlogUrl', () => {
     expect(buildBlogUrl('https://usebaci.com', '/ogabassey///')).toBe(
       'https://usebaci.com/ogabassey/blog'
     );
+  });
+});
+
+describe('wrapTrustedCdnInlineImagesInPicture', () => {
+  const CDN =
+    'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+  const LEGACY_INLINE =
+    'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
+
+  it('wraps trusted CDN inline images in <picture> with avif/webp sources', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="Speaker" />`
+    );
+
+    expect(out).toContain('<picture>');
+    expect(out).toContain(`srcset="${CDN}.avif" type="image/avif"`);
+    expect(out).toContain(`srcset="${CDN}.webp" type="image/webp"`);
+    // The original <img> is preserved as the fallback for browsers/clients
+    // without AVIF/WebP support.
+    expect(out).toContain(`<img src="${CDN}" alt="Speaker" />`);
+  });
+
+  it('leaves external and already-optimized featured images untouched', () => {
+    const external = '<img src="https://example.com/inline-1.png" alt="x" />';
+    expect(wrapTrustedCdnInlineImagesInPicture(external)).toBe(external);
+
+    const featured =
+      '<img src="https://cdn.ogabassey.com/core-assets/blog/x/landscape_16x9.jpg" alt="x" />';
+    expect(wrapTrustedCdnInlineImagesInPicture(featured)).toBe(featured);
+  });
+
+  it('leaves legacy inline images without generated sibling markers untouched', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${LEGACY_INLINE}" alt="Speaker" />`
+    );
+
+    expect(out).toBe(`<img src="${LEGACY_INLINE}" alt="Speaker" />`);
+  });
+
+  it('wraps an inline image even when alt text contains a literal ">"', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="value a > b" />`
+    );
+
+    expect(out).toContain('<picture>');
+    expect(out).toContain(`${CDN}.avif`);
+    // The full <img> (including the ">" inside alt) is preserved as the fallback.
+    expect(out).toContain(`<img src="${CDN}" alt="value a > b" />`);
+  });
+
+  it('does not wrap trusted CDN inline images that are already inside a picture', () => {
+    const html = `<picture><source srcset="${CDN}.webp" type="image/webp" /><img src="${CDN}" alt="Speaker" /></picture>`;
+
+    const out = wrapTrustedCdnInlineImagesInPicture(html);
+
+    expect(out).toBe(html);
+    expect(out.match(/<picture>/g)).toHaveLength(1);
+  });
+
+  it('does not treat data-src or quoted text as the real src attribute', () => {
+    const dataSrcOnly = `<img data-src="${CDN}" alt="Speaker" />`;
+    expect(wrapTrustedCdnInlineImagesInPicture(dataSrcOnly)).toBe(dataSrcOnly);
+
+    const srcInAlt = `<img src="https://example.com/fallback.png" alt="code sample src='${CDN}'" />`;
+    expect(wrapTrustedCdnInlineImagesInPicture(srcInAlt)).toBe(srcInAlt);
+  });
+
+  it('does not double-escape ampersands already escaped by the sanitizer', () => {
+    // src is captured from sanitized HTML, so `&` is already `&amp;`.
+    const src = `${CDN}?v=1&amp;x=2`;
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${src}" alt="x" />`
+    );
+
+    expect(out).toContain(`${CDN}.avif?v=1&amp;x=2`);
+    expect(out).not.toContain('&amp;amp;');
   });
 });

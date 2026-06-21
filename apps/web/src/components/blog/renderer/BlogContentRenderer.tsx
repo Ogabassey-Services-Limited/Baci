@@ -5,6 +5,10 @@ import { common, createLowlight } from 'lowlight';
 import Image from 'next/image';
 import type React from 'react';
 import { SafeHtml } from '@/components/ui/safe-html';
+import {
+  buildInlineImageSiblings,
+  isTrustedCdnInlineImage,
+} from '@/lib/blog-inline-image-optimization';
 import { generateHeadingId } from '@/lib/blog-utils';
 import { sanitizeUrl } from '@/lib/sanitize-core';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
@@ -40,7 +44,9 @@ interface NodeRendererProps {
   baseUrl?: string;
   merchantSlug?: string;
   node: TipTapNode;
+  nodePath: string;
   index: number;
+  priorityInlineImage?: PriorityInlineImage | null;
 }
 
 interface BlogContentRendererProps {
@@ -49,6 +55,12 @@ interface BlogContentRendererProps {
   // biome-ignore lint/suspicious/noExplicitAny: TipTap library returns any type
   json: any;
   merchantSlug?: string;
+  priorityInlineImageSrc?: string | null;
+}
+
+interface PriorityInlineImage {
+  src: string;
+  nodePath: string;
 }
 
 const TextRenderer = ({
@@ -156,7 +168,9 @@ const NodeRenderer = ({
   baseUrl,
   merchantSlug,
   node,
+  nodePath,
   index: _index,
+  priorityInlineImage,
 }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer
@@ -166,7 +180,9 @@ const NodeRenderer = ({
       baseUrl={baseUrl}
       merchantSlug={merchantSlug}
       node={child}
+      nodePath={`${nodePath}.${i}`}
       index={i}
+      priorityInlineImage={priorityInlineImage}
     />
   ));
 
@@ -252,6 +268,14 @@ const NodeRenderer = ({
         return null;
       }
 
+      const imageAlt = node.attrs?.alt || 'Blog image';
+      const inlineSiblings = isTrustedCdnInlineImage(imageSrc)
+        ? buildInlineImageSiblings(imageSrc)
+        : null;
+      const isPriorityInlineImage =
+        !!inlineSiblings &&
+        imageSrc === priorityInlineImage?.src &&
+        nodePath === priorityInlineImage.nodePath;
       const imageContainer = (
         <div
           className={cn(
@@ -259,13 +283,32 @@ const NodeRenderer = ({
             !imageCaption && 'my-10'
           )}
         >
-          <Image
-            src={imageSrc}
-            alt={node.attrs?.alt || 'Blog image'}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 800px"
-          />
+          {inlineSiblings ? (
+            // Trusted CDN inline image: serve the pre-optimized AVIF/WebP
+            // siblings via <picture>, with the original PNG/JPEG as the
+            // compatibility fallback. next/image would needlessly re-process an
+            // already-optimized CDN URL.
+            <picture>
+              <source srcSet={inlineSiblings.avif} type="image/avif" />
+              <source srcSet={inlineSiblings.webp} type="image/webp" />
+              <img
+                src={imageSrc}
+                alt={imageAlt}
+                className="absolute inset-0 h-full w-full object-cover"
+                decoding="async"
+                fetchPriority={isPriorityInlineImage ? 'high' : undefined}
+                loading={isPriorityInlineImage ? 'eager' : 'lazy'}
+              />
+            </picture>
+          ) : (
+            <Image
+              src={imageSrc}
+              alt={imageAlt}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 800px"
+            />
+          )}
         </div>
       );
 
@@ -385,11 +428,54 @@ function parseBlogDoc(json: unknown): ParsedBlogDoc {
   return { kind: 'fallback' };
 }
 
+function findFirstRenderableImageNode(
+  node: TipTapNode,
+  nodePath: string
+): { src: string; nodePath: string } | null {
+  if (node.type === 'image') {
+    const rawSrc = node.attrs?.src;
+    const src = typeof rawSrc === 'string' ? sanitizeUrl(rawSrc) : '';
+    return src?.startsWith('http') ? { src, nodePath } : null;
+  }
+
+  for (const [index, child] of (node.content ?? []).entries()) {
+    const found = findFirstRenderableImageNode(child, `${nodePath}.${index}`);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function findFirstTrustedInlineImage(
+  node: TipTapNode,
+  nodePath: string,
+  targetSrc?: string
+): PriorityInlineImage | null {
+  // The first rendered image is the only body LCP candidate, so stop at it and
+  // only prioritize when it is a trusted, optimized inline image. Never skip an
+  // earlier (untrusted) image to prioritize a later one — that would set
+  // fetchPriority="high" on an image that cannot be the LCP.
+  const first = findFirstRenderableImageNode(node, nodePath);
+  if (!first) {
+    return null;
+  }
+  if (targetSrc !== undefined && first.src !== targetSrc) {
+    return null;
+  }
+  if (first.src.startsWith('http') && isTrustedCdnInlineImage(first.src)) {
+    return { src: first.src, nodePath: first.nodePath };
+  }
+  return null;
+}
+
 export const BlogContentRenderer = ({
   json,
   basePath,
   baseUrl,
   merchantSlug,
+  priorityInlineImageSrc,
 }: BlogContentRendererProps) => {
   if (!json) return null;
 
@@ -399,6 +485,11 @@ export const BlogContentRenderer = ({
     return <SafeHtml html={typeof json === 'string' ? json : ''} />;
   }
 
+  const priorityInlineImage =
+    priorityInlineImageSrc === null
+      ? null
+      : findFirstTrustedInlineImage(parsed.doc, '0', priorityInlineImageSrc);
+
   return (
     <div className="blog-content-renderer prose dark:prose-invert prose-baci max-w-none text-foreground">
       <NodeRenderer
@@ -406,7 +497,9 @@ export const BlogContentRenderer = ({
         baseUrl={baseUrl}
         merchantSlug={merchantSlug}
         node={parsed.doc}
+        nodePath="0"
         index={0}
+        priorityInlineImage={priorityInlineImage}
       />
     </div>
   );

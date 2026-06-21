@@ -224,6 +224,7 @@ async function renderBlogPostContent({
                   slug: post.slug,
                   tags: post.tags,
                   title: post.title,
+                  featured_image_url: post.featured_image_url,
                 }}
                 relatedProducts={relatedProducts}
                 relatedPosts={relatedPosts}
