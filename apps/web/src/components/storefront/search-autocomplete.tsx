@@ -132,50 +132,46 @@ export function SearchAutocomplete({
     // effect would not re-run and the dropdown would be left empty).
     const controller = new AbortController();
     let isMounted = true;
-    const fetchAutocomplete = () => {
-      setLoading(true);
-      fetch(
-        `/api/search/autocomplete?q=${encodeURIComponent(debouncedValue)}&merchant_id=${merchantId}&limit=10`,
-        { signal: controller.signal }
-      )
-        .then((response) => response.json())
-        .then(
-          (data: {
-            suggestions?: Product[];
-            popularSearches?: PopularSearch[];
-          }) => {
-            if (!isMounted) {
-              return;
-            }
-            setSuggestions(data.suggestions || []);
-            setPopularSearches(data.popularSearches || []);
-            setIsOpen(true);
-            setHighlightedIndex(-1);
-
-            // Track search event for merchant analytics
-            const resultsCount =
-              (data.suggestions?.length || 0) +
-              (data.popularSearches?.length || 0);
-            trackEvent.search(merchantId, debouncedValue, resultsCount);
-          }
-        )
-        .catch((error: unknown) => {
-          // Ignore aborts from superseded keystrokes / unmount.
-          if (controller.signal.aborted || !isMounted) {
+    setLoading(true);
+    fetch(
+      `/api/search/autocomplete?q=${encodeURIComponent(debouncedValue)}&merchant_id=${merchantId}&limit=10`,
+      { signal: controller.signal }
+    )
+      .then((response) => response.json())
+      .then(
+        (data: {
+          suggestions?: Product[];
+          popularSearches?: PopularSearch[];
+        }) => {
+          if (!isMounted) {
             return;
           }
-          console.error('Autocomplete error:', error);
-          setSuggestions([]);
-          setPopularSearches([]);
-        })
-        .finally(() => {
-          if (isMounted) {
-            setLoading(false);
-          }
-        });
-    };
+          setSuggestions(data.suggestions || []);
+          setPopularSearches(data.popularSearches || []);
+          setIsOpen(true);
+          setHighlightedIndex(-1);
 
-    fetchAutocomplete();
+          // Track search event for merchant analytics
+          const resultsCount =
+            (data.suggestions?.length || 0) +
+            (data.popularSearches?.length || 0);
+          trackEvent.search(merchantId, debouncedValue, resultsCount);
+        }
+      )
+      .catch((error: unknown) => {
+        // Ignore aborts from superseded keystrokes / unmount.
+        if (controller.signal.aborted || !isMounted) {
+          return;
+        }
+        console.error('Autocomplete error:', error);
+        setSuggestions([]);
+        setPopularSearches([]);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
 
     return () => {
       isMounted = false;
