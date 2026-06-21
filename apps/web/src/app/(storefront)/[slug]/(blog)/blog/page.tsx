@@ -6,13 +6,9 @@ import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
+import { parseBlogListingPage } from './blog-listing-page-params';
 import { buildBlogListingSchemaUrl } from './blog-listing-schema-url';
 import { BlogPageContent, type BlogPageProps } from './blog-page-content';
-
-function parseBlogMetadataPage(page?: string): number {
-  const parsedPage = Number.parseInt(String(page ?? '1'), 10);
-  return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
-}
 
 export async function generateMetadata({
   params,
@@ -22,7 +18,7 @@ export async function generateMetadata({
     params,
     searchParams,
   ]);
-  const currentPage = parseBlogMetadataPage(page);
+  const currentPage = parseBlogListingPage(page);
   const data = await getCachedBlogListing(slug, {
     category,
     page: currentPage,

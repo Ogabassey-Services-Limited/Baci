@@ -9,10 +9,12 @@ export function buildBlogListingRouteHref({
   page: number;
   search?: string;
 }): string {
+  const normalizedBasePath =
+    storeBasePath === '/' ? '' : storeBasePath.replace(/\/+$/, '');
   const params = new URLSearchParams();
   if (category) params.set('category', category);
   if (search) params.set('search', search);
   if (page > 1) params.set('page', String(page));
   const queryString = params.toString();
-  return `${storeBasePath}/blog${queryString ? `?${queryString}` : ''}`;
+  return `${normalizedBasePath}/blog${queryString ? `?${queryString}` : ''}`;
 }

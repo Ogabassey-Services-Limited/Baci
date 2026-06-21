@@ -19,6 +19,7 @@ import {
   type TemplateBlogPageProps,
 } from '@/templates/registry';
 import { BlogDiscoverySection } from './blog-discovery-section';
+import { parseBlogListingPage } from './blog-listing-page-params';
 import { BlogListingPagination } from './blog-listing-pagination';
 import { buildBlogListingRouteHref } from './blog-listing-route';
 import { buildBlogListingSchemaUrl } from './blog-listing-schema-url';
@@ -28,11 +29,6 @@ import { TemplateBlogRenderer } from './template-blog-renderer';
 export interface BlogPageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ category?: string; page?: string; search?: string }>;
-}
-
-function parseBlogListingPage(page?: string): number {
-  const parsedPage = Number.parseInt(String(page ?? '1'), 10);
-  return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
 }
 
 function getStorefrontPathPrefix(
