@@ -458,7 +458,8 @@ describe('SearchAutocomplete', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/search/autocomplete?q=iphnoe&merchant_id=merchant-1&limit=10'
+        '/api/search/autocomplete?q=iphnoe&merchant_id=merchant-1&limit=10',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 
@@ -467,6 +468,52 @@ describe('SearchAutocomplete', () => {
       expect.stringContaining('iPhone 16 Pro'),
       expect.stringContaining('iPhone X'),
     ]);
+  });
+
+  it('aborts the in-flight request when the query changes', async () => {
+    vi.useRealTimers();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValue({
+      json: async () => ({ suggestions: [], popularSearches: [] }),
+    } as Response);
+
+    const { rerender } = render(
+      <SearchAutocomplete
+        merchantId="merchant-1"
+        value="iphone"
+        onChange={vi.fn()}
+      />
+    );
+
+    // Capture the abort signal handed to the first autocomplete request.
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url]) => typeof url === 'string' && url.includes('q=iphone&')
+        )
+      ).toBe(true);
+    });
+    const firstSignal = (
+      fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes('q=iphone&')
+      )?.[1] as RequestInit | undefined
+    )?.signal;
+    expect(firstSignal).toBeInstanceOf(AbortSignal);
+    expect(firstSignal?.aborted).toBe(false);
+
+    // Typing more supersedes the first request — it must be aborted, never
+    // left to resolve and paint over the newer query's results.
+    rerender(
+      <SearchAutocomplete
+        merchantId="merchant-1"
+        value="iphones"
+        onChange={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(firstSignal?.aborted).toBe(true);
+    });
   });
 
   it('keeps the autocomplete popup closed for empty ranked suggestions', async () => {
@@ -489,7 +536,8 @@ describe('SearchAutocomplete', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/search/autocomplete?q=zzzz&merchant_id=merchant-1&limit=10'
+        '/api/search/autocomplete?q=zzzz&merchant_id=merchant-1&limit=10',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 

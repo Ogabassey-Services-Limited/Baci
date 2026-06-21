@@ -64,7 +64,7 @@ export function SearchAutocomplete({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debouncedValue = useDebounce(value, 300);
+  const debouncedValue = useDebounce(value, 180);
   const safeCountryCode = countryCode || 'NG';
   const { formatCurrencyCompact } = useCurrencyWithCountry(safeCountryCode);
 
@@ -121,11 +121,15 @@ export function SearchAutocomplete({
       return;
     }
 
+    // Cancel any superseded request so a slow earlier keystroke can never paint
+    // over the latest results and the server stops work it no longer needs.
+    const controller = new AbortController();
     let isMounted = true;
     const fetchAutocomplete = () => {
       setLoading(true);
       fetch(
-        `/api/search/autocomplete?q=${encodeURIComponent(debouncedValue)}&merchant_id=${merchantId}&limit=10`
+        `/api/search/autocomplete?q=${encodeURIComponent(debouncedValue)}&merchant_id=${merchantId}&limit=10`,
+        { signal: controller.signal }
       )
         .then((response) => response.json())
         .then(
@@ -149,7 +153,8 @@ export function SearchAutocomplete({
           }
         )
         .catch((error: unknown) => {
-          if (!isMounted) {
+          // Ignore aborts from superseded keystrokes / unmount.
+          if (controller.signal.aborted || !isMounted) {
             return;
           }
           console.error('Autocomplete error:', error);
@@ -167,6 +172,7 @@ export function SearchAutocomplete({
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [debouncedValue, merchantId]);
 
