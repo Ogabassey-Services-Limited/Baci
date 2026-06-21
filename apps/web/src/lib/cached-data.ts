@@ -1478,6 +1478,7 @@ export interface CachedProductLcpHint {
   stock?: number | null;
   stock_quantity?: number | null;
   updated_at?: string | null;
+  variant_attributes?: unknown;
 }
 
 interface CachedProductLcpHintOptions {
@@ -1534,6 +1535,7 @@ export async function getCachedProductLcpHint(
         images,
         stock,
         updated_at,
+        variant_attributes,
         categories:category_id (
           id,
           name,
