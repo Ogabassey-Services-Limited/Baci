@@ -1648,6 +1648,20 @@ describe('generateBlogPostSchema', () => {
     ]);
   });
 
+  it('links the publisher to the standalone Organization entity', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      publisher: {
+        ...baseBlogSchemaInput.publisher,
+        id: 'https://ogabassey.com#organization',
+      },
+    });
+
+    expect((schema.publisher as Record<string, unknown>)['@id']).toBe(
+      'https://ogabassey.com#organization'
+    );
+  });
+
   it('preserves ampersands in blog sameAs URLs until JSON-LD serialization', () => {
     const sameAsUrl = 'https://www.linkedin.com/in/editor?ref=a&source=b';
     const schema = generateBlogPostSchema({

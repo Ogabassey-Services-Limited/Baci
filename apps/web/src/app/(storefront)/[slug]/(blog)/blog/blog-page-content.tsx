@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
+import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
+import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
@@ -62,6 +64,11 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   const effectiveSearchQuery = searchQuery ?? search;
   const publicCategories = filterPublicBlogCategories(categories);
   const baseUrl = buildStoreUrl(merchant);
+  const organizationSchema = buildBlogOrganizationSchema(merchant, baseUrl);
+  const organizationId =
+    typeof organizationSchema['@id'] === 'string'
+      ? organizationSchema['@id']
+      : buildBlogOrganizationId(baseUrl);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const guideCollections = buildBlogClusterCollections({
     storeUrl: baseUrl,
@@ -85,6 +92,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
     url: `${baseUrl}/blog`,
     publisher: {
       '@type': 'Organization',
+      '@id': organizationId,
       name: merchant.business_name,
       logo: merchant.logo_url
         ? {
@@ -190,6 +198,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
             <TemplateBlogRenderer
               blogSchema={blogSchema}
               breadcrumbSchema={breadcrumbSchema}
+              organizationSchema={organizationSchema}
               itemListSchema={effectiveSearchQuery ? undefined : itemListSchema}
               BlogComponent={templateBlogUi.BlogComponent}
               basePath={basePath}
@@ -213,6 +222,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       <DefaultBlogUi
         blogSchema={blogSchema}
         breadcrumbSchema={breadcrumbSchema}
+        organizationSchema={organizationSchema}
         itemListSchema={itemListSchema}
         basePath={basePath}
         categories={publicCategories}

@@ -122,6 +122,13 @@ vi.mock('@/lib/seo-utils', () => ({
   generateBreadcrumbSchema: () => ({}),
 }));
 
+vi.mock('@/lib/blog-organization-schema', () => ({
+  buildBlogOrganizationSchema: () => ({
+    '@id': 'https://ogabassey.com#organization',
+    '@type': 'OnlineStore',
+  }),
+}));
+
 vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: (merchant: { slug: string; custom_domain?: string }) =>
     merchant.custom_domain
@@ -402,6 +409,25 @@ describe('BlogPostPageContent', () => {
             'https://instagram.com/ogabassey',
             'https://www.tiktok.com/@ogabassey',
           ],
+        }),
+      })
+    );
+  });
+
+  it('links BlogPosting publisher to the standalone Organization entity', async () => {
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publisher: expect.objectContaining({
+          id: 'https://ogabassey.com#organization',
         }),
       })
     );

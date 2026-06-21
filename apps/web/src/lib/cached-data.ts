@@ -2784,6 +2784,8 @@ export async function getCachedBlogListing(
       logo_url: merchant.logo_url,
       template_id: merchant.template_id,
       custom_domain: merchant.custom_domain,
+      country: merchant.country,
+      social_media: merchant.social_media,
     },
     posts: publicPosts,
     totalPosts: count || 0,
