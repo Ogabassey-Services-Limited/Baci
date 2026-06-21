@@ -274,6 +274,59 @@ export async function PUT(
     const existingVariantModel = normalizeProductVariantModel(
       existingProduct.variant_model
     );
+    type RequestVariant = NonNullable<typeof body.variants>[number];
+    const collectRequestVariantIds = (variants: RequestVariant[]) =>
+      variants
+        .map((variant) =>
+          typeof variant.id === 'string'
+            ? variant.id.trim().toLowerCase()
+            : null
+        )
+        .filter(
+          (variantId): variantId is string =>
+            typeof variantId === 'string' && variantId.length > 0
+        );
+    let effectiveBodyVariants = body.variants;
+    if (body.variants !== undefined && body.has_variants !== false) {
+      const submittedVariantIds = collectRequestVariantIds(body.variants);
+      const incomingVariantIds = Array.from(new Set(submittedVariantIds));
+
+      if (incomingVariantIds.length > 0) {
+        const { data: inventoryAnchors, error: inventoryAnchorsError } =
+          await supabase
+            .from('product_variants')
+            .select('id')
+            .eq('product_id', id)
+            .eq('merchant_id', merchantId)
+            .eq('is_inventory_anchor', true)
+            .in('id', incomingVariantIds)
+            .returns<Array<{ id: string }>>();
+
+        if (inventoryAnchorsError) {
+          console.error(
+            'Error validating product variant anchors:',
+            inventoryAnchorsError
+          );
+          return NextResponse.json(
+            { error: 'Failed to validate product variants' },
+            { status: 500 }
+          );
+        }
+
+        const inventoryAnchorIds = new Set(
+          (inventoryAnchors ?? []).map((variant) => variant.id)
+        );
+        if (inventoryAnchorIds.size > 0) {
+          effectiveBodyVariants = body.variants.filter((variant) => {
+            const variantId =
+              typeof variant.id === 'string'
+                ? variant.id.trim().toLowerCase()
+                : null;
+            return !variantId || !inventoryAnchorIds.has(variantId);
+          });
+        }
+      }
+    }
     const variantModel =
       body.variant_model !== undefined
         ? normalizeProductVariantModel(body.variant_model)
@@ -281,8 +334,9 @@ export async function PUT(
           ? existingVariantModel
           : existingVariantModel === 'sku_matrix'
             ? 'sku_matrix'
-            : body.variants !== undefined
-              ? inferProductVariantModel({ variants: body.variants })
+            : effectiveBodyVariants !== undefined &&
+                effectiveBodyVariants.length > 0
+              ? inferProductVariantModel({ variants: effectiveBodyVariants })
               : existingVariantModel;
     const shouldValidateSkuMatrixInput =
       variantModel === 'sku_matrix' &&
@@ -290,14 +344,14 @@ export async function PUT(
         body.variants !== undefined ||
         body.has_variants === false);
     const nextHasVariants =
-      body.has_variants !== undefined
-        ? body.has_variants
-        : body.variants !== undefined
-          ? body.variants.length > 0
+      body.variants !== undefined
+        ? (effectiveBodyVariants?.length ?? 0) > 0
+        : body.has_variants !== undefined
+          ? body.has_variants
           : existingProduct.has_variants;
     const skuMatrixVariantsForValidation =
       existingVariantModel === 'sku_matrix' && variantModel === 'sku_matrix'
-        ? body.variants?.map((variant) => {
+        ? effectiveBodyVariants?.map((variant) => {
             if (typeof variant.id !== 'string' || variant.id.trim() === '') {
               return variant;
             }
@@ -313,7 +367,7 @@ export async function PUT(
                 : 0,
             };
           })
-        : body.variants;
+        : effectiveBodyVariants;
     const skuMatrixValidationError = shouldValidateSkuMatrixInput
       ? getSkuMatrixValidationError({
           variantModel,
@@ -336,7 +390,7 @@ export async function PUT(
               body.color !== undefined ? body.color : existingProduct.color,
             hasVariants: nextHasVariants,
             productImages: body.images,
-            variants: body.variants,
+            variants: effectiveBodyVariants,
           })
         : null;
 
@@ -488,15 +542,17 @@ export async function PUT(
       updates.fulfillment_details = body.fulfillment_details;
     if (body.has_variants !== undefined || body.variants !== undefined)
       updates.has_variants = nextHasVariants;
-    const deferredVariantModelUpdates =
-      body.variant_model !== undefined || body.variants !== undefined
-        ? {
-            variant_model: variantModel,
-            ...(variantModel === 'sku_matrix'
-              ? { migration_status: 'migrated' as const }
-              : {}),
-          }
-        : null;
+    const shouldUpdateVariantModel =
+      body.variant_model !== undefined ||
+      (effectiveBodyVariants !== undefined && effectiveBodyVariants.length > 0);
+    const deferredVariantModelUpdates = shouldUpdateVariantModel
+      ? {
+          variant_model: variantModel,
+          ...(variantModel === 'sku_matrix'
+            ? { migration_status: 'migrated' as const }
+            : {}),
+        }
+      : null;
     if (body.category !== undefined) updates.category = body.category;
     if (body.color !== undefined || variantWriteProjections) {
       updates.color = variantWriteProjections?.color ?? body.color;
@@ -558,14 +614,13 @@ export async function PUT(
     }
 
     let variantsToSync: Record<string, unknown>[] | null = null;
-    if (body.variants !== undefined && body.has_variants !== false) {
-      type RequestVariant = NonNullable<typeof body.variants>[number];
+    if (effectiveBodyVariants !== undefined && body.has_variants !== false) {
       const variantHasOwn = (
         variant: RequestVariant,
         key: keyof RequestVariant
       ) => Object.hasOwn(variant, key);
 
-      variantsToSync = body.variants.map((variant: RequestVariant) => {
+      variantsToSync = effectiveBodyVariants.map((variant: RequestVariant) => {
         const normalizedVariantId =
           typeof variant.id === 'string'
             ? variant.id.toLowerCase()
@@ -598,6 +653,10 @@ export async function PUT(
         return payload;
       });
 
+      if (variantsToSync.length === 0) {
+        variantsToSync = null;
+      }
+
       const collectVariantIds = (variants: Record<string, unknown>[]) =>
         variants
           .map((variant) => variant.id)
@@ -605,44 +664,10 @@ export async function PUT(
             (variantId): variantId is string =>
               typeof variantId === 'string' && variantId.length > 0
           );
-      let submittedVariantIds = collectVariantIds(variantsToSync);
-      let incomingVariantIds = Array.from(new Set(submittedVariantIds));
-
-      if (incomingVariantIds.length > 0) {
-        const { data: inventoryAnchors, error: inventoryAnchorsError } =
-          await supabase
-            .from('product_variants')
-            .select('id')
-            .eq('product_id', id)
-            .eq('merchant_id', merchantId)
-            .eq('is_inventory_anchor', true)
-            .in('id', incomingVariantIds)
-            .returns<Array<{ id: string }>>();
-
-        if (inventoryAnchorsError) {
-          console.error(
-            'Error validating product variant anchors:',
-            inventoryAnchorsError
-          );
-          return NextResponse.json(
-            { error: 'Failed to validate product variants' },
-            { status: 500 }
-          );
-        }
-
-        const inventoryAnchorIds = new Set(
-          (inventoryAnchors ?? []).map((variant) => variant.id)
-        );
-        if (inventoryAnchorIds.size > 0) {
-          variantsToSync = variantsToSync.filter(
-            (variant) =>
-              typeof variant.id !== 'string' ||
-              !inventoryAnchorIds.has(variant.id)
-          );
-          submittedVariantIds = collectVariantIds(variantsToSync);
-          incomingVariantIds = Array.from(new Set(submittedVariantIds));
-        }
-      }
+      const submittedVariantIds = variantsToSync
+        ? collectVariantIds(variantsToSync)
+        : [];
+      const incomingVariantIds = Array.from(new Set(submittedVariantIds));
 
       if (incomingVariantIds.length !== submittedVariantIds.length) {
         return NextResponse.json(

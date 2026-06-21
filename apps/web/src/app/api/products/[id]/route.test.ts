@@ -994,6 +994,43 @@ describe('PUT /api/products/[id]', () => {
       expect(lastRpcCall).toBeNull();
     });
 
+    it('does not enable variants or sync when only inventory anchors are submitted', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: false,
+        variant_model: 'legacy',
+      };
+      anchorVariants = [{ id: ANCHOR_VARIANT_ID }];
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+        has_variants: false,
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          variants: [
+            {
+              id: ANCHOR_VARIANT_ID,
+              sku: 'ANCHOR-SYSTEM-ROW',
+              stock_quantity: 999,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+
+      expect(res.status).toBe(200);
+      expect(lastProductUpdatePayload).toMatchObject({ has_variants: false });
+      expect(lastRpcCall).toBeNull();
+    });
+
     it('filters serialized inventory anchors before variant ownership validation', async () => {
       product = {
         id: PRODUCT_ID,
