@@ -37,7 +37,6 @@ function removeWebStorageValue() {
   }
 }
 
-
 function hasControlCharacters(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const charCode = value.charCodeAt(index);
@@ -53,7 +52,7 @@ function hasScheme(value: string): boolean {
   return /^[a-z][a-z\d+.-]*:/iu.test(value);
 }
 
-function isSafeRelativeReturnTo(value: string | null): boolean {
+export function isSafeRelativeReturnTo(value: string | null): boolean {
   if (value === null) {
     return true;
   }
@@ -82,9 +81,8 @@ function isSafeRelativeReturnTo(value: string | null): boolean {
   }
 }
 
-function parseStoredAuthLoginResumeState(
-  rawValue: string | null,
-  expectedReturnTo: string | null
+function parseValidAuthLoginResumeState(
+  rawValue: string | null
 ): AuthLoginResumeState | null {
   if (!rawValue) {
     return null;
@@ -96,19 +94,22 @@ function parseStoredAuthLoginResumeState(
       parsed.step !== 'otp' ||
       typeof parsed.email !== 'string' ||
       !EmailSchema.safeParse(parsed.email).success ||
-      typeof parsed.savedAt !== 'number' ||
-      Date.now() - parsed.savedAt > AUTH_LOGIN_RESUME_TTL_MS
+      typeof parsed.savedAt !== 'number'
+    ) {
+      return null;
+    }
+
+    const now = Date.now();
+    if (
+      parsed.savedAt > now ||
+      now - parsed.savedAt > AUTH_LOGIN_RESUME_TTL_MS
     ) {
       return null;
     }
 
     const storedReturnTo =
       typeof parsed.returnTo === 'string' ? parsed.returnTo : null;
-    if (
-      storedReturnTo !== expectedReturnTo ||
-      !isSafeRelativeReturnTo(storedReturnTo) ||
-      !isSafeRelativeReturnTo(expectedReturnTo)
-    ) {
+    if (!isSafeRelativeReturnTo(storedReturnTo)) {
       return null;
     }
 
@@ -120,6 +121,22 @@ function parseStoredAuthLoginResumeState(
   } catch {
     return null;
   }
+}
+
+function parseStoredAuthLoginResumeState(
+  rawValue: string | null,
+  expectedReturnTo: string | null
+): AuthLoginResumeState | null {
+  const resumeState = parseValidAuthLoginResumeState(rawValue);
+  if (
+    !resumeState ||
+    resumeState.returnTo !== expectedReturnTo ||
+    !isSafeRelativeReturnTo(expectedReturnTo)
+  ) {
+    return null;
+  }
+
+  return resumeState;
 }
 
 export async function saveAuthLoginResumeState(
@@ -154,6 +171,19 @@ export async function getAuthLoginResumeState(
         ? readWebStorageValue()
         : await SecureStore.getItemAsync(AUTH_LOGIN_RESUME_STORAGE_KEY);
     return parseStoredAuthLoginResumeState(rawValue, expectedReturnTo);
+  } catch (error) {
+    log.warn('Failed to read pending login resume state', error);
+    return null;
+  }
+}
+
+export async function getPendingAuthLoginResumeState(): Promise<AuthLoginResumeState | null> {
+  try {
+    const rawValue =
+      Platform.OS === 'web'
+        ? readWebStorageValue()
+        : await SecureStore.getItemAsync(AUTH_LOGIN_RESUME_STORAGE_KEY);
+    return parseValidAuthLoginResumeState(rawValue);
   } catch (error) {
     log.warn('Failed to read pending login resume state', error);
     return null;
