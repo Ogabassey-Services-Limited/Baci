@@ -25,15 +25,21 @@ export function isInternalSelectionAxis(axis: unknown): boolean {
 }
 
 export function stripInternalSelectionAxes<T>(
-  attributes: Record<string, T> | null | undefined
+  attributes: Record<string, T> | null | undefined,
+  options: { preserveCondition?: boolean } = {}
 ): Record<string, T> {
   if (!attributes) {
     return {};
   }
 
   return Object.fromEntries(
-    Object.entries(attributes).filter(
-      ([axis]) => !isInternalSelectionAxis(axis)
-    )
+    Object.entries(attributes).filter(([axis]) => {
+      const normalizedAxis = normalizeInternalSelectionAxis(axis);
+      if (options.preserveCondition && normalizedAxis === 'condition') {
+        return true;
+      }
+
+      return !INTERNAL_SELECTION_AXES.has(normalizedAxis);
+    })
   );
 }

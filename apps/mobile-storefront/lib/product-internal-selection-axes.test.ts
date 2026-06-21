@@ -83,6 +83,22 @@ describe('product-internal-selection-axes', () => {
     });
   });
 
+  it('can preserve condition when it is rendered as a generic selector', () => {
+    expect(
+      stripInternalSelectionAxes(
+        {
+          Condition: 'Used',
+          Storage: '256GB',
+          warranty: '12 months',
+        },
+        { preserveCondition: true }
+      )
+    ).toEqual({
+      Condition: 'Used',
+      warranty: '12 months',
+    });
+  });
+
   it('handles large attribute objects without dropping merchant-facing keys', () => {
     const attributes = Object.fromEntries(
       Array.from({ length: 50 }, (_, index) => [`merchant_${index}`, index])

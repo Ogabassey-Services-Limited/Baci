@@ -2799,11 +2799,14 @@ describe('[category]/[productSlug] page render', () => {
   it('allows valid variantId query routes to stream product hints without redirecting', async () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/variant-laptop.avif';
+    const variantImage =
+      'https://cdn.ogabassey.com/core-assets/products/variant-laptop-used-128.avif';
     const variants = [
       {
         id: 'variant-used-128',
         attributes: { storage: '128GB' },
         condition: 'used',
+        primary_image: variantImage,
         stock_quantity: 3,
       },
     ];
@@ -2836,7 +2839,7 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: productImage,
+      src: variantImage,
     });
     expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(

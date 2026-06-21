@@ -51,6 +51,21 @@ describe('cart helpers', () => {
     expect(getAxisOptions('storage', product)).toEqual(['128GB']);
   });
 
+  it('falls back to one generic metadata option when variant rows lack the axis', () => {
+    const product = productFixture({
+      variant_attributes: { ram: ['8GB'] },
+      variants: [
+        {
+          attributes: {},
+          id: 'variant-8gb',
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(getAxisOptions('ram', product)).toEqual(['8GB']);
+  });
+
   it('detects whether an axis is backed by variant rows', () => {
     const product = productFixture({
       variants: [

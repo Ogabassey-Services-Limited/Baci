@@ -1,5 +1,8 @@
 import type { Product as CartProduct } from '@/lib/products';
-import { canonicalizeVariantAxis } from '@/components/storefront/ogabassey/variant-attributes';
+import {
+  canonicalizeVariantAxis,
+  getVariantAttributeOptions,
+} from '@/components/storefront/ogabassey/variant-attributes';
 import type { Product } from '../../types';
 import type { ConditionType } from './product-condition';
 import type { ProductDetailsCurrentOffer } from './offer-resolution';
@@ -113,7 +116,7 @@ function getMetadataAxisOptions(
     return productData.platforms;
   }
 
-  return [];
+  return getVariantAttributeOptions(productData.variant_attributes, axis);
 }
 
 export function getAxisOptions(

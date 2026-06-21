@@ -458,6 +458,19 @@ function getInitialCriticalVariantSelection(
   };
 }
 
+function getInitialCriticalVariantSelectionPrimaryImage(
+  product: Product,
+  selection: ReturnType<typeof getInitialCriticalVariantSelection>
+) {
+  if (!selection) {
+    return null;
+  }
+
+  return getVariantPrimaryImage(
+    resolveVariantSelection(product, selection)?.variant
+  );
+}
+
 function getDefaultCriticalVariantSelection(product: Product) {
   const productColor = normalizeRouteSelectionValue(product.color);
   const productCondition = normalizeProductCondition(product.condition);
@@ -1621,9 +1634,20 @@ export default async function CategoryProductPage({
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
+  const resolvedSearchParams = await searchParams;
+  const commerceProduct = buildCriticalCommerceRouteProduct(product);
+  const criticalInitialVariantSelection = criticalProduct
+    ? getInitialCriticalVariantSelection(commerceProduct, resolvedSearchParams)
+    : undefined;
+  const selectedVariantProductImage = criticalProduct
+    ? getInitialCriticalVariantSelectionPrimaryImage(
+        commerceProduct,
+        criticalInitialVariantSelection
+      )
+    : null;
   const pageOwnsProductPreload = merchant.template_id === OGABASSEY_TEMPLATE_ID;
   const pagePreloadProductImage = pageOwnsProductPreload
-    ? primaryProductImage
+    ? selectedVariantProductImage || primaryProductImage
     : null;
   const pagePreloadResourceKey =
     pagePreloadProductImage !== null
@@ -1650,8 +1674,6 @@ export default async function CategoryProductPage({
     : Promise.resolve<'' | `/${string}`>('');
   const productResultPromise = loadProductResult();
 
-  const resolvedSearchParams = await searchParams;
-  const commerceProduct = buildCriticalCommerceRouteProduct(product);
   redirectInvalidVariantSelectionParams(
     slug,
     commerceProduct,
@@ -1672,10 +1694,7 @@ export default async function CategoryProductPage({
 
         return {
           cartProduct: createCriticalCartProduct(commerceProduct),
-          initialVariantSelection: getInitialCriticalVariantSelection(
-            commerceProduct,
-            resolvedSearchParams
-          ),
+          initialVariantSelection: criticalInitialVariantSelection,
           product: {
             ...criticalProduct,
             variantCount,
