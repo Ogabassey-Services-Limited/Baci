@@ -22,9 +22,6 @@ interface OrderConfirmationData extends MerchantRegistrationInfo {
 }
 
 /**
- * Generate order confirmation email HTML
- */
-/**
  * Generate order confirmation email HTML - Baci Premium Design 2025
  */
 
@@ -251,5 +248,3 @@ If you have any questions about your order, please contact ${data.merchantName} 
 Powered by Baci - AI E-commerce Platform
   `.trim();
 }
-
-// --- Payment Reminder Email ---

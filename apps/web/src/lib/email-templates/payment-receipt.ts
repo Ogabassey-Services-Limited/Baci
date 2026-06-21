@@ -158,5 +158,3 @@ Thank you,
 ${data.merchantName}
       `.trim();
 }
-
-// --- Order Shipped Email ---
