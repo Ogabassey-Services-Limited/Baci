@@ -95,6 +95,11 @@ export default defineConfig({
     globals: true,
     testTimeout: 10_000,
     setupFiles: [path.join(__dirname, 'vitest.setup.ts')],
+    // Cap worker parallelism when running locally (e.g. the pre-push hook) to
+    // avoid OOM/SIGTERM under memory pressure — each jsdom worker is heavy and
+    // the full suite spawns one per core. CI (process.env.CI) keeps full
+    // parallelism for speed.
+    ...(process.env.CI ? {} : { maxWorkers: '50%', minWorkers: 1 }),
     alias: {
       '@/app/(platform)/onboarding/actions': path.resolve(
         __dirname,
