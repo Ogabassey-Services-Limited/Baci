@@ -691,9 +691,14 @@ describe('notifyStorefrontUpdateAvailable', () => {
     expect(selectChain.eq).toHaveBeenCalledWith('app_type', 'storefront');
     expect(selectChain.eq).toHaveBeenCalledWith('platform', 'android');
     expect(selectChain.eq).toHaveBeenCalledWith('is_active', true);
-    expect(selectChain.or).toHaveBeenCalledWith(
-      'build_number.is.null,build_number.lt.646'
-    );
+    // A SINGLE .or() carrying BOTH the build-number and throttle conditions —
+    // chaining two .or() calls would drop the build filter (PostgREST overwrite).
+    expect(selectChain.or).toHaveBeenCalledTimes(1);
+    const orArg = selectChain.or.mock.calls[0][0] as string;
+    expect(orArg).toContain('build_number.is.null');
+    expect(orArg).toContain('build_number.lt.646');
+    expect(orArg).toContain('last_update_push_at.is.null');
+    expect(orArg).toContain('last_update_push_at.lt.');
 
     // Sends the payload the app's tap handler routes to the update prompt.
     const sent = mockChunkPushNotifications.mock

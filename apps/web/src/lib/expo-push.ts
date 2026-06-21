@@ -1032,8 +1032,20 @@ export async function notifyStorefrontUpdateAvailable(
     .eq('app_type', 'storefront')
     .eq('platform', platform)
     .eq('is_active', true)
-    .or(`build_number.is.null,build_number.lt.${latestBuild}`)
-    .or(`last_update_push_at.is.null,last_update_push_at.lt.${cutoffIso}`)
+    // Eligibility:
+    //   (build_number IS NULL OR build_number < latest)
+    //   AND (last_update_push_at IS NULL OR last_update_push_at < cutoff)
+    // Chaining two .or() calls does NOT AND them — PostgREST's `or` param gets
+    // overwritten, silently dropping the build filter. Express it as a single
+    // OR-of-ANDs (DNF) so both conditions are guaranteed to apply.
+    .or(
+      [
+        'and(build_number.is.null,last_update_push_at.is.null)',
+        `and(build_number.is.null,last_update_push_at.lt.${cutoffIso})`,
+        `and(build_number.lt.${latestBuild},last_update_push_at.is.null)`,
+        `and(build_number.lt.${latestBuild},last_update_push_at.lt.${cutoffIso})`,
+      ].join(',')
+    )
     .limit(limit);
 
   if (error) {
