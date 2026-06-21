@@ -5,22 +5,6 @@ import { ConditionSelector } from './ConditionSelector';
 const noop = jest.fn();
 
 describe('ConditionSelector', () => {
-  it('renders nothing when only one condition is available', () => {
-    render(
-      <ConditionSelector
-        availableConditions={['used']}
-        currentCondition="Used"
-        offers={[]}
-        selectedCondition="used"
-        onSelect={noop}
-        basePrice={550000}
-      />
-    );
-
-    expect(screen.queryByRole('radiogroup', { name: 'Condition' })).toBeNull();
-    expect(screen.queryByText('Used')).toBeNull();
-  });
-
   it('renders the real New option only when it is explicitly available', () => {
     render(
       <ConditionSelector

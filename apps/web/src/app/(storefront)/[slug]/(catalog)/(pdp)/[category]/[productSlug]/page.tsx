@@ -1,5 +1,10 @@
 import '@/app/(storefront)/storefront-pdp-critical.css';
-import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
+import {
+  type ResolvedProductVariantSelection,
+  resolveDefaultVariantSelection,
+  resolveVariantSelection,
+  resolveVariantSelectionParamResolution,
+} from '@baci/shared/lib';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
@@ -45,7 +50,7 @@ import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-cate
 import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
 import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
-import type { Product, ProductCondition } from '@/lib/products';
+import type { Product, ProductCondition, ProductVariant } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -388,6 +393,25 @@ function shouldRedirectVariantSelectionParams(
   );
 }
 
+function toInitialCriticalVariantSelection(
+  selection: ResolvedProductVariantSelection<ProductVariant> | null
+) {
+  if (!selection) {
+    return undefined;
+  }
+
+  const variantId = selection.variant.id;
+  if (!selection.attributes && !selection.condition && !variantId) {
+    return undefined;
+  }
+
+  return {
+    ...(selection.attributes && { attributes: selection.attributes }),
+    ...(selection.condition && { condition: selection.condition }),
+    ...(variantId && { variantId }),
+  };
+}
+
 function getInitialCriticalVariantSelection(
   product: Product,
   searchParams: Awaited<PageProps['searchParams']>
@@ -435,26 +459,30 @@ function getInitialCriticalVariantSelection(
 
 function getDefaultCriticalVariantSelection(product: Product) {
   const productColor = normalizeRouteSelectionValue(product.color);
+  const productCondition = normalizeProductCondition(product.condition);
   const defaultVariantId = normalizeRouteSelectionValue(
     product.default_variant_id
   );
-  const defaultVariant = defaultVariantId
-    ? product.variants?.find((variant) => variant.id === defaultVariantId)
-    : undefined;
-  const attributes =
-    defaultVariant?.attributes ??
-    (productColor ? { color: productColor } : undefined);
-  const condition = defaultVariant?.condition;
-  const variantId = defaultVariant?.id;
 
-  if (!attributes && !condition && !variantId) {
+  if (defaultVariantId) {
+    return (
+      toInitialCriticalVariantSelection(
+        resolveVariantSelection(product, { variantId: defaultVariantId })
+      ) ??
+      toInitialCriticalVariantSelection(resolveDefaultVariantSelection(product))
+    );
+  }
+
+  const attributes = productColor ? { color: productColor } : undefined;
+  const condition = productColor ? productCondition : undefined;
+
+  if (!attributes && !condition) {
     return undefined;
   }
 
   return {
     ...(attributes && { attributes }),
     ...(condition && { condition }),
-    ...(variantId && { variantId }),
   };
 }
 
@@ -630,6 +658,21 @@ function getVariantPrimaryImage(
   return variant.primary_image || variant.images?.[0] || null;
 }
 
+function getRouteVariantResolutionProduct(
+  cachedProduct: CachedProductLcpHint,
+  variants: NonNullable<Product['variants']>
+) {
+  const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
+
+  return {
+    compare_at_price: legacyPrices.compareAtPrice,
+    condition: normalizeProductCondition(cachedProduct.condition),
+    manage_stock: cachedProduct.manage_stock,
+    price: legacyPrices.price ?? legacyPrices.basePrice ?? 0,
+    variants,
+  };
+}
+
 function getInitialRouteVariant(
   cachedProduct: CachedProductLcpHint,
   variants: NonNullable<Product['variants']>
@@ -640,9 +683,32 @@ function getInitialRouteVariant(
   const defaultVariantId = normalizeRouteSelectionValue(
     cachedProduct.default_variant_id
   );
-  const defaultVariant = defaultVariantId
-    ? variants.find((variant) => variant.id === defaultVariantId)
-    : null;
+  const resolutionProduct = getRouteVariantResolutionProduct(
+    cachedProduct,
+    variants
+  );
+
+  if (defaultVariantId) {
+    const defaultSelection = resolveVariantSelection(resolutionProduct, {
+      variantId: defaultVariantId,
+    });
+    const fallbackSelection =
+      defaultSelection ?? resolveDefaultVariantSelection(resolutionProduct);
+
+    return fallbackSelection?.variant ?? null;
+  }
+
+  if (productColor) {
+    const colorSelection = resolveVariantSelection(resolutionProduct, {
+      attributes: { color: productColor },
+      condition: productCondition,
+    });
+
+    if (colorSelection) {
+      return colorSelection.variant;
+    }
+  }
+
   const sameProductColorVariants = productColor
     ? variants.filter(
         (variant) =>
@@ -656,11 +722,31 @@ function getInitialRouteVariant(
       (variant.condition ?? productCondition) === productCondition
   );
 
+  return productColorAndConditionVariant || sameProductColorVariants[0] || null;
+}
+
+function getCachedProductRoutePrimaryImage(
+  cachedProduct: CachedProductLcpHint | null,
+  variants?: NonNullable<Product['variants']>
+) {
+  if (!cachedProduct) {
+    return null;
+  }
+
+  const normalizedVariants =
+    variants ??
+    normalizeStorefrontProductVariants(cachedProduct.product_variants, {
+      merchantId: cachedProduct.merchant_id || OGABASSEY_MERCHANT_ID,
+      productId: cachedProduct.id,
+    });
+  const initialVariant = getInitialRouteVariant(
+    cachedProduct,
+    normalizedVariants
+  );
+
   return (
-    defaultVariant ||
-    productColorAndConditionVariant ||
-    sameProductColorVariants[0] ||
-    null
+    getVariantPrimaryImage(initialVariant) ||
+    getCachedProductLcpHintPrimaryImage(cachedProduct)
   );
 }
 
@@ -687,11 +773,8 @@ function mapCachedProductLcpHintToRouteProduct(
       productId: cachedProduct.id,
     }
   );
-  const initialVariant = getInitialRouteVariant(cachedProduct, variants);
   const primaryImage =
-    getVariantPrimaryImage(initialVariant) ||
-    getCachedProductLcpHintPrimaryImage(cachedProduct) ||
-    '';
+    getCachedProductRoutePrimaryImage(cachedProduct, variants) || '';
 
   return {
     base_price: legacyPrices.basePrice,
@@ -909,7 +992,7 @@ async function getProductRouteControl(
   let preloadedProductResourceKey: string | null = null;
   const knownOgaBasseyImageLcpHintPromise = knownOgaBasseyMerchantId
     ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug, {
-        includeVariants: false,
+        includeVariants: isKnownOgaBasseyCustomDomain,
       })
     : null;
   if (knownOgaBasseyImageLcpHintPromise) {
@@ -930,7 +1013,7 @@ async function getProductRouteControl(
         .then((cachedProduct) => ({
           cachedProduct,
           kind: 'lcp-hint' as const,
-          primaryImage: getCachedProductLcpHintPrimaryImage(cachedProduct),
+          primaryImage: getCachedProductRoutePrimaryImage(cachedProduct),
         }))
         .catch(() => ({
           cachedProduct: null,

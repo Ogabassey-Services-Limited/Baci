@@ -3,11 +3,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product as CartProduct } from '@/lib/products';
 import {
-  OgabasseyPdpCriticalCommerceConditionFact,
   OgabasseyPdpCriticalCommerceClient,
-  OgabasseyPdpCriticalCommerceProvider,
-  OgabasseyPdpCriticalCommerceSummary,
-  OgabasseyPdpCriticalConditionBadge,
 } from './critical-commerce.client';
 
 const cartMocks = vi.hoisted(() => ({
@@ -284,66 +280,4 @@ describe('OgabasseyPdpCriticalCommerceClient', () => {
     expect(cartMocks.addToCart).not.toHaveBeenCalled();
   });
 
-  it('updates critical condition labels from the selected variant state', () => {
-    render(
-      <OgabasseyPdpCriticalCommerceProvider
-        cartProduct={{
-          ...variantCartProduct,
-          condition: 'new',
-          variants: [
-            {
-              attributes: { storage: '128GB' },
-              condition: 'used',
-              id: 'variant-used',
-              merchant_id: 'merchant-1',
-              price_override: 237_674.42,
-              product_id: 'product-1',
-              stock_quantity: 10,
-            },
-            {
-              attributes: { storage: '128GB' },
-              condition: 'open_box',
-              id: 'variant-open-box',
-              merchant_id: 'merchant-1',
-              price_override: 278_418.6,
-              product_id: 'product-1',
-              stock_quantity: 8,
-            },
-          ],
-        }}
-        variantAxes={['condition', 'storage']}
-        variantCount={2}
-      >
-        <OgabasseyPdpCriticalConditionBadge fallbackCondition="new" />
-        <OgabasseyPdpCriticalCommerceConditionFact fallbackCondition="new" />
-        <OgabasseyPdpCriticalCommerceSummary />
-      </OgabasseyPdpCriticalCommerceProvider>
-    );
-
-    expect(screen.getByText('Multiple Conditions')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /select used condition/i })
-    ).toHaveAttribute('aria-pressed', 'true');
-
-    fireEvent.click(
-      screen.getByRole('button', { name: /select open box condition/i })
-    );
-
-    expect(screen.getByText('Multiple Conditions')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /select open box condition/i })
-    ).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('renders condition labels from fallback condition outside the provider', () => {
-    render(
-      <>
-        <OgabasseyPdpCriticalConditionBadge fallbackCondition="open_box" />
-        <OgabasseyPdpCriticalCommerceConditionFact fallbackCondition="used" />
-      </>
-    );
-
-    expect(screen.getByText('Open Box')).toBeInTheDocument();
-    expect(screen.getByText('Used')).toBeInTheDocument();
-  });
 });

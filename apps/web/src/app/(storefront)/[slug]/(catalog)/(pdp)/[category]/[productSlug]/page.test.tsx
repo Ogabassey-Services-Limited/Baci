@@ -2321,8 +2321,19 @@ describe('[category]/[productSlug] page render', () => {
       | undefined;
     let merchantLookupCount = 0;
     const routeEvents: string[] = [];
-    const earlyProductImage =
+    const baseProductImage =
       'https://cdn.ogabassey.com/core-assets/products/domain-lcp-hint.avif';
+    const variantProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/domain-lcp-variant.avif';
+    const variants = [
+      {
+        attributes: { color: 'Jade Green', storage: '128GB' },
+        condition: 'open_box',
+        id: 'variant-open-jade-128',
+        primary_image: variantProductImage,
+        stock_quantity: 3,
+      },
+    ];
     const ogabasseyMerchant = {
       ...baseMerchant,
       id: OGABASSEY_MERCHANT_ID,
@@ -2352,11 +2363,17 @@ describe('[category]/[productSlug] page render', () => {
         return Promise.resolve(
           toLegacyCachedProduct({
             ...categorizedDetailedProduct,
-            images: [earlyProductImage],
+            color: 'Jade Green',
+            condition: 'open_box',
+            default_variant_id: 'variant-open-jade-128',
+            has_variants: true,
+            images: [baseProductImage],
+            product_variants: variants,
           })
         );
       }
     );
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
     mockOgabasseyPdpProductResourceHints.mockImplementationOnce(() => {
       routeEvents.push('product-hints');
       return null;
@@ -2375,26 +2392,26 @@ describe('[category]/[productSlug] page render', () => {
       expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
         OGABASSEY_MERCHANT_ID,
         'hp-laptop-14-ep0063nia',
-        { includeVariants: false }
+        { includeVariants: true }
       );
     });
     expect(routeEvents).toEqual([
-      `lcp-hint:${OGABASSEY_MERCHANT_ID}:image`,
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
       'merchant-start',
       'product-hints',
     ]);
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: earlyProductImage,
+      src: variantProductImage,
     });
 
     resolveMerchant?.(ogabasseyMerchant);
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: earlyProductImage,
+      src: variantProductImage,
     });
     expect(routeEvents).toEqual([
-      `lcp-hint:${OGABASSEY_MERCHANT_ID}:image`,
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
       'merchant-start',
       'product-hints',
       `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
@@ -2457,7 +2474,7 @@ describe('[category]/[productSlug] page render', () => {
 
     await waitFor(() => {
       expect(routeEvents).toEqual([
-        `lcp-hint:${OGABASSEY_MERCHANT_ID}:image`,
+        `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
         'merchant-start',
         `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
       ]);
@@ -2477,7 +2494,7 @@ describe('[category]/[productSlug] page render', () => {
     });
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledTimes(1);
     expect(routeEvents).toEqual([
-      `lcp-hint:${OGABASSEY_MERCHANT_ID}:image`,
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
       'merchant-start',
       `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
       'product-hints',
@@ -2488,7 +2505,7 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
-  it('continues with variant route data when the image-only prewarm fails', async () => {
+  it('continues with variant route data when the variant-aware prewarm fails', async () => {
     let resolveMerchant:
       | ((
           value: typeof baseMerchant & {
@@ -2532,7 +2549,7 @@ describe('[category]/[productSlug] page render', () => {
       expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
         OGABASSEY_MERCHANT_ID,
         'hp-laptop-14-ep0063nia',
-        { includeVariants: false }
+        { includeVariants: true }
       );
     });
 
@@ -2851,6 +2868,8 @@ describe('[category]/[productSlug] page render', () => {
       'https://cdn.ogabassey.com/core-assets/products/s24-graphite.avif';
     const jadeImage =
       'https://cdn.ogabassey.com/core-assets/products/s24-jade-green.avif';
+    const usedJadeImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-used-jade-green.avif';
     const variants = [
       {
         attributes: { color: 'Jade Green', storage: '128GB' },
@@ -2858,6 +2877,13 @@ describe('[category]/[productSlug] page render', () => {
         id: 'variant-open-jade-128',
         primary_image: jadeImage,
         stock_quantity: 3,
+      },
+      {
+        attributes: { color: 'Jade Green', storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-jade-128',
+        primary_image: usedJadeImage,
+        stock_quantity: 4,
       },
       {
         attributes: { color: 'Onyx Black', storage: '128GB' },
@@ -2907,6 +2933,7 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         initialVariantSelection: {
           attributes: { color: 'Jade Green' },
+          condition: 'open_box',
         },
       })
     );
@@ -2977,6 +3004,78 @@ describe('[category]/[productSlug] page render', () => {
           attributes: { color: 'Onyx Black', storage: '128GB' },
           condition: 'used',
           variantId: 'variant-used-black-128',
+        },
+      })
+    );
+  });
+
+  it('falls back when the configured default variant is out of stock', async () => {
+    const jadeImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-jade-green.avif';
+    const blackImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-onyx-black.avif';
+    const variants = [
+      {
+        attributes: { color: 'Onyx Black', storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-black-128',
+        primary_image: blackImage,
+        stock_quantity: 0,
+      },
+      {
+        attributes: { color: 'Jade Green', storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-jade-128',
+        primary_image: jadeImage,
+        stock_quantity: 4,
+      },
+    ];
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        color: 'Onyx Black',
+        condition: 'used',
+        default_variant_id: 'variant-used-black-128',
+        has_variants: true,
+        images: [blackImage],
+        manage_stock: true,
+        product_variants: variants,
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      color: 'Onyx Black',
+      condition: 'used',
+      default_variant_id: 'variant-used-black-128',
+      has_variants: true,
+      images: [blackImage],
+      manage_stock: true,
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: jadeImage,
+    });
+    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialVariantSelection: {
+          attributes: { color: 'Jade Green', storage: '128GB' },
+          condition: 'used',
+          variantId: 'variant-used-jade-128',
         },
       })
     );
