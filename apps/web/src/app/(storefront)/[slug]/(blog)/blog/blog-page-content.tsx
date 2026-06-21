@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
@@ -25,6 +26,24 @@ export interface BlogPageProps {
 function parseBlogListingPage(page?: string): number {
   const parsedPage = Number.parseInt(String(page ?? '1'), 10);
   return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+}
+
+function buildBlogListingSchemaUrl({
+  baseUrl,
+  category,
+  page,
+  search,
+}: {
+  baseUrl: string;
+  category?: string;
+  page: number;
+  search?: string;
+}): string {
+  const url = new URL('/blog', baseUrl);
+  if (category) url.searchParams.set('category', category);
+  if (search) url.searchParams.set('search', search);
+  if (page > 1) url.searchParams.set('page', String(page));
+  return url.toString();
 }
 
 export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
@@ -90,17 +109,23 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
     }),
   };
   const itemListPosts = posts.slice(0, 10);
+  const itemListPositionOffset = (currentPage - 1) * BLOG_LISTING_PAGE_SIZE;
   const itemListSchema =
     itemListPosts.length > 0
       ? {
           '@context': 'https://schema.org',
           '@type': 'ItemList',
           name: `${merchant.business_name} Blog articles`,
-          url: `${baseUrl}/blog`,
+          url: buildBlogListingSchemaUrl({
+            baseUrl,
+            category,
+            page: currentPage,
+            search,
+          }),
           numberOfItems: itemListPosts.length,
           itemListElement: itemListPosts.map((post, index) => ({
             '@type': 'ListItem',
-            position: index + 1,
+            position: itemListPositionOffset + index + 1,
             url: `${baseUrl}/blog/${post.slug}`,
             name: post.title,
           })),
