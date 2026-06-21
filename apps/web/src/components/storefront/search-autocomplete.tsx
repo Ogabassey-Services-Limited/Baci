@@ -235,10 +235,22 @@ export function SearchAutocomplete({
       tabIndex={-1}
     >
       <div className="relative">
-        {/* Geometry, z-index and focus-within tint come from core CSS
-            (.ogabassey-navbar-search__icon) so they apply on every route,
-            including PDP whose stylesheet does not source this component. */}
-        <Search className="ogabassey-navbar-search__icon" aria-hidden="true" />
+        {/* Geometry has TWO sources so the control is styled in every CSS
+            context: (1) core CSS (.ogabassey-navbar-search__icon) — the
+            route-independent source for storefront `source(none)` routes that do
+            not @source this lazily-loaded component (PDP/content); (2) these
+            Tailwind utilities — generated wherever the component IS sourced,
+            including the platform template-preview (globals.css), which never
+            loads storefront-core.css. The `-translate-y-1/2` centering uses the
+            CSS `translate` property, the SAME one core CSS uses, so when both
+            apply (e.g. the home route, which @sources this file) they collapse to
+            one declaration instead of stacking into a double offset. The
+            focus-within brand tint remains core-CSS-only and degrades gracefully
+            to the inherited colour where core CSS is absent. */}
+        <Search
+          className="ogabassey-navbar-search__icon pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 size-5 z-20"
+          aria-hidden="true"
+        />
         <Input
           ref={inputRef}
           type="search"
@@ -248,12 +260,13 @@ export function SearchAutocomplete({
           onKeyDown={handleKeyDown}
           onFocus={() => value.length >= 2 && setIsOpen(true)}
           className={cn(
-            // The input carries NO geometry/padding Tailwind utilities: left and
-            // right clearance and the native-✕ reset all live in core CSS (keyed
-            // on `__field` / `__input--has-value`), which loads on every
-            // storefront route. PDP/content `source(none)` stylesheets would not
-            // generate utilities for this lazily-loaded component.
-            value ? 'ogabassey-navbar-search__input--has-value' : ''
+            // Padding has TWO sources (see the icon comment): core CSS keyed on
+            // `__field` / `__input--has-value` for storefront `source(none)`
+            // routes, and these Tailwind utilities for contexts that source the
+            // component but do not load core CSS (the platform template-preview).
+            // Padding is non-additive, so both sources agree on every route.
+            'pl-11 [&::-webkit-search-cancel-button]:appearance-none',
+            value ? 'pr-10 ogabassey-navbar-search__input--has-value' : ''
           )}
           aria-autocomplete="list"
           aria-controls={listboxId}
@@ -276,12 +289,13 @@ export function SearchAutocomplete({
               setPopularSearches([]);
               inputRef.current?.focus();
             }}
-            // Geometry (position, size, centering, z-index) lives in core CSS
-            // (.ogabassey-navbar-search__clear): those Tailwind utilities are not
-            // generated on PDP/content `source(none)` routes, which do not
-            // `@source` this lazily-loaded component. Only appearance/focus
-            // utilities — ubiquitous across the sourced tree — remain here.
-            className="ogabassey-navbar-search__clear text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+            // Geometry has TWO sources (see the icon comment): core CSS
+            // (.ogabassey-navbar-search__clear) for storefront `source(none)`
+            // routes, and these Tailwind utilities for contexts that source the
+            // component but do not load core CSS (the platform template-preview).
+            // `-translate-y-1/2` uses the `translate` property core CSS also
+            // uses, so the two never stack into a double offset.
+            className="ogabassey-navbar-search__clear absolute right-1 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center z-20 text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
             aria-label="Clear search"
           >
             <X className="size-4" />

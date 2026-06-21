@@ -299,12 +299,16 @@
   }
 
   /* Shared by the non-hydrated fallback form AND the hydrated
-     SearchAutocomplete icon. Styling lives here (core CSS, loaded on every
-     storefront route) rather than as Tailwind utilities on the component,
-     because route stylesheets like storefront-pdp.css use
-     `@import "tailwindcss" source(none)` and do not source that component, so
-     its utilities would not be generated on a direct PDP load. z-index sits
-     above the input's focus-visible z-10 so the glass is never covered. */
+     SearchAutocomplete icon. Geometry is DUAL-SOURCED: it lives here (core CSS,
+     loaded on every storefront route) for `source(none)` route stylesheets like
+     storefront-pdp.css that do not @source the component, AND as matching
+     Tailwind utilities on the component for contexts that source it but do not
+     load core CSS (the platform template-preview). Centering uses the CSS
+     `translate` property (not `transform`) so it shares the property name with
+     the component's `-translate-y-1/2`, collapsing to one declaration where both
+     apply (e.g. the home route, which @sources this file) instead of stacking
+     into a double offset. z-index sits above the input's focus-visible z-10 so
+     the glass is never covered. */
   .ogabassey-navbar-search__icon {
     /* Concrete final fallbacks (#111827): the `--ogabassey-*` vars are scoped to
        `.ogabassey-storefront-shell`, so on the generic StorefrontHeader path
@@ -321,7 +325,7 @@
     pointer-events: none;
     position: absolute;
     top: 50%;
-    transform: translateY(-50%);
+    translate: 0 -50%;
     transition: color 0.15s ease;
     width: 1.25rem;
     z-index: 20;
@@ -352,18 +356,18 @@
     appearance: none;
   }
 
-  /* The clear (✕) button's geometry lives here, not as Tailwind utilities on
-     the component, because storefront-pdp.css uses `source(none)` and does not
-     `@source` search-autocomplete.tsx — so its positioning utilities (absolute,
-     right-1, top-1/2, -translate-y-1/2, size-8, flex centering) are not
-     generated on a direct PDP load. z-index:20 also keeps it above the input,
-     which gains `focus-visible:relative; z-index:10` from the shadcn Input.
-     No same-element Tailwind utility competes with these, so layering is safe. */
+  /* The clear (✕) button's geometry is DUAL-SOURCED like the icon: here (core
+     CSS) for `source(none)` storefront routes that do not @source the component,
+     and as matching Tailwind utilities on the component for contexts that source
+     it without loading core CSS (the platform template-preview). Centering uses
+     the `translate` property so it never stacks with the component's
+     `-translate-y-1/2`. z-index:20 keeps it above the input, which gains
+     `focus-visible:relative; z-index:10` from the shadcn Input. */
   .ogabassey-navbar-search__field .ogabassey-navbar-search__clear {
     position: absolute;
     right: 0.25rem;
     top: 50%;
-    transform: translateY(-50%);
+    translate: 0 -50%;
     display: flex;
     align-items: center;
     justify-content: center;
