@@ -460,7 +460,7 @@ describe('BlogPostPageContent', () => {
     );
   });
 
-  it('preloads the featured article image without deprecated priority', async () => {
+  it('prioritizes the featured article image without deprecated priority or duplicate preload', async () => {
     mockGetCachedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       post: {
@@ -487,12 +487,12 @@ describe('BlogPostPageContent', () => {
     expect(imageProps).toEqual(
       expect.objectContaining({
         src: 'https://cdn.ogabassey.com/media/blog/best-phones-cover.webp',
-        preload: true,
+        fetchPriority: 'high',
+        loading: 'eager',
       })
     );
     expect(imageProps).not.toHaveProperty('priority');
-    expect(imageProps).not.toHaveProperty('loading');
-    expect(imageProps).not.toHaveProperty('fetchPriority');
+    expect(imageProps).not.toHaveProperty('preload');
   });
 
   it('permanently redirects retired direct blog slugs before rendering notFound', async () => {

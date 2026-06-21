@@ -4,10 +4,23 @@ import { OgabasseyV2Blog } from './blog';
 
 // Mock next/image to inspect props passed to it
 vi.mock('next/image', () => ({
-  default: ({ src, alt, priority, loading, fill, sizes, fetchPriority, ...props }: any) => (
+  default: ({
+    src,
+    alt,
+    preload,
+    priority,
+    loading,
+    fill,
+    sizes,
+    fetchPriority,
+    blurDataURL: _blurDataURL,
+    placeholder: _placeholder,
+    ...props
+  }: any) => (
     <img
       src={src}
       alt={alt}
+      data-preload={preload ? 'true' : 'false'}
       data-priority={priority ? 'true' : 'false'}
       data-loading={loading}
       data-fill={fill ? 'true' : 'false'}
@@ -67,8 +80,9 @@ describe('OgabasseyV2Blog', () => {
     const featuredImage = images.find(img => img.getAttribute('src') === 'https://example.com/featured.jpg');
 
     expect(featuredImage).toBeInTheDocument();
-    // HeroImage sets isLCP=true -> priority=true
-    expect(featuredImage).toHaveAttribute('data-priority', 'true');
+    // HeroImage maps legacy priority semantics to Next 16 `preload`.
+    expect(featuredImage).toHaveAttribute('data-preload', 'true');
+    expect(featuredImage).toHaveAttribute('data-priority', 'false');
     // HeroImage sets fetchPriority="high"
     expect(featuredImage).toHaveAttribute('data-fetchpriority', 'high');
     // We added fill={true}
@@ -89,5 +103,21 @@ describe('OgabasseyV2Blog', () => {
     expect(gridImage).toHaveAttribute('data-fetchpriority', 'low');
     // We added fill={true}
     expect(gridImage).toHaveAttribute('data-fill', 'true');
+  });
+
+  it('renders UTC-stable date labels to avoid hydration drift', () => {
+    render(
+      <OgabasseyV2Blog
+        posts={[
+          {
+            ...mockPosts[0],
+            id: 'timezone-boundary-post',
+            published_at: '2026-03-28T23:30:00.000Z',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Mar 28, 2026')).toBeInTheDocument();
   });
 });
