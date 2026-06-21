@@ -1,4 +1,5 @@
 import type { Product as CartProduct, ProductVariant } from '@/lib/products';
+import { canonicalizeVariantAxis } from '@/components/storefront/ogabassey/variant-attributes';
 
 export interface InitialCriticalVariantSelection {
   attributes?: Record<string, string>;
@@ -70,12 +71,50 @@ export function compactVariantOptions(
   );
 }
 
+export function normalizeCriticalVariantAttributes(
+  attributes: Record<string, string> | null | undefined
+) {
+  const normalized: Record<string, string> = {};
+
+  for (const [rawAxis, value] of Object.entries(attributes || {})) {
+    const axis = canonicalizeVariantAxis(rawAxis);
+    const trimmedValue = value.trim();
+
+    if (!axis || !trimmedValue) {
+      continue;
+    }
+
+    normalized[axis] = trimmedValue;
+  }
+
+  return normalized;
+}
+
+export function normalizeCriticalVariantProduct(
+  cartProduct: CartProduct
+): CartProduct {
+  if (!cartProduct.variants || cartProduct.variants.length === 0) {
+    return cartProduct;
+  }
+
+  return {
+    ...cartProduct,
+    variants: cartProduct.variants.map((variant) => ({
+      ...variant,
+      attributes: normalizeCriticalVariantAttributes(variant.attributes),
+    })),
+  };
+}
+
 export function getVariantAxesWithMultipleOptions(variants: ProductVariant[]) {
   const axisValues: Record<string, Set<string>> = {};
 
   for (const variant of variants) {
-    for (const [axis, value] of Object.entries(variant.attributes || {})) {
-      if (!value) {
+    for (const [rawAxis, value] of Object.entries(variant.attributes || {})) {
+      const axis = canonicalizeVariantAxis(rawAxis);
+      const trimmedValue = value.trim();
+
+      if (!axis || !trimmedValue) {
         continue;
       }
 
@@ -83,7 +122,7 @@ export function getVariantAxesWithMultipleOptions(variants: ProductVariant[]) {
         axisValues[axis] = new Set<string>();
       }
 
-      axisValues[axis].add(value);
+      axisValues[axis].add(trimmedValue);
     }
   }
 
@@ -105,13 +144,18 @@ export function pickInitialSelectedAttributes({
     return {};
   }
 
+  const normalizedExplicitAttributes =
+    normalizeCriticalVariantAttributes(explicitAttributes);
+  const normalizedSelectionAttributes = normalizeCriticalVariantAttributes(
+    selection.attributes
+  );
   const selectableAxes = new Set([
-    ...renderableVariantAxes,
-    ...Object.keys(explicitAttributes || {}),
+    ...renderableVariantAxes.map(canonicalizeVariantAxis).filter(Boolean),
+    ...Object.keys(normalizedExplicitAttributes),
   ]);
 
   return Object.fromEntries(
-    Object.entries(selection.attributes).filter(([axis]) =>
+    Object.entries(normalizedSelectionAttributes).filter(([axis]) =>
       selectableAxes.has(axis)
     )
   );

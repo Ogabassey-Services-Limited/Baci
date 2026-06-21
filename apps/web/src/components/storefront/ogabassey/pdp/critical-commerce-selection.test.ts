@@ -5,6 +5,8 @@ import {
   compactVariantOptions,
   formatCriticalPrice,
   getVariantAxesWithMultipleOptions,
+  normalizeCriticalVariantAttributes,
+  normalizeCriticalVariantProduct,
   pickInitialSelectedAttributes,
 } from './critical-commerce-selection';
 
@@ -113,6 +115,56 @@ describe('critical commerce selection helpers', () => {
     });
   });
 
+  it('normalizes critical variant attribute axes and values', () => {
+    expect(
+      normalizeCriticalVariantAttributes({
+        ' ': 'Ignored',
+        'SIM Type': ' eSIM Only ',
+        Color: ' ',
+        RAM: '8GB  ',
+        Storage: ' 256GB',
+      })
+    ).toEqual({
+      ram: '8GB',
+      sim_type: 'eSIM Only',
+      storage: '256GB',
+    });
+    expect(normalizeCriticalVariantAttributes(null)).toEqual({});
+    expect(normalizeCriticalVariantAttributes(undefined)).toEqual({});
+  });
+
+  it('normalizes all critical variant product attributes', () => {
+    const variants: ProductVariant[] = [
+      {
+        attributes: { Color: ' Black ', Storage: '128GB' },
+        id: 'variant-black',
+        merchant_id: 'merchant-1',
+        product_id: 'product-1',
+        stock_quantity: 10,
+      },
+      {
+        attributes: { RAM: ' 8GB ', 'SIM Type': 'Physical SIM' },
+        id: 'variant-blue',
+        merchant_id: 'merchant-1',
+        product_id: 'product-1',
+        stock_quantity: 8,
+      },
+    ];
+    const productWithVariants = { ...cartProduct, variants };
+
+    expect(normalizeCriticalVariantProduct(productWithVariants)).toMatchObject({
+      variants: [
+        {
+          attributes: { color: 'Black', storage: '128GB' },
+        },
+        {
+          attributes: { ram: '8GB', sim_type: 'Physical SIM' },
+        },
+      ],
+    });
+    expect(normalizeCriticalVariantProduct(cartProduct)).toBe(cartProduct);
+  });
+
   it('detects hidden axes with multiple SKU options', () => {
     expect(
       getVariantAxesWithMultipleOptions([
@@ -132,6 +184,27 @@ describe('critical commerce selection helpers', () => {
         },
       ])
     ).toEqual(['color']);
+  });
+
+  it('canonicalizes legacy-cased SKU axes before requiring selections', () => {
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { RAM: '4GB', Storage: '128GB' },
+          id: 'variant-128',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { ram: '8GB', storage: '256GB' },
+          id: 'variant-256',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual(['ram', 'storage']);
   });
 
   it('handles empty, single-valued, and multi-axis option sets', () => {
@@ -201,7 +274,7 @@ describe('critical commerce selection helpers', () => {
     ).toEqual({ ram: '8GB', storage: '256GB' });
     expect(
       pickInitialSelectedAttributes({
-        explicitAttributes: { color: 'Blue' },
+        explicitAttributes: { Color: 'Blue' },
         renderableVariantAxes: ['storage', 'ram'],
         selection,
       })

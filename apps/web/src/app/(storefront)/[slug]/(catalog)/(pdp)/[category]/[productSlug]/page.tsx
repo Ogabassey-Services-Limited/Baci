@@ -410,7 +410,12 @@ function getInitialCriticalVariantSelection(
 
   const [match] = selectionResolution.matches;
   const attributes =
-    match?.attributes || selectionResolution.selectionInput.attributes;
+    selectionResolution.type === 'variant_id'
+      ? match?.attributes
+      : selectionResolution.type === 'condition_with_attributes' ||
+          selectionResolution.type === 'attribute_only'
+        ? selectionResolution.selectionInput.attributes
+        : undefined;
   const condition =
     selectionResolution.selectionInput.condition ||
     match?.condition ||
@@ -618,7 +623,7 @@ function mapCachedProductLcpHintToRouteProduct(
     compare_at_price: legacyPrices.compareAtPrice ?? undefined,
     description: cachedProduct.meta_description ?? '',
     gtin: '',
-    has_variants: variants.length > 0,
+    has_variants: Boolean(cachedProduct.has_variants) || variants.length > 0,
     id: cachedProduct.id,
     keywords: cachedProduct.keywords ?? undefined,
     image: primaryImage,

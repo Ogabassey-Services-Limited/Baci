@@ -130,4 +130,96 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
     );
     expect(cartMocks.setIsCartOpen).toHaveBeenCalledWith(true);
   });
+
+  it('allows the default SKU when no variant options require selection', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          price: 237_674.42,
+          variants: [
+            {
+              attributes: { Storage: '128GB' },
+              id: 'variant-128',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+          ],
+        }}
+        variantAxes={['storage']}
+        variantCount={1}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('ready')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(cartMocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        price: 237_674.42,
+        stock: 4,
+      }),
+      1,
+      expect.objectContaining({
+        storage: '128GB',
+        variantAttributes: {
+          storage: '128GB',
+        },
+        variantId: 'variant-128',
+      })
+    );
+  });
+
+  it('blocks checkout when a visible change prunes an explicit hidden SKU axis', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          variants: [
+            {
+              attributes: { color: 'Black', storage: '128GB' },
+              id: 'variant-black-128',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+            {
+              attributes: { color: 'Blue', storage: '256GB' },
+              id: 'variant-blue-256',
+              merchant_id: 'merchant-1',
+              price_override: 278_418.6,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 6,
+            },
+          ],
+        }}
+        initialVariantSelection={{
+          attributes: { color: 'Black', storage: '128GB' },
+          variantId: 'variant-black-128',
+        }}
+        variantAxes={['storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('ready')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select 256gb storage/i })
+    );
+
+    expect(screen.getByText('blocked')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(cartMocks.addToCart).not.toHaveBeenCalled();
+  });
 });

@@ -718,6 +718,7 @@ type LegacyProductFixture = Omit<
   typeof categorizedDetailedProduct,
   'images' | 'price' | 'product_variants'
 > & {
+  has_variants?: boolean;
   images?: string[];
   price: number | string;
   product_variants?: LegacyProductVariantFixture[];
@@ -738,6 +739,7 @@ function toLegacyCachedProduct(
     brand: product.brand,
     category: product.category,
     condition: product.condition,
+    has_variants: product.has_variants ?? false,
     manage_stock: product.manage_stock,
     price: product.price,
     schema_markup: null,
@@ -2724,6 +2726,104 @@ describe('[category]/[productSlug] page render', () => {
           condition: 'used',
           variantId: 'variant-used-128',
         },
+      })
+    );
+  });
+
+  it('does not treat condition-only query routes as explicit hidden SKU selections', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/condition-laptop.avif';
+    const variants = [
+      {
+        id: 'variant-used-black',
+        attributes: { color: 'Black', storage: '128GB' },
+        condition: 'used',
+        stock_quantity: 3,
+      },
+      {
+        id: 'variant-used-blue',
+        attributes: { color: 'Blue', storage: '128GB' },
+        condition: 'used',
+        stock_quantity: 4,
+      },
+    ];
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        has_variants: true,
+        images: [productImage],
+        product_variants: variants,
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      has_variants: true,
+      images: [productImage],
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({ condition: 'used' }),
+        })
+      )
+    );
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialVariantSelection: {
+          condition: 'used',
+        },
+      })
+    );
+  });
+
+  it('preserves has_variants from the cached product hint when variant hydration is empty', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/variant-laptop.avif';
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        has_variants: true,
+        images: [productImage],
+        product_variants: [],
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      has_variants: true,
+      images: [productImage],
+      product_variants: [],
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue([]);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartProduct: expect.objectContaining({
+          has_variants: true,
+          variants: [],
+        }),
       })
     );
   });
