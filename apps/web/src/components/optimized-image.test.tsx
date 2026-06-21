@@ -1,6 +1,20 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type { ReactEventHandler } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { HeroImage, ProductCardImage } from './optimized-image';
+
+interface MockNextImageProps {
+  alt: string;
+  blurDataURL?: string;
+  fetchPriority?: 'high' | 'low' | 'auto';
+  loading?: 'eager' | 'lazy';
+  onError?: ReactEventHandler<HTMLImageElement>;
+  placeholder?: 'blur' | 'empty';
+  preload?: boolean;
+  priority?: boolean;
+  src: string | { src: string };
+  [key: string]: unknown;
+}
 
 vi.mock('next/image', () => ({
   default: ({
@@ -13,7 +27,7 @@ vi.mock('next/image', () => ({
     src,
     blurDataURL: _blurDataURL,
     ...props
-  }: any) => (
+  }: MockNextImageProps) => (
     // biome-ignore lint/performance/noImgElement: this test mocks next/image to assert the exact props forwarded to it.
     <img
       alt={alt}
@@ -55,5 +69,25 @@ describe('optimized image presets', () => {
     expect(image).toHaveAttribute('data-priority', 'false');
     expect(image).toHaveAttribute('data-loading', 'lazy');
     expect(image).toHaveAttribute('data-fetch-priority', 'low');
+  });
+
+  it('switches to the fallback source and calls onError when the image fails', () => {
+    const onError = vi.fn();
+
+    render(
+      <HeroImage
+        alt="Broken hero"
+        fallbackSrc="/hero-fallback.png"
+        onError={onError}
+        src="/broken-hero.png"
+      />
+    );
+
+    const image = screen.getByRole('img', { name: 'Broken hero' });
+
+    fireEvent.error(image);
+
+    expect(image).toHaveAttribute('src', '/hero-fallback.png');
+    expect(onError).toHaveBeenCalledOnce();
   });
 });
