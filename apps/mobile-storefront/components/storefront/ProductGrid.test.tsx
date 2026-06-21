@@ -1,4 +1,5 @@
-import { act, render } from '@testing-library/react-native';
+import { jest } from '@jest/globals';
+import { act, render, waitFor } from '@testing-library/react-native';
 import {
   block,
   getMockFilterBarProps,
@@ -148,6 +149,44 @@ describe('ProductGrid', () => {
     );
 
     expect(renderedProductNames).toEqual(['MacBook Air']);
+  });
+
+  it('backfills client-filtered category grids before applying the display cap', async () => {
+    const loadMore = jest.fn();
+    mockUseCategoriesFactory.mockReturnValue({
+      data: [],
+      isFetchedAfterMount: true,
+      isFetching: false,
+      isError: true,
+      error: new Error('cats'),
+    });
+    mockGetProductGridCategoriesFactory.mockReturnValue(['Phones']);
+    mockProductsHook({
+      products: sampleProducts,
+      hasMore: true,
+      loadMore,
+    });
+
+    render(
+      <ProductGrid
+        block={{ ...block, props: { ...block.props, limit: 4 } }}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    act(() => {
+      getMockFilterBarProps()?.onSelectCategory('Phones');
+    });
+
+    await waitFor(() => {
+      expect(loadMore).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      mockUseProductsFactory.mock.calls[
+        mockUseProductsFactory.mock.calls.length - 1
+      ]?.[0]
+    ).toMatchObject({ category: undefined });
   });
 
   it('updates category filter from FilterBar interaction', () => {

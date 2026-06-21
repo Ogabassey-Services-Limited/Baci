@@ -35,8 +35,12 @@ import { HomeFeedEmptyState } from './HomeFeedEmptyState';
 import { homeFeedStyles } from './home-feed.styles';
 import { useHomeProductFeed } from './use-home-product-feed';
 
+type HomeFeedListItem =
+  | { kind: 'product'; product: Product }
+  | { kind: 'product-list-end'; id: string };
+
 const AnimatedFlashList = Animated.createAnimatedComponent(
-  FlashList as ComponentType<FlashListProps<Product>>
+  FlashList as ComponentType<FlashListProps<HomeFeedListItem>>
 );
 
 interface HomeFeedListProps {
@@ -54,12 +58,6 @@ interface HomeFeedListProps {
   blockWrapperStyle?: StyleProp<ViewStyle>;
 }
 
-/**
- * The single virtualized scroll container for the home feed. The primary
- * product grid's products are the FlashList `data` (recycled); every non-grid
- * block becomes header/footer. The Reanimated header-fold handler is passed in
- * from `HomeScreen` and bound via `Animated.createAnimatedComponent(FlashList)`.
- */
 export function HomeFeedList({
   blocks,
   primaryProductGridIndex,
@@ -89,6 +87,7 @@ export function HomeFeedList({
     isFetching,
     isLoadingMore,
     isRetrying,
+    hasMore,
     currentVariant,
     filterBarProps,
     handleRetry,
@@ -103,12 +102,9 @@ export function HomeFeedList({
     limit,
   });
 
-  const listRef = useRef<FlashListRef<Product>>(null);
+  const listRef = useRef<FlashListRef<HomeFeedListItem>>(null);
 
-  // Scroll to top when the active filter/category set changes — a same-variant
-  // data swap doesn't remount, and mVCP could otherwise pin to a removed item.
   useEffect(() => {
-    // Intentionally read feedResetKey so the effect re-runs only for feed swaps.
     void feedResetKey;
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [feedResetKey]);
@@ -121,34 +117,71 @@ export function HomeFeedList({
     ? blocks.slice(primaryProductGridIndex + 1)
     : [];
 
-  const renderItem = ({ item, index }: { item: Product; index: number }) => {
+  const handleProductDataEndReached = () => {
+    // The sentinel sits immediately after the product data, before post-grid
+    // blocks, so pagination starts before the user scrolls through the footer.
+    if (!hasPrimaryGrid || isSearchOpen || !hasMore || isLoadingMore) return;
+    loadMore();
+  };
+
+  const renderItem = ({
+    item,
+    index,
+    target,
+  }: {
+    item: HomeFeedListItem;
+    index: number;
+    target?: string;
+  }) => {
+    if (item.kind === 'product-list-end') {
+      return (
+        <View
+          testID="home-feed-product-end-sentinel"
+          style={homeFeedStyles.productEndSentinel}
+          onLayout={target === 'Cell' ? handleProductDataEndReached : undefined}
+        />
+      );
+    }
+
+    const productIndex = index;
     if (currentVariant === 'grid') {
       return (
         <View
           style={[
             homeFeedStyles.productWrapper,
-            index % 2 === 0
+            productIndex % 2 === 0
               ? homeFeedStyles.productLeft
               : homeFeedStyles.productRight,
           ]}
         >
-          <ProductCard product={item} variant="grid" />
+          <ProductCard product={item.product} variant="grid" />
         </View>
       );
     }
 
     return (
       <View style={homeFeedStyles.fullWidthCell}>
-        <ProductCard product={item} variant={currentVariant} />
+        <ProductCard product={item.product} variant={currentVariant} />
       </View>
     );
   };
 
   const handleEndReached = () => {
-    // No-op while the search overlay is open or the home has no product grid.
-    if (!hasPrimaryGrid || isSearchOpen) return;
-    loadMore();
+    // Backup trigger for layouts without post-grid blocks; the sentinel handles
+    // the common case before footer content extends the measured list end.
+    handleProductDataEndReached();
   };
+
+  const feedItems: HomeFeedListItem[] = feedProducts.map((product) => ({
+    kind: 'product',
+    product,
+  }));
+  if (hasPrimaryGrid && feedProducts.length > 0 && hasMore) {
+    feedItems.push({
+      kind: 'product-list-end',
+      id: `home-feed-product-list-end-${feedResetKey}`,
+    });
+  }
 
   const listHeader = (
     <View>
@@ -220,17 +253,23 @@ export function HomeFeedList({
 
   return (
     <AnimatedFlashList
-      // Reanimated rewrites the animated component's ref type, but the instance
-      // is a FlashListRef at runtime (used for scrollToOffset above).
       ref={
         listRef as unknown as ComponentProps<typeof AnimatedFlashList>['ref']
       }
       key={`home-feed-${currentVariant}-${numColumns}`}
       testID="home-feed-list"
-      data={feedProducts}
+      data={feedItems}
       numColumns={numColumns}
       renderItem={renderItem}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) =>
+        item.kind === 'product' ? item.product.id : item.id
+      }
+      getItemType={(item) => item.kind}
+      overrideItemLayout={(layout, item) => {
+        if (item.kind === 'product-list-end') {
+          layout.span = numColumns;
+        }
+      }}
       onScroll={onScroll}
       scrollEventThrottle={16}
       onEndReached={handleEndReached}
@@ -249,7 +288,6 @@ export function HomeFeedList({
       ListEmptyComponent={listEmpty}
       contentContainerStyle={{
         paddingBottom: contentBottomPadding,
-        paddingHorizontal: currentVariant === 'grid' ? 16 : 0,
       }}
       showsVerticalScrollIndicator={false}
     />

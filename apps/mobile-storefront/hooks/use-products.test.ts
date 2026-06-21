@@ -188,7 +188,7 @@ describe('useProducts', () => {
     expect(mockFetchProductsPage).toHaveBeenCalledTimes(1);
   });
 
-  it('does not fetch the next page while a background refetch is in flight', async () => {
+  it('queues the next page when loadMore fires during a background refetch', async () => {
     mockFetchProductsPage.mockResolvedValueOnce({
       products: [createProduct('prod-1')],
       nextOffset: 1,
@@ -228,7 +228,24 @@ describe('useProducts', () => {
 
     expect(mockFetchProductsPage.mock.calls.length).toBe(callsBeforeLoadMore);
 
+    mockFetchProductsPage.mockResolvedValueOnce({
+      products: [createProduct('prod-2')],
+      nextOffset: null,
+      total: 5,
+    });
+
     resolveHanging?.();
+
+    await waitFor(() => {
+      expect(mockFetchProductsPage.mock.calls.length).toBe(
+        callsBeforeLoadMore + 1
+      );
+    });
+    expect(mockFetchProductsPage).toHaveBeenLastCalledWith(
+      'merchant-1',
+      { limit: 1 },
+      1
+    );
   });
 
   it('surfaces fetch errors and exposes an empty product list', async () => {

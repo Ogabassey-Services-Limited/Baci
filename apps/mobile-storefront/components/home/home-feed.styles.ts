@@ -10,12 +10,18 @@ export const homeFeedStyles = StyleSheet.create({
     flex: 1,
   },
   productLeft: {
+    paddingLeft: 16,
     paddingRight: 8,
   },
   productRight: {
     paddingLeft: 8,
+    paddingRight: 16,
   },
   fullWidthCell: {
+    width: '100%',
+  },
+  productEndSentinel: {
+    height: 1,
     width: '100%',
   },
 });

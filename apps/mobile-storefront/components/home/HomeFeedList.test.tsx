@@ -7,6 +7,10 @@ import { useHomeProductFeed } from './use-home-product-feed';
 
 const mockScrollToOffset = jest.fn();
 
+type MockHomeFeedListItem =
+  | { kind: 'product'; product: Product }
+  | { kind: 'product-list-end'; id: string };
+
 jest.mock('@shopify/flash-list', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const { View } = jest.requireActual(
@@ -25,10 +29,11 @@ jest.mock('@shopify/flash-list', () => {
         ListEmptyComponent,
         ...rest
       } = props as {
-        data?: Product[];
+        data?: MockHomeFeedListItem[];
         renderItem?: (info: {
-          item: Product;
+          item: MockHomeFeedListItem;
           index: number;
+          target: 'Cell';
         }) => React.ReactNode;
         ListHeaderComponent?: React.ReactNode;
         ListFooterComponent?: React.ReactNode;
@@ -43,8 +48,10 @@ jest.mock('@shopify/flash-list', () => {
           : data.map((item, index) =>
               React.createElement(
                 React.Fragment,
-                { key: item.id },
-                renderItem?.({ item, index })
+                {
+                  key: item.kind === 'product' ? item.product.id : item.id,
+                },
+                renderItem?.({ item, index, target: 'Cell' })
               )
             ),
         ListFooterComponent
@@ -211,6 +218,31 @@ describe('HomeFeedList', () => {
     screen.getByTestId('home-feed-list').props.onEndReached();
 
     expect(loadMore).not.toHaveBeenCalled();
+  });
+
+  it('keeps grid gutters on product cells instead of padding the whole feed', () => {
+    renderList();
+
+    expect(
+      screen.getByTestId('home-feed-list').props.contentContainerStyle
+    ).toEqual({
+      paddingBottom: 24,
+    });
+  });
+
+  it('triggers loadMore from a product-end sentinel before footer blocks render as the list end', () => {
+    const loadMore = jest.fn();
+    mockUseHomeProductFeed.mockReturnValue(feed({ loadMore, hasMore: true }));
+    renderList({
+      blocks: [
+        ...GRID_BLOCKS,
+        { type: 'CategoryRail', props: { id: 'footer-rail' } },
+      ] as unknown as Block[],
+    });
+
+    screen.getByTestId('home-feed-product-end-sentinel').props.onLayout();
+
+    expect(loadMore).toHaveBeenCalledTimes(1);
   });
 
   it('builds a RefreshControl with the header offset and theme color', () => {

@@ -86,6 +86,8 @@ export default function ProductGrid({
     isLoadingMore,
     isFetching,
     isError,
+    hasMore,
+    loadMore,
     refetch,
   } = useProducts({
     limit: fetchLimit,
@@ -129,6 +131,11 @@ export default function ProductGrid({
     products,
     selectedCategorySlug,
   });
+  const uniqueFilteredProducts = dedupeById(filteredProducts);
+  const isClientCategoryFilterActive =
+    normalizedCategories.length === 0 &&
+    selectedCategorySlug !== ALL_PRODUCT_FILTER_CATEGORY_SLUG &&
+    selectedCategorySlug.length > 0;
   const shouldLoadBrandOptions =
     brandOptionsRequested || selectedBrand !== 'All';
   const { brands = [], isLoading: isBrandsLoading } = useProductBrands({
@@ -162,11 +169,29 @@ export default function ProductGrid({
     );
   };
 
-  // Bounded: cap a curated/secondary grid at displayLimit (no infinite scroll).
-  const uniqueVisibleProducts = dedupeById(filteredProducts).slice(
-    0,
-    displayLimit
-  );
+  useEffect(() => {
+    if (
+      isClientCategoryFilterActive &&
+      uniqueFilteredProducts.length < displayLimit &&
+      hasMore &&
+      !isFetching &&
+      !isLoadingMore
+    ) {
+      loadMore();
+    }
+  }, [
+    displayLimit,
+    hasMore,
+    isClientCategoryFilterActive,
+    isFetching,
+    isLoadingMore,
+    loadMore,
+    uniqueFilteredProducts.length,
+  ]);
+
+  // Bounded: cap a curated/secondary grid at displayLimit, but backfill
+  // client-filtered pages first when category IDs are unavailable.
+  const uniqueVisibleProducts = uniqueFilteredProducts.slice(0, displayLimit);
   const currentVariant = viewMode === 'list' ? 'list' : variant;
   const { isRetrying, shouldShowFatalError, shouldShowInitialLoading } =
     resolveProductGridRenderFlags({
