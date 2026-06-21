@@ -3,6 +3,9 @@ import { getCachedBlogListing } from '@/lib/cached-data';
 
 interface MockDefaultBlogUiProps {
   blogSchema: {
+    publisher?: {
+      '@id'?: string;
+    };
     blogPost?: unknown;
   };
   itemListSchema?: {
@@ -70,6 +73,13 @@ vi.mock('@/lib/seo-utils', () => ({
   generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),
 }));
 
+vi.mock('@/lib/blog-organization-schema', () => ({
+  buildBlogOrganizationSchema: vi.fn(() => ({
+    '@id': 'https://test-store.usebaci.com#organization',
+    '@type': 'OnlineStore',
+  })),
+}));
+
 vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: (merchant: {
     slug: string;
@@ -113,6 +123,10 @@ export const merchant = {
   store_url: undefined as string | undefined,
   logo_url: '',
   template_id: 'ogabassey',
+  country: 'NG' as string | undefined,
+  social_media: { instagram: '@ogabassey' } as
+    | { instagram?: string; facebook?: string; twitter?: string }
+    | undefined,
 };
 
 export const postsPayload = [

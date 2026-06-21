@@ -145,4 +145,28 @@ describe('TemplateBlogRenderer', () => {
       container.querySelectorAll('script[type="application/ld+json"]')
     ).toHaveLength(2);
   });
+
+  it('renders the Organization entity script when an organizationSchema is provided', () => {
+    const { container } = render(
+      <TemplateBlogRenderer
+        blogSchema={{ '@type': 'Blog' }}
+        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        organizationSchema={{ '@type': 'OnlineStore', name: 'Ogabassey' }}
+        BlogComponent={BlogComponent}
+        basePath="/ogabassey"
+        blogPosts={[]}
+        categories={[]}
+      />
+    );
+
+    const scripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+    expect(scripts).toHaveLength(3);
+    expect(
+      Array.from(scripts).some((script) =>
+        script.textContent?.includes('OnlineStore')
+      )
+    ).toBe(true);
+  });
 });
