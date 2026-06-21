@@ -518,6 +518,15 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(out).toContain(`<img src="${CDN}" alt="value a > b" />`);
   });
 
+  it('does not wrap trusted CDN inline images that are already inside a picture', () => {
+    const html = `<picture><source srcset="${CDN}.webp" type="image/webp" /><img src="${CDN}" alt="Speaker" /></picture>`;
+
+    const out = wrapTrustedCdnInlineImagesInPicture(html);
+
+    expect(out).toBe(html);
+    expect(out.match(/<picture>/g)).toHaveLength(1);
+  });
+
   it('does not treat data-src or quoted text as the real src attribute', () => {
     const dataSrcOnly = `<img data-src="${CDN}" alt="Speaker" />`;
     expect(wrapTrustedCdnInlineImagesInPicture(dataSrcOnly)).toBe(dataSrcOnly);

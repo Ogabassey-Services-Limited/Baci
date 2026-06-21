@@ -20,6 +20,20 @@ describe('removeDuplicateLegacyFeaturedImage', () => {
     );
   });
 
+  it('removes a leading figure wrapper with an optional caption when it duplicates the featured image', () => {
+    const html = `<figure><img src="${FEATURED}" alt="Hero" /><figcaption>Hero caption</figcaption></figure><p>Body</p>`;
+
+    expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(
+      '<p>Body</p>'
+    );
+  });
+
+  it('keeps a duplicate featured image when its figure includes additional content', () => {
+    const html = `<figure><img src="${FEATURED}" alt="Hero" /><span>Extra content</span></figure><p>Body</p>`;
+
+    expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(html);
+  });
+
   it('keeps the first body image when it is not the featured image', () => {
     const html = '<p><img src="https://cdn.example.com/body.png" /></p>';
 

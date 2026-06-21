@@ -310,6 +310,27 @@ export function transformImageTitlesToFigureCaptions(html: string): string {
   );
 }
 
+function isInsideHtmlTag(
+  html: string,
+  innerStart: number,
+  tagName: 'picture'
+): boolean {
+  const openTagPattern = new RegExp(`<${tagName}(?:\\s|>)`, 'gi');
+  let openStart = -1;
+  for (
+    let match = openTagPattern.exec(html);
+    match;
+    match = openTagPattern.exec(html)
+  ) {
+    if (match.index > innerStart) break;
+    openStart = match.index;
+  }
+  if (openStart === -1) return false;
+
+  const previousClose = html.lastIndexOf(`</${tagName}>`, innerStart);
+  return previousClose < openStart;
+}
+
 /**
  * Wraps trusted CDN inline `<img>` tags in a `<picture>` that prefers the
  * pre-generated AVIF/WebP siblings, keeping the original `<img>` as the fallback
@@ -322,23 +343,30 @@ export function transformImageTitlesToFigureCaptions(html: string): string {
 export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
   // Quote-aware <img> match: tolerate a literal `>` inside a quoted attribute
   // value (e.g. alt text) instead of truncating on the first `>`.
-  return html.replace(/<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi, (imgTag) => {
-    const src = readHtmlTagAttribute(imgTag, 'src');
-    if (!src || !isTrustedCdnInlineImage(src)) {
-      return imgTag;
+  return html.replace(
+    /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi,
+    (imgTag, offset: number) => {
+      const src = readHtmlTagAttribute(imgTag, 'src');
+      if (!src || !isTrustedCdnInlineImage(src)) {
+        return imgTag;
+      }
+
+      if (isInsideHtmlTag(html, offset, 'picture')) {
+        return imgTag;
+      }
+      // `src` is captured from the already-sanitized HTML, so it is attribute-safe
+      // (entities already escaped). Deriving siblings only appends `.avif`/`.webp`,
+      // so the values stay correctly escaped — re-escaping here would double-encode
+      // ampersands in any query string (`&amp;` -> `&amp;amp;`).
+      const { avif, webp } = buildInlineImageSiblings(src);
+      return (
+        '<picture>' +
+        `<source srcset="${avif}" type="image/avif" />` +
+        `<source srcset="${webp}" type="image/webp" />` +
+        `${imgTag}</picture>`
+      );
     }
-    // `src` is captured from the already-sanitized HTML, so it is attribute-safe
-    // (entities already escaped). Deriving siblings only appends `.avif`/`.webp`,
-    // so the values stay correctly escaped — re-escaping here would double-encode
-    // ampersands in any query string (`&amp;` -> `&amp;amp;`).
-    const { avif, webp } = buildInlineImageSiblings(src);
-    return (
-      '<picture>' +
-      `<source srcset="${avif}" type="image/avif" />` +
-      `<source srcset="${webp}" type="image/webp" />` +
-      `${imgTag}</picture>`
-    );
-  });
+  );
 }
 
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {

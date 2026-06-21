@@ -6,10 +6,9 @@ function findEnclosingTagRange(
   html: string,
   innerStart: number,
   innerEnd: number,
-  tagName: 'p' | 'picture'
+  tagName: 'figure' | 'p' | 'picture'
 ): { start: number; end: number } | null {
-  const openTagPattern =
-    tagName === 'p' ? /<p(?:\s|>)/gi : /<picture(?:\s|>)/gi;
+  const openTagPattern = new RegExp(`<${tagName}(?:\\s|>)`, 'gi');
   let openStart = -1;
   for (
     let match = openTagPattern.exec(html);
@@ -45,6 +44,30 @@ function isOnlyWrapperContent(
   return beforeChild === '' && afterChild === '';
 }
 
+function isOnlyFigureContent(
+  html: string,
+  wrapper: { start: number; end: number },
+  child: { start: number; end: number }
+): boolean {
+  const openingEnd = html.indexOf('>', wrapper.start);
+  if (openingEnd === -1 || openingEnd >= child.start) return false;
+
+  const beforeChild = html.slice(openingEnd + 1, child.start).trim();
+  if (beforeChild !== '') return false;
+
+  const afterChild = html
+    .slice(child.end, wrapper.end)
+    .replace(/<\/figure>$/i, '')
+    .trim();
+
+  return (
+    afterChild === '' ||
+    /^<figcaption\b(?:[^>"']|"[^"]*"|'[^']*')*>[\s\S]*<\/figcaption>$/i.test(
+      afterChild
+    )
+  );
+}
+
 export function removeDuplicateLegacyFeaturedImage(
   html: string,
   featuredImageUrl: string | null | undefined
@@ -72,7 +95,17 @@ export function removeDuplicateLegacyFeaturedImage(
     imageRange.end,
     'picture'
   );
-  const removalRange = pictureRange ?? imageRange;
+  const imageOrPictureRange = pictureRange ?? imageRange;
+  const figureRange = findEnclosingTagRange(
+    html,
+    imageOrPictureRange.start,
+    imageOrPictureRange.end,
+    'figure'
+  );
+  const removalRange =
+    figureRange && isOnlyFigureContent(html, figureRange, imageOrPictureRange)
+      ? figureRange
+      : imageOrPictureRange;
   const paragraphRange = findEnclosingTagRange(
     html,
     removalRange.start,
