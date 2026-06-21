@@ -1104,6 +1104,53 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-pathname')).toBe('/api/analytics/conversion');
   });
 
+  it('keeps a GET legacy analytics-shaped URL in custom-domain storefront routing', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/analytics/conversion?ref=organic'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    const rewriteUrl = new URL(res.headers.get('x-middleware-rewrite') ?? '');
+
+    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(rewriteUrl.origin).toBe('https://ogabassey.com');
+    expect(rewriteUrl.pathname).toBe('/ogabassey.com/analytics/conversion');
+    expect(rewriteUrl.searchParams.get('ref')).toBe('organic');
+    expect(rewriteUrl.searchParams.get('__baci_metadata_cache_bucket')).toBe(
+      'streaming'
+    );
+    expect(res.headers.get('x-pathname')).toBe('/analytics/conversion');
+    expect(res.headers.get('Cache-Control')).not.toBe(
+      'no-cache, must-revalidate, max-age=0'
+    );
+  });
+
+  it('keeps a GET legacy analytics-shaped URL in subdomain storefront routing', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/analytics/conversion?ref=organic`
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    const rewriteUrl = new URL(res.headers.get('x-middleware-rewrite') ?? '');
+
+    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(getCustomDomainForSlug).toHaveBeenCalledWith('ogabassey');
+    expect(rewriteUrl.origin).toBe(`https://ogabassey.${ROOT_DOMAIN}`);
+    expect(rewriteUrl.pathname).toBe('/ogabassey/analytics/conversion');
+    expect(rewriteUrl.searchParams.get('ref')).toBe('organic');
+    expect(rewriteUrl.searchParams.get('__baci_metadata_cache_bucket')).toBe(
+      'streaming'
+    );
+    expect(res.headers.get('x-pathname')).toBe('/analytics/conversion');
+    expect(res.headers.get('Cache-Control')).not.toBe(
+      'no-cache, must-revalidate, max-age=0'
+    );
+  });
+
   it('applies API payload size protection to the legacy analytics conversion alias', async () => {
     const req = new NextRequest(`https://${ROOT_DOMAIN}/analytics/conversion`, {
       body: '{}',

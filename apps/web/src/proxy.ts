@@ -953,10 +953,7 @@ function getRouteType(
     return 'auth';
   }
 
-  if (
-    pathname.startsWith('/api') ||
-    pathname === LEGACY_ANALYTICS_CONVERSION_PATH
-  ) {
+  if (pathname.startsWith('/api')) {
     return 'api';
   }
 
@@ -1459,12 +1456,12 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  const isLegacyAnalyticsConversion =
-    pathname === LEGACY_ANALYTICS_CONVERSION_PATH;
+  const isLegacyAnalyticsConversionPost =
+    pathname === LEGACY_ANALYTICS_CONVERSION_PATH && request.method === 'POST';
   const isLegacyKlumpWebhook = isLegacyKlumpWooCommerceWebhookPath(pathname);
   const apiSecurityPathname = isLegacyKlumpWebhook
     ? KLUMP_WEBHOOK_API_PATH
-    : isLegacyAnalyticsConversion
+    : isLegacyAnalyticsConversionPost
       ? ANALYTICS_CONVERSION_API_PATH
       : pathname;
 
@@ -1631,7 +1628,7 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  if (isLegacyAnalyticsConversion) {
+  if (isLegacyAnalyticsConversionPost) {
     const conversionUrl = new URL(
       ANALYTICS_CONVERSION_API_PATH + request.nextUrl.search,
       request.url
