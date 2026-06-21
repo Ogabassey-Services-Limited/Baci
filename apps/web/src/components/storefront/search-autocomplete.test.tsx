@@ -54,7 +54,7 @@ describe('SearchAutocomplete', () => {
       Promise.resolve({
         json: () => Promise.resolve({ suggestions: [], popularSearches: [] }),
       })
-    ) as any;
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -126,6 +126,12 @@ describe('SearchAutocomplete', () => {
     const input = screen.getByRole('searchbox', { name: /search products/i });
     expect(input).toHaveClass('ogabassey-navbar-search__input--has-value');
     expect(input).not.toHaveClass('pr-10');
+
+    // The clear button's stacking lives in core CSS (.ogabassey-navbar-search
+    // __clear), not the unsourced `z-20` utility — otherwise the focused input's
+    // z-10 would cover it on PDP routes.
+    expect(clearButton).toHaveClass('ogabassey-navbar-search__clear');
+    expect(clearButton).not.toHaveClass('z-20');
   });
 
   it('does not show clear button when value is empty', () => {

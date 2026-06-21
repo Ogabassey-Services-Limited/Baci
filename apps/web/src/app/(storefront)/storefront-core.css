@@ -359,6 +359,15 @@
     appearance: none;
   }
 
+  /* The clear (✕) button must stack above the input, which gains
+     `focus-visible:relative; z-index:10` from the shadcn Input. The button's
+     `z-20` Tailwind utility is NOT generated on PDP/content `source(none)`
+     routes (z-10 is), so without this the focused input would cover — and block
+     clicks on — the button there. Keep the z-index in core CSS. */
+  .ogabassey-navbar-search__field .ogabassey-navbar-search__clear {
+    z-index: 20;
+  }
+
   .ogabassey-navbar__desktop-actions {
     display: none;
   }
