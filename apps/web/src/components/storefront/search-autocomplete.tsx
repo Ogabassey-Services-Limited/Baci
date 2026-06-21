@@ -64,9 +64,8 @@ export function SearchAutocomplete({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const fetchAbortRef = useRef<AbortController | null>(null);
   // 200ms sits at the responsive end of the 200-400ms typeahead debounce range;
-  // pairs with the AbortController below so quick typing never spams or races.
+  // pairs with the per-request AbortController below so superseded queries cancel.
   const debouncedValue = useDebounce(value, 200);
   const safeCountryCode = countryCode || 'NG';
   const { formatCurrencyCompact } = useCurrencyWithCountry(safeCountryCode);
@@ -118,29 +117,20 @@ export function SearchAutocomplete({
     }
   }
 
-  // Abort the in-flight request as soon as the RAW input changes — not only
-  // when the next debounced value commits. Otherwise a request for "iphone"
-  // could still be live during the 200ms debounce window after the user has
-  // typed "iphones", resolve, and paint stale suggestions against newer input.
-  // `value` is intentionally the dependency: the body reads nothing, but the
-  // cleanup must re-run on every raw value change to cancel the prior request.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup runs on each `value` change by design
-  useEffect(() => {
-    return () => {
-      fetchAbortRef.current?.abort();
-    };
-  }, [value]);
-
   // Debounced search with autocomplete suggestions
   useEffect(() => {
     if (debouncedValue.length < 2) {
       return;
     }
 
-    // Cancel any superseded request so a slow earlier keystroke can never paint
-    // over the latest results and the server stops work it no longer needs.
+    // Abort the request when this debounced query is superseded (cleanup runs on
+    // the next debouncedValue) so a slow earlier query can never paint over newer
+    // results and the server stops work it no longer needs. We deliberately do
+    // NOT abort on every raw keystroke: that would cancel the in-flight request
+    // without guaranteeing a replacement (e.g. type "iphones" then backspace to
+    // "iphone" within the debounce window — debouncedValue never changes, so the
+    // effect would not re-run and the dropdown would be left empty).
     const controller = new AbortController();
-    fetchAbortRef.current = controller;
     let isMounted = true;
     const fetchAutocomplete = () => {
       setLoading(true);

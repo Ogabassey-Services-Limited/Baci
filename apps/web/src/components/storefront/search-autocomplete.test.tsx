@@ -470,7 +470,7 @@ describe('SearchAutocomplete', () => {
     ]);
   });
 
-  it('aborts the in-flight request as soon as the raw query changes', async () => {
+  it('aborts the in-flight request when the debounced query is superseded', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(
       () =>
@@ -503,17 +503,29 @@ describe('SearchAutocomplete', () => {
     expect(firstSignal).toBeInstanceOf(AbortSignal);
     expect(firstSignal?.aborted).toBe(false);
 
-    // Typing more must abort the prior request immediately on the raw value
-    // change — without waiting for the 200ms debounce window to elapse.
+    // A genuinely new query, once the debounce commits, supersedes and aborts the
+    // prior request and dispatches a replacement. We intentionally do NOT abort
+    // on every raw keystroke (that could strand the query with no replacement).
     rerender(
       <SearchAutocomplete
         merchantId="merchant-1"
-        value="iphones"
+        value="iphone 12"
         onChange={vi.fn()}
       />
     );
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+      await Promise.resolve();
+    });
 
     expect(firstSignal?.aborted).toBe(true);
+    expect(
+      vi
+        .mocked(fetchMock)
+        .mock.calls.some(
+          ([url]) => typeof url === 'string' && url.includes('iphone%2012')
+        )
+    ).toBe(true);
   });
 
   it('keeps the autocomplete popup closed for empty ranked suggestions', async () => {
