@@ -62,6 +62,7 @@ function CriticalCommerceStateProbe() {
       <p>{commerce.productForCart.price}</p>
       <p>{commerce.canAddToCart ? 'ready' : 'blocked'}</p>
       <p>axes:{commerce.renderableVariantAxes.join(',')}</p>
+      <p>selected storage:{commerce.selectedAttributes.storage || ''}</p>
       <button
         onClick={() => commerce.handleAttributeSelection('storage', '256GB')}
         type="button"
@@ -251,6 +252,41 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
 
     expect(screen.getByText('axes:')).toBeInTheDocument();
     expect(screen.getByText('blocked')).toBeInTheDocument();
+  });
+
+  it('preselects single-option visible axes from the default SKU', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          variants: [
+            {
+              attributes: { color: 'Black', storage: '128GB' },
+              id: 'variant-black',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+            {
+              attributes: { color: 'Blue', storage: '128GB' },
+              id: 'variant-blue',
+              merchant_id: 'merchant-1',
+              price_override: 278_418.6,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 6,
+            },
+          ],
+        }}
+        variantAxes={['storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:storage')).toBeInTheDocument();
+    expect(screen.getByText('selected storage:128GB')).toBeInTheDocument();
   });
 
   it('blocks checkout when a visible change prunes an explicit hidden SKU axis', () => {

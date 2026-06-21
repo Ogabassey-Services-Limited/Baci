@@ -111,6 +111,7 @@ describe('storefront variant attribute helpers', () => {
           {
             attributes: {
               color: 'Black',
+              connectivity: 'WiFi',
               condition: 'new',
               platform: 'PS5',
               RAM: '8GB',
@@ -120,6 +121,7 @@ describe('storefront variant attribute helpers', () => {
           {
             attributes: {
               color: 'White',
+              connectivity: 'WiFi',
               condition: 'new',
               platform: 'Xbox',
               RAM: '12GB',
@@ -129,7 +131,7 @@ describe('storefront variant attribute helpers', () => {
         ],
         [{ param: 'sim type', options: ['Single', 'Dual'] }]
       )
-    ).toEqual(['storage', 'ram', 'sim_type', 'platform']);
+    ).toEqual(['storage', 'ram', 'sim_type', 'connectivity', 'platform']);
 
     expect(getRenderableVariantAxes([], [])).toEqual([]);
   });

@@ -23,10 +23,31 @@ const variants = [
 ];
 
 describe('getRenderableCriticalVariantAxes', () => {
-  it('keeps only axes with multiple visible options', () => {
+  it('keeps axes with visible options while filtering hidden axes', () => {
     expect(
       getRenderableCriticalVariantAxes(['storage', 'ram', 'color'], variants)
     ).toEqual(['storage', 'ram']);
+  });
+
+  it('keeps a single-option visible axis selected for display', () => {
+    expect(
+      getRenderableCriticalVariantAxes(['storage', 'color'], [
+        {
+          attributes: { color: 'Black', storage: '128GB' },
+          id: 'variant-black',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 2,
+        },
+        {
+          attributes: { color: 'Blue', storage: '128GB' },
+          id: 'variant-blue',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 2,
+        },
+      ])
+    ).toEqual(['storage']);
   });
 
   it('canonicalizes variant attribute keys before deciding visible axes', () => {
@@ -111,6 +132,38 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
 
     expect(screen.getByText('256GB', { selector: 'strong' })).toBeInTheDocument();
     expect(screen.getByText('8GB', { selector: 'strong' })).toBeInTheDocument();
+  });
+
+  it('renders a single-option axis as already selected', () => {
+    render(
+      <OgabasseyPdpCriticalVariantSelectors
+        onAttributeSelection={vi.fn()}
+        renderableVariantAxes={['storage']}
+        selectedAttributes={{ storage: '128GB' }}
+        variantCount={2}
+        variants={[
+          {
+            attributes: { color: 'Black', storage: '128GB' },
+            id: 'variant-black',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+          {
+            attributes: { color: 'Blue', storage: '128GB' },
+            id: 'variant-blue',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('128GB', { selector: 'strong' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /select 128gb storage/i })
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('disables options that cannot produce a real SKU from explicit selections', () => {

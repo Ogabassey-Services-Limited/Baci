@@ -6,6 +6,14 @@ import {
   getAvailableOptionsForAxis,
 } from '@/components/storefront/ogabassey/variant-attributes';
 
+// Color is represented by product imagery, color_hex is only swatch metadata,
+// and condition is handled by product/SKU pricing instead of visible buttons.
+const NON_RENDERABLE_CRITICAL_VARIANT_AXES = new Set([
+  'color',
+  'color_hex',
+  'condition',
+]);
+
 interface OgabasseyPdpCriticalVariantSelectorsProps {
   explicitSelectedAxes?: string[];
   onAttributeSelection: (axis: string, value: string) => void;
@@ -62,7 +70,10 @@ export function getRenderableCriticalVariantAxes(
   variants: CartProduct['variants']
 ) {
   return Array.from(new Set(axes.map(canonicalizeVariantAxis))).filter(
-    (axis) => axis && getVariantAxisOptions(variants, axis).length > 1
+    (axis) =>
+      axis &&
+      !NON_RENDERABLE_CRITICAL_VARIANT_AXES.has(axis) &&
+      getVariantAxisOptions(variants, axis).length > 0
   );
 }
 

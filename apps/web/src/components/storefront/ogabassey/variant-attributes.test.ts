@@ -68,6 +68,7 @@ describe('variant attributes helpers', () => {
             attributes: {
               color: 'Black',
               color_hex: '#000000',
+              ram: '8GB',
               sim_type: 'Dual Nano SIM',
               storage: '128GB',
             },
@@ -76,6 +77,7 @@ describe('variant attributes helpers', () => {
             attributes: {
               color: 'White',
               color_hex: '#ffffff',
+              ram: '8GB',
               sim_type: 'eSIM Only',
               storage: '512GB',
             },
@@ -83,7 +85,7 @@ describe('variant attributes helpers', () => {
         ],
         [{ param: 'storage', options: ['128GB', '256GB', '512GB'] }]
       )
-    ).toEqual(['storage', 'sim_type']);
+    ).toEqual(['storage', 'ram', 'sim_type']);
   });
 
   describe('getAvailableOptionsForAxis', () => {
@@ -185,6 +187,6 @@ describe('variant attributes helpers', () => {
         [{}, { attributes: undefined }, { attributes: { storage: '128GB' } }],
         []
       )
-    ).toEqual([]);
+    ).toEqual(['storage']);
   });
 });

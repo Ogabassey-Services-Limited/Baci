@@ -183,7 +183,7 @@ export function getRenderableVariantAxes(
 
   return Object.entries(mergeVariantAxisOptions(variants, source))
     .filter(
-      ([axis, options]) => options.length > 1 && !nonRenderableAxes.has(axis)
+      ([axis, options]) => options.length > 0 && !nonRenderableAxes.has(axis)
     )
     .sort(([leftAxis], [rightAxis]) => {
       const leftPriority = priorityOrder.indexOf(leftAxis);
