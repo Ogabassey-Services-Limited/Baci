@@ -35,6 +35,13 @@
 -- pre-perf version; only latency changed.
 
 -- 1. Stored generated columns (computed on write; read at query time).
+--    DEPLOY NOTE: adding STORED generated columns rewrites the table once under
+--    ACCESS EXCLUSIVE, and the non-concurrent index builds briefly block writes.
+--    This is a ONE-TIME cost bounded by the CURRENT row count (~2.4k → sub-second)
+--    — it does not recur as the catalog grows; new rows compute the columns
+--    incrementally on write. `CONCURRENTLY` is not an option here: Supabase runs
+--    each migration inside a transaction, and CONCURRENTLY cannot. Deploy during
+--    a low-traffic window if the table is ever materially larger at apply time.
 ALTER TABLE public.products
   ADD COLUMN IF NOT EXISTS search_name_norm text
     GENERATED ALWAYS AS (public.normalize_product_search_text(name)) STORED,
@@ -95,6 +102,18 @@ BEGIN
   END IF;
 
   search_terms := websearch_to_tsquery('simple', normalized_query);
+
+  -- The fuzzy candidate branches use the pg_trgm `%` operator (so the trigram
+  -- GIN indexes can be used) but `%` filters at the session
+  -- pg_trgm.similarity_threshold (default 0.3) BEFORE the per-branch
+  -- `similarity() >= 0.18/0.20/0.25` rechecks run — which would silently drop
+  -- valid 0.18-0.299 fuzzy matches. Lower the threshold below every recheck so
+  -- the index pass is a pure superset and the rechecks remain authoritative.
+  -- (A function SET clause is the cleaner way but Supabase denies setting this
+  -- parameter that way; set_limit() is permitted. This function is the only
+  -- consumer of `%`, and it sets the limit on every call, so the session-level
+  -- effect is idempotent and cannot affect other queries.)
+  PERFORM set_limit(0.15);
 
   RETURN QUERY
   WITH filtered_products AS (
