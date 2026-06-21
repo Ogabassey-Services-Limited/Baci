@@ -2,10 +2,12 @@ import type { Metadata } from 'next';
 import { getBlogAuthorBySlug } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
+import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
 interface AuthorPageProps {
   params: Promise<{ slug: string; authorSlug: string }>;
+  searchParams?: Promise<{ page?: string }>;
 }
 
 const AUTHOR_NOT_FOUND_METADATA: Metadata = {
@@ -15,8 +17,10 @@ const AUTHOR_NOT_FOUND_METADATA: Metadata = {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: AuthorPageProps): Promise<Metadata> {
   const { slug, authorSlug } = await params;
+  const page = parseBlogListingPage((await searchParams)?.page);
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
@@ -24,14 +28,16 @@ export async function generateMetadata({
     return AUTHOR_NOT_FOUND_METADATA;
   }
 
-  const data = await getCachedBlogAuthor(slug, profile.name);
+  const data = await getCachedBlogAuthor(slug, profile.name, { page });
   if (!data) {
     return AUTHOR_NOT_FOUND_METADATA;
   }
 
   const { merchant, author } = data;
   const baseUrl = buildStoreUrl(merchant);
-  const canonicalUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
+  const authorBaseUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
+  const canonicalUrl =
+    page > 1 ? `${authorBaseUrl}?page=${page}` : authorBaseUrl;
   const roleLine = author.title
     ? `${author.title} at ${merchant.business_name}`
     : `Writer at ${merchant.business_name}`;

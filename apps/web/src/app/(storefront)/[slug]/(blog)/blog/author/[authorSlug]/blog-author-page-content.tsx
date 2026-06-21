@@ -4,15 +4,19 @@ import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { getBlogAuthorBySlug } from '@/lib/blog-authors';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
+import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
+import { parseBlogListingPage } from '../../blog-listing-page-params';
 
 interface BlogAuthorPageContentProps {
   params: Promise<{ slug: string; authorSlug: string }>;
+  searchParams?: Promise<{ page?: string }>;
 }
 
 function labelForProfileUrl(url: string): string {
@@ -30,8 +34,10 @@ function labelForProfileUrl(url: string): string {
 
 export async function BlogAuthorPageContent({
   params,
+  searchParams,
 }: BlogAuthorPageContentProps) {
   const { slug, authorSlug } = await params;
+  const requestedPage = parseBlogListingPage((await searchParams)?.page);
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
@@ -53,17 +59,29 @@ export async function BlogAuthorPageContent({
     notFound();
   }
 
-  const data = await getCachedBlogAuthor(slug, profile.name);
+  const data = await getCachedBlogAuthor(slug, profile.name, {
+    page: requestedPage,
+  });
   if (!data) {
     notFound();
   }
 
-  const { merchant, author, posts } = data;
+  const { merchant, author, posts, totalPosts, totalPages, currentPage } = data;
   const baseUrl = buildStoreUrl(merchant);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const authorPageUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
+  const authorRoutePath = `${basePath}/blog/author/${normalizedAuthorSlug}`;
   const personId = `${baseUrl}#author-${normalizedAuthorSlug}`;
   const { sameAs } = profile;
+
+  const buildAuthorPageHref = (page: number): string =>
+    page > 1 ? `${authorRoutePath}?page=${page}` : authorRoutePath;
+  const buildAuthorPageUrl = (page: number): string =>
+    page > 1 ? `${authorPageUrl}?page=${page}` : authorPageUrl;
+  const previousPageUrl =
+    currentPage > 1 ? buildAuthorPageUrl(currentPage - 1) : undefined;
+  const nextPageUrl =
+    currentPage < totalPages ? buildAuthorPageUrl(currentPage + 1) : undefined;
 
   const profilePageSchema = {
     '@context': 'https://schema.org',
@@ -81,6 +99,7 @@ export async function BlogAuthorPageContent({
       ...(sameAs.length > 0 ? { sameAs } : {}),
       worksFor: {
         '@type': 'Organization',
+        '@id': buildBlogOrganizationId(baseUrl),
         name: merchant.business_name,
         url: baseUrl,
       },
@@ -93,16 +112,17 @@ export async function BlogAuthorPageContent({
     { name: author.name, url: authorPageUrl },
   ]);
 
+  const itemListStartPosition = (currentPage - 1) * BLOG_LISTING_PAGE_SIZE;
   const itemListSchema =
     posts.length > 0
       ? {
           '@context': 'https://schema.org',
           '@type': 'ItemList',
           name: `Articles by ${author.name}`,
-          numberOfItems: posts.length,
+          numberOfItems: totalPosts,
           itemListElement: posts.map((post, index) => ({
             '@type': 'ListItem',
-            position: index + 1,
+            position: itemListStartPosition + index + 1,
             url: `${baseUrl}/blog/${post.slug}`,
             name: post.title,
           })),
@@ -111,6 +131,8 @@ export async function BlogAuthorPageContent({
 
   return (
     <>
+      {previousPageUrl ? <link href={previousPageUrl} rel="prev" /> : null}
+      {nextPageUrl ? <link href={nextPageUrl} rel="next" /> : null}
       <script type="application/ld+json">
         {safeJsonLdStringify(profilePageSchema)}
       </script>
@@ -220,6 +242,39 @@ export async function BlogAuthorPageContent({
               </li>
             ))}
           </ul>
+
+          {totalPages > 1 && (
+            <nav
+              aria-label="Author articles pagination"
+              className="mt-8 flex items-center justify-between gap-4"
+            >
+              {currentPage > 1 ? (
+                <Link
+                  href={asRoute(buildAuthorPageHref(currentPage - 1))}
+                  rel="prev"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
+                >
+                  Previous
+                </Link>
+              ) : (
+                <span />
+              )}
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              {currentPage < totalPages ? (
+                <Link
+                  href={asRoute(buildAuthorPageHref(currentPage + 1))}
+                  rel="next"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
+                >
+                  Next
+                </Link>
+              ) : (
+                <span />
+              )}
+            </nav>
+          )}
         </main>
       </div>
     </>

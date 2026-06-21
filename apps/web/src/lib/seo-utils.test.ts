@@ -1476,6 +1476,41 @@ describe('generateBlogPostSchema', () => {
     );
   });
 
+  it('drops the author @id when author.id is an unsafe URL', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        id: 'javascript:alert(1)#author-x',
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>)['@id']).toBeUndefined();
+  });
+
+  it('drops the publisher @id when publisher.id is an unsafe URL', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      publisher: {
+        ...baseBlogSchemaInput.publisher,
+        id: 'javascript:alert(1)',
+      },
+    });
+
+    expect(
+      (schema.publisher as Record<string, unknown>)['@id']
+    ).toBeUndefined();
+  });
+
+  it('omits isPartOf when blogId is an unsafe URL', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      blogId: 'data:text/html,bad',
+    });
+
+    expect(schema.isPartOf).toBeUndefined();
+  });
+
   it('omits isPartOf when no blogId is provided', () => {
     const schema = generateBlogPostSchema(baseBlogSchemaInput);
 

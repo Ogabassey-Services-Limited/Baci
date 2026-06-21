@@ -118,4 +118,44 @@ describe('blog author page metadata', () => {
 
     expect(screen.getByText('Author page')).toBeInTheDocument();
   });
+
+  it('builds a page-scoped canonical for paginated author routes', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        authorSlug: 'bassey-john',
+      }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://ogabassey.com/blog/author/bassey-john?page=2'
+    );
+    expect(mockGetCachedBlogAuthor).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'Bassey John',
+      { page: 2 }
+    );
+  });
+
+  it('returns noindex metadata when a known author has no published posts', async () => {
+    mockGetCachedBlogAuthor.mockResolvedValueOnce(null);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        authorSlug: 'bassey-john',
+      }),
+    });
+
+    expect(metadata).toEqual({
+      title: 'Author Not Found',
+      robots: { index: false, follow: false },
+    });
+    expect(mockGetCachedBlogAuthor).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'Bassey John',
+      { page: 1 }
+    );
+  });
 });

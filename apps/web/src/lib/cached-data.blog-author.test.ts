@@ -223,4 +223,12 @@ describe('getCachedBlogAuthor', () => {
       getCachedBlogAuthor('ogabassey', 'Bassey John', { page: 1 })
     ).rejects.toThrow('author posts query failed');
   });
+
+  it('returns null when the author has no published public posts', async () => {
+    setupBlogAuthorFetch({ posts: [] });
+
+    await expect(
+      getCachedBlogAuthor('ogabassey', 'Bassey John', { page: 1 })
+    ).resolves.toBeNull();
+  });
 });
