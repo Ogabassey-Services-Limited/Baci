@@ -209,7 +209,7 @@ describe('getCachedBlogAuthor', () => {
       throw new Error('Expected blog author result');
     }
     expect(postsBuilder.not).toHaveBeenCalledWith('author_name', 'is', null);
-    expect(postsBuilder.limit).toHaveBeenCalledWith(120);
+    expect(postsBuilder.limit).not.toHaveBeenCalled();
     expect(postsBuilder.range).not.toHaveBeenCalled();
     expect(result.author.name).toBe('Bassey John');
     expect(result.posts.map((post) => post.id)).toEqual(['post-1', 'post-2']);

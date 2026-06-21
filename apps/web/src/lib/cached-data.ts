@@ -50,7 +50,6 @@ import {
 const RELATED_BLOG_POSTS_LIMIT = 3;
 const RELATED_BLOG_POSTS_FETCH_LIMIT = 36;
 const RELATED_BLOG_CATEGORY_FETCH_LIMIT = 24;
-const BLOG_AUTHOR_POST_FETCH_LIMIT = 120;
 
 /**
  * Stock quantity shown to storefront when a variant using
@@ -2851,7 +2850,6 @@ export async function getCachedBlogAuthor(
     .order('published_at', { ascending: false });
 
   query = applyPublicBlogSqlFilters(query);
-  query = query.limit(BLOG_AUTHOR_POST_FETCH_LIMIT);
 
   const { data: posts, error: postsError } = await query;
   if (postsError) {
