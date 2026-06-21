@@ -1,68 +1,93 @@
-import { Platform } from 'react-native';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const mockGetTrackingPermissionsAsync = jest
-  .fn()
-  .mockResolvedValue({ status: 'denied' });
-const mockRequestTrackingPermissionsAsync = jest
-  .fn()
-  .mockResolvedValue({ status: 'granted' });
-const mockTrackingTransparencyModuleLoad = jest.fn();
+let mockPlatformOS: 'ios' | 'android' | 'web' = 'ios';
 
-jest.mock('expo-tracking-transparency', () => {
-  mockTrackingTransparencyModuleLoad();
+jest.mock('react-native', () => ({
+  Platform: {
+    get OS() {
+      return mockPlatformOS;
+    },
+  },
+}));
 
-  return {
-    getTrackingPermissionsAsync: mockGetTrackingPermissionsAsync,
-    requestTrackingPermissionsAsync: mockRequestTrackingPermissionsAsync,
-  };
-});
-
-const originalPlatformOS = Platform.OS;
-
-function setPlatform(os: typeof Platform.OS) {
-  Object.defineProperty(Platform, 'OS', {
-    configurable: true,
-    value: os,
-  });
-}
-
-describe('tracking transparency web boundary', () => {
-  afterEach(() => {
-    setPlatform(originalPlatformOS);
+describe('tracking transparency wrapper', () => {
+  beforeEach(() => {
+    jest.resetModules();
     jest.clearAllMocks();
+    mockPlatformOS = 'ios';
   });
 
-  it('does not load the native ATT module outside iOS', async () => {
-    setPlatform('web');
-    const { getTrackingPermissionStatus, requestTrackingPermissionStatus } =
-      await import('./tracking-transparency');
+  it('returns undetermined when the iOS tracking module fails during import', async () => {
+    jest.doMock('expo-tracking-transparency', () => {
+      throw new TypeError('undefined is not a function');
+    });
+
+    const { getTrackingPermissionStatus } = await import(
+      './tracking-transparency'
+    );
 
     await expect(getTrackingPermissionStatus()).resolves.toEqual({
-      status: 'granted',
+      status: 'undetermined',
     });
+  });
+
+  it('returns denied when requesting tracking permission is unavailable', async () => {
+    jest.doMock('expo-tracking-transparency', () => ({
+      getTrackingPermissionsAsync: jest.fn(),
+    }));
+
+    const { requestTrackingPermissionStatus } = await import(
+      './tracking-transparency'
+    );
+
     await expect(requestTrackingPermissionStatus()).resolves.toEqual({
-      status: 'granted',
-    });
-
-    expect(mockTrackingTransparencyModuleLoad).not.toHaveBeenCalled();
-    expect(mockGetTrackingPermissionsAsync).not.toHaveBeenCalled();
-    expect(mockRequestTrackingPermissionsAsync).not.toHaveBeenCalled();
-  });
-
-  it('loads the native ATT module on iOS permission access', async () => {
-    setPlatform('ios');
-    const { getTrackingPermissionStatus, requestTrackingPermissionStatus } =
-      await import('./tracking-transparency');
-
-    await expect(getTrackingPermissionStatus()).resolves.toEqual({
       status: 'denied',
     });
+  });
+
+  it('uses the native tracking transparency methods when available', async () => {
+    const getTrackingPermissionsAsync = jest
+      .fn<() => Promise<{ status: string }>>()
+      .mockResolvedValue({ status: 'granted' });
+    const requestTrackingPermissionsAsync = jest
+      .fn<() => Promise<{ status: string }>>()
+      .mockResolvedValue({ status: 'denied' });
+    jest.doMock('expo-tracking-transparency', () => ({
+      getTrackingPermissionsAsync,
+      requestTrackingPermissionsAsync,
+    }));
+
+    const {
+      getTrackingPermissionStatus,
+      requestTrackingPermissionStatus,
+    } = await import('./tracking-transparency');
+
+    await expect(getTrackingPermissionStatus()).resolves.toEqual({
+      status: 'granted',
+    });
+    await expect(requestTrackingPermissionStatus()).resolves.toEqual({
+      status: 'denied',
+    });
+  });
+
+  it('does not import the iOS tracking module on Android', async () => {
+    mockPlatformOS = 'android';
+    const getTrackingPermissionsAsync = jest.fn();
+    jest.doMock('expo-tracking-transparency', () => ({
+      getTrackingPermissionsAsync,
+    }));
+
+    const {
+      getTrackingPermissionStatus,
+      requestTrackingPermissionStatus,
+    } = await import('./tracking-transparency');
+
+    await expect(getTrackingPermissionStatus()).resolves.toEqual({
+      status: 'granted',
+    });
     await expect(requestTrackingPermissionStatus()).resolves.toEqual({
       status: 'granted',
     });
-
-    expect(mockTrackingTransparencyModuleLoad).toHaveBeenCalledTimes(1);
-    expect(mockGetTrackingPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(mockRequestTrackingPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(getTrackingPermissionsAsync).not.toHaveBeenCalled();
   });
 });

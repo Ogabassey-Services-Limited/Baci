@@ -95,7 +95,7 @@ const ProductVariantSchema = z.object({
   images: z.array(ProductImageEntrySchema).nullable().optional(),
   in_stock: z.boolean().nullable().optional(),
   stock_quantity: NullableNonnegativeIntegerLikeSchema.optional(),
-  attributes: z.record(z.string(), z.string()).nullable().optional(),
+  attributes: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 const ProductColorSchema = z.union([

@@ -622,6 +622,42 @@ describe('product-utils', () => {
     });
   });
 
+  it('transformProduct drops non-string variant metadata while preserving selector attributes', () => {
+    const result = transformProduct({
+      ...validProductRow,
+      color: 'Blue',
+      colors: ['Blue'],
+      color_images: { Blue: ['https://cdn.example.com/generic-blue.jpg'] },
+      manage_stock: false,
+      variants: [
+        {
+          ...validProductRow.variants[0],
+          attributes: {
+            color: 'Blue',
+            storage: '128GB',
+            preorder: true,
+          },
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      variant_attributes: {
+        color: ['Blue'],
+        storage: ['128GB', '256GB'],
+      },
+      variants: [
+        expect.objectContaining({
+          attributes: {
+            color: 'Blue',
+            storage: '128GB',
+          },
+        }),
+      ],
+    });
+    expect(result?.variants?.[0]?.attributes).not.toHaveProperty('preorder');
+  });
+
   it('fetchProductsPage applies filters, paginates, and returns transformed products', async () => {
     const rankedResults = [
       {
