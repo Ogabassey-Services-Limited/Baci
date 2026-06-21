@@ -2324,6 +2324,7 @@ interface BlogPostSchemaData {
   keywords?: string[];
   category?: string;
   readingTime?: number;
+  blogId?: string;
 }
 
 function normalizeBlogAuthorSameAs(
@@ -2362,6 +2363,11 @@ export function generateBlogPostSchema(
     dateModified: data.dateModified || data.datePublished,
     author: {
       '@type': 'Person',
+      ...(data.author.url && {
+        '@id': escapeHtml(
+          `${data.author.url}#author-${generateSlug(data.author.name)}`
+        ),
+      }),
       name: escapeHtml(data.author.name),
       ...(data.author.url && { url: escapeHtml(data.author.url) }),
       ...(data.author.jobTitle && {
@@ -2391,6 +2397,12 @@ export function generateBlogPostSchema(
       '@type': 'WebPage',
       '@id': escapeHtml(data.url),
     },
+    ...(data.blogId && {
+      isPartOf: {
+        '@type': 'Blog',
+        '@id': escapeHtml(data.blogId),
+      },
+    }),
   };
 
   const imageUrls = Array.isArray(data.imageUrls)

@@ -113,6 +113,7 @@ async function renderBlogPostContent({
     keywords: post.keywords,
     category: post.category,
     readingTime: post.reading_time_minutes,
+    blogId: `${blogIndexUrl}#blog`,
   });
 
   const breadcrumbSchema = generateBreadcrumbSchema([

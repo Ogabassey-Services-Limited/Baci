@@ -1443,6 +1443,27 @@ describe('generateBlogPostSchema', () => {
     },
   };
 
+  it('adds a per-author @id and links the post to its Blog via isPartOf', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      blogId: 'https://ogabassey.com/blog#blog',
+    });
+
+    expect((schema.author as Record<string, unknown>)['@id']).toBe(
+      'https://ogabassey.com#author-ogabassey-editorial'
+    );
+    expect(schema.isPartOf).toEqual({
+      '@type': 'Blog',
+      '@id': 'https://ogabassey.com/blog#blog',
+    });
+  });
+
+  it('omits isPartOf when no blogId is provided', () => {
+    const schema = generateBlogPostSchema(baseBlogSchemaInput);
+
+    expect(schema.isPartOf).toBeUndefined();
+  });
+
   it('emits a Google Discover image array when persisted image URLs are supplied', () => {
     const schema = generateBlogPostSchema({
       ...baseBlogSchemaInput,
