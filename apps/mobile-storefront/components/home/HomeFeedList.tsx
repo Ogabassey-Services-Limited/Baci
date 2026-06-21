@@ -116,6 +116,10 @@ export function HomeFeedList({
   const footerBlocks = hasPrimaryGrid
     ? blocks.slice(primaryProductGridIndex + 1)
     : [];
+  const renderAfterCategoryRail = (block: Block) =>
+    block.type === 'CategoryRail' ? (
+      <HomeServiceCards placement="belowUtility" />
+    ) : null;
 
   const handleProductDataEndReached = () => {
     // The sentinel sits immediately after the product data, before post-grid
@@ -194,11 +198,7 @@ export function HomeFeedList({
         selectedCategoryId={selectedCategoryId}
         onCategorySelect={onCategorySelect}
         blockWrapperStyle={blockWrapperStyle}
-        renderAfterBlock={(block) =>
-          block.type === 'CategoryRail' ? (
-            <HomeServiceCards placement="belowUtility" />
-          ) : null
-        }
+        renderAfterBlock={renderAfterCategoryRail}
       />
       {hasPrimaryGrid ? (
         <>
@@ -235,6 +235,7 @@ export function HomeFeedList({
         selectedCategoryId={selectedCategoryId}
         onCategorySelect={onCategorySelect}
         blockWrapperStyle={blockWrapperStyle}
+        renderAfterBlock={renderAfterCategoryRail}
       />
     </View>
   );

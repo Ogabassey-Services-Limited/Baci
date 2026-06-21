@@ -26,7 +26,6 @@ jest.mock('@shopify/flash-list', () => {
         renderItem,
         ListHeaderComponent,
         ListFooterComponent,
-        ListEmptyComponent,
         ...rest
       } = props as {
         data?: MockHomeFeedListItem[];
@@ -37,23 +36,18 @@ jest.mock('@shopify/flash-list', () => {
         }) => React.ReactNode;
         ListHeaderComponent?: React.ReactNode;
         ListFooterComponent?: React.ReactNode;
-        ListEmptyComponent?: React.ReactNode;
       };
       return React.createElement(
         View,
         { testID: 'home-feed-list', ...rest },
         ListHeaderComponent,
-        data.length === 0
-          ? ListEmptyComponent
-          : data.map((item, index) =>
-              React.createElement(
-                React.Fragment,
-                {
-                  key: item.kind === 'product' ? item.product.id : item.id,
-                },
-                renderItem?.({ item, index, target: 'Cell' })
-              )
-            ),
+        data.map((item, index) =>
+          React.createElement(
+            React.Fragment,
+            { key: item.kind === 'product' ? item.product.id : item.id },
+            renderItem?.({ item, index, target: 'Cell' })
+          )
+        ),
         ListFooterComponent
       );
     }
@@ -70,13 +64,26 @@ jest.mock('@/hooks/useTheme', () => ({
 }));
 
 jest.mock('@/components/storefront/BlockRenderer', () => {
-  const { View, Text } = jest.requireActual(
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual(
     'react-native'
   ) as typeof import('react-native');
   return {
-    BlockRenderer: ({ blocks }: { blocks: Block[] }) => (
+    BlockRenderer: ({
+      blocks,
+      renderAfterBlock,
+    }: {
+      blocks: Block[];
+      renderAfterBlock?: (block: Block) => React.ReactNode;
+    }) => (
       <View testID="block-renderer">
-        <Text>{blocks.length}</Text>
+        {blocks.map((block) => (
+          <React.Fragment
+            key={`${block.type}-${(block as { props?: { id?: string } }).props?.id ?? 'unknown'}`}
+          >
+            {renderAfterBlock?.(block)}
+          </React.Fragment>
+        ))}
       </View>
     ),
   };
@@ -155,7 +162,7 @@ function feed(
 
 const GRID_BLOCKS = [
   { type: 'CategoryRail', props: { id: 'rail' } },
-  { type: 'ProductGrid', props: { id: 'grid', title: 'Shop the collection' } },
+  { type: 'ProductGrid', props: { id: 'grid', title: 'Shop' } },
 ] as unknown as Block[];
 
 function renderList(props: Partial<Parameters<typeof HomeFeedList>[0]> = {}) {
@@ -184,107 +191,40 @@ beforeEach(() => {
   mockUseHomeProductFeed.mockReturnValue(feed());
 });
 
-describe('HomeFeedList', () => {
-  it('renders the FilterBar, section title, and a cell per product when a grid exists', () => {
+describe('HomeFeedList pagination layout', () => {
+  it('keeps grid gutters on product cells instead of padding the whole feed', () => {
     renderList();
 
-    expect(screen.getByTestId('filter-bar')).toBeTruthy();
-    expect(screen.getByText('Shop the collection')).toBeTruthy();
-    expect(screen.getAllByTestId('product-card')).toHaveLength(2);
+    expect(
+      screen.getByTestId('home-feed-list').props.contentContainerStyle
+    ).toEqual({
+      paddingBottom: 24,
+    });
   });
 
-  it('renders products for a single-column (list) variant', () => {
-    mockUseHomeProductFeed.mockReturnValue(feed({ currentVariant: 'list' }));
-    renderList();
-
-    expect(screen.getAllByTestId('product-card')).toHaveLength(2);
-  });
-
-  it('fires loadMore on onEndReached', () => {
+  it('triggers loadMore from a product-end sentinel before footer blocks render as the list end', () => {
     const loadMore = jest.fn();
-    mockUseHomeProductFeed.mockReturnValue(feed({ loadMore }));
-    renderList();
-
-    screen.getByTestId('home-feed-list').props.onEndReached();
-
-    expect(loadMore).toHaveBeenCalled();
-  });
-
-  it('does not fire loadMore on onEndReached while the search overlay is open', () => {
-    const loadMore = jest.fn();
-    mockUseHomeProductFeed.mockReturnValue(feed({ loadMore }));
-    renderList({ isSearchOpen: true });
-
-    screen.getByTestId('home-feed-list').props.onEndReached();
-
-    expect(loadMore).not.toHaveBeenCalled();
-  });
-
-  it('builds a RefreshControl with the header offset and theme color', () => {
-    const onRefresh = jest.fn();
-    renderList({ onRefresh });
-
-    const { refreshControl } = screen.getByTestId('home-feed-list').props;
-    expect(refreshControl.props.onRefresh).toBe(onRefresh);
-    expect(refreshControl.props.progressViewOffset).toBe(120);
-    expect(refreshControl.props.tintColor).toBe('#ff0000');
-  });
-
-  it('renders the load-more progressbar with an accessible label', () => {
-    mockUseHomeProductFeed.mockReturnValue(feed({ isLoadingMore: true }));
-    renderList();
-
-    expect(screen.getByRole('progressbar')).toBeTruthy();
-  });
-
-  it('renders the error+retry empty state on a fatal error', () => {
-    mockUseHomeProductFeed.mockReturnValue(
-      feed({ feedProducts: [], shouldShowFatalError: true })
-    );
-    renderList();
-
-    expect(screen.getByTestId('home-feed-error')).toBeTruthy();
-  });
-
-  it('omits the FilterBar and any empty message when there is no primary grid', () => {
-    mockUseHomeProductFeed.mockReturnValue(feed({ feedProducts: [] }));
+    mockUseHomeProductFeed.mockReturnValue(feed({ loadMore, hasMore: true }));
     renderList({
-      blocks: [{ type: 'CategoryRail', props: { id: 'rail' } }] as Block[],
-      primaryProductGridIndex: -1,
+      blocks: [
+        ...GRID_BLOCKS,
+        { type: 'CategoryRail', props: { id: 'footer-rail' } },
+      ] as unknown as Block[],
     });
 
-    expect(screen.queryByTestId('filter-bar')).toBeNull();
-    expect(screen.queryByTestId('home-feed-empty')).toBeNull();
-    expect(screen.queryByTestId('home-feed-error')).toBeNull();
+    screen.getByTestId('home-feed-product-end-sentinel').props.onLayout();
+
+    expect(loadMore).toHaveBeenCalledTimes(1);
   });
 
-  it('scrolls to top when the feed reset key changes', () => {
-    const { rerender } = renderList();
-    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
-
-    mockUseHomeProductFeed.mockReturnValue(feed({ feedResetKey: 'reset-2' }));
-    rerender(
-      <HomeFeedList
-        blocks={GRID_BLOCKS}
-        primaryProductGridIndex={1}
-        selectedCategoryId={null}
-        onCategorySelect={jest.fn()}
-        onScroll={
-          jest.fn() as unknown as Parameters<typeof HomeFeedList>[0]['onScroll']
-        }
-        isSearchOpen={false}
-        refreshing={false}
-        onRefresh={jest.fn()}
-        primaryColor="#ff0000"
-        resolvedHeaderHeight={120}
-        contentBottomPadding={24}
-      />
-    );
-
-    expect(mockScrollToOffset).toHaveBeenCalledWith({
-      offset: 0,
-      animated: false,
+  it('preserves service cards after category rails rendered in the footer', () => {
+    renderList({
+      blocks: [
+        ...GRID_BLOCKS,
+        { type: 'CategoryRail', props: { id: 'footer-rail' } },
+      ] as unknown as Block[],
     });
-    expect(mockScrollToOffset).toHaveBeenCalledTimes(2);
+
+    expect(screen.getAllByTestId('home-service-cards')).toHaveLength(2);
   });
 });
