@@ -8,6 +8,7 @@ import {
   mockBuildBlogClusterCollections,
   mockDefaultBlogUi,
   mockGetCachedBlogListing,
+  mockHeaders,
   mockNotFound,
   mockRedirect,
   postsPayload,
@@ -103,7 +104,14 @@ describe('BlogPageContent', () => {
 
   it('redirects out-of-range paginated listings to the last real page', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
-      buildListingResult({ totalPosts: 50, posts: [] })
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+        },
+        totalPosts: 50,
+        posts: [],
+      })
     );
 
     await expect(
@@ -143,6 +151,66 @@ describe('BlogPageContent', () => {
     expect(document.head.querySelector('link[rel="next"]')).toHaveAttribute(
       'href',
       'https://example.com/blog?category=Guides&page=3'
+    );
+  });
+
+  it('uses domain-relative pagination links on storefront subdomains', async () => {
+    mockHeaders.mockReturnValue(
+      new Headers([['x-merchant-slug', 'ogabassey']])
+    );
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ page: '2' }),
+      })
+    );
+
+    expect(screen.getByTestId('blog-pagination')).toHaveAttribute(
+      'data-store-base-path',
+      ''
+    );
+    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basePath: '',
+      })
+    );
+  });
+
+  it('preserves path-prefixed storefront origins in prev/next head links', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          store_url: 'http://localhost:3000/ogabassey',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ page: '2' }),
+      })
+    );
+
+    expect(document.head.querySelector('link[rel="prev"]')).toHaveAttribute(
+      'href',
+      'http://localhost:3000/ogabassey/blog'
+    );
+    expect(document.head.querySelector('link[rel="next"]')).toHaveAttribute(
+      'href',
+      'http://localhost:3000/ogabassey/blog?page=3'
     );
   });
 

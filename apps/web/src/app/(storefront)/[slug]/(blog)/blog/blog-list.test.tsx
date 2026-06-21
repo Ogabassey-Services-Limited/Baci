@@ -121,6 +121,22 @@ describe('BlogList', () => {
     );
   });
 
+  it('does not show the infinite-scroll end marker on crawlable paginated pages', () => {
+    render(
+      <BlogList
+        initialPosts={[blogPost]}
+        initialPage={3}
+        merchantId="merchant-1"
+        totalPosts={48}
+        basePath="/ogabassey"
+      />
+    );
+
+    expect(
+      screen.queryByText("You've reached the end")
+    ).not.toBeInTheDocument();
+  });
+
   it('does not auto-fetch when rendering a paginated crawl page', () => {
     render(
       <BlogList

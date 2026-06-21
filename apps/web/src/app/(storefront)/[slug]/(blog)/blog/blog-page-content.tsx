@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
@@ -62,10 +63,17 @@ function buildAbsoluteBlogListingRouteHref({
   page: number;
   search?: string;
 }): string {
-  return new URL(
-    buildBlogListingRouteHref({ storeBasePath: '', category, page, search }),
-    baseUrl
-  ).toString();
+  return buildBlogListingSchemaUrl({ baseUrl, category, page, search });
+}
+
+function getStorefrontPathPrefix(
+  headersList: Awaited<ReturnType<typeof headers>>,
+  merchantSlug: string
+): string {
+  return headersList.has('x-custom-domain') ||
+    headersList.has('x-merchant-slug')
+    ? ''
+    : `/${merchantSlug}`;
 }
 
 export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
@@ -93,7 +101,10 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
     typeof organizationSchema['@id'] === 'string'
       ? organizationSchema['@id']
       : buildBlogOrganizationId(baseUrl);
-  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  const headersList = await headers();
+  const basePath = isDomainIdentifier(slug)
+    ? ''
+    : getStorefrontPathPrefix(headersList, merchant.slug);
 
   if (currentPage > totalPages) {
     redirect(

@@ -37,6 +37,7 @@ const hoistedMocks = vi.hoisted(() => ({
     <div>{props.merchant.business_name} blog</div>
   )),
   mockGetTemplate: vi.fn<(...args: unknown[]) => unknown>(() => null),
+  mockHeaders: vi.fn(() => new Headers()),
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
   }),
@@ -52,6 +53,7 @@ export const {
   mockBuildBlogClusterCollections,
   mockDefaultBlogUi,
   mockGetTemplate,
+  mockHeaders,
   mockNotFound,
   mockRedirect,
   mockTemplateBlogRenderer,
@@ -59,6 +61,10 @@ export const {
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
+}));
+
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -226,6 +232,8 @@ export function resetBlogPageContentMocks() {
   mockGetCachedBlogListing.mockResolvedValue(buildListingResult());
   mockNotFound.mockClear();
   mockRedirect.mockClear();
+  mockHeaders.mockReset();
+  mockHeaders.mockReturnValue(new Headers());
   mockBuildBlogClusterCollections.mockReset();
   mockBuildBlogClusterCollections.mockReturnValue([]);
   mockDefaultBlogUi.mockReset();

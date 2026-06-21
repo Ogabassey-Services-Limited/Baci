@@ -54,6 +54,7 @@ export function BlogList({
   const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
   const [page, setPage] = useState(initialPage);
   const shouldAutoLoadMore = initialPage <= 1;
+  const shouldShowEndMarker = initialPage <= 1;
   const [hasMore, setHasMore] = useState(
     shouldAutoLoadMore && initialPage * BLOG_LISTING_PAGE_SIZE < totalPosts
   );
@@ -239,7 +240,7 @@ export function BlogList({
         </div>
       )}
 
-      {!hasMore && posts.length > 0 && (
+      {shouldShowEndMarker && !hasMore && posts.length > 0 && (
         <div className="text-center py-12 text-muted-foreground">
           You've reached the end
         </div>
