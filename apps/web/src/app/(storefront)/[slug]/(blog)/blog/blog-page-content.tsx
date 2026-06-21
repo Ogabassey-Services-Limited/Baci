@@ -195,9 +195,6 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
     if (template) {
-      // Resolve the template data inside try/catch, but construct JSX outside
-      // of it: try/catch cannot catch React rendering errors, and JSX inside
-      // a try block prevents React Compiler optimization.
       let templateBlogUi: {
         BlogComponent: ComponentType<TemplateBlogPageProps>;
         categories: { name: string; slug: string }[];
