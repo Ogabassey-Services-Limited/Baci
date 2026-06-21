@@ -47,6 +47,9 @@ describe('OgaBassey blog author profile helpers', () => {
     expect(getBlogAuthorBySlug('bassey-john', 'ogabassey')).toMatchObject({
       name: 'Bassey John',
     });
+    expect(getBlogAuthorBySlug('Bassey-John', 'OgaBassey.COM')).toMatchObject({
+      name: 'Bassey John',
+    });
     expect(getBlogAuthorBySlug('bassey-john', 'another-store')).toBeNull();
   });
 

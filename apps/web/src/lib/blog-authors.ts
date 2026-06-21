@@ -49,7 +49,7 @@ function canUseOgabasseyAuthorProfiles(
   tenantIdentifier: string | null | undefined
 ): boolean {
   return tenantIdentifier
-    ? OGABASSEY_AUTHOR_TENANT_IDENTIFIERS.has(tenantIdentifier)
+    ? OGABASSEY_AUTHOR_TENANT_IDENTIFIERS.has(tenantIdentifier.toLowerCase())
     : false;
 }
 
@@ -78,7 +78,7 @@ export function getBlogAuthorBySlug(
     return null;
   }
 
-  const profile = BLOG_AUTHOR_PROFILES[slug];
+  const profile = BLOG_AUTHOR_PROFILES[slug.toLowerCase()];
   return profile ? { name: profile.name, sameAs: [...profile.sameAs] } : null;
 }
 

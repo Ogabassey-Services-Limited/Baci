@@ -148,6 +148,31 @@ describe('BlogAuthorPageContent', () => {
     );
   });
 
+  it('normalizes mixed-case author slugs for canonical Person ids', async () => {
+    const { container } = render(
+      await BlogAuthorPageContent({
+        params: Promise.resolve({
+          slug: 'OgaBassey.com',
+          authorSlug: 'Bassey-John',
+        }),
+      })
+    );
+
+    expect(mockGetBlogAuthorBySlug).toHaveBeenCalledWith(
+      'bassey-john',
+      'OgaBassey.com'
+    );
+    const profileScript = Array.from(
+      container.querySelectorAll('script[type="application/ld+json"]')
+    ).find((s) => s.textContent?.includes('ProfilePage'));
+    expect(profileScript?.textContent).toContain(
+      '"@id":"https://ogabassey.com#author-bassey-john"'
+    );
+    expect(profileScript?.textContent).toContain(
+      '"url":"https://ogabassey.com/blog/author/bassey-john"'
+    );
+  });
+
   it('calls notFound for an unknown author slug before querying posts', async () => {
     mockGetBlogAuthorBySlug.mockReturnValue(null);
 

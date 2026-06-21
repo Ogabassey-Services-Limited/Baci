@@ -17,8 +17,9 @@ export async function generateMetadata({
   params,
 }: AuthorPageProps): Promise<Metadata> {
   const { slug, authorSlug } = await params;
+  const normalizedAuthorSlug = authorSlug.toLowerCase();
 
-  const profile = getBlogAuthorBySlug(authorSlug, slug);
+  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
   if (!profile) {
     return AUTHOR_NOT_FOUND_METADATA;
   }
@@ -30,7 +31,7 @@ export async function generateMetadata({
 
   const { merchant, author } = data;
   const baseUrl = buildStoreUrl(merchant);
-  const canonicalUrl = `${baseUrl}/blog/author/${authorSlug}`;
+  const canonicalUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
   const roleLine = author.title
     ? `${author.title} at ${merchant.business_name}`
     : `Writer at ${merchant.business_name}`;

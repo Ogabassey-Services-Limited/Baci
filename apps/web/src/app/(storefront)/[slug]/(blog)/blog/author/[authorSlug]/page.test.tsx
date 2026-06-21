@@ -57,7 +57,7 @@ describe('blog author page metadata', () => {
     await generateMetadata({
       params: Promise.resolve({
         slug: 'ogabassey.com',
-        authorSlug: 'bassey-john',
+        authorSlug: 'Bassey-John',
       }),
     });
 

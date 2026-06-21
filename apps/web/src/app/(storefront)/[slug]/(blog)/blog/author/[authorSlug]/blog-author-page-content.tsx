@@ -31,8 +31,9 @@ export async function BlogAuthorPageContent({
   params,
 }: BlogAuthorPageContentProps) {
   const { slug, authorSlug } = await params;
+  const normalizedAuthorSlug = authorSlug.toLowerCase();
 
-  const profile = getBlogAuthorBySlug(authorSlug, slug);
+  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
   if (!profile) {
     notFound();
   }
@@ -45,8 +46,8 @@ export async function BlogAuthorPageContent({
   const { merchant, author, posts } = data;
   const baseUrl = buildStoreUrl(merchant);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
-  const authorPageUrl = `${baseUrl}/blog/author/${authorSlug}`;
-  const personId = `${baseUrl}#author-${authorSlug}`;
+  const authorPageUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
+  const personId = `${baseUrl}#author-${normalizedAuthorSlug}`;
   const { sameAs } = profile;
 
   const profilePageSchema = {
