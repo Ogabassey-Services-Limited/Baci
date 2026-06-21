@@ -269,12 +269,21 @@ describe('Product API XSS Prevention', () => {
       }
     });
 
-    it('rejects sku_matrix updates with conditionless variants', () => {
+    it('sanitizes sku_matrix update variant fields when condition validation passes', () => {
       const update = {
         variant_model: 'sku_matrix' as const,
         variants: [
           {
+            attributes: { color: '<script>alert(1)</script>Blue' },
+            condition: 'new' as const,
+            images: [
+              {
+                alt: '<img onerror=alert(1)>Front',
+                url: 'javascript:alert(1)',
+              },
+            ],
             price_override: 800,
+            sku: '<svg onload=alert(1)>SKU-1',
             stock_quantity: 1,
           },
         ],
@@ -282,12 +291,17 @@ describe('Product API XSS Prevention', () => {
 
       const result = updateProductSchema.safeParse(update);
 
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        const errors = formatZodErrors(result.error);
-        expect(errors.variants).toContain(
-          'sku_matrix products require every variant to include a condition.'
-        );
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const variant = result.data.variants?.[0];
+        expect(variant?.condition).toBe('new');
+        expect(variant?.attributes?.color).not.toContain('<script>');
+        expect(variant?.attributes?.color).toContain('Blue');
+        expect(variant?.sku).not.toContain('<svg');
+        expect(variant?.sku).toContain('SKU-1');
+        expect(variant?.images?.[0]?.url).toBe('');
+        expect(variant?.images?.[0]?.alt).not.toContain('onerror');
+        expect(variant?.images?.[0]?.alt).toContain('Front');
       }
     });
   });

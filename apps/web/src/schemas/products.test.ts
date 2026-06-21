@@ -152,6 +152,32 @@ describe('product schemas', () => {
     });
   });
 
+  it('rejects new sku_matrix update variant rows without conditions', () => {
+    const result = updateProductSchema.safeParse({
+      has_variants: true,
+      variant_model: 'sku_matrix',
+      variants: [
+        {
+          price_override: 800,
+          stock_quantity: 1,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message:
+              'sku_matrix products require every variant to include a condition.',
+            path: ['variants'],
+          }),
+        ])
+      );
+    }
+  });
+
   it('rejects update payloads with invalid field types', () => {
     expect(() =>
       updateProductSchema.parse({
