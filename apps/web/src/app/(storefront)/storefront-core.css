@@ -298,21 +298,65 @@
       color-mix(in srgb, var(--ogabassey-brand) 28%, transparent);
   }
 
-  .ogabassey-navbar-search__icon,
-  .ogabassey-navbar-search > div:first-child > svg {
-    color: color-mix(
-      in srgb,
-      var(--store-foreground, var(--ogabassey-surface-text)) 38%,
-      transparent
-    );
+  /* Shared by the non-hydrated fallback form AND the hydrated
+     SearchAutocomplete icon. Geometry is DUAL-SOURCED: it lives here (core CSS,
+     loaded on every storefront route) for `source(none)` route stylesheets like
+     storefront-pdp.css that do not @source the component, AND as matching
+     Tailwind utilities on the component for contexts that source it but do not
+     load core CSS (the platform template-preview). Centering uses the CSS
+     `translate` property (not `transform`) so it shares the property name with
+     the component's `-translate-y-1/2`, collapsing to one declaration where both
+     apply (e.g. the home route, which @sources this file) instead of stacking
+     into a double offset. z-index sits above the input's focus-visible z-10 so
+     the glass is never covered. */
+  .ogabassey-navbar-search__icon {
+    /* Idle colour + focus tint are UNLAYERED further down so they outrank the
+       component's `text-muted-foreground` no-core fallback (a utilities-layer
+       class that would otherwise beat @layer components). Only geometry is
+       layered here. */
     height: 1.25rem;
     left: 1rem;
     pointer-events: none;
     position: absolute;
     top: 50%;
-    transform: translateY(-50%);
+    translate: 0 -50%;
+    transition: color 0.15s ease;
     width: 1.25rem;
-    z-index: 1;
+    z-index: 20;
+  }
+
+  /* NOTE: two sets of rules for these elements live UNLAYERED further down
+     (next to the navbar input geometry) rather than here, because each competes
+     with a Tailwind utility that sits in the utilities layer and outranks
+     `@layer components` regardless of specificity: (a) the icon idle colour +
+     focus tint vs the `text-muted-foreground` no-core fallback, and (b) the
+     autocomplete input's left/right padding vs the shared shadcn Input's `px-3`.
+     See that block for details. */
+
+  /* Hide the native WebKit search ✕ — the component renders its own clear
+     button — route-independently, for the same `source(none)` reason. */
+  .ogabassey-navbar-search__field input::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
+  /* The clear (✕) button's geometry is DUAL-SOURCED like the icon: here (core
+     CSS) for `source(none)` storefront routes that do not @source the component,
+     and as matching Tailwind utilities on the component for contexts that source
+     it without loading core CSS (the platform template-preview). Centering uses
+     the `translate` property so it never stacks with the component's
+     `-translate-y-1/2`. z-index:20 keeps it above the input, which gains
+     `focus-visible:relative; z-index:10` from the shadcn Input. */
+  .ogabassey-navbar-search__field .ogabassey-navbar-search__clear {
+    position: absolute;
+    right: 0.25rem;
+    top: 50%;
+    translate: 0 -50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 2rem;
+    width: 2rem;
+    z-index: 20;
   }
 
   .ogabassey-navbar__desktop-actions {
@@ -710,6 +754,47 @@
   .ogabassey-navbar-search input {
     height: 3rem;
   }
+}
+
+/* Autocomplete input padding — unlayered for the same reason as the navbar
+   input geometry above: the shared shadcn Input emits `px-3` in Tailwind's
+   utilities layer, which outranks `@layer components` regardless of selector
+   specificity, so a layered override is silently ignored. Keyed on the
+   always-present `__field` root so it also covers the generic storefront header
+   (which has no `.ogabassey-navbar-search` wrapper) and every `source(none)`
+   route where this lazily-loaded component's own `pl-11`/`pr-10` are not
+   generated. Left clearance is for the absolutely-positioned glass. */
+.ogabassey-navbar-search__field input {
+  padding-left: 2.75rem;
+}
+
+/* Right clearance for the clear (✕) button, only while the field holds a value.
+   Two-class specificity so it also wins over the navbar input's unlayered
+   `padding-right: 1rem` above when the clear button appears. */
+.ogabassey-navbar-search .ogabassey-navbar-search__input--has-value,
+.ogabassey-navbar-search__field .ogabassey-navbar-search__input--has-value {
+  padding-right: 2.5rem;
+}
+
+/* Icon idle colour + focus tint — UNLAYERED so they outrank the component's
+   `text-muted-foreground` no-core fallback (a utilities-layer class that would
+   otherwise suppress the brand tint and the merchant-themed idle colour). On
+   storefront routes (core CSS loaded) these win; on the platform template-preview
+   (no core CSS) the utility provides the idle muted colour and the tint simply
+   does not apply. The `#111827` / `#d62027` final fallbacks cover the generic
+   StorefrontHeader path, where the `--ogabassey-*` vars are out of scope (defined
+   only on `.ogabassey-storefront-shell`) and `--store-*` may be unset. */
+.ogabassey-navbar-search__icon {
+  color: color-mix(
+    in srgb,
+    var(--store-foreground, var(--ogabassey-surface-text, #111827)) 38%,
+    transparent
+  );
+}
+
+.ogabassey-navbar-search:focus-within .ogabassey-navbar-search__icon,
+.ogabassey-navbar-search__field:focus-within .ogabassey-navbar-search__icon {
+  color: var(--store-primary, var(--ogabassey-brand, #d62027));
 }
 
 /*

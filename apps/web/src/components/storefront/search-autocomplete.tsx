@@ -220,7 +220,12 @@ export function SearchAutocomplete({
   return (
     <div
       ref={wrapperRef}
-      className={cn('relative w-full', className)}
+      // __field marks the component root so the core-CSS focus tint applies on
+      // every surface (e.g. the generic storefront header), not just the navbar.
+      className={cn(
+        'ogabassey-navbar-search__field relative w-full',
+        className
+      )}
       role="combobox"
       aria-expanded={isOpen && hasResults}
       aria-haspopup="listbox"
@@ -230,8 +235,23 @@ export function SearchAutocomplete({
       tabIndex={-1}
     >
       <div className="relative">
+        {/* Geometry has TWO sources so the control is styled in every CSS
+            context: (1) core CSS (.ogabassey-navbar-search__icon) — the
+            route-independent source for storefront `source(none)` routes that do
+            not @source this lazily-loaded component (PDP/content); (2) these
+            Tailwind utilities — generated wherever the component IS sourced,
+            including the platform template-preview (globals.css), which never
+            loads storefront-core.css. The `-translate-y-1/2` centering uses the
+            CSS `translate` property, the SAME one core CSS uses, so when both
+            apply (e.g. the home route, which @sources this file) they collapse to
+            one declaration instead of stacking into a double offset. The
+            idle colour is `text-muted-foreground` (the no-core fallback); the
+            core-CSS rules are UNLAYERED so the merchant-themed idle colour and
+            the focus tint override it on storefront routes. Where core CSS is
+            absent (the preview) the icon stays muted and the focus tint simply
+            does not apply. */}
         <Search
-          className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          className="ogabassey-navbar-search__icon pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 size-5 z-20 text-muted-foreground"
           aria-hidden="true"
         />
         <Input
@@ -243,8 +263,13 @@ export function SearchAutocomplete({
           onKeyDown={handleKeyDown}
           onFocus={() => value.length >= 2 && setIsOpen(true)}
           className={cn(
-            'pl-10 [&::-webkit-search-cancel-button]:appearance-none',
-            value ? 'pr-10' : ''
+            // Padding has TWO sources (see the icon comment): core CSS keyed on
+            // `__field` / `__input--has-value` for storefront `source(none)`
+            // routes, and these Tailwind utilities for contexts that source the
+            // component but do not load core CSS (the platform template-preview).
+            // Padding is non-additive, so both sources agree on every route.
+            'pl-11 [&::-webkit-search-cancel-button]:appearance-none',
+            value ? 'pr-10 ogabassey-navbar-search__input--has-value' : ''
           )}
           aria-autocomplete="list"
           aria-controls={listboxId}
@@ -267,7 +292,13 @@ export function SearchAutocomplete({
               setPopularSearches([]);
               inputRef.current?.focus();
             }}
-            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm z-20 size-8 flex items-center justify-center"
+            // Geometry has TWO sources (see the icon comment): core CSS
+            // (.ogabassey-navbar-search__clear) for storefront `source(none)`
+            // routes, and these Tailwind utilities for contexts that source the
+            // component but do not load core CSS (the platform template-preview).
+            // `-translate-y-1/2` uses the `translate` property core CSS also
+            // uses, so the two never stack into a double offset.
+            className="ogabassey-navbar-search__clear absolute right-1 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center z-20 text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
             aria-label="Clear search"
           >
             <X className="size-4" />
