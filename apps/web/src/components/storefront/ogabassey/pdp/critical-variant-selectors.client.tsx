@@ -1,5 +1,6 @@
 'use client';
 
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import type { Product as CartProduct } from '@/lib/products';
 import {
   canonicalizeVariantAxis,
@@ -45,25 +46,31 @@ function getVariantAxisOptions(
   axis: string
 ) {
   const normalizedAxis = canonicalizeVariantAxis(axis);
+  const options = new Set<string>();
 
-  return Array.from(
-    new Set(
-      (variants || [])
-        .map((variant) => {
-          const normalizedAttributes = Object.fromEntries(
-            Object.entries(variant.attributes || {}).map(([key, value]) => [
-              canonicalizeVariantAxis(key),
-              value,
-            ])
-          );
+  for (const variant of variants || []) {
+    const normalizedAttributes: Record<string, string> = {};
 
-          return normalizedAxis === 'condition'
-            ? variant.condition
-            : normalizedAttributes[normalizedAxis];
-        })
-        .filter((value): value is string => Boolean(value))
-    )
-  );
+    for (const [key, value] of Object.entries(variant.attributes || {})) {
+      const attributeAxis = canonicalizeVariantAxis(key);
+      const trimmedValue = value.trim();
+
+      if (attributeAxis && trimmedValue) {
+        normalizedAttributes[attributeAxis] = trimmedValue;
+      }
+    }
+
+    const value =
+      normalizedAxis === 'condition'
+        ? normalizeCanonicalProductCondition(variant.condition)
+        : normalizedAttributes[normalizedAxis];
+
+    if (value) {
+      options.add(value);
+    }
+  }
+
+  return Array.from(options);
 }
 
 function isRenderableCriticalVariantAxis(

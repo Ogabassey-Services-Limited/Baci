@@ -96,6 +96,15 @@ export function OgabasseyPdpCriticalCommerceProvider({
       ([axis]) => axis !== 'condition'
     )
   );
+  const initialExplicitSelectedAxes = Object.keys(
+    normalizedInitialVariantAttributes
+  );
+  if (
+    explicitVariantCondition &&
+    !initialExplicitSelectedAxes.includes('condition')
+  ) {
+    initialExplicitSelectedAxes.push('condition');
+  }
   const defaultVariantSelection = selectionCartProduct.has_variants
     ? resolveDefaultVariantSelection(selectionCartProduct, {
         condition: explicitVariantCondition,
@@ -121,7 +130,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
     string | undefined
   >(initialVariantSelection?.variantId);
   const [explicitSelectedAxes, setExplicitSelectedAxes] = useState<string[]>(
-    () => Object.keys(normalizedInitialVariantAttributes)
+    () => initialExplicitSelectedAxes
   );
   const selectedVariantCondition =
     selectedAttributes.condition ?? explicitVariantCondition;

@@ -186,6 +186,41 @@ describe('critical commerce selection helpers', () => {
     expect(normalizeCriticalVariantProduct(cartProduct)).toBe(cartProduct);
   });
 
+  it('applies the parent condition to critical variant rows that inherit it', () => {
+    expect(
+      normalizeCriticalVariantProduct({
+        ...cartProduct,
+        condition: 'new',
+        variants: [
+          {
+            attributes: { Storage: '128GB' },
+            id: 'variant-inherited-new',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 4,
+          },
+          {
+            attributes: { Storage: '128GB' },
+            condition: 'used',
+            id: 'variant-used',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ],
+      }).variants
+    ).toEqual([
+      expect.objectContaining({
+        condition: 'new',
+        id: 'variant-inherited-new',
+      }),
+      expect.objectContaining({
+        condition: 'used',
+        id: 'variant-used',
+      }),
+    ]);
+  });
+
   it('detects hidden axes with multiple SKU options', () => {
     expect(
       getVariantAxesWithMultipleOptions([

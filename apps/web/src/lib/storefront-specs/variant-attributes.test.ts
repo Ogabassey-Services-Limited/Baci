@@ -61,7 +61,7 @@ describe('storefront variant attribute helpers', () => {
         [
           {
             attributes: { Storage: '128GB', RAM: '8GB', color: 'Black' },
-            condition: 'used',
+            condition: 'refurbished',
           },
           {
             attributes: { Storage: '512GB', RAM: '12GB', color: 'Black' },
@@ -73,7 +73,7 @@ describe('storefront variant attribute helpers', () => {
       )
     ).toEqual({
       color: ['Black'],
-      condition: ['used', 'new'],
+      condition: ['open_box', 'new'],
       ram: ['8GB', '12GB'],
       storage: ['128GB', '256GB', '512GB'],
     });
@@ -85,7 +85,7 @@ describe('storefront variant attribute helpers', () => {
     const variants = [
       {
         attributes: { RAM: '8GB', Storage: '128GB', 'SIM Type': 'Single' },
-        condition: 'used',
+        condition: 'uk_used',
       },
       {
         attributes: { RAM: '12GB', Storage: '256GB', 'SIM Type': 'Single' },
@@ -123,6 +123,9 @@ describe('storefront variant attribute helpers', () => {
     expect(
       getAvailableOptionsForAxis('storage', variants, { condition: 'used' })
     ).toEqual(['128GB']);
+    expect(
+      getAvailableOptionsForAxis('condition', variants, { storage: '128GB' })
+    ).toEqual(['used']);
     expect(getAvailableOptionsForAxis('storage', null, {})).toEqual([]);
   });
 

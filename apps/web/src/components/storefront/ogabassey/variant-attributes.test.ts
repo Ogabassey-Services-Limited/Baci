@@ -42,7 +42,7 @@ describe('variant attributes helpers', () => {
             sim_type: 'Dual Nano SIM',
             storage: '128GB',
           },
-          condition: 'used',
+          condition: 'refurbished',
         },
         {
           attributes: {
@@ -57,7 +57,7 @@ describe('variant attributes helpers', () => {
       [{ param: 'storage', options: ['128GB', '256GB', '512GB'] }]
     );
 
-    expect(merged.condition).toEqual(['used', 'new']);
+    expect(merged.condition).toEqual(['open_box', 'new']);
     expect(merged.storage).toEqual(['128GB', '256GB', '512GB']);
     expect(merged.sim_type).toEqual(['Dual Nano SIM', 'eSIM Only']);
     expect(merged.color).toEqual(['Black']);
@@ -183,7 +183,7 @@ describe('variant attributes helpers', () => {
       const s24Variants = [
         {
           attributes: { ram: '12GB', storage: '512GB', sim_type: 'Single' },
-          condition: 'used',
+          condition: 'uk_used',
         },
         {
           attributes: { ram: '12GB', storage: '512GB', sim_type: 'Dual' },

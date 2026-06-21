@@ -1,3 +1,5 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+
 interface VariantAttributeDefinition {
   options?: unknown;
   param?: unknown;
@@ -30,7 +32,7 @@ function pushUniqueOption(
     return;
   }
 
-  const trimmedValue = value.trim();
+  const trimmedValue = normalizeVariantAxisOption(axis, value);
   if (!trimmedValue) {
     return;
   }
@@ -42,6 +44,16 @@ function pushUniqueOption(
   if (!axisOptions[axis].includes(trimmedValue)) {
     axisOptions[axis].push(trimmedValue);
   }
+}
+
+function normalizeVariantAxisOption(axis: string, value: string) {
+  const trimmedValue = value.trim();
+
+  if (axis === 'condition') {
+    return normalizeCanonicalProductCondition(trimmedValue);
+  }
+
+  return trimmedValue;
 }
 
 export function normalizeVariantAttributes(source: VariantAttributeSource) {
@@ -109,17 +121,31 @@ export function getVariantAttributeOptions(
   return normalizeVariantAttributes(source)[normalizedAxis] || [];
 }
 
-function getVariantAxisValue(variant: VariantAttributeCarrier, axis: string) {
-  if (axis === 'condition') {
-    return variant.condition;
+function normalizeVariantAttributeRecord(
+  attributes: Record<string, string> | null | undefined
+) {
+  const normalized: Record<string, string> = {};
+
+  for (const [rawAxis, value] of Object.entries(attributes ?? {})) {
+    const axis = canonicalizeVariantAxis(rawAxis);
+    const normalizedValue = normalizeVariantAxisOption(axis, value);
+
+    if (axis && normalizedValue) {
+      normalized[axis] = normalizedValue;
+    }
   }
 
-  const normalizedAttributes = Object.fromEntries(
-    Object.entries(variant.attributes ?? {}).map(([rawAxis, value]) => [
-      canonicalizeVariantAxis(rawAxis),
-      value,
-    ])
-  );
+  return normalized;
+}
+
+function getVariantAxisValue(
+  variant: VariantAttributeCarrier,
+  normalizedAttributes: Record<string, string>,
+  axis: string
+) {
+  if (axis === 'condition') {
+    return normalizeCanonicalProductCondition(variant.condition);
+  }
 
   return normalizedAttributes[axis];
 }
@@ -172,17 +198,29 @@ export function getAvailableOptionsForAxis(
   const normalizedSelections = Object.fromEntries(
     Object.entries(currentSelections)
       .filter(([k]) => canonicalizeVariantAxis(k) !== normalizedAxis)
-      .map(([k, v]) => [canonicalizeVariantAxis(k), v])
+      .map(([k, v]) => {
+        const selectionAxis = canonicalizeVariantAxis(k);
+        return [selectionAxis, normalizeVariantAxisOption(selectionAxis, v)];
+      })
+      .filter(([, value]) => Boolean(value))
   );
 
   const reachable = new Set<string>();
   for (const variant of variants ?? []) {
+    const normalizedAttributes = normalizeVariantAttributeRecord(
+      variant.attributes
+    );
     const matchesAll = Object.entries(normalizedSelections).every(
       ([selectionAxis, value]) =>
-        getVariantAxisValue(variant, selectionAxis) === value
+        getVariantAxisValue(variant, normalizedAttributes, selectionAxis) ===
+        value
     );
     if (matchesAll) {
-      const value = getVariantAxisValue(variant, normalizedAxis);
+      const value = getVariantAxisValue(
+        variant,
+        normalizedAttributes,
+        normalizedAxis
+      );
       if (typeof value === 'string' && value.trim()) {
         reachable.add(value.trim());
       }

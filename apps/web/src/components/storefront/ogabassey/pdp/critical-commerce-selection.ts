@@ -103,6 +103,7 @@ export function normalizeCriticalVariantProduct(
     variants: cartProduct.variants.map((variant) => ({
       ...variant,
       attributes: normalizeCriticalVariantAttributes(variant.attributes),
+      condition: variant.condition ?? cartProduct.condition,
     })),
   };
 }

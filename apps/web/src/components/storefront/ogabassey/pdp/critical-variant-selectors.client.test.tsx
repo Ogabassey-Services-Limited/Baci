@@ -222,7 +222,7 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
         variants={[
           {
             attributes: { storage: '128GB' },
-            condition: 'used',
+            condition: 'uk_used' as never,
             id: 'variant-used',
             merchant_id: 'merchant-1',
             product_id: 'product-1',
@@ -230,8 +230,8 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
           },
           {
             attributes: { storage: '128GB' },
-            condition: 'new',
-            id: 'variant-new',
+            condition: 'refurbished',
+            id: 'variant-open-box',
             merchant_id: 'merchant-1',
             product_id: 'product-1',
             stock_quantity: 2,
@@ -246,10 +246,10 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
     ).toHaveAttribute('aria-pressed', 'true');
 
     fireEvent.click(
-      screen.getByRole('button', { name: /select new condition/i })
+      screen.getByRole('button', { name: /select open_box condition/i })
     );
 
-    expect(onAttributeSelection).toHaveBeenCalledWith('condition', 'new');
+    expect(onAttributeSelection).toHaveBeenCalledWith('condition', 'open_box');
   });
 
   it('disables options that cannot produce a real SKU from explicit selections', () => {
