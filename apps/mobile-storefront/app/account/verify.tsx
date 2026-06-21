@@ -1,15 +1,41 @@
 import { type Href, Redirect, Stack } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { getPendingAuthLoginResumeState } from '@/components/auth/login-resume-state';
 
-const OTP_LOGIN_ROUTE: Href = {
-  pathname: '/auth/login',
-  params: { mode: 'otp' },
-};
+function buildOtpLoginRoute(returnTo: string | null): Href {
+  return {
+    pathname: '/auth/login',
+    params: returnTo ? { mode: 'otp', returnTo } : { mode: 'otp' },
+  };
+}
 
 export default function AccountVerifyRoute() {
+  const [otpLoginRoute, setOtpLoginRoute] = useState<Href | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    getPendingAuthLoginResumeState()
+      .then((resumeState) => {
+        if (isActive) {
+          setOtpLoginRoute(buildOtpLoginRoute(resumeState?.returnTo ?? null));
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setOtpLoginRoute(buildOtpLoginRoute(null));
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <Redirect href={OTP_LOGIN_ROUTE} />
+      {otpLoginRoute ? <Redirect href={otpLoginRoute} /> : null}
     </>
   );
 }

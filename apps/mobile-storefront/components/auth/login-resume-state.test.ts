@@ -1,8 +1,17 @@
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import {
   clearAuthLoginResumeState,
   getAuthLoginResumeState,
+  getPendingAuthLoginResumeState,
   saveAuthLoginResumeState,
 } from './login-resume-state';
 
@@ -123,6 +132,36 @@ describe('login resume state', () => {
     await expect(
       getAuthLoginResumeState('https://evil.example/checkout')
     ).resolves.toBeNull();
+  });
+
+  it('returns pending OTP state with a safe return target for account verify redirects', async () => {
+    mockGetItemAsync.mockResolvedValueOnce(
+      JSON.stringify({
+        email: 'shopper@example.com',
+        returnTo: '/checkout',
+        savedAt: 1_000_000,
+        step: 'otp',
+      })
+    );
+
+    await expect(getPendingAuthLoginResumeState()).resolves.toEqual({
+      email: 'shopper@example.com',
+      returnTo: '/checkout',
+      step: 'otp',
+    });
+  });
+
+  it('rejects pending OTP state with an unsafe return target for account verify redirects', async () => {
+    mockGetItemAsync.mockResolvedValueOnce(
+      JSON.stringify({
+        email: 'shopper@example.com',
+        returnTo: 'https://evil.example/checkout',
+        savedAt: 1_000_000,
+        step: 'otp',
+      })
+    );
+
+    await expect(getPendingAuthLoginResumeState()).resolves.toBeNull();
   });
 
   it('ignores malformed or stale pending OTP state', async () => {
