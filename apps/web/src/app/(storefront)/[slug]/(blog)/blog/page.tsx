@@ -6,32 +6,12 @@ import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
-import { buildBlogListingRouteHref } from './blog-listing-route';
+import { buildBlogListingSchemaUrl } from './blog-listing-schema-url';
 import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 
 function parseBlogMetadataPage(page?: string): number {
   const parsedPage = Number.parseInt(String(page ?? '1'), 10);
   return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
-}
-
-function buildAbsoluteBlogListingUrl({
-  baseUrl,
-  category,
-  page,
-  search,
-}: {
-  baseUrl: string;
-  category?: string;
-  page: number;
-  search?: string;
-}): string {
-  const relativeHref = buildBlogListingRouteHref({
-    storeBasePath: '',
-    category,
-    page,
-    search,
-  });
-  return new URL(relativeHref, baseUrl).toString();
 }
 
 export async function generateMetadata({
@@ -54,7 +34,7 @@ export async function generateMetadata({
   const baseUrl = buildStoreUrl(data.merchant);
   const totalPages = Math.max(1, data.totalPages);
   const canonicalPage = Math.min(currentPage, totalPages);
-  const canonicalUrl = buildAbsoluteBlogListingUrl({
+  const canonicalUrl = buildBlogListingSchemaUrl({
     baseUrl,
     category,
     page: canonicalPage,

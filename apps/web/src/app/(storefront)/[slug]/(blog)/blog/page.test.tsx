@@ -81,6 +81,31 @@ describe('blog page metadata', () => {
     });
   });
 
+  it('preserves storefront path prefixes in paginated metadata URLs', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+          store_url: 'http://localhost:3000/ogabassey',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'http://localhost:3000/ogabassey/blog?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe(
+      'http://localhost:3000/ogabassey/blog?page=2'
+    );
+  });
+
   it('returns fallback metadata when the merchant is missing', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(null);
 

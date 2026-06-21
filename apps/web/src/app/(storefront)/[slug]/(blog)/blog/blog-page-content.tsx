@@ -21,6 +21,7 @@ import {
 import { BlogDiscoverySection } from './blog-discovery-section';
 import { BlogListingPagination } from './blog-listing-pagination';
 import { buildBlogListingRouteHref } from './blog-listing-route';
+import { buildBlogListingSchemaUrl } from './blog-listing-schema-url';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
@@ -32,38 +33,6 @@ export interface BlogPageProps {
 function parseBlogListingPage(page?: string): number {
   const parsedPage = Number.parseInt(String(page ?? '1'), 10);
   return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
-}
-
-function buildBlogListingSchemaUrl({
-  baseUrl,
-  category,
-  page,
-  search,
-}: {
-  baseUrl: string;
-  category?: string;
-  page: number;
-  search?: string;
-}): string {
-  const url = new URL('blog', baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
-  if (category) url.searchParams.set('category', category);
-  if (search) url.searchParams.set('search', search);
-  if (page > 1) url.searchParams.set('page', String(page));
-  return url.toString();
-}
-
-function buildAbsoluteBlogListingRouteHref({
-  baseUrl,
-  category,
-  page,
-  search,
-}: {
-  baseUrl: string;
-  category?: string;
-  page: number;
-  search?: string;
-}): string {
-  return buildBlogListingSchemaUrl({ baseUrl, category, page, search });
 }
 
 function getStorefrontPathPrefix(
@@ -120,7 +89,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   }
   const previousPageUrl =
     currentPage > 1
-      ? buildAbsoluteBlogListingRouteHref({
+      ? buildBlogListingSchemaUrl({
           baseUrl,
           category,
           page: currentPage - 1,
@@ -129,7 +98,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       : undefined;
   const nextPageUrl =
     currentPage < totalPages
-      ? buildAbsoluteBlogListingRouteHref({
+      ? buildBlogListingSchemaUrl({
           baseUrl,
           category,
           page: currentPage + 1,
