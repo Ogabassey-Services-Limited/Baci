@@ -36,6 +36,7 @@ function createChainableMock(
   chain.eq = vi.fn().mockReturnValue(chain);
   chain.in = vi.fn().mockReturnValue(chain);
   chain.or = vi.fn().mockReturnValue(chain);
+  chain.order = vi.fn().mockReturnValue(chain);
   chain.limit = vi.fn().mockReturnValue(chain);
   chain.update = vi.fn().mockReturnValue(chain);
   chain.insert = vi.fn().mockReturnValue(chain);
@@ -708,6 +709,11 @@ describe('notifyStorefrontUpdateAvailable', () => {
     );
     // No bare leaf outside an and() group (would mean the throttle is bypassed).
     expect(orArg).not.toMatch(/(^|,)build_number\.(is\.null|lt\.646)(,|$)/);
+    // Never-nudged first, then oldest — so the backlog drains deterministically.
+    expect(selectChain.order).toHaveBeenCalledWith('last_update_push_at', {
+      ascending: true,
+      nullsFirst: true,
+    });
 
     // Sends the payload the app's tap handler routes to the update prompt.
     const sent = mockChunkPushNotifications.mock

@@ -1074,6 +1074,10 @@ export async function notifyStorefrontUpdateAvailable(
         `and(build_number.lt.${latestBuild},last_update_push_at.lt.${cutoffIso})`,
       ].join(',')
     )
+    // Never-nudged (NULL) first, then oldest-stamped. Without this ordering the
+    // capped query could keep returning re-eligible rows and starve the
+    // never-nudged backlog when the eligible set exceeds limit * throttleDays.
+    .order('last_update_push_at', { ascending: true, nullsFirst: true })
     .limit(limit);
 
   if (error) {

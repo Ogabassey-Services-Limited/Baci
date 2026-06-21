@@ -149,7 +149,15 @@ describe('resolveNativeBuildNumber', () => {
   it('returns null for missing or malformed values', () => {
     expect(resolveNativeBuildNumber(null)).toBeNull();
     expect(resolveNativeBuildNumber('')).toBeNull();
+    expect(resolveNativeBuildNumber('   ')).toBeNull();
     expect(resolveNativeBuildNumber('not-a-number')).toBeNull();
+  });
+
+  it('rejects partially numeric builds instead of truncating them', () => {
+    // Strict Number(...) parse, matching the server gate — not parseInt, which
+    // would read these as 646 and disagree with the release policy.
+    expect(resolveNativeBuildNumber('646-beta')).toBeNull();
+    expect(resolveNativeBuildNumber('646.1')).toBeNull();
   });
 
   it('defaults to the installed Application.nativeBuildVersion', () => {
