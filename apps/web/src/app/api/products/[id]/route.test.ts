@@ -107,6 +107,7 @@ const MERCHANT_ID = 'merchant-123';
 const USER_ID = 'user-123';
 const PRODUCT_ID = 'product-456';
 const VARIANT_ID = '953ba6ff-3e83-403a-a07c-8c5ff54ede98';
+const ANCHOR_VARIANT_ID = 'a0b7c8d9-1111-4222-9333-444455556666';
 
 let authUser: unknown = { id: USER_ID };
 let merchant: unknown = {
@@ -117,6 +118,7 @@ let merchant: unknown = {
 let product: unknown = null;
 let productError: unknown = null;
 let variants: unknown[] = [];
+let anchorVariants: unknown[] = [];
 let updateResult: unknown = null;
 let updateError: unknown = null;
 let deleteError: unknown = null;
@@ -213,16 +215,25 @@ const createMockSupabase = () => ({
       };
     }
     if (table === 'product_variants') {
+      const variantSelectFilters: [string, unknown][] = [];
       const variantSelectChain: {
         eq: ReturnType<typeof vi.fn>;
         in: ReturnType<typeof vi.fn>;
         returns: ReturnType<typeof vi.fn>;
       } = {
-        eq: vi.fn(() => variantSelectChain),
+        eq: vi.fn((column: string, value: unknown) => {
+          variantSelectFilters.push([column, value]);
+          return variantSelectChain;
+        }),
         in: vi.fn(() => variantSelectChain),
         returns: vi.fn(() =>
           Promise.resolve({
-            data: variants,
+            data: variantSelectFilters.some(
+              ([column, value]) =>
+                column === 'is_inventory_anchor' && value === true
+            )
+              ? anchorVariants
+              : variants,
             error: null,
           })
         ),
@@ -343,6 +354,7 @@ function resetMocks() {
   };
   productError = null;
   variants = [];
+  anchorVariants = [];
   updateResult = null;
   updateError = null;
   deleteError = null;
@@ -980,6 +992,54 @@ describe('PUT /api/products/[id]', () => {
       expect(json.error).toBe('Invalid product variant update');
       expect(lastProductUpdatePayload).toBeNull();
       expect(lastRpcCall).toBeNull();
+    });
+
+    it('filters serialized inventory anchors before variant ownership validation', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+      variants = [{ id: VARIANT_ID }];
+      anchorVariants = [{ id: ANCHOR_VARIANT_ID }];
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variants: [
+            {
+              id: ANCHOR_VARIANT_ID,
+              sku: 'ANCHOR-SYSTEM-ROW',
+              stock_quantity: 999,
+            },
+            {
+              id: VARIANT_ID,
+              sku: 'SKU-EDITABLE',
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+
+      expect(res.status).toBe(200);
+      expect(lastRpcCall?.args.p_variants).toEqual([
+        {
+          id: VARIANT_ID,
+          sku: 'SKU-EDITABLE',
+          stock_quantity: 5,
+        },
+      ]);
     });
 
     it('does not mark a product as migrated when variant sync fails', async () => {

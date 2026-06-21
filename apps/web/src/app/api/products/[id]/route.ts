@@ -598,13 +598,51 @@ export async function PUT(
         return payload;
       });
 
-      const submittedVariantIds = variantsToSync
-        .map((variant) => variant.id)
-        .filter(
-          (variantId): variantId is string =>
-            typeof variantId === 'string' && variantId.length > 0
+      const collectVariantIds = (variants: Record<string, unknown>[]) =>
+        variants
+          .map((variant) => variant.id)
+          .filter(
+            (variantId): variantId is string =>
+              typeof variantId === 'string' && variantId.length > 0
+          );
+      let submittedVariantIds = collectVariantIds(variantsToSync);
+      let incomingVariantIds = Array.from(new Set(submittedVariantIds));
+
+      if (incomingVariantIds.length > 0) {
+        const { data: inventoryAnchors, error: inventoryAnchorsError } =
+          await supabase
+            .from('product_variants')
+            .select('id')
+            .eq('product_id', id)
+            .eq('merchant_id', merchantId)
+            .eq('is_inventory_anchor', true)
+            .in('id', incomingVariantIds)
+            .returns<Array<{ id: string }>>();
+
+        if (inventoryAnchorsError) {
+          console.error(
+            'Error validating product variant anchors:',
+            inventoryAnchorsError
+          );
+          return NextResponse.json(
+            { error: 'Failed to validate product variants' },
+            { status: 500 }
+          );
+        }
+
+        const inventoryAnchorIds = new Set(
+          (inventoryAnchors ?? []).map((variant) => variant.id)
         );
-      const incomingVariantIds = Array.from(new Set(submittedVariantIds));
+        if (inventoryAnchorIds.size > 0) {
+          variantsToSync = variantsToSync.filter(
+            (variant) =>
+              typeof variant.id !== 'string' ||
+              !inventoryAnchorIds.has(variant.id)
+          );
+          submittedVariantIds = collectVariantIds(variantsToSync);
+          incomingVariantIds = Array.from(new Set(submittedVariantIds));
+        }
+      }
 
       if (incomingVariantIds.length !== submittedVariantIds.length) {
         return NextResponse.json(
