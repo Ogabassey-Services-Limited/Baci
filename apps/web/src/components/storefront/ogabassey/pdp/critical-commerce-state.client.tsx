@@ -6,75 +6,30 @@ import {
   resolveVariantDisplaySelection,
   resolveVariantSelection,
 } from '@baci/shared/lib';
-import {
-  createContext,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
+import { useEffect, useState } from 'react';
 import {
   canonicalizeVariantAxis,
   getAvailableOptionsForAxis,
 } from '@/components/storefront/ogabassey/variant-attributes';
 import { useCart } from '@/hooks/cart';
-import type { Product as CartProduct } from '@/lib/products';
 import {
   buildVariantCartProduct,
   compactVariantOptions,
   getVariantAxesWithMultipleOptions,
-  type InitialCriticalVariantSelection,
   normalizeCriticalVariantAttributes,
   normalizeCriticalVariantProduct,
   pickInitialSelectedAttributes,
 } from './critical-commerce-selection';
+import {
+  OgabasseyPdpCriticalCommerceContext,
+  type OgabasseyPdpCriticalCommerceProviderProps,
+} from './critical-commerce-state-context.client';
 import { getRenderableCriticalVariantAxes } from './critical-variant-selector-options';
 
-interface OgabasseyPdpCriticalCommerceProviderProps {
-  cartProduct: CartProduct;
-  children: ReactNode;
-  initialVariantSelection?: InitialCriticalVariantSelection;
-  variantAxes?: string[];
-  variantAxisOptions?: Record<string, string[]>;
-  variantCount: number;
-}
-
-interface OgabasseyPdpCriticalCommerceState {
-  canAddToCart: boolean;
-  explicitSelectedAxes: string[];
-  handleAddToCart: () => void;
-  handleAttributeSelection: (axis: string, value: string) => void;
-  isAtMaxQuantity: boolean;
-  maxQuantity: number | null;
-  productForCart: CartProduct;
-  quantity: number;
-  renderableVariantAxes: string[];
-  selectedAttributes: Record<string, string>;
-  setQuantity: Dispatch<SetStateAction<number>>;
-  variantAxisOptions: Record<string, string[]>;
-  variantCount: number;
-  variants: CartProduct['variants'];
-}
-
-const OgabasseyPdpCriticalCommerceContext =
-  createContext<OgabasseyPdpCriticalCommerceState | null>(null);
-
-export function useOgabasseyPdpCriticalCommerce() {
-  const context = useContext(OgabasseyPdpCriticalCommerceContext);
-  if (!context) {
-    throw new Error(
-      'Ogabassey PDP critical commerce components must be rendered inside OgabasseyPdpCriticalCommerceProvider.'
-    );
-  }
-
-  return context;
-}
-
-export function useOptionalOgabasseyPdpCriticalCommerce() {
-  return useContext(OgabasseyPdpCriticalCommerceContext);
-}
+export {
+  useOgabasseyPdpCriticalCommerce,
+  useOptionalOgabasseyPdpCriticalCommerce,
+} from './critical-commerce-state-context.client';
 
 export function OgabasseyPdpCriticalCommerceProvider({
   cartProduct,

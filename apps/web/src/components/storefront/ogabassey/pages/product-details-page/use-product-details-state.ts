@@ -27,6 +27,7 @@ import {
   getDeliveryEstimate,
   getEffectiveAxes,
   getMissingSelectionFields,
+  getSingleOptionAxisSelections,
   normalizeProductDetails,
   toRelatedProductsProduct,
 } from './product-details-helpers';
@@ -198,6 +199,10 @@ export function useProductDetailsState(serverProduct: Product) {
         variantId: routeVariantId,
       }
     ) ?? defaultVariantSelection;
+  const singleOptionAxisSelections = getSingleOptionAxisSelections(
+    productData,
+    effectiveAxes
+  );
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
     () => {
       const seed = resolveInitialSeed();
@@ -223,7 +228,13 @@ export function useProductDetailsState(serverProduct: Product) {
     Record<string, string>
   >(() => {
     const seed = resolveInitialSeed();
-    return seed ? { ...routeSelectionAttributes, ...seed.attributes } : {};
+    return seed
+      ? {
+          ...singleOptionAxisSelections,
+          ...routeSelectionAttributes,
+          ...seed.attributes,
+        }
+      : { ...singleOptionAxisSelections, ...routeSelectionAttributes };
   });
   const [activeTab, setActiveTab] =
     useState<ProductDetailsActiveTab>('description');
@@ -396,6 +407,7 @@ export function useProductDetailsState(serverProduct: Product) {
 
     if (seedSelection) {
       const nextAttributes = {
+        ...singleOptionAxisSelections,
         ...routeSelectionAttributes,
         ...seedSelection.attributes,
       };
@@ -418,6 +430,11 @@ export function useProductDetailsState(serverProduct: Product) {
         previousColor === null ? previousColor : null
       );
     } else {
+      const nextAttributes = {
+        ...singleOptionAxisSelections,
+        ...routeSelectionAttributes,
+      };
+
       setSelectedColor((previousColor) =>
         previousColor === null ? previousColor : null
       );
@@ -425,7 +442,9 @@ export function useProductDetailsState(serverProduct: Product) {
         previousColor === null ? previousColor : null
       );
       setSelectedAttributes((previousAttributes) =>
-        Object.keys(previousAttributes).length === 0 ? previousAttributes : {}
+        areSelectionAttributesEqual(previousAttributes, nextAttributes)
+          ? previousAttributes
+          : nextAttributes
       );
     }
   }

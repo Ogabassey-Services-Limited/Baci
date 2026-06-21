@@ -11,6 +11,7 @@ export {
   getAxisOptions,
   getEffectiveAxes,
   getMissingSelectionFields,
+  getSingleOptionAxisSelections,
 } from './cart-helpers';
 export {
   type ProductDetailsCurrentOffer,

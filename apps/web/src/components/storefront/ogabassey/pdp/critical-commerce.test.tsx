@@ -3,6 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { OgabasseyPdpCriticalCommerce } from './critical-commerce';
 
 vi.mock('./critical-commerce.client', () => ({
+  OgabasseyPdpCriticalCommerceConditionFact: ({
+    fallbackCondition,
+  }: {
+    fallbackCondition?: string | null;
+  }) =>
+    fallbackCondition ? (
+      <>
+        <dt>Condition</dt>
+        <dd>{fallbackCondition === 'open_box' ? 'Open Box' : 'Used'}</dd>
+      </>
+    ) : null,
   OgabasseyPdpCriticalCommerceControls: () => (
     <button type="button">Add to cart</button>
   ),

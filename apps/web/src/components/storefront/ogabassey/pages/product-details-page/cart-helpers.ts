@@ -91,6 +91,22 @@ export function getAxisOptions(
   );
 }
 
+export function getSingleOptionAxisSelections(
+  productData: NormalizedProductDetails,
+  effectiveAxes: string[]
+) {
+  const selections: Record<string, string> = {};
+
+  for (const axis of effectiveAxes.filter((item) => item !== 'color')) {
+    const options = getAxisOptions(axis, productData);
+    if (options.length === 1 && options[0]) {
+      selections[axis] = options[0];
+    }
+  }
+
+  return selections;
+}
+
 export function formatAxisLabel(axis: string) {
   const labels: Record<string, string> = {
     storage: 'Storage',
