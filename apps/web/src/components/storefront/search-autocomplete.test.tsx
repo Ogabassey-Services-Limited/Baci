@@ -82,8 +82,7 @@ describe('SearchAutocomplete', () => {
     // The component root carries __field so the core-CSS :focus-within tint
     // applies on every surface (navbar and generic header alike), not only
     // where the .ogabassey-navbar-search wrapper is present.
-    const root = container.querySelector('[role="combobox"]');
-    expect(root?.getAttribute('class')).toContain(
+    expect(screen.getByRole('combobox')).toHaveClass(
       'ogabassey-navbar-search__field'
     );
 
