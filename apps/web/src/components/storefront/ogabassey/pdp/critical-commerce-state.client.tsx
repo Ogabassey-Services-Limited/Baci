@@ -11,6 +11,7 @@ import {
   type ReactNode,
   type SetStateAction,
   useContext,
+  useEffect,
   useState,
 } from 'react';
 import {
@@ -165,9 +166,13 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const hasRequiredVariantSelection =
     renderableVariantAxes.length === 0 ||
     renderableVariantAxes.every((axis) => selectedAttributes[axis]);
-  const hasRequiredHiddenVariantSelection = hiddenRequiredVariantAxes.every(
-    (axis) => explicitSelectedAxes.includes(axis) && selectedAttributes[axis]
+  const missingHiddenRequiredVariantAxes = hiddenRequiredVariantAxes.filter(
+    (axis) => !(explicitSelectedAxes.includes(axis) && selectedAttributes[axis])
   );
+  const hasRequiredHiddenVariantSelection =
+    missingHiddenRequiredVariantAxes.length === 0;
+  const missingHiddenRequiredVariantAxisKey =
+    missingHiddenRequiredVariantAxes.join('|');
   const hasPurchasableVariantSelection =
     !selectionCartProduct.has_variants ||
     Boolean(effectivePurchasableVariantSelection);
@@ -180,6 +185,23 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const [quantity, setQuantity] = useState(maxQuantity === 0 ? 0 : 1);
   const [previousMaxQuantity, setPreviousMaxQuantity] = useState(maxQuantity);
   const { addToCart, setIsCartOpen } = useCart();
+
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV !== 'development' ||
+      !missingHiddenRequiredVariantAxisKey
+    ) {
+      return;
+    }
+
+    console.warn(
+      '[Ogabassey PDP] Missing hidden required variant selection.',
+      {
+        axes: missingHiddenRequiredVariantAxisKey.split('|'),
+        productId: selectionCartProduct.id,
+      }
+    );
+  }, [missingHiddenRequiredVariantAxisKey, selectionCartProduct.id]);
 
   if (previousMaxQuantity !== maxQuantity) {
     setPreviousMaxQuantity(maxQuantity);

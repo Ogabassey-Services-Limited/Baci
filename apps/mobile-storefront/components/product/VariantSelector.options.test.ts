@@ -45,4 +45,18 @@ describe('normalizeVariantOptions', () => {
       { axis: 'finish', values: ['Matte'] },
     ]);
   });
+
+  it('omits storage from generic attributes when storage only comes from attributes', () => {
+    const result = normalizeVariantOptions({
+      attributes: {
+        finish: ['Matte'],
+        storage: ['128GB'],
+      },
+    });
+
+    expect(result.normalizedStorage).toEqual([]);
+    expect(result.normalizedGenericAttributes).toEqual([
+      { axis: 'finish', values: ['Matte'] },
+    ]);
+  });
 });

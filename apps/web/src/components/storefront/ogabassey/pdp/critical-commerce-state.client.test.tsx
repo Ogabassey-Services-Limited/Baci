@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product as CartProduct } from '@/lib/products';
 import {
   OgabasseyPdpCriticalCommerceProvider,
@@ -103,6 +103,11 @@ function CriticalCommerceStateProbe() {
 beforeEach(() => {
   cartMocks.addToCart.mockClear();
   cartMocks.setIsCartOpen.mockClear();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe('OgabasseyPdpCriticalCommerceProvider', () => {
@@ -369,6 +374,54 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
 
     expect(screen.getByText('axes:')).toBeInTheDocument();
     expect(screen.getByText('blocked')).toBeInTheDocument();
+  });
+
+  it('warns in development when a hidden required axis is missing upstream selection', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          variants: [
+            {
+              attributes: { color: 'Black' },
+              id: 'variant-black',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+            {
+              attributes: { color: 'Blue' },
+              id: 'variant-blue',
+              merchant_id: 'merchant-1',
+              price_override: 278_418.6,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 6,
+            },
+          ],
+        }}
+        variantAxes={[]}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('blocked')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[Ogabassey PDP] Missing hidden required variant selection.',
+        {
+          axes: ['color'],
+          productId: 'redmi-pad-2',
+        }
+      );
+    });
   });
 
   it('preselects single-option visible axes from the default SKU', () => {
