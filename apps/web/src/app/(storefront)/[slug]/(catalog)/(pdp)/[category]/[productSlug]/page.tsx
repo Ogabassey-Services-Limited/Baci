@@ -116,7 +116,8 @@ function toOgabasseyProduct(
     normalizeVariantAttributes(rawVariantAttributes);
   const mergedVariantAxisOptions = mergeVariantAxisOptions(
     product.variants,
-    rawVariantAttributes
+    rawVariantAttributes,
+    product.condition
   );
   const { detailedSpecs, specs } = buildOgabasseyProductSpecData({
     ...product,
@@ -135,7 +136,8 @@ function toOgabasseyProduct(
   // allowing public storefront queries to enrich pricing/availability once RLS permits them.
   const attributeAxes = getRenderableVariantAxes(
     product.variants,
-    rawVariantAttributes
+    rawVariantAttributes,
+    product.condition
   );
 
   return {
@@ -281,14 +283,15 @@ function buildTrustBulletsFromProfile(
 
 function getFirstViewportVariantAxes(
   variants: Product['variants'],
-  variantAttributes: VariantAttributeSource
+  variantAttributes: VariantAttributeSource,
+  condition?: Product['condition']
 ) {
   const variantCount = variants?.length ?? 0;
   if (variantCount <= 1) {
     return [];
   }
 
-  return getRenderableVariantAxes(variants, variantAttributes);
+  return getRenderableVariantAxes(variants, variantAttributes, condition);
 }
 
 type TemplateProductRenderMode = 'full' | 'belowFold';
@@ -1453,7 +1456,8 @@ export default async function CategoryProductPage({
           },
           variantAxes: getFirstViewportVariantAxes(
             commerceProduct.variants,
-            rawVariantAttributes
+            rawVariantAttributes,
+            commerceProduct.condition
           ),
           variantCount,
         };

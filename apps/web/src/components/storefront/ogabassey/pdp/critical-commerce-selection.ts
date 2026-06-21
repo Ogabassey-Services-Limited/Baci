@@ -139,7 +139,12 @@ export function getVariantAxesWithMultipleOptions(variants: ProductVariant[]) {
     addAxisValue('condition', variant.condition);
 
     for (const [rawAxis, value] of Object.entries(variant.attributes || {})) {
-      addAxisValue(rawAxis, value);
+      const axis = canonicalizeVariantAxis(rawAxis);
+      if (axis === 'condition') {
+        continue;
+      }
+
+      addAxisValue(axis, value);
     }
   }
 

@@ -92,13 +92,19 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const explicitVariantCondition =
     normalizedInitialVariantAttributes.condition ??
     initialVariantSelection?.condition;
+  const normalizedInitialSelectionAttributes = explicitVariantCondition
+    ? {
+        ...normalizedInitialVariantAttributes,
+        condition: explicitVariantCondition,
+      }
+    : normalizedInitialVariantAttributes;
   const resolverInitialVariantAttributes = Object.fromEntries(
     Object.entries(normalizedInitialVariantAttributes).filter(
       ([axis]) => axis !== 'condition'
     )
   );
   const initialExplicitSelectedAxes = Object.keys(
-    normalizedInitialVariantAttributes
+    normalizedInitialSelectionAttributes
   );
   if (
     explicitVariantCondition &&
@@ -122,7 +128,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
     Record<string, string>
   >(() =>
     pickInitialSelectedAttributes({
-      explicitAttributes: normalizedInitialVariantAttributes,
+      explicitAttributes: normalizedInitialSelectionAttributes,
       renderableVariantAxes,
       selection: initialDisplayVariantSelection,
     })
@@ -166,8 +172,16 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const hasRequiredVariantSelection =
     renderableVariantAxes.length === 0 ||
     renderableVariantAxes.every((axis) => selectedAttributes[axis]);
+  function getSelectedAxisValue(axis: string) {
+    if (axis === 'condition') {
+      return selectedAttributes.condition ?? explicitVariantCondition;
+    }
+
+    return selectedAttributes[axis];
+  }
+
   const missingHiddenRequiredVariantAxes = hiddenRequiredVariantAxes.filter(
-    (axis) => !(explicitSelectedAxes.includes(axis) && selectedAttributes[axis])
+    (axis) => !(explicitSelectedAxes.includes(axis) && getSelectedAxisValue(axis))
   );
   const hasRequiredHiddenVariantSelection =
     missingHiddenRequiredVariantAxes.length === 0;

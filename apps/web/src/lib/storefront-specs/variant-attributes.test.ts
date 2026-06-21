@@ -192,4 +192,32 @@ describe('storefront variant attribute helpers', () => {
       )
     ).toEqual(['storage']);
   });
+
+  it('inherits the parent condition when deriving renderable condition axes', () => {
+    expect(
+      getRenderableVariantAxes(
+        [
+          { attributes: { Storage: '128GB' }, condition: 'used' },
+          { attributes: { Storage: '256GB' } },
+        ],
+        [],
+        'new'
+      )
+    ).toEqual(['condition', 'storage']);
+  });
+
+  it('ignores condition options from attribute metadata', () => {
+    expect(
+      mergeVariantAxisOptions(
+        [
+          {
+            attributes: { condition: 'used', Storage: '128GB' },
+          },
+        ],
+        { Condition: ['new', 'used'] }
+      )
+    ).toEqual({
+      storage: ['128GB'],
+    });
+  });
 });

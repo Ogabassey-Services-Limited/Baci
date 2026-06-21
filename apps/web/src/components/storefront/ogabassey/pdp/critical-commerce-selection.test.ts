@@ -288,6 +288,27 @@ describe('critical commerce selection helpers', () => {
     ).toEqual([]);
   });
 
+  it('ignores attribute-backed condition values before requiring condition selection', () => {
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { condition: 'used', storage: '128GB' },
+          id: 'variant-attribute-used',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { condition: 'new', storage: '128GB' },
+          id: 'variant-attribute-new',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual([]);
+  });
+
   it('canonicalizes legacy-cased SKU axes before requiring selections', () => {
     expect(
       getVariantAxesWithMultipleOptions([

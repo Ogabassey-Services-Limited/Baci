@@ -164,21 +164,27 @@ function isRenderableVariantAxis(axis: string, options: string[]) {
 
 export function mergeVariantAxisOptions(
   variants: VariantAttributeCarrier[] | null | undefined,
-  source: VariantAttributeSource
+  source: VariantAttributeSource,
+  fallbackCondition?: string | null
 ) {
   const axisOptions = normalizeVariantAttributes(source);
+  delete axisOptions.condition;
 
   for (const variant of variants || []) {
     for (const [rawAxis, value] of Object.entries(variant.attributes || {})) {
       const axis = canonicalizeVariantAxis(rawAxis);
-      if (!axis) {
+      if (!axis || axis === 'condition') {
         continue;
       }
 
       pushUniqueOption(axisOptions, axis, value);
     }
 
-    pushUniqueOption(axisOptions, 'condition', variant.condition);
+    pushUniqueOption(
+      axisOptions,
+      'condition',
+      variant.condition ?? fallbackCondition
+    );
   }
 
   return axisOptions;
@@ -231,7 +237,8 @@ export function getAvailableOptionsForAxis(
 
 export function getRenderableVariantAxes(
   variants: VariantAttributeCarrier[] | null | undefined,
-  source: VariantAttributeSource
+  source: VariantAttributeSource,
+  fallbackCondition?: string | null
 ) {
   const priorityOrder = [
     'condition',
@@ -243,7 +250,9 @@ export function getRenderableVariantAxes(
     'platform',
   ];
 
-  return Object.entries(mergeVariantAxisOptions(variants, source))
+  return Object.entries(
+    mergeVariantAxisOptions(variants, source, fallbackCondition)
+  )
     .filter(([axis, options]) => isRenderableVariantAxis(axis, options))
     .sort(([leftAxis], [rightAxis]) => {
       const leftPriority = priorityOrder.indexOf(leftAxis);

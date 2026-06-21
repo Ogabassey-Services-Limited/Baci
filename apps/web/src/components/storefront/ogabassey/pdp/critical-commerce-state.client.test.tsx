@@ -341,6 +341,63 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
     expect(screen.getByText('explicit axes:condition')).toBeInTheDocument();
   });
 
+  it('uses a top-level route condition when the condition axis is hidden', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          price: 552_000,
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 500_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 3,
+            },
+            {
+              attributes: { storage: '256GB' },
+              id: 'variant-new-256',
+              merchant_id: 'merchant-1',
+              price_override: 552_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 5,
+            },
+          ],
+        }}
+        initialVariantSelection={{ condition: 'used' }}
+        variantAxes={['storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:storage')).toBeInTheDocument();
+    expect(screen.getByText('selected condition:used')).toBeInTheDocument();
+    expect(screen.getByText('selected storage:128GB')).toBeInTheDocument();
+    expect(screen.getByText('ready')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(cartMocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        condition: 'used',
+        price: 500_000,
+        stock: 3,
+      }),
+      1,
+      expect.objectContaining({
+        condition: 'used',
+        storage: '128GB',
+        variantId: 'variant-used-128',
+      })
+    );
+  });
+
   it('keeps required color-only axes hidden until explicitly selected', () => {
     render(
       <OgabasseyPdpCriticalCommerceProvider
