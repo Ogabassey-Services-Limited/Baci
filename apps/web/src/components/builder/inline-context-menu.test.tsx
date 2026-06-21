@@ -1,8 +1,14 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { InlineContextMenu } from './inline-context-menu';
+
+async function expectDropdownMenuClosed() {
+  await waitFor(() => {
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+}
 
 describe('InlineContextMenu', () => {
   it('calls respective handlers on toolbar button clicks (success path)', async () => {
@@ -62,7 +68,17 @@ describe('InlineContextMenu', () => {
     expect(moveUpBtn).toBeDisabled();
     expect(moveDownBtn).toBeDisabled();
 
-    // Although they are disabled, let's try to click them and verify handlers are not called
+    const moreBtn = screen.getByRole('button', { name: 'More Options' });
+    await user.click(moreBtn);
+    const menu = screen.getByRole('menu');
+    expect(
+      within(menu).queryByRole('menuitem', { name: 'Move Up' })
+    ).not.toBeInTheDocument();
+    expect(
+      within(menu).queryByRole('menuitem', { name: 'Move Down' })
+    ).not.toBeInTheDocument();
+
+    // Although they are disabled, click them and verify handlers are not called.
     await user.click(moveUpBtn);
     await user.click(moveDownBtn);
 
@@ -130,6 +146,7 @@ describe('InlineContextMenu', () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
 
     // Menu closes after click, reopen it
+    await expectDropdownMenuClosed();
     await user.click(moreBtn);
     const menu2 = screen.getByRole('menu');
 
@@ -141,6 +158,7 @@ describe('InlineContextMenu', () => {
     expect(onDuplicate).toHaveBeenCalledTimes(1);
 
     // Menu closes after click, reopen it
+    await expectDropdownMenuClosed();
     await user.click(moreBtn);
     const menu3 = screen.getByRole('menu');
 
@@ -150,5 +168,6 @@ describe('InlineContextMenu', () => {
     });
     await user.click(deleteMenuItem);
     expect(onDelete).toHaveBeenCalledTimes(1);
+    await expectDropdownMenuClosed();
   });
 });
