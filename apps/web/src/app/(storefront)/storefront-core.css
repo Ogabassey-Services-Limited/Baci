@@ -306,9 +306,14 @@
      its utilities would not be generated on a direct PDP load. z-index sits
      above the input's focus-visible z-10 so the glass is never covered. */
   .ogabassey-navbar-search__icon {
+    /* Concrete final fallbacks (#111827): the `--ogabassey-*` vars are scoped to
+       `.ogabassey-storefront-shell`, so on the generic StorefrontHeader path
+       (e.g. GadgetUniverseTemplate, rendered outside that shell) neither
+       `--store-foreground` nor `--ogabassey-surface-text` may be defined, which
+       would make the color invalid and drop the icon to its inherited colour. */
     color: color-mix(
       in srgb,
-      var(--store-foreground, var(--ogabassey-surface-text)) 38%,
+      var(--store-foreground, var(--ogabassey-surface-text, #111827)) 38%,
       transparent
     );
     height: 1.25rem;
@@ -325,10 +330,15 @@
   /* Tint the glass with the merchant brand colour while the search is focused.
      Keyed on the navbar wrapper (covers the non-hydrated fallback form) and on
      the SearchAutocomplete root (.ogabassey-navbar-search__field) so the tint
-     also applies on non-navbar surfaces such as the generic storefront header. */
+     also applies on non-navbar surfaces such as the generic storefront header.
+     The `#d62027` final fallback (matching the `--ogabassey-brand` definition)
+     keeps the tint working on the generic header path, where `--store-primary`
+     may be unset and `--ogabassey-brand` is out of scope (defined only on
+     `.ogabassey-storefront-shell`) — otherwise the chain is invalid and no tint
+     applies. */
   .ogabassey-navbar-search:focus-within .ogabassey-navbar-search__icon,
   .ogabassey-navbar-search__field:focus-within .ogabassey-navbar-search__icon {
-    color: var(--store-primary, var(--ogabassey-brand));
+    color: var(--store-primary, var(--ogabassey-brand, #d62027));
   }
 
   /* NOTE: the autocomplete input's left/right padding lives UNLAYERED further
@@ -342,12 +352,23 @@
     appearance: none;
   }
 
-  /* The clear (✕) button must stack above the input, which gains
-     `focus-visible:relative; z-index:10` from the shadcn Input. The button's
-     `z-20` Tailwind utility is NOT generated on PDP/content `source(none)`
-     routes (z-10 is), so without this the focused input would cover — and block
-     clicks on — the button there. Keep the z-index in core CSS. */
+  /* The clear (✕) button's geometry lives here, not as Tailwind utilities on
+     the component, because storefront-pdp.css uses `source(none)` and does not
+     `@source` search-autocomplete.tsx — so its positioning utilities (absolute,
+     right-1, top-1/2, -translate-y-1/2, size-8, flex centering) are not
+     generated on a direct PDP load. z-index:20 also keeps it above the input,
+     which gains `focus-visible:relative; z-index:10` from the shadcn Input.
+     No same-element Tailwind utility competes with these, so layering is safe. */
   .ogabassey-navbar-search__field .ogabassey-navbar-search__clear {
+    position: absolute;
+    right: 0.25rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 2rem;
+    width: 2rem;
     z-index: 20;
   }
 

@@ -127,11 +127,13 @@ describe('SearchAutocomplete', () => {
     expect(input).toHaveClass('ogabassey-navbar-search__input--has-value');
     expect(input).not.toHaveClass('pr-10');
 
-    // The clear button's stacking lives in core CSS (.ogabassey-navbar-search
-    // __clear), not the unsourced `z-20` utility — otherwise the focused input's
-    // z-10 would cover it on PDP routes.
+    // The clear button's geometry (position/size/centering/stacking) lives in
+    // core CSS (.ogabassey-navbar-search__clear), not Tailwind utilities that
+    // PDP/content `source(none)` routes would not generate for this component.
     expect(clearButton).toHaveClass('ogabassey-navbar-search__clear');
-    expect(clearButton).not.toHaveClass('z-20');
+    for (const util of ['absolute', 'right-1', 'size-8', 'flex', 'z-20']) {
+      expect(clearButton).not.toHaveClass(util);
+    }
   });
 
   it('does not show clear button when value is empty', () => {

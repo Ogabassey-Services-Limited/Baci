@@ -276,11 +276,12 @@ export function SearchAutocomplete({
               setPopularSearches([]);
               inputRef.current?.focus();
             }}
-            // z-index lives in core CSS (.ogabassey-navbar-search__clear): the
-            // `z-20` Tailwind utility is not generated on PDP/content
-            // `source(none)` routes, where the focused input's `z-10` would
-            // otherwise cover this button.
-            className="ogabassey-navbar-search__clear absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm size-8 flex items-center justify-center"
+            // Geometry (position, size, centering, z-index) lives in core CSS
+            // (.ogabassey-navbar-search__clear): those Tailwind utilities are not
+            // generated on PDP/content `source(none)` routes, which do not
+            // `@source` this lazily-loaded component. Only appearance/focus
+            // utilities — ubiquitous across the sourced tree — remain here.
+            className="ogabassey-navbar-search__clear text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
             aria-label="Clear search"
           >
             <X className="size-4" />
