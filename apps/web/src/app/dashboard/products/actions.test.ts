@@ -548,6 +548,31 @@ describe('product import actions', () => {
     ]);
   });
 
+  it('emits an update when an existing product without cost price imports zero cost', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nOld Phone,1000,0,OLD-1'
+    );
+
+    expect(result.changes).toEqual([
+      {
+        details: {
+          cost_price: 0,
+          category: undefined,
+          image: undefined,
+          name: 'Old Phone',
+          price: 1000,
+          sku: 'OLD-1',
+          stock: 5,
+        },
+        newPrice: 1000,
+        productId: 'product-1',
+        reason: 'Cost price set to 0',
+        type: 'update',
+      },
+    ]);
+  });
+
   it('skips rows with invalid selling prices', async () => {
     const result = await parseCSVDirectly(
       existingProducts,

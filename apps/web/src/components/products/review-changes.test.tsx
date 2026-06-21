@@ -67,7 +67,7 @@ describe('ReviewChanges', () => {
     expect(screen.getAllByText('₦').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('Cost Price')).toBeInTheDocument();
 
-    const costPriceInput = screen.getByDisplayValue('700.00');
+    const costPriceInput = screen.getByDisplayValue('700');
     fireEvent.change(costPriceInput, { target: { value: '800' } });
     await user.click(screen.getByRole('button', { name: /import & publish/i }));
 
@@ -76,6 +76,36 @@ describe('ReviewChanges', () => {
         expect.objectContaining({
           details: expect.objectContaining({
             cost_price: 800,
+          }),
+          type: 'new',
+        }),
+      ]);
+    });
+  });
+
+  it('keeps cost price input unformatted while typing decimals', () => {
+    render(<ReviewChanges />);
+
+    const costPriceInput = screen.getByDisplayValue('700');
+    fireEvent.change(costPriceInput, { target: { value: '800.5' } });
+
+    expect(costPriceInput).toHaveValue(800.5);
+    expect(screen.queryByDisplayValue('800.50')).not.toBeInTheDocument();
+  });
+
+  it('sends null when the cost price input is cleared', async () => {
+    const user = userEvent.setup();
+    render(<ReviewChanges />);
+
+    const costPriceInput = screen.getByDisplayValue('700');
+    fireEvent.change(costPriceInput, { target: { value: '' } });
+    await user.click(screen.getByRole('button', { name: /import & publish/i }));
+
+    await waitFor(() => {
+      expect(mocks.applyChanges).toHaveBeenCalledWith([
+        expect.objectContaining({
+          details: expect.objectContaining({
+            cost_price: null,
           }),
           type: 'new',
         }),

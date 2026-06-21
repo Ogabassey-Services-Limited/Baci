@@ -440,21 +440,12 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                         {currencySymbol}
                       </span>
                       <Input
-                        type="text"
-                        value={
-                          typeof change.details.cost_price === 'number'
-                            ? change.details.cost_price.toLocaleString(
-                                'en-US',
-                                {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                }
-                              )
-                            : ''
-                        }
+                        type="number"
+                        step="any"
+                        value={change.details.cost_price ?? ''}
                         placeholder="0.00"
                         onChange={(e) => {
-                          const rawVal = e.target.value.replace(/[^0-9.]/g, '');
+                          const rawVal = e.target.value;
                           const val = Number.parseFloat(rawVal);
 
                           setLocalChanges((prev) => {
@@ -463,7 +454,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                               ...next[index],
                               details: {
                                 ...next[index].details,
-                                cost_price: Number.isNaN(val) ? undefined : val,
+                                cost_price: Number.isNaN(val) ? null : val,
                               },
                             };
                             return next;

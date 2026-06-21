@@ -377,7 +377,8 @@ export async function parseCSVDirectly(
       // Check if price changed
       const costPriceChanged =
         typeof costPrice === 'number' &&
-        Math.abs((existingProduct.cost_price ?? 0) - costPrice) > 0.01;
+        ((existingProduct.cost_price == null && costPrice === 0) ||
+          Math.abs((existingProduct.cost_price ?? 0) - costPrice) > 0.01);
       const priceChanged = Math.abs(existingProduct.price - price) > 0.01;
       if (priceChanged || costPriceChanged) {
         const reasons = [];
