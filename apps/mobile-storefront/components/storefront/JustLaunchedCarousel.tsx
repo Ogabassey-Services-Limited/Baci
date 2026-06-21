@@ -1,7 +1,7 @@
 import {
   LAUNCH_CAROUSEL_LIMIT,
   launchCtaLabel,
-  PINNED_LAUNCH_SLUGS,
+  OGABASSEY_PINNED_LAUNCH_SLUGS,
   selectLaunchProducts,
 } from '@baci/shared/storefront';
 import { Image } from 'expo-image';
@@ -32,12 +32,14 @@ export function JustLaunchedCarousel() {
     sortBy: 'newest',
     limit: 50,
   });
-  const { data: pinned } = usePinnedLaunchProducts(PINNED_LAUNCH_SLUGS);
+  const { data: pinned } = usePinnedLaunchProducts(OGABASSEY_PINNED_LAUNCH_SLUGS);
 
-  const launchProducts = selectLaunchProducts([...(pinned ?? []), ...newest], {
-    pinned: PINNED_LAUNCH_SLUGS,
-    limit: LAUNCH_CAROUSEL_LIMIT,
-  });
+  // Drop any slug-less rows up front so a slide can never deep-link to
+  // /product/undefined (selectLaunchProducts intentionally passes them through).
+  const launchProducts = selectLaunchProducts(
+    [...(pinned ?? []), ...newest].filter((product) => Boolean(product.slug)),
+    { pinned: OGABASSEY_PINNED_LAUNCH_SLUGS, limit: LAUNCH_CAROUSEL_LIMIT }
+  );
 
   if (isLoading || isError || launchProducts.length === 0) {
     return null;
@@ -52,7 +54,11 @@ export function JustLaunchedCarousel() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${item.name} — ${ctaLabel}`}
-        onPress={() => router.push(`/product/${item.slug}`)}
+        onPress={() => {
+          if (item.slug) {
+            router.push(`/product/${item.slug}`);
+          }
+        }}
         style={[
           styles.card,
           { width: cardWidth, backgroundColor: colors.card, borderColor: colors.border },

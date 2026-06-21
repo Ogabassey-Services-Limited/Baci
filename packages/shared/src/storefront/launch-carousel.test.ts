@@ -3,7 +3,7 @@ import {
   isPreorder,
   LAUNCH_CAROUSEL_LIMIT,
   launchCtaLabel,
-  PINNED_LAUNCH_SLUGS,
+  OGABASSEY_PINNED_LAUNCH_SLUGS,
   selectLaunchProducts,
 } from './launch-carousel';
 
@@ -92,7 +92,7 @@ describe('selectLaunchProducts', () => {
     ];
 
     const result = selectLaunchProducts([...pinnedRows, ...windowRows], {
-      pinned: PINNED_LAUNCH_SLUGS,
+      pinned: OGABASSEY_PINNED_LAUNCH_SLUGS,
       limit: LAUNCH_CAROUSEL_LIMIT,
     });
 
@@ -159,7 +159,7 @@ describe('launch carousel constants', () => {
   });
 
   it('pins both named launch devices', () => {
-    expect(PINNED_LAUNCH_SLUGS).toContain('samsung-galaxy-a27-5g');
-    expect(PINNED_LAUNCH_SLUGS).toContain('itel-power-80-128gb-4gb');
+    expect(OGABASSEY_PINNED_LAUNCH_SLUGS).toContain('samsung-galaxy-a27-5g');
+    expect(OGABASSEY_PINNED_LAUNCH_SLUGS).toContain('itel-power-80-128gb-4gb');
   });
 });

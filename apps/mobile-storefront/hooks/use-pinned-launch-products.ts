@@ -12,7 +12,10 @@ export function usePinnedLaunchProducts(slugs: readonly string[]) {
   const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
   return useQuery({
-    queryKey: ['products-by-slugs', merchantId, slugs],
+    // Keyed under the shared ['products', merchantId, …] hierarchy so the home
+    // pull-to-refresh (which resets ['products', merchantId]) also refreshes the
+    // launch carousel — otherwise edited/deactivated pins could stay stale.
+    queryKey: ['products', merchantId, 'launch-by-slugs', slugs],
     queryFn: () => fetchProductsBySlugs(merchantId, slugs),
     staleTime: 1000 * 60 * 2,
     enabled: Boolean(merchantId) && slugs.length > 0,

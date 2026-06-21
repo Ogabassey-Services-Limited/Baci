@@ -97,10 +97,14 @@ export function LaunchCarousel({
   className = 'h-52 md:h-60 lg:h-64',
 }: LaunchCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocusWithin, setIsFocusWithin] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const slideCount = slides.length;
+  // Hover and focus are tracked separately so moving the pointer out while
+  // keyboard/AT focus stays inside the carousel keeps autoplay paused.
+  const isPaused = isHovered || isFocusWithin;
 
   // Autoplay; paused on hover/focus so it satisfies WCAG 2.2.2 (Pause, Stop,
   // Hide) — users can stop the motion by hovering or tabbing into the carousel.
@@ -153,7 +157,7 @@ export function LaunchCarousel({
     // Resume only when focus truly leaves the carousel (not when moving between
     // its own slides/dots).
     if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-      setIsPaused(false);
+      setIsFocusWithin(false);
     }
   };
 
@@ -163,10 +167,10 @@ export function LaunchCarousel({
       aria-roledescription="carousel"
       className={`relative w-full overflow-hidden rounded-xl border border-store-border bg-store-background shadow-sm ${className}`}
       onBlur={onBlur}
-      onFocus={() => setIsPaused(true)}
+      onFocus={() => setIsFocusWithin(true)}
       onKeyDown={onKeyDown}
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onTouchEnd={onTouchEnd}
       onTouchMove={onTouchMove}
       onTouchStart={onTouchStart}

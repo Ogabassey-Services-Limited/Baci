@@ -10,7 +10,7 @@ export {
   isPreorder,
   LAUNCH_CAROUSEL_LIMIT,
   launchCtaLabel,
-  PINNED_LAUNCH_SLUGS,
+  OGABASSEY_PINNED_LAUNCH_SLUGS,
   selectLaunchProducts,
 } from './launch-carousel';
 export * from './post-purchase-actions';

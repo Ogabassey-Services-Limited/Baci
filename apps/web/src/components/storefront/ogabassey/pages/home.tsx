@@ -1,4 +1,5 @@
 // Template preview
+import { LAUNCH_CAROUSEL_LIMIT } from '@baci/shared/storefront';
 import type React from 'react';
 import { Suspense } from 'react';
 import { normalizeRouteBasePath } from '@/lib/routes';
@@ -31,7 +32,14 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
   const routeBasePath = normalizeRouteBasePath(
     basePath ?? (storeSlug ? `/${storeSlug}` : '')
   );
-  const launchSlides = buildLaunchSlides(launchProducts ?? [], routeBasePath);
+  // Prefer the upstream-selected launch products (pinned + newest); fall back to
+  // the home product feed so callers that don't pass `launchProducts` (e.g. the
+  // generic storefront renderer) still render a product carousel rather than an
+  // empty slot now that the old promo banner is gone.
+  const launchSlides = buildLaunchSlides(
+    launchProducts ?? products ?? [],
+    routeBasePath
+  ).slice(0, LAUNCH_CAROUSEL_LIMIT);
 
   return (
     <>

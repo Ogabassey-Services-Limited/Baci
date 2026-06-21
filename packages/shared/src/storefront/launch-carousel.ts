@@ -10,8 +10,14 @@
  * `created_at`; neither field is guaranteed on the input rows).
  */
 
-/** Devices explicitly pinned to the front of the launch carousel. */
-export const PINNED_LAUNCH_SLUGS = [
+/**
+ * Devices explicitly pinned to the front of the launch carousel. These slugs
+ * are OgaBassey-specific catalog content; they live here (alongside the generic
+ * selection logic) as the single source of truth shared by the OgaBassey web
+ * storefront and the OgaBassey mobile app. The `OGABASSEY_` prefix keeps the
+ * merchant scope explicit within the otherwise-generic shared package.
+ */
+export const OGABASSEY_PINNED_LAUNCH_SLUGS = [
   'samsung-galaxy-a27-5g',
   'itel-power-80-128gb-4gb',
 ] as const;

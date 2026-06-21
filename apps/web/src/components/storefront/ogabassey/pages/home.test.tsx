@@ -170,7 +170,24 @@ describe('OgabasseyHomePage', () => {
     expect(slides[0].ctaLabel).toBe('Pre-order now');
   });
 
-  it('hides the launch carousel when there are no launch products', () => {
+  it('falls back to the product feed for the carousel when launchProducts is omitted', () => {
+    // The generic storefront renderer calls OgabasseyHomePage without
+    // launchProducts; the carousel must still render from the product feed.
+    render(
+      <OgabasseyHomePage
+        storeSlug="test-store"
+        products={[launchProduct({})]}
+        categories={[]}
+      />
+    );
+
+    expect(screen.getByTestId('launch-carousel')).toBeInTheDocument();
+    const slides = mockLaunchCarousel.mock.calls.at(-1)?.[0]?.slides ?? [];
+    expect(slides).toHaveLength(1);
+    expect(slides[0].href).toContain('samsung-galaxy-a27-5g');
+  });
+
+  it('hides the launch carousel when there are no products at all', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
     expect(screen.queryByTestId('launch-carousel')).not.toBeInTheDocument();

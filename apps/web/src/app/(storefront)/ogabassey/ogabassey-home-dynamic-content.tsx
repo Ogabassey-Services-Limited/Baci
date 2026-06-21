@@ -1,6 +1,6 @@
 import {
   LAUNCH_CAROUSEL_LIMIT,
-  PINNED_LAUNCH_SLUGS,
+  OGABASSEY_PINNED_LAUNCH_SLUGS,
   selectLaunchProducts,
 } from '@baci/shared/storefront';
 import Link from 'next/link';
@@ -119,8 +119,16 @@ export async function OgabasseyHomeDynamicContent({
     getCachedNavigationCategories(merchant.id),
     // Deterministic fetch for the launch carousel pins: the recent window is
     // capped, so explicitly-pinned launches (e.g. the Samsung A27 preorder) can
-    // fall outside it. Fetched by slug so they always appear.
-    getCachedStorefrontProductsBySlugs(merchant.id, PINNED_LAUNCH_SLUGS),
+    // fall outside it. Fetched by slug so they always appear. This lookup is
+    // optional — a failure must only drop the pins, never take down the
+    // homepage — so it falls back to [] on error.
+    getCachedStorefrontProductsBySlugs(
+      merchant.id,
+      OGABASSEY_PINNED_LAUNCH_SLUGS
+    ).catch((error) => {
+      console.error('Failed to load pinned launch products', { error });
+      return [];
+    }),
   ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
   const pinnedProducts = mapHomeProductsToTemplateProducts(
@@ -129,7 +137,7 @@ export async function OgabasseyHomeDynamicContent({
   // Launch carousel: pinned-first, then newest, deduped, capped.
   const launchSubset = selectLaunchProducts(
     [...pinnedProducts, ...merchantProducts],
-    { pinned: PINNED_LAUNCH_SLUGS, limit: LAUNCH_CAROUSEL_LIMIT }
+    { pinned: OGABASSEY_PINNED_LAUNCH_SLUGS, limit: LAUNCH_CAROUSEL_LIMIT }
   );
   const launchProducts = mapStorefrontProductsToOgabasseyProducts(launchSubset);
   // Schema product list: prepend the visible launch items (deduped) so every
