@@ -220,7 +220,12 @@ export function SearchAutocomplete({
   return (
     <div
       ref={wrapperRef}
-      className={cn('relative w-full', className)}
+      // __field marks the component root so the core-CSS focus tint applies on
+      // every surface (e.g. the generic storefront header), not just the navbar.
+      className={cn(
+        'ogabassey-navbar-search__field relative w-full',
+        className
+      )}
       role="combobox"
       aria-expanded={isOpen && hasResults}
       aria-haspopup="listbox"

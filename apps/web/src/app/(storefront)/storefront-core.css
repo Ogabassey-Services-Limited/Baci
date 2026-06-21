@@ -333,8 +333,12 @@
     z-index: 20;
   }
 
-  /* Tint the glass with the merchant brand colour while the search is focused. */
-  .ogabassey-navbar-search:focus-within .ogabassey-navbar-search__icon {
+  /* Tint the glass with the merchant brand colour while the search is focused.
+     Keyed on the navbar wrapper (covers the non-hydrated fallback form) and on
+     the SearchAutocomplete root (.ogabassey-navbar-search__field) so the tint
+     also applies on non-navbar surfaces such as the generic storefront header. */
+  .ogabassey-navbar-search:focus-within .ogabassey-navbar-search__icon,
+  .ogabassey-navbar-search__field:focus-within .ogabassey-navbar-search__icon {
     color: var(--store-primary, var(--ogabassey-brand));
   }
 

@@ -79,6 +79,14 @@ describe('SearchAutocomplete', () => {
     // Guard: a lucide class rename would make the assertions below vacuous.
     expect(icon).not.toBeNull();
 
+    // The component root carries __field so the core-CSS :focus-within tint
+    // applies on every surface (navbar and generic header alike), not only
+    // where the .ogabassey-navbar-search wrapper is present.
+    const root = container.querySelector('[role="combobox"]');
+    expect(root?.getAttribute('class')).toContain(
+      'ogabassey-navbar-search__field'
+    );
+
     // Geometry, z-index and the :focus-within brand tint live in core CSS
     // (.ogabassey-navbar-search__icon), which is loaded on every storefront
     // route — unlike Tailwind utilities, which PDP's source(none) stylesheet
