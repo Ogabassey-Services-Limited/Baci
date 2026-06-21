@@ -46,6 +46,28 @@ describe('buildBlogOrganizationSchema', () => {
     ]);
   });
 
+  it('filters malformed social values and preserves TikTok and Snapchat sameAs', () => {
+    const schema = buildBlogOrganizationSchema(
+      {
+        business_name: 'Social Store',
+        social_media: {
+          instagram: '@socialstore',
+          tiktok: 'socialstore',
+          snapchat: 'socialstore',
+          youtube: 123,
+          facebook: { handle: 'socialstore' },
+        },
+      },
+      'https://social.example.com'
+    );
+
+    expect(schema.sameAs).toEqual([
+      'https://instagram.com/socialstore',
+      'https://www.tiktok.com/@socialstore',
+      'https://www.snapchat.com/@socialstore',
+    ]);
+  });
+
   it('omits logo and sameAs when the merchant has neither', () => {
     const schema = buildBlogOrganizationSchema(
       { business_name: 'Bare Store' },
