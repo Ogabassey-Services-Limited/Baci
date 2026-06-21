@@ -52,9 +52,10 @@ const normalizedProductConditionSchema = z.preprocess((value) => {
 const productVariantModelSchema = z.enum(['legacy', 'sku_matrix']);
 
 /**
- * Product variant schema
+ * Product variant schemas. Create payloads keep the legacy stock default, while
+ * update payloads preserve omitted fields for partial variant edits.
  */
-const productVariantSchema = z.object({
+const baseProductVariantFields = {
   id: z.uuid().optional(),
   attributes: variantAttributesSchema.optional(),
   condition: normalizedProductConditionSchema.optional().nullable(),
@@ -70,7 +71,6 @@ const productVariantSchema = z.object({
     .transform((val) => sanitizePrice(val))
     .optional()
     .nullable(),
-  stock_quantity: z.int().min(0).optional().default(0),
   sku: z
     .string()
     .max(50)
@@ -81,6 +81,16 @@ const productVariantSchema = z.object({
     .optional()
     .transform((val) => (val ? sanitizeUrl(val) : undefined)),
   images: z.array(productImageSchema).optional(),
+};
+
+const productVariantCreateSchema = z.object({
+  ...baseProductVariantFields,
+  stock_quantity: z.int().min(0).optional().default(0),
+});
+
+const productVariantUpdateSchema = z.object({
+  ...baseProductVariantFields,
+  stock_quantity: z.int().min(0).optional(),
 });
 
 function withSkuMatrixVariantConditionValidation<
@@ -299,7 +309,7 @@ const baseProductFields = {
 
   // Variants
   has_variants: z.boolean().optional().default(false),
-  variants: z.array(productVariantSchema).optional(),
+  variants: z.array(productVariantCreateSchema).optional(),
   variant_model: productVariantModelSchema.default('legacy'),
 
   // Fulfillment
@@ -329,8 +339,8 @@ export const createProductSchema = withSkuMatrixVariantConditionValidation(
  * Schema for updating a product (PUT/PATCH)
  * All fields are optional to support partial updates
  */
-export const updateProductSchema = withSkuMatrixVariantConditionValidation(
-  z.object({
+export const updateProductSchema = z
+  .object({
     name: z
       .string()
       .min(1)
@@ -474,13 +484,32 @@ export const updateProductSchema = withSkuMatrixVariantConditionValidation(
 
     // Variants
     has_variants: z.boolean().optional(),
-    variants: z.array(productVariantSchema).optional(),
+    variants: z.array(productVariantUpdateSchema).optional(),
     variant_model: productVariantModelSchema.optional(),
 
     // Fulfillment
     fulfillment_details: productFulfillmentDetailsSchema,
   })
-);
+  .superRefine((data, ctx) => {
+    if (data.variant_model !== 'sku_matrix') {
+      return;
+    }
+
+    const hasNewVariantMissingCondition = (data.variants ?? []).some(
+      (variant) =>
+        variant.condition == null &&
+        !(typeof variant.id === 'string' && variant.id.trim().length > 0)
+    );
+
+    if (hasNewVariantMissingCondition) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['variants'],
+        message:
+          'sku_matrix products require every variant to include a condition.',
+      });
+    }
+  });
 
 /**
  * Type inference for create product input

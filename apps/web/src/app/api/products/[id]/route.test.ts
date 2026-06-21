@@ -95,7 +95,7 @@ vi.mock('@/schemas/products', () => ({
           },
         };
       }
-      return { success: true, data };
+      return { success: true, data: { ...data } };
     },
   },
   formatZodErrors: (error: { issues: { path: string[]; message: string }[] }) =>
@@ -106,6 +106,8 @@ vi.mock('@/schemas/products', () => ({
 const MERCHANT_ID = 'merchant-123';
 const USER_ID = 'user-123';
 const PRODUCT_ID = 'product-456';
+const VARIANT_ID = '953ba6ff-3e83-403a-a07c-8c5ff54ede98';
+const ANCHOR_VARIANT_ID = 'a0b7c8d9-1111-4222-9333-444455556666';
 
 let authUser: unknown = { id: USER_ID };
 let merchant: unknown = {
@@ -116,14 +118,29 @@ let merchant: unknown = {
 let product: unknown = null;
 let productError: unknown = null;
 let variants: unknown[] = [];
+let anchorVariants: unknown[] = [];
 let updateResult: unknown = null;
 let updateError: unknown = null;
 let deleteError: unknown = null;
 let variantInsertError: unknown = null;
 let variantUpsertError: unknown = null;
+let variantSyncError: { code?: string; message?: string } | null = null;
+let lastRpcCall: {
+  functionName: string;
+  args: Record<string, unknown>;
+} | null = null;
 let lastProductUpdatePayload: unknown = null;
+const productUpdatePayloads: unknown[] = [];
+const lastVariantDeleteFilters: [string, unknown][] = [];
 
 const createMockSupabase = () => ({
+  rpc: vi.fn((functionName: string, args: Record<string, unknown>) => {
+    lastRpcCall = { functionName, args };
+    return Promise.resolve({
+      data: variantSyncError ? null : 1,
+      error: variantSyncError,
+    });
+  }),
   auth: {
     getUser: vi.fn(() => {
       if (authUser === undefined) {
@@ -177,6 +194,7 @@ const createMockSupabase = () => ({
         ),
         update: vi.fn((payload: unknown) => {
           lastProductUpdatePayload = payload;
+          productUpdatePayloads.push(payload);
           return {
             eq: vi.fn(() => ({
               eq: vi.fn(() => ({
@@ -199,37 +217,65 @@ const createMockSupabase = () => ({
       };
     }
     if (table === 'product_variants') {
-      const variantSelectChain = {
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            returns: vi.fn(() =>
-              Promise.resolve({
-                data: variants,
-                error: null,
-              })
-            ),
-          })),
-        })),
+      const variantSelectFilters: [string, unknown][] = [];
+      const variantSelectChain: {
+        eq: ReturnType<typeof vi.fn>;
+        in: ReturnType<typeof vi.fn>;
+        returns: ReturnType<typeof vi.fn>;
+      } = {
+        eq: vi.fn((column: string, value: unknown) => {
+          variantSelectFilters.push([column, value]);
+          return variantSelectChain;
+        }),
+        in: vi.fn(() => variantSelectChain),
+        returns: vi.fn(() =>
+          Promise.resolve({
+            data: variantSelectFilters.some(
+              ([column, value]) =>
+                column === 'is_inventory_anchor' && value === true
+            )
+              ? anchorVariants
+              : variants,
+            error: null,
+          })
+        ),
+      };
+      let variantDeleteEqCallCount = 0;
+      const variantDeleteChain: {
+        eq: ReturnType<typeof vi.fn>;
+        not: ReturnType<typeof vi.fn>;
+      } = {
+        eq: vi.fn((column: string, value: unknown) => {
+          lastVariantDeleteFilters.push([column, value]);
+          variantDeleteEqCallCount++;
+          return variantDeleteEqCallCount >= 3
+            ? Promise.resolve({ error: deleteError })
+            : variantDeleteChain;
+        }),
+        not: vi.fn(() =>
+          Promise.resolve({
+            error: deleteError,
+          })
+        ),
       };
       return {
         select: vi.fn(() => variantSelectChain),
         eq: vi.fn(() => variantSelectChain),
-        delete: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              not: vi.fn(() =>
-                Promise.resolve({
-                  error: null,
-                })
-              ),
-            })),
-          })),
-        })),
+        delete: vi.fn(() => variantDeleteChain),
         upsert: vi.fn(() =>
           Promise.resolve({
             error: variantUpsertError,
           })
         ),
+        update: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            eq: vi.fn(() =>
+              Promise.resolve({
+                error: variantUpsertError,
+              })
+            ),
+          })),
+        })),
         insert: vi.fn(() =>
           Promise.resolve({
             error: variantInsertError,
@@ -310,12 +356,17 @@ function resetMocks() {
   };
   productError = null;
   variants = [];
+  anchorVariants = [];
   updateResult = null;
   updateError = null;
   deleteError = null;
   variantInsertError = null;
   variantUpsertError = null;
+  variantSyncError = null;
+  lastRpcCall = null;
   lastProductUpdatePayload = null;
+  productUpdatePayloads.length = 0;
+  lastVariantDeleteFilters.length = 0;
   csrfValid = true;
 }
 
@@ -671,7 +722,7 @@ describe('PUT /api/products/[id]', () => {
       expect(lastProductUpdatePayload).not.toHaveProperty('imageLarge');
     });
 
-    it('updates product with variants', async () => {
+    it('syncs existing and new variants through the tenant-scoped RPC', async () => {
       product = {
         id: PRODUCT_ID,
         name: 'Product',
@@ -682,16 +733,25 @@ describe('PUT /api/products/[id]', () => {
         id: PRODUCT_ID,
         has_variants: true,
       };
+      variants = [{ id: VARIANT_ID }];
 
       const bodyWithVariants = {
         has_variants: true,
         variants: [
           {
-            id: 'variant-1',
+            id: VARIANT_ID,
+            product_id: 'attacker-product',
+            merchant_id: 'attacker-merchant',
             attributes: { size: 'L' },
-            price: 7000,
+            price_override: 7000,
             stock_quantity: 5,
             sku: 'SKU-L',
+          },
+          {
+            attributes: { size: 'M' },
+            price_override: 6500,
+            stock_quantity: 2,
+            sku: 'SKU-M',
           },
         ],
       };
@@ -702,6 +762,407 @@ describe('PUT /api/products/[id]', () => {
       await res.json();
 
       expect(res.status).toBe(200);
+      expect(lastRpcCall).toEqual({
+        functionName: 'sync_product_variants_for_product',
+        args: {
+          p_product_id: PRODUCT_ID,
+          p_merchant_id: MERCHANT_ID,
+          p_variants: [
+            {
+              id: VARIANT_ID,
+              attributes: { size: 'L' },
+              price_override: 7000,
+              stock_quantity: 5,
+              sku: 'SKU-L',
+            },
+            {
+              id: undefined,
+              attributes: { size: 'M' },
+              price_override: 6500,
+              stock_quantity: 2,
+              sku: 'SKU-M',
+            },
+          ],
+        },
+      });
+      expect(
+        (lastRpcCall?.args.p_variants as Record<string, unknown>[])[0]
+      ).not.toHaveProperty('product_id');
+      expect(
+        (lastRpcCall?.args.p_variants as Record<string, unknown>[])[0]
+      ).not.toHaveProperty('merchant_id');
+    });
+
+    it('preserves existing variant stock when stock_quantity is omitted', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        condition: 'new',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        has_variants: true,
+      };
+      variants = [{ id: VARIANT_ID }];
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variants: [
+            {
+              id: VARIANT_ID,
+              sku: 'SKU-L-UPDATED',
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(lastRpcCall).toEqual({
+        functionName: 'sync_product_variants_for_product',
+        args: {
+          p_product_id: PRODUCT_ID,
+          p_merchant_id: MERCHANT_ID,
+          p_variants: [
+            {
+              id: VARIANT_ID,
+              sku: 'SKU-L-UPDATED',
+            },
+          ],
+        },
+      });
+    });
+
+    it('allows partial sku_matrix variant updates for existing rows', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+      variants = [{ id: VARIANT_ID }];
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: VARIANT_ID,
+              sku: 'SKU-L-UPDATED',
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(lastRpcCall?.args.p_variants).toEqual([
+        {
+          id: VARIANT_ID,
+          sku: 'SKU-L-UPDATED',
+        },
+      ]);
+    });
+
+    it('normalizes uppercase variant IDs before ownership checks and RPC sync', async () => {
+      const uppercaseVariantId = VARIANT_ID.toUpperCase();
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        has_variants: true,
+      };
+      variants = [{ id: VARIANT_ID }];
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variants: [
+            {
+              id: uppercaseVariantId,
+              sku: 'SKU-L-UPDATED',
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(lastRpcCall?.args.p_variants).toEqual([
+        {
+          id: VARIANT_ID,
+          sku: 'SKU-L-UPDATED',
+        },
+      ]);
+    });
+
+    it('rejects duplicate variant IDs before applying product updates', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+
+      variants = [{ id: VARIANT_ID }];
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variants: [
+            { id: VARIANT_ID, sku: 'SKU-A' },
+            { id: VARIANT_ID, sku: 'SKU-B' },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe('Duplicate product variant update');
+      expect(lastProductUpdatePayload).toBeNull();
+      expect(lastRpcCall).toBeNull();
+    });
+
+    it('rejects stale or cross-tenant variant IDs without applying migration state', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: VARIANT_ID,
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              price_override: 7000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe('Invalid product variant update');
+      expect(lastProductUpdatePayload).toBeNull();
+      expect(lastRpcCall).toBeNull();
+    });
+
+    it('does not enable variants or sync when only inventory anchors are submitted', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: false,
+        variant_model: 'legacy',
+      };
+      anchorVariants = [{ id: ANCHOR_VARIANT_ID }];
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+        has_variants: false,
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          variants: [
+            {
+              id: ANCHOR_VARIANT_ID,
+              sku: 'ANCHOR-SYSTEM-ROW',
+              stock_quantity: 999,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+
+      expect(res.status).toBe(200);
+      expect(lastProductUpdatePayload).toMatchObject({ has_variants: false });
+      expect(lastRpcCall).toBeNull();
+    });
+
+    it('honors explicit variant disabling even when a stale variants array is submitted', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+        has_variants: false,
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: false,
+          variants: [
+            {
+              id: VARIANT_ID,
+              sku: 'STALE-VARIANT',
+              stock_quantity: 4,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(productUpdatePayloads).toContainEqual(
+        expect.objectContaining({ has_variants: false })
+      );
+      expect(lastRpcCall).toBeNull();
+      expect(lastVariantDeleteFilters).toContainEqual([
+        'is_inventory_anchor',
+        false,
+      ]);
+    });
+
+    it('syncs an explicit empty variants array so stale visible rows are cleared', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+        has_variants: false,
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          variants: [],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(lastProductUpdatePayload).toMatchObject({ has_variants: false });
+      expect(lastRpcCall).toEqual({
+        functionName: 'sync_product_variants_for_product',
+        args: {
+          p_product_id: PRODUCT_ID,
+          p_merchant_id: MERCHANT_ID,
+          p_variants: [],
+        },
+      });
+      expect(lastVariantDeleteFilters).toHaveLength(0);
+    });
+
+    it('filters serialized inventory anchors before variant ownership validation', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+      variants = [{ id: VARIANT_ID }];
+      anchorVariants = [{ id: ANCHOR_VARIANT_ID }];
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variants: [
+            {
+              id: ANCHOR_VARIANT_ID,
+              sku: 'ANCHOR-SYSTEM-ROW',
+              stock_quantity: 999,
+            },
+            {
+              id: VARIANT_ID,
+              sku: 'SKU-EDITABLE',
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+
+      expect(res.status).toBe(200);
+      expect(lastRpcCall?.args.p_variants).toEqual([
+        {
+          id: VARIANT_ID,
+          sku: 'SKU-EDITABLE',
+          stock_quantity: 5,
+        },
+      ]);
     });
 
     it('does not mark a product as migrated when variant sync fails', async () => {
@@ -719,7 +1180,7 @@ describe('PUT /api/products/[id]', () => {
         slug: 'product',
         name: 'Product',
       };
-      variantInsertError = { message: 'insert failed' };
+      variantSyncError = { message: 'sync failed' };
 
       const res = await PUT(
         makePutRequest(PRODUCT_ID, {
@@ -741,7 +1202,7 @@ describe('PUT /api/products/[id]', () => {
       const json = await res.json();
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to create product variants');
+      expect(json.error).toBe('Failed to sync product variants');
       expect(lastProductUpdatePayload).not.toHaveProperty('migration_status');
       expect(lastProductUpdatePayload).not.toHaveProperty('variant_model');
     });
@@ -761,7 +1222,7 @@ describe('PUT /api/products/[id]', () => {
         slug: 'product',
         name: 'Product',
       };
-      variantInsertError = { message: 'insert failed' };
+      variantSyncError = { message: 'sync failed' };
 
       const res = await PUT(
         makePutRequest(PRODUCT_ID, {
@@ -780,7 +1241,7 @@ describe('PUT /api/products/[id]', () => {
       const json = await res.json();
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to create product variants');
+      expect(json.error).toBe('Failed to sync product variants');
       expect(lastProductUpdatePayload).toEqual(
         expect.objectContaining({
           has_variants: true,
@@ -803,13 +1264,14 @@ describe('PUT /api/products/[id]', () => {
         price: '6000',
         slug: 'updated-product',
       };
+      variants = [{ id: VARIANT_ID }];
 
       const res = await PUT(
         makePutRequest(PRODUCT_ID, {
           name: 'Updated Product',
           variants: [
             {
-              id: 'variant-1',
+              id: VARIANT_ID,
               attributes: { storage: '128GB' },
               price_override: 6000,
               stock_quantity: 5,
@@ -850,6 +1312,7 @@ describe('PUT /api/products/[id]', () => {
         has_variants: true,
         variant_model: 'sku_matrix',
       };
+      variants = [{ id: VARIANT_ID }];
 
       const res = await PUT(
         makePutRequest(PRODUCT_ID, {
@@ -857,7 +1320,7 @@ describe('PUT /api/products/[id]', () => {
           variant_model: 'sku_matrix',
           variants: [
             {
-              id: 'variant-1',
+              id: VARIANT_ID,
               attributes: { storage: '128GB' },
               condition: 'used',
               price_override: 7000,
@@ -902,6 +1365,10 @@ describe('PUT /api/products/[id]', () => {
       await res.json();
 
       expect(res.status).toBe(200);
+      expect(lastVariantDeleteFilters).toContainEqual([
+        'is_inventory_anchor',
+        false,
+      ]);
     });
   });
 
