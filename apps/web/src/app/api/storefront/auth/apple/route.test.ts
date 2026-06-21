@@ -1,17 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const oauthRouteMocks = vi.hoisted(() => ({
-  domainResult: { data: null, error: { message: 'not found' } },
+  getMerchantByIdentifier: vi.fn(),
   signInWithOAuth: vi.fn(),
-  slugResult: {
-    data: {
-      business_name: 'Baci Store',
-      id: 'merchant-1',
-      is_published: true,
-      custom_domain: 'ogabassey.com',
-      slug: 'ogabassey',
-    },
-    error: null,
+  merchant: {
+    business_name: 'Baci Store',
+    id: 'merchant-1',
+    is_published: true,
+    custom_domain: 'ogabassey.com',
+    slug: 'ogabassey',
   },
 }));
 
@@ -24,23 +21,17 @@ vi.mock('next/headers', () => ({
   cookies: vi.fn(() => Promise.resolve({})),
 }));
 
+// The route resolves merchants via the shared cached helper, which sources
+// custom_domain from public.domains (the merchants table has no such column).
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: oauthRouteMocks.getMerchantByIdentifier,
+}));
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => ({
     auth: {
       signInWithOAuth: oauthRouteMocks.signInWithOAuth,
     },
-    from: () => ({
-      select: () => ({
-        eq: (column: string) => ({
-          single: () =>
-            Promise.resolve(
-              column === 'slug'
-                ? oauthRouteMocks.slugResult
-                : oauthRouteMocks.domainResult
-            ),
-        }),
-      }),
-    }),
   }),
 }));
 
@@ -55,10 +46,64 @@ function makeRequest(body: Record<string, unknown>) {
 describe('POST /api/storefront/auth/apple', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    oauthRouteMocks.getMerchantByIdentifier.mockResolvedValue(
+      oauthRouteMocks.merchant
+    );
     oauthRouteMocks.signInWithOAuth.mockResolvedValue({
       data: { url: 'https://supabase.example/oauth/apple' },
       error: null,
     });
+  });
+
+  it('returns 404 when the merchant cannot be resolved', async () => {
+    oauthRouteMocks.getMerchantByIdentifier.mockResolvedValue(null);
+    const { POST } = await import('./route');
+
+    const response = await POST(makeRequest({ merchantSlug: 'unknown-store' }));
+    const json = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(json).toEqual({ error: 'Store not found' });
+    expect(oauthRouteMocks.signInWithOAuth).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when the merchant store is not published', async () => {
+    oauthRouteMocks.getMerchantByIdentifier.mockResolvedValue({
+      ...oauthRouteMocks.merchant,
+      is_published: false,
+    });
+    const { POST } = await import('./route');
+
+    const response = await POST(makeRequest({ merchantSlug: 'ogabassey' }));
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json).toEqual({ error: 'Store is not available' });
+    expect(oauthRouteMocks.signInWithOAuth).not.toHaveBeenCalled();
+  });
+
+  it('resolves the merchant by identifier (slug or custom domain)', async () => {
+    const { POST } = await import('./route');
+
+    await POST(makeRequest({ merchantSlug: 'ogabassey' }));
+
+    expect(oauthRouteMocks.getMerchantByIdentifier).toHaveBeenCalledWith(
+      'ogabassey'
+    );
+  });
+
+  it('returns 200 with the OAuth URL when the merchant is found and published', async () => {
+    const { POST } = await import('./route');
+
+    const response = await POST(makeRequest({ merchantSlug: 'ogabassey' }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      success: true,
+      url: 'https://supabase.example/oauth/apple',
+    });
+    expect(oauthRouteMocks.signInWithOAuth).toHaveBeenCalled();
   });
 
   it('rejects cross-origin redirect URLs before starting OAuth', async () => {

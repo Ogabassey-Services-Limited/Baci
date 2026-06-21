@@ -1,3 +1,7 @@
+// NOTE: This file is intentionally duplicated. Byte-identical copies live at
+// `supabase/functions/send-auth-email/index.ts` (the deployed entrypoint) and
+// `apps/web/supabase/functions/send-auth-email/index.ts`. Keep them in sync —
+// any change here must be mirrored in the other copy.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
@@ -47,28 +51,38 @@ interface EmailPayload {
  * Fetch merchant branding from the database by slug or custom domain.
  * Returns null if the merchant is not found.
  */
+// Columns that actually exist on `merchants`. Custom domains are normalized
+// into `public.domains`; there is NO `merchants.custom_domain` column, so it
+// must never appear in a select (PostgREST rejects the whole query if it does).
+// ⚠️ Keep MERCHANT_BRANDING_COLUMNS and MerchantBrandingRow in sync — a Deno
+// edge fn gets no typed Supabase inference, so a mismatch surfaces only at runtime.
+const MERCHANT_BRANDING_COLUMNS =
+  'business_name, logo_url, brand_colors, slug, support_email, email_sender_name, email';
+
+interface MerchantBrandingRow {
+  brand_colors: { primary?: string; accent?: string } | null;
+  business_name: string;
+  email: string | null;
+  email_sender_name: string | null;
+  logo_url: string | null;
+  slug: string | null;
+  support_email: string | null;
+}
+
 async function fetchMerchantBranding(
   lookup: MerchantLookup
 ): Promise<MerchantBranding | null> {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    let merchant: {
-      brand_colors: { primary?: string; accent?: string } | null;
-      business_name: string;
-      custom_domain: string | null;
-      email: string | null;
-      email_sender_name: string | null;
-      logo_url: string | null;
-      slug: string | null;
-      support_email: string | null;
-    } | null = null;
+    let merchant: MerchantBrandingRow | null = null;
+    // The resolved live custom domain, sourced from `public.domains` (not from
+    // a `merchants` column). Stays null for slug-based lookups.
+    let resolvedCustomDomain: string | null = null;
 
     if (lookup.slug) {
       const { data, error } = await supabase
         .from('merchants')
-        .select(
-          'business_name, logo_url, brand_colors, slug, custom_domain, support_email, email_sender_name, email'
-        )
+        .select(MERCHANT_BRANDING_COLUMNS)
         .eq('slug', lookup.slug)
         .eq('is_published', true)
         .maybeSingle();
@@ -80,22 +94,39 @@ async function fetchMerchantBranding(
     }
 
     if (!merchant && lookup.customDomain) {
-      for (const customDomain of getCustomDomainCandidates(
-        lookup.customDomain
-      )) {
+      // Resolve custom domains via `public.domains`. The domain→merchant
+      // resolution mirrors getCachedMerchantByDomain in the web app: match an
+      // *active* domain, then load the merchant. The service-role client
+      // bypasses RLS, so we filter status='active' explicitly. `verified_at`
+      // is intentionally NOT required — most live domains have a null
+      // verified_at, and adding that filter would drop ~97% of active custom
+      // domains. (Unlike getCachedMerchantByDomain, we additionally require
+      // is_published=true: auth emails are only branded for published stores.)
+      for (const candidate of getCustomDomainCandidates(lookup.customDomain)) {
+        const { data: domainRow, error: domainError } = await supabase
+          .from('domains')
+          .select('merchant_id, domain')
+          .eq('domain', candidate)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (domainError) {
+          console.log('Domain lookup failed:', candidate, domainError.message);
+          continue;
+        }
+        if (!domainRow) continue;
+
         const { data, error } = await supabase
           .from('merchants')
-          .select(
-            'business_name, logo_url, brand_colors, slug, custom_domain, support_email, email_sender_name, email'
-          )
-          .eq('custom_domain', customDomain)
+          .select(MERCHANT_BRANDING_COLUMNS)
+          .eq('id', domainRow.merchant_id)
           .eq('is_published', true)
           .maybeSingle();
 
         if (error) {
           console.log(
             'Merchant custom-domain lookup failed:',
-            customDomain,
+            candidate,
             error.message
           );
           continue;
@@ -103,6 +134,7 @@ async function fetchMerchantBranding(
 
         if (data) {
           merchant = data;
+          resolvedCustomDomain = domainRow.domain;
           break;
         }
       }
@@ -120,7 +152,7 @@ async function fetchMerchantBranding(
 
     return {
       businessName: merchant.business_name,
-      customDomain: merchant.custom_domain,
+      customDomain: resolvedCustomDomain,
       emailSenderName: merchant.email_sender_name,
       logoUrl: merchant.logo_url || null,
       primaryColor: brandColors?.primary || BACI_PRIMARY_COLOR,
