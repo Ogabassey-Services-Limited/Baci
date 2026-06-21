@@ -149,7 +149,7 @@ describe('getCachedBlogAuthor', () => {
     vi.restoreAllMocks();
   });
 
-  it('normalizes page input and matches posts by generated author slug', async () => {
+  it('normalizes page input and fetches the author posts with a bounded DB query', async () => {
     const { postsBuilder } = setupBlogAuthorFetch({
       posts: [
         {
@@ -160,7 +160,7 @@ describe('getCachedBlogAuthor', () => {
           featured_image_url: null,
           featured_image_alt: null,
           category: 'Laptops',
-          author_name: 'bassey john ',
+          author_name: 'Bassey John',
           author_title: 'Performance Marketing Specialist',
           author_bio: 'Bassey writes buying guides.',
           author_image_url: 'https://cdn.example.com/bassey.jpg',
@@ -175,27 +175,12 @@ describe('getCachedBlogAuthor', () => {
           featured_image_url: null,
           featured_image_alt: null,
           category: 'Smartphones',
-          author_name: 'Bassey-John',
+          author_name: 'Bassey John',
           author_title: 'Performance Marketing Specialist',
           author_bio: 'Bassey writes buying guides.',
           author_image_url: 'https://cdn.example.com/bassey.jpg',
           published_at: '2026-03-16T10:00:00.000Z',
           reading_time_minutes: 5,
-        },
-        {
-          id: 'post-3',
-          title: 'Bolakale Console Guide',
-          slug: 'bolakale-console-guide',
-          excerpt: 'Console picks.',
-          featured_image_url: null,
-          featured_image_alt: null,
-          category: 'Gaming',
-          author_name: 'Bolakale',
-          author_title: null,
-          author_bio: null,
-          author_image_url: null,
-          published_at: '2026-03-15T10:00:00.000Z',
-          reading_time_minutes: 3,
         },
       ],
     });
@@ -208,9 +193,11 @@ describe('getCachedBlogAuthor', () => {
     if (!result) {
       throw new Error('Expected blog author result');
     }
-    expect(postsBuilder.not).toHaveBeenCalledWith('author_name', 'is', null);
+    // Bounded query: filter by author_name + paginate at the DB level (no
+    // unbounded fetch + in-memory pagination — Jules Medium finding).
+    expect(postsBuilder.eq).toHaveBeenCalledWith('author_name', 'Bassey John');
+    expect(postsBuilder.range).toHaveBeenCalledWith(0, expect.any(Number));
     expect(postsBuilder.limit).not.toHaveBeenCalled();
-    expect(postsBuilder.range).not.toHaveBeenCalled();
     expect(result.author.name).toBe('Bassey John');
     expect(result.posts.map((post) => post.id)).toEqual(['post-1', 'post-2']);
     expect(result.totalPosts).toBe(2);
